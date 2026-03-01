@@ -4,6 +4,9 @@ import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { CommentForm } from '@/components/CommentForm'
+import { LikeButton } from '@/components/blog'
+import { BookmarkButton } from '@/components/blog'
 
 async function getPost(slug: string) {
   const post = await prisma.post.findUnique({
@@ -154,6 +157,18 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
                 ))}
               </div>
             )}
+
+            <div className="flex items-center gap-4 mt-8 pt-8 border-t dark:border-gray-700">
+              <LikeButton
+                slug={post.slug}
+                initialLiked={false}
+                initialCount={post._count.likes}
+              />
+              <BookmarkButton
+                slug={post.slug}
+                initialBookmarked={false}
+              />
+            </div>
           </div>
         </article>
 
@@ -164,22 +179,7 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
           </h2>
 
           {session ? (
-            <form className="mb-8" action="/api/comments" method="POST">
-              <input type="hidden" name="postId" value={post.id} />
-              <textarea
-                name="content"
-                placeholder="写下你的评论..."
-                className="w-full p-4 border dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                rows={3}
-                required
-              />
-              <button
-                type="submit"
-                className="mt-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-              >
-                发表评论
-              </button>
-            </form>
+            <CommentForm postId={post.id} />
           ) : (
             <p className="mb-8 text-gray-600 dark:text-gray-400">
               <Link href="/login" className="text-blue-600 hover:underline">登录</Link> 后发表评论

@@ -8,7 +8,7 @@ interface PostCardProps {
     slug: string
     excerpt?: string | null
     coverImage?: string | null
-    createdAt: string
+    createdAt: string | Date
     author: {
       id: string
       name: string | null

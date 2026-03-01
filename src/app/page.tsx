@@ -1,28 +1,45 @@
 import Link from 'next/link'
 import { prisma } from '@/lib/prisma'
 import { PostCard } from '@/components/blog'
+import { UserNav } from '@/components/UserNav'
 
-async function getPosts() {
-  const posts = await prisma.post.findMany({
-    where: { published: true },
-    include: {
-      author: {
-        select: { id: true, name: true, image: true }
+async function getData() {
+  const [posts, categories, tags] = await Promise.all([
+    prisma.post.findMany({
+      where: { published: true },
+      include: {
+        author: {
+          select: { id: true, name: true, image: true }
+        },
+        category: true,
+        tags: true,
+        _count: {
+          select: { comments: true, likes: true }
+        }
       },
-      category: true,
-      tags: true,
-      _count: {
-        select: { comments: true, likes: true }
-      }
-    },
-    orderBy: { createdAt: 'desc' },
-    take: 10
-  })
-  return posts
+      orderBy: { createdAt: 'desc' },
+      take: 10
+    }),
+    prisma.category.findMany({
+      include: {
+        _count: { select: { posts: true } }
+      },
+      orderBy: { name: 'asc' },
+      take: 10
+    }),
+    prisma.tag.findMany({
+      include: {
+        _count: { select: { posts: true } }
+      },
+      orderBy: { name: 'asc' },
+      take: 20
+    })
+  ])
+  return { posts, categories, tags }
 }
 
 export default async function Home() {
-  const posts = await getPosts()
+  const { posts, categories, tags } = await getData()
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -38,31 +55,73 @@ export default async function Home() {
             <Link href="/tags" className="text-gray-700 dark:text-gray-300 hover:text-blue-600">
               标签
             </Link>
-            <Link href="/login" className="text-gray-700 dark:text-gray-300 hover:text-blue-600">
-              登录
-            </Link>
-            <Link href="/register" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-              注册
-            </Link>
+            <UserNav />
           </nav>
         </div>
       </header>
 
       <main className="max-w-6xl mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {posts.map((post) => (
-            <PostCard key={post.id} post={post} />
-          ))}
-        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          <div className="lg:col-span-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {posts.map((post) => (
+                <PostCard key={post.id} post={post} />
+              ))}
+            </div>
 
-        {posts.length === 0 && (
-          <div className="text-center py-12">
-            <p className="text-gray-500 dark:text-gray-400">暂无文章</p>
-            <Link href="/write" className="mt-4 inline-block text-blue-600 hover:underline">
-              写第一篇文章
-            </Link>
+            {posts.length === 0 && (
+              <div className="text-center py-12">
+                <p className="text-gray-500 dark:text-gray-400">暂无文章</p>
+                <Link href="/write" className="mt-4 inline-block text-blue-600 hover:underline">
+                  写第一篇文章
+                </Link>
+              </div>
+            )}
           </div>
-        )}
+
+          <aside className="space-y-6">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                分类
+              </h3>
+              <div className="space-y-2">
+                {categories.map(category => (
+                  <Link
+                    key={category.id}
+                    href={`/categories/${category.slug}`}
+                    className="flex justify-between items-center text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400"
+                  >
+                    <span>{category.name}</span>
+                    <span className="text-sm text-gray-500">({category._count.posts})</span>
+                  </Link>
+                ))}
+                {categories.length === 0 && (
+                  <p className="text-gray-500 text-sm">暂无分类</p>
+                )}
+              </div>
+            </div>
+
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                标签
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {tags.map(tag => (
+                  <Link
+                    key={tag.id}
+                    href={`/tags/${tag.slug}`}
+                    className="px-2 py-1 text-sm bg-gray-100 dark:bg-gray-700 rounded-full text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+                  >
+                    {tag.name}
+                  </Link>
+                ))}
+                {tags.length === 0 && (
+                  <p className="text-gray-500 text-sm">暂无标签</p>
+                )}
+              </div>
+            </div>
+          </aside>
+        </div>
       </main>
 
       <footer className="bg-white dark:bg-gray-800 border-t dark:border-gray-700 mt-12">

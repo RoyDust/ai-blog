@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { LogoutButton } from '@/components/LogoutButton'
 
 async function getUserPosts(userId: string) {
   const posts = await prisma.post.findMany({
@@ -37,27 +38,44 @@ export default async function ProfilePage() {
             <Link href="/" className="text-gray-700 dark:text-gray-300 hover:text-blue-600">
               首页
             </Link>
+            <Link href="/bookmarks" className="text-gray-700 dark:text-gray-300 hover:text-blue-600">
+              收藏
+            </Link>
             <Link href="/write" className="text-gray-700 dark:text-gray-300 hover:text-blue-600">
               写文章
             </Link>
+            <LogoutButton />
           </nav>
         </div>
       </header>
 
       <main className="max-w-6xl mx-auto px-4 py-8">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-8">
-          <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-full bg-blue-600 flex items-center justify-center text-white text-2xl font-bold">
-              {session.user.name?.charAt(0) || session.user.email?.charAt(0) || 'U'}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 rounded-full bg-blue-600 flex items-center justify-center text-white text-2xl font-bold">
+                {session.user.name?.charAt(0) || session.user.email?.charAt(0) || 'U'}
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                  {session.user.name || '用户'}
+                </h1>
+                <p className="text-gray-600 dark:text-gray-400">
+                  {session.user.email}
+                </p>
+                {session.user.role === 'ADMIN' && (
+                  <Link href="/admin" className="text-blue-600 hover:underline text-sm">
+                    管理后台
+                  </Link>
+                )}
+              </div>
             </div>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                {session.user.name || '用户'}
-              </h1>
-              <p className="text-gray-600 dark:text-gray-400">
-                {session.user.email}
-              </p>
-            </div>
+            <Link
+              href="/profile/edit"
+              className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+            >
+              编辑资料
+            </Link>
           </div>
         </div>
 
