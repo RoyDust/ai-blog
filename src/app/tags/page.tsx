@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { prisma } from '@/lib/prisma'
+import { UserNav } from '@/components/UserNav'
 
 export default async function TagsPage() {
   const tags = await prisma.tag.findMany({
@@ -19,12 +20,10 @@ export default async function TagsPage() {
             My Blog
           </Link>
           <nav className="flex items-center gap-4">
-            <Link href="/login" className="text-gray-700 dark:text-gray-300 hover:text-blue-600">
-              登录
+            <Link href="/categories" className="text-gray-700 dark:text-gray-300 hover:text-blue-600">
+              分类
             </Link>
-            <Link href="/register" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-              注册
-            </Link>
+            <UserNav />
           </nav>
         </div>
       </header>

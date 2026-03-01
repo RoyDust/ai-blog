@@ -1,28 +1,82 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { useSession } from 'next-auth/react'
 import Link from 'next/link'
-import { redirect } from 'next/navigation'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
 
-export default async function AdminCommentsPage() {
-  const session = await getServerSession(authOptions)
+interface Comment {
+  id: string
+  content: string
+  createdAt: string
+  author: { id: string; name: string | null; email: string; image: string | null }
+  post: { id: string; title: string; slug: string }
+}
 
-  if (!session?.user?.id || session.user.role !== 'ADMIN') {
-    redirect('/')
+export default function AdminCommentsPage() {
+  const { data: session, status } = useSession()
+  const router = useRouter()
+  const [comments, setComments] = useState<Comment[]>([])
+  const [loading, setLoading] = useState(true)
+  const [deleting, setDeleting] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.push('/login')
+    }
+  }, [status, router])
+
+  useEffect(() => {
+    if (status === 'authenticated' && session?.user?.role !== 'ADMIN') {
+      router.push('/')
+      return
+    }
+  }, [status, session, router])
+
+  useEffect(() => {
+    fetchComments()
+  }, [])
+
+  const fetchComments = async () => {
+    try {
+      const res = await fetch('/api/admin/comments')
+      const data = await res.json()
+      if (data.success) {
+        setComments(data.data)
+      }
+    } catch (error) {
+      console.error('Failed to fetch comments:', error)
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const comments = await prisma.comment.findMany({
-    include: {
-      author: {
-        select: { name: true, email: true }
-      },
-      post: {
-        select: { title: true, slug: true }
+  const handleDelete = async (id: string) => {
+    if (!confirm('确定要删除这条评论吗？')) return
+
+    setDeleting(id)
+    try {
+      const res = await fetch(`/api/admin/comments?id=${id}`, { method: 'DELETE' })
+      const data = await res.json()
+      if (data.success) {
+        setComments(comments.filter(c => c.id !== id))
+      } else {
+        alert(data.error || '删除失败')
       }
-    },
-    orderBy: { createdAt: 'desc' },
-    take: 50
-  })
+    } catch (error) {
+      alert('删除失败')
+    } finally {
+      setDeleting(null)
+    }
+  }
+
+  if (status === 'loading' || loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-gray-500">加载中...</div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -48,6 +102,15 @@ export default async function AdminCommentsPage() {
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-2">
+                    <div className="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center">
+                      {comment.author.image ? (
+                        <img src={comment.author.image} alt="" className="w-8 h-8 rounded-full" />
+                      ) : (
+                        <span className="text-gray-600 dark:text-gray-300">
+                          {comment.author.name?.charAt(0) || comment.author.email?.charAt(0) || 'A'}
+                        </span>
+                      )}
+                    </div>
                     <span className="font-medium text-gray-900 dark:text-white">
                       {comment.author.name || comment.author.email}
                     </span>
@@ -55,7 +118,7 @@ export default async function AdminCommentsPage() {
                       评论于 {new Date(comment.createdAt).toLocaleDateString('zh-CN')}
                     </span>
                   </div>
-                  <p className="text-gray-700 dark:text-gray-300 mb-2">
+                  <p className="text-gray-700 dark:text-gray-300 mb-2 whitespace-pre-wrap">
                     {comment.content}
                   </p>
                   <Link
@@ -65,6 +128,13 @@ export default async function AdminCommentsPage() {
                     文章: {comment.post.title}
                   </Link>
                 </div>
+                <button
+                  onClick={() => handleDelete(comment.id)}
+                  disabled={deleting === comment.id}
+                  className="px-3 py-1 text-sm text-red-600 hover:text-red-800 dark:text-red-400 border border-red-600 dark:border-red-400 rounded hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50"
+                >
+                  {deleting === comment.id ? '删除中...' : '删除'}
+                </button>
               </div>
             </div>
           ))}
