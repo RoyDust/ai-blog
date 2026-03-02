@@ -25,27 +25,18 @@ function SearchContent() {
   const searchParams = useSearchParams();
   const query = searchParams.get("q") || "";
   const [posts, setPosts] = useState<Post[]>([]);
-  const [status, setStatus] = useState<"idle" | "loading" | "ready">("idle");
 
   useEffect(() => {
     if (!query) {
-      setPosts([]);
-      setStatus("ready");
       return;
     }
 
     let alive = true;
-    setStatus("loading");
     fetch(`/api/posts?search=${encodeURIComponent(query)}`)
       .then((res) => res.json())
       .then((data) => {
         if (alive && data.success) {
           setPosts(data.data);
-        }
-      })
-      .finally(() => {
-        if (alive) {
-          setStatus("ready");
         }
       });
 
@@ -61,16 +52,14 @@ function SearchContent() {
         <p className="mt-2 text-sm text-[var(--muted)]">关键词: {query || "未输入"}</p>
       </section>
 
-      {status === "loading" ? (
-        <p className="text-[var(--muted)]">加载中...</p>
-      ) : posts.length > 0 ? (
+      {query && posts.length > 0 ? (
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
           {posts.map((post) => (
             <PostCard key={post.id} post={post} />
           ))}
         </div>
       ) : (
-        <p className="py-12 text-center text-[var(--muted)]">未找到相关结果</p>
+        <p className="py-12 text-center text-[var(--muted)]">{query ? "未找到相关结果" : "请输入关键词开始搜索"}</p>
       )}
     </div>
   );
