@@ -1,113 +1,61 @@
-import Link from 'next/link'
-import { redirect } from 'next/navigation'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
 export default async function AdminPage() {
-  const session = await getServerSession(authOptions)
-
-  if (!session?.user?.id || session.user.role !== 'ADMIN') {
-    redirect('/')
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id || session.user.role !== "ADMIN") {
+    redirect("/");
   }
 
-  const [postCount, userCount, commentCount, categoryCount] = await Promise.all([
+  const [postCount, userCount, commentCount, categoryCount, draftCount] = await Promise.all([
     prisma.post.count(),
     prisma.user.count(),
     prisma.comment.count(),
     prisma.category.count(),
-  ])
+    prisma.post.count({ where: { published: false } }),
+  ]);
+
+  const cards = [
+    { label: "文章总数", value: postCount },
+    { label: "用户总数", value: userCount },
+    { label: "评论总数", value: commentCount },
+    { label: "分类总数", value: categoryCount },
+    { label: "草稿数量", value: draftCount },
+  ];
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <header className="bg-white dark:bg-gray-800 shadow-sm">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-          <Link href="/" className="text-2xl font-bold text-gray-900 dark:text-white">
-            My Blog - 管理后台
-          </Link>
-          <nav className="flex items-center gap-4">
-            <Link href="/" className="text-gray-700 dark:text-gray-300 hover:text-blue-600">
-              首页
-            </Link>
-            <Link href="/profile" className="text-gray-700 dark:text-gray-300 hover:text-blue-600">
-              个人中心
-            </Link>
-          </nav>
-        </div>
-      </header>
+    <div className="space-y-6">
+      <h1 className="font-display text-3xl font-extrabold text-[var(--foreground)]">管理后台</h1>
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
+        {cards.map((item) => (
+          <article className="ui-surface rounded-2xl p-4" key={item.label}>
+            <p className="text-xs text-[var(--muted)]">{item.label}</p>
+            <p className="mt-2 font-display text-3xl font-bold text-[var(--foreground)]">{item.value}</p>
+          </article>
+        ))}
+      </div>
 
-      <main className="max-w-6xl mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-8">管理后台</h1>
-
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-            <p className="text-gray-500 dark:text-gray-400 text-sm">文章总数</p>
-            <p className="text-3xl font-bold text-gray-900 dark:text-white">{postCount}</p>
-          </div>
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-            <p className="text-gray-500 dark:text-gray-400 text-sm">用户总数</p>
-            <p className="text-3xl font-bold text-gray-900 dark:text-white">{userCount}</p>
-          </div>
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-            <p className="text-gray-500 dark:text-gray-400 text-sm">评论总数</p>
-            <p className="text-3xl font-bold text-gray-900 dark:text-white">{commentCount}</p>
-          </div>
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-            <p className="text-gray-500 dark:text-gray-400 text-sm">分类总数</p>
-            <p className="text-3xl font-bold text-gray-900 dark:text-white">{categoryCount}</p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Link
-            href="/admin/posts"
-            className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow"
-          >
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-              文章管理
-            </h2>
-            <p className="text-gray-600 dark:text-gray-400">
-              查看、编辑、删除文章
-            </p>
-          </Link>
-
-          <Link
-            href="/admin/categories"
-            className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow"
-          >
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-              分类管理
-            </h2>
-            <p className="text-gray-600 dark:text-gray-400">
-              管理文章分类
-            </p>
-          </Link>
-
-          <Link
-            href="/admin/tags"
-            className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow"
-          >
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-              标签管理
-            </h2>
-            <p className="text-gray-600 dark:text-gray-400">
-              管理文章标签
-            </p>
-          </Link>
-
-          <Link
-            href="/admin/comments"
-            className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow"
-          >
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-              评论管理
-            </h2>
-            <p className="text-gray-600 dark:text-gray-400">
-              管理用户评论
-            </p>
-          </Link>
-        </div>
-      </main>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <Link className="ui-surface rounded-2xl p-5 transition-colors hover:bg-[var(--surface-alt)]" href="/admin/posts">
+          <h2 className="font-display text-xl font-bold text-[var(--foreground)]">文章管理</h2>
+          <p className="mt-2 text-sm text-[var(--muted)]">查看、发布、下线、删除文章</p>
+        </Link>
+        <Link className="ui-surface rounded-2xl p-5 transition-colors hover:bg-[var(--surface-alt)]" href="/admin/comments">
+          <h2 className="font-display text-xl font-bold text-[var(--foreground)]">评论管理</h2>
+          <p className="mt-2 text-sm text-[var(--muted)]">审核并治理评论内容</p>
+        </Link>
+        <Link className="ui-surface rounded-2xl p-5 transition-colors hover:bg-[var(--surface-alt)]" href="/admin/categories">
+          <h2 className="font-display text-xl font-bold text-[var(--foreground)]">分类管理</h2>
+          <p className="mt-2 text-sm text-[var(--muted)]">维护分类结构与信息</p>
+        </Link>
+        <Link className="ui-surface rounded-2xl p-5 transition-colors hover:bg-[var(--surface-alt)]" href="/admin/tags">
+          <h2 className="font-display text-xl font-bold text-[var(--foreground)]">标签管理</h2>
+          <p className="mt-2 text-sm text-[var(--muted)]">维护标签和颜色标识</p>
+        </Link>
+      </div>
     </div>
-  )
+  );
 }

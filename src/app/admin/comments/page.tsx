@@ -1,151 +1,109 @@
-'use client'
+"use client";
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { useSession } from 'next-auth/react'
-import Link from 'next/link'
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
+import { DataTable, type DataColumn } from "@/components/admin/DataTable";
+import { FilterBar } from "@/components/admin/FilterBar";
 
-interface Comment {
-  id: string
-  content: string
-  createdAt: string
-  author: { id: string; name: string | null; email: string; image: string | null }
-  post: { id: string; title: string; slug: string }
+interface CommentRow {
+  id: string;
+  content: string;
+  createdAt: string;
+  author: { name: string | null; email: string };
+  post: { title: string; slug: string };
 }
 
 export default function AdminCommentsPage() {
-  const { data: session, status } = useSession()
-  const router = useRouter()
-  const [comments, setComments] = useState<Comment[]>([])
-  const [loading, setLoading] = useState(true)
-  const [deleting, setDeleting] = useState<string | null>(null)
+  const { data: session, status } = useSession();
+  const router = useRouter();
+  const [comments, setComments] = useState<CommentRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState("");
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/login')
-    }
-  }, [status, router])
+    if (status === "unauthenticated") router.push("/login");
+    if (status === "authenticated" && session?.user?.role !== "ADMIN") router.push("/");
+  }, [router, session, status]);
 
   useEffect(() => {
-    if (status === 'authenticated' && session?.user?.role !== 'ADMIN') {
-      router.push('/')
-      return
-    }
-  }, [status, session, router])
-
-  useEffect(() => {
-    fetchComments()
-  }, [])
-
-  const fetchComments = async () => {
-    try {
-      const res = await fetch('/api/admin/comments')
-      const data = await res.json()
-      if (data.success) {
-        setComments(data.data)
+    async function fetchComments() {
+      try {
+        const res = await fetch("/api/admin/comments");
+        const data = await res.json();
+        if (data.success) setComments(data.data);
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error('Failed to fetch comments:', error)
-    } finally {
-      setLoading(false)
     }
-  }
+    fetchComments();
+  }, []);
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('确定要删除这条评论吗？')) return
+  const filtered = useMemo(() => {
+    const keyword = query.trim().toLowerCase();
+    if (!keyword) return comments;
+    return comments.filter((item) => item.content.toLowerCase().includes(keyword) || item.post.title.toLowerCase().includes(keyword));
+  }, [comments, query]);
 
-    setDeleting(id)
-    try {
-      const res = await fetch(`/api/admin/comments?id=${id}`, { method: 'DELETE' })
-      const data = await res.json()
-      if (data.success) {
-        setComments(comments.filter(c => c.id !== id))
-      } else {
-        alert(data.error || '删除失败')
-      }
-    } catch (error) {
-      alert('删除失败')
-    } finally {
-      setDeleting(null)
-    }
-  }
+  const columns: DataColumn<CommentRow>[] = [
+    { key: "content", label: "评论内容", render: (row) => <p className="line-clamp-2">{row.content}</p> },
+    { key: "author", label: "作者", render: (row) => row.author.name || row.author.email },
+    {
+      key: "post",
+      label: "所属文章",
+      render: (row) => (
+        <Link className="text-[var(--brand)] hover:underline" href={`/posts/${row.post.slug}`}>
+          {row.post.title}
+        </Link>
+      ),
+    },
+    { key: "date", label: "日期", render: (row) => new Date(row.createdAt).toLocaleDateString("zh-CN") },
+    {
+      key: "actions",
+      label: "操作",
+      render: (row) => (
+        <button
+          className="text-rose-600 hover:underline"
+          onClick={async () => {
+            if (!confirm("确定删除这条评论？")) return;
+            const res = await fetch(`/api/admin/comments?id=${row.id}`, { method: "DELETE" });
+            const data = await res.json();
+            if (data.success) {
+              setComments((prev) => prev.filter((item) => item.id !== row.id));
+            }
+          }}
+          type="button"
+        >
+          删除
+        </button>
+      ),
+    },
+  ];
 
-  if (status === 'loading' || loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="text-gray-500">加载中...</div>
-      </div>
-    )
-  }
+  if (status === "loading" || loading) return <p className="py-20 text-center text-[var(--muted)]">加载中...</p>;
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <header className="bg-white dark:bg-gray-800 shadow-sm">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-          <Link href="/" className="text-2xl font-bold text-gray-900 dark:text-white">
-            My Blog - 评论管理
-          </Link>
-          <nav className="flex items-center gap-4">
-            <Link href="/admin" className="text-gray-700 dark:text-gray-300 hover:text-blue-600">
-              返回后台
-            </Link>
-          </nav>
-        </div>
-      </header>
-
-      <main className="max-w-6xl mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-8">评论管理</h1>
-
-        <div className="space-y-4">
-          {comments.map(comment => (
-            <div key={comment.id} className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center">
-                      {comment.author.image ? (
-                        <img src={comment.author.image} alt="" className="w-8 h-8 rounded-full" />
-                      ) : (
-                        <span className="text-gray-600 dark:text-gray-300">
-                          {comment.author.name?.charAt(0) || comment.author.email?.charAt(0) || 'A'}
-                        </span>
-                      )}
-                    </div>
-                    <span className="font-medium text-gray-900 dark:text-white">
-                      {comment.author.name || comment.author.email}
-                    </span>
-                    <span className="text-gray-500 text-sm">
-                      评论于 {new Date(comment.createdAt).toLocaleDateString('zh-CN')}
-                    </span>
-                  </div>
-                  <p className="text-gray-700 dark:text-gray-300 mb-2 whitespace-pre-wrap">
-                    {comment.content}
-                  </p>
-                  <Link
-                    href={`/posts/${comment.post.slug}`}
-                    className="text-blue-600 hover:text-blue-800 dark:text-blue-400 text-sm"
-                  >
-                    文章: {comment.post.title}
-                  </Link>
-                </div>
-                <button
-                  onClick={() => handleDelete(comment.id)}
-                  disabled={deleting === comment.id}
-                  className="px-3 py-1 text-sm text-red-600 hover:text-red-800 dark:text-red-400 border border-red-600 dark:border-red-400 rounded hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50"
-                >
-                  {deleting === comment.id ? '删除中...' : '删除'}
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {comments.length === 0 && (
-          <p className="text-gray-500 dark:text-gray-400 text-center py-12">
-            暂无评论
-          </p>
-        )}
-      </main>
+    <div className="space-y-4">
+      <h1 className="font-display text-3xl font-extrabold text-[var(--foreground)]">评论管理</h1>
+      <FilterBar placeholder="搜索评论内容或文章标题" value={query} onChange={setQuery} />
+      <DataTable
+        bulkActions={[
+          {
+            label: "批量删除",
+            variant: "danger",
+            onClick: async (ids) => {
+              if (!confirm(`确定删除 ${ids.length} 条评论？`)) return;
+              await Promise.all(ids.map((id) => fetch(`/api/admin/comments?id=${id}`, { method: "DELETE" })));
+              setComments((prev) => prev.filter((item) => !ids.includes(item.id)));
+            },
+          },
+        ]}
+        columns={columns}
+        emptyText="暂无评论"
+        rows={filtered}
+        title="评论列表"
+      />
     </div>
-  )
+  );
 }
