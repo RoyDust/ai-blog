@@ -1,172 +1,139 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import Link from 'next/link'
-import { Button, Input, Card, CardContent } from '@/components/ui'
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { EditorWorkspace, PublishChecklist } from "@/components/posts";
+import { Button } from "@/components/ui";
+
+function generateSlug(title: string) {
+  return title
+    .toLowerCase()
+    .replace(/[^\w\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/--+/g, "-")
+    .trim();
+}
 
 export default function WritePage() {
-  const router = useRouter()
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState('')
-
+  const router = useRouter();
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [formData, setFormData] = useState({
-    title: '',
-    slug: '',
-    content: '',
-    excerpt: '',
-    coverImage: '',
-    published: false
-  })
+    title: "",
+    slug: "",
+    content: "",
+    excerpt: "",
+    coverImage: "",
+    published: false,
+  });
+
+  const draftKey = useMemo(() => "author:draft:new", []);
+
+  useEffect(() => {
+    const raw = localStorage.getItem(draftKey);
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw) as typeof formData;
+        setFormData(parsed);
+      } catch {
+        localStorage.removeItem(draftKey);
+      }
+    }
+  }, [draftKey]);
+
+  useEffect(() => {
+    setSaveStatus("saving");
+    const timer = window.setTimeout(() => {
+      localStorage.setItem(draftKey, JSON.stringify(formData));
+      setSaveStatus("saved");
+    }, 450);
+    return () => window.clearTimeout(timer);
+  }, [draftKey, formData]);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsLoading(true)
-    setError('')
+    e.preventDefault();
+    setIsLoading(true);
+    setError("");
 
     try {
-      const response = await fetch('/api/posts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
-      })
-
-      const data = await response.json()
-
+      const response = await fetch("/api/posts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+      const data = await response.json();
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to create post')
+        throw new Error(data.error || "Failed to create post");
       }
-
-      router.push(`/posts/${formData.slug}`)
+      localStorage.removeItem(draftKey);
+      router.push(`/posts/${formData.slug}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong')
+      setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
-
-  const generateSlug = (title: string) => {
-    return title
-      .toLowerCase()
-      .replace(/[^\w\s-]/g, '')
-      .replace(/\s+/g, '-')
-      .replace(/--+/g, '-')
-      .trim()
-  }
-
-  const handleTitleChange = (title: string) => {
-    setFormData(prev => ({
-      ...prev,
-      title,
-      slug: generateSlug(title)
-    }))
-  }
+  };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <header className="bg-white dark:bg-gray-800 shadow-sm">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-          <Link href="/" className="text-2xl font-bold text-gray-900 dark:text-white">
-            My Blog
-          </Link>
-          <nav className="flex items-center gap-4">
-            <Link href="/" className="text-gray-700 dark:text-gray-300 hover:text-blue-600">
-              首页
-            </Link>
-            <Link href="/profile" className="text-gray-700 dark:text-gray-300 hover:text-blue-600">
-              个人中心
-            </Link>
-          </nav>
+    <form className="space-y-6" onSubmit={handleSubmit}>
+      <section className="ui-surface rounded-2xl p-6">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h1 className="font-display text-3xl font-extrabold text-[var(--foreground)]">创作工作台</h1>
+            <p className="mt-2 text-sm text-[var(--muted)]">编辑、检查并发布你的文章。</p>
+          </div>
+          <span className="text-sm text-[var(--muted)]">
+            自动保存状态: {saveStatus === "saving" ? "保存中..." : saveStatus === "saved" ? "已保存" : "未开始"}
+          </span>
         </div>
-      </header>
+      </section>
 
-      <main className="max-w-4xl mx-auto px-4 py-8">
-        <Card>
-          <CardContent>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
-              写文章
-            </h1>
+      {error && <p className="rounded-xl border border-rose-300 bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
 
-            {error && (
-              <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-                <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
-              </div>
-            )}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
+        <EditorWorkspace
+          content={formData.content}
+          coverImage={formData.coverImage}
+          excerpt={formData.excerpt}
+          slug={formData.slug}
+          title={formData.title}
+          onContentChange={(value) => setFormData((prev) => ({ ...prev, content: value }))}
+          onCoverImageChange={(value) => setFormData((prev) => ({ ...prev, coverImage: value }))}
+          onExcerptChange={(value) => setFormData((prev) => ({ ...prev, excerpt: value }))}
+          onSlugChange={(value) => setFormData((prev) => ({ ...prev, slug: value }))}
+          onTitleChange={(value) =>
+            setFormData((prev) => ({
+              ...prev,
+              title: value,
+              slug: generateSlug(value),
+            }))
+          }
+        />
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <Input
-                label="标题"
-                placeholder="文章标题"
-                value={formData.title}
-                onChange={(e) => handleTitleChange(e.target.value)}
-                required
+        <div className="space-y-4">
+          <PublishChecklist content={formData.content} coverImage={formData.coverImage} slug={formData.slug} title={formData.title} />
+          <section className="ui-surface rounded-2xl p-5">
+            <label className="mb-3 flex items-center gap-2 text-sm text-[var(--foreground)]">
+              <input
+                checked={formData.published}
+                className="h-4 w-4 rounded border-[var(--border)]"
+                onChange={(e) => setFormData((prev) => ({ ...prev, published: e.target.checked }))}
+                type="checkbox"
               />
-
-              <Input
-                label="Slug"
-                placeholder="url-slug"
-                value={formData.slug}
-                onChange={(e) => setFormData(prev => ({ ...prev, slug: e.target.value }))}
-                required
-              />
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  内容
-                </label>
-                <textarea
-                  placeholder="文章内容 (支持 Markdown)"
-                  value={formData.content}
-                  onChange={(e) => setFormData(prev => ({ ...prev, content: e.target.value }))}
-                  className="w-full p-3 border dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                  rows={15}
-                  required
-                />
-              </div>
-
-              <Input
-                label="摘要"
-                placeholder="文章摘要 (可选)"
-                value={formData.excerpt}
-                onChange={(e) => setFormData(prev => ({ ...prev, excerpt: e.target.value }))}
-              />
-
-              <Input
-                label="封面图 URL"
-                placeholder="https://example.com/image.jpg"
-                value={formData.coverImage}
-                onChange={(e) => setFormData(prev => ({ ...prev, coverImage: e.target.value }))}
-              />
-
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="published"
-                  checked={formData.published}
-                  onChange={(e) => setFormData(prev => ({ ...prev, published: e.target.checked }))}
-                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                />
-                <label htmlFor="published" className="text-sm text-gray-700 dark:text-gray-300">
-                  直接发布
-                </label>
-              </div>
-
-              <div className="flex gap-4">
-                <Button type="submit" disabled={isLoading}>
-                  {isLoading ? '发布中...' : '发布文章'}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => router.back()}
-                >
-                  取消
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-      </main>
-    </div>
-  )
+              直接发布
+            </label>
+            <div className="flex flex-col gap-2">
+              <Button disabled={isLoading} type="submit">
+                {isLoading ? "发布中..." : formData.published ? "发布文章" : "保存草稿"}
+              </Button>
+              <Button type="button" variant="outline" onClick={() => router.back()}>
+                取消
+              </Button>
+            </div>
+          </section>
+        </div>
+      </div>
+    </form>
+  );
 }

@@ -6,3 +6,6 @@ export type { PostListProps } from './PostList';
 
 export { Pagination } from './Pagination';
 export type { PaginationProps } from './Pagination';
+
+export { EditorWorkspace } from './EditorWorkspace';
+export { PublishChecklist } from './PublishChecklist';
