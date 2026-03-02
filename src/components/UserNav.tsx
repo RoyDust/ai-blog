@@ -1,7 +1,6 @@
 'use client'
 
 import { signOut, useSession } from 'next-auth/react'
-import { useEffect, useState } from 'react'
 import Link from 'next/link'
 
 function clearAllSessionData() {
@@ -41,11 +40,6 @@ function clearAllSessionData() {
 
 export function UserNav() {
   const { data: session, status } = useSession()
-  const [mounted, setMounted] = useState(false)
-
-  useEffect(() => {
-    setMounted(true)
-  }, [])
 
   const handleLogout = async () => {
     // Clear session data first
@@ -61,7 +55,7 @@ export function UserNav() {
     window.location.href = '/'
   }
 
-  if (!mounted || status === 'loading') {
+  if (status === 'loading') {
     return (
       <nav className="flex items-center gap-4">
         <span className="text-gray-500">加载中...</span>
