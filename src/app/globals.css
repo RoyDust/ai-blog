@@ -1,28 +1,78 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f4f8fa;
+  --foreground: #0f1f2f;
+  --surface: #ffffff;
+  --surface-alt: #ebf1f4;
+  --border: #d8e2e7;
+  --muted: #4f6475;
+  --brand: #0f766e;
+  --brand-strong: #115e59;
+  --ring: #14b8a6;
 }
 
 .dark {
-  --background: #0a0a0a;
-  --foreground: #ededed;
+  --background: #09131b;
+  --foreground: #dbe6ec;
+  --surface: #0f1c26;
+  --surface-alt: #142434;
+  --border: #264257;
+  --muted: #91a5b3;
+  --brand: #5eead4;
+  --brand-strong: #2dd4bf;
+  --ring: #5eead4;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --color-surface: var(--surface);
+  --color-surface-alt: var(--surface-alt);
+  --color-border: var(--border);
+  --color-muted: var(--muted);
+  --color-brand: var(--brand);
+  --font-sans: var(--font-noto-sans-sc);
+  --font-display: var(--font-manrope);
   --font-mono: var(--font-geist-mono);
+  --font-code: var(--font-jetbrains-mono);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-noto-sans-sc), "Noto Sans SC", sans-serif;
+  background-image:
+    radial-gradient(circle at 15% 0%, rgb(20 184 166 / 10%), transparent 30%),
+    radial-gradient(circle at 85% 0%, rgb(245 158 11 / 10%), transparent 32%);
 }
 
 html.dark {
   color-scheme: dark;
+}
+
+@layer components {
+  .ui-surface {
+    background-color: var(--surface);
+    border: 1px solid var(--border);
+  }
+
+  .ui-ring {
+    outline: none;
+    box-shadow: 0 0 0 0 transparent;
+  }
+
+  .ui-ring:focus-visible {
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+  }
+
+  .ui-btn {
+    border-radius: 0.75rem;
+    font-weight: 600;
+    transition:
+      transform 120ms ease,
+      background-color 220ms ease,
+      color 220ms ease,
+      border-color 220ms ease;
+  }
 }
