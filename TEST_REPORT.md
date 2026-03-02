@@ -1,13 +1,13 @@
 # 博客系统测试文档
 
 ## 测试日期
-2026-03-02
+2026-03-03
 
 ## 测试环境
 - Node.js: v20+
 - 包管理器: pnpm
 - 数据库: PostgreSQL
-- 开发服务器: http://localhost:3001
+- 开发服务器: http://localhost:3000
 
 ## 技术栈
 - Next.js 16 (App Router)
@@ -147,7 +147,19 @@ pnpm build
 
 # TypeScript 类型检查
 pnpm tsc --noEmit
+
+# 单元/组件测试
+pnpm test
+
+# E2E 测试（Playwright）
+pnpm test:e2e
 ```
+
+### 5.1 E2E 覆盖范围（新增）
+
+- `e2e/reader.spec.ts`: 读者浏览首页与文章列表
+- `e2e/author.spec.ts`: 作者访问创作工作台与发布设置
+- `e2e/admin.spec.ts`: 非管理员访问后台的重定向行为
 
 ---
 

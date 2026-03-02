@@ -12,16 +12,20 @@ export function BookmarkButton({ slug, initialBookmarked }: BookmarkButtonProps)
   const [loading, setLoading] = useState(false)
 
   const handleBookmark = async () => {
+    if (loading) return
+    const nextValue = !bookmarked
+    setBookmarked(nextValue)
     setLoading(true)
     try {
       const response = await fetch(`/api/posts/${slug}/bookmark`, {
         method: 'POST'
       })
       const data = await response.json()
-      if (data.success) {
-        setBookmarked(data.bookmarked)
+      if (!data.success) {
+        throw new Error('Bookmark action failed')
       }
     } catch (error) {
+      setBookmarked(!nextValue)
       console.error('Bookmark error:', error)
     } finally {
       setLoading(false)
@@ -32,10 +36,11 @@ export function BookmarkButton({ slug, initialBookmarked }: BookmarkButtonProps)
     <button
       onClick={handleBookmark}
       disabled={loading}
-      className={`flex items-center gap-2 px-4 py-2 rounded-full transition-colors ${
+      aria-label={bookmarked ? '取消收藏' : '收藏文章'}
+      className={`ui-btn flex items-center gap-2 px-4 py-2 transition-colors ${
         bookmarked
-          ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'
-          : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+          ? 'bg-[var(--brand)] text-white'
+          : 'border border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)] hover:bg-[var(--surface-alt)]'
       }`}
     >
       <svg

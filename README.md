@@ -12,7 +12,7 @@ pnpm install
 pnpm dev
 ```
 
-访问 http://localhost:3001
+访问 `http://localhost:3000`
 
 ## 功能特性
 
@@ -41,3 +41,12 @@ pnpm dev
 ## 文档
 
 详细开发文档见 [PROJECT_DOCS.md](./PROJECT_DOCS.md)
+
+## 验证命令
+
+```bash
+pnpm lint
+pnpm build
+pnpm test
+pnpm test:e2e
+```

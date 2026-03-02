@@ -1,4 +1,6 @@
-import Link from 'next/link';
+"use client";
+
+import Link from "next/link";
 
 export interface SidebarProps {
   categories?: Array<{ name: string; slug: string; count: number }>;
@@ -7,21 +9,21 @@ export interface SidebarProps {
 
 export function Sidebar({ categories = [], recentPosts = [] }: SidebarProps) {
   return (
-    <aside className="space-y-8">
+    <aside className="space-y-6">
       {categories.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            Categories
+        <div className="ui-surface rounded-2xl p-5">
+          <h3 className="mb-4 font-display text-lg font-semibold text-[var(--foreground)]">
+            分类导航
           </h3>
           <ul className="space-y-2">
             {categories.map((category) => (
               <li key={category.slug}>
                 <Link
                   href={`/category/${category.slug}`}
-                  className="flex items-center justify-between text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                  className="flex items-center justify-between rounded-lg px-2 py-1 text-sm text-[var(--muted)] transition-colors hover:bg-[var(--surface-alt)] hover:text-[var(--foreground)]"
                 >
                   <span>{category.name}</span>
-                  <span className="text-sm bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full">
+                  <span className="rounded-full bg-[var(--surface-alt)] px-2 py-0.5 text-xs">
                     {category.count}
                   </span>
                 </Link>
@@ -32,16 +34,16 @@ export function Sidebar({ categories = [], recentPosts = [] }: SidebarProps) {
       )}
 
       {recentPosts.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            Recent Posts
+        <div className="ui-surface rounded-2xl p-5">
+          <h3 className="mb-4 font-display text-lg font-semibold text-[var(--foreground)]">
+            最新文章
           </h3>
           <ul className="space-y-3">
             {recentPosts.map((post) => (
               <li key={post.slug}>
                 <Link
                   href={`/posts/${post.slug}`}
-                  className="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors line-clamp-2"
+                  className="line-clamp-2 text-sm text-[var(--muted)] transition-colors hover:text-[var(--brand)]"
                 >
                   {post.title}
                 </Link>
@@ -51,24 +53,24 @@ export function Sidebar({ categories = [], recentPosts = [] }: SidebarProps) {
         </div>
       )}
 
-      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-          Newsletter
+      <div className="ui-surface rounded-2xl p-5">
+        <h3 className="mb-3 font-display text-lg font-semibold text-[var(--foreground)]">
+          创作者周报
         </h3>
-        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-          Subscribe to get the latest posts delivered to your inbox.
+        <p className="mb-4 text-sm text-[var(--muted)]">
+          订阅内容更新、编辑策略和运营建议。
         </p>
         <form className="space-y-2" onSubmit={(e) => e.preventDefault()}>
           <input
             type="email"
-            placeholder="Enter your email"
-            className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="输入邮箱"
+            className="ui-ring w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--foreground)] placeholder:text-[var(--muted)] focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
           />
           <button
             type="submit"
-            className="w-full px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+            className="ui-btn w-full bg-[var(--brand)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--brand-strong)]"
           >
-            Subscribe
+            订阅
           </button>
         </form>
       </div>

@@ -1,4 +1,5 @@
-import React from 'react';
+import React from "react";
+import { cn } from "@/lib/cn";
 
 export interface CardProps {
   children: React.ReactNode;
@@ -10,13 +11,11 @@ export interface CardProps {
 export function Card({ children, className = '', hover = false, onClick }: CardProps) {
   return (
     <div
-      className={`
-        bg-white dark:bg-gray-800
-        border border-gray-200 dark:border-gray-700
-        rounded-lg shadow-sm
-        ${hover ? 'hover:shadow-md transition-shadow cursor-pointer' : ''}
-        ${className}
-      `}
+      className={cn(
+        "ui-surface rounded-2xl shadow-sm",
+        hover && "cursor-pointer transition-shadow hover:shadow-lg",
+        className
+      )}
       onClick={onClick}
     >
       {children}
@@ -26,7 +25,7 @@ export function Card({ children, className = '', hover = false, onClick }: CardP
 
 export function CardHeader({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={`px-6 py-4 border-b border-gray-200 dark:border-gray-700 ${className}`}>
+    <div className={cn("border-b border-[var(--border)] px-6 py-4", className)}>
       {children}
     </div>
   );
@@ -34,7 +33,7 @@ export function CardHeader({ children, className = '' }: { children: React.React
 
 export function CardContent({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={`px-6 py-4 ${className}`}>
+    <div className={cn("px-6 py-4", className)}>
       {children}
     </div>
   );
@@ -42,7 +41,7 @@ export function CardContent({ children, className = '' }: { children: React.Reac
 
 export function CardFooter({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={`px-6 py-4 border-t border-gray-200 dark:border-gray-700 ${className}`}>
+    <div className={cn("border-t border-[var(--border)] px-6 py-4", className)}>
       {children}
     </div>
   );

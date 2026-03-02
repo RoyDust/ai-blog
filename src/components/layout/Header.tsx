@@ -1,47 +1,53 @@
-import Link from 'next/link';
+import Link from "next/link";
 
 export interface HeaderProps {
   siteName?: string;
 }
 
-export function Header({ siteName = 'My Blog' }: HeaderProps) {
+const primaryLinks = [
+  { href: "/", label: "探索" },
+  { href: "/posts", label: "文章" },
+  { href: "/categories", label: "分类" },
+  { href: "/tags", label: "标签" },
+  { href: "/write", label: "创作" },
+  { href: "/admin", label: "管理" },
+];
+
+export function Header({ siteName = "My Blog" }: HeaderProps) {
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm">
-      <div className="container mx-auto px-4 h-16 flex items-center justify-between">
+    <header className="sticky top-0 z-40 w-full border-b border-[var(--border)] bg-[color-mix(in_oklab,var(--background)_88%,white_12%)]/90 backdrop-blur">
+      <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between gap-6 px-4 lg:px-6">
         <Link
           href="/"
-          className="text-xl font-bold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+          className="font-display text-xl font-extrabold tracking-tight text-[var(--foreground)] transition-colors hover:text-[var(--brand)]"
         >
           {siteName}
         </Link>
 
-        <nav className="hidden md:flex items-center gap-6">
-          <Link
-            href="/"
-            className="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-          >
-            Home
-          </Link>
-          <Link
-            href="/posts"
-            className="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-          >
-            Blog
-          </Link>
-          <Link
-            href="/about"
-            className="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-          >
-            About
-          </Link>
+        <nav className="hidden items-center gap-2 md:flex" aria-label="Primary">
+          {primaryLinks.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className="rounded-full px-4 py-2 text-sm font-medium text-[var(--muted)] transition-colors hover:bg-[var(--surface)] hover:text-[var(--foreground)]"
+            >
+              {link.label}
+            </Link>
+          ))}
         </nav>
 
         <div className="flex items-center gap-4">
           <Link
             href="/login"
-            className="text-sm text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+            className="text-sm font-medium text-[var(--muted)] transition-colors hover:text-[var(--foreground)]"
           >
-            Login
+            登录
+          </Link>
+          <Link
+            href="/register"
+            className="ui-btn bg-[var(--brand)] px-4 py-2 text-sm text-white hover:bg-[var(--brand-strong)]"
+          >
+            注册
           </Link>
         </div>
       </div>

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useCallback } from 'react';
+import { cn } from '@/lib/cn';
 
 export interface ModalProps {
   isOpen: boolean;
@@ -58,8 +59,7 @@ export function Modal({
       <div
         className={`
           relative w-full ${sizes[size]} mx-4
-          bg-white dark:bg-gray-800
-          rounded-lg shadow-xl
+          ui-surface rounded-2xl shadow-xl
           transform transition-all
         `}
         role="dialog"
@@ -67,11 +67,11 @@ export function Modal({
         aria-labelledby={title ? 'modal-title' : undefined}
       >
         {(title || showCloseButton) && (
-          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between border-b border-[var(--border)] px-6 py-4">
             {title && (
               <h2
                 id="modal-title"
-                className="text-lg font-semibold text-gray-900 dark:text-white"
+                className="font-display text-lg font-semibold text-[var(--foreground)]"
               >
                 {title}
               </h2>
@@ -79,7 +79,10 @@ export function Modal({
             {showCloseButton && (
               <button
                 onClick={onClose}
-                className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                className={cn(
+                  'ui-ring rounded-md p-1 text-[var(--muted)] transition-colors',
+                  'hover:text-[var(--foreground)] focus-visible:ring-2 focus-visible:ring-[var(--ring)]'
+                )}
                 aria-label="Close modal"
               >
                 <svg

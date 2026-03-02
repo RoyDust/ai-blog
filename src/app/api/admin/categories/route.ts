@@ -41,8 +41,8 @@ export async function POST(request: Request) {
     })
 
     return NextResponse.json({ success: true, data: category })
-  } catch (error: any) {
-    if (error.code === 'P2002') {
+  } catch (error: unknown) {
+    if (typeof error === "object" && error && "code" in error && error.code === "P2002") {
       return NextResponse.json({ error: "分类名称或Slug已存在" }, { status: 400 })
     }
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
