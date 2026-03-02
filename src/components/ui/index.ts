@@ -9,3 +9,4 @@ export type { CardProps } from './Card';
 
 export { Modal } from './Modal';
 export type { ModalProps } from './Modal';
+export { cn } from '@/lib/cn';

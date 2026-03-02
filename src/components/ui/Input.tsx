@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useId } from "react";
+import { cn } from "@/lib/cn";
 
 export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
@@ -14,35 +15,36 @@ export function Input({
   id,
   ...props
 }: InputProps) {
-  const inputId = id || `input-${Math.random().toString(36).substr(2, 9)}`;
+  const generatedId = useId();
+  const inputId = id || generatedId;
 
   return (
     <div className="w-full">
       {label && (
         <label
           htmlFor={inputId}
-          className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+          className="mb-1 block text-sm font-medium text-[var(--foreground)]"
         >
           {label}
         </label>
       )}
       <input
         id={inputId}
-        className={`
-          w-full px-4 py-2 border rounded-lg transition-colors
-          focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
-          disabled:bg-gray-100 disabled:cursor-not-allowed
-          dark:bg-gray-800 dark:border-gray-600 dark:text-white
-          ${error ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 dark:border-gray-600'}
-          ${className}
-        `}
+        className={cn(
+          "ui-ring w-full rounded-xl border bg-[var(--surface)] px-4 py-2 text-[var(--foreground)] transition-colors placeholder:text-[var(--muted)] focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-60",
+          error
+            ? "border-rose-500 focus-visible:ring-rose-400"
+            : "border-[var(--border)] focus-visible:ring-[var(--ring)]",
+          className
+        )}
+        aria-invalid={Boolean(error)}
         {...props}
       />
       {error && (
-        <p className="mt-1 text-sm text-red-600 dark:text-red-400">{error}</p>
+        <p className="mt-1 text-sm text-rose-500">{error}</p>
       )}
       {helperText && !error && (
-        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{helperText}</p>
+        <p className="mt-1 text-sm text-[var(--muted)]">{helperText}</p>
       )}
     </div>
   );
