@@ -1,5 +1,6 @@
 import { FilterBar, PostCard } from "@/components/blog";
 import { prisma } from "@/lib/prisma";
+import { FadeIn, StaggerList } from "@/components/motion";
 
 interface PageProps {
   searchParams: Promise<{
@@ -53,19 +54,23 @@ export default async function PostsPage({ searchParams }: PageProps) {
 
   return (
     <div className="space-y-6">
+      <FadeIn>
       <section className="space-y-2">
         <h1 className="font-display text-3xl font-extrabold text-[var(--foreground)]">内容探索</h1>
         <p className="text-sm text-[var(--muted)]">按关键词、分类与标签组合筛选，快速定位内容。</p>
       </section>
+      </FadeIn>
 
-      <FilterBar search={search} category={category} tag={tag} categories={categories} tags={tags} />
+      <FadeIn delay={0.06}>
+        <FilterBar search={search} category={category} tag={tag} categories={categories} tags={tags} />
+      </FadeIn>
 
       {posts.length > 0 ? (
-        <section className="grid grid-cols-1 gap-6 md:grid-cols-2">
+        <StaggerList className="grid grid-cols-1 gap-6 md:grid-cols-2">
           {posts.map((post) => (
             <PostCard key={post.id} post={post} />
           ))}
-        </section>
+        </StaggerList>
       ) : (
         <div className="ui-surface rounded-2xl p-8 text-sm text-[var(--muted)]">未找到匹配内容，请尝试调整筛选条件。</div>
       )}

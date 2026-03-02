@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { PostCard, PostCardFeatured } from "@/components/blog";
+import { FadeIn, StaggerList } from "@/components/motion";
 
 async function getData() {
   const [posts, categories, tags] = await Promise.all([
@@ -44,6 +45,7 @@ export default async function Home() {
 
   return (
     <div className="space-y-10">
+      <FadeIn>
       <section className="ui-surface rounded-3xl p-8">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--brand)]">Productized Publishing</p>
         <h1 className="mt-3 font-display text-4xl font-extrabold leading-tight text-[var(--foreground)] md:text-5xl">
@@ -53,7 +55,9 @@ export default async function Home() {
           发现优质内容、快速创作发布、稳定治理社区，三条主路径在同一套体验系统下协同工作。
         </p>
       </section>
+      </FadeIn>
 
+      <FadeIn delay={0.06}>
       <section className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="font-display text-2xl font-bold text-[var(--foreground)]">精选文章</h2>
@@ -67,20 +71,24 @@ export default async function Home() {
           <div className="ui-surface rounded-2xl p-8 text-sm text-[var(--muted)]">暂无精选内容</div>
         )}
       </section>
+      </FadeIn>
 
+      <FadeIn delay={0.12}>
       <section className="space-y-4">
         <h2 className="font-display text-2xl font-bold text-[var(--foreground)]">最新发布</h2>
         {latest.length > 0 ? (
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+          <StaggerList className="grid grid-cols-1 gap-6 md:grid-cols-2">
             {latest.map((post) => (
               <PostCard key={post.id} post={post} />
             ))}
-          </div>
+          </StaggerList>
         ) : (
           <div className="ui-surface rounded-2xl p-8 text-sm text-[var(--muted)]">暂无更新</div>
         )}
       </section>
+      </FadeIn>
 
+      <FadeIn delay={0.18}>
       <section className="grid grid-cols-1 gap-6 md:grid-cols-2">
         <div className="ui-surface rounded-2xl p-6">
           <h3 className="mb-3 font-display text-xl font-semibold">热门分类</h3>
@@ -111,6 +119,7 @@ export default async function Home() {
           </div>
         </div>
       </section>
+      </FadeIn>
     </div>
   );
 }

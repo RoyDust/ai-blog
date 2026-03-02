@@ -4,6 +4,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { AuthProvider } from "@/components/AuthProvider";
 import { AppShell } from "@/components/layout/AppShell";
+import { MotionProvider } from "@/components/motion";
 
 const notoSansSc = Noto_Sans_SC({
   variable: "--font-noto-sans-sc",
@@ -45,7 +46,9 @@ export default function RootLayout({
       >
         <AuthProvider>
           <ThemeProvider>
-            <AppShell>{children}</AppShell>
+            <MotionProvider>
+              <AppShell>{children}</AppShell>
+            </MotionProvider>
           </ThemeProvider>
         </AuthProvider>
       </body>
