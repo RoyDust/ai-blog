@@ -14,17 +14,23 @@ export function LikeButton({ slug, initialLiked, initialCount }: LikeButtonProps
   const [loading, setLoading] = useState(false)
 
   const handleLike = async () => {
+    if (loading) return
+    const nextLiked = !liked
+    const nextCount = nextLiked ? count + 1 : count - 1
+    setLiked(nextLiked)
+    setCount(nextCount)
     setLoading(true)
     try {
       const response = await fetch(`/api/posts/${slug}/like`, {
         method: 'POST'
       })
       const data = await response.json()
-      if (data.success) {
-        setLiked(data.liked)
-        setCount(prev => data.liked ? prev + 1 : prev - 1)
+      if (!data.success) {
+        throw new Error('Like action failed')
       }
     } catch (error) {
+      setLiked(!nextLiked)
+      setCount(count)
       console.error('Like error:', error)
     } finally {
       setLoading(false)
@@ -35,10 +41,11 @@ export function LikeButton({ slug, initialLiked, initialCount }: LikeButtonProps
     <button
       onClick={handleLike}
       disabled={loading}
-      className={`flex items-center gap-2 px-4 py-2 rounded-full transition-colors ${
+      aria-label={liked ? '取消点赞' : '点赞'}
+      className={`ui-btn flex items-center gap-2 px-4 py-2 transition-colors ${
         liked
-          ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
-          : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+          ? 'bg-rose-500 text-white'
+          : 'border border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)] hover:bg-[var(--surface-alt)]'
       }`}
     >
       <svg

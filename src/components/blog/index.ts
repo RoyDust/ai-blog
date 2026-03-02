@@ -1,5 +1,7 @@
 export { PostCard } from './PostCard'
 export { PostCardFeatured } from './PostCardFeatured'
 export { FilterBar } from './FilterBar'
+export { ReadingProgress } from './ReadingProgress'
+export { ArticleToc } from './ArticleToc'
 export { LikeButton } from './LikeButton'
 export { BookmarkButton } from './BookmarkButton'
