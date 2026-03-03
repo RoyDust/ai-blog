@@ -96,7 +96,7 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
       >
         <div className="card-base max-h-[calc(100vh-8rem)] overflow-auto p-4">
           <h3 className="mb-3 font-display text-lg font-semibold text-[var(--foreground)]">目录</h3>
-          <ArticleToc headings={headings} />
+          <ArticleToc headings={headings} />https://file+.vscode-resource.vscode-cdn.net/c%3A/Users/Administrator/.cursor/extensions/openai.chatgpt-0.4.79-win32-x64/webview/
         </div>
       </aside>
 
