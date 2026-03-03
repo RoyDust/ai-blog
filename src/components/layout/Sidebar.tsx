@@ -11,7 +11,7 @@ export function Sidebar({ categories = [], recentPosts = [] }: SidebarProps) {
   return (
     <aside className="space-y-6">
       {categories.length > 0 && (
-        <div className="ui-surface rounded-2xl p-5">
+        <div className="card-base p-5">
           <h3 className="mb-4 font-display text-lg font-semibold text-[var(--foreground)]">
             分类导航
           </h3>
@@ -34,7 +34,7 @@ export function Sidebar({ categories = [], recentPosts = [] }: SidebarProps) {
       )}
 
       {recentPosts.length > 0 && (
-        <div className="ui-surface rounded-2xl p-5">
+        <div className="card-base p-5">
           <h3 className="mb-4 font-display text-lg font-semibold text-[var(--foreground)]">
             最新文章
           </h3>
@@ -53,7 +53,7 @@ export function Sidebar({ categories = [], recentPosts = [] }: SidebarProps) {
         </div>
       )}
 
-      <div className="ui-surface rounded-2xl p-5">
+      <div className="card-base p-5">
         <h3 className="mb-3 font-display text-lg font-semibold text-[var(--foreground)]">
           创作者周报
         </h3>
@@ -77,3 +77,4 @@ export function Sidebar({ categories = [], recentPosts = [] }: SidebarProps) {
     </aside>
   );
 }
+

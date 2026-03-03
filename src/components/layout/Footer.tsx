@@ -8,9 +8,9 @@ export function Footer({ copyright = "My Blog" }: FooterProps) {
   const currentYear = new Date().getFullYear();
 
   return (
-    <footer className="mt-12 border-t border-[var(--border)] bg-[var(--surface)]/90">
-      <div className="mx-auto w-full max-w-7xl px-4 py-10 lg:px-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+    <footer className="onload-animation mt-auto">
+      <div className="mx-auto max-w-[var(--page-width)] px-4 py-8">
+        <div className="card-base grid grid-cols-1 gap-8 p-6 md:grid-cols-3">
           <div>
             <h3 className="mb-3 font-display text-lg font-semibold text-[var(--foreground)]">
               {copyright}
@@ -90,3 +90,4 @@ export function Footer({ copyright = "My Blog" }: FooterProps) {
     </footer>
   );
 }
+
