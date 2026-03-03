@@ -46,7 +46,7 @@ export default async function Home() {
   return (
     <div className="space-y-10">
       <FadeIn>
-      <section className="ui-surface rounded-3xl p-8">
+      <section className="card-base p-8">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--brand)]">Productized Publishing</p>
         <h1 className="mt-3 font-display text-4xl font-extrabold leading-tight text-[var(--foreground)] md:text-5xl">
           一个同时服务读者、作者与管理员的内容平台
@@ -68,7 +68,7 @@ export default async function Home() {
         {featured ? (
           <PostCardFeatured post={featured} />
         ) : (
-          <div className="ui-surface rounded-2xl p-8 text-sm text-[var(--muted)]">暂无精选内容</div>
+          <div className="card-base p-8 text-sm text-[var(--muted)]">暂无精选内容</div>
         )}
       </section>
       </FadeIn>
@@ -77,20 +77,20 @@ export default async function Home() {
       <section className="space-y-4">
         <h2 className="font-display text-2xl font-bold text-[var(--foreground)]">最新发布</h2>
         {latest.length > 0 ? (
-          <StaggerList className="grid grid-cols-1 gap-6 md:grid-cols-2">
+          <StaggerList className="stagger-children grid grid-cols-1 gap-6 md:grid-cols-2">
             {latest.map((post) => (
               <PostCard key={post.id} post={post} />
             ))}
           </StaggerList>
         ) : (
-          <div className="ui-surface rounded-2xl p-8 text-sm text-[var(--muted)]">暂无更新</div>
+          <div className="card-base p-8 text-sm text-[var(--muted)]">暂无更新</div>
         )}
       </section>
       </FadeIn>
 
       <FadeIn delay={0.18}>
       <section className="grid grid-cols-1 gap-6 md:grid-cols-2">
-        <div className="ui-surface rounded-2xl p-6">
+        <div className="card-base p-6">
           <h3 className="mb-3 font-display text-xl font-semibold">热门分类</h3>
           <div className="flex flex-wrap gap-2">
             {categories.map((item) => (
@@ -104,7 +104,7 @@ export default async function Home() {
             ))}
           </div>
         </div>
-        <div className="ui-surface rounded-2xl p-6">
+        <div className="card-base p-6">
           <h3 className="mb-3 font-display text-xl font-semibold">热门标签</h3>
           <div className="flex flex-wrap gap-2">
             {tags.map((item) => (

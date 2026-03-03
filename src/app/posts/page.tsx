@@ -66,13 +66,13 @@ export default async function PostsPage({ searchParams }: PageProps) {
       </FadeIn>
 
       {posts.length > 0 ? (
-        <StaggerList className="grid grid-cols-1 gap-6 md:grid-cols-2">
+        <StaggerList className="stagger-children grid grid-cols-1 gap-6 md:grid-cols-2">
           {posts.map((post) => (
             <PostCard key={post.id} post={post} />
           ))}
         </StaggerList>
       ) : (
-        <div className="ui-surface rounded-2xl p-8 text-sm text-[var(--muted)]">未找到匹配内容，请尝试调整筛选条件。</div>
+        <div className="card-base p-8 text-sm text-[var(--muted)]">未找到匹配内容，请尝试调整筛选条件。</div>
       )}
     </div>
   );

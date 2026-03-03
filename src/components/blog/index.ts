@@ -1,4 +1,5 @@
 export { PostCard } from './PostCard'
+export { PostMeta } from './PostMeta'
 export { PostCardFeatured } from './PostCardFeatured'
 export { FilterBar } from './FilterBar'
 export { ReadingProgress } from './ReadingProgress'

@@ -31,7 +31,7 @@ interface PostCardProps {
 
 export function PostCard({ post }: PostCardProps) {
   return (
-    <article className="ui-surface overflow-hidden rounded-2xl shadow-sm transition-shadow hover:shadow-lg">
+    <article className="card-base w-full rounded-[var(--radius-large)]">
       {post.coverImage && (
         <div className="relative h-52 w-full overflow-hidden">
           <Image
@@ -58,13 +58,13 @@ export function PostCard({ post }: PostCardProps) {
         </div>
 
         <Link href={`/posts/${post.slug}`}>
-          <h2 className="mb-2 font-display text-xl font-bold text-[var(--foreground)] transition-colors hover:text-[var(--brand)]">
+          <h2 className="mb-2 font-display text-2xl font-bold text-90 transition-colors hover:text-[var(--primary)]">
             {post.title}
           </h2>
         </Link>
 
         {post.excerpt && (
-          <p className="mb-4 line-clamp-2 text-sm text-[var(--muted)]">
+          <p className="mb-4 line-clamp-2 text-sm text-75">
             {post.excerpt}
           </p>
         )}
@@ -86,12 +86,12 @@ export function PostCard({ post }: PostCardProps) {
                 </span>
               </div>
             )}
-            <span className="text-sm text-[var(--foreground)]">
+            <span className="text-sm text-90">
               {post.author.name}
             </span>
           </div>
 
-          <div className="flex items-center gap-4 text-xs text-[var(--muted)]">
+          <div className="text-50 flex items-center gap-4 text-xs">
             <span>{post._count.comments} 评论</span>
             <span>{post._count.likes} 点赞</span>
           </div>
