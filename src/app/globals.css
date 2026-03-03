@@ -1,5 +1,6 @@
 @import "../styles/theme-variables.css";
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
 @import "../styles/components.css";
 @import "../styles/animations.css";
 

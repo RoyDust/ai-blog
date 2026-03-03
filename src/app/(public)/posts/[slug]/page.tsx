@@ -1,10 +1,14 @@
 export const dynamic = "force-dynamic";
+
+import type { ReactNode } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { CommentForm } from "@/components/CommentForm";
-import { ArticleToc, BookmarkButton, LikeButton, ReadingProgress } from "@/components/blog";
+import { ArticleToc, BackToTopButton, BookmarkButton, LikeButton, ReadingProgress, ShareButton } from "@/components/blog";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -60,46 +64,13 @@ function extractHeadings(content: string) {
     });
 }
 
-function renderContent(content: string) {
-  return content.split("\n").map((line, index) => {
-    const trimmed = line.trim();
-    if (!trimmed) {
-      return <div className="h-4" key={`space-${index}`} />;
-    }
-
-    if (/^###\s+/.test(trimmed)) {
-      const text = trimmed.replace(/^###\s+/, "");
-      return (
-        <h3 className="mt-6 font-display text-xl font-bold text-[var(--foreground)]" id={slugify(text)} key={`h3-${index}`}>
-          {text}
-        </h3>
-      );
-    }
-
-    if (/^##\s+/.test(trimmed)) {
-      const text = trimmed.replace(/^##\s+/, "");
-      return (
-        <h2 className="mt-8 font-display text-2xl font-bold text-[var(--foreground)]" id={slugify(text)} key={`h2-${index}`}>
-          {text}
-        </h2>
-      );
-    }
-
-    if (/^#\s+/.test(trimmed)) {
-      const text = trimmed.replace(/^#\s+/, "");
-      return (
-        <h2 className="mt-8 font-display text-2xl font-bold text-[var(--foreground)]" id={slugify(text)} key={`h1-${index}`}>
-          {text}
-        </h2>
-      );
-    }
-
-    return (
-      <p className="leading-8 text-[var(--foreground)]/90" key={`p-${index}`}>
-        {trimmed}
-      </p>
-    );
-  });
+function nodeText(node: ReactNode): string {
+  if (typeof node === "string" || typeof node === "number") return String(node);
+  if (Array.isArray(node)) return node.map(nodeText).join("");
+  if (node && typeof node === "object" && "props" in node) {
+    return nodeText((node as { props?: { children?: ReactNode } }).props?.children);
+  }
+  return "";
 }
 
 export default async function PostPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -114,9 +85,22 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
   const headings = extractHeadings(post.content);
 
   return (
-    <div className="space-y-8">
+    <div className="relative space-y-8 overflow-x-clip">
       <ReadingProgress />
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_260px]">
+      <BackToTopButton />
+
+      <aside
+        data-testid="toc-rail"
+        className="hidden xl:fixed xl:top-24 xl:block xl:w-64"
+        style={{ left: "calc(50% + 490px + 120px)" }}
+      >
+        <div className="card-base max-h-[calc(100vh-8rem)] overflow-auto p-4">
+          <h3 className="mb-3 font-display text-lg font-semibold text-[var(--foreground)]">目录</h3>
+          <ArticleToc headings={headings} />
+        </div>
+      </aside>
+
+      <div className="mx-auto w-full max-w-[980px] xl:min-w-[880px]">
         <article className="card-base overflow-hidden">
           {post.coverImage && (
             <div className="relative h-64 w-full md:h-96">
@@ -127,7 +111,7 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
           <div className="space-y-8 p-8">
             <div className="flex flex-wrap items-center gap-3 text-xs text-[var(--muted)]">
               {post.category && (
-                <Link className="rounded-full bg-[var(--surface-alt)] px-3 py-1 font-semibold text-[var(--brand)]" href={`/categories/${post.category.slug}`}>
+                <Link className="rounded-full bg-[var(--surface-alt)] px-3 py-1 font-semibold text-[var(--brand)]" href={`/posts?category=${encodeURIComponent(post.category.slug)}`}>
                   {post.category.name}
                 </Link>
               )}
@@ -148,14 +132,47 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
               <p className="font-medium text-[var(--foreground)]">{post.author.name}</p>
             </div>
 
-            <div className="space-y-2">{renderContent(post.content)}</div>
+            <article className="prose prose-zinc dark:prose-invert prose-headings:font-display prose-a:text-[var(--brand)] prose-a:no-underline hover:prose-a:underline prose-img:rounded-xl prose-pre:rounded-xl prose-pre:border prose-pre:border-[var(--border)] prose-pre:bg-[#0b1220] prose-pre:text-slate-100 prose-code:font-[var(--font-code)] prose-code:before:content-none prose-code:after:content-none prose-table:w-full prose-th:bg-[var(--surface-alt)] max-w-none">
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  h1: ({ children, ...props }) => (
+                    <h1 id={slugify(nodeText(children))} {...props}>
+                      {children}
+                    </h1>
+                  ),
+                  h2: ({ children, ...props }) => (
+                    <h2 id={slugify(nodeText(children))} {...props}>
+                      {children}
+                    </h2>
+                  ),
+                  h3: ({ children, ...props }) => (
+                    <h3 id={slugify(nodeText(children))} {...props}>
+                      {children}
+                    </h3>
+                  ),
+                  h4: ({ children, ...props }) => (
+                    <h4 id={slugify(nodeText(children))} {...props}>
+                      {children}
+                    </h4>
+                  ),
+                  h5: ({ children, ...props }) => (
+                    <h5 id={slugify(nodeText(children))} {...props}>
+                      {children}
+                    </h5>
+                  ),
+                }}
+              >
+                {post.content}
+              </ReactMarkdown>
+            </article>
 
             {post.tags.length > 0 && (
               <div className="flex flex-wrap gap-2 border-t border-[var(--border)] pt-8">
                 {post.tags.map((tag) => (
                   <Link
                     className="rounded-full bg-[var(--surface-alt)] px-3 py-1 text-sm text-[var(--foreground)] transition-colors hover:text-[var(--brand)]"
-                    href={`/tags/${tag.slug}`}
+                    href={`/posts?tag=${encodeURIComponent(tag.slug)}`}
                     key={tag.slug}
                   >
                     #{tag.name}
@@ -163,30 +180,20 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
                 ))}
               </div>
             )}
-
-            <div className="flex flex-wrap items-center gap-3 border-t border-[var(--border)] pt-8 lg:hidden">
-              <LikeButton initialCount={post._count.likes} initialLiked={false} slug={post.slug} />
-              <BookmarkButton initialBookmarked={false} slug={post.slug} />
-            </div>
           </div>
         </article>
-
-        <aside className="hidden space-y-4 lg:block">
-          <div className="card-base sticky top-24 p-4">
-            <h3 className="mb-3 font-display text-lg font-semibold text-[var(--foreground)]">目录</h3>
-            <ArticleToc headings={headings} />
-          </div>
-          <div className="card-base p-4">
-            <h3 className="mb-3 font-display text-sm font-semibold text-[var(--foreground)]">互动</h3>
-            <div className="flex flex-col gap-2">
-              <LikeButton initialCount={post._count.likes} initialLiked={false} slug={post.slug} />
-              <BookmarkButton initialBookmarked={false} slug={post.slug} />
-            </div>
-          </div>
-        </aside>
       </div>
 
-      <section className="card-base p-8">
+      <section className="card-base mx-auto w-full max-w-[980px] p-5 xl:min-w-[880px]">
+        <h2 className="mb-4 font-display text-xl font-bold text-[var(--foreground)]">文章互动</h2>
+        <div className="flex flex-wrap items-center gap-3">
+          <LikeButton initialCount={post._count.likes} initialLiked={false} slug={post.slug} />
+          <BookmarkButton initialBookmarked={false} slug={post.slug} />
+          <ShareButton slug={post.slug} title={post.title} />
+        </div>
+      </section>
+
+      <section className="card-base mx-auto w-full max-w-[980px] p-8 xl:min-w-[880px]">
         <h2 className="mb-6 font-display text-2xl font-bold text-[var(--foreground)]">评论 ({post._count.comments})</h2>
 
         {session ? (
@@ -236,6 +243,3 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
     </div>
   );
 }
-
-
-

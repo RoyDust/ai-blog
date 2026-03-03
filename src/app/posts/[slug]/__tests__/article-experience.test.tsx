@@ -9,7 +9,7 @@ vi.mock('@/lib/prisma', () => ({
         id: 'p1',
         slug: 'test-post',
         title: 'Article Title',
-        content: '# Intro\nBody text\n## Section',
+        content: '# Intro\nBody text\n## Section\n##### Deep Heading\n```ts\nconst x = 1\n```',
         excerpt: 'Excerpt',
         coverImage: null,
         createdAt: new Date('2026-01-01T00:00:00Z'),
@@ -36,9 +36,15 @@ describe('article experience', () => {
   test('article page includes progress and interaction rail', async () => {
     const { default: PostPage } = await import('@/app/(public)/posts/[slug]/page')
     const ui = await PostPage({ params: Promise.resolve({ slug: 'test-post' }) })
-    render(ui as React.ReactElement)
+    const { container } = render(ui as React.ReactElement)
 
     expect(screen.getByText('目录')).toBeInTheDocument()
     expect(screen.getByRole('progressbar')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '分享文章' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '返回顶部' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 5, name: 'Deep Heading' })).toBeInTheDocument()
+    expect(container.querySelector('.prose')?.className).toContain('prose-pre:rounded-xl')
+    expect(screen.getByTestId('toc-rail').className).toContain('xl:fixed')
+    expect(screen.getByTestId('toc-rail').className).toContain('hidden')
   })
 })

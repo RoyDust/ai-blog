@@ -34,7 +34,7 @@ export function EditorWorkspace({
       <div className="space-y-4">
         <Input label="标题" placeholder="文章标题" required value={title} onChange={(e) => onTitleChange(e.target.value)} />
         <Input label="Slug" placeholder="url-slug" required value={slug} onChange={(e) => onSlugChange(e.target.value)} />
-        <MarkdownEditor label="内容" minRows={20} value={content} onChange={onContentChange} />
+        <MarkdownEditor label="内容" minRows={36} value={content} onChange={onContentChange} />
         <Input label="摘要" placeholder="文章摘要（可选）" value={excerpt} onChange={(e) => onExcerptChange(e.target.value)} />
         <Input
           label="封面图 URL"
