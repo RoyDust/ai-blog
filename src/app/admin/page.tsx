@@ -28,11 +28,14 @@ export default async function AdminPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="font-display text-3xl font-extrabold text-[var(--foreground)]">管理后台</h1>
+      <section className="ui-surface rounded-3xl p-6">
+        <h1 className="font-display text-3xl font-extrabold text-[var(--foreground)]">管理后台</h1>
+        <p className="mt-2 max-w-2xl text-sm text-[var(--muted)]">面向内容运营的高密度工作台，聚焦文章、评论与分类标签治理。</p>
+      </section>
       <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
         {cards.map((item) => (
-          <article className="ui-surface rounded-2xl p-4" key={item.label}>
-            <p className="text-xs text-[var(--muted)]">{item.label}</p>
+          <article className="ui-surface rounded-2xl p-4 shadow-[0_10px_30px_-24px_rgba(15,118,110,0.65)]" key={item.label}>
+            <p className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">{item.label}</p>
             <p className="mt-2 font-display text-3xl font-bold text-[var(--foreground)]">{item.value}</p>
           </article>
         ))}

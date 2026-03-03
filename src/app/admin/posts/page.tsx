@@ -103,7 +103,7 @@ export default function AdminPostsPage() {
       label: "操作",
       render: (row) => (
         <div className="flex items-center gap-2">
-          <Link className="text-sm text-[var(--brand)] hover:underline" href={`/posts/${row.slug}/edit`}>
+          <Link className="text-sm text-[var(--brand)] hover:underline" href={`/admin/posts/${row.id}/edit`}>
             编辑
           </Link>
           <button
@@ -129,7 +129,10 @@ export default function AdminPostsPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="font-display text-3xl font-extrabold text-[var(--foreground)]">文章管理</h1>
+      <section className="ui-surface rounded-2xl p-5">
+        <h1 className="font-display text-3xl font-extrabold text-[var(--foreground)]">文章管理</h1>
+        <p className="mt-1 text-sm text-[var(--muted)]">以高信息密度查看状态并快速进入 Markdown 编辑。</p>
+      </section>
       <FilterBar placeholder="搜索标题或 slug" value={query} onChange={setQuery}>
         <Link className="ui-btn bg-[var(--brand)] px-3 py-2 text-sm text-white hover:bg-[var(--brand-strong)]" href="/write">
           新建文章

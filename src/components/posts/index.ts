@@ -9,3 +9,4 @@ export type { PaginationProps } from './Pagination';
 
 export { EditorWorkspace } from './EditorWorkspace';
 export { PublishChecklist } from './PublishChecklist';
+export { MarkdownEditor } from './MarkdownEditor';

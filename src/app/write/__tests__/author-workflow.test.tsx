@@ -15,5 +15,6 @@ describe('author workflow', () => {
 
     expect(screen.getByRole('heading', { name: '创作工作台' })).toBeInTheDocument()
     expect(screen.getByText('发布设置')).toBeInTheDocument()
+    expect(screen.getByText('实时预览')).toBeInTheDocument()
   })
 })

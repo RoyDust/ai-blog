@@ -99,7 +99,10 @@ export default function AdminTagsPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="font-display text-3xl font-extrabold text-[var(--foreground)]">标签管理</h1>
+      <section className="ui-surface rounded-2xl p-5">
+        <h1 className="font-display text-3xl font-extrabold text-[var(--foreground)]">标签管理</h1>
+        <p className="mt-1 text-sm text-[var(--muted)]">维护主题标签与颜色，提高内容聚合体验。</p>
+      </section>
       <FilterBar placeholder="搜索标签" value={query} onChange={setQuery} />
 
       <form

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { EditorWorkspace, PublishChecklist } from "@/components/posts";
 import { Button } from "@/components/ui";
 
@@ -14,11 +14,12 @@ function generateSlug(title: string) {
     .trim();
 }
 
-export default function WritePage() {
+export default function AdminPostEditPage() {
+  const params = useParams<{ id: string }>();
   const router = useRouter();
-  const [isLoading, setIsLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [formData, setFormData] = useState({
     title: "",
     slug: "",
@@ -28,64 +29,74 @@ export default function WritePage() {
     published: false,
   });
 
-  const draftKey = useMemo(() => "author:draft:new", []);
+  const canSubmit = useMemo(
+    () => formData.title.trim().length > 0 && formData.slug.trim().length > 0 && formData.content.trim().length > 0,
+    [formData]
+  );
 
   useEffect(() => {
-    const raw = localStorage.getItem(draftKey);
-    if (raw) {
+    let active = true;
+    async function load() {
       try {
-        const parsed = JSON.parse(raw) as typeof formData;
-        setFormData(parsed);
-      } catch {
-        localStorage.removeItem(draftKey);
+        const res = await fetch(`/api/admin/posts/${params.id}`);
+        const data = await res.json();
+        if (!res.ok || !data.success) throw new Error(data.error || "加载失败");
+        if (!active) return;
+        setFormData({
+          title: data.data.title ?? "",
+          slug: data.data.slug ?? "",
+          content: data.data.content ?? "",
+          excerpt: data.data.excerpt ?? "",
+          coverImage: data.data.coverImage ?? "",
+          published: Boolean(data.data.published),
+        });
+      } catch (e) {
+        if (!active) return;
+        setError(e instanceof Error ? e.message : "加载失败");
+      } finally {
+        if (active) setLoading(false);
       }
     }
-  }, [draftKey]);
-
-  useEffect(() => {
-    setSaveStatus("saving");
-    const timer = window.setTimeout(() => {
-      localStorage.setItem(draftKey, JSON.stringify(formData));
-      setSaveStatus("saved");
-    }, 450);
-    return () => window.clearTimeout(timer);
-  }, [draftKey, formData]);
+    if (params.id) {
+      void load();
+    }
+    return () => {
+      active = false;
+    };
+  }, [params.id]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
+    if (!canSubmit) return;
+    setSaving(true);
     setError("");
 
     try {
-      const response = await fetch("/api/posts", {
-        method: "POST",
+      const res = await fetch(`/api/admin/posts/${params.id}`, {
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       });
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to create post");
-      }
-      localStorage.removeItem(draftKey);
-      router.push(`/posts/${formData.slug}`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong");
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || "保存失败");
+      router.push(`/posts/${data.data.slug}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "保存失败");
     } finally {
-      setIsLoading(false);
+      setSaving(false);
     }
   };
+
+  if (loading) return <p className="py-20 text-center text-[var(--muted)]">加载中...</p>;
 
   return (
     <form className="space-y-6" onSubmit={handleSubmit}>
       <section className="ui-surface rounded-2xl p-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h1 className="font-display text-3xl font-extrabold text-[var(--foreground)]">创作工作台</h1>
-            <p className="mt-2 text-sm text-[var(--muted)]">Markdown 主编辑区 + 实时预览，侧栏负责发布与校验。</p>
+            <h1 className="font-display text-3xl font-extrabold text-[var(--foreground)]">后台编辑文章</h1>
+            <p className="mt-2 text-sm text-[var(--muted)]">以 Markdown 为主进行内容编辑和发布控制。</p>
           </div>
-          <span className="text-sm text-[var(--muted)]">
-            自动保存状态: {saveStatus === "saving" ? "保存中..." : saveStatus === "saved" ? "已保存" : "未开始"}
-          </span>
         </div>
       </section>
 
@@ -116,16 +127,16 @@ export default function WritePage() {
           <section className="ui-surface rounded-2xl p-5">
             <label className="mb-3 flex items-center gap-2 text-sm text-[var(--foreground)]">
               <input
-                checked={formData.published}
-                className="h-4 w-4 rounded border-[var(--border)]"
-                onChange={(e) => setFormData((prev) => ({ ...prev, published: e.target.checked }))}
                 type="checkbox"
+                className="h-4 w-4 rounded border-[var(--border)]"
+                checked={formData.published}
+                onChange={(e) => setFormData((prev) => ({ ...prev, published: e.target.checked }))}
               />
               直接发布
             </label>
             <div className="flex flex-col gap-2">
-              <Button disabled={isLoading} type="submit">
-                {isLoading ? "发布中..." : formData.published ? "发布文章" : "保存草稿"}
+              <Button disabled={saving || !canSubmit} type="submit">
+                {saving ? "保存中..." : "保存修改"}
               </Button>
               <Button type="button" variant="outline" onClick={() => router.back()}>
                 取消

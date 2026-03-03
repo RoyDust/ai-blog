@@ -85,7 +85,10 @@ export default function AdminCommentsPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="font-display text-3xl font-extrabold text-[var(--foreground)]">评论管理</h1>
+      <section className="ui-surface rounded-2xl p-5">
+        <h1 className="font-display text-3xl font-extrabold text-[var(--foreground)]">评论管理</h1>
+        <p className="mt-1 text-sm text-[var(--muted)]">集中审核用户互动内容，支持批量治理。</p>
+      </section>
       <FilterBar placeholder="搜索评论内容或文章标题" value={query} onChange={setQuery} />
       <DataTable
         bulkActions={[

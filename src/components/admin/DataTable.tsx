@@ -42,14 +42,14 @@ export function DataTable<T extends { id: string }>({ title, rows, columns, empt
   };
 
   return (
-    <section className="ui-surface overflow-hidden rounded-2xl">
+    <section className="ui-surface overflow-hidden rounded-2xl shadow-[0_10px_28px_-22px_rgba(15,118,110,0.55)]">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] px-4 py-3">
         <h2 className="font-display text-lg font-semibold text-[var(--foreground)]">{title}</h2>
         <span className="text-sm text-[var(--muted)]">共 {rows.length} 条</span>
       </header>
 
       {bulkActions.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 border-b border-[var(--border)] bg-[var(--surface-alt)] px-4 py-2">
+        <div className="flex flex-wrap items-center gap-2 border-b border-[var(--border)] bg-[var(--surface-alt)] px-4 py-2.5">
           <span className="text-sm font-medium text-[var(--foreground)]">批量操作</span>
           <span className="text-xs text-[var(--muted)]">已选 {selectedIds.length} 项</span>
           {bulkActions.map((action) => (

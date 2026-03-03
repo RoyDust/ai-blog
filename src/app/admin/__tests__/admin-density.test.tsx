@@ -42,5 +42,7 @@ describe('admin density', () => {
     await waitFor(() => {
       expect(screen.getByText('批量操作')).toBeInTheDocument()
     })
+
+    expect(screen.getByRole('link', { name: '编辑' })).toHaveAttribute('href', '/admin/posts/1/edit')
   })
 })
