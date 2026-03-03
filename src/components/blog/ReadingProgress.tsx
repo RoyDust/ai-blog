@@ -28,7 +28,7 @@ export function ReadingProgress() {
       role="progressbar"
     >
       <div
-        className="h-full bg-[var(--brand)] transition-[width] duration-150 ease-out"
+        className="h-full bg-[var(--primary)] transition-[width] duration-150 ease-out"
         style={{ width: `${progress}%` }}
       />
     </div>

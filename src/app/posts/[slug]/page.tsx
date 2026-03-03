@@ -116,7 +116,7 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
     <div className="space-y-8">
       <ReadingProgress />
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_260px]">
-        <article className="ui-surface overflow-hidden rounded-3xl shadow-sm">
+        <article className="card-base overflow-hidden">
           {post.coverImage && (
             <div className="relative h-64 w-full md:h-96">
               <Image alt={post.title} className="object-cover" fill priority src={post.coverImage} />
@@ -171,11 +171,11 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
         </article>
 
         <aside className="hidden space-y-4 lg:block">
-          <div className="ui-surface sticky top-24 rounded-2xl p-4">
+          <div className="card-base sticky top-24 p-4">
             <h3 className="mb-3 font-display text-lg font-semibold text-[var(--foreground)]">目录</h3>
             <ArticleToc headings={headings} />
           </div>
-          <div className="ui-surface rounded-2xl p-4">
+          <div className="card-base p-4">
             <h3 className="mb-3 font-display text-sm font-semibold text-[var(--foreground)]">互动</h3>
             <div className="flex flex-col gap-2">
               <LikeButton initialCount={post._count.likes} initialLiked={false} slug={post.slug} />
@@ -185,7 +185,7 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
         </aside>
       </div>
 
-      <section className="ui-surface rounded-3xl p-8">
+      <section className="card-base p-8">
         <h2 className="mb-6 font-display text-2xl font-bold text-[var(--foreground)]">评论 ({post._count.comments})</h2>
 
         {session ? (
@@ -235,3 +235,4 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
     </div>
   );
 }
+
