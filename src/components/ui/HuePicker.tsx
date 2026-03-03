@@ -7,15 +7,16 @@ interface HuePickerProps {
 }
 
 export function HuePicker({ isOpen }: HuePickerProps) {
-  const [hue, setHue] = useState("250");
+  const [hue, setHue] = useState(() => {
+    if (typeof window === "undefined") {
+      return "250";
+    }
+    return localStorage.getItem("theme-hue") ?? "250";
+  });
 
   useEffect(() => {
-    const saved = localStorage.getItem("theme-hue");
-    if (saved) {
-      setHue(saved);
-      document.documentElement.style.setProperty("--hue", saved);
-    }
-  }, []);
+    document.documentElement.style.setProperty("--hue", hue);
+  }, [hue]);
 
   const handleChange = (value: string) => {
     setHue(value);

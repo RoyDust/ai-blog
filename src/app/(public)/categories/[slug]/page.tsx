@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import Link from 'next/link'
 import { prisma } from '@/lib/prisma'
 import { PostCard } from '@/components/blog'
@@ -141,3 +142,5 @@ export default async function CategoryPage({ params }: { params: Promise<{ slug:
     </div>
   )
 }
+
+

@@ -50,3 +50,10 @@ pnpm build
 pnpm test
 pnpm test:e2e
 ```
+
+## Frontend Style Notes
+
+- 前台页面已迁移到 `src/app/(public)` 路由组，并由 `src/app/(public)/layout.tsx` 挂载 BlogT3 风格壳层。
+- 新的前台样式基础位于 `src/styles/theme-variables.css`、`src/styles/components.css`、`src/styles/animations.css`。
+- 主题色相通过 `localStorage` 的 `theme-hue` 持久化，并驱动全局 CSS 变量 `--hue`。
+- 如果要在开发环境运行前台动态页面或 E2E，请先确保 PostgreSQL 可访问。

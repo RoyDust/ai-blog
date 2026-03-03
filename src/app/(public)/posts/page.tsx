@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { FilterBar, PostCard } from "@/components/blog";
 import { prisma } from "@/lib/prisma";
 import { FadeIn, StaggerList } from "@/components/motion";
@@ -77,3 +78,5 @@ export default async function PostsPage({ searchParams }: PageProps) {
     </div>
   );
 }
+
+
