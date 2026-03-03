@@ -21,7 +21,7 @@ test("sidebar loads categories and tags from real api routes", async () => {
     return Promise.reject(new Error(`Unexpected URL: ${url}`));
   });
 
-  const { getByText } = render(<Sidebar />);
+  const { getByRole, getByText } = render(<Sidebar />);
 
   await waitFor(() => {
     expect(fetchMock).toHaveBeenCalledWith("/api/categories");
@@ -30,6 +30,7 @@ test("sidebar loads categories and tags from real api routes", async () => {
 
   expect(getByText("前端")).toBeInTheDocument();
   expect(getByText("nextjs")).toBeInTheDocument();
+  expect(getByRole("link", { name: /文章归档/ })).toHaveAttribute("href", "/archives");
 
   fetchMock.mockRestore();
 });

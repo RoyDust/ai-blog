@@ -129,7 +129,7 @@ export function Sidebar() {
           </div>
         </div>
 
-        <Link href="/posts" className="card-base flex items-center justify-between p-4 transition hover:bg-[var(--btn-card-bg-hover)]">
+        <Link href="/archives" className="card-base flex items-center justify-between p-4 transition hover:bg-[var(--btn-card-bg-hover)]">
           <span className="text-75 font-medium">文章归档</span>
           <span className="text-50 text-sm">查看全部 →</span>
         </Link>
