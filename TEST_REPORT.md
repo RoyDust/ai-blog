@@ -197,3 +197,18 @@ pnpm test:e2e
 ---
 
 生成时间: 2026-03-02
+
+## 八、本次前台 BlogT3 迁移验证
+
+### 已验证
+- `pnpm test`: 15 个测试文件，16 个测试全部通过。
+- `pnpm lint`: 通过，存在 14 条历史 warning，无 error。
+- `pnpm build`: 通过。
+- `pnpm exec prisma generate`: 已执行，Prisma Client 已重新生成。
+
+### 未完成项
+- `pnpm test:e2e`: 未完成。Playwright 启动的开发服务器在读取首页数据时因数据库连接失败 (`ECONNREFUSED`) 超时。
+
+### 备注
+- 当前前台页面已切入 `BlogT3` 风格壳层与路由组隔离方案。
+- E2E 复跑前需要确认本地 PostgreSQL 和应用所需环境变量可用。

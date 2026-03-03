@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { getServerSession } from 'next-auth'
@@ -24,7 +25,7 @@ async function getBookmarks(userId: string) {
     },
     orderBy: { createdAt: 'desc' }
   })
-  return bookmarks.map(b => b.post)
+  return bookmarks.map((b: (typeof bookmarks)[number]) => b.post)
 }
 
 export default async function BookmarksPage() {
@@ -58,7 +59,7 @@ export default async function BookmarksPage() {
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-8">我的收藏</h1>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {posts.map((post) => (
+          {posts.map((post: (typeof posts)[number]) => (
             <PostCard key={post.id} post={post} />
           ))}
         </div>
@@ -75,3 +76,5 @@ export default async function BookmarksPage() {
     </div>
   )
 }
+
+

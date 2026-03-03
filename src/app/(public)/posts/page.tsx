@@ -1,6 +1,7 @@
+export const dynamic = "force-dynamic";
+
 import { FilterBar, PostCard } from "@/components/blog";
 import { prisma } from "@/lib/prisma";
-import { FadeIn, StaggerList } from "@/components/motion";
 
 interface PageProps {
   searchParams: Promise<{
@@ -40,40 +41,30 @@ export default async function PostsPage({ searchParams }: PageProps) {
       orderBy: { createdAt: "desc" },
       take: 24,
     }),
-    prisma.category.findMany({
-      select: { name: true, slug: true },
-      orderBy: { name: "asc" },
-      take: 20,
-    }),
-    prisma.tag.findMany({
-      select: { name: true, slug: true },
-      orderBy: { name: "asc" },
-      take: 30,
-    }),
+    prisma.category.findMany({ select: { name: true, slug: true }, orderBy: { name: "asc" }, take: 20 }),
+    prisma.tag.findMany({ select: { name: true, slug: true }, orderBy: { name: "asc" }, take: 30 }),
   ]);
 
   return (
-    <div className="space-y-6">
-      <FadeIn>
-      <section className="space-y-2">
-        <h1 className="font-display text-3xl font-extrabold text-[var(--foreground)]">内容探索</h1>
-        <p className="text-sm text-[var(--muted)]">按关键词、分类与标签组合筛选，快速定位内容。</p>
-      </section>
-      </FadeIn>
+    <div className="space-y-4">
+      <div className="card-base onload-animation p-6 md:p-8">
+        <h1 className="text-90 text-3xl font-bold md:text-4xl">博客文章</h1>
+        <p className="text-75 mt-2">共 {posts.length} 篇文章</p>
+      </div>
 
-      <FadeIn delay={0.06}>
-        <FilterBar search={search} category={category} tag={tag} categories={categories} tags={tags} />
-      </FadeIn>
+      <FilterBar category={category} categories={categories} search={search} tag={tag} tags={tags} />
 
-      {posts.length > 0 ? (
-        <StaggerList className="grid grid-cols-1 gap-6 md:grid-cols-2">
-          {posts.map((post) => (
-            <PostCard key={post.id} post={post} />
-          ))}
-        </StaggerList>
-      ) : (
-        <div className="ui-surface rounded-2xl p-8 text-sm text-[var(--muted)]">未找到匹配内容，请尝试调整筛选条件。</div>
-      )}
+      <div className="space-y-4">
+        {posts.length > 0 ? (
+          posts.map((post, index) => (
+            <div key={post.id} className="onload-animation" style={{ animationDelay: `${100 + index * 50}ms` }}>
+              <PostCard post={post} />
+            </div>
+          ))
+        ) : (
+          <div className="card-base p-8 text-sm text-[var(--muted)]">未找到匹配内容，请尝试调整筛选条件。</div>
+        )}
+      </div>
     </div>
   );
 }

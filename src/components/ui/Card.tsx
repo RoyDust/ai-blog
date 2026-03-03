@@ -12,7 +12,7 @@ export function Card({ children, className = '', hover = false, onClick }: CardP
   return (
     <div
       className={cn(
-        "ui-surface rounded-2xl shadow-sm",
+        "card-base ui-surface rounded-2xl shadow-sm",
         hover && "cursor-pointer transition-shadow hover:shadow-lg",
         className
       )}

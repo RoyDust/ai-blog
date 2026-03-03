@@ -34,7 +34,7 @@ vi.mock('@/lib/auth', () => ({
 
 describe('article experience', () => {
   test('article page includes progress and interaction rail', async () => {
-    const { default: PostPage } = await import('../page')
+    const { default: PostPage } = await import('@/app/(public)/posts/[slug]/page')
     const ui = await PostPage({ params: Promise.resolve({ slug: 'test-post' }) })
     render(ui as React.ReactElement)
 

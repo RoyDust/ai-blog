@@ -1,90 +1,40 @@
 import Link from "next/link";
+import { Heart } from "lucide-react";
 
-export interface FooterProps {
-  copyright?: string;
-}
-
-export function Footer({ copyright = "My Blog" }: FooterProps) {
+export function Footer() {
   const currentYear = new Date().getFullYear();
 
   return (
-    <footer className="mt-12 border-t border-[var(--border)] bg-[var(--surface)]/90">
-      <div className="mx-auto w-full max-w-7xl px-4 py-10 lg:px-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div>
-            <h3 className="mb-3 font-display text-lg font-semibold text-[var(--foreground)]">
-              {copyright}
-            </h3>
-            <p className="text-sm text-[var(--muted)]">
-              面向读者、作者与管理员的现代内容平台。
+    <footer id="footer" className="onload-animation mt-auto">
+      <div className="mx-auto max-w-[var(--page-width)] py-8">
+        <div className="card-base p-6">
+          <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
+            <div className="text-75 flex items-center gap-2 text-sm">
+              <span>© {currentYear} My Blog</span>
+              <span className="text-50">·</span>
+              <span className="flex items-center gap-1">
+                Made with <Heart className="h-4 w-4 fill-current text-red-500" /> by My Blog
+              </span>
+            </div>
+
+            <div className="text-75 flex items-center gap-4 text-sm">
+              <Link className="transition hover:text-[var(--primary)]" href="/posts">文章</Link>
+              <span className="text-50">·</span>
+              <Link className="transition hover:text-[var(--primary)]" href="/categories">分类</Link>
+              <span className="text-50">·</span>
+              <a className="transition hover:text-[var(--primary)]" href="https://github.com" rel="noopener noreferrer" target="_blank">GitHub</a>
+            </div>
+          </div>
+
+          <div className="mt-4 border-t border-dashed border-[var(--line-color)] pt-4 text-center">
+            <p className="text-50 text-xs">
+              Powered by <a className="text-[var(--primary)] hover:underline" href="https://nextjs.org" rel="noopener noreferrer" target="_blank">Next.js</a>
+              {" · "}
+              <a className="text-[var(--primary)] hover:underline" href="https://www.prisma.io" rel="noopener noreferrer" target="_blank">Prisma</a>
+              {" · "}
+              <a className="text-[var(--primary)] hover:underline" href="https://tailwindcss.com" rel="noopener noreferrer" target="_blank">Tailwind CSS</a>
             </p>
           </div>
-
-          <div>
-            <h4 className="mb-4 text-sm font-semibold text-[var(--foreground)]">
-              快速入口
-            </h4>
-            <ul className="space-y-2">
-              <li>
-                <Link
-                  href="/"
-                  className="text-sm text-[var(--muted)] transition-colors hover:text-[var(--brand)]"
-                >
-                  探索
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/posts"
-                  className="text-sm text-[var(--muted)] transition-colors hover:text-[var(--brand)]"
-                >
-                  文章
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/write"
-                  className="text-sm text-[var(--muted)] transition-colors hover:text-[var(--brand)]"
-                >
-                  创作
-                </Link>
-              </li>
-            </ul>
-          </div>
-
-          <div>
-            <h4 className="mb-4 text-sm font-semibold text-[var(--foreground)]">
-              社区
-            </h4>
-            <ul className="space-y-2">
-              <li>
-                <a
-                  href="https://github.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm text-[var(--muted)] transition-colors hover:text-[var(--brand)]"
-                >
-                  GitHub
-                </a>
-              </li>
-              <li>
-                <a
-                  href="https://twitter.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm text-[var(--muted)] transition-colors hover:text-[var(--brand)]"
-                >
-                  Twitter
-                </a>
-              </li>
-            </ul>
-          </div>
-        </div>
-
-        <div className="mt-8 border-t border-[var(--border)] pt-6 text-center">
-          <p className="text-sm text-[var(--muted)]">
-            &copy; {currentYear} {copyright}. All rights reserved.
-          </p>
         </div>
       </div>
     </footer>
