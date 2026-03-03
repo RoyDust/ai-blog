@@ -3,7 +3,6 @@ import { Geist_Mono, JetBrains_Mono, Manrope, Noto_Sans_SC } from "next/font/goo
 import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { AuthProvider } from "@/components/AuthProvider";
-import { AppShell } from "@/components/layout/AppShell";
 import { MotionProvider } from "@/components/motion";
 
 const notoSansSc = Noto_Sans_SC({
@@ -47,7 +46,7 @@ export default function RootLayout({
         <AuthProvider>
           <ThemeProvider>
             <MotionProvider>
-              <AppShell>{children}</AppShell>
+              {children}
             </MotionProvider>
           </ThemeProvider>
         </AuthProvider>
