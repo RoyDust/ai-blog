@@ -3,7 +3,9 @@ import { expect, test } from "vitest";
 import { Navbar } from "@/components/layout/Navbar";
 
 test("navbar renders search and hue actions", () => {
-  const { getByLabelText } = render(<Navbar />);
+  const { getByLabelText, queryByRole } = render(<Navbar />);
   expect(getByLabelText("搜索")).toBeInTheDocument();
   expect(getByLabelText("主题色设置")).toBeInTheDocument();
+  expect(queryByRole("link", { name: "分类" })).not.toBeInTheDocument();
+  expect(queryByRole("link", { name: "标签" })).not.toBeInTheDocument();
 });

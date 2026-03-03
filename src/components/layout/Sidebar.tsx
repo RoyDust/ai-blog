@@ -1,10 +1,13 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { Folder, Github, Mail, Tag, Twitter } from "lucide-react";
 
 const profile = {
   name: "My Blog",
-  avatar: "https://github.com/shadcn.png",
+  avatar: "https://avatars.githubusercontent.com/u/139895814?v=4",
   bio: "全栈开发者，热爱开源和技术分享。专注于 React 生态和现代 Web 开发。",
   links: [
     { name: "GitHub", url: "https://github.com", icon: Github },
@@ -13,20 +16,49 @@ const profile = {
   ],
 };
 
-const defaultCategories = [
-  { id: "c1", name: "前端", slug: "frontend", count: 12 },
-  { id: "c2", name: "后端", slug: "backend", count: 8 },
-  { id: "c3", name: "工程化", slug: "tooling", count: 5 },
-];
+type CategoryItem = {
+  id: string;
+  name: string;
+  slug: string;
+  _count?: { posts?: number };
+};
 
-const defaultTags = [
-  { id: "t1", name: "Next.js", slug: "nextjs" },
-  { id: "t2", name: "Prisma", slug: "prisma" },
-  { id: "t3", name: "TypeScript", slug: "typescript" },
-  { id: "t4", name: "UI", slug: "ui" },
-];
+type TagItem = {
+  id: string;
+  name: string;
+  slug: string;
+};
 
 export function Sidebar() {
+  const [categories, setCategories] = useState<CategoryItem[]>([]);
+  const [tags, setTags] = useState<TagItem[]>([]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadTaxonomy = async () => {
+      try {
+        const [categoriesRes, tagsRes] = await Promise.all([fetch("/api/categories"), fetch("/api/tags")]);
+        const [categoriesJson, tagsJson] = await Promise.all([categoriesRes.json(), tagsRes.json()]);
+
+        if (!isMounted) return;
+
+        setCategories(Array.isArray(categoriesJson?.data) ? categoriesJson.data : []);
+        setTags(Array.isArray(tagsJson?.data) ? tagsJson.data : []);
+      } catch {
+        if (!isMounted) return;
+        setCategories([]);
+        setTags([]);
+      }
+    };
+
+    void loadTaxonomy();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   return (
     <aside id="sidebar" className="onload-animation w-[17.5rem] shrink-0">
       <div className="sticky top-[5.5rem] space-y-4">
@@ -63,17 +95,17 @@ export function Sidebar() {
             <h3 className="text-90 font-bold">分类</h3>
           </div>
           <div className="space-y-2">
-            {defaultCategories.map((category) => (
+            {categories.map((category) => (
               <Link
                 key={category.id}
                 className="flex items-center justify-between rounded-lg px-3 py-2 transition hover:bg-[var(--btn-plain-bg-hover)]"
-                href={`/categories/${category.slug}`}
+                href={`/posts?category=${encodeURIComponent(category.slug)}`}
               >
                 <div className="flex items-center gap-2">
                   <div className="h-2 w-2 rounded-full bg-[var(--primary)]" />
                   <span className="text-75 text-sm">{category.name}</span>
                 </div>
-                <span className="text-50 text-xs">{category.count}</span>
+                <span className="text-50 text-xs">{category._count?.posts ?? 0}</span>
               </Link>
             ))}
           </div>
@@ -85,11 +117,11 @@ export function Sidebar() {
             <h3 className="text-90 font-bold">标签</h3>
           </div>
           <div className="flex flex-wrap gap-2">
-            {defaultTags.map((tag) => (
+            {tags.map((tag) => (
               <Link
                 key={tag.id}
                 className="rounded-full bg-[var(--btn-regular-bg)] px-3 py-1 text-xs text-[var(--btn-content)] transition hover:bg-[var(--btn-regular-bg-hover)]"
-                href={`/tags/${tag.slug}`}
+                href={`/posts?tag=${encodeURIComponent(tag.slug)}`}
               >
                 {tag.name}
               </Link>

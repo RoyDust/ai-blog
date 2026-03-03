@@ -10,8 +10,6 @@ import { useScrollHide } from "@/hooks/useScrollHide";
 const navLinks = [
   { name: "首页", href: "/" },
   { name: "博客", href: "/posts" },
-  { name: "分类", href: "/categories" },
-  { name: "标签", href: "/tags" },
 ];
 
 export function Navbar() {
