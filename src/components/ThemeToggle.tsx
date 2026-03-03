@@ -8,7 +8,7 @@ export function ThemeToggle() {
   return (
     <button
       onClick={toggleTheme}
-      className="btn-plain h-11 w-11 rounded-lg"
+      className="btn-plain scale-animation h-11 w-11 rounded-lg"
       aria-label="Toggle theme"
     >
       {theme === 'light' ? (

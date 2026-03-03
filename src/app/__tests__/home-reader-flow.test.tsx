@@ -35,7 +35,7 @@ describe('home reader flow', () => {
     const ui = await Home()
     render(ui as React.ReactElement)
 
-    expect(screen.getByRole('heading', { name: '精选文章' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: '最新发布' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '最新文章' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '分类浏览' })).toBeInTheDocument()
   })
 })

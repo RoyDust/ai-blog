@@ -1,128 +1,126 @@
 export const dynamic = "force-dynamic";
+
 import Link from "next/link";
+import { Archive, ArrowRight, Code2, Database, FileText, Palette, User, Zap } from "lucide-react";
+import { PostCard } from "@/components/blog";
 import { prisma } from "@/lib/prisma";
-import { PostCard, PostCardFeatured } from "@/components/blog";
-import { FadeIn, StaggerList } from "@/components/motion";
 
 async function getData() {
-  const [posts, categories, tags] = await Promise.all([
+  const [posts, categories] = await Promise.all([
     prisma.post.findMany({
       where: { published: true },
       include: {
-        author: {
-          select: { id: true, name: true, image: true },
-        },
+        author: { select: { id: true, name: true, image: true } },
         category: true,
         tags: true,
-        _count: {
-          select: { comments: true, likes: true },
-        },
+        _count: { select: { comments: true, likes: true } },
       },
       orderBy: { createdAt: "desc" },
-      take: 12,
+      take: 3,
     }),
     prisma.category.findMany({
-      include: {
-        _count: { select: { posts: true } },
-      },
+      include: { _count: { select: { posts: true } } },
       orderBy: { posts: { _count: "desc" } },
-      take: 6,
-    }),
-    prisma.tag.findMany({
-      include: {
-        _count: { select: { posts: true } },
-      },
-      orderBy: { posts: { _count: "desc" } },
-      take: 8,
+      take: 12,
     }),
   ]);
 
-  return { posts, categories, tags };
+  return { posts, categories };
 }
 
 export default async function Home() {
-  const { posts, categories, tags } = await getData();
-  const [featured, ...latest] = posts;
+  const { posts, categories } = await getData();
 
   return (
-    <div className="space-y-10">
-      <FadeIn>
-      <section className="card-base p-8">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--brand)]">Productized Publishing</p>
-        <h1 className="mt-3 font-display text-4xl font-extrabold leading-tight text-[var(--foreground)] md:text-5xl">
-          一个同时服务读者、作者与管理员的内容平台
-        </h1>
-        <p className="mt-4 max-w-3xl text-[var(--muted)]">
-          发现优质内容、快速创作发布、稳定治理社区，三条主路径在同一套体验系统下协同工作。
-        </p>
+    <div className="space-y-8">
+      <section className="card-base onload-animation relative overflow-hidden p-8 text-center md:p-12">
+        <div className="pointer-events-none absolute inset-0 bg-linear-to-br from-(--primary)/5 via-transparent to-(--primary)/3" />
+        <div className="pointer-events-none absolute -top-24 -right-24 h-48 w-48 rounded-full bg-(--primary)/5 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-16 -left-16 h-36 w-36 rounded-full bg-(--primary)/5 blur-3xl" />
+        <div className="relative">
+          <h1 className="text-90 mb-4 text-4xl font-bold md:text-5xl">欢迎来到 My Blog</h1>
+          <p className="text-75 mx-auto max-w-2xl text-lg leading-relaxed md:text-xl">
+            基于 Next.js 和 Prisma 构建的现代化博客平台
+            <br />
+            采用 BlogT3 风格设计系统
+          </p>
+        </div>
       </section>
-      </FadeIn>
 
-      <FadeIn delay={0.06}>
-      <section className="space-y-4">
+      <section className="onload-animation space-y-4" style={{ animationDelay: "50ms" }}>
         <div className="flex items-center justify-between">
-          <h2 className="font-display text-2xl font-bold text-[var(--foreground)]">精选文章</h2>
-          <Link href="/posts" className="text-sm font-semibold text-[var(--brand)] hover:underline">
+          <h2 className="text-90 text-2xl font-bold">最新文章</h2>
+          <Link href="/posts" className="btn-plain scale-animation flex h-9 items-center gap-1 rounded-lg px-4 text-sm">
             查看全部
+            <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
-        {featured ? (
-          <PostCardFeatured post={featured} />
-        ) : (
-          <div className="card-base p-8 text-sm text-[var(--muted)]">暂无精选内容</div>
-        )}
-      </section>
-      </FadeIn>
-
-      <FadeIn delay={0.12}>
-      <section className="space-y-4">
-        <h2 className="font-display text-2xl font-bold text-[var(--foreground)]">最新发布</h2>
-        {latest.length > 0 ? (
-          <StaggerList className="stagger-children grid grid-cols-1 gap-6 md:grid-cols-2">
-            {latest.map((post) => (
-              <PostCard key={post.id} post={post} />
-            ))}
-          </StaggerList>
-        ) : (
-          <div className="card-base p-8 text-sm text-[var(--muted)]">暂无更新</div>
-        )}
-      </section>
-      </FadeIn>
-
-      <FadeIn delay={0.18}>
-      <section className="grid grid-cols-1 gap-6 md:grid-cols-2">
-        <div className="card-base p-6">
-          <h3 className="mb-3 font-display text-xl font-semibold">热门分类</h3>
-          <div className="flex flex-wrap gap-2">
-            {categories.map((item) => (
-              <Link
-                key={item.id}
-                href={`/categories/${item.slug}`}
-                className="rounded-full bg-[var(--surface-alt)] px-3 py-1 text-sm text-[var(--foreground)] transition-colors hover:text-[var(--brand)]"
-              >
-                {item.name} ({item._count.posts})
-              </Link>
-            ))}
-          </div>
-        </div>
-        <div className="card-base p-6">
-          <h3 className="mb-3 font-display text-xl font-semibold">热门标签</h3>
-          <div className="flex flex-wrap gap-2">
-            {tags.map((item) => (
-              <Link
-                key={item.id}
-                href={`/tags/${item.slug}`}
-                className="rounded-full bg-[var(--surface-alt)] px-3 py-1 text-sm text-[var(--foreground)] transition-colors hover:text-[var(--brand)]"
-              >
-                #{item.name}
-              </Link>
-            ))}
-          </div>
+        <div className="space-y-4">
+          {posts.map((post, index) => (
+            <div key={post.id} className="onload-animation" style={{ animationDelay: `${100 + index * 50}ms` }}>
+              <PostCard post={post} />
+            </div>
+          ))}
         </div>
       </section>
-      </FadeIn>
+
+      <section className="card-base onload-animation p-6 md:p-8" style={{ animationDelay: "250ms" }}>
+        <h2 className="text-90 mb-6 text-2xl font-bold">分类浏览</h2>
+        <div className="flex flex-wrap gap-3">
+          {categories.map((category) => (
+            <Link
+              key={category.id}
+              href={`/categories/${category.slug}`}
+              className="rounded-full bg-[var(--btn-regular-bg)] px-4 py-2 text-sm font-medium text-[var(--primary)] transition-all hover:scale-105 hover:bg-[var(--btn-regular-bg-hover)]"
+            >
+              {category.name} ({category._count.posts})
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      <section className="onload-animation grid gap-4 md:grid-cols-3" style={{ animationDelay: "300ms" }}>
+        <Link href="/posts" className="card-base group cursor-pointer p-6 transition hover:bg-[var(--btn-card-bg-hover)]">
+          <h3 className="text-90 mb-2 flex items-center gap-2 text-xl font-bold transition group-hover:text-[var(--primary)]">
+            <FileText className="h-5 w-5 text-[var(--primary)]" />博客文章
+          </h3>
+          <p className="text-75 text-sm">查看所有技术文章和教程</p>
+        </Link>
+        <Link href="/categories" className="card-base group cursor-pointer p-6 transition hover:bg-[var(--btn-card-bg-hover)]">
+          <h3 className="text-90 mb-2 flex items-center gap-2 text-xl font-bold transition group-hover:text-[var(--primary)]">
+            <Archive className="h-5 w-5 text-[var(--primary)]" />分类归档
+          </h3>
+          <p className="text-75 text-sm">按分类浏览所有内容</p>
+        </Link>
+        <Link href="/tags" className="card-base group cursor-pointer p-6 transition hover:bg-[var(--btn-card-bg-hover)]">
+          <h3 className="text-90 mb-2 flex items-center gap-2 text-xl font-bold transition group-hover:text-[var(--primary)]">
+            <User className="h-5 w-5 text-[var(--primary)]" />标签探索
+          </h3>
+          <p className="text-75 text-sm">通过标签发现相关主题</p>
+        </Link>
+      </section>
+
+      <section className="card-base onload-animation p-6 md:p-8" style={{ animationDelay: "350ms" }}>
+        <h2 className="text-90 mb-6 text-2xl font-bold">主要特性</h2>
+        <div className="grid gap-6 md:grid-cols-2">
+          <div className="space-y-2">
+            <h3 className="text-90 flex items-center gap-2 font-bold"><Palette className="h-5 w-5 text-primary" />动态主题系统</h3>
+            <p className="text-75 text-sm">OKLCH 色彩空间，支持色相调整与明暗切换</p>
+          </div>
+          <div className="space-y-2">
+            <h3 className="text-90 flex items-center gap-2 font-bold"><Zap className="h-5 w-5 text-primary" />Next.js</h3>
+            <p className="text-75 text-sm">现代化 App Router 与组件化渲染体验</p>
+          </div>
+          <div className="space-y-2">
+            <h3 className="text-90 flex items-center gap-2 font-bold"><Database className="h-5 w-5 text-primary" />Prisma</h3>
+            <p className="text-75 text-sm">类型安全 ORM，稳定的数据建模与访问</p>
+          </div>
+          <div className="space-y-2">
+            <h3 className="text-90 flex items-center gap-2 font-bold"><Code2 className="h-5 w-5 text-primary" />TypeScript</h3>
+            <p className="text-75 text-sm">完整类型系统，提升开发效率和质量</p>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
-
-
