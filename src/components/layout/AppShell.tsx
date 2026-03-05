@@ -18,10 +18,10 @@ export function AppShell({ children }: AppShellProps) {
           </aside>
           <main id="main-content" className="onload-animation min-w-0 flex-1">
             {children}
+            <Footer />
           </main>
         </div>
       </div>
-      <Footer />
     </div>
   );
 }
