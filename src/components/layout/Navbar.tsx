@@ -28,7 +28,7 @@ export function Navbar() {
       <div className="absolute -top-8 right-0 left-0 h-8 bg-[var(--card-bg)] transition" />
 
       <div className="card-base mx-auto flex h-[4.5rem] max-w-[var(--page-width)] items-center justify-between !overflow-visible !rounded-t-none px-4 backdrop-blur-lg !bg-[var(--card-bg)]/80">
-        <Link href="/" className="btn-plain scale-animation h-[3.25rem] rounded-lg px-5 font-bold">
+        <Link href="/" className="btn-plain h-[3.25rem] rounded-lg px-5 font-bold transition-colors">
           <div className="text-md flex items-center text-[var(--primary)]">
             <Home className="mr-2 -mb-1 h-7 w-7" />
             My Blog
@@ -37,7 +37,7 @@ export function Navbar() {
 
         <nav className="hidden md:flex" aria-label="Primary">
           {navLinks.map((link) => (
-            <Link key={link.href} href={link.href} className="btn-plain scale-animation h-11 rounded-lg px-5 font-bold">
+            <Link key={link.href} href={link.href} className="btn-plain h-11 rounded-lg px-5 font-bold transition-colors">
               {link.name}
             </Link>
           ))}
@@ -48,14 +48,14 @@ export function Navbar() {
             href="/search"
             aria-label="搜索"
             title="搜索"
-            className="btn-plain scale-animation flex h-11 w-11 items-center justify-center rounded-lg"
+            className="btn-plain flex h-11 w-11 items-center justify-center rounded-lg transition-colors"
           >
             <Search className="h-5 w-5" />
           </Link>
 
           <button
             aria-label="主题色设置"
-            className="btn-plain scale-animation h-11 w-11 rounded-lg"
+            className="btn-plain h-11 w-11 rounded-lg transition-colors"
             onClick={() => setShowHuePicker(!showHuePicker)}
             type="button"
           >
@@ -66,7 +66,7 @@ export function Navbar() {
 
           <button
             aria-label="菜单"
-            className="btn-plain scale-animation h-11 w-11 rounded-lg md:hidden"
+            className="btn-plain h-11 w-11 rounded-lg transition-colors md:hidden"
             onClick={() => setShowMobileMenu(!showMobileMenu)}
             type="button"
           >
@@ -83,7 +83,7 @@ export function Navbar() {
             <Link
               key={link.href}
               href={link.href}
-              className="btn-plain scale-animation flex h-11 w-full items-center justify-start rounded-lg px-4 font-bold"
+              className="btn-plain flex h-11 w-full items-center justify-start rounded-lg px-4 font-bold transition-colors"
               onClick={() => setShowMobileMenu(false)}
             >
               {link.name}

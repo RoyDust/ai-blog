@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Folder, Github, Mail, Tag, Twitter } from "lucide-react";
+import { BookOpenText, Folder, Github, Mail, MessageSquare, Tag, Twitter } from "lucide-react";
 
 const profile = {
   name: "My Blog",
@@ -86,6 +86,25 @@ export function Sidebar() {
                 );
               })}
             </div>
+          </div>
+        </div>
+
+        <div className="card-base p-5">
+          <div className="mb-3 flex items-center gap-2">
+            <BookOpenText className="h-5 w-5 text-[var(--primary)]" />
+            <h3 className="text-90 font-bold">快速导航</h3>
+          </div>
+          <div className="space-y-2">
+            <Link className="text-75 block rounded-lg px-3 py-2 text-sm transition hover:bg-[var(--btn-plain-bg-hover)]" href="/posts">
+              浏览全部文章
+            </Link>
+            <Link className="text-75 block rounded-lg px-3 py-2 text-sm transition hover:bg-[var(--btn-plain-bg-hover)]" href="/search">
+              搜索关键词
+            </Link>
+            <Link className="text-75 flex items-center justify-between rounded-lg px-3 py-2 text-sm transition hover:bg-[var(--btn-plain-bg-hover)]" href="/bookmarks">
+              我的收藏
+              <MessageSquare className="h-4 w-4 text-[var(--primary)]" />
+            </Link>
           </div>
         </div>
 

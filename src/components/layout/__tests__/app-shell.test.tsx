@@ -11,5 +11,6 @@ describe('app shell', () => {
     )
 
     expect(screen.getByRole('navigation')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '跳到主要内容' })).toHaveAttribute('href', '#main-content')
   })
 })

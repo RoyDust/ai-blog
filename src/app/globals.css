@@ -3,6 +3,7 @@
 @plugin "@tailwindcss/typography";
 @import "../styles/components.css";
 @import "../styles/animations.css";
+@import "../styles/code-highlight.css";
 
 :root {
   --background: #f4f8fa;

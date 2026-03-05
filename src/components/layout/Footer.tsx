@@ -22,6 +22,10 @@ export function Footer() {
               <span className="text-50">·</span>
               <Link className="transition hover:text-[var(--primary)]" href="/categories">分类</Link>
               <span className="text-50">·</span>
+              <Link className="transition hover:text-[var(--primary)]" href="/archives">归档</Link>
+              <span className="text-50">·</span>
+              <a className="transition hover:text-[var(--primary)]" href="/rss.xml">RSS 订阅</a>
+              <span className="text-50">·</span>
               <a className="transition hover:text-[var(--primary)]" href="https://github.com" rel="noopener noreferrer" target="_blank">GitHub</a>
             </div>
           </div>

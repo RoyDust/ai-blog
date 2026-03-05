@@ -1,0 +1,37 @@
+.prose pre code.hljs {
+  display: block;
+  overflow-x: auto;
+  border-radius: 0.75rem;
+  background: #0f172a;
+  color: #e2e8f0;
+  padding: 0.9rem 1rem;
+}
+
+.prose .hljs-comment,
+.prose .hljs-quote {
+  color: #94a3b8;
+  font-style: italic;
+}
+
+.prose .hljs-keyword,
+.prose .hljs-selector-tag,
+.prose .hljs-subst {
+  color: #93c5fd;
+}
+
+.prose .hljs-string,
+.prose .hljs-attr,
+.prose .hljs-template-tag {
+  color: #86efac;
+}
+
+.prose .hljs-number,
+.prose .hljs-literal {
+  color: #fca5a5;
+}
+
+.prose .hljs-title,
+.prose .hljs-function,
+.prose .hljs-built_in {
+  color: #fcd34d;
+}

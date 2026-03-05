@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import type { ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import rehypeHighlight from "rehype-highlight";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -132,40 +133,43 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
               <p className="font-medium text-[var(--foreground)]">{post.author.name}</p>
             </div>
 
-            <article className="prose prose-zinc dark:prose-invert prose-headings:font-display prose-a:text-[var(--brand)] prose-a:no-underline hover:prose-a:underline prose-img:rounded-xl prose-pre:rounded-xl prose-pre:border prose-pre:border-[var(--border)] prose-pre:bg-[#0b1220] prose-pre:text-slate-100 prose-code:font-[var(--font-code)] prose-code:before:content-none prose-code:after:content-none prose-table:w-full prose-th:bg-[var(--surface-alt)] max-w-none">
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                components={{
-                  h1: ({ children, ...props }) => (
-                    <h1 id={slugify(nodeText(children))} {...props}>
-                      {children}
-                    </h1>
-                  ),
-                  h2: ({ children, ...props }) => (
-                    <h2 id={slugify(nodeText(children))} {...props}>
-                      {children}
-                    </h2>
-                  ),
-                  h3: ({ children, ...props }) => (
-                    <h3 id={slugify(nodeText(children))} {...props}>
-                      {children}
-                    </h3>
-                  ),
-                  h4: ({ children, ...props }) => (
-                    <h4 id={slugify(nodeText(children))} {...props}>
-                      {children}
-                    </h4>
-                  ),
-                  h5: ({ children, ...props }) => (
-                    <h5 id={slugify(nodeText(children))} {...props}>
-                      {children}
-                    </h5>
-                  ),
-                }}
-              >
-                {post.content}
-              </ReactMarkdown>
-            </article>
+            <div className="max-w-[76ch]">
+              <article className="prose prose-zinc dark:prose-invert prose-headings:font-display prose-headings:scroll-mt-28 prose-headings:mt-10 prose-headings:mb-4 prose-p:my-5 prose-p:leading-8 prose-a:text-[var(--brand)] prose-a:no-underline hover:prose-a:underline prose-img:rounded-xl prose-pre:rounded-xl prose-pre:border prose-pre:border-[var(--border)] prose-pre:bg-[#0b1220] prose-pre:text-slate-100 prose-code:font-[var(--font-code)] prose-code:before:content-none prose-code:after:content-none prose-table:w-full prose-th:bg-[var(--surface-alt)] max-w-none">
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  rehypePlugins={[rehypeHighlight]}
+                  components={{
+                    h1: ({ children, ...props }) => (
+                      <h1 id={slugify(nodeText(children))} {...props}>
+                        {children}
+                      </h1>
+                    ),
+                    h2: ({ children, ...props }) => (
+                      <h2 id={slugify(nodeText(children))} {...props}>
+                        {children}
+                      </h2>
+                    ),
+                    h3: ({ children, ...props }) => (
+                      <h3 id={slugify(nodeText(children))} {...props}>
+                        {children}
+                      </h3>
+                    ),
+                    h4: ({ children, ...props }) => (
+                      <h4 id={slugify(nodeText(children))} {...props}>
+                        {children}
+                      </h4>
+                    ),
+                    h5: ({ children, ...props }) => (
+                      <h5 id={slugify(nodeText(children))} {...props}>
+                        {children}
+                      </h5>
+                    ),
+                  }}
+                >
+                  {post.content}
+                </ReactMarkdown>
+              </article>
+            </div>
 
             {post.tags.length > 0 && (
               <div className="flex flex-wrap gap-2 border-t border-[var(--border)] pt-8">
@@ -185,16 +189,28 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
       </div>
 
       <section className="card-base mx-auto w-full max-w-[980px] p-5 xl:min-w-[880px]">
-        <h2 className="mb-4 font-display text-xl font-bold text-[var(--foreground)]">文章互动</h2>
+        <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="font-display text-xl font-bold text-[var(--foreground)]">文章互动</h2>
+            <p className="mt-1 text-sm text-[var(--muted)]">读到这里，来说说你的看法</p>
+          </div>
+        </div>
         <div className="flex flex-wrap items-center gap-3">
           <LikeButton initialCount={post._count.likes} initialLiked={false} slug={post.slug} />
           <BookmarkButton initialBookmarked={false} slug={post.slug} />
           <ShareButton slug={post.slug} title={post.title} />
+          <Link
+            className="ui-btn rounded-xl bg-[var(--brand)] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[var(--brand-strong)]"
+            href="#comments"
+          >
+            参与讨论
+          </Link>
         </div>
       </section>
 
-      <section className="card-base mx-auto w-full max-w-[980px] p-8 xl:min-w-[880px]">
+      <section className="card-base mx-auto w-full max-w-[980px] p-8 xl:min-w-[880px]" id="comments">
         <h2 className="mb-6 font-display text-2xl font-bold text-[var(--foreground)]">评论 ({post._count.comments})</h2>
+        <p className="mb-6 text-sm text-[var(--muted)]">欢迎分享你的观点或补充实践经验，优质讨论能帮助更多读者。</p>
 
         {session ? (
           <CommentForm postId={post.id} />
