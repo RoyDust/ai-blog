@@ -37,4 +37,29 @@ describe('admin editor', () => {
     expect(screen.getByText('实时预览')).toBeInTheDocument()
     expect(screen.getByText('发布面板')).toBeInTheDocument()
   })
+
+  test('shows cover upload trigger', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: {
+            id: '1',
+            title: 'Post 1',
+            slug: 'post-1',
+            content: '# Hello',
+            excerpt: 'Excerpt',
+            coverImage: '',
+            published: false,
+          },
+        }),
+      })
+    )
+
+    render(<AdminPostEditPage />)
+
+    expect(await screen.findByRole('button', { name: '上传封面到七牛' })).toBeInTheDocument()
+  })
 })

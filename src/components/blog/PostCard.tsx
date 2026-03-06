@@ -1,4 +1,4 @@
-import Image from "next/image";
+﻿import Image from "next/image";
 import Link from "next/link";
 import { ChevronRight, Eye } from "lucide-react";
 import { PostMeta } from "./PostMeta";
@@ -47,16 +47,15 @@ export function PostCard({ post }: PostCardProps) {
             href={`/posts/${post.slug}`}
             className="group text-90 mb-3 block w-full font-bold transition hover:text-[var(--primary)]"
           >
-            <span className="relative block pr-10 text-3xl before:absolute before:top-[10px] before:left-[-18px] before:hidden before:h-5 before:w-1 before:rounded-md before:bg-[var(--primary)] md:before:block">
-              {post.title}
+            <span className="relative inline-flex max-w-full items-start gap-2 pr-4 text-3xl before:absolute before:top-[10px] before:left-[-18px] before:hidden before:h-5 before:w-1 before:rounded-md before:bg-[var(--primary)] md:before:block">
+              <span className="line-clamp-2">{post.title}</span>
+              <ChevronRight className="mt-1 h-7 w-7 shrink-0 text-[var(--primary)] transition group-hover:translate-x-0.5" />
             </span>
-            <ChevronRight className="absolute top-0 right-0 inline h-8 w-8 translate-y-0.5 text-[var(--primary)] md:hidden" />
-            <ChevronRight className="absolute top-0 right-0 hidden h-8 w-8 -translate-x-1 translate-y-0.5 text-[var(--primary)] opacity-0 transition group-hover:translate-x-0 group-hover:opacity-100 md:inline" />
           </Link>
 
           <PostMeta category={post.category} hideTagsForMobile={true} hideUpdateDate={true} publishedAt={post.createdAt} tags={post.tags} className="mb-4" />
 
-          <div className="text-75 mb-3.5 line-clamp-2 pr-4 transition md:line-clamp-1">{post.excerpt ?? "暂无摘要"}</div>
+          <div className="text-75 mb-3.5 line-clamp-2 pr-4 transition">{post.excerpt ?? "暂无摘要"}</div>
 
           <div className="text-30 flex gap-4 text-sm transition">
             <div>{post._count.comments} 评论</div>
@@ -97,9 +96,7 @@ export function PostCard({ post }: PostCardProps) {
             href={`/posts/${post.slug}`}
             aria-label={post.title}
             className="btn-regular !hidden absolute top-3 right-3 bottom-3 w-[3.25rem] rounded-xl bg-[var(--enter-btn-bg)] active:scale-95 hover:bg-[var(--enter-btn-bg-hover)] md:!flex"
-          >
-            <ChevronRight className="mx-auto text-4xl text-[var(--primary)]" />
-          </Link>
+          />
         )}
       </div>
 
