@@ -1,10 +1,10 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
 import { DataTable, type DataColumn } from "@/components/admin/DataTable";
+import { EntityFormShell } from "@/components/admin/forms/EntityFormShell";
 import { FilterBar } from "@/components/admin/FilterBar";
+import { PageHeader } from "@/components/admin/primitives/PageHeader";
 import { Button, Input } from "@/components/ui";
 
 interface CategoryRow {
@@ -21,17 +21,10 @@ function generateSlug(value: string) {
 }
 
 export default function AdminCategoriesPage() {
-  const { data: session, status } = useSession();
-  const router = useRouter();
   const [rows, setRows] = useState<CategoryRow[]>([]);
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({ id: "", name: "", slug: "", description: "" });
-
-  useEffect(() => {
-    if (status === "unauthenticated") router.push("/login");
-    if (status === "authenticated" && session?.user?.role !== "ADMIN") router.push("/");
-  }, [router, session, status]);
 
   useEffect(() => {
     async function load() {
@@ -43,7 +36,8 @@ export default function AdminCategoriesPage() {
         setLoading(false);
       }
     }
-    load();
+
+    void load();
   }, []);
 
   const filtered = useMemo(() => {
@@ -55,20 +49,15 @@ export default function AdminCategoriesPage() {
   const columns: DataColumn<CategoryRow>[] = [
     { key: "name", label: "名称", render: (row) => row.name },
     { key: "slug", label: "Slug", render: (row) => row.slug },
+    { key: "description", label: "说明", render: (row) => row.description || "-" },
     { key: "count", label: "文章数", render: (row) => row._count.posts },
     { key: "date", label: "日期", render: (row) => new Date(row.createdAt).toLocaleDateString("zh-CN") },
     {
       key: "actions",
       label: "操作",
       render: (row) => (
-        <div className="flex gap-2">
-          <button
-            className="text-[var(--brand)] hover:underline"
-            onClick={() => setForm({ id: row.id, name: row.name, slug: row.slug, description: row.description ?? "" })}
-            type="button"
-          >
-            编辑
-          </button>
+        <div className="flex gap-3 text-sm">
+          <button className="text-[var(--brand)] hover:underline" onClick={() => setForm({ id: row.id, name: row.name, slug: row.slug, description: row.description ?? "" })} type="button">编辑</button>
           <button
             className="text-rose-600 hover:underline"
             onClick={async () => {
@@ -88,67 +77,64 @@ export default function AdminCategoriesPage() {
     },
   ];
 
-  if (status === "loading" || loading) return <p className="py-20 text-center text-[var(--muted)]">加载中...</p>;
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const payload = { name: form.name, slug: form.slug, description: form.description };
+    const res = await fetch("/api/admin/categories", {
+      method: form.id ? "PATCH" : "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(form.id ? { id: form.id, ...payload } : payload),
+    });
+    const data = await res.json();
+    if (!data.success) return;
+
+    if (form.id) {
+      setRows((prev) => prev.map((item) => (item.id === form.id ? { ...item, ...payload } : item)));
+    } else {
+      setRows((prev) => [...prev, { ...data.data, _count: { posts: 0 } }]);
+    }
+
+    setForm({ id: "", name: "", slug: "", description: "" });
+  }
+
+  if (loading) return <p className="py-20 text-center text-[var(--muted)]">加载中...</p>;
 
   return (
     <div className="space-y-4">
-      <section className="ui-surface rounded-2xl p-5">
-        <h1 className="font-display text-3xl font-extrabold text-[var(--foreground)]">分类管理</h1>
-        <p className="mt-1 text-sm text-[var(--muted)]">维护分类结构，确保内容组织清晰可检索。</p>
-      </section>
+      <PageHeader eyebrow="Settings" title="分类管理" description="以更统一的配置工作台维护分类结构和说明。" />
       <FilterBar placeholder="搜索分类" value={query} onChange={setQuery} />
 
-      <form
-        className="ui-surface grid grid-cols-1 gap-3 rounded-2xl p-4 md:grid-cols-4"
-        onSubmit={async (e) => {
-          e.preventDefault();
-          const payload = { name: form.name, slug: form.slug, description: form.description };
-          const res = await fetch("/api/admin/categories", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-          });
-          const data = await res.json();
-          if (data.success) {
-            if (form.id) {
-              setRows((prev) => prev.map((item) => (item.id === form.id ? { ...item, ...payload } : item)));
-            } else {
-              setRows((prev) => [...prev, { ...data.data, _count: { posts: 0 } }]);
-            }
-            setForm({ id: "", name: "", slug: "", description: "" });
-          }
-        }}
-      >
-        <Input label="名称" required value={form.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value, slug: generateSlug(e.target.value) }))} />
-        <Input label="Slug" required value={form.slug} onChange={(e) => setForm((prev) => ({ ...prev, slug: e.target.value }))} />
-        <Input label="描述" value={form.description} onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))} />
-        <div className="flex items-end gap-2">
-          <Button type="submit">{form.id ? "保存修改" : "新增分类"}</Button>
-          {form.id && (
-            <Button type="button" variant="outline" onClick={() => setForm({ id: "", name: "", slug: "", description: "" })}>
-              取消
-            </Button>
-          )}
-        </div>
-      </form>
-
-      <DataTable
-        bulkActions={[
-          {
-            label: "批量删除",
-            variant: "danger",
-            onClick: async (ids) => {
-              if (!confirm(`确定删除 ${ids.length} 个分类？`)) return;
-              await Promise.all(ids.map((id) => fetch(`/api/admin/categories?id=${id}`, { method: "DELETE" })));
-              setRows((prev) => prev.filter((item) => !ids.includes(item.id)));
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <DataTable
+          bulkActions={[
+            {
+              label: "批量删除",
+              variant: "danger",
+              onClick: async (ids) => {
+                if (!confirm(`确定删除 ${ids.length} 个分类？`)) return;
+                await Promise.all(ids.map((id) => fetch(`/api/admin/categories?id=${id}`, { method: "DELETE" })));
+                setRows((prev) => prev.filter((item) => !ids.includes(item.id)));
+              },
             },
-          },
-        ]}
-        columns={columns}
-        emptyText="暂无分类"
-        rows={filtered}
-        title="分类列表"
-      />
+          ]}
+          columns={columns}
+          emptyText="暂无分类"
+          rows={filtered}
+          title="分类列表"
+        />
+
+        <EntityFormShell title={form.id ? "编辑分类" : "新增分类"} description="右侧表单与列表联动，保持配置操作的高密度一致体验。">
+          <form className="space-y-4" onSubmit={handleSubmit}>
+            <Input label="名称" required value={form.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value, slug: generateSlug(e.target.value) }))} />
+            <Input label="Slug" required value={form.slug} onChange={(e) => setForm((prev) => ({ ...prev, slug: e.target.value }))} />
+            <Input label="描述" value={form.description} onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))} />
+            <div className="flex gap-2">
+              <Button type="submit">{form.id ? "保存修改" : "新增分类"}</Button>
+              {form.id ? <Button type="button" variant="outline" onClick={() => setForm({ id: "", name: "", slug: "", description: "" })}>取消</Button> : null}
+            </div>
+          </form>
+        </EntityFormShell>
+      </div>
     </div>
   );
 }

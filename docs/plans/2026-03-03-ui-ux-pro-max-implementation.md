@@ -259,41 +259,41 @@ git commit -m "feat: upgrade article reading and interaction experience"
 ### Task 7: Rebuild author workflow screens
 
 **Files:**
-- Modify: `src/app/write/page.tsx`
+- Create: `src/app/admin/posts/new/page.tsx`
 - Modify: `src/app/posts/[slug]/edit/page.tsx`
 - Create: `src/components/posts/EditorWorkspace.tsx`
 - Create: `src/components/posts/PublishChecklist.tsx`
-- Test: `src/app/write/__tests__/author-workflow.test.tsx`
+- Test: `src/app/admin/__tests__/admin-create-post.test.tsx`
 
 **Step 1: Write the failing test**
 
 ```tsx
-test('write page renders editor and publish settings panes', async () => {
-  const ui = await WritePage()
-  expect(ui).toBeTruthy()
+test('admin create page renders editor and publish settings panes', () => {
+  render(<AdminCreatePostPage />)
+  expect(screen.getByRole('heading', { name: '????' })).toBeInTheDocument()
 })
 ```
 
 **Step 2: Run test to verify it fails**
 
-Run: `pnpm test src/app/write/__tests__/author-workflow.test.tsx`  
+Run: `pnpm test src/app/admin/__tests__/admin-create-post.test.tsx`  
 Expected: FAIL before dual-pane workspace implementation.
 
 **Step 3: Write minimal implementation**
 
-- Convert write/edit screens to dual-pane layout
+- Promote `/admin/posts/new` as the canonical create screen alongside the edit workspace
 - Add autosave indicator state + publish checklist module
 - Improve action hierarchy (draft, publish, preview)
 
 **Step 4: Run verification**
 
-Run: `pnpm test src/app/write/__tests__/author-workflow.test.tsx`  
+Run: `pnpm test src/app/admin/__tests__/admin-create-post.test.tsx`  
 Expected: PASS.
 
 **Step 5: Commit**
 
 ```bash
-git add src/app/write/page.tsx src/app/posts/[slug]/edit/page.tsx src/components/posts
+git add src/app/admin/posts/new/page.tsx src/app/posts/[slug]/edit/page.tsx src/components/posts
 git commit -m "feat: redesign author workspace and publish flow"
 ```
 

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { signOut, useSession } from 'next-auth/react'
 import Link from 'next/link'
@@ -58,7 +58,7 @@ export function UserNav() {
   if (status === 'loading') {
     return (
       <nav className="flex items-center gap-4">
-        <span className="text-gray-500">加载中...</span>
+        <span className="text-gray-500">鍔犺浇涓?..</span>
       </nav>
     )
   }
@@ -70,19 +70,19 @@ export function UserNav() {
           {session.user.name || session.user.email}
         </Link>
         <Link href="/bookmarks" className="text-gray-700 dark:text-gray-300 hover:text-blue-600">
-          收藏
+          鏀惰棌
         </Link>
-        <Link href="/write" className="text-gray-700 dark:text-gray-300 hover:text-blue-600">
-          写文章
+        <Link href="/admin/posts/new" className="text-gray-700 dark:text-gray-300 hover:text-blue-600">
+          鍐欐枃绔?
         </Link>
         <Link href="/admin" className="text-gray-700 dark:text-gray-300 hover:text-blue-600">
-          管理
+          绠＄悊
         </Link>
         <button
           onClick={handleLogout}
           className="text-gray-700 dark:text-gray-300 hover:text-blue-600"
         >
-          登出
+          鐧诲嚭
         </button>
       </nav>
     )
@@ -91,11 +91,12 @@ export function UserNav() {
   return (
     <nav className="flex items-center gap-4">
       <Link href="/login" className="text-gray-700 dark:text-gray-300 hover:text-blue-600">
-        登录
+        鐧诲綍
       </Link>
       <Link href="/register" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-        注册
+        娉ㄥ唽
       </Link>
     </nav>
   )
 }
+

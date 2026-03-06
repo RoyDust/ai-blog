@@ -1,20 +1,15 @@
-import { render, screen } from '@testing-library/react'
-import { describe, expect, test, vi } from 'vitest'
-import WritePage from '../page'
+﻿import { describe, expect, test, vi } from 'vitest'
+
+const redirectMock = vi.fn()
 
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({
-    push: vi.fn(),
-    back: vi.fn(),
-  }),
+  redirect: (...args: unknown[]) => redirectMock(...args),
 }))
 
 describe('author workflow', () => {
-  test('write page renders editor and publish settings panes', () => {
-    render(<WritePage />)
-
-    expect(screen.getByRole('heading', { name: '创作工作台' })).toBeInTheDocument()
-    expect(screen.getByText('发布设置')).toBeInTheDocument()
-    expect(screen.getByText('实时预览')).toBeInTheDocument()
+  test('/write redirects to /admin/posts/new', async () => {
+    const { default: WritePage } = await import('../page')
+    await WritePage()
+    expect(redirectMock).toHaveBeenCalledWith('/admin/posts/new')
   })
 })

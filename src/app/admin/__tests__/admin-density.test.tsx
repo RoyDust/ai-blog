@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+﻿import { render, screen, waitFor } from '@testing-library/react'
 import { describe, expect, test, vi } from 'vitest'
 import AdminPostsPage from '../posts/page'
 
@@ -44,5 +44,8 @@ describe('admin density', () => {
     })
 
     expect(screen.getByRole('link', { name: '编辑' })).toHaveAttribute('href', '/admin/posts/1/edit')
+    expect(screen.getByText('文章管理')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '新建文章' })).toHaveAttribute('href', '/admin/posts/new')
   })
 })
+

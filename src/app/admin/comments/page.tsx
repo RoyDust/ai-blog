@@ -1,11 +1,10 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
 import { DataTable, type DataColumn } from "@/components/admin/DataTable";
 import { FilterBar } from "@/components/admin/FilterBar";
+import { PageHeader } from "@/components/admin/primitives/PageHeader";
 
 interface CommentRow {
   id: string;
@@ -16,16 +15,9 @@ interface CommentRow {
 }
 
 export default function AdminCommentsPage() {
-  const { data: session, status } = useSession();
-  const router = useRouter();
   const [comments, setComments] = useState<CommentRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
-
-  useEffect(() => {
-    if (status === "unauthenticated") router.push("/login");
-    if (status === "authenticated" && session?.user?.role !== "ADMIN") router.push("/");
-  }, [router, session, status]);
 
   useEffect(() => {
     async function fetchComments() {
@@ -37,7 +29,8 @@ export default function AdminCommentsPage() {
         setLoading(false);
       }
     }
-    fetchComments();
+
+    void fetchComments();
   }, []);
 
   const filtered = useMemo(() => {
@@ -47,16 +40,12 @@ export default function AdminCommentsPage() {
   }, [comments, query]);
 
   const columns: DataColumn<CommentRow>[] = [
-    { key: "content", label: "评论内容", render: (row) => <p className="line-clamp-2">{row.content}</p> },
+    { key: "content", label: "评论内容", render: (row) => <p className="line-clamp-2 max-w-xl">{row.content}</p> },
     { key: "author", label: "作者", render: (row) => row.author.name || row.author.email },
     {
       key: "post",
       label: "所属文章",
-      render: (row) => (
-        <Link className="text-[var(--brand)] hover:underline" href={`/posts/${row.post.slug}`}>
-          {row.post.title}
-        </Link>
-      ),
+      render: (row) => <Link className="text-[var(--brand)] hover:underline" href={`/posts/${row.post.slug}`}>{row.post.title}</Link>,
     },
     { key: "date", label: "日期", render: (row) => new Date(row.createdAt).toLocaleDateString("zh-CN") },
     {
@@ -81,14 +70,11 @@ export default function AdminCommentsPage() {
     },
   ];
 
-  if (status === "loading" || loading) return <p className="py-20 text-center text-[var(--muted)]">加载中...</p>;
+  if (loading) return <p className="py-20 text-center text-[var(--muted)]">加载中...</p>;
 
   return (
     <div className="space-y-4">
-      <section className="ui-surface rounded-2xl p-5">
-        <h1 className="font-display text-3xl font-extrabold text-[var(--foreground)]">评论管理</h1>
-        <p className="mt-1 text-sm text-[var(--muted)]">集中审核用户互动内容，支持批量治理。</p>
-      </section>
+      <PageHeader eyebrow="Engagement" title="评论管理" description="集中审核用户互动内容，支持搜索与批量治理。" />
       <FilterBar placeholder="搜索评论内容或文章标题" value={query} onChange={setQuery} />
       <DataTable
         bulkActions={[

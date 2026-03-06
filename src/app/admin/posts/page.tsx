@@ -1,11 +1,12 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
 import { DataTable, type DataColumn } from "@/components/admin/DataTable";
 import { FilterBar } from "@/components/admin/FilterBar";
+import { PageHeader } from "@/components/admin/primitives/PageHeader";
+import { StatusBadge } from "@/components/admin/primitives/StatusBadge";
+import { Button } from "@/components/ui";
 
 interface PostRow {
   id: string;
@@ -19,16 +20,10 @@ interface PostRow {
 }
 
 export default function AdminPostsPage() {
-  const { data: session, status } = useSession();
-  const router = useRouter();
   const [posts, setPosts] = useState<PostRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
-
-  useEffect(() => {
-    if (status === "unauthenticated") router.push("/login");
-    if (status === "authenticated" && session?.user?.role !== "ADMIN") router.push("/");
-  }, [router, session, status]);
+  const [statusFilter, setStatusFilter] = useState<"all" | "published" | "draft">("all");
 
   useEffect(() => {
     async function fetchPosts() {
@@ -40,36 +35,40 @@ export default function AdminPostsPage() {
         setLoading(false);
       }
     }
-    fetchPosts();
+
+    void fetchPosts();
   }, []);
 
   const filtered = useMemo(() => {
     const keyword = query.trim().toLowerCase();
-    if (!keyword) return posts;
-    return posts.filter((post) => post.title.toLowerCase().includes(keyword) || post.slug.toLowerCase().includes(keyword));
-  }, [posts, query]);
+
+    return posts.filter((post) => {
+      const matchesKeyword = !keyword || post.title.toLowerCase().includes(keyword) || post.slug.toLowerCase().includes(keyword);
+      const matchesStatus = statusFilter === "all" || (statusFilter === "published" ? post.published : !post.published);
+      return matchesKeyword && matchesStatus;
+    });
+  }, [posts, query, statusFilter]);
 
   const columns: DataColumn<PostRow>[] = [
     {
       key: "title",
       label: "标题",
       render: (row) => (
-        <Link className="font-medium text-[var(--brand)] hover:underline" href={`/posts/${row.slug}`}>
-          {row.title}
-        </Link>
+        <div className="space-y-1">
+          <Link className="font-medium text-[var(--foreground)] hover:text-[var(--brand)]" href={`/admin/posts/${row.id}/edit`}>
+            {row.title}
+          </Link>
+          <p className="text-xs text-[var(--muted)]">/posts/{row.slug}</p>
+        </div>
       ),
     },
-    {
-      key: "author",
-      label: "作者",
-      render: (row) => row.author.name || row.author.email,
-    },
+    { key: "author", label: "作者", render: (row) => row.author.name || row.author.email },
     {
       key: "status",
       label: "状态",
       render: (row) => (
         <button
-          className={row.published ? "ui-btn bg-emerald-600 px-3 py-1 text-xs text-white" : "ui-btn bg-amber-500 px-3 py-1 text-xs text-white"}
+          className="rounded-full"
           onClick={async () => {
             const next = !row.published;
             const res = await fetch("/api/admin/posts/publish", {
@@ -84,30 +83,31 @@ export default function AdminPostsPage() {
           }}
           type="button"
         >
-          {row.published ? "已发布" : "草稿"}
+          <StatusBadge tone={row.published ? "success" : "warning"}>{row.published ? "已发布" : "草稿"}</StatusBadge>
         </button>
       ),
     },
     {
       key: "stats",
       label: "统计",
-      render: (row) => `阅读 ${row.viewCount} / 评论 ${row._count.comments} / 点赞 ${row._count.likes}`,
+      render: (row) => (
+        <div className="flex flex-wrap gap-2 text-xs text-[var(--muted)]">
+          <span>阅读 {row.viewCount}</span>
+          <span>评论 {row._count.comments}</span>
+          <span>点赞 {row._count.likes}</span>
+        </div>
+      ),
     },
-    {
-      key: "createdAt",
-      label: "日期",
-      render: (row) => new Date(row.createdAt).toLocaleDateString("zh-CN"),
-    },
+    { key: "createdAt", label: "创建时间", render: (row) => new Date(row.createdAt).toLocaleDateString("zh-CN") },
     {
       key: "actions",
       label: "操作",
       render: (row) => (
-        <div className="flex items-center gap-2">
-          <Link className="text-sm text-[var(--brand)] hover:underline" href={`/admin/posts/${row.id}/edit`}>
-            编辑
-          </Link>
+        <div className="flex items-center gap-3 text-sm">
+          <Link className="text-[var(--brand)] hover:underline" href={`/admin/posts/${row.id}/edit`}>编辑</Link>
+          <Link className="text-[var(--foreground)] hover:text-[var(--brand)]" href={`/posts/${row.slug}`}>预览</Link>
           <button
-            className="text-sm text-rose-600 hover:underline"
+            className="text-rose-600 hover:underline"
             onClick={async () => {
               if (!confirm("确定删除这篇文章？该操作不可撤销。")) return;
               const res = await fetch(`/api/admin/posts?id=${row.id}`, { method: "DELETE" });
@@ -125,19 +125,38 @@ export default function AdminPostsPage() {
     },
   ];
 
-  if (status === "loading" || loading) return <p className="py-20 text-center text-[var(--muted)]">加载中...</p>;
+  if (loading) return <p className="py-20 text-center text-[var(--muted)]">加载中...</p>;
 
   return (
     <div className="space-y-4">
-      <section className="ui-surface rounded-2xl p-5">
-        <h1 className="font-display text-3xl font-extrabold text-[var(--foreground)]">文章管理</h1>
-        <p className="mt-1 text-sm text-[var(--muted)]">以高信息密度查看状态并快速进入 Markdown 编辑。</p>
-      </section>
+      <PageHeader
+        eyebrow="Content"
+        title="文章管理"
+        description="在统一工作台中搜索、筛选、发布与进入编辑工作区。"
+        action={<Link href="/admin/posts/new"><Button size="sm">新建文章</Button></Link>}
+      />
+
       <FilterBar placeholder="搜索标题或 slug" value={query} onChange={setQuery}>
-        <Link className="ui-btn bg-[var(--brand)] px-3 py-2 text-sm text-white hover:bg-[var(--brand-strong)]" href="/write">
-          新建文章
-        </Link>
+        {[
+          { key: "all", label: "全部" },
+          { key: "published", label: "已发布" },
+          { key: "draft", label: "草稿" },
+        ].map((item) => (
+          <button
+            key={item.key}
+            type="button"
+            className={
+              statusFilter === item.key
+                ? "ui-btn rounded-xl bg-[var(--brand)] px-3 py-2 text-sm text-white"
+                : "ui-btn rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--surface-alt)]"
+            }
+            onClick={() => setStatusFilter(item.key as typeof statusFilter)}
+          >
+            {item.label}
+          </button>
+        ))}
       </FilterBar>
+
       <DataTable
         bulkActions={[
           {
@@ -158,3 +177,4 @@ export default function AdminPostsPage() {
     </div>
   );
 }
+

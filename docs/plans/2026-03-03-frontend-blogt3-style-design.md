@@ -10,7 +10,7 @@ Replicate the visual and interaction style of `F:\Code\NewProject\BlogT3` for th
 ## 2. Non-Goals
 - No backend architecture migration from BlogT3.
 - No admin (`/admin*`) redesign in this effort.
-- No author workflow (`/write`, `/posts/[slug]/edit`) redesign in this effort.
+- No author workflow (`/admin/posts/new`, `/posts/[slug]/edit`) redesign in this effort.
 - No API contract changes unless required by frontend adaptation.
 
 ## 3. Chosen Approach

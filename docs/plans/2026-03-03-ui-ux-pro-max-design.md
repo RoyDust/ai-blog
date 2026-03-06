@@ -30,7 +30,7 @@
 
 ### Top-level product map
 - Explore (`/`, `/posts`, `/search`, `/categories`, `/tags`)
-- Write (`/write`, `/posts/[slug]/edit`, author post management views)
+- Write (`/admin/posts/new`, `/posts/[slug]/edit`, author post management views)
 - Manage (`/admin`, `/admin/posts`, `/admin/comments`, `/admin/categories`, `/admin/tags`)
 - Profile (`/profile`, `/bookmarks`)
 
@@ -97,7 +97,7 @@
 - Article page adds reading progress, in-page TOC anchors, sticky interaction rail.
 
 ### Author
-- `/write` converted to dual-pane workspace: editor + publish settings.
+- `/admin/posts/new` is the canonical dual-pane workspace: editor + publish settings.
 - Autosave state, publish checklist, and status badges reduce uncertainty.
 - Author management pages support quick state filtering and batch actions.
 
