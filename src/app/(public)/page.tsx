@@ -1,4 +1,4 @@
-export const dynamic = "force-dynamic";
+export const revalidate = 300;
 
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -14,26 +14,31 @@ export const metadata: Metadata = buildPageMetadata({
 })
 
 async function getData() {
-  const [posts, categories] = await Promise.all([
-    prisma.post.findMany({
-      where: { published: true },
-      include: {
-        author: { select: { id: true, name: true, image: true } },
-        category: true,
-        tags: true,
-        _count: { select: { comments: true, likes: true } },
-      },
-      orderBy: { createdAt: "desc" },
-      take: 3,
-    }),
-    prisma.category.findMany({
-      include: { _count: { select: { posts: true } } },
-      orderBy: { posts: { _count: "desc" } },
-      take: 12,
-    }),
-  ]);
+  try {
+    const [posts, categories] = await Promise.all([
+      prisma.post.findMany({
+        where: { published: true },
+        include: {
+          author: { select: { id: true, name: true, image: true } },
+          category: true,
+          tags: true,
+          _count: { select: { comments: true, likes: true } },
+        },
+        orderBy: { createdAt: "desc" },
+        take: 3,
+      }),
+      prisma.category.findMany({
+        include: { _count: { select: { posts: true } } },
+        orderBy: { posts: { _count: "desc" } },
+        take: 12,
+      }),
+    ]);
 
-  return { posts, categories };
+    return { posts, categories };
+  } catch (error) {
+    console.error("Load home page data error:", error);
+    return { posts: [], categories: [] };
+  }
 }
 
 type HomePost = Awaited<ReturnType<typeof getData>>['posts'][number]

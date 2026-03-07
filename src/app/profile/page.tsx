@@ -5,6 +5,8 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { LogoutButton } from '@/components/LogoutButton'
 
+type ProfilePost = Awaited<ReturnType<typeof getUserPosts>>[number]
+
 async function getUserPosts(userId: string) {
   const posts = await prisma.post.findMany({
     where: { authorId: userId },
@@ -92,7 +94,7 @@ export default async function ProfilePage() {
         </div>
 
         <div className="space-y-4">
-          {posts.map(post => (
+          {posts.map((post: ProfilePost) => (
             <div key={post.id} className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
               <div className="flex items-start justify-between">
                 <div className="flex-1">

@@ -1,4 +1,5 @@
-export const dynamic = "force-dynamic";
+﻿import { CommentAuthGate } from "@/components/CommentAuthGate";
+export const revalidate = 300;
 
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
@@ -8,10 +9,7 @@ import rehypeHighlight from "rehype-highlight";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getServerSession } from "next-auth";
-import { CommentForm } from "@/components/CommentForm";
 import { ArticleToc, BackToTopButton, BookmarkButton, LikeButton, ReadingProgress, ShareButton } from "@/components/blog";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { buildArticleJsonLd, buildArticleMetadata } from "@/lib/seo";
 
@@ -49,13 +47,27 @@ async function getPost(slug: string) {
 
 type ArticlePost = NonNullable<Awaited<ReturnType<typeof getPost>>>
 
+export async function generateStaticParams() {
+  try {
+    const posts = await prisma.post.findMany({
+      where: { published: true },
+      select: { slug: true },
+      take: 100,
+    })
+
+    return posts.map((post) => ({ slug: post.slug }))
+  } catch (error) {
+    console.error("Generate post static params error:", error)
+    return []
+  }
+}
+
 /**
- * 为文章详情页生成动态 SEO metadata。
+ * 为文章详情页生成 SEO metadata。
  */
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params
   const post = await getPost(slug)
-
   if (!post) {
     return {
       title: '文章不存在 | My Blog',
@@ -105,7 +117,6 @@ function nodeText(node: ReactNode): string {
 export default async function PostPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const post = await getPost(slug);
-  const session = await getServerSession(authOptions);
 
   if (!post) {
     notFound();
@@ -137,7 +148,7 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
         style={{ left: "calc(50% + 490px + 120px)" }}
       >
         <div className="card-base max-h-[calc(100vh-8rem)] overflow-auto p-4">
-          <h3 className="mb-3 font-display text-lg font-semibold text-[var(--foreground)]">目录</h3>
+          <h3 className="mb-3 font-display text-lg font-semibold text-[var(--foreground)]">鐩綍</h3>
           <ArticleToc headings={headings} />
         </div>
       </aside>
@@ -158,7 +169,7 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
                 </Link>
               )}
               <span>{new Date(post.createdAt).toLocaleDateString("zh-CN")}</span>
-              <span>{post.viewCount} 阅读</span>
+              <span>{post.viewCount} 闃呰</span>
             </div>
 
             <h1 className="font-display text-4xl font-extrabold leading-tight text-[var(--foreground)]">{post.title}</h1>
@@ -232,8 +243,8 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
       <section className="card-base mx-auto w-full max-w-[980px] p-5 xl:min-w-[880px]">
         <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="font-display text-xl font-bold text-[var(--foreground)]">文章互动</h2>
-            <p className="mt-1 text-sm text-[var(--muted)]">读到这里，来说说你的看法</p>
+            <h2 className="font-display text-xl font-bold text-[var(--foreground)]">鏂囩珷浜掑姩</h2>
+            <p className="mt-1 text-sm text-[var(--muted)]">璇诲埌杩欓噷锛屾潵璇磋浣犵殑鐪嬫硶</p>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-3">
@@ -244,25 +255,16 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
             className="ui-btn rounded-xl bg-[var(--brand)] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[var(--brand-strong)]"
             href="#comments"
           >
-            参与讨论
+            鍙備笌璁ㄨ
           </Link>
         </div>
       </section>
 
       <section className="card-base mx-auto w-full max-w-[980px] p-8 xl:min-w-[880px]" id="comments">
-        <h2 className="mb-6 font-display text-2xl font-bold text-[var(--foreground)]">评论 ({post._count.comments})</h2>
+        <h2 className="mb-6 font-display text-2xl font-bold text-[var(--foreground)]">璇勮 ({post._count.comments})</h2>
         <p className="mb-6 text-sm text-[var(--muted)]">欢迎分享你的观点或补充实践经验，优质讨论能帮助更多读者。</p>
 
-        {session ? (
-          <CommentForm postId={post.id} />
-        ) : (
-          <p className="mb-8 text-[var(--muted)]">
-            <Link className="text-[var(--brand)] hover:underline" href="/login">
-              登录
-            </Link>{" "}
-            后发表评论
-          </p>
-        )}
+        <CommentAuthGate postId={post.id} />
 
         <div className="space-y-6">
           {post.comments.map((comment: ArticlePost['comments'][number]) => (
@@ -294,9 +296,10 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
             </div>
           ))}
 
-          {post.comments.length === 0 && <p className="py-4 text-center text-[var(--muted)]">暂无评论</p>}
+          {post.comments.length === 0 && <p className="py-4 text-center text-[var(--muted)]">鏆傛棤璇勮</p>}
         </div>
       </section>
     </div>
   );
 }
+

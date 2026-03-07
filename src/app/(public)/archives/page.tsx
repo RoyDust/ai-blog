@@ -1,10 +1,31 @@
-export const dynamic = "force-dynamic";
+export const revalidate = 300;
 
 import Link from "next/link";
 import { Clock3 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 
-type ArchivePost = Awaited<ReturnType<typeof prisma.post.findMany>>[number]
+async function getArchivePosts() {
+  try {
+    return await prisma.post.findMany({
+      where: { published: true },
+      select: {
+        id: true,
+        title: true,
+        slug: true,
+        excerpt: true,
+        createdAt: true,
+        category: { select: { name: true, slug: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 300,
+    });
+  } catch (error) {
+    console.error("Load archive posts error:", error);
+    return [];
+  }
+}
+
+type ArchivePost = Awaited<ReturnType<typeof getArchivePosts>>[number]
 
 function formatDate(date: Date) {
   return new Intl.DateTimeFormat("zh-CN", {
@@ -14,19 +35,7 @@ function formatDate(date: Date) {
 }
 
 export default async function ArchivesPage() {
-  const posts = await prisma.post.findMany({
-    where: { published: true },
-    select: {
-      id: true,
-      title: true,
-      slug: true,
-      excerpt: true,
-      createdAt: true,
-      category: { select: { name: true, slug: true } },
-    },
-    orderBy: { createdAt: "desc" },
-    take: 300,
-  });
+  const posts = await getArchivePosts();
 
   const groups = new Map<string, typeof posts>();
   for (const post of posts) {

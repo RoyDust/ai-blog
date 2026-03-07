@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
+import { revalidatePublicContent } from "@/lib/cache"
 import { parsePostPatchInput } from "@/lib/validation"
 
 export async function GET(
@@ -84,7 +85,14 @@ export async function PATCH(
     const { title, content, excerpt, coverImage, categoryId, tagIds, published } = parsePostPatchInput(await request.json())
 
     const post = await prisma.post.findUnique({
-      where: { slug }
+      where: { slug },
+      select: {
+        id: true,
+        slug: true,
+        authorId: true,
+        category: { select: { slug: true } },
+        tags: { select: { slug: true } },
+      }
     })
 
     if (!post) {
@@ -102,19 +110,21 @@ export async function PATCH(
       )
     }
 
+    const updateData = {
+      title,
+      content,
+      excerpt,
+      coverImage,
+      categoryId,
+      ...(typeof published === "boolean" ? { published } : {}),
+      tags: tagIds ? {
+        set: tagIds.map((id: string) => ({ id }))
+      } : undefined
+    }
+
     const updatedPost = await prisma.post.update({
       where: { id: post.id },
-      data: {
-        title,
-        content,
-        excerpt,
-        coverImage,
-        categoryId,
-        published,
-        tags: tagIds ? {
-          set: tagIds.map((id: string) => ({ id }))
-        } : undefined
-      },
+      data: updateData,
       include: {
         author: {
           select: { id: true, name: true, image: true }
@@ -122,6 +132,15 @@ export async function PATCH(
         category: true,
         tags: true
       }
+    })
+
+    revalidatePublicContent({
+      slug: updatedPost.published ? updatedPost.slug : null,
+      previousSlug: post.slug,
+      categorySlug: updatedPost.published ? updatedPost.category?.slug : null,
+      previousCategorySlug: post.category?.slug,
+      tagSlugs: updatedPost.published ? updatedPost.tags.map((tag) => tag.slug) : [],
+      previousTagSlugs: post.tags.map((tag) => tag.slug),
     })
 
     return NextResponse.json({
@@ -157,7 +176,14 @@ export async function DELETE(
     const { slug } = await params
 
     const post = await prisma.post.findUnique({
-      where: { slug }
+      where: { slug },
+      select: {
+        id: true,
+        slug: true,
+        authorId: true,
+        category: { select: { slug: true } },
+        tags: { select: { slug: true } },
+      }
     })
 
     if (!post) {
@@ -177,6 +203,12 @@ export async function DELETE(
 
     await prisma.post.delete({
       where: { id: post.id }
+    })
+
+    revalidatePublicContent({
+      previousSlug: post.slug,
+      previousCategorySlug: post.category?.slug,
+      previousTagSlugs: post.tags.map((tag) => tag.slug),
     })
 
     return NextResponse.json({

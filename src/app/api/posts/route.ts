@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import { Prisma } from "@prisma/client"
+import { revalidatePublicContent } from "@/lib/cache"
 import { clampPagination, parsePostInput } from "@/lib/validation"
 
 export async function GET(request: Request) {
@@ -16,7 +16,7 @@ export async function GET(request: Request) {
     const tag = searchParams.get("tag")
     const search = searchParams.get("search")
 
-    const where: Prisma.PostWhereInput = {
+    const where: NonNullable<Parameters<typeof prisma.post.findMany>[0]>['where'] = {
       published: true
     }
 
@@ -108,6 +108,14 @@ export async function POST(request: Request) {
         tags: true
       }
     })
+
+    if (post.published) {
+      revalidatePublicContent({
+        slug: post.slug,
+        categorySlug: post.category?.slug,
+        tagSlugs: post.tags.map((tag) => tag.slug),
+      })
+    }
 
     return NextResponse.json({
       success: true,

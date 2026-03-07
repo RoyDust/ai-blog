@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
+import { revalidatePublicContent } from "@/lib/cache"
 import { prisma } from "@/lib/prisma"
 
 // 获取所有文章
@@ -43,9 +44,26 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "Post ID is required" }, { status: 400 })
     }
 
+    const post = await prisma.post.findUnique({
+      where: { id },
+      select: {
+        slug: true,
+        category: { select: { slug: true } },
+        tags: { select: { slug: true } },
+      },
+    })
+
     await prisma.post.delete({
       where: { id }
     })
+
+    if (post) {
+      revalidatePublicContent({
+        previousSlug: post.slug,
+        previousCategorySlug: post.category?.slug,
+        previousTagSlugs: post.tags.map((tag) => tag.slug),
+      })
+    }
 
     return NextResponse.json({ success: true })
   } catch (error) {

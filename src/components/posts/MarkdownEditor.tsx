@@ -238,8 +238,10 @@ export function MarkdownEditor({ label = "内容", value, onChange, minRows = 18
                 remarkPlugins={[remarkGfm]}
                 components={{
                   img: ({ src, alt }) => {
-                    if (!src) return null;
-                    return <NextImage alt={alt ?? ""} className="h-auto w-full" height={720} src={src} unoptimized width={1280} />;
+                    const imageSrc = typeof src === "string" ? src : null;
+                    if (!imageSrc) return null;
+
+                    return <NextImage alt={alt ?? ""} className="h-auto w-full" height={720} src={imageSrc} unoptimized width={1280} />;
                   },
                 }}
               >

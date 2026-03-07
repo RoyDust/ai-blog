@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { revalidatePublicContent } from "@/lib/cache";
 import { prisma } from "@/lib/prisma";
 
 async function assertAdmin() {
@@ -39,6 +40,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   const { id } = await params;
   const body = await request.json();
+  const existing = await prisma.post.findUnique({
+    where: { id },
+    select: {
+      slug: true,
+      category: { select: { slug: true } },
+      tags: { select: { slug: true } },
+    },
+  });
 
   const updated = await prisma.post.update({
     where: { id },
@@ -51,7 +60,22 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       published: Boolean(body.published),
       publishedAt: body.published ? new Date() : null,
     },
-    select: { id: true, slug: true },
+    select: {
+      id: true,
+      slug: true,
+      published: true,
+      category: { select: { slug: true } },
+      tags: { select: { slug: true } },
+    },
+  });
+
+  revalidatePublicContent({
+    slug: updated.published ? updated.slug : null,
+    previousSlug: existing?.slug,
+    categorySlug: updated.published ? updated.category?.slug : null,
+    previousCategorySlug: existing?.category?.slug,
+    tagSlugs: updated.published ? updated.tags.map((tag) => tag.slug) : [],
+    previousTagSlugs: existing?.tags.map((tag) => tag.slug) ?? [],
   });
 
   return NextResponse.json({ success: true, data: updated });

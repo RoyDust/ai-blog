@@ -5,6 +5,31 @@ import { StatCard } from "@/components/admin/primitives/StatCard";
 import { StatusBadge } from "@/components/admin/primitives/StatusBadge";
 import { prisma } from "@/lib/prisma";
 
+async function getRecentPosts() {
+  return prisma.post.findMany({
+    select: { id: true, title: true, slug: true, published: true, createdAt: true },
+    orderBy: { createdAt: "desc" },
+    take: 4,
+  });
+}
+
+async function getRecentComments() {
+  return prisma.comment.findMany({
+    select: {
+      id: true,
+      content: true,
+      createdAt: true,
+      author: { select: { name: true, email: true } },
+      post: { select: { title: true, slug: true } },
+    },
+    orderBy: { createdAt: "desc" },
+    take: 4,
+  });
+}
+
+type RecentPost = Awaited<ReturnType<typeof getRecentPosts>>[number];
+type RecentComment = Awaited<ReturnType<typeof getRecentComments>>[number];
+
 export default async function AdminPage() {
   const [postCount, userCount, commentCount, categoryCount, draftCount, recentPosts, recentComments] = await Promise.all([
     prisma.post.count(),
@@ -12,22 +37,8 @@ export default async function AdminPage() {
     prisma.comment.count(),
     prisma.category.count(),
     prisma.post.count({ where: { published: false } }),
-    prisma.post.findMany({
-      select: { id: true, title: true, slug: true, published: true, createdAt: true },
-      orderBy: { createdAt: "desc" },
-      take: 4,
-    }),
-    prisma.comment.findMany({
-      select: {
-        id: true,
-        content: true,
-        createdAt: true,
-        author: { select: { name: true, email: true } },
-        post: { select: { title: true, slug: true } },
-      },
-      orderBy: { createdAt: "desc" },
-      take: 4,
-    }),
+    getRecentPosts(),
+    getRecentComments(),
   ]);
 
   const quickLinks = [
@@ -88,7 +99,7 @@ export default async function AdminPage() {
           </div>
 
           <div className="mt-4 space-y-4">
-            {recentPosts.map((post) => (
+            {recentPosts.map((post: RecentPost) => (
               <div key={post.id} className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
                 <div className="flex items-center justify-between gap-3">
                   <Link href={`/admin/posts/${post.id}/edit`} className="font-medium text-[var(--foreground)] hover:text-[var(--brand)]">{post.title}</Link>
@@ -98,7 +109,7 @@ export default async function AdminPage() {
               </div>
             ))}
 
-            {recentComments.map((comment) => (
+            {recentComments.map((comment: RecentComment) => (
               <div key={comment.id} className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
                 <div className="flex items-center justify-between gap-3 text-sm">
                   <span className="font-medium text-[var(--foreground)]">{comment.author.name || comment.author.email}</span>
