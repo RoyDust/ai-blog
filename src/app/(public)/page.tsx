@@ -8,10 +8,10 @@ import { prisma } from "@/lib/prisma";
 import { buildPageMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = buildPageMetadata({
-  title: 'My Blog',
-  description: '一个基于 Next.js 构建的现代化博客系统。',
-  path: '/',
-})
+  title: "My Blog",
+  description: "一个基于 Next.js 构建的现代化博客系统。",
+  path: "/",
+});
 
 async function getData() {
   try {
@@ -41,8 +41,8 @@ async function getData() {
   }
 }
 
-type HomePost = Awaited<ReturnType<typeof getData>>['posts'][number]
-type HomeCategory = Awaited<ReturnType<typeof getData>>['categories'][number]
+type HomePost = Awaited<ReturnType<typeof getData>>["posts"][number];
+type HomeCategory = Awaited<ReturnType<typeof getData>>["categories"][number];
 
 export default async function Home() {
   const { posts, categories } = await getData();
@@ -121,7 +121,7 @@ export default async function Home() {
         <div className="grid gap-6 md:grid-cols-2">
           <div className="space-y-2">
             <h3 className="text-90 flex items-center gap-2 font-bold"><Palette className="h-5 w-5 text-primary" />动态主题系统</h3>
-            <p className="text-75 text-sm">OKLCH 色彩空间，支持色相调整与明暗切换</p>
+            <p className="text-75 text-sm">使用 OKLCH 色彩空间，支持色相调整与明暗切换</p>
           </div>
           <div className="space-y-2">
             <h3 className="text-90 flex items-center gap-2 font-bold"><Zap className="h-5 w-5 text-primary" />Next.js</h3>
@@ -129,11 +129,11 @@ export default async function Home() {
           </div>
           <div className="space-y-2">
             <h3 className="text-90 flex items-center gap-2 font-bold"><Database className="h-5 w-5 text-primary" />Prisma</h3>
-            <p className="text-75 text-sm">类型安全 ORM，稳定的数据建模与访问</p>
+            <p className="text-75 text-sm">类型安全 ORM，提供稳定的数据建模与访问能力</p>
           </div>
           <div className="space-y-2">
             <h3 className="text-90 flex items-center gap-2 font-bold"><Code2 className="h-5 w-5 text-primary" />TypeScript</h3>
-            <p className="text-75 text-sm">完整类型系统，提升开发效率和质量</p>
+            <p className="text-75 text-sm">完整类型系统，提升开发效率和代码质量</p>
           </div>
         </div>
       </section>

@@ -8,6 +8,14 @@ const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
       {
+        protocol: "http",
+        hostname: "project.roydust.top",
+      },
+      {
+        protocol: "https",
+        hostname: "project.roydust.top",
+      },
+      {
         protocol: "https",
         hostname: "github.com",
       },

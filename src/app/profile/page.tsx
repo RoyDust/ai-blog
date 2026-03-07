@@ -38,13 +38,13 @@ export default async function ProfilePage() {
           </Link>
           <nav className="flex items-center gap-4">
             <Link href="/" className="text-gray-700 dark:text-gray-300 hover:text-blue-600">
-              棣栭〉
+              首页
             </Link>
             <Link href="/bookmarks" className="text-gray-700 dark:text-gray-300 hover:text-blue-600">
-              鏀惰棌
+              收藏
             </Link>
             <Link href="/admin/posts/new" className="text-gray-700 dark:text-gray-300 hover:text-blue-600">
-              鍐欐枃绔?
+              写文章
             </Link>
             <LogoutButton />
           </nav>
@@ -60,14 +60,14 @@ export default async function ProfilePage() {
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {session.user.name || '鐢ㄦ埛'}
+                  {session.user.name || '用户'}
                 </h1>
                 <p className="text-gray-600 dark:text-gray-400">
                   {session.user.email}
                 </p>
                 {session.user.role === 'ADMIN' && (
                   <Link href="/admin" className="text-blue-600 hover:underline text-sm">
-                    绠＄悊鍚庡彴
+                    管理后台
                   </Link>
                 )}
               </div>
@@ -76,20 +76,20 @@ export default async function ProfilePage() {
               href="/profile/edit"
               className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
             >
-              缂栬緫璧勬枡
+              编辑资料
             </Link>
           </div>
         </div>
 
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-            鎴戠殑鏂囩珷
+            我的文章
           </h2>
           <Link
             href="/admin/posts/new"
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
           >
-            鍐欐柊鏂囩珷
+            写新文章
           </Link>
         </div>
 
@@ -108,9 +108,9 @@ export default async function ProfilePage() {
                   </p>
                   <div className="flex items-center gap-4 mt-3 text-sm text-gray-500">
                     <span>{new Date(post.createdAt).toLocaleDateString('zh-CN')}</span>
-                    <span>{post.viewCount} 闃呰</span>
-                    <span>{post._count.comments} 璇勮</span>
-                    <span>{post._count.likes} 鐐硅禐</span>
+                    <span>{post.viewCount} 阅读</span>
+                    <span>{post._count.comments} 评论</span>
+                    <span>{post._count.likes} 点赞</span>
                     <span className={`px-2 py-0.5 rounded text-xs ${post.published ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
                       {post.published ? '已发布' : '草稿'}
                     </span>
@@ -122,12 +122,12 @@ export default async function ProfilePage() {
 
           {posts.length === 0 && (
             <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg">
-              <p className="text-gray-500 dark:text-gray-400 mb-4">浣犺繕娌℃湁鍙戣〃浠讳綍鏂囩珷</p>
+              <p className="text-gray-500 dark:text-gray-400 mb-4">你还没有发表任何文章</p>
               <Link
                 href="/admin/posts/new"
                 className="inline-block px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
               >
-                鍐欑涓€绡囨枃绔?
+                写第一篇文章
               </Link>
             </div>
           )}

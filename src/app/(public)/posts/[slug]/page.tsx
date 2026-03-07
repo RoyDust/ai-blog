@@ -169,7 +169,7 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
                 </Link>
               )}
               <span>{new Date(post.createdAt).toLocaleDateString("zh-CN")}</span>
-              <span>{post.viewCount} 闃呰</span>
+              <span>{post.viewCount} 阅读</span>
             </div>
 
             <h1 className="font-display text-4xl font-extrabold leading-tight text-[var(--foreground)]">{post.title}</h1>
@@ -243,8 +243,8 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
       <section className="card-base mx-auto w-full max-w-[980px] p-5 xl:min-w-[880px]">
         <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="font-display text-xl font-bold text-[var(--foreground)]">鏂囩珷浜掑姩</h2>
-            <p className="mt-1 text-sm text-[var(--muted)]">璇诲埌杩欓噷锛屾潵璇磋浣犵殑鐪嬫硶</p>
+            <h2 className="font-display text-xl font-bold text-[var(--foreground)]">文章互动</h2>
+            <p className="mt-1 text-sm text-[var(--muted)]">读到这里，来说说你的看法</p>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-3">
@@ -255,13 +255,13 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
             className="ui-btn rounded-xl bg-[var(--brand)] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[var(--brand-strong)]"
             href="#comments"
           >
-            鍙備笌璁ㄨ
+            参与讨论
           </Link>
         </div>
       </section>
 
       <section className="card-base mx-auto w-full max-w-[980px] p-8 xl:min-w-[880px]" id="comments">
-        <h2 className="mb-6 font-display text-2xl font-bold text-[var(--foreground)]">璇勮 ({post._count.comments})</h2>
+        <h2 className="mb-6 font-display text-2xl font-bold text-[var(--foreground)]">评论 ({post._count.comments})</h2>
         <p className="mb-6 text-sm text-[var(--muted)]">欢迎分享你的观点或补充实践经验，优质讨论能帮助更多读者。</p>
 
         <CommentAuthGate postId={post.id} />
@@ -296,7 +296,7 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
             </div>
           ))}
 
-          {post.comments.length === 0 && <p className="py-4 text-center text-[var(--muted)]">鏆傛棤璇勮</p>}
+          {post.comments.length === 0 && <p className="py-4 text-center text-[var(--muted)]">暂无评论</p>}
         </div>
       </section>
     </div>
