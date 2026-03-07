@@ -75,7 +75,7 @@ function highlightText(text: string, query: string) {
       return (
         <mark
           key={`${part}-${index}`}
-          className="rounded bg-[color:color-mix(in_srgb,var(--brand)_18%,transparent)] px-1 py-0.5 text-[var(--foreground)]"
+          className="rounded bg-[color:color-mix(in_srgb,var(--primary)_18%,transparent)] px-1 py-0.5 text-[var(--foreground)]"
         >
           {part}
         </mark>
@@ -91,8 +91,8 @@ export function SearchResultCard({ post, query }: SearchResultCardProps) {
   const snippet = buildSnippet(post, query)
 
   return (
-    <article className="group relative overflow-hidden rounded-[var(--radius-large)] border border-[var(--border)] bg-[var(--surface)] p-6 shadow-[0_20px_60px_-35px_rgba(15,23,42,0.35)] transition duration-200 hover:-translate-y-0.5 hover:border-[color:color-mix(in_srgb,var(--brand)_35%,var(--border))] hover:shadow-[0_24px_70px_-35px_rgba(15,23,42,0.45)]">
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[var(--brand)]/50 to-transparent opacity-70" />
+    <article className="group relative overflow-hidden rounded-[var(--radius-large)] border border-[var(--border)] bg-[var(--surface)] p-6 shadow-[0_20px_60px_-35px_rgba(15,23,42,0.35)] transition duration-200 hover:-translate-y-0.5 hover:border-[color:color-mix(in_srgb,var(--primary)_35%,var(--border))] hover:shadow-[0_24px_70px_-35px_rgba(15,23,42,0.45)]">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[var(--primary)]/50 to-transparent opacity-70" />
 
       <div className="mb-5 flex items-start justify-between gap-4">
         <PostMeta category={post.category} publishedAt={post.createdAt} tags={post.tags.slice(0, 2)} />
@@ -103,14 +103,14 @@ export function SearchResultCard({ post, query }: SearchResultCardProps) {
       </div>
 
       <Link href={`/posts/${post.slug}`} className="block cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]">
-        <h2 className="text-balance text-2xl font-black leading-tight tracking-[-0.03em] text-[var(--foreground)] transition-colors group-hover:text-[var(--brand)]">
+        <h2 className="text-balance text-2xl font-black leading-tight tracking-[-0.03em] text-[var(--foreground)] transition-colors group-hover:text-[var(--primary)]">
           {highlightText(post.title, query)}
         </h2>
       </Link>
 
       <p className="mt-3 text-sm text-[var(--muted)]">作者 {post.author.name ?? '匿名作者'} · 结果已保留原始内容片段，便于快速判断相关性。</p>
 
-      <div className="mt-5 rounded-2xl border border-dashed border-[var(--border)] bg-[color:color-mix(in_srgb,var(--surface)_82%,var(--brand)_18%)] p-4 text-sm leading-7 text-[var(--foreground)]">
+      <div className="mt-5 rounded-2xl border border-dashed border-[var(--border)] bg-[color:color-mix(in_srgb,var(--surface)_82%,var(--primary)_18%)] p-4 text-sm leading-7 text-[var(--foreground)]">
         {highlightText(snippet, query)}
       </div>
 
@@ -128,7 +128,7 @@ export function SearchResultCard({ post, query }: SearchResultCardProps) {
 
         <Link
           href={`/posts/${post.slug}`}
-          className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-[var(--border)] px-3 py-1.5 font-medium text-[var(--foreground)] transition hover:border-[var(--brand)] hover:text-[var(--brand)]"
+          className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-[var(--primary)] px-3 py-1.5 font-medium text-[var(--primary)] transition hover:bg-[color:color-mix(in_srgb,var(--primary)_10%,transparent)]"
         >
           查看文章
           <ArrowUpRight className="h-4 w-4" />

@@ -39,7 +39,7 @@ export function BookmarkButton({ slug, initialBookmarked }: BookmarkButtonProps)
       aria-label={bookmarked ? '取消收藏' : '收藏文章'}
       className={`ui-btn flex items-center gap-2 px-4 py-2 transition-colors ${
         bookmarked
-          ? 'bg-[var(--brand)] text-white'
+          ? 'bg-[var(--primary)] text-white'
           : 'border border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)] hover:bg-[var(--surface-alt)]'
       }`}
     >

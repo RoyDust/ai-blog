@@ -53,14 +53,14 @@ export function CommentForm({ postId }: CommentFormProps) {
         value={content}
         onChange={(e) => setContent(e.target.value)}
         placeholder="写下你的评论..."
-        className="w-full p-4 border dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+        className="w-full rounded-lg border bg-gray-50 p-4 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[var(--primary)] dark:border-gray-700 dark:bg-gray-900 dark:text-white"
         rows={3}
         required
       />
       <button
         type="submit"
         disabled={loading}
-        className="mt-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+        className="mt-2 rounded-lg bg-[var(--primary)] px-6 py-2 text-white hover:opacity-90 disabled:opacity-50"
       >
         {loading ? '提交中...' : '发表评论'}
       </button>

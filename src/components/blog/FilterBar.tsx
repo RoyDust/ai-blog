@@ -39,7 +39,7 @@ export function FilterBar({ search, category, tag, categories, tags }: FilterBar
           </option>
         ))}
       </select>
-      <button className="ui-btn bg-[var(--brand)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--brand-strong)]" type="submit">
+      <button className="ui-btn bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-white hover:opacity-90" type="submit">
         应用筛选
       </button>
     </form>

@@ -55,7 +55,7 @@ export function DataTable<T extends { id: string }>({ title, rows, columns, empt
           {bulkActions.map((action) => (
             <button
               key={action.label}
-              className={action.variant === "danger" ? "ui-btn rounded-xl bg-rose-600 px-3 py-1.5 text-xs text-white hover:bg-rose-700" : "ui-btn rounded-xl bg-[var(--brand)] px-3 py-1.5 text-xs text-white hover:bg-[var(--brand-strong)]"}
+              className={action.variant === "danger" ? "ui-btn rounded-xl bg-rose-600 px-3 py-1.5 text-xs text-white hover:bg-rose-700" : "ui-btn rounded-xl bg-[var(--primary)] px-3 py-1.5 text-xs text-white hover:opacity-92"}
               disabled={selectedIds.length === 0}
               onClick={() => action.onClick(selectedIds)}
               type="button"

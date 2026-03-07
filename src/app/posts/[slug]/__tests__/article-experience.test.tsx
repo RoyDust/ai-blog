@@ -52,6 +52,7 @@ describe('article experience', () => {
     expect(screen.getByRole('heading', { level: 5, name: 'Deep Heading' })).toBeInTheDocument()
     expect(screen.getByText('读到这里，来说说你的看法')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: '参与讨论' })).toHaveAttribute('href', '#comments')
+    expect(screen.getByRole('link', { name: '参与讨论' }).className).toContain('bg-[var(--primary)]')
     expect(container.querySelector('.prose')?.className).toContain('prose-pre:rounded-xl')
     expect(container.querySelector('pre code')?.className).toContain('hljs')
     expect(container.querySelector('#comments')).toBeInTheDocument()

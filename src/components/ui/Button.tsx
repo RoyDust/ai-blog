@@ -19,7 +19,7 @@ export function Button({
 
   const variants = {
     primary:
-      "bg-[var(--brand)] text-white hover:bg-[var(--brand-strong)] focus-visible:ring-2 focus-visible:ring-[var(--ring)]",
+      "bg-[var(--primary)] text-white hover:opacity-92 focus-visible:ring-2 focus-visible:ring-[var(--ring)]",
     secondary:
       "bg-[var(--surface-alt)] text-[var(--foreground)] hover:bg-[color-mix(in_oklab,var(--surface-alt)_70%,var(--foreground)_8%)] focus-visible:ring-2 focus-visible:ring-[var(--ring)]",
     outline:

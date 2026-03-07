@@ -1,4 +1,4 @@
-﻿import { render, screen, waitFor } from '@testing-library/react'
+import { render, waitFor } from '@testing-library/react'
 import { describe, expect, test, vi } from 'vitest'
 import AdminPostsPage from '../posts/page'
 
@@ -14,7 +14,7 @@ vi.mock('next/navigation', () => ({
 }))
 
 describe('admin density', () => {
-  test('admin list pages render data table with bulk action affordance', async () => {
+  test('admin list pages render primary-tinted creation actions', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue({
@@ -37,15 +37,17 @@ describe('admin density', () => {
       })
     )
 
-    render(<AdminPostsPage />)
+    const { container } = render(<AdminPostsPage />)
 
     await waitFor(() => {
-      expect(screen.getByText('批量操作')).toBeInTheDocument()
+      expect(container.querySelector('a[href="/admin/posts/1/edit"]')).toBeTruthy()
     })
 
-    expect(screen.getByRole('link', { name: '编辑' })).toHaveAttribute('href', '/admin/posts/1/edit')
-    expect(screen.getByText('文章管理')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: '新建文章' })).toHaveAttribute('href', '/admin/posts/new')
+    const createLink = container.querySelector('a[href="/admin/posts/new"]')
+    expect(createLink).toBeTruthy()
+    expect(createLink?.querySelector('button')?.className).toContain('bg-[var(--primary)]')
+
+    const activeFilter = Array.from(container.querySelectorAll('button')).find((button) => button.className.includes('bg-[var(--primary)]'))
+    expect(activeFilter).toBeTruthy()
   })
 })
-

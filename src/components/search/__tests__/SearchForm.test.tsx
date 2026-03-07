@@ -14,4 +14,5 @@ test('renders a GET search form targeting the search page', () => {
   expect(form?.getAttribute('action')).toBe('/search')
   expect(input.getAttribute('name')).toBe('q')
   expect(button).toBeInTheDocument()
+  expect(button.className).toContain('bg-[var(--primary)]')
 })

@@ -45,7 +45,7 @@ export default function AdminCommentsPage() {
     {
       key: "post",
       label: "所属文章",
-      render: (row) => <Link className="text-[var(--brand)] hover:underline" href={`/posts/${row.post.slug}`}>{row.post.title}</Link>,
+      render: (row) => <Link className="text-[var(--primary)] hover:underline" href={`/posts/${row.post.slug}`}>{row.post.title}</Link>,
     },
     { key: "date", label: "日期", render: (row) => new Date(row.createdAt).toLocaleDateString("zh-CN") },
     {

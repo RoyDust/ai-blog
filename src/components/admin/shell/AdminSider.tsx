@@ -36,7 +36,7 @@ export function AdminSider({ pathname, userLabel }: AdminSiderProps) {
                       href={item.href}
                       className={
                         isActive
-                          ? "flex items-center gap-3 rounded-2xl bg-[var(--brand)] px-3 py-2.5 text-sm font-medium text-white shadow-[0_16px_30px_-22px_rgba(15,118,110,0.85)]"
+                          ? "flex items-center gap-3 rounded-2xl bg-[var(--primary)] px-3 py-2.5 text-sm font-medium text-white shadow-[0_16px_30px_-22px_color-mix(in_srgb,var(--primary)_55%,transparent)]"
                           : "flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--surface-alt)]"
                       }
                     >
@@ -55,7 +55,7 @@ export function AdminSider({ pathname, userLabel }: AdminSiderProps) {
           <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">当前账号</p>
           <p className="mt-2 text-sm font-medium text-[var(--foreground)]">{userLabel}</p>
           <div className="mt-4 flex items-center justify-between gap-3 text-sm">
-            <Link className="inline-flex items-center gap-2 text-[var(--brand)] hover:underline" href="/">
+            <Link className="inline-flex items-center gap-2 text-[var(--primary)] hover:underline" href="/">
               <ArrowLeft className="h-4 w-4" />
               返回站点
             </Link>

@@ -233,7 +233,7 @@ export function MarkdownEditor({ label = "内容", value, onChange, minRows = 18
         <div>
           <p className="mb-1 block text-sm font-medium text-[var(--foreground)]">实时预览</p>
           <div className="min-h-[26rem] max-h-[700px] overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4">
-            <article className="prose prose-zinc dark:prose-invert prose-headings:font-display prose-a:text-[var(--brand)] prose-a:no-underline hover:prose-a:underline prose-img:rounded-xl prose-pre:rounded-xl prose-pre:border prose-pre:border-[var(--border)] prose-pre:bg-[#0b1220] prose-pre:text-slate-100 prose-code:font-[var(--font-code)] prose-code:before:content-none prose-code:after:content-none prose-table:w-full prose-th:bg-[var(--surface-alt)] max-w-none">
+            <article className="prose prose-zinc dark:prose-invert prose-headings:font-display prose-a:text-[var(--primary)] prose-a:no-underline hover:prose-a:underline prose-img:rounded-xl prose-pre:rounded-xl prose-pre:border prose-pre:border-[var(--border)] prose-pre:bg-[#0b1220] prose-pre:text-slate-100 prose-code:font-[var(--font-code)] prose-code:before:content-none prose-code:after:content-none prose-table:w-full prose-th:bg-[var(--surface-alt)] max-w-none">
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 components={{

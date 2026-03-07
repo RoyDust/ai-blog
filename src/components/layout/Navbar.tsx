@@ -53,7 +53,7 @@ export function Navbar() {
             href="/search"
             aria-label="搜索"
             title="搜索"
-            className="btn-plain flex h-11 w-11 items-center justify-center rounded-lg transition-colors lg:hidden"
+            className="btn-plain flex h-11 w-11 items-center justify-center rounded-lg text-[var(--primary)] transition-colors hover:bg-[color:color-mix(in_srgb,var(--primary)_10%,transparent)] lg:hidden"
           >
             <Search className="h-5 w-5" />
           </Link>

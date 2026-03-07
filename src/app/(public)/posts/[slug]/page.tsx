@@ -164,7 +164,7 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
           <div className="space-y-8 p-8">
             <div className="flex flex-wrap items-center gap-3 text-xs text-[var(--muted)]">
               {post.category && (
-                <Link className="rounded-full bg-[var(--surface-alt)] px-3 py-1 font-semibold text-[var(--brand)]" href={`/posts?category=${encodeURIComponent(post.category.slug)}`}>
+                <Link className="rounded-full bg-[var(--surface-alt)] px-3 py-1 font-semibold text-[var(--primary)]" href={`/posts?category=${encodeURIComponent(post.category.slug)}`}>
                   {post.category.name}
                 </Link>
               )}
@@ -186,7 +186,7 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
             </div>
 
             <div className="max-w-[76ch]">
-              <article className="prose prose-zinc dark:prose-invert prose-headings:font-display prose-headings:scroll-mt-28 prose-headings:mt-10 prose-headings:mb-4 prose-p:my-5 prose-p:leading-8 prose-a:text-[var(--brand)] prose-a:no-underline hover:prose-a:underline prose-img:rounded-xl prose-pre:rounded-xl prose-pre:border prose-pre:border-[var(--border)] prose-pre:bg-[#0b1220] prose-pre:text-slate-100 prose-code:font-[var(--font-code)] prose-code:before:content-none prose-code:after:content-none prose-table:w-full prose-th:bg-[var(--surface-alt)] max-w-none">
+              <article className="prose prose-zinc dark:prose-invert prose-headings:font-display prose-headings:scroll-mt-28 prose-headings:mt-10 prose-headings:mb-4 prose-p:my-5 prose-p:leading-8 prose-a:text-[var(--primary)] prose-a:no-underline hover:prose-a:underline prose-img:rounded-xl prose-pre:rounded-xl prose-pre:border prose-pre:border-[var(--border)] prose-pre:bg-[#0b1220] prose-pre:text-slate-100 prose-code:font-[var(--font-code)] prose-code:before:content-none prose-code:after:content-none prose-table:w-full prose-th:bg-[var(--surface-alt)] max-w-none">
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
                   rehypePlugins={[rehypeHighlight]}
@@ -227,7 +227,7 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
               <div className="flex flex-wrap gap-2 border-t border-[var(--border)] pt-8">
                 {post.tags.map((tag: ArticlePost['tags'][number]) => (
                   <Link
-                    className="rounded-full bg-[var(--surface-alt)] px-3 py-1 text-sm text-[var(--foreground)] transition-colors hover:text-[var(--brand)]"
+                    className="rounded-full bg-[var(--surface-alt)] px-3 py-1 text-sm text-[var(--foreground)] transition-colors hover:text-[var(--primary)]"
                     href={`/posts?tag=${encodeURIComponent(tag.slug)}`}
                     key={tag.slug}
                   >
@@ -252,7 +252,7 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
           <BookmarkButton initialBookmarked={false} slug={post.slug} />
           <ShareButton slug={post.slug} title={post.title} />
           <Link
-            className="ui-btn rounded-xl bg-[var(--brand)] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[var(--brand-strong)]"
+            className="ui-btn rounded-xl bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90"
             href="#comments"
           >
             参与讨论

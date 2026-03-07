@@ -31,7 +31,7 @@ interface BookmarkShelfItemProps {
 
 export function BookmarkShelfItem({ post }: BookmarkShelfItemProps) {
   return (
-    <article className="group rounded-[var(--radius-large)] border border-[var(--border)] bg-[var(--surface)]/95 p-6 shadow-[0_18px_50px_-40px_rgba(15,23,42,0.4)] transition duration-200 hover:-translate-y-0.5 hover:border-[color:color-mix(in_srgb,var(--brand)_30%,var(--border))]">
+    <article className="group rounded-[var(--radius-large)] border border-[var(--border)] bg-[var(--surface)]/95 p-6 shadow-[0_18px_50px_-40px_rgba(15,23,42,0.4)] transition duration-200 hover:-translate-y-0.5 hover:border-[color:color-mix(in_srgb,var(--primary)_30%,var(--border))]">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <PostMeta category={post.category} publishedAt={post.createdAt} tags={post.tags.slice(0, 2)} />
         <span className="inline-flex items-center gap-1.5 text-xs text-[var(--muted)]">
@@ -42,7 +42,7 @@ export function BookmarkShelfItem({ post }: BookmarkShelfItemProps) {
 
       <div className="mt-5 max-w-3xl">
         <Link href={`/posts/${post.slug}`} className="outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]">
-          <h2 className="text-balance text-2xl font-black tracking-[-0.03em] text-[var(--foreground)] transition-colors group-hover:text-[var(--brand)] md:text-[2rem]">
+          <h2 className="text-balance text-2xl font-black tracking-[-0.03em] text-[var(--foreground)] transition-colors group-hover:text-[var(--primary)] md:text-[2rem]">
             {post.title}
           </h2>
         </Link>
@@ -62,7 +62,7 @@ export function BookmarkShelfItem({ post }: BookmarkShelfItemProps) {
 
         <Link
           href={`/posts/${post.slug}`}
-          className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] px-3 py-1.5 font-medium text-[var(--foreground)] transition hover:border-[var(--brand)] hover:text-[var(--brand)]"
+          className="inline-flex items-center gap-1.5 rounded-full border border-[var(--primary)] px-3 py-1.5 font-medium text-[var(--primary)] transition hover:bg-[color:color-mix(in_srgb,var(--primary)_10%,transparent)]"
         >
           打开文章
           <ArrowUpRight className="h-4 w-4" />

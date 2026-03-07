@@ -4,9 +4,11 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 
 describe('ui primitives', () => {
-  test('button supports variants with consistent focus ring', () => {
+  test('primary button uses the primary token with consistent focus ring', () => {
     render(<Button variant="primary">Save</Button>)
-    expect(screen.getByRole('button').className).toContain('focus-visible')
+    const button = screen.getByRole('button')
+    expect(button.className).toContain('bg-[var(--primary)]')
+    expect(button.className).toContain('focus-visible')
   })
 
   test('input renders error text when provided', () => {

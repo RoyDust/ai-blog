@@ -41,17 +41,9 @@ export default async function BookmarksPage() {
   const countLabel = `已收藏 ${String(posts.length).padStart(2, "0")} 篇`
 
   return (
-    <main className="mx-auto min-h-screen max-w-[72rem] px-4 py-10 md:px-6 md:py-14">
+    <main className="mx-auto min-h-screen max-w-[72rem] px-4 py-10 md:px-6 md:py-1">
       <div className="mx-auto max-w-5xl">
-        <Link
-          href="/profile"
-          className="inline-flex items-center gap-2 text-sm text-[var(--muted)] transition hover:text-[var(--foreground)]"
-        >
-          <ChevronLeft className="h-4 w-4" />
-          回到个人主页
-        </Link>
-
-        <section className="mt-8 rounded-[calc(var(--radius-large)+0.5rem)] border border-[var(--border)] bg-[var(--surface)]/90 px-6 py-8 shadow-[0_28px_80px_-50px_rgba(15,23,42,0.45)] md:px-10 md:py-12">
+        <section className="mt-0 rounded-[calc(var(--radius-large)+0.5rem)] border border-[var(--border)] bg-[var(--surface)]/90 px-6 py-8 shadow-[0_28px_80px_-50px_rgba(15,23,42,0.45)] md:px-10 md:py-12">
           <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
             <div className="max-w-2xl space-y-4">
               <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--muted)]">Saved Reading</p>
@@ -62,7 +54,7 @@ export default async function BookmarksPage() {
             </div>
 
             <div className="flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-alt)] px-4 py-3 text-sm text-[var(--foreground)]">
-              <Bookmark className="h-4 w-4 text-[var(--brand)]" />
+              <Bookmark className="h-4 w-4 text-[var(--primary)]" />
               <span>{countLabel}</span>
             </div>
           </div>
@@ -83,7 +75,7 @@ export default async function BookmarksPage() {
             </p>
             <Link
               href="/posts"
-              className="mt-8 inline-flex items-center rounded-full border border-[var(--border)] px-5 py-2.5 text-sm font-medium text-[var(--foreground)] transition hover:border-[var(--brand)] hover:text-[var(--brand)]"
+              className="mt-8 inline-flex items-center rounded-full border border-[var(--primary)] px-5 py-2.5 text-sm font-medium text-[var(--primary)] transition hover:bg-[color:color-mix(in_srgb,var(--primary)_10%,transparent)]"
             >
               去看看文章
             </Link>

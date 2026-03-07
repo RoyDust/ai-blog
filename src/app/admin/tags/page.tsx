@@ -67,7 +67,7 @@ export default function AdminTagsPage() {
       label: "操作",
       render: (row) => (
         <div className="flex gap-3 text-sm">
-          <button className="text-[var(--brand)] hover:underline" onClick={() => setForm({ id: row.id, name: row.name, slug: row.slug, color: row.color || defaultColors[0] })} type="button">编辑</button>
+          <button className="text-[var(--primary)] hover:underline" onClick={() => setForm({ id: row.id, name: row.name, slug: row.slug, color: row.color || defaultColors[0] })} type="button">编辑</button>
           <button
             className="text-rose-600 hover:underline"
             onClick={async () => {

@@ -19,7 +19,7 @@ export function Header({ siteName = "My Blog" }: HeaderProps) {
       <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between gap-6 px-4 lg:px-6">
         <Link
           href="/"
-          className="font-display text-xl font-extrabold tracking-tight text-[var(--foreground)] transition-colors hover:text-[var(--brand)]"
+          className="font-display text-xl font-extrabold tracking-tight text-[var(--foreground)] transition-colors hover:text-[var(--primary)]"
         >
           {siteName}
         </Link>
@@ -45,7 +45,7 @@ export function Header({ siteName = "My Blog" }: HeaderProps) {
           </Link>
           <Link
             href="/register"
-            className="ui-btn bg-[var(--brand)] px-4 py-2 text-sm text-white hover:bg-[var(--brand-strong)]"
+            className="ui-btn bg-[var(--primary)] px-4 py-2 text-sm text-white hover:opacity-90"
           >
             注册
           </Link>

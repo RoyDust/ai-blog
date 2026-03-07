@@ -21,7 +21,7 @@ export function CommentAuthGate({ postId }: CommentAuthGateProps) {
 
   return (
     <p className="mb-8 text-[var(--muted)]">
-      <Link className="text-[var(--brand)] hover:underline" href="/login">
+      <Link className="text-[var(--primary)] hover:underline" href="/login">
         登录
       </Link>{' '}
       后发表评论

@@ -22,14 +22,14 @@ export function SearchForm({
       </label>
       <input
         aria-label={inputLabel}
-        className="ui-ring w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--foreground)] placeholder:text-[var(--muted)] focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+        className="ui-ring w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--foreground)] placeholder:text-[var(--muted)] focus-visible:ring-2 focus-visible:ring-[var(--primary)] "
         defaultValue={defaultValue}
         id="site-search-input"
         name="q"
         placeholder={placeholder}
         type="search"
       />
-      <button className="ui-btn shrink-0 bg-[var(--brand)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--brand-strong)]" type="submit">
+      <button className="ui-btn shrink-0 bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-white hover:opacity-90" type="submit">
         {buttonLabel}
       </button>
     </form>

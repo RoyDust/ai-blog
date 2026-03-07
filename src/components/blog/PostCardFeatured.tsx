@@ -28,11 +28,11 @@ export function PostCardFeatured({ post }: PostCardFeaturedProps) {
         </div>
         <div className="flex flex-col justify-between p-6 md:p-8">
           <div className="space-y-4">
-            <span className="inline-flex rounded-full bg-[var(--surface-alt)] px-3 py-1 text-xs font-semibold tracking-wide text-[var(--brand)]">
+            <span className="inline-flex rounded-full bg-[var(--surface-alt)] px-3 py-1 text-xs font-semibold tracking-wide text-[var(--primary)]">
               精选文章
             </span>
             <Link href={`/posts/${post.slug}`}>
-              <h2 className="font-display text-2xl font-extrabold leading-tight text-[var(--foreground)] transition-colors hover:text-[var(--brand)]">
+              <h2 className="font-display text-2xl font-extrabold leading-tight text-[var(--foreground)] transition-colors hover:text-[var(--primary)]">
                 {post.title}
               </h2>
             </Link>

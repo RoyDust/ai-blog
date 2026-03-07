@@ -55,7 +55,7 @@ export default function AdminPostsPage() {
       label: "标题",
       render: (row) => (
         <div className="space-y-1">
-          <Link className="font-medium text-[var(--foreground)] hover:text-[var(--brand)]" href={`/admin/posts/${row.id}/edit`}>
+          <Link className="font-medium text-[var(--foreground)] hover:text-[var(--primary)]" href={`/admin/posts/${row.id}/edit`}>
             {row.title}
           </Link>
           <p className="text-xs text-[var(--muted)]">/posts/{row.slug}</p>
@@ -104,8 +104,8 @@ export default function AdminPostsPage() {
       label: "操作",
       render: (row) => (
         <div className="flex items-center gap-3 text-sm">
-          <Link className="text-[var(--brand)] hover:underline" href={`/admin/posts/${row.id}/edit`}>编辑</Link>
-          <Link className="text-[var(--foreground)] hover:text-[var(--brand)]" href={`/posts/${row.slug}`}>预览</Link>
+          <Link className="text-[var(--primary)] hover:underline" href={`/admin/posts/${row.id}/edit`}>编辑</Link>
+          <Link className="text-[var(--foreground)] hover:text-[var(--primary)]" href={`/posts/${row.slug}`}>预览</Link>
           <button
             className="text-rose-600 hover:underline"
             onClick={async () => {
@@ -147,7 +147,7 @@ export default function AdminPostsPage() {
             type="button"
             className={
               statusFilter === item.key
-                ? "ui-btn rounded-xl bg-[var(--brand)] px-3 py-2 text-sm text-white"
+                ? "ui-btn rounded-xl bg-[var(--primary)] px-3 py-2 text-sm text-white"
                 : "ui-btn rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--surface-alt)]"
             }
             onClick={() => setStatusFilter(item.key as typeof statusFilter)}

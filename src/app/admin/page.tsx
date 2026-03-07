@@ -75,11 +75,11 @@ export default async function AdminPage() {
               return (
                 <Link key={item.href} href={item.href} className="group rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 transition-colors hover:bg-[var(--surface-alt)]">
                   <div className="flex items-start gap-3">
-                    <span className="rounded-2xl bg-[var(--surface-alt)] p-2 text-[var(--brand)]">
+                    <span className="rounded-2xl bg-[var(--surface-alt)] p-2 text-[var(--primary)]">
                       <Icon className="h-5 w-5" />
                     </span>
                     <div>
-                      <h3 className="font-semibold text-[var(--foreground)] group-hover:text-[var(--brand)]">{item.title}</h3>
+                      <h3 className="font-semibold text-[var(--foreground)] group-hover:text-[var(--primary)]">{item.title}</h3>
                       <p className="mt-1 text-sm text-[var(--muted)]">{item.description}</p>
                     </div>
                   </div>
@@ -91,7 +91,7 @@ export default async function AdminPage() {
 
         <div className="ui-surface rounded-3xl p-5 shadow-[0_16px_34px_-26px_rgba(15,118,110,0.45)]">
           <div className="flex items-center gap-3">
-            <span className="rounded-2xl bg-[var(--surface-alt)] p-2 text-[var(--brand)]"><Clock3 className="h-5 w-5" /></span>
+            <span className="rounded-2xl bg-[var(--surface-alt)] p-2 text-[var(--primary)]"><Clock3 className="h-5 w-5" /></span>
             <div>
               <h2 className="font-display text-xl font-bold text-[var(--foreground)]">最近活动</h2>
               <p className="mt-1 text-sm text-[var(--muted)]">最近发布和最新评论一屏查看。</p>
@@ -102,7 +102,7 @@ export default async function AdminPage() {
             {recentPosts.map((post: RecentPost) => (
               <div key={post.id} className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
                 <div className="flex items-center justify-between gap-3">
-                  <Link href={`/admin/posts/${post.id}/edit`} className="font-medium text-[var(--foreground)] hover:text-[var(--brand)]">{post.title}</Link>
+                  <Link href={`/admin/posts/${post.id}/edit`} className="font-medium text-[var(--foreground)] hover:text-[var(--primary)]">{post.title}</Link>
                   <StatusBadge tone={post.published ? "success" : "warning"}>{post.published ? "已发布" : "草稿"}</StatusBadge>
                 </div>
                 <p className="mt-2 text-xs text-[var(--muted)]">{new Date(post.createdAt).toLocaleDateString("zh-CN")} · /posts/{post.slug}</p>
@@ -116,7 +116,7 @@ export default async function AdminPage() {
                   <span className="text-[var(--muted)]">{new Date(comment.createdAt).toLocaleDateString("zh-CN")}</span>
                 </div>
                 <p className="mt-2 line-clamp-2 text-sm text-[var(--muted)]">{comment.content}</p>
-                <Link href={`/posts/${comment.post.slug}`} className="mt-2 inline-block text-xs text-[var(--brand)] hover:underline">来自《{comment.post.title}》</Link>
+                <Link href={`/posts/${comment.post.slug}`} className="mt-2 inline-block text-xs text-[var(--primary)] hover:underline">来自《{comment.post.title}》</Link>
               </div>
             ))}
           </div>
