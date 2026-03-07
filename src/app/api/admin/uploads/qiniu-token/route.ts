@@ -2,6 +2,8 @@ import crypto from 'node:crypto'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { parseUploadRequest } from '@/lib/validation'
+import { checkUploadRateLimit } from '@/lib/rate-limit'
 
 const defaultUploadUrl = 'https://upload.qiniup.com'
 
@@ -60,15 +62,30 @@ async function assertAdmin() {
   return session
 }
 
+/**
+ * 为管理员生成七牛上传凭证，并在签发前执行鉴权、校验与限流。
+ */
 export async function POST(request: Request) {
+  const rateLimit = checkUploadRateLimit(request)
+  if (!rateLimit.allowed) {
+    return NextResponse.json({ success: false, error: 'Too many requests' }, { status: 429 })
+  }
+
   const session = await assertAdmin()
   if (!session) {
     return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
   }
 
-  const { filename } = await request.json()
-  if (!filename || typeof filename !== 'string') {
-    return NextResponse.json({ success: false, error: 'Missing filename' }, { status: 400 })
+  let filename: string
+
+  try {
+    ;({ filename } = parseUploadRequest(await request.json()))
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith('Invalid')) {
+      return NextResponse.json({ success: false, error: error.message }, { status: 400 })
+    }
+
+    throw error
   }
 
   const accessKey = process.env.QINIU_ACCESS_KEY

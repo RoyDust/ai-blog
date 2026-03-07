@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
+import { parsePostPatchInput } from "@/lib/validation"
 
 export async function GET(
   request: Request,
@@ -80,7 +81,7 @@ export async function PATCH(
     }
 
     const { slug } = await params
-    const { title, content, excerpt, coverImage, categoryId, tagIds, published } = await request.json()
+    const { title, content, excerpt, coverImage, categoryId, tagIds, published } = parsePostPatchInput(await request.json())
 
     const post = await prisma.post.findUnique({
       where: { slug }
@@ -128,6 +129,10 @@ export async function PATCH(
       data: updatedPost
     })
   } catch (error) {
+    if (error instanceof Error && (error.message.startsWith("Invalid") || error.message === "Title and content are required")) {
+      return NextResponse.json({ error: error.message }, { status: 400 })
+    }
+
     console.error("Update post error:", error)
     return NextResponse.json(
       { error: "Internal server error" },

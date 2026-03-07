@@ -3,12 +3,15 @@ import { prisma } from "@/lib/prisma"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { Prisma } from "@prisma/client"
+import { clampPagination, parsePostInput } from "@/lib/validation"
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
-    const page = parseInt(searchParams.get("page") || "1")
-    const limit = parseInt(searchParams.get("limit") || "10")
+    const { page, limit } = clampPagination({
+      page: searchParams.get("page"),
+      limit: searchParams.get("limit"),
+    })
     const category = searchParams.get("category")
     const tag = searchParams.get("tag")
     const search = searchParams.get("search")
@@ -81,14 +84,7 @@ export async function POST(request: Request) {
       )
     }
 
-    const { title, content, slug, excerpt, coverImage, categoryId, tagIds, published } = await request.json()
-
-    if (!title || !content || !slug) {
-      return NextResponse.json(
-        { error: "Title, content and slug are required" },
-        { status: 400 }
-      )
-    }
+    const { title, content, slug, excerpt, coverImage, categoryId, tagIds, published } = parsePostInput(await request.json())
 
     const post = await prisma.post.create({
       data: {
@@ -118,6 +114,10 @@ export async function POST(request: Request) {
       data: post
     })
   } catch (error) {
+    if (error instanceof Error && (error.message.startsWith("Invalid") || error.message === "Title and content are required")) {
+      return NextResponse.json({ error: error.message }, { status: 400 })
+    }
+
     console.error("Create post error:", error)
     return NextResponse.json(
       { error: "Internal server error" },

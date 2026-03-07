@@ -38,6 +38,11 @@ pnpm dev
 
 详见 `PROJECT_DOCS.md`
 
+## 管理员初始化
+
+- 不要通过 HTTP 接口初始化管理员。
+- 管理员角色应通过 Prisma seed、数据库迁移或受控的离线脚本完成。
+
 ## 文档
 
 详细开发文档见 [PROJECT_DOCS.md](./PROJECT_DOCS.md)

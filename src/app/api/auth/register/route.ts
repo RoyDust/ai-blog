@@ -1,17 +1,17 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
+import { parseRegisterInput } from "@/lib/validation"
+import { checkAuthRateLimit } from "@/lib/rate-limit"
 
 export async function POST(request: Request) {
   try {
-    const { name, email, password } = await request.json()
-
-    if (!email || !password) {
-      return NextResponse.json(
-        { error: "Email and password are required" },
-        { status: 400 }
-      )
+    const rateLimit = checkAuthRateLimit(request)
+    if (!rateLimit.allowed) {
+      return NextResponse.json({ error: "Too many requests" }, { status: 429 })
     }
+
+    const { name, email, password } = parseRegisterInput(await request.json())
 
     // 检查用户是否已存在
     const existingUser = await prisma.user.findUnique({
@@ -46,6 +46,10 @@ export async function POST(request: Request) {
       }
     })
   } catch (error) {
+    if (error instanceof Error && (error.message.startsWith("Invalid") || error.message === "Password too short")) {
+      return NextResponse.json({ error: error.message }, { status: 400 })
+    }
+
     console.error("Register error:", error)
     return NextResponse.json(
       { error: "Internal server error" },

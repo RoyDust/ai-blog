@@ -2,9 +2,19 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
+import { parseCommentInput } from "@/lib/validation"
+import { checkInteractionRateLimit } from "@/lib/rate-limit"
 
+/**
+ * 创建评论或回复，并在写入前完成登录与限流检查。
+ */
 export async function POST(request: Request) {
   try {
+    const rateLimit = checkInteractionRateLimit(request)
+    if (!rateLimit.allowed) {
+      return NextResponse.json({ error: "Too many requests" }, { status: 429 })
+    }
+
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
       return NextResponse.json(
@@ -13,14 +23,7 @@ export async function POST(request: Request) {
       )
     }
 
-    const { postId, content, parentId } = await request.json()
-
-    if (!postId || !content) {
-      return NextResponse.json(
-        { error: "Post ID and content are required" },
-        { status: 400 }
-      )
-    }
+    const { postId, content, parentId } = parseCommentInput(await request.json())
 
     const comment = await prisma.comment.create({
       data: {
@@ -41,6 +44,10 @@ export async function POST(request: Request) {
       data: comment
     })
   } catch (error) {
+    if (error instanceof Error && error.message.startsWith("Invalid")) {
+      return NextResponse.json({ error: error.message }, { status: 400 })
+    }
+
     console.error("Create comment error:", error)
     return NextResponse.json(
       { error: "Internal server error" },
@@ -49,6 +56,9 @@ export async function POST(request: Request) {
   }
 }
 
+/**
+ * 更新评论内容，仅允许作者本人或管理员执行。
+ */
 export async function PATCH(request: Request) {
   try {
     const session = await getServerSession(authOptions)
@@ -102,6 +112,9 @@ export async function PATCH(request: Request) {
   }
 }
 
+/**
+ * 删除评论，仅允许作者本人或管理员执行。
+ */
 export async function DELETE(request: Request) {
   try {
     const session = await getServerSession(authOptions)

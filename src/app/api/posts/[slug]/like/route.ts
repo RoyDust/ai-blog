@@ -2,12 +2,21 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
+import { checkInteractionRateLimit } from "@/lib/rate-limit"
 
+/**
+ * 切换当前用户对文章的点赞状态，并在写操作前执行限流。
+ */
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ slug: string }> }
 ) {
   try {
+    const rateLimit = checkInteractionRateLimit(request)
+    if (!rateLimit.allowed) {
+      return NextResponse.json({ error: "Too many requests" }, { status: 429 })
+    }
+
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
       return NextResponse.json(
@@ -69,6 +78,9 @@ export async function POST(
   }
 }
 
+/**
+ * 返回文章点赞总数，以及当前登录用户是否已点赞。
+ */
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ slug: string }> }
