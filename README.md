@@ -1,25 +1,22 @@
 # My Blog
 
-一个使用 Next.js 16 构建的现代化博客系统。
+一个使用 `Next.js 16` 构建的现代化博客系统。
 
 ## 快速开始
 
 ```bash
-# 安装依赖
 pnpm install
-
-# 启动开发服务器
 pnpm dev
 ```
 
 访问 `http://localhost:3000`
 
-## 功能特性
+## 功能概览
 
-- 用户注册/登录
-- 文章发布和管理
-- 分类和标签
-- 点赞和收藏
+- 用户注册与登录
+- 文章发布与管理
+- 分类与标签
+- 点赞与收藏
 - 评论系统
 - 搜索功能
 - 暗色模式
@@ -36,29 +33,32 @@ pnpm dev
 
 ## 环境变量
 
-详见 `PROJECT_DOCS.md`
+参考 `.env.example`。
+
+当前项目主要使用以下变量：
+
+- `DATABASE_URL`：PostgreSQL 连接串
+- `AUTH_SECRET`：认证签名密钥
+- `NEXTAUTH_URL`：认证回调地址
+- `NEXT_PUBLIC_SITE_URL`：站点公开地址
+- `AUTH_GITHUB_ID` / `AUTH_GITHUB_SECRET`：GitHub 登录配置，可选
+- `QINIU_ACCESS_KEY` / `QINIU_SECRET_KEY` / `QINIU_BUCKET` / `QINIU_DOMAIN` / `QINIU_UPLOAD_URL`：七牛上传配置，可选
 
 ## 管理员初始化
 
-- 不要通过 HTTP 接口初始化管理员。
-- 管理员角色应通过 Prisma seed、数据库迁移或受控的离线脚本完成。
-
-## 文档
-
-详细开发文档见 [PROJECT_DOCS.md](./PROJECT_DOCS.md)
+- 不要通过 HTTP 接口初始化管理员
+- 管理员角色应通过 Prisma seed、数据库迁移或受控离线脚本完成
 
 ## 验证命令
 
 ```bash
-pnpm lint
 pnpm build
 pnpm test
-pnpm test:e2e
 ```
 
-## Frontend Style Notes
+## 前端说明
 
-- 前台页面已迁移到 `src/app/(public)` 路由组，并由 `src/app/(public)/layout.tsx` 挂载 BlogT3 风格壳层。
-- 新的前台样式基础位于 `src/styles/theme-variables.css`、`src/styles/components.css`、`src/styles/animations.css`。
-- 主题色相通过 `localStorage` 的 `theme-hue` 持久化，并驱动全局 CSS 变量 `--hue`。
-- 如果要在开发环境运行前台动态页面或 E2E，请先确保 PostgreSQL 可访问。
+- 前台页面位于 `src/app/(public)`
+- 文章列表 `/posts` 采用 ISR 静态外壳 + 客户端筛选
+- 文章详情页 `/posts/[slug]` 采用 SSG + `generateStaticParams`
+- 若本地工作树目录没有 `.env`，数据库连接会向上回溯查找仓库根目录的 `.env` / `.env.local`
