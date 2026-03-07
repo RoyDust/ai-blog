@@ -1,9 +1,10 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useState } from "react";
 import { Home, Menu, Palette, Search } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { SearchForm } from "@/components/search/SearchForm";
 import { HuePicker } from "@/components/ui/HuePicker";
 import { useScrollHide } from "@/hooks/useScrollHide";
 
@@ -27,7 +28,7 @@ export function Navbar() {
     >
       <div className="absolute -top-8 right-0 left-0 h-8 bg-[var(--card-bg)] transition" />
 
-      <div className="card-base mx-auto flex h-[4.5rem] max-w-[var(--page-width)] items-center justify-between !overflow-visible !rounded-t-none px-4 backdrop-blur-lg !bg-[var(--card-bg)]/80">
+      <div className="card-base mx-auto flex h-[4.5rem] max-w-[var(--page-width)] items-center justify-between gap-3 !overflow-visible !rounded-t-none px-4 backdrop-blur-lg !bg-[var(--card-bg)]/80">
         <Link href="/" className="btn-plain h-[3.25rem] rounded-lg px-5 font-bold transition-colors">
           <div className="text-md flex items-center text-[var(--primary)]">
             <Home className="mr-2 -mb-1 h-7 w-7" />
@@ -43,12 +44,16 @@ export function Navbar() {
           ))}
         </nav>
 
+        <div className="hidden min-w-0 flex-1 lg:flex lg:max-w-sm">
+          <SearchForm buttonLabel="搜索" compact placeholder="搜索文章" />
+        </div>
+
         <div className="flex items-center">
           <Link
             href="/search"
             aria-label="搜索"
             title="搜索"
-            className="btn-plain flex h-11 w-11 items-center justify-center rounded-lg transition-colors"
+            className="btn-plain flex h-11 w-11 items-center justify-center rounded-lg transition-colors lg:hidden"
           >
             <Search className="h-5 w-5" />
           </Link>
