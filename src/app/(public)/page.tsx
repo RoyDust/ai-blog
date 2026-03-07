@@ -1,9 +1,17 @@
 export const dynamic = "force-dynamic";
 
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Archive, ArrowRight, Code2, Database, FileText, Palette, User, Zap } from "lucide-react";
 import { PostCard } from "@/components/blog";
 import { prisma } from "@/lib/prisma";
+import { buildPageMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = buildPageMetadata({
+  title: 'My Blog',
+  description: '一个基于 Next.js 构建的现代化博客系统。',
+  path: '/',
+})
 
 async function getData() {
   const [posts, categories] = await Promise.all([
@@ -27,6 +35,9 @@ async function getData() {
 
   return { posts, categories };
 }
+
+type HomePost = Awaited<ReturnType<typeof getData>>['posts'][number]
+type HomeCategory = Awaited<ReturnType<typeof getData>>['categories'][number]
 
 export default async function Home() {
   const { posts, categories } = await getData();
@@ -56,7 +67,7 @@ export default async function Home() {
           </Link>
         </div>
         <div className="space-y-4">
-          {posts.map((post, index) => (
+          {posts.map((post: HomePost, index: number) => (
             <div key={post.id} className="onload-animation" style={{ animationDelay: `${100 + index * 50}ms` }}>
               <PostCard post={post} />
             </div>
@@ -67,7 +78,7 @@ export default async function Home() {
       <section className="card-base onload-animation p-6 md:p-8" style={{ animationDelay: "250ms" }}>
         <h2 className="text-90 mb-6 text-2xl font-bold">分类浏览</h2>
         <div className="flex flex-wrap gap-3">
-          {categories.map((category) => (
+          {categories.map((category: HomeCategory) => (
             <Link
               key={category.id}
               href={`/categories/${category.slug}`}

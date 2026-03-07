@@ -3,6 +3,8 @@ export const dynamic = "force-dynamic";
 import { FilterBar, PostCard } from "@/components/blog";
 import { prisma } from "@/lib/prisma";
 
+type ListingPost = Awaited<ReturnType<typeof prisma.post.findMany>>[number]
+
 interface PageProps {
   searchParams: Promise<{
     q?: string;
@@ -56,7 +58,7 @@ export default async function PostsPage({ searchParams }: PageProps) {
 
       <div className="space-y-4">
         {posts.length > 0 ? (
-          posts.map((post, index) => (
+          posts.map((post: ListingPost, index: number) => (
             <div key={post.id} className="onload-animation" style={{ animationDelay: `${100 + index * 50}ms` }}>
               <PostCard post={post} />
             </div>

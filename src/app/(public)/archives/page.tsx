@@ -4,6 +4,8 @@ import Link from "next/link";
 import { Clock3 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 
+type ArchivePost = Awaited<ReturnType<typeof prisma.post.findMany>>[number]
+
 function formatDate(date: Date) {
   return new Intl.DateTimeFormat("zh-CN", {
     month: "2-digit",
@@ -56,7 +58,7 @@ export default async function ArchivesPage() {
                 </div>
 
                 <div className="space-y-3">
-                  {yearPosts.map((post) => (
+                  {yearPosts.map((post: ArchivePost) => (
                     <article
                       key={post.id}
                       className="ml-2 rounded-xl border border-black/8 bg-[var(--card-bg)]/70 p-4 transition hover:border-[var(--primary)]/25 hover:bg-[var(--btn-card-bg-hover)] dark:border-white/10"

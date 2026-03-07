@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 
+import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -12,6 +13,7 @@ import { CommentForm } from "@/components/CommentForm";
 import { ArticleToc, BackToTopButton, BookmarkButton, LikeButton, ReadingProgress, ShareButton } from "@/components/blog";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { buildArticleJsonLd, buildArticleMetadata } from "@/lib/seo";
 
 async function getPost(slug: string) {
   return prisma.post.findUnique({
@@ -43,6 +45,32 @@ async function getPost(slug: string) {
       },
     },
   });
+}
+
+type ArticlePost = NonNullable<Awaited<ReturnType<typeof getPost>>>
+
+/**
+ * 为文章详情页生成动态 SEO metadata。
+ */
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params
+  const post = await getPost(slug)
+
+  if (!post) {
+    return {
+      title: '文章不存在 | My Blog',
+      description: '未找到对应文章。',
+    }
+  }
+
+  return buildArticleMetadata({
+    title: `Article Title` === post.title ? `${post.title} | My Blog` : `${post.title} | My Blog`,
+    description: post.excerpt || `${post.title} - My Blog`,
+    path: `/posts/${post.slug}`,
+    image: post.coverImage,
+    publishedTime: (post.publishedAt || post.createdAt).toISOString(),
+    modifiedTime: post.updatedAt?.toISOString(),
+  })
 }
 
 function slugify(text: string) {
@@ -84,9 +112,22 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
   }
 
   const headings = extractHeadings(post.content);
+  const articleJsonLd = buildArticleJsonLd({
+    title: post.title,
+    description: post.excerpt || `${post.title} - My Blog`,
+    path: `/posts/${post.slug}`,
+    publishedTime: (post.publishedAt || post.createdAt).toISOString(),
+    modifiedTime: post.updatedAt?.toISOString(),
+    authorName: post.author.name || 'Author',
+    image: post.coverImage,
+  })
 
   return (
     <div className="relative space-y-8 overflow-x-clip">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }}
+      />
       <ReadingProgress />
       <BackToTopButton />
 
@@ -173,7 +214,7 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
 
             {post.tags.length > 0 && (
               <div className="flex flex-wrap gap-2 border-t border-[var(--border)] pt-8">
-                {post.tags.map((tag) => (
+                {post.tags.map((tag: ArticlePost['tags'][number]) => (
                   <Link
                     className="rounded-full bg-[var(--surface-alt)] px-3 py-1 text-sm text-[var(--foreground)] transition-colors hover:text-[var(--brand)]"
                     href={`/posts?tag=${encodeURIComponent(tag.slug)}`}
@@ -224,7 +265,7 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
         )}
 
         <div className="space-y-6">
-          {post.comments.map((comment) => (
+          {post.comments.map((comment: ArticlePost['comments'][number]) => (
             <div className="border-b border-[var(--border)] pb-6" key={comment.id}>
               <div className="mb-2 flex items-center gap-3">
                 {comment.author.image ? (
@@ -239,7 +280,7 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
 
               {comment.replies.length > 0 && (
                 <div className="ml-11 mt-4 space-y-4">
-                  {comment.replies.map((reply) => (
+                  {comment.replies.map((reply: ArticlePost['comments'][number]['replies'][number]) => (
                     <div className="border-l-2 border-[var(--border)] pl-4" key={reply.id}>
                       <div className="mb-1 flex items-center gap-2">
                         <span className="font-medium text-[var(--foreground)]">{reply.author.name}</span>

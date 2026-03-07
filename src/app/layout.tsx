@@ -4,6 +4,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { AuthProvider } from "@/components/AuthProvider";
 import { MotionProvider } from "@/components/motion";
+import { getSiteUrl } from "@/lib/seo";
 
 const notoSansSc = Noto_Sans_SC({
   variable: "--font-noto-sans-sc",
@@ -29,8 +30,28 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "My Blog",
-  description: "A modern blog built with Next.js",
+  metadataBase: new URL(getSiteUrl()),
+  title: {
+    default: "My Blog",
+    template: "%s | My Blog",
+  },
+  description: "一个基于 Next.js 构建的现代化博客系统。",
+  alternates: {
+    canonical: '/',
+  },
+  openGraph: {
+    title: 'My Blog',
+    description: '一个基于 Next.js 构建的现代化博客系统。',
+    url: '/',
+    siteName: 'My Blog',
+    type: 'website',
+    locale: 'zh_CN',
+  },
+  twitter: {
+    card: 'summary',
+    title: 'My Blog',
+    description: '一个基于 Next.js 构建的现代化博客系统。',
+  },
 };
 
 export default function RootLayout({

@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { securityHeaders } from "./src/lib/security-headers";
 
 const qiniuDomain = process.env.QINIU_DOMAIN;
 const qiniuUrl = qiniuDomain ? new URL(qiniuDomain) : null;
@@ -23,6 +24,14 @@ const nextConfig: NextConfig = {
           ]
         : []),
     ],
+  },
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: securityHeaders,
+      },
+    ]
   },
 };
 

@@ -1,0 +1,13 @@
+import type { NextRequest } from 'next/server'
+import { NextResponse } from 'next/server'
+
+/**
+ * 预留统一中间件入口，后续可在这里收敛边缘侧安全策略。
+ */
+export function middleware(_request: NextRequest) {
+  return NextResponse.next()
+}
+
+export const config = {
+  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+}
