@@ -52,7 +52,7 @@ export async function PATCH(request: Request) {
     })
 
     return NextResponse.json({ success: true, data: post })
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: "Failed to update post" }, { status: 500 })
   }
 }

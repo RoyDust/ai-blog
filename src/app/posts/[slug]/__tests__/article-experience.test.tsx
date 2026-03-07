@@ -28,6 +28,13 @@ vi.mock('next-auth', () => ({
   getServerSession: vi.fn().mockResolvedValue(null),
 }))
 
+vi.mock('next-auth/react', () => ({
+  useSession: () => ({
+    status: 'unauthenticated',
+    data: null,
+  }),
+}))
+
 vi.mock('@/lib/auth', () => ({
   authOptions: {},
 }))

@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui';
 
@@ -33,10 +34,12 @@ export function PostCard({
     <Card hover onClick={() => (window.location.href = `/posts/${slug}`)}>
       {coverImage && (
         <div className="aspect-video w-full overflow-hidden rounded-t-lg">
-          <img
+          <Image
             src={coverImage}
             alt={title}
             className="w-full h-full object-cover"
+            width={1200}
+            height={675}
           />
         </div>
       )}
@@ -57,10 +60,12 @@ export function PostCard({
         <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-500">
           <div className="flex items-center gap-2">
             {author.avatar ? (
-              <img
+              <Image
                 src={author.avatar}
                 alt={author.name}
                 className="w-6 h-6 rounded-full"
+                width={24}
+                height={24}
               />
             ) : (
               <div className="w-6 h-6 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center">

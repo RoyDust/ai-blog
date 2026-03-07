@@ -6,7 +6,7 @@ export async function GET() {
   try {
     const session = await getServerSession(authOptions)
     return NextResponse.json({ user: session?.user })
-  } catch (error) {
+  } catch {
     return NextResponse.json({ user: null })
   }
 }
