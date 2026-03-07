@@ -54,18 +54,18 @@ export default function RegisterPage() {
   return (
     <Card>
       <CardContent>
-        <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+        <div className="mb-8 text-center">
+          <h1 className="text-90 text-2xl font-bold">
             Create Account
           </h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-2">
+          <p className="text-75 mt-2">
             Sign up for a new account
           </p>
         </div>
 
         {error && (
-          <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-            <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+          <div className="ui-alert-danger mb-4 rounded-lg p-3">
+            <p className="text-sm">{error}</p>
           </div>
         )}
 
@@ -111,16 +111,16 @@ export default function RegisterPage() {
             <input
               type="checkbox"
               id="terms"
-              className="w-4 h-4 mt-0.5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+              className="ui-checkbox mt-0.5 h-4 w-4 rounded"
               required
             />
-            <label htmlFor="terms" className="ml-2 text-sm text-gray-600 dark:text-gray-400">
+            <label htmlFor="terms" className="text-75 ml-2 text-sm">
               I agree to the{' '}
-              <Link href="/terms" className="text-blue-600 hover:text-blue-700 dark:text-blue-400">
+              <Link href="/terms" className="ui-link">
                 Terms of Service
               </Link>{' '}
               and{' '}
-              <Link href="/privacy" className="text-blue-600 hover:text-blue-700 dark:text-blue-400">
+              <Link href="/privacy" className="ui-link">
                 Privacy Policy
               </Link>
             </label>
@@ -132,11 +132,11 @@ export default function RegisterPage() {
         </form>
 
         <div className="mt-6 text-center">
-          <p className="text-sm text-gray-600 dark:text-gray-400">
+          <p className="text-75 text-sm">
             Already have an account?{' '}
             <Link
               href="/login"
-              className="text-blue-600 hover:text-blue-700 font-medium dark:text-blue-400"
+              className="ui-link font-medium"
             >
               Sign in
             </Link>

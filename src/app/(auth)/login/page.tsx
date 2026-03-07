@@ -38,18 +38,18 @@ export default function LoginPage() {
   return (
     <Card>
       <CardContent>
-        <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+        <div className="mb-8 text-center">
+          <h1 className="text-90 text-2xl font-bold">
             Welcome Back
           </h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-2">
+          <p className="text-75 mt-2">
             Sign in to your account
           </p>
         </div>
 
         {error && (
-          <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-            <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+          <div className="ui-alert-danger mb-4 rounded-lg p-3">
+            <p className="text-sm">{error}</p>
           </div>
         )}
 
@@ -78,11 +78,11 @@ export default function LoginPage() {
         </form>
 
         <div className="mt-6 text-center">
-          <p className="text-sm text-gray-600 dark:text-gray-400">
+          <p className="text-75 text-sm">
             Don&apos;t have an account?{' '}
             <Link
               href="/register"
-              className="text-blue-600 hover:text-blue-700 font-medium dark:text-blue-400"
+              className="ui-link font-medium"
             >
               Sign up
             </Link>

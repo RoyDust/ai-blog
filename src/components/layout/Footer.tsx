@@ -13,7 +13,7 @@ export function Footer() {
               <span>© {currentYear} My Blog</span>
               <span className="text-50">·</span>
               <span className="flex items-center gap-1">
-                Made with <Heart className="h-4 w-4 fill-current text-red-500" /> by My Blog
+                Made with <Heart className="h-4 w-4 fill-current text-[var(--danger-foreground)]" /> by My Blog
               </span>
             </div>
 

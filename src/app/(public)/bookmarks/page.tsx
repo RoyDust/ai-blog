@@ -1,6 +1,6 @@
 ﻿export const dynamic = "force-dynamic";
 import Link from "next/link"
-import { Bookmark, ChevronLeft } from "lucide-react"
+import { Bookmark } from "lucide-react"
 import { redirect } from "next/navigation"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"

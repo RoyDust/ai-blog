@@ -33,11 +33,11 @@ export function PostCard({
   return (
     <Card hover onClick={() => (window.location.href = `/posts/${slug}`)}>
       {coverImage && (
-        <div className="aspect-video w-full overflow-hidden rounded-t-lg">
+        <div className="theme-media aspect-video w-full rounded-t-lg">
           <Image
             src={coverImage}
             alt={title}
-            className="w-full h-full object-cover"
+            className="theme-media-image h-full w-full object-cover"
             width={1200}
             height={675}
           />
@@ -45,31 +45,31 @@ export function PostCard({
       )}
       <CardContent>
         {category && (
-          <span className="inline-block px-2 py-1 text-xs font-medium text-blue-600 bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400 rounded mb-2">
+          <span className="ui-chip mb-2">
             {category}
           </span>
         )}
         <Link href={`/posts/${slug}`}>
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors mb-2">
+          <h2 className="text-90 hover:text-[var(--brand-strong)] mb-2 text-xl font-semibold transition-colors">
             {title}
           </h2>
         </Link>
-        <p className="text-gray-600 dark:text-gray-400 text-sm mb-4 line-clamp-2">
+        <p className="text-75 mb-4 text-sm line-clamp-2">
           {excerpt}
         </p>
-        <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-500">
+        <div className="text-50 flex items-center justify-between text-sm">
           <div className="flex items-center gap-2">
             {author.avatar ? (
               <Image
                 src={author.avatar}
                 alt={author.name}
-                className="w-6 h-6 rounded-full"
+                className="theme-media-image h-6 w-6 rounded-full object-cover"
                 width={24}
                 height={24}
               />
             ) : (
-              <div className="w-6 h-6 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center">
-                <span className="text-xs text-gray-600 dark:text-gray-300">
+              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--surface-alt)]">
+                <span className="text-75 text-xs">
                   {author.name.charAt(0)}
                 </span>
               </div>

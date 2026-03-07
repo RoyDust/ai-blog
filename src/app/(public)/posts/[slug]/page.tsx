@@ -156,8 +156,8 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
       <div className="mx-auto w-full max-w-[980px] xl:min-w-[880px]">
         <article className="card-base overflow-hidden">
           {post.coverImage && (
-            <div className="relative h-64 w-full md:h-96">
-              <Image alt={post.title} className="object-cover" fill priority src={post.coverImage} />
+            <div className="theme-media relative h-64 w-full md:h-96">
+              <Image alt={post.title} className="theme-media-image object-cover" fill priority src={post.coverImage} />
             </div>
           )}
 
@@ -176,7 +176,7 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
 
             <div className="flex items-center gap-3 border-b border-[var(--border)] pb-8">
               {post.author.image ? (
-                <Image alt={post.author.name || "Author"} className="rounded-full" height={40} src={post.author.image} width={40} />
+                <Image alt={post.author.name || "Author"} className="theme-media-image rounded-full object-cover" height={40} src={post.author.image} width={40} />
               ) : (
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--surface-alt)]">
                   <span className="text-sm text-[var(--muted)]">{post.author.name?.charAt(0) || "A"}</span>
@@ -186,7 +186,7 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
             </div>
 
             <div className="max-w-[76ch]">
-              <article className="prose prose-zinc dark:prose-invert prose-headings:font-display prose-headings:scroll-mt-28 prose-headings:mt-10 prose-headings:mb-4 prose-p:my-5 prose-p:leading-8 prose-a:text-[var(--primary)] prose-a:no-underline hover:prose-a:underline prose-img:rounded-xl prose-pre:rounded-xl prose-pre:border prose-pre:border-[var(--border)] prose-pre:bg-[#0b1220] prose-pre:text-slate-100 prose-code:font-[var(--font-code)] prose-code:before:content-none prose-code:after:content-none prose-table:w-full prose-th:bg-[var(--surface-alt)] max-w-none">
+              <article className="prose prose-zinc max-w-none prose-headings:font-display prose-headings:scroll-mt-28 prose-headings:mt-10 prose-headings:mb-4 prose-headings:text-[var(--foreground)] prose-h1:text-[var(--foreground)] prose-h2:text-[var(--foreground)] prose-h3:text-[var(--foreground)] prose-h4:text-[var(--foreground)] prose-h5:text-[var(--foreground)] prose-h6:text-[var(--foreground)] prose-p:my-5 prose-p:leading-8 prose-p:text-[var(--text-body)] prose-a:text-[var(--brand)] prose-a:no-underline hover:prose-a:underline prose-strong:text-[var(--foreground)] prose-li:text-[var(--text-body)] prose-li:marker:text-[var(--text-faint)] prose-blockquote:border-[var(--border-strong)] prose-blockquote:border-l-[3px] prose-blockquote:text-[var(--text-body)] prose-blockquote:font-medium prose-hr:border-[var(--border)] prose-img:rounded-xl prose-pre:rounded-xl prose-pre:border prose-pre:border-[var(--border)] prose-pre:bg-[#0b1220] prose-pre:text-[#e5eef9] prose-code:rounded prose-code:bg-[color-mix(in_oklab,var(--surface-contrast)_82%,black_18%)] prose-code:px-1.5 prose-code:py-0.5 prose-code:text-[color-mix(in_oklab,var(--foreground)_92%,white_8%)] prose-code:font-[var(--font-code)] prose-code:before:content-none prose-code:after:content-none prose-table:w-full prose-th:bg-[var(--surface-contrast)] prose-th:text-[var(--foreground)] prose-td:border-[var(--border)] prose-th:border-[var(--border)] dark:prose-invert">
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
                   rehypePlugins={[rehypeHighlight]}
@@ -216,6 +216,23 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
                         {children}
                       </h5>
                     ),
+                    img: ({ src, alt }) => {
+                      const imageSrc = typeof src === 'string' ? src : null
+                      if (!imageSrc) return null
+
+                      return (
+                        <span className="my-8 block overflow-hidden rounded-xl">
+                          <Image
+                            alt={alt ?? ''}
+                            className="theme-media-image h-auto w-full"
+                            height={900}
+                            src={imageSrc}
+                            unoptimized
+                            width={1600}
+                          />
+                        </span>
+                      )
+                    },
                   }}
                 >
                   {post.content}
@@ -271,7 +288,7 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
             <div className="border-b border-[var(--border)] pb-6" key={comment.id}>
               <div className="mb-2 flex items-center gap-3">
                 {comment.author.image ? (
-                  <Image alt={comment.author.name || ""} className="rounded-full" height={32} src={comment.author.image} width={32} />
+                  <Image alt={comment.author.name || ""} className="theme-media-image rounded-full object-cover" height={32} src={comment.author.image} width={32} />
                 ) : (
                   <div className="h-8 w-8 rounded-full bg-[var(--surface-alt)]" />
                 )}

@@ -23,24 +23,28 @@ interface Post {
   _count: { comments: number; likes: number };
 }
 
+interface SearchResultState {
+  query: string;
+  posts: Post[];
+  error: string | null;
+}
+
 function SearchContent() {
   const searchParams = useSearchParams();
   const query = searchParams.get("q")?.trim() || "";
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const hasQuery = query.length > 0;
+  const [result, setResult] = useState<SearchResultState>({
+    query: "",
+    posts: [],
+    error: null,
+  });
 
   useEffect(() => {
-    if (!query) {
-      setPosts([]);
-      setError(null);
-      setLoading(false);
+    if (!hasQuery) {
       return;
     }
 
     let alive = true;
-    setLoading(true);
-    setError(null);
 
     fetch(`/api/search?q=${encodeURIComponent(query)}`)
       .then(async (res) => {
@@ -52,25 +56,24 @@ function SearchContent() {
       })
       .then((data) => {
         if (alive && data.success) {
-          setPosts(data.data);
+          setResult({ query, posts: data.data, error: null });
         }
       })
       .catch((requestError: Error) => {
         if (alive) {
-          setPosts([]);
-          setError(requestError.message);
-        }
-      })
-      .finally(() => {
-        if (alive) {
-          setLoading(false);
+          setResult({ query, posts: [], error: requestError.message });
         }
       });
 
     return () => {
       alive = false;
     };
-  }, [query]);
+  }, [hasQuery, query]);
+
+  const isResolvedForQuery = result.query === query;
+  const visiblePosts = hasQuery && isResolvedForQuery ? result.posts : [];
+  const visibleError = hasQuery && isResolvedForQuery ? result.error : null;
+  const visibleLoading = hasQuery && !isResolvedForQuery;
 
   return (
     <div className="space-y-6">
@@ -82,19 +85,19 @@ function SearchContent() {
         </div>
       </section>
 
-      {loading ? <p className="py-12 text-center text-[var(--muted)]">正在搜索...</p> : null}
-      {error ? <p className="py-12 text-center text-red-500">{error}</p> : null}
+      {visibleLoading ? <p className="py-12 text-center text-[var(--muted)]">正在搜索...</p> : null}
+      {visibleError ? <p className="py-12 text-center text-[var(--danger-foreground)]">{visibleError}</p> : null}
 
-      {!loading && !error && query && posts.length > 0 ? (
+      {!visibleLoading && !visibleError && hasQuery && visiblePosts.length > 0 ? (
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-          {posts.map((post) => (
+          {visiblePosts.map((post) => (
             <SearchResultCard key={post.id} post={post} query={query} />
           ))}
         </div>
       ) : null}
 
-      {!loading && !error ? (
-        <p className="py-12 text-center text-[var(--muted)]">{query ? (posts.length === 0 ? "未找到相关结果" : `找到 ${posts.length} 条结果`) : "请输入关键词开始搜索"}</p>
+      {!visibleLoading && !visibleError ? (
+        <p className="py-12 text-center text-[var(--muted)]">{hasQuery ? (visiblePosts.length === 0 ? "未找到相关结果" : `找到 ${visiblePosts.length} 条结果`) : "请输入关键词开始搜索"}</p>
       ) : null}
     </div>
   );

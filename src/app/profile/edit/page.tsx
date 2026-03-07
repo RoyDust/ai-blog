@@ -13,7 +13,7 @@ export default function EditProfilePage() {
 
   const [formData, setFormData] = useState({
     name: '',
-    email: ''
+    email: '',
   })
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -26,7 +26,7 @@ export default function EditProfilePage() {
       const response = await fetch('/api/users/me', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(formData),
       })
 
       const data = await response.json()
@@ -45,39 +45,37 @@ export default function EditProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <header className="bg-white dark:bg-gray-800 shadow-sm">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-          <Link href="/" className="text-2xl font-bold text-gray-900 dark:text-white">
+    <div className="bg-background min-h-screen">
+      <header className="border-b border-[var(--border)] bg-[color-mix(in_oklab,var(--surface)_84%,transparent)] backdrop-blur-xl">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
+          <Link href="/" className="text-90 text-2xl font-bold">
             My Blog
           </Link>
           <nav className="flex items-center gap-4">
-            <Link href="/" className="text-gray-700 dark:text-gray-300 hover:text-blue-600">
+            <Link href="/" className="text-75 transition-colors hover:text-[var(--brand-strong)]">
               首页
             </Link>
-            <Link href="/profile" className="text-gray-700 dark:text-gray-300 hover:text-blue-600">
+            <Link href="/profile" className="text-75 transition-colors hover:text-[var(--brand-strong)]">
               返回
             </Link>
           </nav>
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto px-4 py-8">
+      <main className="mx-auto max-w-2xl px-4 py-8">
         <Card>
           <CardContent>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
-              编辑资料
-            </h1>
+            <h1 className="text-90 mb-6 text-2xl font-bold">编辑资料</h1>
 
             {error && (
-              <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-                <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+              <div className="ui-alert-danger mb-4 rounded-lg p-3">
+                <p className="text-sm">{error}</p>
               </div>
             )}
 
             {success && (
-              <div className="mb-4 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
-                <p className="text-sm text-green-600 dark:text-green-400">{success}</p>
+              <div className="ui-status-success mb-4 rounded-lg p-3">
+                <p className="text-sm">{success}</p>
               </div>
             )}
 
@@ -86,7 +84,7 @@ export default function EditProfilePage() {
                 label="用户名"
                 placeholder="请输入用户名"
                 value={formData.name}
-                onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
               />
 
               <Input
@@ -94,18 +92,14 @@ export default function EditProfilePage() {
                 type="email"
                 placeholder="请输入邮箱"
                 value={formData.email}
-                onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                onChange={(e) => setFormData((prev) => ({ ...prev, email: e.target.value }))}
               />
 
               <div className="flex gap-4">
                 <Button type="submit" disabled={isLoading}>
                   {isLoading ? '保存中...' : '保存'}
                 </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => router.back()}
-                >
+                <Button type="button" variant="outline" onClick={() => router.back()}>
                   取消
                 </Button>
               </div>

@@ -2,36 +2,43 @@
   display: block;
   overflow-x: auto;
   border-radius: 0.75rem;
-  background: #0f172a;
-  color: #e2e8f0;
+  background: #0b1220;
+  color: #e5eef9;
   padding: 0.9rem 1rem;
 }
 
 .prose .hljs-comment,
 .prose .hljs-quote {
-  color: #94a3b8;
+  color: color-mix(in oklab, var(--text-muted) 86%, white 14%);
   font-style: italic;
 }
 
 .prose .hljs-keyword,
 .prose .hljs-selector-tag,
 .prose .hljs-subst {
-  color: #93c5fd;
+  color: color-mix(in oklab, var(--brand) 82%, white 18%);
 }
 
 .prose .hljs-string,
 .prose .hljs-attr,
 .prose .hljs-template-tag {
-  color: #86efac;
+  color: var(--success-foreground);
 }
 
 .prose .hljs-number,
 .prose .hljs-literal {
-  color: #fca5a5;
+  color: var(--danger-foreground);
 }
 
 .prose .hljs-title,
 .prose .hljs-function,
 .prose .hljs-built_in {
-  color: #fcd34d;
+  color: var(--warning-foreground);
+}
+
+.prose pre code {
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  color: inherit;
 }

@@ -7,7 +7,7 @@ export const securityHeaders = [
     key: 'Content-Security-Policy',
     value: [
       "default-src 'self'",
-      "img-src 'self' https: data: blob:",
+      "img-src 'self' http: https: data: blob:",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com data:",
       "script-src 'self' 'unsafe-inline' 'unsafe-eval'",

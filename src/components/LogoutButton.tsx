@@ -50,7 +50,7 @@ export function LogoutButton() {
   return (
     <button
       onClick={handleLogout}
-      className="text-gray-700 dark:text-gray-300 hover:text-blue-600"
+      className="text-75 transition-colors hover:text-[var(--brand-strong)]"
     >
       登出
     </button>

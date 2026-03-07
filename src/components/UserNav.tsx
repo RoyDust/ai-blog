@@ -35,6 +35,8 @@ function clearAllSessionData() {
   }
 }
 
+const navLinkClass = 'text-75 transition-colors hover:text-[var(--brand-strong)]'
+
 export function UserNav() {
   const { data: session, status } = useSession()
 
@@ -52,7 +54,7 @@ export function UserNav() {
   if (status === 'loading') {
     return (
       <nav className="flex items-center gap-4">
-        <span className="text-gray-500">加载中...</span>
+        <span className="text-50">加载中...</span>
       </nav>
     )
   }
@@ -60,19 +62,19 @@ export function UserNav() {
   if (session?.user) {
     return (
       <nav className="flex items-center gap-4">
-        <Link href="/profile" className="text-gray-700 dark:text-gray-300 hover:text-blue-600">
+        <Link href="/profile" className={navLinkClass}>
           {session.user.name || session.user.email}
         </Link>
-        <Link href="/bookmarks" className="text-gray-700 dark:text-gray-300 hover:text-blue-600">
+        <Link href="/bookmarks" className={navLinkClass}>
           收藏
         </Link>
-        <Link href="/admin/posts/new" className="text-gray-700 dark:text-gray-300 hover:text-blue-600">
+        <Link href="/admin/posts/new" className={navLinkClass}>
           写文章
         </Link>
-        <Link href="/admin" className="text-gray-700 dark:text-gray-300 hover:text-blue-600">
+        <Link href="/admin" className={navLinkClass}>
           管理
         </Link>
-        <button onClick={handleLogout} className="text-gray-700 dark:text-gray-300 hover:text-blue-600">
+        <button onClick={handleLogout} className={navLinkClass}>
           退出
         </button>
       </nav>
@@ -81,10 +83,13 @@ export function UserNav() {
 
   return (
     <nav className="flex items-center gap-4">
-      <Link href="/login" className="text-gray-700 dark:text-gray-300 hover:text-blue-600">
+      <Link href="/login" className={navLinkClass}>
         登录
       </Link>
-      <Link href="/register" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+      <Link
+        href="/register"
+        className="ui-btn inline-flex items-center rounded-lg bg-[var(--brand)] px-4 py-2 text-white transition hover:bg-[var(--brand-strong)]"
+      >
         注册
       </Link>
     </nav>

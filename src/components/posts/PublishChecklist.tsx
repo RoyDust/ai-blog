@@ -21,7 +21,7 @@ export function PublishChecklist({ title, slug, content, coverImage }: PublishCh
       <ul className="space-y-2">
         {checks.map((item) => (
           <li className="flex items-center gap-2 text-sm" key={item.label}>
-            <span className={item.done ? "text-emerald-600" : "text-[var(--muted)]"}>{item.done ? "●" : "○"}</span>
+            <span className={item.done ? "text-[var(--success-foreground)]" : "text-[var(--muted)]"}>{item.done ? "●" : "○"}</span>
             <span className={item.done ? "text-[var(--foreground)]" : "text-[var(--muted)]"}>{item.label}</span>
           </li>
         ))}

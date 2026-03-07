@@ -5,38 +5,20 @@
 @import "../styles/animations.css";
 @import "../styles/code-highlight.css";
 
-:root {
-  --background: #f4f8fa;
-  --foreground: #0f1f2f;
-  --surface: #ffffff;
-  --surface-alt: #ebf1f4;
-  --border: #d8e2e7;
-  --muted: #4f6475;
-  --brand: #0f766e;
-  --brand-strong: #115e59;
-  --ring: #14b8a6;
-}
-
-.dark {
-  --background: #09131b;
-  --foreground: #dbe6ec;
-  --surface: #0f1c26;
-  --surface-alt: #142434;
-  --border: #264257;
-  --muted: #91a5b3;
-  --brand: #5eead4;
-  --brand-strong: #2dd4bf;
-  --ring: #5eead4;
-}
-
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-surface: var(--surface);
   --color-surface-alt: var(--surface-alt);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-surface-contrast: var(--surface-contrast);
   --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
   --color-muted: var(--muted);
   --color-brand: var(--brand);
+  --color-brand-strong: var(--brand-strong);
+  --color-danger: var(--danger-foreground);
+  --color-danger-surface: var(--danger-surface);
   --font-sans: var(--font-noto-sans-sc);
   --font-display: var(--font-manrope);
   --font-mono: var(--font-geist-mono);
@@ -47,13 +29,18 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-noto-sans-sc), "Noto Sans SC", sans-serif;
+  min-height: 100vh;
   background-image:
-    radial-gradient(circle at 15% 0%, rgb(20 184 166 / 10%), transparent 30%),
-    radial-gradient(circle at 85% 0%, rgb(245 158 11 / 10%), transparent 32%);
+    radial-gradient(circle at 15% 0%, var(--ambient-primary), transparent 30%),
+    radial-gradient(circle at 85% 0%, var(--ambient-secondary), transparent 32%);
 }
 
 html.dark {
   color-scheme: dark;
+}
+
+::selection {
+  background: color-mix(in oklab, var(--brand) 24%, transparent);
 }
 
 @layer components {
@@ -79,5 +66,46 @@ html.dark {
       background-color 220ms ease,
       color 220ms ease,
       border-color 220ms ease;
+  }
+
+  .ui-link {
+    color: var(--brand);
+    transition:
+      color 180ms ease,
+      opacity 180ms ease;
+  }
+
+  .ui-link:hover {
+    color: var(--brand-strong);
+  }
+
+  .ui-alert-danger {
+    background: var(--danger-surface);
+    border: 1px solid var(--danger-border);
+    color: var(--danger-foreground);
+  }
+
+  .ui-status-success {
+    background: var(--success-surface);
+    border: 1px solid var(--success-border);
+    color: var(--success-foreground);
+  }
+
+  .ui-status-warning {
+    background: var(--warning-surface);
+    border: 1px solid var(--warning-border);
+    color: var(--warning-foreground);
+  }
+
+  .ui-status-danger {
+    background: var(--danger-surface);
+    border: 1px solid var(--danger-border);
+    color: var(--danger-foreground);
+  }
+
+  .ui-checkbox {
+    accent-color: var(--brand);
+    border: 1px solid var(--border-strong);
+    background: var(--surface);
   }
 }

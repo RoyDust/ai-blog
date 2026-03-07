@@ -22,6 +22,14 @@ describe("markdown editor", () => {
     expect(container.querySelector(".prose")?.className).toContain("prose-pre:rounded-xl");
   });
 
+  test("applies syntax highlighting in live preview fenced code blocks", () => {
+    const { container } = render(
+      <MarkdownEditor value={"```ts\nconst value = 1\n```"} onChange={vi.fn()} />
+    );
+
+    expect(container.querySelector("pre code")?.className).toContain("hljs");
+  });
+
   test("renders qiniu image upload trigger and hides plain image button", () => {
     render(<MarkdownEditor value="" onChange={vi.fn()} />);
 

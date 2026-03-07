@@ -10,7 +10,7 @@ export function PostList({ posts, pagination }: PostListProps) {
   if (posts.length === 0) {
     return (
       <div className="text-center py-12">
-        <p className="text-gray-500 dark:text-gray-400">No posts found.</p>
+        <p className="text-50">No posts found.</p>
       </div>
     );
   }

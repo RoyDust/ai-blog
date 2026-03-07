@@ -61,7 +61,7 @@ export function Pagination({ currentPage, totalPages, baseUrl = '?page=' }: Pagi
               </Button>
             </a>
           ) : (
-            <span key={index} className="px-2 text-gray-500">
+            <span key={index} className="text-50 px-2">
               {page}
             </span>
           )

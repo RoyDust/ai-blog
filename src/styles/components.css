@@ -1,21 +1,18 @@
 @layer components {
   .card-base {
     @apply overflow-hidden rounded-[var(--radius-large)] bg-[var(--card-bg)] transition-all;
-    box-shadow:
-      0 1px 3px rgba(0, 0, 0, 0.03),
-      0 2px 6px rgba(0, 0, 0, 0.02),
-      0 4px 12px rgba(0, 0, 0, 0.01);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-card);
   }
 
   .card-base:hover {
-    box-shadow:
-      0 2px 6px rgba(0, 0, 0, 0.04),
-      0 4px 12px rgba(0, 0, 0, 0.03),
-      0 8px 24px rgba(0, 0, 0, 0.02);
+    box-shadow: var(--shadow-card-hover);
+    border-color: var(--border-strong);
   }
 
   .btn-plain {
     @apply relative flex items-center justify-center bg-transparent transition;
+    color: var(--text-body);
   }
 
   .btn-regular {
@@ -23,18 +20,58 @@
   }
 
   .float-panel {
-    @apply overflow-hidden rounded-[var(--radius-large)] bg-[var(--float-panel-bg)] shadow-xl transition-all;
+    @apply overflow-hidden rounded-[var(--radius-large)] bg-[var(--float-panel-bg)] transition-all;
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-ambient);
   }
 
   .text-90 {
-    @apply text-black/90 dark:text-white/90;
+    color: var(--foreground);
   }
 
   .text-75 {
-    @apply text-black/75 dark:text-white/75;
+    color: var(--text-body);
   }
 
   .text-50 {
-    @apply text-black/50 dark:text-white/50;
+    color: var(--text-muted);
+  }
+
+  .ui-chip {
+    @apply inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium;
+    background: var(--btn-regular-bg);
+    color: var(--btn-content);
+  }
+
+  .theme-media {
+    @apply relative overflow-hidden;
+    background:
+      linear-gradient(180deg, color-mix(in oklab, var(--surface-elevated) 80%, transparent), transparent),
+      var(--surface-alt);
+  }
+
+  .theme-media::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(180deg, transparent 8%, rgb(15 23 42 / 0.06) 100%);
+    opacity: 0.8;
+  }
+
+  :root.dark .theme-media::after {
+    background: linear-gradient(180deg, rgb(15 23 42 / 0.02) 0%, rgb(2 6 23 / 0.36) 100%);
+  }
+
+  .theme-media-image {
+    filter: var(--image-filter);
+    transition:
+      filter 220ms ease,
+      transform 260ms ease;
+  }
+
+  .theme-media:hover .theme-media-image {
+    filter: var(--image-filter-hover);
+    transform: scale(1.02);
   }
 }
