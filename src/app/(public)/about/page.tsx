@@ -2,28 +2,29 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import {
+  ArrowUpRight,
+  BookOpen,
+  Briefcase,
   Code2,
-  Coffee,
   Database,
   Github,
-  Globe,
-  GraduationCap,
-  Heart,
-  Lightbulb,
   Mail,
   Monitor,
+  NotebookPen,
   Palette,
-  Target,
+  Radio,
   Twitter,
-  Wrench,
   Zap,
 } from "lucide-react";
 import { buildPageMetadata } from "@/lib/seo";
 
-const aboutProfile = {
-  name: "RoyDust", 
+const profile = {
+  name: "Zhang Wei",
   avatar: "https://github.com/shadcn.png",
   bio: "全栈开发者，热爱开源和技术分享。专注于 React 生态和现代 Web 开发。",
+  tagline: "内容创作 / 前端体验 / 开源实践",
+  intro:
+    "我更喜欢把个人主页做成一个适合停留和阅读的地方，而不是只堆一组链接。这里既是作者简介，也是我表达工作方法、内容方向与技术偏好的入口。",
   links: [
     { name: "GitHub", url: "https://github.com", icon: Github },
     { name: "Twitter", url: "https://twitter.com", icon: Twitter },
@@ -31,117 +32,159 @@ const aboutProfile = {
   ],
 };
 
-const aboutFacts = [
-  { icon: GraduationCap, text: "软件工程背景，持续把设计思维与工程实践结合到产品开发里。" },
-  { icon: Lightbulb, text: "关注前端体验、交互细节与内容表达，希望做出让人愿意停留的界面。" },
-  { icon: Target, text: "偏爱可维护、可复用、可演进的实现方式，也重视页面最终给用户的感受。" },
-  { icon: Palette, text: "乐于在代码之外思考视觉系统、内容层次与品牌气质。" },
+const highlights = [
+  {
+    title: "内容创作",
+    description: "持续记录前端工程、交互体验与实际项目中的取舍，希望把复杂问题写得更容易理解。",
+    icon: NotebookPen,
+  },
+  {
+    title: "产品感知",
+    description: "关注界面层次、信息密度和阅读节奏，让页面既实用又不失性格。",
+    icon: Palette,
+  },
+  {
+    title: "工程实践",
+    description: "偏爱清晰的结构、稳定的抽象和可持续迭代的实现方式，而不是短期堆砌功能。",
+    icon: Briefcase,
+  },
 ];
 
-const techStack = [
+const nowWorkingOn = [
+  "把博客打磨成更完整的个人表达空间，而不仅是文章列表。",
+  "持续优化阅读体验、匿名互动与内容归档结构。",
+  "在 Next.js、Prisma 和 TypeScript 体系里积累可复用的内容站模式。",
+];
+
+const stack = [
   {
     title: "Next.js",
-    description: "使用现代 App Router 构建内容站点，兼顾性能、SEO 与开发效率。",
+    description: "用 App Router 组织内容结构、页面元数据和渐进式交互。",
     icon: Zap,
   },
   {
-    title: "Prisma",
-    description: "通过类型安全的数据访问层支撑稳定的内容管理与发布流程。",
-    icon: Database,
-  },
-  {
     title: "TypeScript",
-    description: "为复杂交互和持续迭代提供更可靠的类型约束与重构体验。",
+    description: "让内容站里的组件、状态和交互迭代更稳，也更适合长期维护。",
     icon: Code2,
   },
   {
+    title: "Prisma",
+    description: "为文章、评论、点赞与资料页这些内容模型提供可靠的数据访问层。",
+    icon: Database,
+  },
+  {
     title: "设计系统",
-    description: "围绕主题令牌、组件一致性与阅读体验建立更完整的前端表达。",
-    icon: Wrench,
+    description: "围绕主题变量、组件一致性和阅读型排版建立更统一的界面语言。",
+    icon: Monitor,
   },
 ];
 
 export const metadata: Metadata = buildPageMetadata({
   title: "关于",
-  description: aboutProfile.bio,
+  description: profile.bio,
   path: "/about",
 });
 
 export default function AboutPage() {
   return (
     <div className="space-y-6">
-      <section className="card-base relative overflow-hidden p-8 text-center md:p-12">
-        <div className="pointer-events-none absolute -top-20 -right-20 h-40 w-40 rounded-full bg-[color:color-mix(in_srgb,var(--primary)_12%,transparent)] blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-12 -left-12 h-32 w-32 rounded-full bg-[color:color-mix(in_srgb,var(--primary)_10%,transparent)] blur-3xl" />
+      <section className="card-base relative overflow-hidden px-6 py-8 md:px-10 md:py-10">
+        <div className="pointer-events-none absolute top-0 right-0 h-40 w-40 rounded-full bg-[color:color-mix(in_srgb,var(--primary)_10%,transparent)] blur-3xl" />
+        <div className="pointer-events-none absolute bottom-0 left-10 h-24 w-24 rounded-full bg-[color:color-mix(in_srgb,var(--primary)_8%,transparent)] blur-2xl" />
 
-        <div className="relative mx-auto mb-6 h-32 w-32 overflow-hidden rounded-full ring-4 ring-[color:color-mix(in_srgb,var(--primary)_18%,transparent)] ring-offset-4 ring-offset-[var(--card-bg)]">
-          <Image alt={aboutProfile.name} className="object-cover" fill priority sizes="128px" src={aboutProfile.avatar} />
-        </div>
+        <div className="grid gap-8 lg:grid-cols-[160px_minmax(0,1fr)] lg:items-start">
+          <div className="relative h-32 w-32 overflow-hidden rounded-3xl ring-1 ring-black/8 ring-offset-4 ring-offset-[var(--card-bg)] dark:ring-white/10 md:h-40 md:w-40">
+            <Image alt={profile.name} className="object-cover" fill priority sizes="160px" src={profile.avatar} />
+          </div>
 
-        <h1 className="text-90 text-3xl font-bold md:text-4xl">{aboutProfile.name}</h1>
-        <p className="text-75 mx-auto mt-4 max-w-2xl text-base leading-8 md:text-lg">{aboutProfile.bio}</p>
-
-        <div className="mt-6 flex flex-wrap justify-center gap-3">
-          {aboutProfile.links.map((link) => {
-            const Icon = link.icon;
-
-            return (
-              <Link
-                key={link.name}
-                className="btn-regular scale-animation flex h-11 items-center gap-2 rounded-lg px-5"
-                href={link.url}
-                rel={link.url.startsWith("http") ? "noopener noreferrer" : undefined}
-                target={link.url.startsWith("http") ? "_blank" : undefined}
-              >
-                <Icon className="h-5 w-5" />
-                {link.name}
-              </Link>
-            );
-          })}
-        </div>
-      </section>
-
-      <section className="card-base p-6 md:p-8">
-        <div className="mb-6 space-y-2 text-center">
-          <p className="text-75 text-sm uppercase tracking-[0.3em]">Profile</p>
-          <h2 className="text-90 flex items-center justify-center gap-2 text-2xl font-bold md:text-3xl">
-            <Monitor className="h-6 w-6 text-[var(--primary)]" />关于我
-          </h2>
-          <p className="text-75 mx-auto max-w-2xl">喜欢把工程理性和审美表达放在同一个页面里，让内容、交互和氛围自然地协作。</p>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-2">
-          {aboutFacts.map((fact) => {
-            const Icon = fact.icon;
-
-            return (
-              <div key={fact.text} className="rounded-2xl bg-black/[0.03] p-5 text-sm leading-7 text-[var(--muted)] dark:bg-white/[0.04]">
-                <p className="flex items-start gap-3">
-                  <Icon className="mt-1 h-5 w-5 shrink-0 text-[var(--primary)]" />
-                  <span>{fact.text}</span>
-                </p>
+          <div className="space-y-5">
+            <div className="space-y-3">
+              <p className="text-50 text-xs font-medium uppercase tracking-[0.32em]">About</p>
+              <div className="space-y-2">
+                <h1 className="text-90 text-4xl font-bold tracking-tight md:text-5xl">{profile.name}</h1>
+                <p className="text-[var(--primary)] text-sm font-medium md:text-base">{profile.tagline}</p>
               </div>
-            );
-          })}
+              <p className="text-75 max-w-3xl text-base leading-8 md:text-lg">{profile.bio}</p>
+              <p className="text-75 max-w-3xl text-sm leading-7 md:text-[15px]">{profile.intro}</p>
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              {profile.links.map((link) => {
+                const Icon = link.icon;
+                return (
+                  <Link
+                    key={link.name}
+                    href={link.url}
+                    rel={link.url.startsWith("http") ? "noopener noreferrer" : undefined}
+                    target={link.url.startsWith("http") ? "_blank" : undefined}
+                    className="btn-regular scale-animation inline-flex h-11 items-center gap-2 rounded-xl px-5"
+                  >
+                    <Icon className="h-4 w-4" />
+                    {link.name}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
         </div>
       </section>
 
-      <section className="card-base p-6 md:p-8">
-        <h2 className="text-90 mb-4 text-2xl font-bold">关于本站</h2>
-        <div className="space-y-4 text-[15px] leading-8 text-[var(--muted)]">
-          <p>这个页面参考了 `BlogT3` 的关于页结构，延续了它偏重内容表达、个人介绍与技术栈展示的编排方式。</p>
-          <p>整体目标是提供一个更完整的作者介绍入口，让访问者除了阅读文章之外，也能快速了解作者背景、技术关注点以及这个站点的构建思路。</p>
+      <section className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
+        <div className="card-base p-6 md:p-8">
+          <div className="mb-5 flex items-center gap-2">
+            <BookOpen className="h-5 w-5 text-[var(--primary)]" />
+            <h2 className="text-90 text-2xl font-bold">关于我</h2>
+          </div>
+          <div className="space-y-4 text-[15px] leading-8 text-[var(--muted)]">
+            <p>
+              我希望内容型个人主页首先是“可读”的：信息不拥挤，叙述有顺序，访问者能很快理解我是谁、在关注什么、以及这个站点为什么存在。
+            </p>
+            <p>
+              比起炫技式展示，我更在意长期写作、界面表达和工程实现之间的平衡。文章、交互、主题与页面结构，都会服务于同一个目标：把内容传递得更自然。
+            </p>
+          </div>
+        </div>
+
+        <div className="card-base p-6 md:p-8">
+          <div className="mb-5 flex items-center gap-2">
+            <Radio className="h-5 w-5 text-[var(--primary)]" />
+            <h2 className="text-90 text-2xl font-bold">我在做什么</h2>
+          </div>
+          <div className="space-y-3">
+            {nowWorkingOn.map((item) => (
+              <div key={item} className="rounded-2xl bg-black/[0.03] px-4 py-4 text-sm leading-7 text-[var(--muted)] dark:bg-white/[0.04]">
+                {item}
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
+      <section className="grid gap-4 md:grid-cols-3">
+        {highlights.map((item) => {
+          const Icon = item.icon;
+          return (
+            <article key={item.title} className="card-base p-6 transition hover:bg-[var(--btn-card-bg-hover)]">
+              <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-[color:color-mix(in_srgb,var(--primary)_12%,transparent)] text-[var(--primary)]">
+                <Icon className="h-5 w-5" />
+              </div>
+              <h3 className="text-90 mb-2 text-lg font-bold">{item.title}</h3>
+              <p className="text-75 text-sm leading-7">{item.description}</p>
+            </article>
+          );
+        })}
+      </section>
+
       <section className="card-base p-6 md:p-8">
-        <h2 className="text-90 mb-6 text-2xl font-bold">技术栈</h2>
+        <div className="mb-6 flex items-center gap-2">
+          <Monitor className="h-5 w-5 text-[var(--primary)]" />
+          <h2 className="text-90 text-2xl font-bold">技术栈</h2>
+        </div>
         <div className="grid gap-4 md:grid-cols-2">
-          {techStack.map((item) => {
+          {stack.map((item) => {
             const Icon = item.icon;
-
             return (
-              <div key={item.title} className="rounded-2xl bg-black/[0.03] p-5 dark:bg-white/[0.04]">
+              <div key={item.title} className="rounded-2xl border border-black/5 bg-black/[0.02] p-5 dark:border-white/8 dark:bg-white/[0.03]">
                 <h3 className="text-90 mb-2 flex items-center gap-2 font-bold">
                   <Icon className="h-5 w-5 text-[var(--primary)]" />
                   {item.title}
@@ -153,27 +196,28 @@ export default function AboutPage() {
         </div>
       </section>
 
-      <section className="card-base p-6 text-center md:p-8">
-        <h2 className="text-90 mb-4 text-2xl font-bold">联系我</h2>
-        <p className="text-75 mx-auto mb-6 max-w-2xl">如果你想交流内容创作、前端体验、开源项目，或者只是打个招呼，都可以通过下面这些方式联系我。</p>
-        <div className="flex flex-wrap justify-center gap-3">
-          <Link className="btn-plain scale-animation flex h-11 items-center gap-2 rounded-lg px-5" href="mailto:example@example.com">
-            <Mail className="h-5 w-5" />发送邮件
+      <section className="card-base flex flex-col gap-5 p-6 md:flex-row md:items-center md:justify-between md:p-8">
+        <div className="space-y-2">
+          <h2 className="text-90 text-2xl font-bold">联系我</h2>
+          <p className="text-75 max-w-2xl text-sm leading-7">
+            如果你想聊内容创作、前端体验、个人站点设计，或者只是想打个招呼，都欢迎通过这些方式找到我。
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-3">
+          <Link className="btn-plain scale-animation inline-flex h-11 items-center gap-2 rounded-xl px-5" href="mailto:example@example.com">
+            <Mail className="h-4 w-4" />发送邮件
           </Link>
           <Link
-            className="btn-plain scale-animation flex h-11 items-center gap-2 rounded-lg px-5"
+            className="btn-plain scale-animation inline-flex h-11 items-center gap-2 rounded-xl px-5"
             href="https://github.com"
             rel="noopener noreferrer"
             target="_blank"
           >
-            <Globe className="h-5 w-5" />访问 GitHub
+            <Github className="h-4 w-4" />访问 GitHub
+            <ArrowUpRight className="h-4 w-4" />
           </Link>
         </div>
       </section>
-
-      <div className="text-75 flex items-center justify-center gap-2 py-4 text-center text-sm">
-        用 <Heart className="h-4 w-4 fill-current text-[var(--primary)]" /> 和 <Coffee className="h-4 w-4 text-[var(--primary)]" /> 持续打磨这个博客。
-      </div>
     </div>
   );
 }
