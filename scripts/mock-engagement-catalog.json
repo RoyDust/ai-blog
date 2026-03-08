@@ -1,0 +1,74 @@
+[
+  {
+    "postSlug": "nextjs-content-site-architecture",
+    "likes": 4,
+    "comments": [
+      { "content": "这篇把内容站的结构问题讲得很清楚，尤其是路由和信息架构的关系。" },
+      { "content": "最近也在整理博客目录，这种先约束结构再加功能的思路很有帮助。" }
+    ]
+  },
+  {
+    "postSlug": "react-component-design-evolution",
+    "likes": 3,
+    "comments": [
+      { "content": "很认同“假灵活”这个说法，很多组件最后都死在配置项越来越多上。" },
+      { "content": "组件抽象层级这一段很有共鸣，基础能力和业务语义确实要拆开。" }
+    ]
+  },
+  {
+    "postSlug": "frontend-engineering-overlooked-basics",
+    "likes": 5,
+    "comments": [
+      { "content": "命名和目录边界这些基础问题，确实比工具选型更容易长期影响团队效率。" },
+      { "content": "测试策略不该只看数量，这个观点非常认同，很多项目都是覆盖率很好但价值不高。" }
+    ]
+  },
+  {
+    "postSlug": "web-performance-find-real-bottlenecks",
+    "likes": 6,
+    "comments": [
+      { "content": "性能优化里最难的确实是先判断哪里才是真问题，而不是看到慢就到处改。" },
+      { "content": "“先看用户感知，再看数据链路”这句很实用，适合拿来做团队共识。" }
+    ]
+  },
+  {
+    "postSlug": "bringing-design-system-into-real-projects",
+    "likes": 4,
+    "comments": [
+      { "content": "很多设计系统最后只停留在组件库，这篇把真正落地的难点讲出来了。" },
+      { "content": "内容页也需要设计系统思维，这一点很少被单独拿出来说。" }
+    ]
+  },
+  {
+    "postSlug": "api-design-and-prisma-modeling",
+    "likes": 3,
+    "comments": [
+      { "content": "接口设计和数据模型脱节这个问题太常见了，最终总是前后端都难受。" },
+      { "content": "资源语义先行这个思路很稳，尤其适合内容系统这种对象关系很多的场景。" }
+    ]
+  },
+  {
+    "postSlug": "content-platform-database-design",
+    "likes": 4,
+    "comments": [
+      { "content": "分类和标签是不同层次的信息，这一点在产品早期就想清楚确实能省很多事。" },
+      { "content": "互动数据单独建模这部分很关键，不然后面统计和权限都会变复杂。" }
+    ]
+  },
+  {
+    "postSlug": "content-site-ci-cd-workflow",
+    "likes": 3,
+    "comments": [
+      { "content": "内容站发展到一定阶段后，部署流程真的不能再靠手工记忆了。" },
+      { "content": "把日志和回滚策略提前纳入架构设计，这个建议非常实际。" }
+    ]
+  },
+  {
+    "postSlug": "content-page-reading-rhythm",
+    "likes": 5,
+    "comments": [
+      { "content": "内容页的节奏感确实很影响停留时间，很多站点问题不是信息不够，而是层次太乱。" },
+      { "content": "体验优化常常是减法，这个观点放到内容页上特别成立。" }
+    ]
+  }
+]

@@ -1,0 +1,101 @@
+[
+  {
+    "title": "用 Next.js 组织一个可长期维护的内容站",
+    "slug": "nextjs-content-site-architecture",
+    "coverImage": "https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=1600&q=80",
+    "viewCount": 1284,
+    "excerpt": "从目录结构、页面编排到数据获取，梳理内容站在 Next.js 中更适合长期演进的组织方式。",
+    "content": "# 用 Next.js 组织一个可长期维护的内容站\n\n当博客不再只是几篇文章的集合，而是一个持续扩展的内容系统时，目录结构、页面分层和数据边界都会开始影响开发效率。\n\n## 从路由开始约束内容结构\n\n在内容站里，路由往往天然代表信息架构。将首页、文章列表、分类、标签、关于页等拆分清楚，能让后续迭代更稳定。\n\n## 让组件服务于阅读\n\n内容型页面不该被过多装饰打断。标题层级、摘要、元信息、推荐阅读，这些都应该围绕阅读节奏来设计。\n\n## 结语\n\n当站点的结构清晰时，新增内容、扩展功能和维护风格都会轻松很多。",
+    "categorySlug": "frontend",
+    "tagSlugs": ["nextjs", "react", "typescript", "frontend-architecture", "engineering"],
+    "publishedAt": "2026-02-10T08:00:00.000Z"
+  },
+  {
+    "title": "React 组件设计：从可复用到可演进",
+    "slug": "react-component-design-evolution",
+    "coverImage": "https://images.unsplash.com/photo-1558655146-d09347e92766?auto=format&fit=crop&w=1600&q=80",
+    "viewCount": 964,
+    "excerpt": "组件的价值不只在于复用，更在于它是否能在需求变化里保持清晰和稳定。",
+    "content": "# React 组件设计：从可复用到可演进\n\n好的组件不是参数越多越好，而是职责边界足够稳定。\n\n## 组件需要有明确的抽象层级\n\n基础组件负责能力，业务组件负责语义，页面组件负责编排。把三者混在一起，通常会让维护成本快速上升。\n\n## 过度配置往往是假灵活\n\n很多所谓的灵活，只是把决策成本转移给使用者。真正好的设计会把常见路径做顺手，把复杂情况留给扩展点。",
+    "categorySlug": "design-system",
+    "tagSlugs": ["react", "component-design", "design-system", "code-style"],
+    "publishedAt": "2026-02-14T09:30:00.000Z"
+  },
+  {
+    "title": "前端工程化里最容易被忽略的三件事",
+    "slug": "frontend-engineering-overlooked-basics",
+    "coverImage": "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1600&q=80",
+    "viewCount": 1512,
+    "excerpt": "除了脚手架和构建工具，命名约定、目录边界和测试策略同样决定工程质量。",
+    "content": "# 前端工程化里最容易被忽略的三件事\n\n工程化不只是工具链升级，更是一组让协作成本下降的约束。\n\n## 一致的命名\n\n命名是最便宜的沟通方式。目录、组件、接口和变量命名一旦混乱，认知成本会不断累积。\n\n## 稳定的目录边界\n\n当每个模块都知道自己属于哪一层，修改和排查问题的成本会明显降低。\n\n## 可执行的测试策略\n\n测试不是越多越好，而是要覆盖真正容易回归的行为。",
+    "categorySlug": "engineering",
+    "tagSlugs": ["engineering", "code-style", "testing", "ci-cd"],
+    "publishedAt": "2026-02-18T11:00:00.000Z"
+  },
+  {
+    "title": "页面性能优化：先找到真正的瓶颈",
+    "slug": "web-performance-find-real-bottlenecks",
+    "coverImage": "https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1600&q=80",
+    "viewCount": 1886,
+    "excerpt": "性能问题常常不是缺少技巧，而是过早优化了错误的地方。",
+    "content": "# 页面性能优化：先找到真正的瓶颈\n\n性能优化最怕凭感觉。真正有效的改进，往往来自清楚的指标和可复现的问题。\n\n## 先看用户感知\n\n首屏时间、交互响应和内容稳定性，通常比单一的技术指标更接近真实体验。\n\n## 再看数据链路\n\n从接口响应、组件渲染到资源加载，每一层都可能成为瓶颈。只有定位准确，优化才有价值。",
+    "categorySlug": "performance-optimization",
+    "tagSlugs": ["performance", "observability", "nextjs", "testing"],
+    "publishedAt": "2026-02-20T10:00:00.000Z"
+  },
+  {
+    "title": "如何把设计系统落到真实项目里",
+    "slug": "bringing-design-system-into-real-projects",
+    "coverImage": "https://images.unsplash.com/photo-1507238691740-187a5b1d37b8?auto=format&fit=crop&w=1600&q=80",
+    "viewCount": 1135,
+    "excerpt": "设计系统不是组件库发布就结束，而是需要进入页面、流程和内容表达的每个细节。",
+    "content": "# 如何把设计系统落到真实项目里\n\n设计系统最难的部分，不是建立 token，而是让产品页面真正使用它。\n\n## 先统一语言，再统一样式\n\n颜色、间距和组件只是表层，一致的语义和界面规则才是系统长期有效的基础。\n\n## 内容页也需要系统思维\n\n很多团队只在后台和业务页谈设计系统，但内容型页面同样需要统一的标题、摘要、引用和交互规则。",
+    "categorySlug": "design-system",
+    "tagSlugs": ["design-system", "component-design", "accessibility", "frontend-architecture"],
+    "publishedAt": "2026-02-23T08:30:00.000Z"
+  },
+  {
+    "title": "API 设计与 Prisma 建模的协作边界",
+    "slug": "api-design-and-prisma-modeling",
+    "coverImage": "https://images.unsplash.com/photo-1555949963-aa79dcee981c?auto=format&fit=crop&w=1600&q=80",
+    "viewCount": 842,
+    "excerpt": "接口设计和数据建模如果彼此脱节，最终会同时拉高前后端的维护成本。",
+    "content": "# API 设计与 Prisma 建模的协作边界\n\n在多数内容系统里，接口和数据表并不是彼此独立的两个世界。\n\n## 先定义稳定的资源语义\n\n文章、评论、点赞、书签这些对象，需要先明确谁负责拥有状态、谁负责暴露数据。\n\n## Prisma 模型要贴近真实使用方式\n\n如果模型只考虑数据库结构，而不考虑页面和接口的消费方式，后面很容易出现一层层额外转换。",
+    "categorySlug": "backend",
+    "tagSlugs": ["api-design", "prisma", "database-design", "authentication"],
+    "publishedAt": "2026-02-25T13:00:00.000Z"
+  },
+  {
+    "title": "从数据库设计看内容平台的可扩展性",
+    "slug": "content-platform-database-design",
+    "coverImage": "https://images.unsplash.com/photo-1544383835-bda2bc66a55d?auto=format&fit=crop&w=1600&q=80",
+    "viewCount": 1021,
+    "excerpt": "分类、标签、评论与互动数据的关系，会直接影响内容平台后续的扩展空间。",
+    "content": "# 从数据库设计看内容平台的可扩展性\n\n内容平台的数据关系看似简单，但真正开始支持互动和筛选后，结构复杂度会迅速上升。\n\n## 标签和分类是不同层次的信息\n\n分类适合宏观组织，标签适合细粒度连接。建模时最好不要把二者混成同一种东西。\n\n## 提前为互动行为留边界\n\n评论、点赞、收藏这些行为数据要独立清楚，否则后续统计和权限处理会越来越难。",
+    "categorySlug": "database",
+    "tagSlugs": ["database-design", "prisma", "engineering", "api-design"],
+    "publishedAt": "2026-02-27T15:00:00.000Z"
+  },
+  {
+    "title": "部署与运维：把 CI/CD 接入内容站日常迭代",
+    "slug": "content-site-ci-cd-workflow",
+    "coverImage": "https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1600&q=80",
+    "viewCount": 731,
+    "excerpt": "当内容站有了后台、数据库和上传服务后，部署就不再只是执行一次 build 那么简单。",
+    "content": "# 部署与运维：把 CI/CD 接入内容站日常迭代\n\n内容站一旦开始承载真实数据，部署流程就需要更稳定和可追踪。\n\n## 自动化要覆盖真实风险点\n\n测试、构建、环境变量检查和数据库变更，是最值得优先纳入流水线的部分。\n\n## 运维不是上线后的补丁\n\n日志、监控、回滚策略和资源约束，应该在项目发展早期就成为架构的一部分。",
+    "categorySlug": "deployment-ops",
+    "tagSlugs": ["deployment", "ci-cd", "observability", "engineering"],
+    "publishedAt": "2026-03-01T09:00:00.000Z"
+  },
+  {
+    "title": "产品与体验：内容型页面为什么需要节奏感",
+    "slug": "content-page-reading-rhythm",
+    "coverImage": "https://images.unsplash.com/photo-1516321497487-e288fb19713f?auto=format&fit=crop&w=1600&q=80",
+    "viewCount": 1198,
+    "excerpt": "阅读型页面的好坏，很多时候取决于信息密度、视觉停顿和交互反馈是否形成节奏。",
+    "content": "# 产品与体验：内容型页面为什么需要节奏感\n\n内容型界面和工具型界面最大的区别，是用户会在其中停留更久。\n\n## 节奏感来自层次而不是装饰\n\n标题、摘要、分段、留白和次要信息的处理，都会影响读者是否愿意继续向下阅读。\n\n## 体验优化常常是减法\n\n减少打断、减轻噪音、让重点更早出现，往往比增加更多视觉元素更有效。",
+    "categorySlug": "product-experience",
+    "tagSlugs": ["accessibility", "component-design", "frontend-architecture", "react"],
+    "publishedAt": "2026-03-03T14:00:00.000Z"
+  }
+]

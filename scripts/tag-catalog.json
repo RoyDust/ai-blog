@@ -1,0 +1,21 @@
+[
+  { "name": "Next.js", "slug": "nextjs", "color": "#111827" },
+  { "name": "React", "slug": "react", "color": "#0EA5E9" },
+  { "name": "TypeScript", "slug": "typescript", "color": "#2563EB" },
+  { "name": "Prisma", "slug": "prisma", "color": "#0F172A" },
+  { "name": "Tailwind CSS", "slug": "tailwind-css", "color": "#06B6D4" },
+  { "name": "设计系统", "slug": "design-system", "color": "#8B5CF6" },
+  { "name": "性能优化", "slug": "performance", "color": "#F59E0B" },
+  { "name": "工程化", "slug": "engineering", "color": "#475569" },
+  { "name": "前端架构", "slug": "frontend-architecture", "color": "#7C3AED" },
+  { "name": "组件设计", "slug": "component-design", "color": "#EC4899" },
+  { "name": "代码规范", "slug": "code-style", "color": "#14B8A6" },
+  { "name": "测试", "slug": "testing", "color": "#22C55E" },
+  { "name": "可访问性", "slug": "accessibility", "color": "#F97316" },
+  { "name": "API 设计", "slug": "api-design", "color": "#6366F1" },
+  { "name": "数据库设计", "slug": "database-design", "color": "#334155" },
+  { "name": "身份认证", "slug": "authentication", "color": "#DC2626" },
+  { "name": "部署", "slug": "deployment", "color": "#059669" },
+  { "name": "CI/CD", "slug": "ci-cd", "color": "#4F46E5" },
+  { "name": "可观测性", "slug": "observability", "color": "#9333EA" }
+]

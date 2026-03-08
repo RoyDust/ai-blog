@@ -1,0 +1,42 @@
+[
+  {
+    "name": "前端开发",
+    "slug": "frontend",
+    "description": "前端框架、界面实现与浏览器侧开发实践。"
+  },
+  {
+    "name": "后端开发",
+    "slug": "backend",
+    "description": "服务端逻辑、接口设计与后端工程经验。"
+  },
+  {
+    "name": "工程实践",
+    "slug": "engineering",
+    "description": "工程化方案、代码组织与团队协作方法。"
+  },
+  {
+    "name": "性能优化",
+    "slug": "performance-optimization",
+    "description": "围绕加载速度、渲染性能与体验提升的优化记录。"
+  },
+  {
+    "name": "设计系统",
+    "slug": "design-system",
+    "description": "组件规范、视觉令牌与一致性建设。"
+  },
+  {
+    "name": "产品与体验",
+    "slug": "product-experience",
+    "description": "产品思考、信息架构与交互体验相关内容。"
+  },
+  {
+    "name": "数据库",
+    "slug": "database",
+    "description": "数据建模、查询优化与数据库方案实践。"
+  },
+  {
+    "name": "部署与运维",
+    "slug": "deployment-ops",
+    "description": "部署流程、运维经验与线上环境管理。"
+  }
+]
