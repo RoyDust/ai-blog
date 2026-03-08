@@ -17,8 +17,8 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
-  const post = await prisma.post.findUnique({
-    where: { id },
+  const post = await prisma.post.findFirst({
+    where: { id, deletedAt: null },
     select: {
       id: true,
       title: true,
@@ -28,6 +28,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
       coverImage: true,
       categoryId: true,
       tags: {
+        where: { deletedAt: null },
         select: { id: true, name: true, slug: true },
       },
       published: true,
@@ -45,14 +46,16 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const { id } = await params;
   const body = await request.json();
   // 先取一份旧的 slug / 分类 / 标签，用来在更新后精确刷新受影响的公开页面缓存。
-  const existing = await prisma.post.findUnique({
-    where: { id },
+  const existing = await prisma.post.findFirst({
+    where: { id, deletedAt: null },
     select: {
       slug: true,
       category: { select: { slug: true } },
-      tags: { select: { slug: true } },
+      tags: { where: { deletedAt: null }, select: { slug: true } },
     },
   });
+
+  if (!existing) return NextResponse.json({ error: "Post not found" }, { status: 404 });
 
   const updated = await prisma.post.update({
     where: { id },
@@ -77,7 +80,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       slug: true,
       published: true,
       category: { select: { slug: true } },
-      tags: { select: { slug: true } },
+      tags: { where: { deletedAt: null }, select: { slug: true } },
     },
   });
 

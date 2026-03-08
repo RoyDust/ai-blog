@@ -21,7 +21,8 @@ async function getData() {
     const [postsPage, categories] = await Promise.all([
       getPublishedPostsPage({ page: 1, limit: POSTS_PAGE_SIZE }),
       prisma.category.findMany({
-        include: { _count: { select: { posts: true } } },
+        where: { deletedAt: null },
+        include: { _count: { select: { posts: { where: { deletedAt: null, published: true } } } } },
         orderBy: { posts: { _count: 'desc' } },
         take: 12,
       }),

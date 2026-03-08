@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 
 async function getRecentPosts() {
   return prisma.post.findMany({
+    where: { deletedAt: null },
     select: { id: true, title: true, slug: true, published: true, createdAt: true },
     orderBy: { createdAt: "desc" },
     take: 4,
@@ -15,6 +16,7 @@ async function getRecentPosts() {
 
 async function getRecentComments() {
   return prisma.comment.findMany({
+    where: { deletedAt: null },
     select: {
       id: true,
       content: true,
@@ -33,11 +35,11 @@ type RecentComment = Awaited<ReturnType<typeof getRecentComments>>[number];
 
 export default async function AdminPage() {
   const [postCount, userCount, commentCount, categoryCount, draftCount, recentPosts, recentComments] = await Promise.all([
-    prisma.post.count(),
+    prisma.post.count({ where: { deletedAt: null } }),
     prisma.user.count(),
-    prisma.comment.count(),
-    prisma.category.count(),
-    prisma.post.count({ where: { published: false } }),
+    prisma.comment.count({ where: { deletedAt: null } }),
+    prisma.category.count({ where: { deletedAt: null } }),
+    prisma.post.count({ where: { published: false, deletedAt: null } }),
     getRecentPosts(),
     getRecentComments(),
   ]);

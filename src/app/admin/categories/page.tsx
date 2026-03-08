@@ -1,7 +1,8 @@
-﻿"use client";
+"use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { DataTable, type DataColumn } from "@/components/admin/DataTable";
+import { DeleteImpactDialog, type DeleteImpactItem } from "@/components/admin/DeleteImpactDialog";
 import { EntityFormShell } from "@/components/admin/forms/EntityFormShell";
 import { FilterBar } from "@/components/admin/FilterBar";
 import { PageHeader } from "@/components/admin/primitives/PageHeader";
@@ -16,6 +17,24 @@ interface CategoryRow {
   _count: { posts: number };
 }
 
+interface DeleteDialogState {
+  open: boolean;
+  ids: string[];
+  title: string;
+  description: string;
+  impacts: DeleteImpactItem[];
+  submitting: boolean;
+}
+
+const initialDeleteDialog: DeleteDialogState = {
+  open: false,
+  ids: [],
+  title: "",
+  description: "",
+  impacts: [],
+  submitting: false,
+};
+
 function generateSlug(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fa5]+/g, "-").replace(/^-|-$/g, "");
 }
@@ -25,26 +44,58 @@ export default function AdminCategoriesPage() {
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({ id: "", name: "", slug: "", description: "" });
+  const [deleteDialog, setDeleteDialog] = useState<DeleteDialogState>(initialDeleteDialog);
+
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/categories");
+      const data = await res.json();
+      if (data.success) setRows(data.data);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    async function load() {
-      try {
-        const res = await fetch("/api/admin/categories");
-        const data = await res.json();
-        if (data.success) setRows(data.data);
-      } finally {
-        setLoading(false);
-      }
-    }
-
     void load();
-  }, []);
+  }, [load]);
 
   const filtered = useMemo(() => {
     const keyword = query.trim().toLowerCase();
     if (!keyword) return rows;
     return rows.filter((row) => row.name.toLowerCase().includes(keyword) || row.slug.toLowerCase().includes(keyword));
   }, [query, rows]);
+
+  async function openDeleteDialog(ids: string[]) {
+    const params = new URLSearchParams({ preview: "delete", ids: ids.join(",") });
+    const res = await fetch(`/api/admin/categories?${params.toString()}`);
+    const data = await res.json();
+    if (!data.success) return;
+
+    setDeleteDialog({
+      open: true,
+      ids,
+      title: data.data.title,
+      description: data.data.description,
+      impacts: data.data.impacts,
+      submitting: false,
+    });
+  }
+
+  async function confirmDelete() {
+    setDeleteDialog((prev) => ({ ...prev, submitting: true }));
+    const params = new URLSearchParams({ ids: deleteDialog.ids.join(",") });
+    const res = await fetch(`/api/admin/categories?${params.toString()}`, { method: "DELETE" });
+    const data = await res.json();
+
+    if (data.success) {
+      setRows((prev) => prev.filter((item) => !deleteDialog.ids.includes(item.id)));
+      setDeleteDialog(initialDeleteDialog);
+      return;
+    }
+
+    setDeleteDialog((prev) => ({ ...prev, submitting: false }));
+  }
 
   const columns: DataColumn<CategoryRow>[] = [
     { key: "name", label: "名称", render: (row) => row.name },
@@ -58,20 +109,7 @@ export default function AdminCategoriesPage() {
       render: (row) => (
         <div className="flex gap-3 text-sm">
           <button className="text-[var(--primary)] hover:underline" onClick={() => setForm({ id: row.id, name: row.name, slug: row.slug, description: row.description ?? "" })} type="button">编辑</button>
-          <button
-            className="text-rose-600 hover:underline"
-            onClick={async () => {
-              if (!confirm("确定删除该分类？")) return;
-              const res = await fetch(`/api/admin/categories?id=${row.id}`, { method: "DELETE" });
-              const data = await res.json();
-              if (data.success) {
-                setRows((prev) => prev.filter((item) => item.id !== row.id));
-              }
-            }}
-            type="button"
-          >
-            删除
-          </button>
+          <button className="text-rose-600 hover:underline" onClick={() => void openDeleteDialog([row.id])} type="button">删除</button>
         </div>
       ),
     },
@@ -100,41 +138,50 @@ export default function AdminCategoriesPage() {
   if (loading) return <p className="py-20 text-center text-[var(--muted)]">加载中...</p>;
 
   return (
-    <div className="space-y-4">
-      <PageHeader eyebrow="Settings" title="分类管理" description="以更统一的配置工作台维护分类结构和说明。" />
-      <FilterBar placeholder="搜索分类" value={query} onChange={setQuery} />
+    <>
+      <div className="space-y-4">
+        <PageHeader eyebrow="Settings" title="分类管理" description="以更统一的配置工作台维护分类结构和说明。" />
+        <FilterBar placeholder="搜索分类" value={query} onChange={setQuery} />
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <DataTable
-          bulkActions={[
-            {
-              label: "批量删除",
-              variant: "danger",
-              onClick: async (ids) => {
-                if (!confirm(`确定删除 ${ids.length} 个分类？`)) return;
-                await Promise.all(ids.map((id) => fetch(`/api/admin/categories?id=${id}`, { method: "DELETE" })));
-                setRows((prev) => prev.filter((item) => !ids.includes(item.id)));
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+          <DataTable
+            bulkActions={[
+              {
+                label: "批量隐藏",
+                variant: "danger",
+                onClick: (ids) => void openDeleteDialog(ids),
               },
-            },
-          ]}
-          columns={columns}
-          emptyText="暂无分类"
-          rows={filtered}
-          title="分类列表"
-        />
+            ]}
+            columns={columns}
+            emptyText="暂无分类"
+            rows={filtered}
+            title="分类列表"
+          />
 
-        <EntityFormShell title={form.id ? "编辑分类" : "新增分类"} description="右侧表单与列表联动，保持配置操作的高密度一致体验。">
-          <form className="space-y-4" onSubmit={handleSubmit}>
-            <Input label="名称" required value={form.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value, slug: generateSlug(e.target.value) }))} />
-            <Input label="Slug" required value={form.slug} onChange={(e) => setForm((prev) => ({ ...prev, slug: e.target.value }))} />
-            <Input label="描述" value={form.description} onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))} />
-            <div className="flex gap-2">
-              <Button type="submit">{form.id ? "保存修改" : "新增分类"}</Button>
-              {form.id ? <Button type="button" variant="outline" onClick={() => setForm({ id: "", name: "", slug: "", description: "" })}>取消</Button> : null}
-            </div>
-          </form>
-        </EntityFormShell>
+          <EntityFormShell title={form.id ? "编辑分类" : "新增分类"} description="右侧表单与列表联动，保持配置维护节奏。">
+            <form className="space-y-4" onSubmit={handleSubmit}>
+              <Input label="名称" required value={form.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value, slug: generateSlug(e.target.value) }))} />
+              <Input label="Slug" required value={form.slug} onChange={(e) => setForm((prev) => ({ ...prev, slug: e.target.value }))} />
+              <Input label="说明" value={form.description} onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))} />
+              <div className="flex gap-2">
+                <Button type="submit">{form.id ? "保存修改" : "新增分类"}</Button>
+                {form.id ? <Button type="button" variant="outline" onClick={() => setForm({ id: "", name: "", slug: "", description: "" })}>取消</Button> : null}
+              </div>
+            </form>
+          </EntityFormShell>
+        </div>
       </div>
-    </div>
+
+      <DeleteImpactDialog
+        confirmLabel="确认隐藏"
+        description={deleteDialog.description}
+        impacts={deleteDialog.impacts}
+        onConfirm={confirmDelete}
+        onOpenChange={(open) => setDeleteDialog(open ? deleteDialog : initialDeleteDialog)}
+        open={deleteDialog.open}
+        submitting={deleteDialog.submitting}
+        title={deleteDialog.title}
+      />
+    </>
   );
 }

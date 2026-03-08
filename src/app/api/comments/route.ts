@@ -19,6 +19,10 @@ export async function POST(request: Request) {
     }
 
     const { postId, content, parentId } = parseCommentInput(await request.json())
+    const post = await prisma.post.findFirst({ where: { id: postId, deletedAt: null, published: true } })
+    if (!post) {
+      return NextResponse.json({ error: 'Post not found' }, { status: 404 })
+    }
     const forwardedFor = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
     const realIp = request.headers.get('x-real-ip')?.trim()
     const authorLabel = maskIpAddress(forwardedFor || realIp)
@@ -26,7 +30,7 @@ export async function POST(request: Request) {
     const comment = await prisma.comment.create({
       data: {
         content,
-        postId,
+        postId: post.id,
         parentId,
         browserId,
         authorLabel,
@@ -57,7 +61,7 @@ export async function PATCH(request: Request) {
     }
 
     const { id, content } = await request.json()
-    const comment = await prisma.comment.findUnique({ where: { id } })
+    const comment = await prisma.comment.findFirst({ where: { id, deletedAt: null } })
 
     if (!comment) {
       return NextResponse.json({ error: 'Comment not found' }, { status: 404 })
@@ -98,7 +102,7 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'Comment ID is required' }, { status: 400 })
     }
 
-    const comment = await prisma.comment.findUnique({ where: { id } })
+    const comment = await prisma.comment.findFirst({ where: { id, deletedAt: null } })
 
     if (!comment) {
       return NextResponse.json({ error: 'Comment not found' }, { status: 404 })
@@ -108,7 +112,7 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    await prisma.comment.delete({ where: { id } })
+    await prisma.comment.update({ where: { id }, data: { deletedAt: new Date() } })
     return NextResponse.json({ success: true, message: 'Comment deleted' })
   } catch (error) {
     console.error('Delete comment error:', error)

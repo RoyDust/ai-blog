@@ -65,6 +65,7 @@ export async function GET(request: Request) {
 
     const where: NonNullable<Parameters<typeof prisma.post.findMany>[0]>['where'] = {
       published: true,
+      deletedAt: null,
       OR: [
         { title: { contains: query, mode: 'insensitive' } },
         { excerpt: { contains: query, mode: 'insensitive' } },
@@ -81,8 +82,8 @@ export async function GET(request: Request) {
         include: {
           author: { select: { id: true, name: true, image: true } },
           category: true,
-          tags: true,
-          _count: { select: { comments: true, likes: true } },
+          tags: { where: { deletedAt: null } },
+          _count: { select: { comments: { where: { deletedAt: null } }, likes: true } },
         },
         orderBy: [{ createdAt: 'desc' }],
         skip: (page - 1) * limit,

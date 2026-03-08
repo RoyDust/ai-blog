@@ -44,11 +44,11 @@ export default async function PostsPage({
 
   const [postsPage, categories, tags] = await Promise.all([
     getListingPosts({ search, category, tag }),
-    prisma.category.findMany({ select: { name: true, slug: true }, orderBy: { name: "asc" }, take: 20 }).catch((error) => {
+    prisma.category.findMany({ where: { deletedAt: null }, select: { name: true, slug: true }, orderBy: { name: "asc" }, take: 20 }).catch((error) => {
       console.error("Load categories error:", error);
       return [];
     }),
-    prisma.tag.findMany({ select: { name: true, slug: true }, orderBy: { name: "asc" }, take: 30 }).catch((error) => {
+    prisma.tag.findMany({ where: { deletedAt: null }, select: { name: true, slug: true }, orderBy: { name: "asc" }, take: 30 }).catch((error) => {
       console.error("Load tags error:", error);
       return [];
     }),

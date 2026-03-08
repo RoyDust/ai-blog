@@ -19,14 +19,18 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "Post ID is required" }, { status: 400 })
     }
 
-    const existing = await prisma.post.findUnique({
-      where: { id },
+    const existing = await prisma.post.findFirst({
+      where: { id, deletedAt: null },
       select: {
         slug: true,
         category: { select: { slug: true } },
-        tags: { select: { slug: true } },
+        tags: { where: { deletedAt: null }, select: { slug: true } },
       },
     })
+
+    if (!existing) {
+      return NextResponse.json({ error: "Post not found" }, { status: 404 })
+    }
 
     const post = await prisma.post.update({
       where: { id },
@@ -38,7 +42,7 @@ export async function PATCH(request: Request) {
         slug: true,
         published: true,
         category: { select: { slug: true } },
-        tags: { select: { slug: true } },
+        tags: { where: { deletedAt: null }, select: { slug: true } },
       }
     })
 

@@ -12,22 +12,22 @@ export async function GET(
   try {
     const { slug } = await params
 
-    const post = await prisma.post.findUnique({
-      where: { slug },
+    const post = await prisma.post.findFirst({
+      where: { slug, deletedAt: null, published: true },
       include: {
         author: {
           select: { id: true, name: true, image: true }
         },
         category: true,
-        tags: true,
+        tags: { where: { deletedAt: null } },
         comments: {
-          where: { parentId: null, status: "APPROVED" },
+          where: { parentId: null, status: "APPROVED", deletedAt: null },
           include: {
             author: {
               select: { id: true, name: true, image: true }
             },
             replies: {
-              where: { status: "APPROVED" },
+              where: { status: "APPROVED", deletedAt: null },
               include: {
                 author: {
                   select: { id: true, name: true, image: true }
@@ -38,7 +38,7 @@ export async function GET(
           orderBy: { createdAt: "desc" }
         },
         _count: {
-          select: { comments: true, likes: true }
+          select: { comments: { where: { deletedAt: null } }, likes: true }
         }
       }
     })
@@ -85,8 +85,8 @@ export async function PATCH(
     const { slug } = await params
     const { title, content, excerpt, coverImage, categoryId, tagIds, published } = parsePostPatchInput(await request.json())
 
-    const post = await prisma.post.findUnique({
-      where: { slug },
+    const post = await prisma.post.findFirst({
+      where: { slug, deletedAt: null },
       select: {
         id: true,
         slug: true,
@@ -176,8 +176,8 @@ export async function DELETE(
 
     const { slug } = await params
 
-    const post = await prisma.post.findUnique({
-      where: { slug },
+    const post = await prisma.post.findFirst({
+      where: { slug, deletedAt: null },
       select: {
         id: true,
         slug: true,
@@ -202,8 +202,9 @@ export async function DELETE(
       )
     }
 
-    await prisma.post.delete({
-      where: { id: post.id }
+    await prisma.post.update({
+      where: { id: post.id },
+      data: { deletedAt: new Date(), published: false, publishedAt: null }
     })
 
     revalidatePublicContent({

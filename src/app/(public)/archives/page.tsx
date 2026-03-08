@@ -7,7 +7,7 @@ import { prisma } from "@/lib/prisma";
 async function getArchivePosts() {
   try {
     return await prisma.post.findMany({
-      where: { published: true },
+      where: { published: true, deletedAt: null },
       select: {
         id: true,
         title: true,

@@ -1,8 +1,9 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { DataTable, type DataColumn } from "@/components/admin/DataTable";
+import { DeleteImpactDialog, type DeleteImpactItem } from "@/components/admin/DeleteImpactDialog";
 import { FilterBar } from "@/components/admin/FilterBar";
 import { PageHeader } from "@/components/admin/primitives/PageHeader";
 import { StatusBadge } from "@/components/admin/primitives/StatusBadge";
@@ -19,25 +20,44 @@ interface PostRow {
   _count: { comments: number; likes: number };
 }
 
+interface DeleteDialogState {
+  open: boolean;
+  ids: string[];
+  title: string;
+  description: string;
+  impacts: DeleteImpactItem[];
+  submitting: boolean;
+}
+
+const initialDeleteDialog: DeleteDialogState = {
+  open: false,
+  ids: [],
+  title: "",
+  description: "",
+  impacts: [],
+  submitting: false,
+};
+
 export default function AdminPostsPage() {
   const [posts, setPosts] = useState<PostRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "published" | "draft">("all");
+  const [deleteDialog, setDeleteDialog] = useState<DeleteDialogState>(initialDeleteDialog);
+
+  const fetchPosts = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/posts");
+      const data = await res.json();
+      if (data.success) setPosts(data.data);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    async function fetchPosts() {
-      try {
-        const res = await fetch("/api/admin/posts");
-        const data = await res.json();
-        if (data.success) setPosts(data.data);
-      } finally {
-        setLoading(false);
-      }
-    }
-
     void fetchPosts();
-  }, []);
+  }, [fetchPosts]);
 
   const filtered = useMemo(() => {
     const keyword = query.trim().toLowerCase();
@@ -48,6 +68,38 @@ export default function AdminPostsPage() {
       return matchesKeyword && matchesStatus;
     });
   }, [posts, query, statusFilter]);
+
+  async function openDeleteDialog(ids: string[]) {
+    const params = new URLSearchParams({ preview: "delete", ids: ids.join(",") });
+    const res = await fetch(`/api/admin/posts?${params.toString()}`);
+    const data = await res.json();
+
+    if (!data.success) return;
+
+    setDeleteDialog({
+      open: true,
+      ids,
+      title: data.data.title,
+      description: data.data.description,
+      impacts: data.data.impacts,
+      submitting: false,
+    });
+  }
+
+  async function confirmDelete() {
+    setDeleteDialog((prev) => ({ ...prev, submitting: true }));
+    const params = new URLSearchParams({ ids: deleteDialog.ids.join(",") });
+    const res = await fetch(`/api/admin/posts?${params.toString()}`, { method: "DELETE" });
+    const data = await res.json();
+
+    if (data.success) {
+      setPosts((prev) => prev.filter((post) => !deleteDialog.ids.includes(post.id)));
+      setDeleteDialog(initialDeleteDialog);
+      return;
+    }
+
+    setDeleteDialog((prev) => ({ ...prev, submitting: false }));
+  }
 
   const columns: DataColumn<PostRow>[] = [
     {
@@ -106,20 +158,7 @@ export default function AdminPostsPage() {
         <div className="flex items-center gap-3 text-sm">
           <Link className="text-[var(--primary)] hover:underline" href={`/admin/posts/${row.id}/edit`}>编辑</Link>
           <Link className="text-[var(--foreground)] hover:text-[var(--primary)]" href={`/posts/${row.slug}`}>预览</Link>
-          <button
-            className="text-rose-600 hover:underline"
-            onClick={async () => {
-              if (!confirm("确定删除这篇文章？该操作不可撤销。")) return;
-              const res = await fetch(`/api/admin/posts?id=${row.id}`, { method: "DELETE" });
-              const data = await res.json();
-              if (data.success) {
-                setPosts((prev) => prev.filter((post) => post.id !== row.id));
-              }
-            }}
-            type="button"
-          >
-            删除
-          </button>
+          <button className="text-rose-600 hover:underline" onClick={() => void openDeleteDialog([row.id])} type="button">删除</button>
         </div>
       ),
     },
@@ -128,53 +167,61 @@ export default function AdminPostsPage() {
   if (loading) return <p className="py-20 text-center text-[var(--muted)]">加载中...</p>;
 
   return (
-    <div className="space-y-4">
-      <PageHeader
-        eyebrow="Content"
-        title="文章管理"
-        description="在统一工作台中搜索、筛选、发布与进入编辑工作区。"
-        action={<Link href="/admin/posts/new"><Button size="sm">新建文章</Button></Link>}
-      />
+    <>
+      <div className="space-y-4">
+        <PageHeader
+          eyebrow="Content"
+          title="文章管理"
+          description="在统一工作台中搜索、筛选、发布与进入编辑工作区。"
+          action={<Link href="/admin/posts/new"><Button size="sm">新建文章</Button></Link>}
+        />
 
-      <FilterBar placeholder="搜索标题或 slug" value={query} onChange={setQuery}>
-        {[
-          { key: "all", label: "全部" },
-          { key: "published", label: "已发布" },
-          { key: "draft", label: "草稿" },
-        ].map((item) => (
-          <button
-            key={item.key}
-            type="button"
-            className={
-              statusFilter === item.key
-                ? "ui-btn rounded-xl bg-[var(--primary)] px-3 py-2 text-sm text-white"
-                : "ui-btn rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--surface-alt)]"
-            }
-            onClick={() => setStatusFilter(item.key as typeof statusFilter)}
-          >
-            {item.label}
-          </button>
-        ))}
-      </FilterBar>
+        <FilterBar placeholder="搜索标题或 slug" value={query} onChange={setQuery}>
+          {[
+            { key: "all", label: "全部" },
+            { key: "published", label: "已发布" },
+            { key: "draft", label: "草稿" },
+          ].map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              className={
+                statusFilter === item.key
+                  ? "ui-btn rounded-xl bg-[var(--primary)] px-3 py-2 text-sm text-white"
+                  : "ui-btn rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--surface-alt)]"
+              }
+              onClick={() => setStatusFilter(item.key as typeof statusFilter)}
+            >
+              {item.label}
+            </button>
+          ))}
+        </FilterBar>
 
-      <DataTable
-        bulkActions={[
-          {
-            label: "批量删除",
-            variant: "danger",
-            onClick: async (ids) => {
-              if (!confirm(`确定删除 ${ids.length} 篇文章？`)) return;
-              await Promise.all(ids.map((id) => fetch(`/api/admin/posts?id=${id}`, { method: "DELETE" })));
-              setPosts((prev) => prev.filter((post) => !ids.includes(post.id)));
+        <DataTable
+          bulkActions={[
+            {
+              label: "批量隐藏",
+              variant: "danger",
+              onClick: (ids) => void openDeleteDialog(ids),
             },
-          },
-        ]}
-        columns={columns}
-        emptyText="暂无文章"
-        rows={filtered}
-        title="文章列表"
+          ]}
+          columns={columns}
+          emptyText="暂无文章"
+          rows={filtered}
+          title="文章列表"
+        />
+      </div>
+
+      <DeleteImpactDialog
+        confirmLabel="确认隐藏"
+        description={deleteDialog.description}
+        impacts={deleteDialog.impacts}
+        onConfirm={confirmDelete}
+        onOpenChange={(open) => setDeleteDialog(open ? deleteDialog : initialDeleteDialog)}
+        open={deleteDialog.open}
+        submitting={deleteDialog.submitting}
+        title={deleteDialog.title}
       />
-    </div>
+    </>
   );
 }
-

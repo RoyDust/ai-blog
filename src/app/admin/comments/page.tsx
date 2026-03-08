@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { DataTable, type DataColumn } from "@/components/admin/DataTable";
+import { DeleteImpactDialog, type DeleteImpactItem } from "@/components/admin/DeleteImpactDialog";
 import { FilterBar } from "@/components/admin/FilterBar";
 import { PageHeader } from "@/components/admin/primitives/PageHeader";
 import { StatusBadge } from "@/components/admin/primitives/StatusBadge";
@@ -19,6 +20,24 @@ interface CommentRow {
   post: { title: string; slug: string };
 }
 
+interface DeleteDialogState {
+  open: boolean;
+  ids: string[];
+  title: string;
+  description: string;
+  impacts: DeleteImpactItem[];
+  submitting: boolean;
+}
+
+const initialDeleteDialog: DeleteDialogState = {
+  open: false,
+  ids: [],
+  title: "",
+  description: "",
+  impacts: [],
+  submitting: false,
+};
+
 const statusMeta: Record<CommentStatus, { label: string; tone: "success" | "warning" | "danger" | "neutral" }> = {
   APPROVED: { label: "已通过", tone: "success" },
   PENDING: { label: "待审核", tone: "warning" },
@@ -31,27 +50,12 @@ export default function AdminCommentsPage() {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"ALL" | CommentStatus>("ALL");
-
-  async function readJsonSafely(response: Response) {
-    const contentType = response.headers?.get?.("content-type") ?? "";
-
-    if (!contentType && typeof response.json === "function") {
-      return response.json();
-    }
-
-    if (!contentType.includes("application/json")) {
-      const text = await response.text();
-      return text ? JSON.parse(text) : null;
-    }
-
-    return response.json();
-  }
+  const [deleteDialog, setDeleteDialog] = useState<DeleteDialogState>(initialDeleteDialog);
 
   const fetchComments = useCallback(async () => {
     try {
       const res = await fetch("/api/admin/comments");
-      const data = await readJsonSafely(res);
-
+      const data = await res.json();
       if (data?.success && Array.isArray(data.data)) {
         setComments(data.data);
       }
@@ -72,11 +76,43 @@ export default function AdminCommentsPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ids, status }),
     });
-    const data = await readJsonSafely(res);
+    const data = await res.json();
 
     if (data?.success) {
       setComments((prev) => prev.map((item) => (ids.includes(item.id) ? { ...item, status } : item)));
     }
+  }
+
+  async function openDeleteDialog(ids: string[]) {
+    const params = new URLSearchParams({ preview: "delete", ids: ids.join(",") });
+    const res = await fetch(`/api/admin/comments?${params.toString()}`);
+    const data = await res.json();
+
+    if (!data.success) return;
+
+    setDeleteDialog({
+      open: true,
+      ids,
+      title: data.data.title,
+      description: data.data.description,
+      impacts: data.data.impacts,
+      submitting: false,
+    });
+  }
+
+  async function confirmDelete() {
+    setDeleteDialog((prev) => ({ ...prev, submitting: true }));
+    const params = new URLSearchParams({ ids: deleteDialog.ids.join(",") });
+    const res = await fetch(`/api/admin/comments?${params.toString()}`, { method: "DELETE" });
+    const data = await res.json();
+
+    if (data.success) {
+      setDeleteDialog(initialDeleteDialog);
+      void fetchComments();
+      return;
+    }
+
+    setDeleteDialog((prev) => ({ ...prev, submitting: false }));
   }
 
   const filtered = useMemo(() => {
@@ -85,7 +121,6 @@ export default function AdminCommentsPage() {
     return comments.filter((item) => {
       const matchesKeyword = !keyword || item.content.toLowerCase().includes(keyword) || item.post.title.toLowerCase().includes(keyword);
       const matchesStatus = statusFilter === "ALL" || item.status === statusFilter;
-
       return matchesKeyword && matchesStatus;
     });
   }, [comments, query, statusFilter]);
@@ -109,26 +144,9 @@ export default function AdminCommentsPage() {
       label: "操作",
       render: (row) => (
         <div className="flex items-center gap-3 text-sm">
-          <button className="text-[var(--primary)] hover:underline" onClick={() => void updateStatuses([row.id], "APPROVED")} type="button">
-            通过
-          </button>
-          <button className="text-[var(--foreground)] hover:text-[var(--primary)]" onClick={() => void updateStatuses([row.id], "REJECTED")} type="button">
-            驳回
-          </button>
-          <button
-            className="text-rose-600 hover:underline"
-            onClick={async () => {
-              if (!confirm("确定删除这条评论？")) return;
-              const res = await fetch(`/api/admin/comments?id=${row.id}`, { method: "DELETE" });
-              const data = await readJsonSafely(res);
-              if (data?.success) {
-                setComments((prev) => prev.filter((item) => item.id !== row.id));
-              }
-            }}
-            type="button"
-          >
-            删除
-          </button>
+          <button className="text-[var(--primary)] hover:underline" onClick={() => void updateStatuses([row.id], "APPROVED")} type="button">通过</button>
+          <button className="text-[var(--foreground)] hover:text-[var(--primary)]" onClick={() => void updateStatuses([row.id], "REJECTED")} type="button">驳回</button>
+          <button className="text-rose-600 hover:underline" onClick={() => void openDeleteDialog([row.id])} type="button">删除</button>
         </div>
       ),
     },
@@ -137,61 +155,54 @@ export default function AdminCommentsPage() {
   if (loading) return <p className="py-20 text-center text-[var(--muted)]">加载中...</p>;
 
   return (
-    <div className="space-y-4">
-      <PageHeader eyebrow="Engagement" title="评论管理" description="集中治理评论，支持状态筛选、批量通过与批量隐藏。" />
-      <FilterBar placeholder="搜索评论内容或文章标题" value={query} onChange={setQuery}>
-        {[
-          { key: "ALL", label: "全部" },
-          { key: "PENDING", label: "待审核" },
-          { key: "APPROVED", label: "已通过" },
-          { key: "REJECTED", label: "已驳回" },
-        ].map((item) => (
-          <button
-            key={item.key}
-            type="button"
-            className={
-              statusFilter === item.key
-                ? "ui-btn rounded-xl bg-[var(--primary)] px-3 py-2 text-sm text-white"
-                : "ui-btn rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--surface-alt)]"
-            }
-            onClick={() => setStatusFilter(item.key as typeof statusFilter)}
-          >
-            {item.label}
-          </button>
-        ))}
-      </FilterBar>
-      <DataTable
-        bulkActions={[
-          {
-            label: "批量通过",
-            onClick: (ids) => void updateStatuses(ids, "APPROVED"),
-          },
-          {
-            label: "批量待审",
-            onClick: (ids) => void updateStatuses(ids, "PENDING"),
-          },
-          {
-            label: "批量隐藏",
-            variant: "danger",
-            onClick: (ids) => void updateStatuses(ids, "REJECTED"),
-          },
-          {
-            label: "批量删除",
-            variant: "danger",
-            onClick: async (ids) => {
-              if (!confirm(`确定删除 ${ids.length} 条评论？`)) return;
-              const results = await Promise.all(ids.map((id) => fetch(`/api/admin/comments?id=${id}`, { method: "DELETE" }).then(readJsonSafely).catch(() => null)));
-              if (results.every((item) => item?.success)) {
-                setComments((prev) => prev.filter((item) => !ids.includes(item.id)));
+    <>
+      <div className="space-y-4">
+        <PageHeader eyebrow="Engagement" title="评论管理" description="集中治理评论，支持状态筛选、批量通过与批量隐藏。" />
+        <FilterBar placeholder="搜索评论内容或文章标题" value={query} onChange={setQuery}>
+          {[
+            { key: "ALL", label: "全部" },
+            { key: "PENDING", label: "待审核" },
+            { key: "APPROVED", label: "已通过" },
+            { key: "REJECTED", label: "已驳回" },
+          ].map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              className={
+                statusFilter === item.key
+                  ? "ui-btn rounded-xl bg-[var(--primary)] px-3 py-2 text-sm text-white"
+                  : "ui-btn rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--surface-alt)]"
               }
-            },
-          },
-        ]}
-        columns={columns}
-        emptyText="暂无评论"
-        rows={filtered}
-        title="评论列表"
+              onClick={() => setStatusFilter(item.key as typeof statusFilter)}
+            >
+              {item.label}
+            </button>
+          ))}
+        </FilterBar>
+        <DataTable
+          bulkActions={[
+            { label: "批量通过", onClick: (ids) => void updateStatuses(ids, "APPROVED") },
+            { label: "批量待审", onClick: (ids) => void updateStatuses(ids, "PENDING") },
+            { label: "批量驳回", variant: "danger", onClick: (ids) => void updateStatuses(ids, "REJECTED") },
+            { label: "批量隐藏", variant: "danger", onClick: (ids) => void openDeleteDialog(ids) },
+          ]}
+          columns={columns}
+          emptyText="暂无评论"
+          rows={filtered}
+          title="评论列表"
+        />
+      </div>
+
+      <DeleteImpactDialog
+        confirmLabel="确认隐藏"
+        description={deleteDialog.description}
+        impacts={deleteDialog.impacts}
+        onConfirm={confirmDelete}
+        onOpenChange={(open) => setDeleteDialog(open ? deleteDialog : initialDeleteDialog)}
+        open={deleteDialog.open}
+        submitting={deleteDialog.submitting}
+        title={deleteDialog.title}
       />
-    </div>
+    </>
   );
 }

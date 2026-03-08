@@ -24,8 +24,8 @@ export async function POST(
 
     const { slug } = await params
 
-    const post = await prisma.post.findUnique({
-      where: { slug }
+    const post = await prisma.post.findFirst({
+      where: { slug, deletedAt: null, published: true }
     })
 
     if (!post) {
@@ -83,8 +83,8 @@ export async function GET(
     const session = await getServerSession(authOptions)
     const { slug } = await params
 
-    const post = await prisma.post.findUnique({
-      where: { slug }
+    const post = await prisma.post.findFirst({
+      where: { slug, deletedAt: null, published: true }
     })
 
     if (!post) {

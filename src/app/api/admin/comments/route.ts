@@ -16,7 +16,14 @@ async function assertAdmin() {
   return session
 }
 
-export async function GET() {
+function parseIds(searchParams: URLSearchParams) {
+  return (searchParams.get("ids") ?? searchParams.getAll("id").join(","))
+    .split(",")
+    .map((id) => id.trim())
+    .filter(Boolean)
+}
+
+export async function GET(request: Request) {
   const session = await assertAdmin()
 
   if (!session) {
@@ -24,7 +31,35 @@ export async function GET() {
   }
 
   try {
+    const { searchParams } = new URL(request.url)
+
+    if (searchParams.get("preview") === "delete") {
+      const ids = parseIds(searchParams)
+
+      if (ids.length === 0) {
+        return NextResponse.json({ error: "Comment IDs are required" }, { status: 400 })
+      }
+
+      const [commentCount, replyCount] = await Promise.all([
+        prisma.comment.count({ where: { id: { in: ids }, deletedAt: null } }),
+        prisma.comment.count({ where: { parentId: { in: ids }, deletedAt: null } }),
+      ])
+
+      return NextResponse.json({
+        success: true,
+        data: {
+          title: ids.length > 1 ? "批量隐藏评论" : "隐藏评论",
+          description: "隐藏后评论会从前台和后台默认列表移除。",
+          impacts: [
+            { label: "将隐藏评论", value: commentCount, unit: "条" },
+            { label: "将连带隐藏回复", value: replyCount, unit: "条" },
+          ],
+        },
+      })
+    }
+
     const comments = await prisma.comment.findMany({
+      where: { deletedAt: null },
       select: {
         id: true,
         content: true,
@@ -76,7 +111,7 @@ export async function PATCH(request: Request) {
     }
 
     await prisma.comment.updateMany({
-      where: { id: { in: ids } },
+      where: { id: { in: ids }, deletedAt: null },
       data: { status },
     })
 
@@ -95,14 +130,30 @@ export async function DELETE(request: Request) {
 
   try {
     const { searchParams } = new URL(request.url)
-    const id = searchParams.get("id")
+    const ids = parseIds(searchParams)
 
-    if (!id) {
+    if (ids.length === 0) {
       return NextResponse.json({ error: "Comment ID is required" }, { status: 400 })
     }
 
-    await prisma.comment.delete({
-      where: { id },
+    const comments = await prisma.comment.findMany({
+      where: { id: { in: ids }, deletedAt: null },
+      select: { id: true },
+    })
+
+    if (comments.length === 0) {
+      return NextResponse.json({ error: "Comment not found" }, { status: 404 })
+    }
+
+    const deletedAt = new Date()
+    const resolvedIds = comments.map((comment) => comment.id)
+
+    await prisma.comment.updateMany({
+      where: {
+        deletedAt: null,
+        OR: [{ id: { in: resolvedIds } }, { parentId: { in: resolvedIds } }],
+      },
+      data: { deletedAt },
     })
 
     return NextResponse.json({ success: true })

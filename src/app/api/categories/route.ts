@@ -22,9 +22,10 @@ async function requireAdmin() {
 export async function GET() {
   try {
     const categories = await prisma.category.findMany({
+      where: { deletedAt: null },
       include: {
         _count: {
-          select: { posts: true }
+          select: { posts: { where: { deletedAt: null, published: true } } }
         }
       },
       orderBy: { name: "asc" }

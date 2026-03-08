@@ -15,21 +15,56 @@ async function assertAdmin() {
   return session
 }
 
-export async function GET() {
+function parseIds(searchParams: URLSearchParams) {
+  return (searchParams.get("ids") ?? searchParams.getAll("id").join(","))
+    .split(",")
+    .map((id) => id.trim())
+    .filter(Boolean)
+}
+
+export async function GET(request: Request) {
   const session = await assertAdmin()
 
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
+  const { searchParams } = new URL(request.url)
+
+  if (searchParams.get("preview") === "delete") {
+    const ids = parseIds(searchParams)
+
+    if (ids.length === 0) {
+      return NextResponse.json({ error: "Post IDs are required" }, { status: 400 })
+    }
+
+    const [postCount, commentCount] = await Promise.all([
+      prisma.post.count({ where: { id: { in: ids }, deletedAt: null } }),
+      prisma.comment.count({ where: { postId: { in: ids }, deletedAt: null } }),
+    ])
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        title: ids.length > 1 ? "批量隐藏文章" : "隐藏文章",
+        description: "隐藏后文章会从前台和后台默认列表移除，且不可直接访问。",
+        impacts: [
+          { label: "将隐藏文章", value: postCount, unit: "篇" },
+          { label: "将连带隐藏评论", value: commentCount, unit: "条" },
+        ],
+      },
+    })
+  }
+
   const posts = await prisma.post.findMany({
+    where: { deletedAt: null },
     include: {
       author: {
         select: { id: true, name: true, email: true },
       },
       category: true,
       _count: {
-        select: { comments: true, likes: true },
+        select: { comments: { where: { deletedAt: null } }, likes: true },
       },
     },
     orderBy: { createdAt: "desc" },
@@ -59,16 +94,10 @@ export async function POST(request: Request) {
         published,
         publishedAt: published ? new Date() : null,
         authorId: session.user.id,
-        tags: tagIds
-          ? {
-              connect: tagIds.map((id) => ({ id })),
-            }
-          : undefined,
+        tags: tagIds ? { connect: tagIds.map((id) => ({ id })) } : undefined,
       },
       include: {
-        author: {
-          select: { id: true, name: true, image: true },
-        },
+        author: { select: { id: true, name: true, image: true } },
         category: true,
         tags: true,
       },
@@ -102,26 +131,38 @@ export async function DELETE(request: Request) {
 
   try {
     const { searchParams } = new URL(request.url)
-    const id = searchParams.get("id")
+    const ids = parseIds(searchParams)
 
-    if (!id) {
+    if (ids.length === 0) {
       return NextResponse.json({ error: "Post ID is required" }, { status: 400 })
     }
 
-    const post = await prisma.post.findUnique({
-      where: { id },
+    const posts = await prisma.post.findMany({
+      where: { id: { in: ids }, deletedAt: null },
       select: {
+        id: true,
         slug: true,
         category: { select: { slug: true } },
         tags: { select: { slug: true } },
       },
     })
 
-    await prisma.post.delete({
-      where: { id },
+    if (posts.length === 0) {
+      return NextResponse.json({ error: "Post not found" }, { status: 404 })
+    }
+
+    const deletedAt = new Date()
+
+    await prisma.post.updateMany({
+      where: { id: { in: posts.map((post) => post.id) }, deletedAt: null },
+      data: { deletedAt, published: false, publishedAt: null },
+    })
+    await prisma.comment.updateMany({
+      where: { postId: { in: posts.map((post) => post.id) }, deletedAt: null },
+      data: { deletedAt },
     })
 
-    if (post) {
+    for (const post of posts) {
       revalidatePublicContent({
         previousSlug: post.slug,
         previousCategorySlug: post.category?.slug,

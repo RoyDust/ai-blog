@@ -17,6 +17,7 @@ export async function getPublishedPostsPage({
 }: PublishedPostsPageInput) {
   const where: NonNullable<Parameters<typeof prisma.post.findMany>[0]>['where'] = {
     published: true,
+    deletedAt: null,
   }
 
   if (category) {
@@ -42,9 +43,9 @@ export async function getPublishedPostsPage({
           select: { id: true, name: true, image: true },
         },
         category: true,
-        tags: true,
+        tags: { where: { deletedAt: null } },
         _count: {
-          select: { comments: true, likes: true },
+          select: { comments: { where: { deletedAt: null } }, likes: true },
         },
       },
       orderBy: { createdAt: 'desc' },

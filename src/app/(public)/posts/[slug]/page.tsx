@@ -14,21 +14,22 @@ import { prisma } from "@/lib/prisma";
 import { buildArticleJsonLd, buildArticleMetadata } from "@/lib/seo";
 
 async function getPost(slug: string) {
-  return prisma.post.findUnique({
-    where: { slug },
+  return prisma.post.findFirst({
+    where: { slug, deletedAt: null, published: true },
     include: {
       author: {
         select: { id: true, name: true, image: true },
       },
       category: true,
-      tags: true,
+      tags: { where: { deletedAt: null } },
       comments: {
-        where: { parentId: null },
+        where: { parentId: null, deletedAt: null },
         include: {
           author: {
             select: { id: true, name: true, image: true },
           },
           replies: {
+            where: { deletedAt: null },
             include: {
               author: {
                 select: { id: true, name: true, image: true },
@@ -39,7 +40,7 @@ async function getPost(slug: string) {
         orderBy: { createdAt: "desc" },
       },
       _count: {
-        select: { comments: true, likes: true },
+        select: { comments: { where: { deletedAt: null } }, likes: true },
       },
     },
   });
@@ -54,7 +55,7 @@ function getCommentLabel(comment: ArticlePost['comments'][number] | ArticlePost[
 export async function generateStaticParams() {
   try {
     const posts = await prisma.post.findMany({
-      where: { published: true },
+      where: { published: true, deletedAt: null },
       select: { slug: true },
       take: 100,
     })

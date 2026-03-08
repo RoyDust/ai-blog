@@ -19,7 +19,7 @@ export async function POST(
     }
 
     const { slug } = await params
-    const post = await prisma.post.findUnique({ where: { slug } })
+    const post = await prisma.post.findFirst({ where: { slug, deletedAt: null, published: true } })
 
     if (!post) {
       return NextResponse.json({ error: 'Post not found' }, { status: 404 })
@@ -58,7 +58,7 @@ export async function GET(
   try {
     const { slug } = await params
     const browserId = getBrowserIdFromHeaders(request.headers)
-    const post = await prisma.post.findUnique({ where: { slug } })
+    const post = await prisma.post.findFirst({ where: { slug, deletedAt: null, published: true } })
 
     if (!post) {
       return NextResponse.json({ error: 'Post not found' }, { status: 404 })

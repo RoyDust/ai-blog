@@ -21,7 +21,6 @@ enum CommentStatus {
   SPAM
 }
 
-// NextAuth Models
 model Account {
   id                String  @id @default(cuid())
   userId            String
@@ -63,12 +62,11 @@ model User {
   email         String    @unique
   emailVerified DateTime?
   image         String?
-  password      String?   // 仅本地登录使用
+  password      String?
   role          Role      @default(USER)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  // 关联
   posts         Post[]
   comments      Comment[]
   likes         Like[]
@@ -88,11 +86,11 @@ model Post {
   coverImage  String?
   published   Boolean   @default(false)
   viewCount   Int       @default(0)
+  deletedAt   DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   publishedAt DateTime?
 
-  // 关联
   authorId    String
   author      User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
   categoryId  String?
@@ -105,6 +103,7 @@ model Post {
   @@index([authorId])
   @@index([categoryId])
   @@index([published, createdAt])
+  @@index([deletedAt])
   @@map("posts")
 }
 
@@ -113,48 +112,51 @@ model Category {
   name        String    @unique
   slug        String    @unique
   description String?
+  deletedAt   DateTime?
   createdAt   DateTime  @default(now())
 
-  // 关联
   posts       Post[]
 
+  @@index([deletedAt])
   @@map("categories")
 }
 
 model Tag {
-  id        String   @id @default(cuid())
-  name      String   @unique
-  slug      String   @unique
-  color     String?  // 标签颜色，用于前端展示
-  createdAt DateTime @default(now())
+  id        String    @id @default(cuid())
+  name      String    @unique
+  slug      String    @unique
+  color     String?
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
 
-  // 关联
   posts     Post[]
 
+  @@index([deletedAt])
   @@map("tags")
 }
 
 model Comment {
-  id        String    @id @default(cuid())
-  content   String    @db.Text
-  status    CommentStatus @default(APPROVED)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id          String        @id @default(cuid())
+  content     String        @db.Text
+  status      CommentStatus @default(APPROVED)
+  deletedAt   DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
 
-  // 关联
-  postId    String
-  post      Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
-  authorId  String?
-  author    User?     @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  browserId String?
+  postId      String
+  post        Post          @relation(fields: [postId], references: [id], onDelete: Cascade)
+  authorId    String?
+  author      User?         @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  browserId   String?
   authorLabel String?
-  parentId  String?
-  parent    Comment?  @relation("CommentReplies", fields: [parentId], references: [id])
-  replies   Comment[] @relation("CommentReplies")
+  parentId    String?
+  parent      Comment?      @relation("CommentReplies", fields: [parentId], references: [id])
+  replies     Comment[]     @relation("CommentReplies")
 
   @@index([postId])
   @@index([authorId])
   @@index([browserId])
+  @@index([deletedAt])
   @@map("comments")
 }
 
@@ -162,14 +164,13 @@ model Like {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
 
-  // 关联
   postId    String
   post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
   userId    String?
   user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
   browserId String?
 
-  @@unique([postId, userId]) // 同一用户只能点赞一次
+  @@unique([postId, userId])
   @@unique([postId, browserId])
   @@index([postId])
   @@index([browserId])
@@ -180,7 +181,6 @@ model Bookmark {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
 
-  // 关联
   postId    String
   post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
   userId    String
