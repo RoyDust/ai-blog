@@ -107,7 +107,7 @@ describe('admin create post', () => {
     })
 
     const thirdCall = fetchMock.mock.calls[2]
-    expect(thirdCall[0]).toBe('/api/posts')
+    expect(thirdCall[0]).toBe('/api/admin/posts')
     expect(thirdCall[1]).toMatchObject({
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

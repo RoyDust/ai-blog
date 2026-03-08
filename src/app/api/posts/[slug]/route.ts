@@ -21,12 +21,13 @@ export async function GET(
         category: true,
         tags: true,
         comments: {
-          where: { parentId: null },
+          where: { parentId: null, status: "APPROVED" },
           include: {
             author: {
               select: { id: true, name: true, image: true }
             },
             replies: {
+              where: { status: "APPROVED" },
               include: {
                 author: {
                   select: { id: true, name: true, image: true }

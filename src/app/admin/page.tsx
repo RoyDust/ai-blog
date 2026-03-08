@@ -54,16 +54,16 @@ export default async function AdminPage() {
       <PageHeader
         eyebrow="Overview"
         title="运营总览"
-        description="用更接近 Ant Design Pro 的结构管理内容、互动和配置，不改变你现在的业务流。"
-        action={<div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm text-[var(--muted)]">最近 30 天</div>}
+        description="查看累计内容规模与最近活动，统一管理内容、互动和配置。"
+        action={<div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm text-[var(--muted)]">累计概览</div>}
       />
 
       <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
-        <StatCard label="文章总数" value={postCount} hint={`${draftCount} 篇待发布`} />
-        <StatCard label="用户总数" value={userCount} hint="包含作者与读者账号" />
-        <StatCard label="评论总数" value={commentCount} hint="衡量社区参与度" />
-        <StatCard label="分类总数" value={categoryCount} hint="内容结构节点" />
-        <StatCard label="草稿数量" value={draftCount} hint="待编辑或待审核" />
+        <StatCard label="文章总数" value={postCount} hint={`${draftCount} 篇当前仍为草稿`} />
+        <StatCard label="用户总数" value={userCount} hint="累计注册账号" />
+        <StatCard label="评论总数" value={commentCount} hint="累计互动记录" />
+        <StatCard label="分类总数" value={categoryCount} hint="当前内容结构节点" />
+        <StatCard label="草稿数量" value={draftCount} hint="尚未发布的文章" />
       </section>
 
       <section className="grid grid-cols-1 gap-4 xl:grid-cols-[1.1fr_0.9fr]">

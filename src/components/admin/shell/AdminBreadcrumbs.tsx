@@ -4,6 +4,8 @@
 
 export function AdminBreadcrumbs({ items }: AdminBreadcrumbsProps) {
   return (
-    <p className="text-sm text-[var(--muted)]">{items.join(" / ")}</p>
+    <nav aria-label="Breadcrumb">
+      <p className="text-sm text-[var(--muted)]">{items.join(" / ")}</p>
+    </nav>
   );
 }

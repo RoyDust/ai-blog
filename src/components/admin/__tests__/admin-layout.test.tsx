@@ -16,6 +16,7 @@ describe('admin layout', () => {
     )
 
     expect(screen.getByRole('navigation', { name: 'Admin navigation' })).toBeInTheDocument()
+    expect(screen.getByRole('navigation', { name: 'Breadcrumb' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: '文章管理' })).toHaveAttribute('href', '/admin/posts')
     expect(screen.getByText('后台 / 内容 / 文章管理')).toBeInTheDocument()
     expect(screen.getByText('Posts content')).toBeInTheDocument()

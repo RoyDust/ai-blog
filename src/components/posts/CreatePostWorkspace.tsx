@@ -121,7 +121,7 @@ export function CreatePostWorkspace() {
     setError("");
 
     try {
-      const response = await fetch("/api/posts", {
+      const response = await fetch("/api/admin/posts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),

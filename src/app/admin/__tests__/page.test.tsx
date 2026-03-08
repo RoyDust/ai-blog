@@ -47,5 +47,7 @@ describe('admin overview', () => {
 
     expect(screen.getByText('匿名访客')).toBeInTheDocument()
     expect(screen.getByText('匿名评论内容')).toBeInTheDocument()
+    expect(screen.getByText('累计概览')).toBeInTheDocument()
+    expect(screen.queryByText('最近 30 天')).not.toBeInTheDocument()
   })
 })
