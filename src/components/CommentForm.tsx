@@ -67,7 +67,7 @@ export function CommentForm({ postId }: CommentFormProps) {
         disabled={loading}
         className="mt-2 rounded-lg bg-[var(--brand)] px-6 py-2 text-white transition hover:bg-[var(--brand-strong)] disabled:opacity-50"
       >
-        {loading ? '鎻愪氦涓?..' : '鍙戣〃璇勮'}
+        {loading ? '提交中...' : '发表评论'}
       </button>
     </form>
   )

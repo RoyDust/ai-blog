@@ -73,7 +73,7 @@ export function LikeButton({ slug, initialLiked, initialCount }: LikeButtonProps
     <button
       onClick={handleLike}
       disabled={loading}
-      aria-label={liked ? '鍙栨秷鐐硅禐' : '鐐硅禐'}
+      aria-label={liked ? '取消点赞' : '点赞'}
       className={`ui-btn flex items-center gap-2 px-4 py-2 transition-colors ${
         liked
           ? 'bg-rose-500 text-white'

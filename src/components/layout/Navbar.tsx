@@ -12,6 +12,7 @@ const navLinks = [
   { name: "首页", href: "/" },
   { name: "文章", href: "/posts" },
   { name: "归档", href: "/archives" },
+  { name: "关于", href: "/about" },
 ];
 
 export function Navbar() {
@@ -22,8 +23,7 @@ export function Navbar() {
   return (
     <div
       id="navbar"
-      className={`onload-animation sticky top-0 z-50 transition-transform duration-300 ${isHidden ? "-translate-y-full" : "translate-y-0"
-        }`}
+      className={`onload-animation sticky top-0 z-50 transition-transform duration-300 ${isHidden ? "-translate-y-full" : "translate-y-0"}`}
     >
       <div className="absolute -top-8 right-0 left-0 h-8 bg-[var(--card-bg)] transition" />
 
@@ -50,10 +50,8 @@ export function Navbar() {
           ))}
         </nav>
 
-
-
         <div className="flex items-center">
-          <div className="hidden min-w-0 flex-1 mr-4 lg:flex lg:max-w-sm lg:justify-end">
+          <div className="mr-4 hidden min-w-0 flex-1 lg:flex lg:max-w-sm lg:justify-end">
             <SearchForm appearance="navbar" compact placeholder="搜索文章、标签或分类" />
           </div>
           <Link
@@ -66,7 +64,7 @@ export function Navbar() {
           </Link>
 
           <button
-            aria-label="主题色设置"
+            aria-label="主题设置"
             className="btn-plain h-11 w-11 rounded-lg transition-colors hover:bg-[#E2F0FF] hover:text-[var(--primary)]"
             onClick={() => setShowHuePicker(!showHuePicker)}
             type="button"
@@ -87,8 +85,7 @@ export function Navbar() {
         </div>
 
         <div
-          className={`card-base float-panel absolute top-[5.25rem] right-4 left-4 origin-top p-2 transition-all duration-200 md:hidden ${showMobileMenu ? "scale-y-100 opacity-100" : "pointer-events-none scale-y-95 opacity-0"
-            }`}
+          className={`card-base float-panel absolute top-[5.25rem] right-4 left-4 origin-top p-2 transition-all duration-200 md:hidden ${showMobileMenu ? "scale-y-100 opacity-100" : "pointer-events-none scale-y-95 opacity-0"}`}
         >
           {navLinks.map((link) => (
             <Link

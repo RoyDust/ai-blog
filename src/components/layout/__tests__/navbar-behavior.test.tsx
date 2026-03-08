@@ -14,6 +14,7 @@ test("navbar renders an expanding desktop search field", () => {
   expect(desktopSearch?.className).toContain("lg:focus:w-64");
   expect(desktopSearch?.closest("form")?.getAttribute("method")).toBe("get");
   expect(container.querySelector('a[href="/archives"]')).toBeTruthy();
+  expect(container.querySelector('a[href="/about"]')).toBeTruthy();
   expect(container.querySelector('a[href="/search"]')).toBeTruthy();
 
   const archiveLink = container.querySelector('a[href="/archives"]') as HTMLAnchorElement | null;

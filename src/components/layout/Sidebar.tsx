@@ -6,8 +6,8 @@ import { useEffect, useState } from "react";
 import { BookOpenText, Folder, Github, Mail, MessageSquare, Tag, Twitter } from "lucide-react";
 
 const profile = {
-  name: "My Blog",
-  avatar: "https://avatars.githubusercontent.com/u/139895814?v=4",
+  name: "RoyDust",
+  avatar: "https://github.com/shadcn.png",
   bio: "全栈开发者，热爱开源和技术分享。专注于 React 生态和现代 Web 开发。",
   links: [
     { name: "GitHub", url: "https://github.com", icon: Github },
