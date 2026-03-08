@@ -31,7 +31,36 @@ export function EditorWorkspace({
 }: EditorWorkspaceProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [isSummarizing, setIsSummarizing] = useState(false);
   const [uploadError, setUploadError] = useState("");
+  const [summaryError, setSummaryError] = useState("");
+
+  const handleGenerateSummary = async () => {
+    // 没有正文时不请求摘要接口，避免生成无意义内容。
+    if (!content.trim()) return;
+
+    setIsSummarizing(true);
+    setSummaryError("");
+
+    try {
+      const response = await fetch("/api/admin/posts/summarize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, content }),
+      });
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "生成摘要失败");
+      }
+
+      onExcerptChange(String(data.data?.summary ?? ""));
+    } catch (error) {
+      setSummaryError(error instanceof Error ? error.message : "生成摘要失败");
+    } finally {
+      setIsSummarizing(false);
+    }
+  };
 
   const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -41,6 +70,7 @@ export function EditorWorkspace({
     setUploadError("");
 
     try {
+      // 先向服务端申请上传凭证，再直传到对象存储，避免把密钥放到客户端。
       const tokenResponse = await fetch("/api/admin/uploads/qiniu-token", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -66,6 +96,7 @@ export function EditorWorkspace({
         throw new Error("上传到七牛失败");
       }
 
+      // domain 配置可能自带尾斜杠，这里统一规整后再回填最终文件地址。
       const normalizedDomain = String(tokenData.data.domain).replace(/\/$/, "");
       onCoverImageChange(`${normalizedDomain}/${tokenData.data.key}`);
     } catch (error) {
@@ -73,6 +104,7 @@ export function EditorWorkspace({
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) {
+        // 清空 input，保证重复选择同一张图时也能再次触发 onChange。
         fileInputRef.current.value = "";
       }
     }
@@ -82,11 +114,35 @@ export function EditorWorkspace({
     <section className="ui-surface rounded-2xl p-6 lg:p-7">
       <h2 className="mb-4 font-display text-xl font-bold text-[var(--foreground)]">编辑器</h2>
       <div className="space-y-4">
-        <Input label="标题" placeholder="文章标题" required value={title} onChange={(e) => onTitleChange(e.target.value)} />
-        <Input label="Slug" placeholder="url-slug" required value={slug} onChange={(e) => onSlugChange(e.target.value)} />
+        <Input label="标题" placeholder="文章标题" required value={title} onChange={(event) => onTitleChange(event.target.value)} />
+        <Input label="Slug" placeholder="url-slug" required value={slug} onChange={(event) => onSlugChange(event.target.value)} />
         <MarkdownEditor label="内容" minRows={36} value={content} onChange={onContentChange} />
-        <Input label="摘要" placeholder="文章摘要（可选）" value={excerpt} onChange={(e) => onExcerptChange(e.target.value)} />
-        <Input label="封面图 URL" placeholder="https://example.com/cover.jpg" value={coverImage} onChange={(e) => onCoverImageChange(e.target.value)} />
+
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm font-medium text-[var(--foreground)]">摘要</p>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={isSummarizing || !content.trim()}
+              onClick={handleGenerateSummary}
+            >
+              {isSummarizing ? "生成中..." : "AI 生成摘要"}
+            </Button>
+          </div>
+          <Input placeholder="文章摘要（可选）" value={excerpt} onChange={(event) => onExcerptChange(event.target.value)} />
+          <p className="text-sm text-[var(--muted)]">基于当前正文生成适合列表页与 SEO 展示的简短摘要。</p>
+          {summaryError ? <p className="text-sm text-rose-500">{summaryError}</p> : null}
+        </div>
+
+        <Input
+          label="封面图 URL"
+          placeholder="https://example.com/cover.jpg"
+          value={coverImage}
+          onChange={(event) => onCoverImageChange(event.target.value)}
+        />
+
         <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-alt)] p-4">
           <div className="flex flex-wrap items-center gap-3">
             <input

@@ -1,5 +1,5 @@
-﻿import { render, screen } from '@testing-library/react'
-import { describe, expect, test, vi } from 'vitest'
+﻿import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { afterEach, describe, expect, test, vi } from 'vitest'
 import AdminCreatePostPage from '../posts/new/page'
 
 vi.mock('next/navigation', () => ({
@@ -9,6 +9,11 @@ vi.mock('next/navigation', () => ({
   }),
 }))
 
+afterEach(() => {
+  cleanup()
+  vi.unstubAllGlobals()
+})
+
 describe('admin create post', () => {
   test('renders new post workspace in admin style', () => {
     render(<AdminCreatePostPage />)
@@ -17,4 +22,119 @@ describe('admin create post', () => {
     expect(screen.getByText('发布面板')).toBeInTheDocument()
     expect(screen.getByText('实时预览')).toBeInTheDocument()
   })
+
+  test('auto-generates a max-60 pinyin slug from Chinese title', () => {
+    render(<AdminCreatePostPage />)
+
+    fireEvent.change(screen.getByLabelText('标题'), {
+      target: { value: '如何用 Next.js 做一个现代博客' },
+    })
+
+    expect(screen.getByLabelText('Slug')).toHaveValue('ru-he-yong-next-js-zuo-yi-ge-xian-dai-bo-ke')
+  })
+
+  test('keeps manual slug after user edits it', () => {
+    render(<AdminCreatePostPage />)
+
+    fireEvent.change(screen.getByLabelText('标题'), {
+      target: { value: '如何用 Next.js 做一个现代博客' },
+    })
+    fireEvent.change(screen.getByLabelText('Slug'), {
+      target: { value: 'my-custom-slug' },
+    })
+    fireEvent.change(screen.getByLabelText('标题'), {
+      target: { value: '另一篇中文标题' },
+    })
+
+    expect(screen.getByLabelText('Slug')).toHaveValue('my-custom-slug')
+  })
+
+  test('loads category select and tag checkboxes for new post', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ data: [{ id: 'cat-1', name: '前端', slug: 'frontend' }] }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ data: [{ id: 'tag-1', name: 'React', slug: 'react' }, { id: 'tag-2', name: 'Next.js', slug: 'nextjs' }] }),
+        })
+    )
+
+    render(<AdminCreatePostPage />)
+
+    expect(await screen.findByLabelText('分类')).toBeInTheDocument()
+    expect(await screen.findByRole('checkbox', { name: 'React' })).toBeInTheDocument()
+    expect(screen.getByRole('checkbox', { name: 'Next.js' })).toBeInTheDocument()
+  })
+
+  test('submits selected category and tag ids when creating post', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ data: [{ id: 'cat-1', name: '前端', slug: 'frontend' }] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ data: [{ id: 'tag-1', name: 'React', slug: 'react' }, { id: 'tag-2', name: 'Next.js', slug: 'nextjs' }] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true, data: { slug: 'ru-he-yong-next-js' } }),
+      })
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<AdminCreatePostPage />)
+
+    fireEvent.change(screen.getByLabelText('标题'), {
+      target: { value: '如何用 Next.js' },
+    })
+    fireEvent.change(screen.getByLabelText('内容'), {
+      target: { value: '# Hello' },
+    })
+
+    const categorySelect = await screen.findByLabelText('分类')
+    fireEvent.change(categorySelect, { target: { value: 'cat-1' } })
+    fireEvent.click(screen.getByRole('checkbox', { name: 'React' }))
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Next.js' }))
+    fireEvent.click(screen.getAllByRole('button', { name: '保存草稿' })[0])
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(3)
+    })
+
+    const thirdCall = fetchMock.mock.calls[2]
+    expect(thirdCall[0]).toBe('/api/posts')
+    expect(thirdCall[1]).toMatchObject({
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    })
+    expect(JSON.parse(String(thirdCall[1]?.body))).toMatchObject({
+      categoryId: 'cat-1',
+      tagIds: ['tag-1', 'tag-2'],
+    })
+  })
+
+  test('hydrates legacy draft without categoryId and tagIds', () => {
+    window.localStorage.setItem(
+      'author:draft:new',
+      JSON.stringify({
+        title: '旧草稿',
+        slug: 'jiu-cao-gao',
+        content: '# Hello',
+        excerpt: '摘要',
+        coverImage: '',
+        published: false,
+      })
+    )
+
+    render(<AdminCreatePostPage />)
+
+    expect(screen.getByText('标签：未选择')).toBeInTheDocument()
+    expect(screen.getByText('分类：未选择')).toBeInTheDocument()
+  })
 })
+

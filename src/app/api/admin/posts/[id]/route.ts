@@ -26,6 +26,10 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
       content: true,
       excerpt: true,
       coverImage: true,
+      categoryId: true,
+      tags: {
+        select: { id: true, name: true, slug: true },
+      },
       published: true,
     },
   });
@@ -40,6 +44,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   const { id } = await params;
   const body = await request.json();
+  // 先取一份旧的 slug / 分类 / 标签，用来在更新后精确刷新受影响的公开页面缓存。
   const existing = await prisma.post.findUnique({
     where: { id },
     select: {
@@ -57,6 +62,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       content: body.content,
       excerpt: body.excerpt || null,
       coverImage: body.coverImage || null,
+      categoryId: body.categoryId || null,
+      tags: Array.isArray(body.tagIds)
+        ? {
+            // 编辑文章时使用 set 覆盖标签关系，保证删除和新增标签都能一次同步完成。
+            set: body.tagIds.map((tagId: string) => ({ id: tagId })),
+          }
+        : undefined,
       published: Boolean(body.published),
       publishedAt: body.published ? new Date() : null,
     },
