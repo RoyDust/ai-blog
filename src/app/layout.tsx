@@ -4,6 +4,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { AuthProvider } from "@/components/AuthProvider";
 import { MotionProvider } from "@/components/motion";
+import { Toaster } from "@/components/ui/Toaster";
 import { getSiteUrl } from "@/lib/seo";
 
 const notoSansSc = Noto_Sans_SC({
@@ -68,6 +69,7 @@ export default function RootLayout({
           <ThemeProvider>
             <MotionProvider>
               {children}
+              <Toaster />
             </MotionProvider>
           </ThemeProvider>
         </AuthProvider>

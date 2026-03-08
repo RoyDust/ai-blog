@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import { DataTable, type DataColumn } from "@/components/admin/DataTable";
 import { DeleteImpactDialog, type DeleteImpactItem } from "@/components/admin/DeleteImpactDialog";
 import { FilterBar } from "@/components/admin/FilterBar";
@@ -38,6 +39,17 @@ const initialDeleteDialog: DeleteDialogState = {
   submitting: false,
 };
 
+function getErrorMessage(data: unknown, fallback: string) {
+  if (data && typeof data === "object") {
+    const candidate = (data as { error?: string; detail?: string }).error ?? (data as { detail?: string }).detail;
+    if (typeof candidate === "string" && candidate.trim()) {
+      return candidate;
+    }
+  }
+
+  return fallback;
+}
+
 export default function AdminPostsPage() {
   const [posts, setPosts] = useState<PostRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -49,7 +61,16 @@ export default function AdminPostsPage() {
     try {
       const res = await fetch("/api/admin/posts");
       const data = await res.json();
-      if (data.success) setPosts(data.data);
+      if (data.success) {
+        setPosts(data.data);
+        return;
+      }
+
+      toast.error(getErrorMessage(data, "文章列表加载失败"));
+      setPosts([]);
+    } catch {
+      toast.error("文章列表加载失败，请稍后重试");
+      setPosts([]);
     } finally {
       setLoading(false);
     }
@@ -70,32 +91,46 @@ export default function AdminPostsPage() {
   }, [posts, query, statusFilter]);
 
   async function openDeleteDialog(ids: string[]) {
-    const params = new URLSearchParams({ preview: "delete", ids: ids.join(",") });
-    const res = await fetch(`/api/admin/posts?${params.toString()}`);
-    const data = await res.json();
+    try {
+      const params = new URLSearchParams({ preview: "delete", ids: ids.join(",") });
+      const res = await fetch(`/api/admin/posts?${params.toString()}`);
+      const data = await res.json();
 
-    if (!data.success) return;
+      if (!data.success) {
+        toast.error(getErrorMessage(data, "删除影响预览加载失败"));
+        return;
+      }
 
-    setDeleteDialog({
-      open: true,
-      ids,
-      title: data.data.title,
-      description: data.data.description,
-      impacts: data.data.impacts,
-      submitting: false,
-    });
+      setDeleteDialog({
+        open: true,
+        ids,
+        title: data.data.title,
+        description: data.data.description,
+        impacts: data.data.impacts,
+        submitting: false,
+      });
+    } catch {
+      toast.error("删除影响预览加载失败，请稍后重试");
+    }
   }
 
   async function confirmDelete() {
-    setDeleteDialog((prev) => ({ ...prev, submitting: true }));
-    const params = new URLSearchParams({ ids: deleteDialog.ids.join(",") });
-    const res = await fetch(`/api/admin/posts?${params.toString()}`, { method: "DELETE" });
-    const data = await res.json();
+    try {
+      setDeleteDialog((prev) => ({ ...prev, submitting: true }));
+      const params = new URLSearchParams({ ids: deleteDialog.ids.join(",") });
+      const res = await fetch(`/api/admin/posts?${params.toString()}`, { method: "DELETE" });
+      const data = await res.json();
 
-    if (data.success) {
-      setPosts((prev) => prev.filter((post) => !deleteDialog.ids.includes(post.id)));
-      setDeleteDialog(initialDeleteDialog);
-      return;
+      if (data.success) {
+        setPosts((prev) => prev.filter((post) => !deleteDialog.ids.includes(post.id)));
+        setDeleteDialog(initialDeleteDialog);
+        toast.success(deleteDialog.ids.length > 1 ? `已隐藏 ${deleteDialog.ids.length} 篇文章` : "文章已隐藏");
+        return;
+      }
+
+      toast.error(getErrorMessage(data, "隐藏文章失败"));
+    } catch {
+      toast.error("隐藏文章失败，请稍后重试");
     }
 
     setDeleteDialog((prev) => ({ ...prev, submitting: false }));
@@ -122,15 +157,23 @@ export default function AdminPostsPage() {
         <button
           className="rounded-full"
           onClick={async () => {
-            const next = !row.published;
-            const res = await fetch("/api/admin/posts/publish", {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ id: row.id, published: next }),
-            });
-            const data = await res.json();
-            if (data.success) {
-              setPosts((prev) => prev.map((post) => (post.id === row.id ? { ...post, published: next } : post)));
+            try {
+              const next = !row.published;
+              const res = await fetch("/api/admin/posts/publish", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ id: row.id, published: next }),
+              });
+              const data = await res.json();
+              if (data.success) {
+                setPosts((prev) => prev.map((post) => (post.id === row.id ? { ...post, published: next } : post)));
+                toast.success(next ? "文章已发布" : "已转为草稿");
+                return;
+              }
+
+              toast.error(getErrorMessage(data, "更新发布状态失败"));
+            } catch {
+              toast.error("更新发布状态失败，请稍后重试");
             }
           }}
           type="button"
@@ -156,9 +199,15 @@ export default function AdminPostsPage() {
       label: "操作",
       render: (row) => (
         <div className="flex items-center gap-3 text-sm">
-          <Link className="text-[var(--primary)] hover:underline" href={`/admin/posts/${row.id}/edit`}>编辑</Link>
-          <Link className="text-[var(--foreground)] hover:text-[var(--primary)]" href={`/posts/${row.slug}`}>预览</Link>
-          <button className="text-rose-600 hover:underline" onClick={() => void openDeleteDialog([row.id])} type="button">删除</button>
+          <Link className="text-[var(--primary)] hover:underline" href={`/admin/posts/${row.id}/edit`}>
+            编辑
+          </Link>
+          <Link className="text-[var(--foreground)] hover:text-[var(--primary)]" href={`/posts/${row.slug}`}>
+            预览
+          </Link>
+          <button className="text-rose-600 hover:underline" onClick={() => void openDeleteDialog([row.id])} type="button">
+            隐藏
+          </button>
         </div>
       ),
     },
@@ -172,7 +221,7 @@ export default function AdminPostsPage() {
         <PageHeader
           eyebrow="Content"
           title="文章管理"
-          description="在统一工作台中搜索、筛选、发布与进入编辑工作区。"
+          description="在统一工作台中搜索、筛选、发布和进入编辑流程。"
           action={<Link href="/admin/posts/new"><Button size="sm">新建文章</Button></Link>}
         />
 

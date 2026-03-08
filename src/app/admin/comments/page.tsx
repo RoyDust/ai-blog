@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import { DataTable, type DataColumn } from "@/components/admin/DataTable";
 import { DeleteImpactDialog, type DeleteImpactItem } from "@/components/admin/DeleteImpactDialog";
 import { FilterBar } from "@/components/admin/FilterBar";
@@ -45,6 +46,17 @@ const statusMeta: Record<CommentStatus, { label: string; tone: "success" | "warn
   SPAM: { label: "已删除", tone: "neutral" },
 };
 
+function getErrorMessage(data: unknown, fallback: string) {
+  if (data && typeof data === "object") {
+    const candidate = (data as { error?: string; detail?: string }).error ?? (data as { detail?: string }).detail;
+    if (typeof candidate === "string" && candidate.trim()) {
+      return candidate;
+    }
+  }
+
+  return fallback;
+}
+
 export default function AdminCommentsPage() {
   const [comments, setComments] = useState<CommentRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -58,8 +70,13 @@ export default function AdminCommentsPage() {
       const data = await res.json();
       if (data?.success && Array.isArray(data.data)) {
         setComments(data.data);
+        return;
       }
+
+      toast.error(getErrorMessage(data, "评论列表加载失败"));
+      setComments([]);
     } catch {
+      toast.error("评论列表加载失败，请稍后重试");
       setComments([]);
     } finally {
       setLoading(false);
@@ -71,45 +88,67 @@ export default function AdminCommentsPage() {
   }, [fetchComments]);
 
   async function updateStatuses(ids: string[], status: CommentStatus) {
-    const res = await fetch("/api/admin/comments", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ids, status }),
-    });
-    const data = await res.json();
+    try {
+      const res = await fetch("/api/admin/comments", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids, status }),
+      });
+      const data = await res.json();
 
-    if (data?.success) {
-      setComments((prev) => prev.map((item) => (ids.includes(item.id) ? { ...item, status } : item)));
+      if (data?.success) {
+        setComments((prev) => prev.map((item) => (ids.includes(item.id) ? { ...item, status } : item)));
+        toast.success(ids.length > 1 ? `已更新 ${ids.length} 条评论状态` : "评论状态已更新");
+        return;
+      }
+
+      toast.error(getErrorMessage(data, "评论状态更新失败"));
+    } catch {
+      toast.error("评论状态更新失败，请稍后重试");
     }
   }
 
   async function openDeleteDialog(ids: string[]) {
-    const params = new URLSearchParams({ preview: "delete", ids: ids.join(",") });
-    const res = await fetch(`/api/admin/comments?${params.toString()}`);
-    const data = await res.json();
+    try {
+      const params = new URLSearchParams({ preview: "delete", ids: ids.join(",") });
+      const res = await fetch(`/api/admin/comments?${params.toString()}`);
+      const data = await res.json();
 
-    if (!data.success) return;
+      if (!data.success) {
+        toast.error(getErrorMessage(data, "删除影响预览加载失败"));
+        return;
+      }
 
-    setDeleteDialog({
-      open: true,
-      ids,
-      title: data.data.title,
-      description: data.data.description,
-      impacts: data.data.impacts,
-      submitting: false,
-    });
+      setDeleteDialog({
+        open: true,
+        ids,
+        title: data.data.title,
+        description: data.data.description,
+        impacts: data.data.impacts,
+        submitting: false,
+      });
+    } catch {
+      toast.error("删除影响预览加载失败，请稍后重试");
+    }
   }
 
   async function confirmDelete() {
-    setDeleteDialog((prev) => ({ ...prev, submitting: true }));
-    const params = new URLSearchParams({ ids: deleteDialog.ids.join(",") });
-    const res = await fetch(`/api/admin/comments?${params.toString()}`, { method: "DELETE" });
-    const data = await res.json();
+    try {
+      setDeleteDialog((prev) => ({ ...prev, submitting: true }));
+      const params = new URLSearchParams({ ids: deleteDialog.ids.join(",") });
+      const res = await fetch(`/api/admin/comments?${params.toString()}`, { method: "DELETE" });
+      const data = await res.json();
 
-    if (data.success) {
-      setDeleteDialog(initialDeleteDialog);
-      void fetchComments();
-      return;
+      if (data.success) {
+        setDeleteDialog(initialDeleteDialog);
+        toast.success(deleteDialog.ids.length > 1 ? `已隐藏 ${deleteDialog.ids.length} 条评论` : "评论已隐藏");
+        void fetchComments();
+        return;
+      }
+
+      toast.error(getErrorMessage(data, "隐藏评论失败"));
+    } catch {
+      toast.error("隐藏评论失败，请稍后重试");
     }
 
     setDeleteDialog((prev) => ({ ...prev, submitting: false }));
@@ -146,7 +185,7 @@ export default function AdminCommentsPage() {
         <div className="flex items-center gap-3 text-sm">
           <button className="text-[var(--primary)] hover:underline" onClick={() => void updateStatuses([row.id], "APPROVED")} type="button">通过</button>
           <button className="text-[var(--foreground)] hover:text-[var(--primary)]" onClick={() => void updateStatuses([row.id], "REJECTED")} type="button">驳回</button>
-          <button className="text-rose-600 hover:underline" onClick={() => void openDeleteDialog([row.id])} type="button">删除</button>
+          <button className="text-rose-600 hover:underline" onClick={() => void openDeleteDialog([row.id])} type="button">隐藏</button>
         </div>
       ),
     },
@@ -157,7 +196,7 @@ export default function AdminCommentsPage() {
   return (
     <>
       <div className="space-y-4">
-        <PageHeader eyebrow="Engagement" title="评论管理" description="集中治理评论，支持状态筛选、批量通过与批量隐藏。" />
+        <PageHeader eyebrow="Engagement" title="评论管理" description="集中处理评论审核、状态筛选和批量隐藏。" />
         <FilterBar placeholder="搜索评论内容或文章标题" value={query} onChange={setQuery}>
           {[
             { key: "ALL", label: "全部" },
@@ -182,7 +221,7 @@ export default function AdminCommentsPage() {
         <DataTable
           bulkActions={[
             { label: "批量通过", onClick: (ids) => void updateStatuses(ids, "APPROVED") },
-            { label: "批量待审", onClick: (ids) => void updateStatuses(ids, "PENDING") },
+            { label: "批量设为待审核", onClick: (ids) => void updateStatuses(ids, "PENDING") },
             { label: "批量驳回", variant: "danger", onClick: (ids) => void updateStatuses(ids, "REJECTED") },
             { label: "批量隐藏", variant: "danger", onClick: (ids) => void openDeleteDialog(ids) },
           ]}
