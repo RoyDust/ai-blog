@@ -2,14 +2,20 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { signIn } from 'next-auth/react'
 import { Button, Input, Card, CardContent } from '@/components/ui';
 
 export default function LoginPage() {
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get('callbackUrl') || '/';
+  const authError = searchParams.get('error');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  const helperMessage = authError === 'not-admin' ? '当前不是管理员账号' : '';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -21,13 +27,14 @@ export default function LoginPage() {
         email,
         password,
         redirect: false,
+        callbackUrl,
       });
 
       if (result?.error) {
         throw new Error(result.error);
       }
 
-      window.location.href = '/';
+      window.location.href = callbackUrl;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
     } finally {
@@ -50,6 +57,12 @@ export default function LoginPage() {
         {error && (
           <div className="ui-alert-danger mb-4 rounded-lg p-3">
             <p className="text-sm">{error}</p>
+          </div>
+        )}
+
+        {!error && helperMessage && (
+          <div className="ui-alert-danger mb-4 rounded-lg p-3">
+            <p className="text-sm">{helperMessage}</p>
           </div>
         )}
 

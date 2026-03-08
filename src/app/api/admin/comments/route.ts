@@ -1,9 +1,8 @@
-import { NextResponse } from "next/server"
+﻿import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 
-// 获取所有评论
 export async function GET() {
   const session = await getServerSession(authOptions)
 
@@ -12,7 +11,11 @@ export async function GET() {
   }
 
   const comments = await prisma.comment.findMany({
-    include: {
+    select: {
+      id: true,
+      content: true,
+      createdAt: true,
+      authorLabel: true,
       author: {
         select: { id: true, name: true, email: true, image: true }
       },
@@ -27,7 +30,6 @@ export async function GET() {
   return NextResponse.json({ success: true, data: comments })
 }
 
-// 删除评论
 export async function DELETE(request: Request) {
   const session = await getServerSession(authOptions)
 

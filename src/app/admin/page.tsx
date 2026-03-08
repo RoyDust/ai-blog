@@ -19,6 +19,7 @@ async function getRecentComments() {
       id: true,
       content: true,
       createdAt: true,
+      authorLabel: true,
       author: { select: { name: true, email: true } },
       post: { select: { title: true, slug: true } },
     },
@@ -112,7 +113,7 @@ export default async function AdminPage() {
             {recentComments.map((comment: RecentComment) => (
               <div key={comment.id} className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
                 <div className="flex items-center justify-between gap-3 text-sm">
-                  <span className="font-medium text-[var(--foreground)]">{comment.author.name || comment.author.email}</span>
+                  <span className="font-medium text-[var(--foreground)]">{comment.authorLabel || comment.author?.name || comment.author?.email || "匿名访客"}</span>
                   <span className="text-[var(--muted)]">{new Date(comment.createdAt).toLocaleDateString("zh-CN")}</span>
                 </div>
                 <p className="mt-2 line-clamp-2 text-sm text-[var(--muted)]">{comment.content}</p>
@@ -125,3 +126,5 @@ export default async function AdminPage() {
     </div>
   );
 }
+
+

@@ -8,7 +8,7 @@ import { BookOpenText, Folder, Github, Mail, MessageSquare, Tag, Twitter } from 
 const profile = {
   name: "RoyDust",
   avatar: "https://github.com/shadcn.png",
-  bio: "全栈开发者，热爱开源和技术分享，专注于 React 生态与现代 Web 开发。",
+  bio: "全栈开发者，热爱开源和技术分享。专注于 React 生态和现代 Web 开发�?,
   links: [
     { name: "GitHub", url: "https://github.com", icon: Github },
     { name: "Twitter", url: "https://twitter.com", icon: Twitter },
@@ -60,8 +60,8 @@ export function Sidebar() {
   }, []);
 
   return (
-    <aside id="sidebar" className="onload-animation h-full w-[17.5rem] shrink-0">
-      <div className="flex h-full flex-col gap-4">
+    <aside id="sidebar" className="onload-animation w-[17.5rem] shrink-0">
+      <div className="sticky top-[5.5rem] space-y-4">
         <div className="card-base p-6">
           <div className="flex flex-col items-center text-center">
             <div className="relative mb-4 h-24 w-24 overflow-hidden rounded-full ring-2 ring-[var(--primary)] ring-offset-2 ring-offset-[var(--card-bg)]">
@@ -99,8 +99,7 @@ export function Sidebar() {
               浏览全部文章
             </Link>
             <Link className="text-75 block rounded-lg px-3 py-2 text-sm transition hover:bg-[var(--btn-plain-bg-hover)]" href="/search">
-              搜索关键词
-            </Link>
+              搜索关键�?            </Link>
             <Link className="text-75 flex items-center justify-between rounded-lg px-3 py-2 text-sm transition hover:bg-[var(--btn-plain-bg-hover)]" href="/bookmarks">
               我的收藏
               <MessageSquare className="h-4 w-4 text-[var(--primary)]" />
@@ -108,61 +107,50 @@ export function Sidebar() {
           </div>
         </div>
 
-        <div className="min-h-0 flex-1">
-          <div
-            data-testid="sidebar-taxonomy-rail"
-            className="sticky space-y-4 overflow-y-auto pr-1 pt-1 transition-[top,max-height,transform,box-shadow] duration-300 ease-out will-change-[top,transform]"
-            style={{
-              top: "calc(var(--sidebar-sticky-top, 0px) + 0.75rem)",
-              maxHeight: "calc(100vh - var(--sidebar-sticky-top, 0px) - 1.75rem)",
-            }}
-          >
-            <div className="card-base p-6">
-              <div className="mb-4 flex items-center gap-2">
-                <Folder className="h-5 w-5 text-[var(--primary)]" />
-                <h3 className="text-90 font-bold">分类</h3>
-              </div>
-              <div className="space-y-2">
-                {categories.map((category) => (
-                  <Link
-                    key={category.id}
-                    className="flex items-center justify-between rounded-lg px-3 py-2 transition hover:bg-[var(--btn-plain-bg-hover)]"
-                    href={`/posts?category=${encodeURIComponent(category.slug)}`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <div className="h-2 w-2 rounded-full bg-[var(--primary)]" />
-                      <span className="text-75 text-sm">{category.name}</span>
-                    </div>
-                    <span className="text-50 text-xs">{category._count?.posts ?? 0}</span>
-                  </Link>
-                ))}
-              </div>
-            </div>
-
-            <div className="card-base p-6">
-              <div className="mb-4 flex items-center gap-2">
-                <Tag className="h-5 w-5 text-[var(--primary)]" />
-                <h3 className="text-90 font-bold">标签</h3>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {tags.map((tag) => (
-                  <Link
-                    key={tag.id}
-                    className="rounded-full bg-[var(--btn-regular-bg)] px-3 py-1 text-xs text-[var(--btn-content)] transition hover:bg-[var(--btn-regular-bg-hover)]"
-                    href={`/posts?tag=${encodeURIComponent(tag.slug)}`}
-                  >
-                    {tag.name}
-                  </Link>
-                ))}
-              </div>
-            </div>
-
-            <Link href="/archives" className="card-base flex items-center justify-between p-4 transition hover:bg-[var(--btn-card-bg-hover)]">
-              <span className="text-75 font-medium">文章归档</span>
-              <span className="text-50 text-sm">查看全部 →</span>
-            </Link>
+        <div className="card-base p-6">
+          <div className="mb-4 flex items-center gap-2">
+            <Folder className="h-5 w-5 text-[var(--primary)]" />
+            <h3 className="text-90 font-bold">分类</h3>
+          </div>
+          <div className="space-y-2">
+            {categories.map((category) => (
+              <Link
+                key={category.id}
+                className="flex items-center justify-between rounded-lg px-3 py-2 transition hover:bg-[var(--btn-plain-bg-hover)]"
+                href={`/posts?category=${encodeURIComponent(category.slug)}`}
+              >
+                <div className="flex items-center gap-2">
+                  <div className="h-2 w-2 rounded-full bg-[var(--primary)]" />
+                  <span className="text-75 text-sm">{category.name}</span>
+                </div>
+                <span className="text-50 text-xs">{category._count?.posts ?? 0}</span>
+              </Link>
+            ))}
           </div>
         </div>
+
+        <div className="card-base p-6">
+          <div className="mb-4 flex items-center gap-2">
+            <Tag className="h-5 w-5 text-[var(--primary)]" />
+            <h3 className="text-90 font-bold">标签</h3>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {tags.map((tag) => (
+              <Link
+                key={tag.id}
+                className="rounded-full bg-[var(--btn-regular-bg)] px-3 py-1 text-xs text-[var(--btn-content)] transition hover:bg-[var(--btn-regular-bg-hover)]"
+                href={`/posts?tag=${encodeURIComponent(tag.slug)}`}
+              >
+                {tag.name}
+              </Link>
+            ))}
+          </div>
+        </div>
+
+        <Link href="/archives" className="card-base flex items-center justify-between p-4 transition hover:bg-[var(--btn-card-bg-hover)]">
+          <span className="text-75 font-medium">文章归档</span>
+          <span className="text-50 text-sm">查看全部 �?/span>
+        </Link>
       </div>
     </aside>
   );

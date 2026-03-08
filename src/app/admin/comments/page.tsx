@@ -10,7 +10,8 @@ interface CommentRow {
   id: string;
   content: string;
   createdAt: string;
-  author: { name: string | null; email: string };
+  author: { name: string | null; email: string } | null;
+  authorLabel?: string | null;
   post: { title: string; slug: string };
 }
 
@@ -41,7 +42,7 @@ export default function AdminCommentsPage() {
 
   const columns: DataColumn<CommentRow>[] = [
     { key: "content", label: "评论内容", render: (row) => <p className="line-clamp-2 max-w-xl">{row.content}</p> },
-    { key: "author", label: "作者", render: (row) => row.author.name || row.author.email },
+    { key: "author", label: "作者", render: (row) => row.authorLabel || row.author?.name || row.author?.email || "匿名访客" },
     {
       key: "post",
       label: "所属文章",

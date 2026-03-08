@@ -19,7 +19,7 @@ export function AppShell({ children }: AppShellProps) {
       <Navbar />
       <div className="flex flex-1 flex-col">
         <div className="mx-auto flex w-full max-w-[var(--page-width)] flex-1 gap-4 pt-4 px-4">
-          <aside className="hidden lg:block">
+          <aside className="hidden lg:block lg:self-stretch">
             <Sidebar />
           </aside>
           <main id="main-content" className="onload-animation min-w-0 flex-1">
