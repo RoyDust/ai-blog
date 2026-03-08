@@ -13,9 +13,9 @@ interface SearchFormProps {
 export function SearchForm({
   defaultValue = '',
   action = '/search',
-  buttonLabel = '??',
-  inputLabel = '????',
-  placeholder = '???????????',
+  buttonLabel = '搜索',
+  inputLabel = '搜索站内内容',
+  placeholder = '搜索文章、标签或分类',
   compact = false,
   appearance = 'default',
 }: SearchFormProps) {

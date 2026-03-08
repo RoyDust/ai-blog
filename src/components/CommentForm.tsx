@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { getOrCreateBrowserId } from '@/lib/browser-id'
 
 interface CommentFormProps {
   postId: string
@@ -21,9 +22,13 @@ export function CommentForm({ postId }: CommentFormProps) {
     setError('')
 
     try {
+      const browserId = getOrCreateBrowserId()
       const response = await fetch('/api/comments', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-browser-id': browserId,
+        },
         body: JSON.stringify({ postId, content }),
       })
 
@@ -62,7 +67,7 @@ export function CommentForm({ postId }: CommentFormProps) {
         disabled={loading}
         className="mt-2 rounded-lg bg-[var(--brand)] px-6 py-2 text-white transition hover:bg-[var(--brand-strong)] disabled:opacity-50"
       >
-        {loading ? '提交中...' : '发表评论'}
+        {loading ? '鎻愪氦涓?..' : '鍙戣〃璇勮'}
       </button>
     </form>
   )

@@ -41,18 +41,12 @@ test('auth entry points stop depending on hand-authored gray and blue theme pair
   expect(combined).not.toMatch(/dark:text-/)
 })
 
-test('profile views use semantic surfaces instead of gray and blue theme pairs', () => {
+test('retired profile routes redirect into admin instead of rendering a separate surface', () => {
   const profileSource = readSource('src/app/profile/page.tsx')
   const profileEditSource = readSource('src/app/profile/edit/page.tsx')
   const combined = `${profileSource}\n${profileEditSource}`
 
-  expect(combined).toContain('bg-background')
-  expect(combined).toContain('card-base')
-  expect(combined).toContain('ui-alert-danger')
-  expect(combined).not.toMatch(/bg-gray-\d+/)
-  expect(combined).not.toMatch(/text-gray-\d+/)
-  expect(combined).not.toMatch(/text-blue-\d+/)
-  expect(combined).not.toMatch(/dark:text-/)
+  expect(combined).toContain("redirect('/admin')")
 })
 
 test('reading surfaces avoid hard-coded dark code blocks and rely on tokens', () => {

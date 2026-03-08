@@ -1,12 +1,8 @@
-import { NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
-import { checkInteractionRateLimit } from "@/lib/rate-limit"
+import { NextResponse } from 'next/server'
+import { prisma } from '@/lib/prisma'
+import { getBrowserIdFromHeaders } from '@/lib/browser-id'
+import { checkInteractionRateLimit } from '@/lib/rate-limit'
 
-/**
- * 切换当前用户对文章的点赞状态，并在写操作前执行限流。
- */
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ slug: string }> }
@@ -14,121 +10,82 @@ export async function POST(
   try {
     const rateLimit = checkInteractionRateLimit(request)
     if (!rateLimit.allowed) {
-      return NextResponse.json({ error: "Too many requests" }, { status: 429 })
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
     }
 
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      )
+    const browserId = getBrowserIdFromHeaders(request.headers)
+    if (!browserId) {
+      return NextResponse.json({ error: 'Browser ID is required' }, { status: 400 })
     }
 
     const { slug } = await params
-
-    const post = await prisma.post.findUnique({
-      where: { slug }
-    })
+    const post = await prisma.post.findUnique({ where: { slug } })
 
     if (!post) {
-      return NextResponse.json(
-        { error: "Post not found" },
-        { status: 404 }
-      )
+      return NextResponse.json({ error: 'Post not found' }, { status: 404 })
     }
 
-    const existingLike = await prisma.like.findUnique({
+    const existingLike = await prisma.like.findFirst({
       where: {
-        postId_userId: {
-          postId: post.id,
-          userId: session.user.id
-        }
-      }
+        postId: post.id,
+        browserId,
+      },
     })
 
     if (existingLike) {
-      await prisma.like.delete({
-        where: { id: existingLike.id }
-      })
-
-      return NextResponse.json({
-        success: true,
-        liked: false
-      })
-    } else {
-      await prisma.like.create({
-        data: {
-          postId: post.id,
-          userId: session.user.id
-        }
-      })
-
-      return NextResponse.json({
-        success: true,
-        liked: true
-      })
+      await prisma.like.delete({ where: { id: existingLike.id } })
+      return NextResponse.json({ success: true, liked: false })
     }
+
+    await prisma.like.create({
+      data: {
+        postId: post.id,
+        browserId,
+      },
+    })
+
+    return NextResponse.json({ success: true, liked: true })
   } catch (error) {
-    console.error("Like error:", error)
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    )
+    console.error('Like error:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
-/**
- * 返回文章点赞总数，以及当前登录用户是否已点赞。
- */
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ slug: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions)
     const { slug } = await params
-
-    const post = await prisma.post.findUnique({
-      where: { slug }
-    })
+    const browserId = getBrowserIdFromHeaders(request.headers)
+    const post = await prisma.post.findUnique({ where: { slug } })
 
     if (!post) {
-      return NextResponse.json(
-        { error: "Post not found" },
-        { status: 404 }
-      )
+      return NextResponse.json({ error: 'Post not found' }, { status: 404 })
     }
 
-    const likeCount = await prisma.like.count({
-      where: { postId: post.id }
-    })
+    const likeCount = await prisma.like.count({ where: { postId: post.id } })
 
     let isLiked = false
-    if (session?.user?.id) {
-      const like = await prisma.like.findUnique({
+    if (browserId) {
+      const like = await prisma.like.findFirst({
         where: {
-          postId_userId: {
-            postId: post.id,
-            userId: session.user.id
-          }
-        }
+          postId: post.id,
+          browserId,
+        },
       })
-      isLiked = !!like
+      isLiked = Boolean(like)
     }
 
     return NextResponse.json({
       success: true,
       data: {
         count: likeCount,
-        liked: isLiked
-      }
+        liked: isLiked,
+      },
     })
   } catch (error) {
-    console.error("Get like status error:", error)
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    )
+    console.error('Get like status error:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

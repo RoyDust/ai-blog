@@ -1,29 +1,34 @@
 'use client'
 
 import { useState } from 'react'
+import { addBookmark, isBookmarked, removeBookmark } from '@/lib/bookmark-store'
 
 interface BookmarkButtonProps {
   slug: string
   initialBookmarked: boolean
+  title: string
+  excerpt?: string | null
 }
 
-export function BookmarkButton({ slug, initialBookmarked }: BookmarkButtonProps) {
-  const [bookmarked, setBookmarked] = useState(initialBookmarked)
+export function BookmarkButton({ slug, initialBookmarked, title, excerpt }: BookmarkButtonProps) {
+  const [bookmarked, setBookmarked] = useState(() => isBookmarked(slug) || initialBookmarked)
   const [loading, setLoading] = useState(false)
 
   const handleBookmark = async () => {
     if (loading) return
+
     const nextValue = !bookmarked
     setBookmarked(nextValue)
     setLoading(true)
+
     try {
-      const response = await fetch(`/api/posts/${slug}/bookmark`, {
-        method: 'POST'
-      })
-      const data = await response.json()
-      if (!data.success) {
-        throw new Error('Bookmark action failed')
+      if (nextValue) {
+        addBookmark({ slug, title, excerpt: excerpt ?? undefined })
+      } else {
+        removeBookmark(slug)
       }
+
+      window.dispatchEvent(new CustomEvent('bookmarks:changed'))
     } catch (error) {
       setBookmarked(!nextValue)
       console.error('Bookmark error:', error)
@@ -36,7 +41,7 @@ export function BookmarkButton({ slug, initialBookmarked }: BookmarkButtonProps)
     <button
       onClick={handleBookmark}
       disabled={loading}
-      aria-label={bookmarked ? '取消收藏' : '收藏文章'}
+      aria-label={bookmarked ? '已收藏' : '收藏文章'}
       className={`ui-btn flex items-center gap-2 px-4 py-2 transition-colors ${
         bookmarked
           ? 'bg-[var(--primary)] text-white'
@@ -45,11 +50,11 @@ export function BookmarkButton({ slug, initialBookmarked }: BookmarkButtonProps)
     >
       <svg
         xmlns="http://www.w3.org/2000/svg"
-        fill={bookmarked ? "currentColor" : "none"}
+        fill={bookmarked ? 'currentColor' : 'none'}
         viewBox="0 0 24 24"
         strokeWidth={1.5}
         stroke="currentColor"
-        className="w-5 h-5"
+        className="h-5 w-5"
       >
         <path
           strokeLinecap="round"

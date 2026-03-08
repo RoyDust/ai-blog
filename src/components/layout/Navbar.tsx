@@ -54,7 +54,7 @@ export function Navbar() {
 
         <div className="flex items-center">
           <div className="hidden min-w-0 flex-1 mr-4 lg:flex lg:max-w-sm lg:justify-end">
-            <SearchForm appearance="navbar" compact placeholder="Search" />
+            <SearchForm appearance="navbar" compact placeholder="搜索文章、标签或分类" />
           </div>
           <Link
             href="/search"

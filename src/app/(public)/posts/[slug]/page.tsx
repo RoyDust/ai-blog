@@ -47,6 +47,10 @@ async function getPost(slug: string) {
 
 type ArticlePost = NonNullable<Awaited<ReturnType<typeof getPost>>>
 
+function getCommentLabel(comment: ArticlePost['comments'][number] | ArticlePost['comments'][number]['replies'][number]) {
+  return comment.authorLabel || comment.author?.name || '匿名访客'
+}
+
 export async function generateStaticParams() {
   try {
     const posts = await prisma.post.findMany({
@@ -186,7 +190,7 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
             </div>
 
             <div className="max-w-[76ch]">
-              <article className="prose prose-zinc max-w-none prose-headings:font-display prose-headings:scroll-mt-28 prose-headings:mt-10 prose-headings:mb-4 prose-headings:text-[var(--foreground)] prose-h1:text-[var(--foreground)] prose-h2:text-[var(--foreground)] prose-h3:text-[var(--foreground)] prose-h4:text-[var(--foreground)] prose-h5:text-[var(--foreground)] prose-h6:text-[var(--foreground)] prose-p:my-5 prose-p:leading-8 prose-p:text-[var(--text-body)] prose-a:text-[var(--brand)] prose-a:no-underline hover:prose-a:underline prose-strong:text-[var(--foreground)] prose-li:text-[var(--text-body)] prose-li:marker:text-[var(--text-faint)] prose-blockquote:border-[var(--border-strong)] prose-blockquote:border-l-[3px] prose-blockquote:text-[var(--text-body)] prose-blockquote:font-medium prose-hr:border-[var(--border)] prose-img:rounded-xl prose-pre:rounded-xl prose-pre:border prose-pre:border-[var(--border)] prose-pre:bg-[#0b1220] prose-pre:text-[#e5eef9] prose-code:rounded prose-code:bg-[color-mix(in_oklab,var(--surface-contrast)_82%,black_18%)] prose-code:px-1.5 prose-code:py-0.5 prose-code:text-[color-mix(in_oklab,var(--foreground)_92%,white_8%)] prose-code:font-[var(--font-code)] prose-code:before:content-none prose-code:after:content-none prose-table:w-full prose-th:bg-[var(--surface-contrast)] prose-th:text-[var(--foreground)] prose-td:border-[var(--border)] prose-th:border-[var(--border)] dark:prose-invert">
+              <article className="prose prose-zinc max-w-none prose-headings:font-display prose-headings:scroll-mt-28 prose-headings:mt-10 prose-headings:mb-4 prose-headings:text-[var(--foreground)] prose-h1:text-[var(--foreground)] prose-h2:text-[var(--foreground)] prose-h3:text-[var(--foreground)] prose-h4:text-[var(--foreground)] prose-h5:text-[var(--foreground)] prose-h6:text-[var(--foreground)] prose-p:my-5 prose-p:leading-8 prose-p:text-[var(--text-body)] prose-a:text-[var(--brand)] prose-a:no-underline hover:prose-a:underline prose-strong:text-[var(--foreground)] prose-li:text-[var(--text-body)] prose-li:marker:text-[var(--text-faint)] prose-blockquote:border-[var(--border-strong)] prose-blockquote:border-l-[3px] prose-blockquote:text-[var(--text-body)] prose-blockquote:font-medium prose-hr:border-[var(--border)] prose-img:rounded-xl prose-pre:rounded-xl prose-pre:border prose-pre:border-[var(--border)] prose-pre:bg-[var(--surface-elevated)] prose-pre:text-[var(--foreground)] prose-code:rounded prose-code:bg-[color-mix(in_oklab,var(--surface-contrast)_82%,black_18%)] prose-code:px-1.5 prose-code:py-0.5 prose-code:text-[color-mix(in_oklab,var(--foreground)_92%,white_8%)] prose-code:font-[var(--font-code)] prose-code:before:content-none prose-code:after:content-none prose-table:w-full prose-th:bg-[var(--surface-contrast)] prose-th:text-[var(--foreground)] prose-td:border-[var(--border)] prose-th:border-[var(--border)] dark:prose-invert">
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
                   rehypePlugins={[rehypeHighlight]}
@@ -266,7 +270,7 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <LikeButton initialCount={post._count.likes} initialLiked={false} slug={post.slug} />
-          <BookmarkButton initialBookmarked={false} slug={post.slug} />
+          <BookmarkButton excerpt={post.excerpt} initialBookmarked={false} slug={post.slug} title={post.title} />
           <ShareButton slug={post.slug} title={post.title} />
           <Link
             className="ui-btn rounded-xl bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90"
@@ -287,12 +291,12 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
           {post.comments.map((comment: ArticlePost['comments'][number]) => (
             <div className="border-b border-[var(--border)] pb-6" key={comment.id}>
               <div className="mb-2 flex items-center gap-3">
-                {comment.author.image ? (
-                  <Image alt={comment.author.name || ""} className="theme-media-image rounded-full object-cover" height={32} src={comment.author.image} width={32} />
+                {comment.author?.image ? (
+                  <Image alt={getCommentLabel(comment)} className="theme-media-image rounded-full object-cover" height={32} src={comment.author.image} width={32} />
                 ) : (
                   <div className="h-8 w-8 rounded-full bg-[var(--surface-alt)]" />
                 )}
-                <span className="font-medium text-[var(--foreground)]">{comment.author.name}</span>
+                <span className="font-medium text-[var(--foreground)]">{getCommentLabel(comment)}</span>
                 <span className="text-xs text-[var(--muted)]">{new Date(comment.createdAt).toLocaleDateString("zh-CN")}</span>
               </div>
               <p className="ml-11 text-[var(--foreground)]/90">{comment.content}</p>
@@ -302,7 +306,7 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
                   {comment.replies.map((reply: ArticlePost['comments'][number]['replies'][number]) => (
                     <div className="border-l-2 border-[var(--border)] pl-4" key={reply.id}>
                       <div className="mb-1 flex items-center gap-2">
-                        <span className="font-medium text-[var(--foreground)]">{reply.author.name}</span>
+                        <span className="font-medium text-[var(--foreground)]">{getCommentLabel(reply)}</span>
                         <span className="text-xs text-[var(--muted)]">{new Date(reply.createdAt).toLocaleDateString("zh-CN")}</span>
                       </div>
                       <p className="text-[var(--foreground)]/90">{reply.content}</p>

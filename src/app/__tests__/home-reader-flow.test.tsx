@@ -30,12 +30,15 @@ vi.mock('@/lib/prisma', () => ({
 }))
 
 describe('home reader flow', () => {
-  test('home shows featured section and latest feed', async () => {
+  test('home shows latest feed and category discovery', async () => {
     const { default: Home } = await import('../(public)/page')
     const ui = await Home()
     render(ui as React.ReactElement)
 
     expect(screen.getByRole('heading', { name: '最新文章' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: '分类浏览' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /查看全部/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '浏览分类' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '核心特性' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /文章/i })).toBeInTheDocument()
   })
 })

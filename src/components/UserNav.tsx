@@ -54,7 +54,7 @@ export function UserNav() {
   if (status === 'loading') {
     return (
       <nav className="flex items-center gap-4">
-        <span className="text-50">加载中...</span>
+        <span className="text-50">鍔犺浇涓?..</span>
       </nav>
     )
   }
@@ -62,20 +62,20 @@ export function UserNav() {
   if (session?.user) {
     return (
       <nav className="flex items-center gap-4">
-        <Link href="/profile" className={navLinkClass}>
+        <Link href="/admin" className={navLinkClass}>
           {session.user.name || session.user.email}
         </Link>
         <Link href="/bookmarks" className={navLinkClass}>
-          收藏
+          鏀惰棌
         </Link>
         <Link href="/admin/posts/new" className={navLinkClass}>
-          写文章
+          鍐欐枃绔?
         </Link>
         <Link href="/admin" className={navLinkClass}>
-          管理
+          绠＄悊
         </Link>
         <button onClick={handleLogout} className={navLinkClass}>
-          退出
+          閫€鍑?
         </button>
       </nav>
     )
@@ -84,13 +84,13 @@ export function UserNav() {
   return (
     <nav className="flex items-center gap-4">
       <Link href="/login" className={navLinkClass}>
-        登录
+        鐧诲綍
       </Link>
       <Link
         href="/register"
         className="ui-btn inline-flex items-center rounded-lg bg-[var(--brand)] px-4 py-2 text-white transition hover:bg-[var(--brand-strong)]"
       >
-        注册
+        娉ㄥ唽
       </Link>
     </nav>
   )

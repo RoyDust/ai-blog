@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { getOrCreateBrowserId } from '@/lib/browser-id'
 
 interface LikeButtonProps {
   slug: string
@@ -13,6 +14,33 @@ export function LikeButton({ slug, initialLiked, initialCount }: LikeButtonProps
   const [count, setCount] = useState(initialCount)
   const [loading, setLoading] = useState(false)
 
+  useEffect(() => {
+    let active = true
+
+    async function syncLikeState() {
+      try {
+        const browserId = getOrCreateBrowserId()
+        const response = await fetch(`/api/posts/${slug}/like`, {
+          headers: { 'x-browser-id': browserId },
+        })
+        const data = await response.json()
+
+        if (!active || !response.ok || !data.success) return
+
+        setLiked(Boolean(data.data?.liked))
+        setCount(typeof data.data?.count === 'number' ? data.data.count : initialCount)
+      } catch {
+        return
+      }
+    }
+
+    void syncLikeState()
+
+    return () => {
+      active = false
+    }
+  }, [initialCount, slug])
+
   const handleLike = async () => {
     if (loading) return
     const nextLiked = !liked
@@ -20,11 +48,15 @@ export function LikeButton({ slug, initialLiked, initialCount }: LikeButtonProps
     setLiked(nextLiked)
     setCount(nextCount)
     setLoading(true)
+
     try {
+      const browserId = getOrCreateBrowserId()
       const response = await fetch(`/api/posts/${slug}/like`, {
-        method: 'POST'
+        method: 'POST',
+        headers: { 'x-browser-id': browserId },
       })
       const data = await response.json()
+
       if (!data.success) {
         throw new Error('Like action failed')
       }
@@ -41,7 +73,7 @@ export function LikeButton({ slug, initialLiked, initialCount }: LikeButtonProps
     <button
       onClick={handleLike}
       disabled={loading}
-      aria-label={liked ? '取消点赞' : '点赞'}
+      aria-label={liked ? '鍙栨秷鐐硅禐' : '鐐硅禐'}
       className={`ui-btn flex items-center gap-2 px-4 py-2 transition-colors ${
         liked
           ? 'bg-rose-500 text-white'
@@ -50,11 +82,11 @@ export function LikeButton({ slug, initialLiked, initialCount }: LikeButtonProps
     >
       <svg
         xmlns="http://www.w3.org/2000/svg"
-        fill={liked ? "currentColor" : "none"}
+        fill={liked ? 'currentColor' : 'none'}
         viewBox="0 0 24 24"
         strokeWidth={1.5}
         stroke="currentColor"
-        className="w-5 h-5"
+        className="h-5 w-5"
       >
         <path
           strokeLinecap="round"

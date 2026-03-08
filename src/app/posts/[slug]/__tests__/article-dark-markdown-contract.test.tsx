@@ -9,8 +9,8 @@ function readSource(relativePath: string) {
 test('article markdown prose uses semantic dark-mode tokens', () => {
   const source = readSource('src/app/(public)/posts/[slug]/page.tsx')
 
-  expect(source).toContain('prose-pre:bg-[#0b1220]')
-  expect(source).toContain('prose-pre:text-[#e5eef9]')
+  expect(source).toContain('prose-pre:bg-[var(--surface-elevated)]')
+  expect(source).toContain('prose-pre:text-[var(--foreground)]')
   expect(source).toContain('prose-blockquote:border-[var(--border-strong)]')
   expect(source).toContain('prose-blockquote:text-[var(--text-body)]')
   expect(source).toContain('prose-strong:text-[var(--foreground)]')

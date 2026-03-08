@@ -13,6 +13,8 @@ vi.mock('@/lib/prisma', () => ({
         excerpt: 'Excerpt',
         coverImage: null,
         createdAt: new Date('2026-01-01T00:00:00Z'),
+        updatedAt: new Date('2026-01-02T00:00:00Z'),
+        publishedAt: new Date('2026-01-01T00:00:00Z'),
         viewCount: 100,
         author: { id: 'u1', name: 'Author', image: null },
         category: { name: 'Category', slug: 'category' },
@@ -20,6 +22,7 @@ vi.mock('@/lib/prisma', () => ({
         comments: [],
         _count: { comments: 0, likes: 2 },
       }),
+      findMany: vi.fn().mockResolvedValue([]),
     },
   },
 }))
@@ -35,24 +38,31 @@ vi.mock('next-auth/react', () => ({
   }),
 }))
 
+vi.mock('next/navigation', () => ({
+  notFound: vi.fn(),
+  useRouter: () => ({
+    refresh: vi.fn(),
+  }),
+}))
+
 vi.mock('@/lib/auth', () => ({
   authOptions: {},
 }))
 
 describe('article experience', () => {
-  test('article page includes progress and interaction rail', async () => {
+  test('article page includes progress and anonymous interaction rail', async () => {
     const { default: PostPage } = await import('@/app/(public)/posts/[slug]/page')
     const ui = await PostPage({ params: Promise.resolve({ slug: 'test-post' }) })
     const { container } = render(ui as React.ReactElement)
 
-    expect(screen.getByText('目录')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '目录' })).toBeInTheDocument()
     expect(screen.getByRole('progressbar')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '分享文章' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '返回顶部' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { level: 5, name: 'Deep Heading' })).toBeInTheDocument()
     expect(screen.getByText('读到这里，来说说你的看法')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: '参与讨论' })).toHaveAttribute('href', '#comments')
-    expect(screen.getByRole('link', { name: '参与讨论' }).className).toContain('bg-[var(--primary)]')
+    expect(screen.getByPlaceholderText('写下你的评论...')).toBeInTheDocument()
     expect(container.querySelector('.prose')?.className).toContain('prose-pre:rounded-xl')
     expect(container.querySelector('pre code')?.className).toContain('hljs')
     expect(container.querySelector('#comments')).toBeInTheDocument()

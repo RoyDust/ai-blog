@@ -136,14 +136,17 @@ model Comment {
   // 关联
   postId    String
   post      Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
-  authorId  String
-  author    User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorId  String?
+  author    User?     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  browserId String?
+  authorLabel String?
   parentId  String?
   parent    Comment?  @relation("CommentReplies", fields: [parentId], references: [id])
   replies   Comment[] @relation("CommentReplies")
 
   @@index([postId])
   @@index([authorId])
+  @@index([browserId])
   @@map("comments")
 }
 
@@ -154,11 +157,14 @@ model Like {
   // 关联
   postId    String
   post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  browserId String?
 
   @@unique([postId, userId]) // 同一用户只能点赞一次
+  @@unique([postId, browserId])
   @@index([postId])
+  @@index([browserId])
   @@map("likes")
 }
 

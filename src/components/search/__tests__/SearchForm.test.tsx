@@ -7,13 +7,14 @@ test('renders a GET search form targeting the search page', () => {
 
   const form = container.querySelector('form')
   const input = container.querySelector('input[type="search"][name="q"]')
-  const button = screen.getByRole('button', { name: '??' })
+  const button = screen.getByRole('button', { name: '搜索' })
 
   expect(form).not.toBeNull()
   expect(form?.getAttribute('method')).toBe('get')
   expect(form?.getAttribute('action')).toBe('/search')
   expect(input?.getAttribute('name')).toBe('q')
-  expect(input).toHaveAttribute('aria-label', '????')
+  expect(input).toHaveAttribute('aria-label', '搜索站内内容')
+  expect(input).toHaveAttribute('placeholder', '搜索文章、标签或分类')
   expect(button).toBeInTheDocument()
   expect(button.className).toContain('bg-[var(--primary)]')
 })
@@ -22,7 +23,7 @@ test('renders a navbar variant that expands on focus and submits with native sea
   const { container } = render(<SearchForm compact appearance="navbar" />)
 
   const form = container.querySelector('form')
-  const input = within(form as HTMLFormElement).getByRole('searchbox', { name: '????' })
+  const input = within(form as HTMLFormElement).getByRole('searchbox', { name: '搜索站内内容' })
   const button = container.querySelector('button[type="submit"]')
 
   expect(form?.getAttribute('method')).toBe('get')
