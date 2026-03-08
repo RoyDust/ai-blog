@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { revalidatePublicContent } from "@/lib/cache"
+import { getPublishedPostsPage } from "@/lib/posts"
 import { clampPagination, parsePostInput } from "@/lib/validation"
 
 export async function GET(request: Request) {
@@ -16,54 +17,12 @@ export async function GET(request: Request) {
     const tag = searchParams.get("tag")
     const search = searchParams.get("search")
 
-    const where: NonNullable<Parameters<typeof prisma.post.findMany>[0]>['where'] = {
-      published: true
-    }
-
-    if (category) {
-      where.category = { slug: category }
-    }
-
-    if (tag) {
-      where.tags = { some: { slug: tag } }
-    }
-
-    if (search) {
-      where.OR = [
-        { title: { contains: search, mode: "insensitive" } },
-        { content: { contains: search, mode: "insensitive" } }
-      ]
-    }
-
-    const [posts, total] = await Promise.all([
-      prisma.post.findMany({
-        where,
-        include: {
-          author: {
-            select: { id: true, name: true, image: true }
-          },
-          category: true,
-          tags: true,
-          _count: {
-            select: { comments: true, likes: true }
-          }
-        },
-        orderBy: { createdAt: "desc" },
-        skip: (page - 1) * limit,
-        take: limit
-      }),
-      prisma.post.count({ where })
-    ])
+    const { posts, pagination } = await getPublishedPostsPage({ page, limit, category, tag, search })
 
     return NextResponse.json({
       success: true,
       data: posts,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit)
-      }
+      pagination,
     })
   } catch (error) {
     console.error("Get posts error:", error)

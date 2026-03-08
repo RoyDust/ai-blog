@@ -2,32 +2,48 @@ export const revalidate = 300;
 
 import { Suspense } from "react";
 import { PostsListingClient } from "@/components/blog/PostsListingClient";
+import { POSTS_PAGE_SIZE } from "@/lib/pagination";
+import { getPublishedPostsPage } from "@/lib/posts";
 import { prisma } from "@/lib/prisma";
 
-async function getListingPosts() {
+async function getListingPosts({
+  search,
+  category,
+  tag,
+}: {
+  search?: string;
+  category?: string;
+  tag?: string;
+}) {
   try {
-    return await prisma.post.findMany({
-      where: {
-        published: true,
-      },
-      include: {
-        author: { select: { id: true, name: true, image: true } },
-        category: true,
-        tags: true,
-        _count: { select: { comments: true, likes: true } },
-      },
-      orderBy: { createdAt: "desc" },
-      take: 100,
+    return await getPublishedPostsPage({
+      page: 1,
+      limit: POSTS_PAGE_SIZE,
+      search,
+      category,
+      tag,
     });
   } catch (error) {
     console.error("Load listing posts error:", error);
-    return [];
+    return {
+      posts: [],
+      pagination: { page: 1, limit: POSTS_PAGE_SIZE, total: 0, totalPages: 0 },
+    };
   }
 }
 
-export default async function PostsPage() {
-  const [posts, categories, tags] = await Promise.all([
-    getListingPosts(),
+export default async function PostsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  const search = typeof resolvedSearchParams?.q === "string" ? resolvedSearchParams.q.trim() : "";
+  const category = typeof resolvedSearchParams?.category === "string" ? resolvedSearchParams.category.trim() : "";
+  const tag = typeof resolvedSearchParams?.tag === "string" ? resolvedSearchParams.tag.trim() : "";
+
+  const [postsPage, categories, tags] = await Promise.all([
+    getListingPosts({ search, category, tag }),
     prisma.category.findMany({ select: { name: true, slug: true }, orderBy: { name: "asc" }, take: 20 }).catch((error) => {
       console.error("Load categories error:", error);
       return [];
@@ -40,8 +56,13 @@ export default async function PostsPage() {
 
   return (
     <div className="space-y-4">
-      <Suspense fallback={<div className="card-base p-8 text-sm text-[var(--muted)]">正在加载文章列表...</div>}>
-        <PostsListingClient categories={categories} posts={posts} tags={tags} />
+      <Suspense fallback={<div className="card-base p-8 text-sm text-[var(--muted)]">姝ｅ湪鍔犺浇鏂囩珷鍒楄〃...</div>}>
+        <PostsListingClient
+          categories={categories}
+          initialPagination={postsPage.pagination}
+          initialPosts={postsPage.posts}
+          tags={tags}
+        />
       </Suspense>
     </div>
   );

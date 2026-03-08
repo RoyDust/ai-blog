@@ -19,6 +19,7 @@ vi.mock('@/lib/prisma', () => ({
           _count: { comments: 1, likes: 2 },
         },
       ]),
+      count: vi.fn().mockResolvedValue(1),
     },
     category: {
       findMany: vi.fn().mockResolvedValue([]),
