@@ -92,7 +92,7 @@ export function Sidebar() {
         <div className="card-base p-5">
           <div className="mb-3 flex items-center gap-2">
             <BookOpenText className="h-5 w-5 text-[var(--primary)]" />
-            <h3 className="text-90 font-bold">快速导航</h3>
+            <h3 className="text-90 font-bold">快捷导航</h3>
           </div>
           <div className="space-y-2">
             <Link className="text-75 block rounded-lg px-3 py-2 text-sm transition hover:bg-[var(--btn-plain-bg-hover)]" href="/posts">
