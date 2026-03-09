@@ -1,5 +1,18 @@
-import { describe, expect, test } from 'vitest'
+import { afterAll, beforeAll, describe, expect, test } from 'vitest'
 import { buildCanonicalUrl, buildArticleJsonLd } from '../seo'
+
+const originalNextAuthUrl = process.env.NEXTAUTH_URL
+const originalSiteUrl = process.env.NEXT_PUBLIC_SITE_URL
+
+beforeAll(() => {
+  process.env.NEXTAUTH_URL = 'http://47.98.167.32'
+  process.env.NEXT_PUBLIC_SITE_URL = 'http://47.98.167.32'
+})
+
+afterAll(() => {
+  process.env.NEXTAUTH_URL = originalNextAuthUrl
+  process.env.NEXT_PUBLIC_SITE_URL = originalSiteUrl
+})
 
 describe('seo helpers', () => {
   test('builds canonical url from path', () => {
