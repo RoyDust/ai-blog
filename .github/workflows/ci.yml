@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: my_next_app
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d my_next_app"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/my_next_app?schema=public
+      AUTH_SECRET: test-auth-secret
+      NEXTAUTH_SECRET: test-nextauth-secret
+      NEXTAUTH_URL: http://127.0.0.1:3000
+      NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3000
+      AUTH_GITHUB_ID: test-github-id
+      AUTH_GITHUB_SECRET: test-github-secret
+      QINIU_ACCESS_KEY: test-ak
+      QINIU_SECRET_KEY: test-sk
+      QINIU_BUCKET: test-bucket
+      QINIU_DOMAIN: http://project.roydust.top
+      QINIU_UPLOAD_URL: https://up-z2.qiniup.com
+      DASHSCOPE_API_KEY: test-dashscope-key
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm prisma generate
+
+      - name: Sync Prisma schema for CI database
+        run: pnpm prisma db push
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Unit tests
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build

@@ -40,7 +40,7 @@ describe("GET /api/admin/comments", () => {
     findMany.mockRejectedValueOnce(new Error("db exploded"))
 
     const { GET } = await import("../route")
-    const response = await GET()
+    const response = await GET(new Request('http://localhost/api/admin/comments'))
     const payload = await response.json()
 
     expect(response.status).toBe(500)

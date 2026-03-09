@@ -46,6 +46,7 @@ describe('GET /api/search', () => {
       expect.objectContaining({
         where: {
           published: true,
+          deletedAt: null,
           OR: [
             { title: { contains: 'react', mode: 'insensitive' } },
             { excerpt: { contains: 'react', mode: 'insensitive' } },
@@ -55,6 +56,8 @@ describe('GET /api/search', () => {
             { tags: { some: { name: { contains: 'react', mode: 'insensitive' } } } },
           ],
         },
+        include: expect.any(Object),
+        orderBy: [{ createdAt: 'desc' }],
         skip: 0,
         take: 12,
       }),

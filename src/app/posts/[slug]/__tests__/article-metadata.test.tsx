@@ -1,28 +1,36 @@
 import { describe, expect, test, vi } from 'vitest'
 
+const findFirst = vi.fn()
+const findMany = vi.fn()
+
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     post: {
-      findUnique: vi.fn().mockResolvedValue({
-        id: 'p1',
-        slug: 'test-post',
-        title: 'Article Title',
-        content: '# Intro\nBody text',
-        excerpt: 'Excerpt',
-        coverImage: 'https://example.com/cover.png',
-        createdAt: new Date('2026-01-01T00:00:00Z'),
-        updatedAt: new Date('2026-01-02T00:00:00Z'),
-        publishedAt: new Date('2026-01-01T00:00:00Z'),
-        viewCount: 100,
-        author: { id: 'u1', name: 'Author', image: null },
-        category: { name: 'Category', slug: 'category' },
-        tags: [{ name: 'Tag', slug: 'tag' }],
-        comments: [],
-        _count: { comments: 0, likes: 2 },
-      }),
+      findFirst,
+      findMany,
     },
   },
 }))
+
+findFirst.mockResolvedValue({
+  id: 'p1',
+  slug: 'test-post',
+  title: 'Article Title',
+  content: '# Intro\nBody text',
+  excerpt: 'Excerpt',
+  coverImage: 'https://example.com/cover.png',
+  createdAt: new Date('2026-01-01T00:00:00Z'),
+  updatedAt: new Date('2026-01-02T00:00:00Z'),
+  publishedAt: new Date('2026-01-01T00:00:00Z'),
+  viewCount: 100,
+  author: { id: 'u1', name: 'Author', image: null },
+  category: { name: 'Category', slug: 'category' },
+  tags: [{ name: 'Tag', slug: 'tag' }],
+  comments: [],
+  _count: { comments: 0, likes: 2 },
+})
+
+findMany.mockResolvedValue([])
 
 describe('article metadata', () => {
   test('generates article metadata from post content', async () => {
@@ -31,7 +39,7 @@ describe('article metadata', () => {
 
     expect(metadata.title).toBe('Article Title | My Blog')
     expect(metadata.description).toBe('Excerpt')
-    expect(metadata.alternates?.canonical).toBe('https://example.com/posts/test-post')
+    expect(metadata.alternates?.canonical).toBe('http://47.98.167.32/posts/test-post')
     expect(metadata.openGraph?.type).toBe('article')
   })
 })

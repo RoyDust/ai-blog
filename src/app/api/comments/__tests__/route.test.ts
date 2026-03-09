@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 
 const create = vi.fn()
+const findFirstPost = vi.fn()
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
+    post: { findFirst: findFirstPost },
     comment: { create },
   },
 }))
@@ -25,9 +27,11 @@ vi.mock('@/lib/auth', () => ({ authOptions: {} }))
 describe('POST /api/comments', () => {
   beforeEach(() => {
     create.mockReset()
+    findFirstPost.mockReset()
   })
 
   test('creates an anonymous comment using browser id and masked ip label', async () => {
+    findFirstPost.mockResolvedValue({ id: 'post-1', published: true })
     create.mockResolvedValue({
       id: 'comment-1',
       content: 'Nice post',

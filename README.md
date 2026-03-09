@@ -62,3 +62,12 @@ pnpm test
 - 文章列表 `/posts` 采用 ISR 静态外壳 + 客户端筛选
 - 文章详情页 `/posts/[slug]` 采用 SSG + `generateStaticParams`
 - 若本地工作树目录没有 `.env`，数据库连接会向上回溯查找仓库根目录的 `.env` / `.env.local`
+
+## Deployment
+
+- CI: `.github/workflows/ci.yml`
+- Manual deploy: `.github/workflows/deploy.yml`
+- Production compose: `docker-compose.prod.yml`
+- Server deploy guide: `docs/deployment/github-actions-manual-deploy.md`
+- Required environment variables: `.env.example`
+- Public server address without domain: `http://47.98.167.32`

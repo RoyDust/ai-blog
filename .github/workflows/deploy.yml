@@ -1,0 +1,145 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Git ref to deploy
+        required: true
+        default: main
+      environment:
+        description: Deployment environment
+        required: true
+        default: production
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: my_next_app
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d my_next_app"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    environment:
+      name: ${{ inputs.environment }}
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/my_next_app?schema=public
+      AUTH_SECRET: test-auth-secret
+      NEXTAUTH_SECRET: test-nextauth-secret
+      NEXTAUTH_URL: http://127.0.0.1:3000
+      NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3000
+      AUTH_GITHUB_ID: test-github-id
+      AUTH_GITHUB_SECRET: test-github-secret
+      QINIU_ACCESS_KEY: test-ak
+      QINIU_SECRET_KEY: test-sk
+      QINIU_BUCKET: test-bucket
+      QINIU_DOMAIN: http://project.roydust.top
+      QINIU_UPLOAD_URL: https://up-z2.qiniup.com
+      DASHSCOPE_API_KEY: test-dashscope-key
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm prisma generate
+
+      - name: Sync Prisma schema for build database
+        run: pnpm prisma db push
+
+      - name: Build
+        run: pnpm build
+
+      - name: Prepare release bundle
+        run: |
+          mkdir -p release
+          rsync -a ./ release/ \
+            --exclude '.git/' \
+            --exclude '.github/' \
+            --exclude '.next/' \
+            --exclude '.worktrees/' \
+            --exclude 'node_modules/' \
+            --exclude 'docs/' \
+            --exclude 'e2e/' \
+            --exclude 'release/' \
+            --exclude 'test-results/' \
+            --exclude '.env' \
+            --exclude '.env.local' \
+            --exclude '.env.development' \
+            --exclude '.env.test'
+          chmod +x release/scripts/deploy/deploy-remote.sh
+
+      - name: Start SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
+
+      - name: Add server to known hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -p "${{ secrets.DEPLOY_PORT }}" "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Create remote release directory
+        run: |
+          ssh -p "${{ secrets.DEPLOY_PORT }}" "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+            "mkdir -p '${{ secrets.DEPLOY_PATH }}/releases/${{ github.sha }}' '${{ secrets.DEPLOY_PATH }}/shared'"
+
+      - name: Upload release bundle
+        run: |
+          rsync -az --delete -e "ssh -p ${{ secrets.DEPLOY_PORT }}" \
+            release/ "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:${{ secrets.DEPLOY_PATH }}/releases/${{ github.sha }}/"
+
+      - name: Write production env file locally
+        run: |
+          cat > app.env <<'EOF'
+          ${{ secrets.APP_ENV_FILE }}
+          EOF
+
+      - name: Upload production env file
+        run: |
+          scp -P "${{ secrets.DEPLOY_PORT }}" app.env "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:${{ secrets.DEPLOY_PATH }}/shared/.env"
+
+      - name: Activate release and restart services
+        run: |
+          ssh -p "${{ secrets.DEPLOY_PORT }}" "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" '
+            set -euo pipefail
+            ln -sfn "${{ secrets.DEPLOY_PATH }}/shared/.env" "${{ secrets.DEPLOY_PATH }}/releases/${{ github.sha }}/.env"
+            ln -sfn "${{ secrets.DEPLOY_PATH }}/releases/${{ github.sha }}" "${{ secrets.DEPLOY_PATH }}/current"
+            cd "${{ secrets.DEPLOY_PATH }}/current"
+            chmod +x scripts/deploy/deploy-remote.sh
+            DEPLOY_PATH="${{ secrets.DEPLOY_PATH }}" bash scripts/deploy/deploy-remote.sh
+          '
+
+      - name: Deployment summary
+        run: |
+          echo "Deployed ref: ${{ inputs.ref }}"
+          echo "Release SHA: ${{ github.sha }}"
+          echo "Target host: ${{ secrets.DEPLOY_HOST }}"

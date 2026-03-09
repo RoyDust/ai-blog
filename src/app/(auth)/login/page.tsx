@@ -1,12 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { signIn } from 'next-auth/react'
 import { Button, Input, Card, CardContent } from '@/components/ui';
 
-export default function LoginPage() {
+function LoginForm() {
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get('callbackUrl') || '/';
   const authError = searchParams.get('error');
@@ -103,5 +103,13 @@ export default function LoginPage() {
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<Card><CardContent><div className="p-6 text-center text-sm text-75">Loading...</div></CardContent></Card>}>
+      <LoginForm />
+    </Suspense>
   );
 }

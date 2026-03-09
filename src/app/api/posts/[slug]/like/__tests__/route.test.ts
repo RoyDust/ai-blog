@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 
-const findUnique = vi.fn()
+const findFirstPost = vi.fn()
 const count = vi.fn()
 const create = vi.fn()
 const remove = vi.fn()
@@ -8,7 +8,7 @@ const findFirst = vi.fn()
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
-    post: { findUnique },
+    post: { findFirst: findFirstPost },
     like: {
       count,
       create,
@@ -30,7 +30,7 @@ vi.mock('@/lib/auth', () => ({ authOptions: {} }))
 
 describe('POST /api/posts/[slug]/like', () => {
   beforeEach(() => {
-    findUnique.mockReset()
+    findFirstPost.mockReset()
     count.mockReset()
     create.mockReset()
     remove.mockReset()
@@ -38,7 +38,7 @@ describe('POST /api/posts/[slug]/like', () => {
   })
 
   test('toggles likes using browser id without login', async () => {
-    findUnique.mockResolvedValue({ id: 'post-1', slug: 'hello' })
+    findFirstPost.mockResolvedValue({ id: 'post-1', slug: 'hello' })
     findFirst.mockResolvedValue(null)
 
     const { POST } = await import('../route')
@@ -55,7 +55,7 @@ describe('POST /api/posts/[slug]/like', () => {
   })
 
   test('returns current like state for browser id', async () => {
-    findUnique.mockResolvedValue({ id: 'post-1', slug: 'hello' })
+    findFirstPost.mockResolvedValue({ id: 'post-1', slug: 'hello' })
     count.mockResolvedValue(5)
     findFirst.mockResolvedValue({ id: 'like-1' })
 

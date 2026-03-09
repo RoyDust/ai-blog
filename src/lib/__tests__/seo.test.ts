@@ -3,7 +3,7 @@ import { buildCanonicalUrl, buildArticleJsonLd } from '../seo'
 
 describe('seo helpers', () => {
   test('builds canonical url from path', () => {
-    expect(buildCanonicalUrl('/posts/hello-world')).toBe('https://example.com/posts/hello-world')
+    expect(buildCanonicalUrl('/posts/hello-world')).toBe('http://47.98.167.32/posts/hello-world')
   })
 
   test('builds article json-ld payload', () => {
@@ -19,6 +19,6 @@ describe('seo helpers', () => {
 
     expect(payload['@type']).toBe('BlogPosting')
     expect(payload.headline).toBe('Hello World')
-    expect(payload.mainEntityOfPage).toBe('https://example.com/posts/hello-world')
+    expect(payload.mainEntityOfPage).toBe('http://47.98.167.32/posts/hello-world')
   })
 })
