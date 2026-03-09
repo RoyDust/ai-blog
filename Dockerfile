@@ -3,6 +3,12 @@ WORKDIR /app
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable
+RUN pnpm config set registry https://registry.npmmirror.com/ \
+ && pnpm config set fetch-retries 5 \
+ && pnpm config set fetch-retry-factor 2 \
+ && pnpm config set fetch-retry-mintimeout 20000 \
+ && pnpm config set fetch-retry-maxtimeout 120000 \
+ && pnpm config set network-timeout 300000
 
 FROM base AS deps
 COPY package.json pnpm-lock.yaml ./
