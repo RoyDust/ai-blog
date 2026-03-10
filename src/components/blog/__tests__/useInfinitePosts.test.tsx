@@ -112,4 +112,32 @@ describe('useInfinitePosts', () => {
 
     expect(fetch).toHaveBeenCalledWith('/api/posts?page=2&limit=1')
   })
+
+  test('does not load the next page immediately on mount', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          data: nextPagePosts,
+          pagination: { page: 2, limit: 1, total: 2, totalPages: 2 },
+        }),
+      }),
+    )
+
+    Object.defineProperty(document.documentElement, 'scrollHeight', {
+      value: 700,
+      writable: true,
+      configurable: true,
+    })
+
+    render(<Harness />)
+
+    await waitFor(() => {
+      expect(screen.getByText('First post')).toBeInTheDocument()
+    })
+
+    expect(fetch).not.toHaveBeenCalled()
+    expect(screen.queryByText('Second post')).not.toBeInTheDocument()
+  })
 })

@@ -1,5 +1,28 @@
 import { prisma } from '@/lib/prisma'
 
+const postListingSelect = {
+  id: true,
+  title: true,
+  slug: true,
+  excerpt: true,
+  coverImage: true,
+  createdAt: true,
+  viewCount: true,
+  author: {
+    select: { id: true, name: true, image: true },
+  },
+  category: {
+    select: { id: true, name: true, slug: true },
+  },
+  tags: {
+    where: { deletedAt: null },
+    select: { id: true, name: true, slug: true },
+  },
+  _count: {
+    select: { comments: { where: { deletedAt: null } }, likes: true },
+  },
+} as const
+
 interface PublishedPostsPageInput {
   page: number
   limit: number
@@ -38,16 +61,7 @@ export async function getPublishedPostsPage({
   const [posts, total] = await Promise.all([
     prisma.post.findMany({
       where,
-      include: {
-        author: {
-          select: { id: true, name: true, image: true },
-        },
-        category: true,
-        tags: { where: { deletedAt: null } },
-        _count: {
-          select: { comments: { where: { deletedAt: null } }, likes: true },
-        },
-      },
+      select: postListingSelect,
       orderBy: { createdAt: 'desc' },
       skip: (page - 1) * limit,
       take: limit,

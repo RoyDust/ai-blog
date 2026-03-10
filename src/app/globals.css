@@ -43,16 +43,16 @@ html {
   --color-brand-strong: var(--brand-strong);
   --color-danger: var(--danger-foreground);
   --color-danger-surface: var(--danger-surface);
-  --font-sans: var(--font-noto-sans-sc);
-  --font-display: var(--font-manrope);
-  --font-mono: var(--font-geist-mono);
-  --font-code: var(--font-jetbrains-mono);
+  --font-sans: var(--font-alibaba-puhuiti);
+  --font-display: var(--font-alibaba-puhuiti);
+  --font-mono: "SFMono-Regular", "Cascadia Code", "JetBrains Mono", "Fira Code", Consolas, monospace;
+  --font-code: "SFMono-Regular", "Cascadia Code", "JetBrains Mono", "Fira Code", Consolas, monospace;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-noto-sans-sc), "Noto Sans SC", sans-serif;
+  font-family: var(--font-alibaba-puhuiti), "Alibaba PuHuiTi", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
   min-height: 100vh;
   background-image:
     radial-gradient(circle at 15% 0%, var(--ambient-primary), transparent 30%),
