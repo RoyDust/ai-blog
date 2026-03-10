@@ -15,9 +15,19 @@ COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
 
 FROM deps AS builder
+ARG DATABASE_URL
+ARG AUTH_SECRET
+ARG NEXTAUTH_SECRET
+ARG NEXTAUTH_URL
+ARG NEXT_PUBLIC_SITE_URL
 COPY . .
 RUN pnpm prisma generate
-RUN pnpm build
+RUN DATABASE_URL="$DATABASE_URL" \
+ AUTH_SECRET="$AUTH_SECRET" \
+ NEXTAUTH_SECRET="$NEXTAUTH_SECRET" \
+ NEXTAUTH_URL="$NEXTAUTH_URL" \
+ NEXT_PUBLIC_SITE_URL="$NEXT_PUBLIC_SITE_URL" \
+ pnpm build
 
 FROM base AS runner
 ENV NODE_ENV=production
