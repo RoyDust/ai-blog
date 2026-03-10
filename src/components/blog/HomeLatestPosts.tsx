@@ -1,5 +1,6 @@
 'use client'
 
+import { useCallback } from 'react'
 import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
 
@@ -30,10 +31,15 @@ interface HomeLatestPostsProps {
 }
 
 export function HomeLatestPosts({ initialPosts, initialPagination }: HomeLatestPostsProps) {
-  const { posts, isLoading, error, hasNextPage } = useInfinitePosts({
+  const buildUrl = useCallback(
+    (page: number) => `/api/posts?page=${page}&limit=${initialPagination.limit}`,
+    [initialPagination.limit],
+  )
+
+  const { posts, isLoading, error, hasNextPage, observerTargetRef } = useInfinitePosts({
     initialPosts,
     initialPagination,
-    buildUrl: (page) => `/api/posts?page=${page}&limit=${initialPagination.limit}`,
+    buildUrl,
   })
 
   return (
@@ -55,6 +61,7 @@ export function HomeLatestPosts({ initialPosts, initialPagination }: HomeLatestP
 
         {isLoading && <div className="px-2 py-4 text-sm text-[var(--muted)]">正在加载更多文章...</div>}
         {error && <div className="px-2 py-2 text-sm text-red-500">{error}</div>}
+        {hasNextPage && <div ref={observerTargetRef} aria-hidden="true" className="h-4 w-full" />}
         {!hasNextPage && posts.length > 0 && initialPagination.totalPages > 1 && (
           <div className="px-2 py-2 text-sm text-[var(--muted)]">已加载全部文章</div>
         )}

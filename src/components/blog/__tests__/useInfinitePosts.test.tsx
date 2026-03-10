@@ -2,7 +2,6 @@ import React from 'react'
 import { act, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
-import { POSTS_SCROLL_LOAD_THRESHOLD } from '@/lib/pagination'
 import { useInfinitePosts } from '../useInfinitePosts'
 
 const initialPosts = [
@@ -33,8 +32,22 @@ const nextPagePosts = [
   },
 ]
 
+let intersectionCallback: ((entries: Array<{ isIntersecting: boolean }>) => void) | undefined
+
+class MockIntersectionObserver {
+  constructor(callback: (entries: Array<{ isIntersecting: boolean }>) => void) {
+    intersectionCallback = callback
+  }
+
+  observe() {}
+  disconnect() {}
+  unobserve() {}
+}
+
 function Harness() {
-  const { posts, isLoading } = useInfinitePosts({
+  const buildUrl = React.useCallback((page: number) => `/api/posts?page=${page}&limit=1`, [])
+
+  const { posts, isLoading, observerTargetRef } = useInfinitePosts({
     initialPosts,
     initialPagination: {
       page: 1,
@@ -42,7 +55,7 @@ function Harness() {
       total: 2,
       totalPages: 2,
     },
-    buildUrl: (page) => `/api/posts?page=${page}&limit=1`,
+    buildUrl,
   })
 
   return (
@@ -51,36 +64,23 @@ function Harness() {
       {posts.map((post) => (
         <div key={post.id}>{post.title}</div>
       ))}
+      <div ref={observerTargetRef} />
     </div>
   )
 }
 
 describe('useInfinitePosts', () => {
   beforeEach(() => {
-    Object.defineProperty(window, 'innerHeight', {
-      value: 600,
-      writable: true,
-      configurable: true,
-    })
-
-    Object.defineProperty(window, 'scrollY', {
-      value: 0,
-      writable: true,
-      configurable: true,
-    })
-
-    Object.defineProperty(document.documentElement, 'scrollHeight', {
-      value: 1000,
-      writable: true,
-      configurable: true,
-    })
+    intersectionCallback = undefined
+    // @ts-expect-error test shim
+    globalThis.IntersectionObserver = MockIntersectionObserver
   })
 
   afterEach(() => {
     vi.restoreAllMocks()
   })
 
-  test(`loads the next page after scrolling past ${POSTS_SCROLL_LOAD_THRESHOLD * 100} percent`, async () => {
+  test('loads the next page when the observer target enters the viewport', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue({
@@ -98,12 +98,7 @@ describe('useInfinitePosts', () => {
     expect(screen.queryByText('Second post')).not.toBeInTheDocument()
 
     act(() => {
-      Object.defineProperty(window, 'scrollY', {
-        value: 220,
-        writable: true,
-        configurable: true,
-      })
-      window.dispatchEvent(new Event('scroll'))
+      intersectionCallback?.([{ isIntersecting: true }])
     })
 
     await waitFor(() => {
@@ -113,7 +108,7 @@ describe('useInfinitePosts', () => {
     expect(fetch).toHaveBeenCalledWith('/api/posts?page=2&limit=1')
   })
 
-  test('does not load the next page immediately on mount', async () => {
+  test('does not load the next page before the observer target intersects', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue({
@@ -124,12 +119,6 @@ describe('useInfinitePosts', () => {
         }),
       }),
     )
-
-    Object.defineProperty(document.documentElement, 'scrollHeight', {
-      value: 700,
-      writable: true,
-      configurable: true,
-    })
 
     render(<Harness />)
 
