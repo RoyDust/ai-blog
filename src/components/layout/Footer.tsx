@@ -38,6 +38,9 @@ export function Footer() {
               {" · "}
               <a className="text-[var(--primary)] hover:underline" href="https://tailwindcss.com" rel="noopener noreferrer" target="_blank">Tailwind CSS</a>
             </p>
+            <p className="text-50 mt-2 text-xs">
+              <a className="hover:text-[var(--primary)]" href="https://beian.miit.gov.cn" rel="noopener noreferrer" target="_blank">湘ICP备2022021288号-1</a>
+            </p>
           </div>
         </div>
       </div>

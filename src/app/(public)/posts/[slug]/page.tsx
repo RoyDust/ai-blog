@@ -273,16 +273,16 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
           <LikeButton initialCount={post._count.likes} initialLiked={false} slug={post.slug} />
           <BookmarkButton excerpt={post.excerpt} initialBookmarked={false} slug={post.slug} title={post.title} />
           <ShareButton slug={post.slug} title={post.title} />
-          <Link
+          {/* <Link
             className="ui-btn rounded-xl bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90"
             href="#comments"
           >
             参与讨论
-          </Link>
+          </Link> */}
         </div>
       </section>
 
-      <section className="card-base mx-auto w-full max-w-[980px] p-8 xl:min-w-[880px]" id="comments">
+      {/* <section className="card-base mx-auto w-full max-w-[980px] p-8 xl:min-w-[880px]" id="comments">
         <h2 className="mb-6 font-display text-2xl font-bold text-[var(--foreground)]">评论 ({post._count.comments})</h2>
         <p className="mb-6 text-sm text-[var(--muted)]">欢迎分享你的观点或补充实践经验，优质讨论能帮助更多读者。</p>
 
@@ -320,7 +320,7 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
 
           {post.comments.length === 0 && <p className="py-4 text-center text-[var(--muted)]">暂无评论</p>}
         </div>
-      </section>
+      </section> */}
     </div>
   );
 }
