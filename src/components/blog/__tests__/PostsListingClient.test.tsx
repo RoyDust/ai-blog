@@ -22,6 +22,21 @@ function createDeferred<T>() {
   return { promise, resolve, reject }
 }
 
+function createPost(id: string) {
+  return {
+    id,
+    title: `Post ${id}`,
+    slug: `post-${id}`,
+    excerpt: `Excerpt ${id}`,
+    createdAt: '2026-03-01T00:00:00.000Z',
+    coverImage: null,
+    author: { id: `user-${id}`, name: 'Ada', image: null },
+    category: { name: 'Tech', slug: 'tech' },
+    tags: [{ name: 'Next', slug: 'next' }],
+    _count: { comments: 1, likes: 2 },
+  }
+}
+
 describe('PostsListingClient', () => {
   beforeEach(() => {
     currentSearchParams = new URLSearchParams()
@@ -60,6 +75,11 @@ describe('PostsListingClient', () => {
     )
 
     expect(screen.getAllByTestId('post-card-skeleton')).toHaveLength(6)
+    expect(
+      screen
+        .getAllByTestId('post-card-skeleton')
+        .every((skeleton) => !skeleton.parentElement?.classList.contains('onload-animation')),
+    ).toBe(true)
 
     deferred.resolve({
       ok: true,
@@ -87,6 +107,49 @@ describe('PostsListingClient', () => {
     })
 
     expect(fetch).toHaveBeenCalledWith('/api/posts?page=1&limit=10')
+  })
+
+  test('limits reveal animation to the first four loaded cards', async () => {
+    const posts = Array.from({ length: 6 }, (_, index) => createPost(String(index + 1)))
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          data: posts,
+          pagination: { page: 1, limit: 10, total: 6, totalPages: 1 },
+        }),
+      }),
+    )
+
+    render(
+      <PostsListingClient
+        categories={[]}
+        initialPagination={{ page: 0, limit: 10, total: 0, totalPages: 0 }}
+        initialPosts={[]}
+        tags={[]}
+      />,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('Post 1')).toBeInTheDocument()
+    })
+
+    const animatedCards = ['1', '2', '3', '4'].map((id) =>
+      screen.getByText(`Post ${id}`).closest('.onload-animation'),
+    )
+
+    expect(animatedCards).toHaveLength(4)
+    expect(animatedCards).toEqual(expect.not.arrayContaining([null]))
+    expect(animatedCards.map((element) => element?.getAttribute('style'))).toEqual([
+      'animation-delay: 100ms;',
+      'animation-delay: 150ms;',
+      'animation-delay: 200ms;',
+      'animation-delay: 250ms;',
+    ])
+    expect(screen.getByText('Post 5').closest('.onload-animation')).toBeNull()
+    expect(screen.getByText('Post 6').closest('.onload-animation')).toBeNull()
   })
 
   test('shows skeleton cards again when search params change', async () => {

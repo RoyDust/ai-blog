@@ -88,17 +88,20 @@ export const metadata: Metadata = buildPageMetadata({
 export default function AboutPage() {
   return (
     <div className="space-y-6">
-      <section className="card-base relative overflow-hidden px-6 py-8 md:px-10 md:py-10">
+      <section className="card-base onload-animation relative overflow-hidden px-6 py-8 md:px-10 md:py-10">
         <div className="pointer-events-none absolute top-0 right-0 h-40 w-40 rounded-full bg-[color:color-mix(in_srgb,var(--primary)_10%,transparent)] blur-3xl" />
         <div className="pointer-events-none absolute bottom-0 left-10 h-24 w-24 rounded-full bg-[color:color-mix(in_srgb,var(--primary)_8%,transparent)] blur-2xl" />
 
         <div className="grid gap-8 lg:grid-cols-[160px_minmax(0,1fr)] lg:items-start">
-          <div className="relative h-32 w-32 overflow-hidden rounded-3xl ring-1 ring-black/8 ring-offset-4 ring-offset-[var(--card-bg)] dark:ring-white/10 md:h-40 md:w-40">
+          <div
+            className="onload-animation relative h-32 w-32 overflow-hidden rounded-3xl ring-1 ring-black/8 ring-offset-4 ring-offset-[var(--card-bg)] dark:ring-white/10 md:h-40 md:w-40"
+            style={{ animationDelay: "80ms" }}
+          >
             <Image alt={profile.name} className="object-cover" fill priority sizes="160px" src={profile.avatar} />
           </div>
 
           <div className="space-y-5">
-            <div className="space-y-3">
+            <div className="onload-animation space-y-3" style={{ animationDelay: "140ms" }}>
               <p className="text-50 text-xs font-medium uppercase tracking-[0.32em]">About</p>
               <div className="space-y-2">
                 <h1 className="text-90 text-4xl font-bold tracking-tight md:text-5xl">{profile.name}</h1>
@@ -108,7 +111,7 @@ export default function AboutPage() {
               <p className="text-75 max-w-3xl text-sm leading-7 md:text-[15px]">{profile.intro}</p>
             </div>
 
-            <div className="flex flex-wrap gap-3">
+            <div className="onload-animation flex flex-wrap gap-3" style={{ animationDelay: "200ms" }}>
               {profile.links.map((link) => {
                 const Icon = link.icon;
                 return (
@@ -129,7 +132,7 @@ export default function AboutPage() {
         </div>
       </section>
 
-      <section className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
+      <section className="onload-animation grid gap-6 lg:grid-cols-[1.15fr_0.85fr]" style={{ animationDelay: "90ms" }}>
         <div className="card-base p-6 md:p-8">
           <div className="mb-5 flex items-center gap-2">
             <BookOpen className="h-5 w-5 text-[var(--primary)]" />
@@ -160,33 +163,41 @@ export default function AboutPage() {
         </div>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-3">
+      <section className="stagger-children grid gap-4 md:grid-cols-3">
         {highlights.map((item) => {
           const Icon = item.icon;
           return (
-            <article key={item.title} className="card-base p-6 transition hover:bg-[var(--btn-card-bg-hover)]">
-              <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-[color:color-mix(in_srgb,var(--primary)_12%,transparent)] text-[var(--primary)]">
+            <article
+              key={item.title}
+              className="group card-base p-6 transition-all duration-300 hover:-translate-y-1 hover:bg-[var(--btn-card-bg-hover)] hover:shadow-[0_18px_45px_-24px_rgba(15,23,42,0.35)]"
+            >
+              <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-[color:color-mix(in_srgb,var(--primary)_12%,transparent)] text-[var(--primary)] transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-3">
                 <Icon className="h-5 w-5" />
               </div>
-              <h3 className="text-90 mb-2 text-lg font-bold">{item.title}</h3>
+              <h3 className="text-90 mb-2 text-lg font-bold transition-colors duration-300 group-hover:text-[var(--primary)]">
+                {item.title}
+              </h3>
               <p className="text-75 text-sm leading-7">{item.description}</p>
             </article>
           );
         })}
       </section>
 
-      <section className="card-base p-6 md:p-8">
+      <section className="card-base onload-animation p-6 md:p-8" style={{ animationDelay: "140ms" }}>
         <div className="mb-6 flex items-center gap-2">
           <Monitor className="h-5 w-5 text-[var(--primary)]" />
           <h2 className="text-90 text-2xl font-bold">技术栈</h2>
         </div>
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="stagger-children grid gap-4 md:grid-cols-2">
           {stack.map((item) => {
             const Icon = item.icon;
             return (
-              <div key={item.title} className="rounded-2xl border border-black/5 bg-black/[0.02] p-5 dark:border-white/8 dark:bg-white/[0.03]">
-                <h3 className="text-90 mb-2 flex items-center gap-2 font-bold">
-                  <Icon className="h-5 w-5 text-[var(--primary)]" />
+              <div
+                key={item.title}
+                className="group rounded-2xl border border-black/5 bg-black/[0.02] p-5 transition-all duration-300 hover:-translate-y-1 hover:border-[color:color-mix(in_srgb,var(--primary)_22%,transparent)] hover:bg-[color:color-mix(in_srgb,var(--primary)_6%,transparent)] dark:border-white/8 dark:bg-white/[0.03]"
+              >
+                <h3 className="text-90 mb-2 flex items-center gap-2 font-bold transition-colors duration-300 group-hover:text-[var(--primary)]">
+                  <Icon className="h-5 w-5 text-[var(--primary)] transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
                   {item.title}
                 </h3>
                 <p className="text-75 text-sm leading-7">{item.description}</p>
@@ -196,7 +207,10 @@ export default function AboutPage() {
         </div>
       </section>
 
-      <section className="card-base flex flex-col gap-5 p-6 md:flex-row md:items-center md:justify-between md:p-8">
+      <section
+        className="card-base onload-animation flex flex-col gap-5 p-6 md:flex-row md:items-center md:justify-between md:p-8"
+        style={{ animationDelay: "180ms" }}
+      >
         <div className="space-y-2">
           <h2 className="text-90 text-2xl font-bold">联系我</h2>
           <p className="text-75 max-w-2xl text-sm leading-7">

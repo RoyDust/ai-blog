@@ -4,6 +4,7 @@ import { useCallback } from 'react'
 import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
 
+import { getListRevealAnimationProps } from './listAnimation'
 import { PostCard } from './PostCard'
 import { useInfinitePosts } from './useInfinitePosts'
 
@@ -54,7 +55,7 @@ export function HomeLatestPosts({ initialPosts, initialPagination }: HomeLatestP
 
       <div className="space-y-4">
         {posts.map((post, index) => (
-          <div key={post.id} className="onload-animation" style={{ animationDelay: `${100 + index * 50}ms` }}>
+          <div key={post.id} {...getListRevealAnimationProps(index)}>
             <PostCard post={post} />
           </div>
         ))}

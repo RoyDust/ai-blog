@@ -17,3 +17,39 @@ test("about page renders editorial personal homepage content", async () => {
   expect(screen.getByRole("heading", { name: "联系我" })).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "GitHub" })).toHaveAttribute("href", "https://github.com");
 });
+
+test("about page wires in staged motion classes", async () => {
+  const { default: AboutPage } = await import("../page");
+  const ui = AboutPage();
+
+  const { container } = render(ui as React.ReactElement);
+
+  const sections = container.querySelectorAll("section");
+
+  expect(sections).toHaveLength(5);
+  expect(sections[0]).toHaveClass("onload-animation");
+  expect(sections[1]).toHaveClass("onload-animation");
+  expect(sections[2]).toHaveClass("stagger-children");
+  expect(sections[3]).toHaveClass("onload-animation");
+  expect(sections[3].querySelector(".grid")).toHaveClass("stagger-children");
+  expect(sections[4]).toHaveClass("onload-animation");
+});
+
+test("about page cards include richer hover feedback hooks", async () => {
+  const { default: AboutPage } = await import("../page");
+  const ui = AboutPage();
+
+  const { container } = render(ui as React.ReactElement);
+
+  const sections = container.querySelectorAll("section");
+  const highlightCards = sections[2].querySelectorAll("article");
+  const stackCards = sections[3].querySelectorAll(".grid > div");
+
+  expect(highlightCards[0]).toHaveClass("group");
+  expect(highlightCards[0]).toHaveClass("hover:-translate-y-1");
+  expect(highlightCards[0]).toHaveClass("duration-300");
+
+  expect(stackCards[0]).toHaveClass("group");
+  expect(stackCards[0]).toHaveClass("hover:-translate-y-1");
+  expect(stackCards[0]).toHaveClass("transition-all");
+});

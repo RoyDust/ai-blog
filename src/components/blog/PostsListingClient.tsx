@@ -4,6 +4,7 @@ import { useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
 
 import { FilterBar } from './FilterBar'
+import { getListRevealAnimationProps } from './listAnimation'
 import { PostCard } from './PostCard'
 import { PostCardSkeleton } from './PostCardSkeleton'
 import { useInfinitePosts } from './useInfinitePosts'
@@ -91,13 +92,13 @@ export function PostsListingClient({ initialPosts, initialPagination, categories
       <div className="space-y-4">
         {isInitialLoading ? (
           Array.from({ length: 6 }).map((_, index) => (
-            <div key={`skeleton-${index}`} className="onload-animation" style={{ animationDelay: `${60 + index * 40}ms` }}>
+            <div key={`skeleton-${index}`}>
               <PostCardSkeleton />
             </div>
           ))
         ) : posts.length > 0 ? (
           posts.map((post, index) => (
-            <div key={post.id} className="onload-animation" style={{ animationDelay: `${100 + index * 50}ms` }}>
+            <div key={post.id} {...getListRevealAnimationProps(index)}>
               <PostCard post={post} />
             </div>
           ))
