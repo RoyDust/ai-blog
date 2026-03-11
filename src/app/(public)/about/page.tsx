@@ -26,9 +26,9 @@ const profile = {
   intro:
     "我更喜欢把个人主页做成一个适合停留和阅读的地方，而不是只堆一组链接。这里既是作者简介，也是我表达工作方法、内容方向与技术偏好的入口。",
   links: [
-    { name: "GitHub", url: "https://github.com", icon: Github },
-    { name: "Twitter", url: "https://twitter.com", icon: Twitter },
-    { name: "Email", url: "mailto:example@example.com", icon: Mail },
+    { name: "GitHub", url: "https://github.com/RoyDust", icon: Github },
+    { name: "Twitter", url: "https://x.com/luoyichen12", icon: Twitter },
+    { name: "Email", url: "mailto:roydust@foxmail.com", icon: Mail },
   ],
 };
 
@@ -218,12 +218,12 @@ export default function AboutPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
-          <Link className="btn-plain scale-animation inline-flex h-11 items-center gap-2 rounded-xl px-5" href="mailto:example@example.com">
+          <Link className="btn-plain scale-animation inline-flex h-11 items-center gap-2 rounded-xl px-5" href="mailto:roydust@foxmail.com">
             <Mail className="h-4 w-4" />发送邮件
           </Link>
           <Link
             className="btn-plain scale-animation inline-flex h-11 items-center gap-2 rounded-xl px-5"
-            href="https://github.com"
+            href="https://github.com/RoyDust"
             rel="noopener noreferrer"
             target="_blank"
           >

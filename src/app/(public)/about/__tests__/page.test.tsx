@@ -15,7 +15,7 @@ test("about page renders editorial personal homepage content", async () => {
   expect(screen.getByRole("heading", { name: "我在做什么" })).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "技术栈" })).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "联系我" })).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "GitHub" })).toHaveAttribute("href", "https://github.com");
+  expect(screen.getByRole("link", { name: "GitHub" })).toHaveAttribute("href", "https://github.com/RoyDust");
 });
 
 test("about page wires in staged motion classes", async () => {

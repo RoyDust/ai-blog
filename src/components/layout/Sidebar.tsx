@@ -10,9 +10,9 @@ const profile = {
   avatar: "https://avatars.githubusercontent.com/u/50167909",
   bio: "全栈开发者，热爱开源和技术分享，专注于 React 生态与现代 Web 开发。",
   links: [
-    { name: "GitHub", url: "https://github.com", icon: Github },
-    { name: "Twitter", url: "https://twitter.com", icon: Twitter },
-    { name: "Email", url: "mailto:example@example.com", icon: Mail },
+    { name: "GitHub", url: "https://github.com/RoyDust", icon: Github },
+    { name: "Twitter", url: "https://x.com/luoyichen12", icon: Twitter },
+    { name: "Email", url: "mailto:roydust@foxmail.com", icon: Mail },
   ],
 };
 
