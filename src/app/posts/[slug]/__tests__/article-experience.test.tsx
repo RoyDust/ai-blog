@@ -67,10 +67,29 @@ describe('article experience', () => {
     expect(screen.getByRole('button', { name: '分享文章' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '返回顶部' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { level: 5, name: 'Deep Heading' })).toBeInTheDocument()
-    expect(screen.getByText('读到这里，来说说你的看法')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 2, name: '与我互动' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '收藏文章' })).toBeInTheDocument()
     expect(container.querySelector('.prose')?.className).toContain('prose-pre:rounded-xl')
     expect(container.querySelector('pre code')?.className).toContain('hljs')
     expect(screen.getByTestId('toc-rail').className).toContain('xl:fixed')
     expect(screen.getByTestId('toc-rail').className).toContain('hidden')
+  })
+
+  test('article toc rail offsets with navbar sticky height', async () => {
+    const { default: PostPage } = await import('@/app/(public)/posts/[slug]/page')
+    const ui = await PostPage({ params: Promise.resolve({ slug: 'test-post' }) })
+    render(ui as React.ReactElement)
+
+    const tocRail = screen.getByTestId('toc-rail')
+    expect(tocRail.className).toContain('xl:fixed')
+    expect(tocRail.className).toContain('transition-[top,max-height,transform,box-shadow]')
+    expect(tocRail.className).toContain('duration-300')
+    expect(tocRail.className).toContain('ease-out')
+    expect(tocRail.className).toContain('will-change-[top,transform]')
+    expect(tocRail.className).not.toContain('xl:top-24')
+    expect(tocRail.getAttribute('style')).toContain('top: calc(var(--sidebar-sticky-top, 0px) + 1rem)')
+
+    const tocCard = tocRail.firstElementChild
+    expect(tocCard?.getAttribute('style')).toContain('max-height: calc(100vh - var(--sidebar-sticky-top, 0px) - 2rem)')
   })
 })

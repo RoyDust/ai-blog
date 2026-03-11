@@ -144,10 +144,18 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
 
       <aside
         data-testid="toc-rail"
-        className="hidden xl:fixed xl:top-24 xl:block xl:w-64"
-        style={{ left: "calc(50% + 490px + 120px)" }}
+        className="hidden transition-[top,max-height,transform,box-shadow] duration-300 ease-out will-change-[top,transform] xl:fixed xl:block xl:w-64"
+        style={{
+          left: "calc(50% + 490px + 120px)",
+          top: "calc(var(--sidebar-sticky-top, 0px) + 1rem)",
+        }}
       >
-        <div className="card-base max-h-[calc(100vh-8rem)] overflow-auto p-4">
+        <div
+          className="card-base overflow-auto p-4"
+          style={{
+            maxHeight: "calc(100vh - var(--sidebar-sticky-top, 0px) - 2rem)",
+          }}
+        >
           <h3 className="mb-3 font-display text-lg font-semibold text-[var(--foreground)]">目录</h3>
           <ArticleToc headings={headings} />
         </div>
@@ -319,4 +327,3 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
     </div>
   );
 }
-
