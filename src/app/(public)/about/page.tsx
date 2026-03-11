@@ -20,7 +20,7 @@ import { buildPageMetadata } from "@/lib/seo";
 
 const profile = {
   name: "Zhang Wei",
-  avatar: "https://github.com/shadcn.png",
+  avatar: "https://avatars.githubusercontent.com/u/50167909",
   bio: "全栈开发者，热爱开源和技术分享。专注于 React 生态和现代 Web 开发。",
   tagline: "内容创作 / 前端体验 / 开源实践",
   intro:
