@@ -24,6 +24,7 @@ vi.mock("@/lib/prisma", () => ({
 
 describe("GET /api/admin/comments", () => {
   const originalNodeEnv = process.env.NODE_ENV
+  const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {})
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -32,6 +33,7 @@ describe("GET /api/admin/comments", () => {
 
   afterAll(() => {
     process.env.NODE_ENV = originalNodeEnv
+    consoleErrorSpy.mockRestore()
   })
 
   test("returns json 500 when prisma query fails", async () => {

@@ -9,6 +9,7 @@ const nextConfig: NextConfig = {
     root: __dirname,
   },
   images: {
+    qualities: [70, 75],
     remotePatterns: [
       {
         protocol: "http",

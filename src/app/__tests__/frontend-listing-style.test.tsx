@@ -1,6 +1,10 @@
 ﻿import { render } from "@testing-library/react";
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
 import { PostCard } from "@/components/blog/PostCard";
+
+vi.mock("next/image", () => ({
+  default: ({ fill: _fill, ...props }: React.ComponentProps<"img"> & { fill?: boolean }) => <img {...props} />,
+}));
 
 const post = {
   id: "1",

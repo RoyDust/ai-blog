@@ -32,7 +32,11 @@ describe("PostCard", () => {
       />,
     );
 
-    expect(screen.getByRole("link", { name: "Post with cover" })).toHaveAttribute("href", "/posts/post-with-cover");
+    const postLinks = screen.getAllByRole("link", { name: "Post with cover" });
+
+    expect(postLinks).toHaveLength(2);
+    expect(postLinks[0]).toHaveAttribute("href", "/posts/post-with-cover");
+    expect(postLinks[1]).toHaveAttribute("href", "/posts/post-with-cover");
 
     expect(imageMock).toHaveBeenCalledTimes(1);
 
