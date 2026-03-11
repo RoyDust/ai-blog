@@ -1,4 +1,3 @@
-﻿import { CommentAuthGate } from "@/components/CommentAuthGate";
 export const revalidate = 300;
 
 import type { Metadata } from "next";
@@ -47,10 +46,6 @@ async function getPost(slug: string) {
 }
 
 type ArticlePost = NonNullable<Awaited<ReturnType<typeof getPost>>>
-
-function getCommentLabel(comment: ArticlePost['comments'][number] | ArticlePost['comments'][number]['replies'][number]) {
-  return comment.authorLabel || comment.author?.name || '匿名访客'
-}
 
 export async function generateStaticParams() {
   try {
@@ -265,8 +260,8 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
       <section className="card-base mx-auto w-full max-w-[980px] p-5 xl:min-w-[880px]">
         <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="font-display text-xl font-bold text-[var(--foreground)]">文章互动</h2>
-            <p className="mt-1 text-sm text-[var(--muted)]">读到这里，来说说你的看法</p>
+            <h2 className="font-display text-xl font-bold text-[var(--foreground)]">与我互动</h2>
+            <p className="mt-1 text-sm text-[var(--muted)]">喜欢这篇文章？说说你的看法</p>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-3">
@@ -277,14 +272,14 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
             className="ui-btn rounded-xl bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90"
             href="#comments"
           >
-            参与讨论
+            发表评论
           </Link> */}
         </div>
       </section>
 
       {/* <section className="card-base mx-auto w-full max-w-[980px] p-8 xl:min-w-[880px]" id="comments">
         <h2 className="mb-6 font-display text-2xl font-bold text-[var(--foreground)]">评论 ({post._count.comments})</h2>
-        <p className="mb-6 text-sm text-[var(--muted)]">欢迎分享你的观点或补充实践经验，优质讨论能帮助更多读者。</p>
+        <p className="mb-6 text-sm text-[var(--muted)]">欢迎分享你的观点或补充事实和论据，但请避免人身攻击或侮辱他人。</p>
 
         <CommentAuthGate postId={post.id} />
 

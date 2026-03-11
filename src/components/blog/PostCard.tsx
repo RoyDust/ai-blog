@@ -87,7 +87,9 @@ export function PostCard({ post }: PostCardProps) {
               alt={post.title}
               className="object-cover transition-transform duration-500 group-hover:scale-105"
               fill
-              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 28vw, 400px"
+              loading="lazy"
+              quality={70}
+              sizes="(max-width: 768px) calc(100vw - 2rem), (max-width: 1200px) 28vw, 22rem"
               src={post.coverImage!}
             />
           </Link>

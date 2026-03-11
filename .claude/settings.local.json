@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(iconv -f GBK -t UTF-8 \"src/app/\\(public\\)/posts/[slug]/page.tsx\")",
+      "Bash(\"src/app/\\(public\\)/posts/[slug]/page.tsx.tmp\")",
+      "Bash(mv \"src/app/\\(public\\)/posts/[slug]/page.tsx.tmp\" \"src/app/\\(public\\)/posts/[slug]/page.tsx\")"
+    ]
+  }
+}

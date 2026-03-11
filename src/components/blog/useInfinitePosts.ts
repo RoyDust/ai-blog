@@ -108,7 +108,12 @@ export function useInfinitePosts<T extends { id: string }>({
     }
 
     setPosts(initialPosts)
-    setPagination(initialPagination)
+    setPagination({
+      page: initialPagination.page,
+      limit: initialPagination.limit,
+      total: initialPagination.total,
+      totalPages: initialPagination.totalPages,
+    })
     setIsLoading(false)
     setError(null)
     loadedPagesRef.current = new Set(initialPagination.page > 0 ? [initialPagination.page] : [])
