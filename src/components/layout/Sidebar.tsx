@@ -127,7 +127,7 @@ export function Sidebar() {
                   <Link
                     key={category.id}
                     className="flex items-center justify-between rounded-lg px-3 py-2 transition hover:bg-[var(--btn-plain-bg-hover)]"
-                    href={`/posts?category=${encodeURIComponent(category.slug)}`}
+                    href={`/categories/${category.slug}`}
                   >
                     <div className="flex items-center gap-2">
                       <div className="h-2 w-2 rounded-full bg-[var(--primary)]" />
@@ -149,7 +149,7 @@ export function Sidebar() {
                   <Link
                     key={tag.id}
                     className="rounded-full bg-[var(--btn-regular-bg)] px-3 py-1 text-xs text-[var(--btn-content)] transition hover:bg-[var(--btn-regular-bg-hover)]"
-                    href={`/posts?tag=${encodeURIComponent(tag.slug)}`}
+                    href={`/tags/${tag.slug}`}
                   >
                     {tag.name}
                   </Link>

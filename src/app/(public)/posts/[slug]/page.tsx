@@ -172,7 +172,7 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
           <div className="space-y-8 p-8">
             <div className="flex flex-wrap items-center gap-3 text-xs text-[var(--muted)]">
               {post.category && (
-                <Link className="rounded-full bg-[var(--surface-alt)] px-3 py-1 font-semibold text-[var(--primary)]" href={`/posts?category=${encodeURIComponent(post.category.slug)}`}>
+                <Link className="rounded-full bg-[var(--surface-alt)] px-3 py-1 font-semibold text-[var(--primary)]" href={`/categories/${post.category.slug}`}>
                   {post.category.name}
                 </Link>
               )}
@@ -253,7 +253,7 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
                 {post.tags.map((tag: ArticlePost['tags'][number]) => (
                   <Link
                     className="rounded-full bg-[var(--surface-alt)] px-3 py-1 text-sm text-[var(--foreground)] transition-colors hover:text-[var(--primary)]"
-                    href={`/posts?tag=${encodeURIComponent(tag.slug)}`}
+                      href={`/tags/${tag.slug}`}
                     key={tag.slug}
                   >
                     #{tag.name}

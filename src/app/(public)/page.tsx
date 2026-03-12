@@ -2,7 +2,7 @@ export const revalidate = 300
 
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { Archive, Code2, Database, FileText, Palette, User, Zap } from 'lucide-react'
+import { Code2, Database, FileText, FolderOpen, Palette, Tags, Zap } from 'lucide-react'
 
 import { HomeLatestPosts } from '@/components/blog'
 import { POSTS_PAGE_SIZE } from '@/lib/pagination'
@@ -73,13 +73,13 @@ export default async function Home() {
         </Link>
         <Link href="/categories" className="card-base group cursor-pointer p-6 transition hover:bg-[var(--btn-card-bg-hover)]">
           <h3 className="text-90 mb-2 flex items-center gap-2 text-xl font-bold transition group-hover:text-[var(--primary)]">
-            <Archive className="h-5 w-5 text-[var(--primary)]" />归档
+            <FolderOpen className="h-5 w-5 text-[var(--primary)]" />分类
           </h3>
-          <p className="text-75 text-sm">按主题浏览内容库。</p>
+          <p className="text-75 text-sm">进入专题分类，围绕同一主题继续阅读。</p>
         </Link>
         <Link href="/tags" className="card-base group cursor-pointer p-6 transition hover:bg-[var(--btn-card-bg-hover)]">
           <h3 className="text-90 mb-2 flex items-center gap-2 text-xl font-bold transition group-hover:text-[var(--primary)]">
-            <User className="h-5 w-5 text-[var(--primary)]" />标签
+            <Tags className="h-5 w-5 text-[var(--primary)]" />标签
           </h3>
           <p className="text-75 text-sm">通过灵活的标签发现主题内容。</p>
         </Link>

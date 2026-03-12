@@ -78,7 +78,7 @@ export default async function ArchivesPage() {
                           {formatDate(new Date(post.createdAt))}
                         </span>
                         {post.category ? (
-                          <Link href={`/posts?category=${encodeURIComponent(post.category.slug)}`} className="hover:text-[var(--primary)]">
+                          <Link href={`/categories/${post.category.slug}`} className="hover:text-[var(--primary)]">
                             {post.category.name}
                           </Link>
                         ) : null}
