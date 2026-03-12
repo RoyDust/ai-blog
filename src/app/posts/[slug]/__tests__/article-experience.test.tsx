@@ -5,6 +5,10 @@ import { describe, expect, test, vi } from 'vitest'
 const findFirst = vi.fn()
 const findMany = vi.fn()
 
+vi.mock('@/components/CommentAuthGate', () => ({
+  CommentAuthGate: ({ postId }: { postId: string }) => <div data-testid="comment-auth-gate">Comment gate for {postId}</div>,
+}))
+
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     post: {
@@ -58,6 +62,54 @@ vi.mock('@/lib/auth', () => ({
 
 describe('article experience', () => {
   test('article page includes progress and anonymous interaction rail', async () => {
+    findMany
+      .mockResolvedValueOnce([
+        {
+          id: 'related-1',
+          title: 'Related Article',
+          slug: 'related-article',
+          excerpt: 'Related excerpt',
+          coverImage: null,
+          createdAt: new Date('2026-01-03T00:00:00Z'),
+          viewCount: 30,
+          author: { id: 'u1', name: 'Author', image: null },
+          category: { id: 'c1', name: 'Category', slug: 'category' },
+          tags: [{ id: 't1', name: 'Tag', slug: 'tag' }],
+          _count: { comments: 1, likes: 4 },
+        },
+      ])
+      .mockResolvedValueOnce([])
+
+    findFirst
+      .mockResolvedValueOnce({
+        id: 'p1',
+        slug: 'test-post',
+        title: 'Article Title',
+        content: '# Intro\nBody text\n## Section\n##### Deep Heading\n```ts\nconst x = 1\n```',
+        excerpt: 'Excerpt',
+        coverImage: null,
+        createdAt: new Date('2026-01-01T00:00:00Z'),
+        updatedAt: new Date('2026-01-02T00:00:00Z'),
+        publishedAt: new Date('2026-01-01T00:00:00Z'),
+        viewCount: 100,
+        author: { id: 'u1', name: 'Author', image: null },
+        category: { name: 'Category', slug: 'category' },
+        tags: [{ name: 'Tag', slug: 'tag' }],
+        comments: [
+          {
+            id: 'comment-1',
+            content: 'Great article',
+            createdAt: new Date('2026-01-04T00:00:00Z'),
+            authorLabel: '203.0.*.*',
+            author: null,
+            replies: [],
+          },
+        ],
+        _count: { comments: 1, likes: 2 },
+      })
+      .mockResolvedValueOnce({ slug: 'older-post', title: 'Older Post', createdAt: new Date('2025-12-31T00:00:00Z') })
+      .mockResolvedValueOnce({ slug: 'newer-post', title: 'Newer Post', createdAt: new Date('2026-01-02T00:00:00Z') })
+
     const { default: PostPage } = await import('@/app/(public)/posts/[slug]/page')
     const ui = await PostPage({ params: Promise.resolve({ slug: 'test-post' }) })
     const { container } = render(ui as React.ReactElement)
@@ -68,7 +120,16 @@ describe('article experience', () => {
     expect(screen.getByRole('button', { name: '返回顶部' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { level: 5, name: 'Deep Heading' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { level: 2, name: '与我互动' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 2, name: '继续阅读' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 2, name: '相关文章' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '发表评论' })).toHaveAttribute('href', '#comments')
+    expect(screen.getByRole('heading', { level: 2, name: '评论 (1)' })).toBeInTheDocument()
+    expect(screen.getByTestId('comment-auth-gate')).toHaveTextContent('Comment gate for p1')
+    expect(screen.getByText('Great article')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '收藏文章' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '上一篇 Older Post' })).toHaveAttribute('href', '/posts/older-post')
+    expect(screen.getByRole('link', { name: '下一篇 Newer Post' })).toHaveAttribute('href', '/posts/newer-post')
+    expect(screen.getAllByRole('link', { name: 'Related Article' })[0]).toHaveAttribute('href', '/posts/related-article')
     expect(container.querySelector('.prose')?.className).toContain('prose-pre:rounded-xl')
     expect(container.querySelector('pre code')?.className).toContain('hljs')
     expect(screen.getByTestId('toc-rail').className).toContain('xl:fixed')
@@ -76,6 +137,28 @@ describe('article experience', () => {
   })
 
   test('article toc rail offsets with navbar sticky height', async () => {
+    findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([])
+    findFirst
+      .mockResolvedValueOnce({
+        id: 'p1',
+        slug: 'test-post',
+        title: 'Article Title',
+        content: '# Intro\nBody text\n## Section\n##### Deep Heading\n```ts\nconst x = 1\n```',
+        excerpt: 'Excerpt',
+        coverImage: null,
+        createdAt: new Date('2026-01-01T00:00:00Z'),
+        updatedAt: new Date('2026-01-02T00:00:00Z'),
+        publishedAt: new Date('2026-01-01T00:00:00Z'),
+        viewCount: 100,
+        author: { id: 'u1', name: 'Author', image: null },
+        category: { name: 'Category', slug: 'category' },
+        tags: [{ name: 'Tag', slug: 'tag' }],
+        comments: [],
+        _count: { comments: 0, likes: 2 },
+      })
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null)
+
     const { default: PostPage } = await import('@/app/(public)/posts/[slug]/page')
     const ui = await PostPage({ params: Promise.resolve({ slug: 'test-post' }) })
     render(ui as React.ReactElement)

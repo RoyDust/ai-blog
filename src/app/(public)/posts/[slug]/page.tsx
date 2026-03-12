@@ -8,9 +8,33 @@ import rehypeHighlight from "rehype-highlight";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArticleToc, BackToTopButton, BookmarkButton, LikeButton, ReadingProgress, ShareButton } from "@/components/blog";
+import { ArticleContinuation, ArticleToc, BackToTopButton, BookmarkButton, LikeButton, ReadingProgress, ShareButton } from "@/components/blog";
+import { CommentAuthGate } from "@/components/CommentAuthGate";
 import { prisma } from "@/lib/prisma";
 import { buildArticleJsonLd, buildArticleMetadata } from "@/lib/seo";
+
+const continuationPostSelect = {
+  id: true,
+  title: true,
+  slug: true,
+  excerpt: true,
+  coverImage: true,
+  createdAt: true,
+  viewCount: true,
+  author: {
+    select: { id: true, name: true, image: true },
+  },
+  category: {
+    select: { id: true, name: true, slug: true },
+  },
+  tags: {
+    where: { deletedAt: null },
+    select: { id: true, name: true, slug: true },
+  },
+  _count: {
+    select: { comments: { where: { deletedAt: null } }, likes: true },
+  },
+} as const;
 
 async function getPost(slug: string) {
   return prisma.post.findFirst({
@@ -46,6 +70,57 @@ async function getPost(slug: string) {
 }
 
 type ArticlePost = NonNullable<Awaited<ReturnType<typeof getPost>>>
+
+async function getContinuationData(post: ArticlePost) {
+  const [previousPost, nextPost, sameCategoryPosts, sameTagPosts] = await Promise.all([
+    prisma.post.findFirst({
+      where: { published: true, deletedAt: null, createdAt: { lt: post.createdAt } },
+      select: { slug: true, title: true, createdAt: true },
+      orderBy: { createdAt: 'desc' },
+    }),
+    prisma.post.findFirst({
+      where: { published: true, deletedAt: null, createdAt: { gt: post.createdAt } },
+      select: { slug: true, title: true, createdAt: true },
+      orderBy: { createdAt: 'asc' },
+    }),
+    post.category
+      ? prisma.post.findMany({
+          where: {
+            published: true,
+            deletedAt: null,
+            id: { not: post.id },
+            category: { slug: post.category.slug },
+          },
+          select: continuationPostSelect,
+          orderBy: { createdAt: 'desc' },
+          take: 3,
+        })
+      : Promise.resolve([]),
+    post.tags.length > 0
+      ? prisma.post.findMany({
+          where: {
+            published: true,
+            deletedAt: null,
+            id: { not: post.id },
+            tags: { some: { slug: { in: post.tags.map((tag) => tag.slug) } } },
+          },
+          select: continuationPostSelect,
+          orderBy: { createdAt: 'desc' },
+          take: 6,
+        })
+      : Promise.resolve([]),
+  ])
+
+  const relatedPosts = [...sameCategoryPosts, ...sameTagPosts].filter(
+    (candidate, index, collection) => collection.findIndex((item) => item.id === candidate.id) === index,
+  )
+
+  return {
+    previousPost,
+    nextPost,
+    relatedPosts: relatedPosts.slice(0, 3),
+  }
+}
 
 export async function generateStaticParams() {
   try {
@@ -114,6 +189,10 @@ function nodeText(node: ReactNode): string {
   return "";
 }
 
+function getCommentLabel(comment: { author?: { name?: string | null } | null; authorLabel?: string | null }) {
+  return comment.author?.name || comment.authorLabel || '匿名读者'
+}
+
 export default async function PostPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const post = await getPost(slug);
@@ -121,6 +200,8 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
   if (!post) {
     notFound();
   }
+
+  const { previousPost, nextPost, relatedPosts } = await getContinuationData(post)
 
   const headings = extractHeadings(post.content);
   const articleJsonLd = buildArticleJsonLd({
@@ -276,16 +357,18 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
           <LikeButton initialCount={post._count.likes} initialLiked={false} slug={post.slug} />
           <BookmarkButton excerpt={post.excerpt} initialBookmarked={false} slug={post.slug} title={post.title} />
           <ShareButton slug={post.slug} title={post.title} />
-          {/* <Link
+          <Link
             className="ui-btn rounded-xl bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90"
             href="#comments"
           >
             发表评论
-          </Link> */}
+          </Link>
         </div>
       </section>
 
-      {/* <section className="card-base mx-auto w-full max-w-[980px] p-8 xl:min-w-[880px]" id="comments">
+      <ArticleContinuation nextPost={nextPost} previousPost={previousPost} relatedPosts={relatedPosts} />
+
+      <section className="card-base mx-auto w-full max-w-[980px] p-8 xl:min-w-[880px]" id="comments">
         <h2 className="mb-6 font-display text-2xl font-bold text-[var(--foreground)]">评论 ({post._count.comments})</h2>
         <p className="mb-6 text-sm text-[var(--muted)]">欢迎分享你的观点或补充事实和论据，但请避免人身攻击或侮辱他人。</p>
 
@@ -323,7 +406,7 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
 
           {post.comments.length === 0 && <p className="py-4 text-center text-[var(--muted)]">暂无评论</p>}
         </div>
-      </section> */}
+      </section>
     </div>
   );
 }
