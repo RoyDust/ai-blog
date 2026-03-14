@@ -3,6 +3,7 @@ import React from 'react'
 import { describe, expect, test, vi } from 'vitest'
 
 vi.mock('@/lib/taxonomy', () => ({
+  TAXONOMY_PAGE_SIZE: 12,
   getCategoryDirectory: vi.fn().mockResolvedValue([
     { id: 'c1', name: '前端', slug: 'frontend', description: '前端工程与交互体验', _count: { posts: 4 } },
   ]),

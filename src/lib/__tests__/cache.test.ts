@@ -1,6 +1,8 @@
 import { describe, expect, test, vi } from 'vitest'
 
-const revalidatePath = vi.fn()
+const { revalidatePath } = vi.hoisted(() => ({
+  revalidatePath: vi.fn(),
+}))
 
 vi.mock('next/cache', () => ({
   revalidatePath,

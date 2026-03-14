@@ -1,9 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { ThemeProvider } from "@/components/ThemeProvider";
-import { AuthProvider } from "@/components/AuthProvider";
-import { MotionProvider } from "@/components/motion";
-import { Toaster } from "@/components/ui/Toaster";
+import { AppProviders } from "@/components/AppProviders";
 import { getSiteUrl } from "@/lib/seo";
 import { alibabaPuHuiTi } from "./fonts";
 
@@ -40,14 +37,7 @@ export default function RootLayout({
   return (
     <html lang="zh-CN" suppressHydrationWarning>
       <body className={`${alibabaPuHuiTi.variable} antialiased`}>
-        <AuthProvider>
-          <ThemeProvider>
-            <MotionProvider>
-              {children}
-              <Toaster />
-            </MotionProvider>
-          </ThemeProvider>
-        </AuthProvider>
+        <AppProviders>{children}</AppProviders>
       </body>
     </html>
   );
