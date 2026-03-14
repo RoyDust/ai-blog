@@ -6,7 +6,8 @@ import { notFound } from 'next/navigation'
 
 import { TaxonomyHero, TaxonomyPostGrid } from '@/components/taxonomy'
 import { buildPageMetadata } from '@/lib/seo'
-import { getCategoryDetail } from '@/lib/taxonomy'
+import { getCategoryDetail, TAXONOMY_PAGE_SIZE } from '@/lib/taxonomy'
+import { clampPagination } from '@/lib/validation'
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params
@@ -27,13 +28,23 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   })
 }
 
-export default async function CategoryPage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function CategoryPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string }>
+  searchParams?: Promise<{ page?: string }>
+}) {
   const { slug } = await params
-  const category = await getCategoryDetail(slug)
+  const filters = searchParams ? await searchParams : undefined
+  const { page } = clampPagination({ page: filters?.page ?? null, limit: String(TAXONOMY_PAGE_SIZE) })
+  const category = await getCategoryDetail(slug, { page, limit: TAXONOMY_PAGE_SIZE })
 
   if (!category) {
     notFound()
   }
+
+  const isOutOfRangePage = category.posts.length === 0 && category.pagination.totalPages > 0 && category.pagination.page > category.pagination.totalPages
 
   return (
     <div className="space-y-6">
@@ -54,6 +65,14 @@ export default async function CategoryPage({ params }: { params: Promise<{ slug:
           description="优先展示这个专题下最近发布的文章，帮助你顺着主题继续读下去。"
           posts={category.posts}
         />
+      ) : isOutOfRangePage ? (
+        <section className="card-base p-8 text-sm text-[var(--muted)]">
+          当前页没有内容。你可以返回
+          <Link href={`/categories/${category.slug}?page=1`} className="mx-1 font-medium text-[var(--primary)]">
+            返回第一页
+          </Link>
+          继续浏览这个分类下的文章。
+        </section>
       ) : (
         <section className="card-base p-8 text-sm text-[var(--muted)]">
           这个分类下暂时还没有已发布文章。你可以先返回

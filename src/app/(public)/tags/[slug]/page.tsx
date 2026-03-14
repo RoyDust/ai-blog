@@ -6,7 +6,8 @@ import { notFound } from 'next/navigation'
 
 import { TaxonomyHero, TaxonomyPostGrid } from '@/components/taxonomy'
 import { buildPageMetadata } from '@/lib/seo'
-import { getTagDetail } from '@/lib/taxonomy'
+import { getTagDetail, TAXONOMY_PAGE_SIZE } from '@/lib/taxonomy'
+import { clampPagination } from '@/lib/validation'
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params
@@ -27,13 +28,23 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   })
 }
 
-export default async function TagPage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function TagPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string }>
+  searchParams?: Promise<{ page?: string }>
+}) {
   const { slug } = await params
-  const tag = await getTagDetail(slug)
+  const filters = searchParams ? await searchParams : undefined
+  const { page } = clampPagination({ page: filters?.page ?? null, limit: String(TAXONOMY_PAGE_SIZE) })
+  const tag = await getTagDetail(slug, { page, limit: TAXONOMY_PAGE_SIZE })
 
   if (!tag) {
     notFound()
   }
+
+  const isOutOfRangePage = tag.posts.length === 0 && tag.pagination.totalPages > 0 && tag.pagination.page > tag.pagination.totalPages
 
   return (
     <div className="space-y-6">
@@ -55,6 +66,14 @@ export default async function TagPage({ params }: { params: Promise<{ slug: stri
           description="这些内容按发布时间倒序排列，方便你快速进入与该标签最相关的最新讨论。"
           posts={tag.posts}
         />
+      ) : isOutOfRangePage ? (
+        <section className="card-base p-8 text-sm text-[var(--muted)]">
+          当前页没有内容。你可以返回
+          <Link href={`/tags/${tag.slug}?page=1`} className="mx-1 font-medium text-[var(--primary)]">
+            返回第一页
+          </Link>
+          查看这个标签下更早的文章。
+        </section>
       ) : (
         <section className="card-base p-8 text-sm text-[var(--muted)]">
           这个标签下暂时还没有已发布文章。你可以先返回

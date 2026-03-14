@@ -1,6 +1,8 @@
 ﻿import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { NextRequest } from 'next/server'
 
+import { getRateLimitKey } from '@/lib/rate-limit'
+
 const { getToken } = vi.hoisted(() => ({
   getToken: vi.fn(),
 }))
@@ -64,5 +66,24 @@ describe('admin middleware', () => {
     const response = await middleware(request)
 
     expect(response.status).toBe(200)
+  })
+})
+
+describe('rate limit key contract', () => {
+  test('prefixes actor identifiers with the scope', () => {
+    const request = new Request('http://localhost/api/search', {
+      headers: {
+        'x-forwarded-for': '203.0.113.10, 10.0.0.2',
+      },
+    })
+
+    expect(getRateLimitKey(request, 'auth')).toBe('auth:203.0.113.10')
+    expect(getRateLimitKey(request, 'interaction')).toBe('interaction:203.0.113.10')
+  })
+
+  test('falls back to an anonymous actor marker when no network identifier is present', () => {
+    const request = new Request('http://localhost/api/search')
+
+    expect(getRateLimitKey(request, 'upload')).toBe('upload:anonymous')
   })
 })

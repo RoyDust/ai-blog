@@ -70,7 +70,31 @@ describe('GET /api/search', () => {
     const payload = await response.json()
 
     expect(response.status).toBe(400)
+    expect(payload).toEqual({ error: 'Query is required' })
     expect(payload.error).toMatch(/query/i)
+  })
+
+  test('normalizes invalid page and limit values through shared pagination validation', async () => {
+    findMany.mockResolvedValue([])
+    count.mockResolvedValue(0)
+
+    const { GET } = await import('../route')
+    const response = await GET(new Request('http://localhost/api/search?q=react&page=-9&limit=500'))
+    const payload = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(payload.pagination).toEqual({
+      page: 1,
+      limit: 50,
+      total: 0,
+      totalPages: 0,
+    })
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        skip: 0,
+        take: 50,
+      }),
+    )
   })
 
   test('sorts title matches before body-only matches and returns hit fields', async () => {
@@ -113,5 +137,18 @@ describe('GET /api/search', () => {
     expect(payload.data[0].searchMeta.hitFields).toContain('title')
     expect(payload.data[1].searchMeta.hitFields).toContain('content')
     expect(payload.data[0].searchMeta.score).toBeGreaterThan(payload.data[1].searchMeta.score)
+  })
+
+  test('returns the public error contract without leaking internal details on failures', async () => {
+    findMany.mockRejectedValueOnce(new Error('database exploded with internals'))
+    count.mockResolvedValueOnce(0)
+
+    const { GET } = await import('../route')
+    const response = await GET(new Request('http://localhost/api/search?q=react'))
+    const payload = await response.json()
+
+    expect(response.status).toBe(500)
+    expect(payload).toEqual({ error: 'Internal server error' })
+    expect(JSON.stringify(payload)).not.toMatch(/database exploded|internals/i)
   })
 })
