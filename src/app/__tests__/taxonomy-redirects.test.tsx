@@ -18,6 +18,7 @@ vi.mock('@/lib/taxonomy', () => ({
           slug: 'frontend',
           description: '前端工程与交互体验',
           _count: { posts: 1 },
+          pagination: { page: 1, limit: 12, total: 1, totalPages: 1 },
           posts: [
             {
               id: 'p1',
@@ -44,6 +45,7 @@ vi.mock('@/lib/taxonomy', () => ({
           slug: 'nextjs',
           color: '#000000',
           _count: { posts: 1 },
+          pagination: { page: 1, limit: 12, total: 1, totalPages: 1 },
           posts: [
             {
               id: 'p2',
@@ -103,5 +105,26 @@ describe('taxonomy routes', () => {
 
     expect(screen.getByRole('heading', { name: '#Next.js' })).toBeInTheDocument()
     expect(screen.getAllByRole('link', { name: 'Next Patterns' })[0]).toHaveAttribute('href', '/posts/next-patterns')
+  })
+
+  test('/categories/[slug] shows a safe empty state for out-of-range pages', async () => {
+    const { getCategoryDetail } = await import('@/lib/taxonomy')
+    vi.mocked(getCategoryDetail).mockResolvedValueOnce({
+      id: 'c1',
+      name: '前端',
+      slug: 'frontend',
+      description: '前端工程与交互体验',
+      _count: { posts: 1 },
+      pagination: { page: 3, limit: 12, total: 1, totalPages: 1 },
+      posts: [],
+    } as never)
+
+    const { default: CategoryPage } = await import('@/app/(public)/categories/[slug]/page')
+    const ui = await CategoryPage({ params: Promise.resolve({ slug: 'frontend' }), searchParams: Promise.resolve({ page: '3' }) } as never)
+
+    render(ui as React.ReactElement)
+
+    expect(screen.getByText(/当前页没有内容/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '返回第一页' })).toHaveAttribute('href', '/categories/frontend?page=1')
   })
 })

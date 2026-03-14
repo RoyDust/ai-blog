@@ -102,7 +102,7 @@ async function getContinuationData(post: ArticlePost) {
             published: true,
             deletedAt: null,
             id: { not: post.id },
-            tags: { some: { slug: { in: post.tags.map((tag) => tag.slug) } } },
+            tags: { some: { slug: { in: post.tags.map((tag: ArticlePost['tags'][number]) => tag.slug) } } },
           },
           select: continuationPostSelect,
           orderBy: { createdAt: 'desc' },
@@ -112,7 +112,11 @@ async function getContinuationData(post: ArticlePost) {
   ])
 
   const relatedPosts = [...sameCategoryPosts, ...sameTagPosts].filter(
-    (candidate, index, collection) => collection.findIndex((item) => item.id === candidate.id) === index,
+    (
+      candidate: { id: string },
+      index: number,
+      collection: Array<{ id: string }>,
+    ) => collection.findIndex((item: { id: string }) => item.id === candidate.id) === index,
   )
 
   return {
@@ -130,7 +134,7 @@ export async function generateStaticParams() {
       take: 100,
     })
 
-    return posts.map((post) => ({ slug: post.slug }))
+    return posts.map((post: { slug: string }) => ({ slug: post.slug }))
   } catch (error) {
     console.error("Generate post static params error:", error)
     return []

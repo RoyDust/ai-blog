@@ -1,42 +1,12 @@
 import { prisma } from '@/lib/prisma'
+import { TAXONOMY_PAGE_SIZE } from '@/lib/pagination'
+import { buildOffsetPagination, getPublicPostSelect, PUBLIC_POST_ORDER_BY, type PublicPostRecord } from '@/lib/posts'
 
-export const TAXONOMY_PAGE_SIZE = 12
-
-const taxonomyPostSelect = {
-  id: true,
-  title: true,
-  slug: true,
-  excerpt: true,
-  coverImage: true,
-  createdAt: true,
-  viewCount: true,
-  author: {
-    select: { id: true, name: true, image: true },
-  },
-  category: {
-    select: { id: true, name: true, slug: true },
-  },
-  tags: {
-    where: { deletedAt: null },
-    select: { id: true, name: true, slug: true, color: true },
-  },
-  _count: {
-    select: { comments: { where: { deletedAt: null } }, likes: true },
-  },
-} as const
+export { TAXONOMY_PAGE_SIZE } from '@/lib/pagination'
 
 interface TaxonomyDetailPaginationInput {
   page?: number
   limit?: number
-}
-
-function buildPagination(page: number, limit: number, total: number) {
-  return {
-    page,
-    limit,
-    total,
-    totalPages: Math.ceil(total / limit),
-  }
 }
 
 export async function getCategoryDirectory() {
@@ -97,16 +67,16 @@ export async function getCategoryDetail(slug: string, input: TaxonomyDetailPagin
 
   const posts = await prisma.post.findMany({
     where: { deletedAt: null, published: true, category: { slug } },
-    select: taxonomyPostSelect,
-    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    select: getPublicPostSelect({ includeTagColor: true }),
+    orderBy: PUBLIC_POST_ORDER_BY,
     skip: (page - 1) * limit,
     take: limit,
-  })
+  }) as unknown as PublicPostRecord[]
 
   return {
     ...category,
     posts,
-    pagination: buildPagination(page, limit, category._count.posts),
+    pagination: buildOffsetPagination({ page, limit, total: category._count.posts }),
   }
 }
 
@@ -134,15 +104,15 @@ export async function getTagDetail(slug: string, input: TaxonomyDetailPagination
 
   const posts = await prisma.post.findMany({
     where: { deletedAt: null, published: true, tags: { some: { slug } } },
-    select: taxonomyPostSelect,
-    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    select: getPublicPostSelect({ includeTagColor: true }),
+    orderBy: PUBLIC_POST_ORDER_BY,
     skip: (page - 1) * limit,
     take: limit,
-  })
+  }) as unknown as PublicPostRecord[]
 
   return {
     ...tag,
     posts,
-    pagination: buildPagination(page, limit, tag._count.posts),
+    pagination: buildOffsetPagination({ page, limit, total: tag._count.posts }),
   }
 }

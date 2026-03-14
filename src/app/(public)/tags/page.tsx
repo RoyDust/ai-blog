@@ -12,13 +12,20 @@ export const metadata: Metadata = buildPageMetadata({
   path: '/tags',
 })
 
-export default async function TagsPage() {
-  const tags = await getTagDirectory().catch((error) => {
-    console.error('Load tags directory error:', error)
-    return []
-  })
+type TagDirectoryEntry = Awaited<ReturnType<typeof getTagDirectory>>[number]
 
-  const totalPosts = tags.reduce((sum, tag) => sum + tag._count.posts, 0)
+export default async function TagsPage() {
+  let tags: Awaited<ReturnType<typeof getTagDirectory>> = []
+  let hasLoadError = false
+
+  try {
+    tags = await getTagDirectory()
+  } catch (error) {
+    hasLoadError = true
+    console.error('Load tags directory error:', error)
+  }
+
+  const totalPosts = tags.reduce((sum: number, tag: TagDirectoryEntry) => sum + tag._count.posts, 0)
 
   return (
     <div className="space-y-6">
@@ -33,9 +40,13 @@ export default async function TagsPage() {
         secondaryLabel="浏览分类专题"
       />
 
-      {tags.length > 0 ? (
+      {hasLoadError ? (
+        <section role="alert" className="card-base border border-red-200 bg-red-50 p-8 text-sm text-red-700">
+          标签专题加载失败，请稍后重试。
+        </section>
+      ) : tags.length > 0 ? (
         <section className="grid gap-4 md:grid-cols-2">
-          {tags.map((tag, index) => (
+          {tags.map((tag: TagDirectoryEntry, index: number) => (
             <div key={tag.id} className="onload-animation" style={{ animationDelay: `${80 + index * 20}ms` }}>
               <TaxonomyDirectoryCard
                 href={`/tags/${tag.slug}`}

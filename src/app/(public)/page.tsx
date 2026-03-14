@@ -17,25 +17,38 @@ export const metadata: Metadata = buildPageMetadata({
 })
 
 async function getData() {
-  try {
-    const [postsPage, categories] = await Promise.all([
-      getPublishedPostsPage({ page: 1, limit: POSTS_PAGE_SIZE }),
-      prisma.category.findMany({
-        where: { deletedAt: null },
-        include: { _count: { select: { posts: { where: { deletedAt: null, published: true } } } } },
-        orderBy: { posts: { _count: 'desc' } },
-        take: 12,
-      }),
-    ])
+  const [postsPageResult, categoriesResult] = await Promise.allSettled([
+    getPublishedPostsPage({ page: 1, limit: POSTS_PAGE_SIZE }),
+    prisma.category.findMany({
+      where: { deletedAt: null },
+      include: { _count: { select: { posts: { where: { deletedAt: null, published: true } } } } },
+      orderBy: { posts: { _count: 'desc' } },
+      take: 12,
+    }),
+  ])
 
-    return { ...postsPage, categories }
-  } catch (error) {
-    console.error('Load home page data error:', error)
-    return {
-      posts: [],
-      pagination: { page: 1, limit: POSTS_PAGE_SIZE, total: 0, totalPages: 0 },
-      categories: [],
-    }
+  if (postsPageResult.status === 'rejected') {
+    console.error('Load home posts error:', postsPageResult.reason)
+  }
+
+  if (categoriesResult.status === 'rejected') {
+    console.error('Load home categories error:', categoriesResult.reason)
+  }
+
+  const postsPage =
+    postsPageResult.status === 'fulfilled'
+      ? postsPageResult.value
+      : {
+          posts: [],
+          pagination: { page: 1, limit: POSTS_PAGE_SIZE, total: 0, totalPages: 0 },
+        }
+
+  const categories = categoriesResult.status === 'fulfilled' ? categoriesResult.value : []
+
+  return {
+    ...postsPage,
+    categories,
+    hasLoadError: postsPageResult.status === 'rejected' || categoriesResult.status === 'rejected',
   }
 }
 
@@ -43,10 +56,16 @@ type HomePost = Awaited<ReturnType<typeof getData>>['posts'][number]
 type HomeCategory = Awaited<ReturnType<typeof getData>>['categories'][number]
 
 export default async function Home() {
-  const { posts, pagination, categories } = await getData()
+  const { posts, pagination, categories, hasLoadError } = await getData()
 
   return (
     <div className="space-y-8">
+      {hasLoadError ? (
+        <section role="alert" className="card-base border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          首页部分内容加载失败，请稍后重试。
+        </section>
+      ) : null}
+
       <HomeLatestPosts initialPagination={pagination} initialPosts={posts as HomePost[]} />
 
       <section className="card-base onload-animation p-6 md:p-8" style={{ animationDelay: '250ms' }}>

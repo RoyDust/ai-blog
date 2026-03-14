@@ -12,13 +12,20 @@ export const metadata: Metadata = buildPageMetadata({
   path: '/categories',
 })
 
-export default async function CategoriesPage() {
-  const categories = await getCategoryDirectory().catch((error) => {
-    console.error('Load categories directory error:', error)
-    return []
-  })
+type CategoryDirectoryEntry = Awaited<ReturnType<typeof getCategoryDirectory>>[number]
 
-  const totalPosts = categories.reduce((sum, category) => sum + category._count.posts, 0)
+export default async function CategoriesPage() {
+  let categories: Awaited<ReturnType<typeof getCategoryDirectory>> = []
+  let hasLoadError = false
+
+  try {
+    categories = await getCategoryDirectory()
+  } catch (error) {
+    hasLoadError = true
+    console.error('Load categories directory error:', error)
+  }
+
+  const totalPosts = categories.reduce((sum: number, category: CategoryDirectoryEntry) => sum + category._count.posts, 0)
 
   return (
     <div className="space-y-6">
@@ -33,9 +40,13 @@ export default async function CategoriesPage() {
         secondaryLabel="查看文章归档"
       />
 
-      {categories.length > 0 ? (
+      {hasLoadError ? (
+        <section role="alert" className="card-base border border-red-200 bg-red-50 p-8 text-sm text-red-700">
+          分类专题加载失败，请稍后重试。
+        </section>
+      ) : categories.length > 0 ? (
         <section className="grid gap-4">
-          {categories.map((category, index) => (
+          {categories.map((category: CategoryDirectoryEntry, index: number) => (
             <div key={category.id} className="onload-animation" style={{ animationDelay: `${80 + index * 30}ms` }}>
               <TaxonomyDirectoryCard
                 href={`/categories/${category.slug}`}
