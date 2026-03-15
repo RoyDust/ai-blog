@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { revalidatePublicContent } from "@/lib/cache"
 import { prisma } from "@/lib/prisma"
+import { calculateReadingTimeMinutes } from "@/lib/reading-time"
 import { parsePostInput } from "@/lib/validation"
 
 async function assertAdmin() {
@@ -82,6 +83,7 @@ export async function POST(request: Request) {
 
   try {
     const { title, content, slug, excerpt, coverImage, categoryId, tagIds, published } = parsePostInput(await request.json())
+    const readingTimeMinutes = calculateReadingTimeMinutes(content)
 
     const post = await prisma.post.create({
       data: {
@@ -93,6 +95,7 @@ export async function POST(request: Request) {
         categoryId,
         published,
         publishedAt: published ? new Date() : null,
+        readingTimeMinutes,
         authorId: session.user.id,
         tags: tagIds ? { connect: tagIds.map((id) => ({ id })) } : undefined,
       },

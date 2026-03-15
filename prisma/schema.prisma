@@ -86,6 +86,7 @@ model Post {
   coverImage  String?
   published   Boolean   @default(false)
   viewCount   Int       @default(0)
+  readingTimeMinutes Int @default(1)
   deletedAt   DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt

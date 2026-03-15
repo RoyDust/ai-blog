@@ -197,27 +197,19 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
           )}
 
           <div className="space-y-8 p-8">
-            <div className="flex flex-wrap items-center gap-3 text-xs text-[var(--muted)]">
-              {post.category && (
-                <Link className="rounded-full bg-[var(--surface-alt)] px-3 py-1 font-semibold text-[var(--primary)]" href={`/categories/${post.category.slug}`}>
-                  {post.category.name}
-                </Link>
-              )}
-              <span>{new Date(post.createdAt).toLocaleDateString("zh-CN")}</span>
-              <span>{post.viewCount} 阅读</span>
-            </div>
+            <div className="space-y-5 border-b border-[var(--border)] pb-8">
+              <div className="flex flex-wrap items-center gap-3 text-xs text-[var(--muted)]">
+                {post.category && (
+                  <Link className="rounded-full bg-[var(--surface-alt)] px-3 py-1 font-semibold text-[var(--primary)]" href={`/categories/${post.category.slug}`}>
+                    {post.category.name}
+                  </Link>
+                )}
+                <span>{new Date(post.createdAt).toLocaleDateString("zh-CN")}</span>
+                <span>{post.viewCount} 阅读</span>
+                <span>预计阅读 {post.readingTimeMinutes} 分钟</span>
+              </div>
 
-            <h1 className="font-display text-4xl font-extrabold leading-tight text-[var(--foreground)]">{post.title}</h1>
-
-            <div className="flex items-center gap-3 border-b border-[var(--border)] pb-8">
-              {post.author.image ? (
-                <Image alt={post.author.name || "Author"} className="theme-media-image rounded-full object-cover" height={40} src={post.author.image} width={40} />
-              ) : (
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--surface-alt)]">
-                  <span className="text-sm text-[var(--muted)]">{post.author.name?.charAt(0) || "A"}</span>
-                </div>
-              )}
-              <p className="font-medium text-[var(--foreground)]">{post.author.name}</p>
+              <h1 className="font-display text-4xl font-extrabold leading-tight text-[var(--foreground)]">{post.title}</h1>
             </div>
 
             <div className="max-w-[76ch]">

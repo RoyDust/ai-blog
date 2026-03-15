@@ -29,6 +29,7 @@ findFirst.mockResolvedValue({
   updatedAt: new Date('2026-01-02T00:00:00Z'),
   publishedAt: new Date('2026-01-01T00:00:00Z'),
   viewCount: 100,
+  readingTimeMinutes: 1,
   author: { id: 'u1', name: 'Author', image: null },
   category: { name: 'Category', slug: 'category' },
   tags: [{ name: 'Tag', slug: 'tag' }],
@@ -74,6 +75,7 @@ describe('article experience', () => {
         updatedAt: new Date('2026-01-02T00:00:00Z'),
         publishedAt: new Date('2026-01-01T00:00:00Z'),
         viewCount: 100,
+        readingTimeMinutes: 1,
         author: { id: 'u1', name: 'Author', image: null },
         category: { name: 'Category', slug: 'category' },
         tags: [{ name: 'Tag', slug: 'tag' }],
@@ -103,6 +105,9 @@ describe('article experience', () => {
     expect(screen.getByRole('heading', { level: 5, name: 'Deep Heading' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { level: 2, name: '与我互动' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { level: 2, name: '继续阅读' })).toBeInTheDocument()
+    expect(screen.getByText('100 阅读')).toBeInTheDocument()
+    expect(screen.getByText('预计阅读 1 分钟')).toBeInTheDocument()
+    expect(screen.queryByText('Author')).not.toBeInTheDocument()
     expect(screen.queryByRole('heading', { level: 2, name: '相关文章' })).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: '发表评论' })).toHaveAttribute('href', '#comments')
     expect(screen.getByRole('heading', { level: 2, name: '评论 (1)' })).toBeInTheDocument()
@@ -131,6 +136,7 @@ describe('article experience', () => {
         updatedAt: new Date('2026-01-02T00:00:00Z'),
         publishedAt: new Date('2026-01-01T00:00:00Z'),
         viewCount: 100,
+        readingTimeMinutes: 1,
         author: { id: 'u1', name: 'Author', image: null },
         category: { name: 'Category', slug: 'category' },
         tags: [{ name: 'Tag', slug: 'tag' }],

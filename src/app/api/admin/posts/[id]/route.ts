@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { revalidatePublicContent } from "@/lib/cache";
 import { prisma } from "@/lib/prisma";
+import { calculateReadingTimeMinutes } from "@/lib/reading-time";
 
 async function assertAdmin() {
   const session = await getServerSession(authOptions);
@@ -26,6 +27,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
       content: true,
       excerpt: true,
       coverImage: true,
+      readingTimeMinutes: true,
       categoryId: true,
       tags: {
         where: { deletedAt: null },
@@ -45,6 +47,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   const { id } = await params;
   const body = await request.json();
+  const readingTimeMinutes = calculateReadingTimeMinutes(body.content);
   // 先取一份旧的 slug / 分类 / 标签，用来在更新后精确刷新受影响的公开页面缓存。
   const existing = await prisma.post.findFirst({
     where: { id, deletedAt: null },
@@ -65,6 +68,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       content: body.content,
       excerpt: body.excerpt || null,
       coverImage: body.coverImage || null,
+      readingTimeMinutes,
       categoryId: body.categoryId || null,
       tags: Array.isArray(body.tagIds)
         ? {
@@ -79,6 +83,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       id: true,
       slug: true,
       published: true,
+      readingTimeMinutes: true,
       category: { select: { slug: true } },
       tags: { where: { deletedAt: null }, select: { slug: true } },
     },
