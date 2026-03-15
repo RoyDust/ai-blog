@@ -3,7 +3,11 @@ import { expect, test, vi } from "vitest";
 import { PostCard } from "@/components/blog/PostCard";
 
 vi.mock("next/image", () => ({
-  default: ({ fill: _fill, ...props }: React.ComponentProps<"img"> & { fill?: boolean }) => <img {...props} />,
+  default: (props: React.ComponentProps<"img"> & { fill?: boolean }) => {
+    const imageProps = { ...props };
+    delete imageProps.fill;
+    return React.createElement("img", { ...imageProps, alt: imageProps.alt ?? "" });
+  },
 }));
 
 const post = {
@@ -38,3 +42,4 @@ test("post card renders chevron inline after title and clamps copy", () => {
   expect(excerpt?.className).toContain("line-clamp-2");
   expect(absoluteChevron).toBeNull();
 });
+import React from "react";

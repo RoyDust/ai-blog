@@ -13,29 +13,6 @@ import { CommentAuthGate } from "@/components/CommentAuthGate";
 import { prisma } from "@/lib/prisma";
 import { buildArticleJsonLd, buildArticleMetadata } from "@/lib/seo";
 
-const continuationPostSelect = {
-  id: true,
-  title: true,
-  slug: true,
-  excerpt: true,
-  coverImage: true,
-  createdAt: true,
-  viewCount: true,
-  author: {
-    select: { id: true, name: true, image: true },
-  },
-  category: {
-    select: { id: true, name: true, slug: true },
-  },
-  tags: {
-    where: { deletedAt: null },
-    select: { id: true, name: true, slug: true },
-  },
-  _count: {
-    select: { comments: { where: { deletedAt: null } }, likes: true },
-  },
-} as const;
-
 async function getPost(slug: string) {
   return prisma.post.findFirst({
     where: { slug, deletedAt: null, published: true },
@@ -72,7 +49,7 @@ async function getPost(slug: string) {
 type ArticlePost = NonNullable<Awaited<ReturnType<typeof getPost>>>
 
 async function getContinuationData(post: ArticlePost) {
-  const [previousPost, nextPost, sameCategoryPosts, sameTagPosts] = await Promise.all([
+  const [previousPost, nextPost] = await Promise.all([
     prisma.post.findFirst({
       where: { published: true, deletedAt: null, createdAt: { lt: post.createdAt } },
       select: { slug: true, title: true, createdAt: true },
@@ -83,46 +60,11 @@ async function getContinuationData(post: ArticlePost) {
       select: { slug: true, title: true, createdAt: true },
       orderBy: { createdAt: 'asc' },
     }),
-    post.category
-      ? prisma.post.findMany({
-          where: {
-            published: true,
-            deletedAt: null,
-            id: { not: post.id },
-            category: { slug: post.category.slug },
-          },
-          select: continuationPostSelect,
-          orderBy: { createdAt: 'desc' },
-          take: 3,
-        })
-      : Promise.resolve([]),
-    post.tags.length > 0
-      ? prisma.post.findMany({
-          where: {
-            published: true,
-            deletedAt: null,
-            id: { not: post.id },
-            tags: { some: { slug: { in: post.tags.map((tag: ArticlePost['tags'][number]) => tag.slug) } } },
-          },
-          select: continuationPostSelect,
-          orderBy: { createdAt: 'desc' },
-          take: 6,
-        })
-      : Promise.resolve([]),
   ])
-
-  const relatedPosts = [...sameCategoryPosts, ...sameTagPosts].filter(
-    (
-      candidate: { id: string },
-      index: number,
-      collection: Array<{ id: string }>,
-    ) => collection.findIndex((item: { id: string }) => item.id === candidate.id) === index,
-  )
 
   return {
     previousPost,
     nextPost,
-    relatedPosts: relatedPosts.slice(0, 3),
   }
 }
 
@@ -205,7 +147,7 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
     notFound();
   }
 
-  const { previousPost, nextPost, relatedPosts } = await getContinuationData(post)
+  const { previousPost, nextPost } = await getContinuationData(post)
 
   const headings = extractHeadings(post.content);
   const articleJsonLd = buildArticleJsonLd({
@@ -370,7 +312,7 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
         </div>
       </section>
 
-      <ArticleContinuation nextPost={nextPost} previousPost={previousPost} relatedPosts={relatedPosts} />
+      <ArticleContinuation nextPost={nextPost} previousPost={previousPost} />
 
       <section className="card-base mx-auto w-full max-w-[980px] p-8 xl:min-w-[880px]" id="comments">
         <h2 className="mb-6 font-display text-2xl font-bold text-[var(--foreground)]">评论 ({post._count.comments})</h2>
