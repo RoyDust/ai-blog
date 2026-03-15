@@ -50,7 +50,7 @@ describe('POST /api/posts/[slug]/like', () => {
     const payload = await response.json()
 
     expect(response.status).toBe(200)
-    expect(create).toHaveBeenCalledWith({ data: { postId: 'post-1', browserId: 'anon_123' } })
+    expect(create).toHaveBeenCalledWith({ data: { postId: 'post-1', browserId: expect.stringMatching(/^anon_[a-f0-9]{64}$/) } })
     expect(payload.liked).toBe(true)
   })
 

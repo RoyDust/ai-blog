@@ -1,0 +1,17 @@
+/api/posts POST -> authenticated users can create drafts; only admins may persist published=true
+/api/posts/[slug] PATCH -> owner-or-admin; only admins may publish or unpublish
+/api/posts/[slug] DELETE -> owner-or-admin
+/api/comments POST -> anonymous with validated browser id + server-derived actor id
+/api/comments PATCH -> owner-or-admin authenticated only
+/api/comments DELETE -> owner-or-admin authenticated only
+/api/posts/[slug]/like POST -> anonymous with validated browser id + server-derived actor id
+/api/admin/posts GET|POST|DELETE -> admin-only
+/api/admin/posts/[id] GET|PATCH -> admin-only
+/api/admin/posts/publish PATCH -> admin-only
+/api/admin/posts/summarize POST -> admin-only
+/api/admin/comments GET|PATCH|DELETE -> admin-only
+/api/admin/categories GET|POST|PATCH|DELETE -> admin-only
+/api/admin/tags GET|POST|PATCH|DELETE -> admin-only
+/api/admin/uploads/qiniu-token POST -> admin-only
+/api/admin/set-admin POST -> permanently decommissioned; returns 404
+/api/users/me GET|PATCH -> authenticated user only

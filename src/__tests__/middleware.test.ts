@@ -67,6 +67,28 @@ describe('admin middleware', () => {
 
     expect(response.status).toBe(200)
   })
+
+  test('returns json 401 for unauthenticated admin api requests', async () => {
+    getToken.mockResolvedValueOnce(null)
+
+    const request = new NextRequest('http://localhost/api/admin/posts')
+    const response = await middleware(request)
+    const payload = await response.json()
+
+    expect(response.status).toBe(401)
+    expect(payload).toEqual({ error: 'Unauthorized' })
+  })
+
+  test('returns json 403 for non-admin admin api requests', async () => {
+    getToken.mockResolvedValueOnce({ role: 'USER' })
+
+    const request = new NextRequest('http://localhost/api/admin/posts')
+    const response = await middleware(request)
+    const payload = await response.json()
+
+    expect(response.status).toBe(403)
+    expect(payload).toEqual({ error: 'Forbidden' })
+  })
 })
 
 describe('rate limit key contract', () => {

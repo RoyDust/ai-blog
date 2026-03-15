@@ -3,10 +3,11 @@ import { prisma } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
 import { parseRegisterInput } from "@/lib/validation"
 import { checkAuthRateLimit } from "@/lib/rate-limit"
+import { ConflictError, toErrorResponse } from "@/lib/api-errors"
 
 export async function POST(request: Request) {
   try {
-    const rateLimit = checkAuthRateLimit(request)
+    const rateLimit = await checkAuthRateLimit(request)
     if (!rateLimit.allowed) {
       return NextResponse.json({ error: "Too many requests" }, { status: 429 })
     }
@@ -19,10 +20,7 @@ export async function POST(request: Request) {
     })
 
     if (existingUser) {
-      return NextResponse.json(
-        { error: "User already exists" },
-        { status: 400 }
-      )
+      throw new ConflictError("User already exists")
     }
 
     // 加密密码
@@ -46,14 +44,7 @@ export async function POST(request: Request) {
       }
     })
   } catch (error) {
-    if (error instanceof Error && (error.message.startsWith("Invalid") || error.message === "Password too short")) {
-      return NextResponse.json({ error: error.message }, { status: 400 })
-    }
-
     console.error("Register error:", error)
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    )
+    return toErrorResponse(error)
   }
 }

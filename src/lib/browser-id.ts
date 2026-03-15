@@ -1,3 +1,4 @@
+const BROWSER_ID_PATTERN = /^anon_[a-zA-Z0-9_-]{3,120}$/
 const BROWSER_ID_STORAGE_KEY = 'anonymous-browser-id'
 
 function createBrowserId() {
@@ -25,7 +26,7 @@ export function getOrCreateBrowserId() {
 
 export function getBrowserIdFromHeaders(headers: Headers) {
   const browserId = headers.get('x-browser-id')?.trim()
-  return browserId ? browserId : null
+  return browserId && BROWSER_ID_PATTERN.test(browserId) ? browserId : null
 }
 
 export function maskIpAddress(ipAddress: string | null | undefined) {

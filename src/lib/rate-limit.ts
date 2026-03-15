@@ -6,6 +6,8 @@ type HitWindow = {
 type RateLimitResult = {
   allowed: boolean
   remaining: number
+  resetAt?: number
+  strategy?: "memory" | "database"
 }
 
 /**
@@ -21,15 +23,15 @@ export function createMemoryRateLimiter({ limit, windowMs }: { limit: number; wi
 
       if (!current || current.resetAt <= now) {
         store.set(key, { count: 1, resetAt: now + windowMs })
-        return { allowed: true, remaining: limit - 1 }
+        return { allowed: true, remaining: limit - 1, resetAt: now + windowMs, strategy: "memory" }
       }
 
       if (current.count >= limit) {
-        return { allowed: false, remaining: 0 }
+        return { allowed: false, remaining: 0, resetAt: current.resetAt, strategy: "memory" }
       }
 
       current.count += 1
-      return { allowed: true, remaining: limit - current.count }
+      return { allowed: true, remaining: limit - current.count, resetAt: current.resetAt, strategy: "memory" }
     },
   }
 }
@@ -37,13 +39,96 @@ export function createMemoryRateLimiter({ limit, windowMs }: { limit: number; wi
 const authLimiter = createMemoryRateLimiter({ limit: 5, windowMs: 60_000 })
 const interactionLimiter = createMemoryRateLimiter({ limit: 20, windowMs: 60_000 })
 const uploadLimiter = createMemoryRateLimiter({ limit: 10, windowMs: 60_000 })
+let rateLimitTableReady = false
+
+async function ensureRateLimitTable() {
+  if (rateLimitTableReady || process.env.NODE_ENV === "test") {
+    return
+  }
+
+  const { prisma } = await import("@/lib/prisma")
+
+  await prisma.$executeRawUnsafe(`
+    CREATE TABLE IF NOT EXISTS rate_limit_entries (
+      key TEXT PRIMARY KEY,
+      count INTEGER NOT NULL,
+      reset_at TIMESTAMPTZ NOT NULL
+    )
+  `)
+
+  rateLimitTableReady = true
+}
+
+async function checkDatabaseRateLimit(key: string, limit: number, windowMs: number): Promise<RateLimitResult> {
+  const { prisma } = await import("@/lib/prisma")
+
+  await ensureRateLimitTable()
+
+  const rows = await prisma.$queryRawUnsafe<Array<{ count: number; reset_at: Date }>>(
+    `
+      INSERT INTO rate_limit_entries AS entries (key, count, reset_at)
+      VALUES ($1, 1, NOW() + ($2 * INTERVAL '1 millisecond'))
+      ON CONFLICT (key) DO UPDATE
+      SET count = CASE
+          WHEN entries.reset_at <= NOW() THEN 1
+          ELSE entries.count + 1
+        END,
+        reset_at = CASE
+          WHEN entries.reset_at <= NOW() THEN NOW() + ($2 * INTERVAL '1 millisecond')
+          ELSE entries.reset_at
+        END
+      RETURNING count, reset_at
+    `,
+    key,
+    windowMs,
+  )
+
+  const current = rows[0]
+  const remaining = Math.max(limit - current.count, 0)
+
+  return {
+    allowed: current.count <= limit,
+    remaining,
+    resetAt: new Date(current.reset_at).getTime(),
+    strategy: "database",
+  }
+}
+
+function resolveRateLimitMode() {
+  const configured = process.env.RATE_LIMIT_DRIVER
+
+  if (configured === "database" || configured === "memory") {
+    return configured
+  }
+
+  return process.env.NODE_ENV === "production" ? "database" : "memory"
+}
+
+async function checkRateLimit(request: Request, scope: string, options: { limit: number; windowMs: number }) {
+  const key = getRateLimitKey(request, scope)
+
+  if (resolveRateLimitMode() === "database") {
+    return checkDatabaseRateLimit(key, options.limit, options.windowMs)
+  }
+
+  if (scope === "auth") {
+    return authLimiter.check(key)
+  }
+
+  if (scope === "upload") {
+    return uploadLimiter.check(key)
+  }
+
+  return interactionLimiter.check(key)
+}
 
 /**
  * 基于请求元数据生成带作用域的稳定限流键。
  */
 export function getRateLimitKey(request: Request, scope: string) {
   const forwardedFor = request.headers.get('x-forwarded-for')
-  const ip = forwardedFor?.split(',')[0]?.trim() || 'anonymous'
+  const realIp = request.headers.get('x-real-ip')?.trim()
+  const ip = forwardedFor?.split(',')[0]?.trim() || realIp || 'anonymous'
 
   return `${scope}:${ip}`
 }
@@ -52,19 +137,19 @@ export function getRateLimitKey(request: Request, scope: string) {
  * 对认证相关接口应用更严格的限流策略。
  */
 export function checkAuthRateLimit(request: Request) {
-  return authLimiter.check(getRateLimitKey(request, 'auth'))
+  return checkRateLimit(request, 'auth', { limit: 5, windowMs: 60_000 })
 }
 
 /**
  * 对点赞、收藏、评论等读者交互接口应用中等强度限流。
  */
 export function checkInteractionRateLimit(request: Request) {
-  return interactionLimiter.check(getRateLimitKey(request, 'interaction'))
+  return checkRateLimit(request, 'interaction', { limit: 20, windowMs: 60_000 })
 }
 
 /**
  * 对上传 token 签发接口应用更紧的限流策略。
  */
 export function checkUploadRateLimit(request: Request) {
-  return uploadLimiter.check(getRateLimitKey(request, 'upload'))
+  return checkRateLimit(request, 'upload', { limit: 10, windowMs: 60_000 })
 }

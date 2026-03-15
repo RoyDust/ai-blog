@@ -1,9 +1,10 @@
 import crypto from 'node:crypto'
 import { NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { parseUploadRequest } from '@/lib/validation'
+
+import { requireAdminSession } from '@/lib/api-auth'
+import { ApiError } from '@/lib/api-errors'
 import { checkUploadRateLimit } from '@/lib/rate-limit'
+import { parseUploadRequest } from '@/lib/validation'
 
 const defaultUploadUrl = 'https://upload.qiniup.com'
 
@@ -53,61 +54,43 @@ function createUploadToken(bucket: string, key: string, accessKey: string, secre
   return `${accessKey}:${encodedDigest}:${encodedPolicy}`
 }
 
-async function assertAdmin() {
-  const session = await getServerSession(authOptions)
-  if (!session?.user?.id || session.user.role !== 'ADMIN') {
-    return null
-  }
-
-  return session
-}
-
-/**
- * 为管理员生成七牛上传凭证，并在签发前执行鉴权、校验与限流。
- */
 export async function POST(request: Request) {
-  const rateLimit = checkUploadRateLimit(request)
-  if (!rateLimit.allowed) {
-    return NextResponse.json({ success: false, error: 'Too many requests' }, { status: 429 })
-  }
-
-  const session = await assertAdmin()
-  if (!session) {
-    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
-  }
-
-  let filename: string
-
   try {
-    ;({ filename } = parseUploadRequest(await request.json()))
-  } catch (error) {
-    if (error instanceof Error && error.message.startsWith('Invalid')) {
-      return NextResponse.json({ success: false, error: error.message }, { status: 400 })
+    const rateLimit = await checkUploadRateLimit(request)
+    if (!rateLimit.allowed) {
+      return NextResponse.json({ success: false, error: 'Too many requests' }, { status: 429 })
     }
 
-    throw error
+    await requireAdminSession()
+
+    const { filename } = parseUploadRequest(await request.json())
+    const accessKey = process.env.QINIU_ACCESS_KEY
+    const secretKey = process.env.QINIU_SECRET_KEY
+    const bucket = process.env.QINIU_BUCKET
+    const domain = process.env.QINIU_DOMAIN
+    const uploadUrl = process.env.QINIU_UPLOAD_URL || defaultUploadUrl
+
+    if (!accessKey || !secretKey || !bucket || !domain) {
+      return NextResponse.json({ success: false, error: 'Missing Qiniu config' }, { status: 500 })
+    }
+
+    const key = buildUploadKey(filename)
+    const token = createUploadToken(bucket, key, accessKey, secretKey)
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        token,
+        key,
+        domain,
+        uploadUrl,
+      },
+    })
+  } catch (error) {
+    if (error instanceof ApiError) {
+      return NextResponse.json({ success: false, error: error.message }, { status: error.status })
+    }
+
+    return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 })
   }
-
-  const accessKey = process.env.QINIU_ACCESS_KEY
-  const secretKey = process.env.QINIU_SECRET_KEY
-  const bucket = process.env.QINIU_BUCKET
-  const domain = process.env.QINIU_DOMAIN
-  const uploadUrl = process.env.QINIU_UPLOAD_URL || defaultUploadUrl
-
-  if (!accessKey || !secretKey || !bucket || !domain) {
-    return NextResponse.json({ success: false, error: 'Missing Qiniu config' }, { status: 500 })
-  }
-
-  const key = buildUploadKey(filename)
-  const token = createUploadToken(bucket, key, accessKey, secretKey)
-
-  return NextResponse.json({
-    success: true,
-    data: {
-      token,
-      key,
-      domain,
-      uploadUrl,
-    },
-  })
 }

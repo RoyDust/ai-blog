@@ -1,18 +1,12 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { ConflictError, toErrorResponse } from "@/lib/api-errors"
+import { requireSession } from "@/lib/api-auth"
+import { parseProfileUpdateInput } from "@/lib/validation"
 
 export async function GET() {
   try {
-    const session = await getServerSession(authOptions)
-
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      )
-    }
+    const session = await requireSession()
 
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
@@ -32,25 +26,14 @@ export async function GET() {
     })
   } catch (error) {
     console.error("Get user error:", error)
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    )
+    return toErrorResponse(error)
   }
 }
 
 export async function PATCH(request: Request) {
   try {
-    const session = await getServerSession(authOptions)
-
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      )
-    }
-
-    const { name, email } = await request.json()
+    const session = await requireSession()
+    const { name, email } = parseProfileUpdateInput(await request.json())
 
     // 检查邮箱是否已被其他用户使用
     if (email) {
@@ -62,10 +45,7 @@ export async function PATCH(request: Request) {
       })
 
       if (existingUser) {
-        return NextResponse.json(
-          { error: "Email already in use" },
-          { status: 400 }
-        )
+        throw new ConflictError("Email already in use")
       }
     }
 
@@ -86,9 +66,6 @@ export async function PATCH(request: Request) {
     })
   } catch (error) {
     console.error("Update user error:", error)
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    )
+    return toErrorResponse(error)
   }
 }

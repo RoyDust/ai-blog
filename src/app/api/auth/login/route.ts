@@ -3,13 +3,14 @@ import { prisma } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
 import { parseLoginInput } from "@/lib/validation"
 import { checkAuthRateLimit } from "@/lib/rate-limit"
+import { toErrorResponse } from "@/lib/api-errors"
 
 /**
  * 校验登录输入并返回当前账号的基础信息。
  */
 export async function POST(request: Request) {
   try {
-    const rateLimit = checkAuthRateLimit(request)
+    const rateLimit = await checkAuthRateLimit(request)
     if (!rateLimit.allowed) {
       return NextResponse.json({ error: "Too many requests" }, { status: 429 })
     }
@@ -48,14 +49,7 @@ export async function POST(request: Request) {
       }
     })
   } catch (error) {
-    if (error instanceof Error && error.message.startsWith("Invalid")) {
-      return NextResponse.json({ error: error.message }, { status: 400 })
-    }
-
     console.error("Login error:", error)
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    )
+    return toErrorResponse(error)
   }
 }

@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
 import { revalidatePublicContent } from "@/lib/cache"
 import { getPublishedPostsPage } from "@/lib/posts"
 import { clampPagination, parsePostInput } from "@/lib/validation"
+import { canPublish, requireSession } from "@/lib/api-auth"
+import { toErrorResponse } from "@/lib/api-errors"
 
 export async function GET(request: Request) {
   try {
@@ -35,15 +35,10 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      )
-    }
+    const session = await requireSession()
 
     const { title, content, slug, excerpt, coverImage, categoryId, tagIds, published } = parsePostInput(await request.json())
+    const publishNow = canPublish(session) && published
 
     const post = await prisma.post.create({
       data: {
@@ -53,7 +48,8 @@ export async function POST(request: Request) {
         excerpt,
         coverImage,
         categoryId,
-        published: published || false,
+        published: publishNow,
+        publishedAt: publishNow ? new Date() : null,
         authorId: session.user.id,
         tags: tagIds ? {
           connect: tagIds.map((id: string) => ({ id }))
@@ -68,7 +64,7 @@ export async function POST(request: Request) {
       }
     })
 
-    if (post.published) {
+    if (publishNow) {
       revalidatePublicContent({
         slug: post.slug,
         categorySlug: post.category?.slug,
@@ -81,14 +77,7 @@ export async function POST(request: Request) {
       data: post
     })
   } catch (error) {
-    if (error instanceof Error && (error.message.startsWith("Invalid") || error.message === "Title and content are required")) {
-      return NextResponse.json({ error: error.message }, { status: 400 })
-    }
-
     console.error("Create post error:", error)
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    )
+    return toErrorResponse(error)
   }
 }

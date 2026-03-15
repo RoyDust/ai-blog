@@ -6,8 +6,10 @@ import { getToken } from 'next-auth/jwt'
  * 棰勭暀缁熶竴涓棿浠跺叆鍙ｏ紝鍚庣画鍙湪杩欓噷鏀舵暃杈圭紭渚у畨鍏ㄧ瓥鐣ャ€? */
 export async function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl
+  const isAdminPage = pathname.startsWith('/admin')
+  const isAdminApi = pathname.startsWith('/api/admin')
 
-  if (!pathname.startsWith('/admin')) {
+  if (!isAdminPage && !isAdminApi) {
     return NextResponse.next()
   }
 
@@ -15,12 +17,20 @@ export async function middleware(request: NextRequest) {
   const token = await getToken({ req: request, secret })
 
   if (!token) {
+    if (isAdminApi) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const loginUrl = new URL('/login', request.url)
     loginUrl.searchParams.set('callbackUrl', `${pathname}${search}`)
     return NextResponse.redirect(loginUrl)
   }
 
   if (token.role !== 'ADMIN') {
+    if (isAdminApi) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
     const loginUrl = new URL('/login', request.url)
     loginUrl.searchParams.set('error', 'not-admin')
     loginUrl.searchParams.set('callbackUrl', `${pathname}${search}`)
@@ -31,6 +41,6 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/admin/:path*'],
+  matcher: ['/admin/:path*', '/api/admin/:path*'],
 }
 

@@ -57,10 +57,31 @@ describe('POST /api/comments', () => {
       data: expect.objectContaining({
         postId: 'post-1',
         content: 'Nice post',
-        browserId: 'anon_123',
+        browserId: expect.stringMatching(/^anon_[a-f0-9]{64}$/),
         authorLabel: '203.0.*.*',
       }),
     }))
     expect(payload.success).toBe(true)
+  })
+
+  test('rejects malformed anonymous browser ids', async () => {
+    findFirstPost.mockResolvedValue({ id: 'post-1', published: true })
+
+    const { POST } = await import('../route')
+    const request = new Request('http://localhost/api/comments', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-browser-id': 'not safe',
+        'x-forwarded-for': '203.0.113.42',
+      },
+      body: JSON.stringify({ postId: 'post-1', content: 'Nice post' }),
+    })
+    const response = await POST(request)
+    const payload = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(payload.error).toMatch(/browser id/i)
+    expect(create).not.toHaveBeenCalled()
   })
 })

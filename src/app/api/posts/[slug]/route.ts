@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
 import { revalidatePublicContent } from "@/lib/cache"
 import { parsePostPatchInput } from "@/lib/validation"
+import { canPublish, requireSession } from "@/lib/api-auth"
+import { ForbiddenError, NotFoundError, toErrorResponse } from "@/lib/api-errors"
 
 export async function GET(
   request: Request,
@@ -74,16 +74,10 @@ export async function PATCH(
   { params }: { params: Promise<{ slug: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      )
-    }
+    const session = await requireSession()
 
     const { slug } = await params
-    const { title, content, excerpt, coverImage, categoryId, tagIds, published } = parsePostPatchInput(await request.json())
+    const { title, content, slug: nextSlug, excerpt, coverImage, categoryId, tagIds, published } = parsePostPatchInput(await request.json())
 
     const post = await prisma.post.findFirst({
       where: { slug, deletedAt: null },
@@ -97,27 +91,23 @@ export async function PATCH(
     })
 
     if (!post) {
-      return NextResponse.json(
-        { error: "Post not found" },
-        { status: 404 }
-      )
+      throw new NotFoundError("Post not found")
     }
 
-    // 检查权限
     if (post.authorId !== session.user.id && session.user.role !== "ADMIN") {
-      return NextResponse.json(
-        { error: "Forbidden" },
-        { status: 403 }
-      )
+      throw new ForbiddenError()
     }
+
+    const publishNow = typeof published === "boolean" ? (canPublish(session) ? published : false) : undefined
 
     const updateData = {
       title,
       content,
+      ...(nextSlug ? { slug: nextSlug } : {}),
       excerpt,
       coverImage,
       categoryId,
-      ...(typeof published === "boolean" ? { published } : {}),
+      ...(typeof publishNow === "boolean" ? { published: publishNow, publishedAt: publishNow ? new Date() : null } : {}),
       tags: tagIds ? {
         set: tagIds.map((id: string) => ({ id }))
       } : undefined
@@ -149,15 +139,8 @@ export async function PATCH(
       data: updatedPost
     })
   } catch (error) {
-    if (error instanceof Error && (error.message.startsWith("Invalid") || error.message === "Title and content are required")) {
-      return NextResponse.json({ error: error.message }, { status: 400 })
-    }
-
     console.error("Update post error:", error)
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    )
+    return toErrorResponse(error)
   }
 }
 
@@ -166,13 +149,7 @@ export async function DELETE(
   { params }: { params: Promise<{ slug: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      )
-    }
+    const session = await requireSession()
 
     const { slug } = await params
 
@@ -188,18 +165,11 @@ export async function DELETE(
     })
 
     if (!post) {
-      return NextResponse.json(
-        { error: "Post not found" },
-        { status: 404 }
-      )
+      throw new NotFoundError("Post not found")
     }
 
-    // 检查权限
     if (post.authorId !== session.user.id && session.user.role !== "ADMIN") {
-      return NextResponse.json(
-        { error: "Forbidden" },
-        { status: 403 }
-      )
+      throw new ForbiddenError()
     }
 
     await prisma.post.update({
@@ -219,9 +189,6 @@ export async function DELETE(
     })
   } catch (error) {
     console.error("Delete post error:", error)
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    )
+    return toErrorResponse(error)
   }
 }

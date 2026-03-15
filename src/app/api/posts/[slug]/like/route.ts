@@ -1,34 +1,32 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { getBrowserIdFromHeaders } from '@/lib/browser-id'
+import { createAnonymousActorId } from '@/lib/anonymous-actor'
 import { checkInteractionRateLimit } from '@/lib/rate-limit'
+import { NotFoundError, toErrorResponse } from '@/lib/api-errors'
 
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ slug: string }> }
 ) {
   try {
-    const rateLimit = checkInteractionRateLimit(request)
+    const rateLimit = await checkInteractionRateLimit(request)
     if (!rateLimit.allowed) {
       return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
     }
 
-    const browserId = getBrowserIdFromHeaders(request.headers)
-    if (!browserId) {
-      return NextResponse.json({ error: 'Browser ID is required' }, { status: 400 })
-    }
+    const anonymousActor = createAnonymousActorId(request.headers)
 
     const { slug } = await params
     const post = await prisma.post.findFirst({ where: { slug, deletedAt: null, published: true } })
 
     if (!post) {
-      return NextResponse.json({ error: 'Post not found' }, { status: 404 })
+      throw new NotFoundError('Post not found')
     }
 
     const existingLike = await prisma.like.findFirst({
       where: {
         postId: post.id,
-        browserId,
+        browserId: anonymousActor.actorId,
       },
     })
 
@@ -40,14 +38,14 @@ export async function POST(
     await prisma.like.create({
       data: {
         postId: post.id,
-        browserId,
+        browserId: anonymousActor.actorId,
       },
     })
 
     return NextResponse.json({ success: true, liked: true })
   } catch (error) {
     console.error('Like error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return toErrorResponse(error)
   }
 }
 
@@ -57,21 +55,27 @@ export async function GET(
 ) {
   try {
     const { slug } = await params
-    const browserId = getBrowserIdFromHeaders(request.headers)
+    const anonymousActor = (() => {
+      try {
+        return createAnonymousActorId(request.headers)
+      } catch {
+        return null
+      }
+    })()
     const post = await prisma.post.findFirst({ where: { slug, deletedAt: null, published: true } })
 
     if (!post) {
-      return NextResponse.json({ error: 'Post not found' }, { status: 404 })
+      throw new NotFoundError('Post not found')
     }
 
     const likeCount = await prisma.like.count({ where: { postId: post.id } })
 
     let isLiked = false
-    if (browserId) {
+    if (anonymousActor) {
       const like = await prisma.like.findFirst({
         where: {
           postId: post.id,
-          browserId,
+          browserId: anonymousActor.actorId,
         },
       })
       isLiked = Boolean(like)
@@ -86,6 +90,6 @@ export async function GET(
     })
   } catch (error) {
     console.error('Get like status error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return toErrorResponse(error)
   }
 }

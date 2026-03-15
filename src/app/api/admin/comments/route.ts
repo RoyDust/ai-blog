@@ -1,20 +1,12 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
 import type { CommentStatus } from "@prisma/client"
-import { authOptions } from "@/lib/auth"
+
+import { requireAdminSession } from "@/lib/api-auth"
+import { NotFoundError, ValidationError, toErrorResponse } from "@/lib/api-errors"
 import { prisma } from "@/lib/prisma"
+import { parseCommentStatusInput } from "@/lib/validation"
 
 const allowedStatuses = new Set<CommentStatus>(["APPROVED", "PENDING", "REJECTED", "SPAM"])
-
-async function assertAdmin() {
-  const session = await getServerSession(authOptions)
-
-  if (!session?.user?.id || session.user.role !== "ADMIN") {
-    return null
-  }
-
-  return session
-}
 
 function parseIds(searchParams: URLSearchParams) {
   return (searchParams.get("ids") ?? searchParams.getAll("id").join(","))
@@ -24,13 +16,9 @@ function parseIds(searchParams: URLSearchParams) {
 }
 
 export async function GET(request: Request) {
-  const session = await assertAdmin()
-
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
-
   try {
+    await requireAdminSession()
+
     const { searchParams } = new URL(request.url)
 
     if (searchParams.get("preview") === "delete") {
@@ -80,55 +68,42 @@ export async function GET(request: Request) {
     return NextResponse.json({ success: true, data: comments })
   } catch (error) {
     console.error("Get admin comments error:", error)
-    return NextResponse.json(
-      {
-        error: "Failed to load comments",
-        ...(process.env.NODE_ENV !== "production" && error instanceof Error ? { detail: error.message } : {}),
-      },
-      { status: 500 }
-    )
+    if (error instanceof Error && process.env.NODE_ENV !== "production" && !(error instanceof ValidationError)) {
+      return NextResponse.json({ error: "Failed to load comments", detail: error.message }, { status: 500 })
+    }
+    return toErrorResponse(error, "Failed to load comments")
   }
 }
 
 export async function PATCH(request: Request) {
-  const session = await assertAdmin()
-
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
-
   try {
-    const body = (await request.json()) as { ids?: unknown; status?: unknown }
-    const ids = Array.isArray(body.ids) ? body.ids.filter((id): id is string => typeof id === "string" && id.trim().length > 0) : []
-    const status = typeof body.status === "string" ? (body.status.toUpperCase() as CommentStatus) : null
+    await requireAdminSession()
+
+    const { ids, status } = parseCommentStatusInput(await request.json())
 
     if (ids.length === 0) {
-      return NextResponse.json({ error: "Comment IDs are required" }, { status: 400 })
+      throw new ValidationError("Comment IDs are required")
     }
 
-    if (!status || !allowedStatuses.has(status)) {
-      return NextResponse.json({ error: "Invalid comment status" }, { status: 400 })
+    if (!allowedStatuses.has(status as CommentStatus)) {
+      throw new ValidationError("Invalid comment status")
     }
 
     await prisma.comment.updateMany({
       where: { id: { in: ids }, deletedAt: null },
-      data: { status },
+      data: { status: status as CommentStatus },
     })
 
     return NextResponse.json({ success: true })
-  } catch {
-    return NextResponse.json({ error: "Failed to update comment status" }, { status: 500 })
+  } catch (error) {
+    return toErrorResponse(error, "Failed to update comment status")
   }
 }
 
 export async function DELETE(request: Request) {
-  const session = await assertAdmin()
-
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
-
   try {
+    await requireAdminSession()
+
     const { searchParams } = new URL(request.url)
     const ids = parseIds(searchParams)
 
@@ -142,22 +117,24 @@ export async function DELETE(request: Request) {
     })
 
     if (comments.length === 0) {
-      return NextResponse.json({ error: "Comment not found" }, { status: 404 })
+      throw new NotFoundError("Comment not found")
     }
 
     const deletedAt = new Date()
     const resolvedIds = comments.map((comment) => comment.id)
 
-    await prisma.comment.updateMany({
-      where: {
-        deletedAt: null,
-        OR: [{ id: { in: resolvedIds } }, { parentId: { in: resolvedIds } }],
-      },
-      data: { deletedAt },
-    })
+    await prisma.$transaction([
+      prisma.comment.updateMany({
+        where: {
+          deletedAt: null,
+          OR: [{ id: { in: resolvedIds } }, { parentId: { in: resolvedIds } }],
+        },
+        data: { deletedAt },
+      }),
+    ])
 
     return NextResponse.json({ success: true })
-  } catch {
-    return NextResponse.json({ error: "Failed to delete comment" }, { status: 500 })
+  } catch (error) {
+    return toErrorResponse(error, "Failed to delete comment")
   }
 }

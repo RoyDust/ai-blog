@@ -1,39 +1,32 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { getBrowserIdFromHeaders, maskIpAddress } from '@/lib/browser-id'
+import { createAnonymousActorId } from '@/lib/anonymous-actor'
 import { parseCommentInput } from '@/lib/validation'
 import { checkInteractionRateLimit } from '@/lib/rate-limit'
+import { ForbiddenError, NotFoundError, toErrorResponse } from '@/lib/api-errors'
+import { requireSession } from '@/lib/api-auth'
 
 export async function POST(request: Request) {
   try {
-    const rateLimit = checkInteractionRateLimit(request)
+    const rateLimit = await checkInteractionRateLimit(request)
     if (!rateLimit.allowed) {
       return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
     }
 
-    const browserId = getBrowserIdFromHeaders(request.headers)
-    if (!browserId) {
-      return NextResponse.json({ error: 'Browser ID is required' }, { status: 400 })
-    }
-
+    const anonymousActor = createAnonymousActorId(request.headers)
     const { postId, content, parentId } = parseCommentInput(await request.json())
     const post = await prisma.post.findFirst({ where: { id: postId, deletedAt: null, published: true } })
     if (!post) {
-      return NextResponse.json({ error: 'Post not found' }, { status: 404 })
+      throw new NotFoundError('Post not found')
     }
-    const forwardedFor = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
-    const realIp = request.headers.get('x-real-ip')?.trim()
-    const authorLabel = maskIpAddress(forwardedFor || realIp)
 
     const comment = await prisma.comment.create({
       data: {
         content,
         postId: post.id,
         parentId,
-        browserId,
-        authorLabel,
+        browserId: anonymousActor.actorId,
+        authorLabel: anonymousActor.authorLabel,
       },
       include: {
         author: {
@@ -44,31 +37,24 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, data: comment })
   } catch (error) {
-    if (error instanceof Error && error.message.startsWith('Invalid')) {
-      return NextResponse.json({ error: error.message }, { status: 400 })
-    }
-
     console.error('Create comment error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return toErrorResponse(error)
   }
 }
 
 export async function PATCH(request: Request) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const session = await requireSession()
 
     const { id, content } = await request.json()
     const comment = await prisma.comment.findFirst({ where: { id, deletedAt: null } })
 
     if (!comment) {
-      return NextResponse.json({ error: 'Comment not found' }, { status: 404 })
+      throw new NotFoundError('Comment not found')
     }
 
     if ((!comment.authorId || comment.authorId !== session.user.id) && session.user.role !== 'ADMIN') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      throw new ForbiddenError()
     }
 
     const updatedComment = await prisma.comment.update({
@@ -84,16 +70,13 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ success: true, data: updatedComment })
   } catch (error) {
     console.error('Update comment error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return toErrorResponse(error)
   }
 }
 
 export async function DELETE(request: Request) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const session = await requireSession()
 
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
@@ -105,17 +88,17 @@ export async function DELETE(request: Request) {
     const comment = await prisma.comment.findFirst({ where: { id, deletedAt: null } })
 
     if (!comment) {
-      return NextResponse.json({ error: 'Comment not found' }, { status: 404 })
+      throw new NotFoundError('Comment not found')
     }
 
     if ((!comment.authorId || comment.authorId !== session.user.id) && session.user.role !== 'ADMIN') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      throw new ForbiddenError()
     }
 
     await prisma.comment.update({ where: { id }, data: { deletedAt: new Date() } })
     return NextResponse.json({ success: true, message: 'Comment deleted' })
   } catch (error) {
     console.error('Delete comment error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return toErrorResponse(error)
   }
 }

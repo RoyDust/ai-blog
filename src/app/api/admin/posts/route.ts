@@ -1,20 +1,11 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
+
+import { requireAdminSession } from "@/lib/api-auth"
+import { NotFoundError, toErrorResponse } from "@/lib/api-errors"
 import { revalidatePublicContent } from "@/lib/cache"
 import { prisma } from "@/lib/prisma"
 import { calculateReadingTimeMinutes } from "@/lib/reading-time"
 import { parsePostInput } from "@/lib/validation"
-
-async function assertAdmin() {
-  const session = await getServerSession(authOptions)
-
-  if (!session?.user?.id || session.user.role !== "ADMIN") {
-    return null
-  }
-
-  return session
-}
 
 function parseIds(searchParams: URLSearchParams) {
   return (searchParams.get("ids") ?? searchParams.getAll("id").join(","))
@@ -24,64 +15,59 @@ function parseIds(searchParams: URLSearchParams) {
 }
 
 export async function GET(request: Request) {
-  const session = await assertAdmin()
+  try {
+    await requireAdminSession()
 
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
+    const { searchParams } = new URL(request.url)
 
-  const { searchParams } = new URL(request.url)
+    if (searchParams.get("preview") === "delete") {
+      const ids = parseIds(searchParams)
 
-  if (searchParams.get("preview") === "delete") {
-    const ids = parseIds(searchParams)
+      if (ids.length === 0) {
+        return NextResponse.json({ error: "Post IDs are required" }, { status: 400 })
+      }
 
-    if (ids.length === 0) {
-      return NextResponse.json({ error: "Post IDs are required" }, { status: 400 })
+      const [postCount, commentCount] = await Promise.all([
+        prisma.post.count({ where: { id: { in: ids }, deletedAt: null } }),
+        prisma.comment.count({ where: { postId: { in: ids }, deletedAt: null } }),
+      ])
+
+      return NextResponse.json({
+        success: true,
+        data: {
+          title: ids.length > 1 ? "批量隐藏文章" : "隐藏文章",
+          description: "隐藏后文章会从前台和后台默认列表移除，且不可直接访问。",
+          impacts: [
+            { label: "将隐藏文章", value: postCount, unit: "篇" },
+            { label: "将连带隐藏评论", value: commentCount, unit: "条" },
+          ],
+        },
+      })
     }
 
-    const [postCount, commentCount] = await Promise.all([
-      prisma.post.count({ where: { id: { in: ids }, deletedAt: null } }),
-      prisma.comment.count({ where: { postId: { in: ids }, deletedAt: null } }),
-    ])
-
-    return NextResponse.json({
-      success: true,
-      data: {
-        title: ids.length > 1 ? "批量隐藏文章" : "隐藏文章",
-        description: "隐藏后文章会从前台和后台默认列表移除，且不可直接访问。",
-        impacts: [
-          { label: "将隐藏文章", value: postCount, unit: "篇" },
-          { label: "将连带隐藏评论", value: commentCount, unit: "条" },
-        ],
+    const posts = await prisma.post.findMany({
+      where: { deletedAt: null },
+      include: {
+        author: {
+          select: { id: true, name: true, email: true },
+        },
+        category: true,
+        _count: {
+          select: { comments: { where: { deletedAt: null } }, likes: true },
+        },
       },
+      orderBy: { createdAt: "desc" },
     })
+
+    return NextResponse.json({ success: true, data: posts })
+  } catch (error) {
+    return toErrorResponse(error)
   }
-
-  const posts = await prisma.post.findMany({
-    where: { deletedAt: null },
-    include: {
-      author: {
-        select: { id: true, name: true, email: true },
-      },
-      category: true,
-      _count: {
-        select: { comments: { where: { deletedAt: null } }, likes: true },
-      },
-    },
-    orderBy: { createdAt: "desc" },
-  })
-
-  return NextResponse.json({ success: true, data: posts })
 }
 
 export async function POST(request: Request) {
-  const session = await assertAdmin()
-
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
-
   try {
+    const session = await requireAdminSession()
     const { title, content, slug, excerpt, coverImage, categoryId, tagIds, published } = parsePostInput(await request.json())
     const readingTimeMinutes = calculateReadingTimeMinutes(content)
 
@@ -116,23 +102,15 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, data: post })
   } catch (error) {
-    if (error instanceof Error && (error.message.startsWith("Invalid") || error.message === "Title and content are required")) {
-      return NextResponse.json({ error: error.message }, { status: 400 })
-    }
-
     console.error("Create admin post error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return toErrorResponse(error)
   }
 }
 
 export async function DELETE(request: Request) {
-  const session = await assertAdmin()
-
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
-
   try {
+    await requireAdminSession()
+
     const { searchParams } = new URL(request.url)
     const ids = parseIds(searchParams)
 
@@ -151,19 +129,22 @@ export async function DELETE(request: Request) {
     })
 
     if (posts.length === 0) {
-      return NextResponse.json({ error: "Post not found" }, { status: 404 })
+      throw new NotFoundError("Post not found")
     }
 
     const deletedAt = new Date()
+    const postIds = posts.map((post) => post.id)
 
-    await prisma.post.updateMany({
-      where: { id: { in: posts.map((post) => post.id) }, deletedAt: null },
-      data: { deletedAt, published: false, publishedAt: null },
-    })
-    await prisma.comment.updateMany({
-      where: { postId: { in: posts.map((post) => post.id) }, deletedAt: null },
-      data: { deletedAt },
-    })
+    await prisma.$transaction([
+      prisma.post.updateMany({
+        where: { id: { in: postIds }, deletedAt: null },
+        data: { deletedAt, published: false, publishedAt: null },
+      }),
+      prisma.comment.updateMany({
+        where: { postId: { in: postIds }, deletedAt: null },
+        data: { deletedAt },
+      }),
+    ])
 
     for (const post of posts) {
       revalidatePublicContent({
@@ -174,7 +155,7 @@ export async function DELETE(request: Request) {
     }
 
     return NextResponse.json({ success: true })
-  } catch {
-    return NextResponse.json({ error: "Failed to delete post" }, { status: 500 })
+  } catch (error) {
+    return toErrorResponse(error, "Failed to delete post")
   }
 }

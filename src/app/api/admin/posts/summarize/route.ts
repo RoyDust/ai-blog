@@ -1,34 +1,24 @@
-import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { NextResponse } from "next/server"
+
+import { requireAdminSession } from "@/lib/api-auth"
+import { toErrorResponse, ValidationError } from "@/lib/api-errors"
 
 type DashScopePayload = {
   choices?: Array<{
     message?: {
-      content?: string | Array<{ text?: string; type?: string }>;
-    };
-  }>;
+      content?: string | Array<{ text?: string; type?: string }>
+    }
+  }>
   error?: {
-    message?: string;
-  };
-};
-
-async function assertAdmin() {
-  const session = await getServerSession(authOptions);
-
-  if (!session?.user?.id || session.user.role !== "ADMIN") {
-    return null;
+    message?: string
   }
-
-  return session;
 }
 
 function extractSummary(payload: DashScopePayload) {
-  // 兼容大模型返回 string 和富文本数组两种 content 结构。
-  const content = payload.choices?.[0]?.message?.content;
+  const content = payload.choices?.[0]?.message?.content
 
   if (typeof content === "string") {
-    return content.trim();
+    return content.trim()
   }
 
   if (Array.isArray(content)) {
@@ -36,49 +26,46 @@ function extractSummary(payload: DashScopePayload) {
       .map((item) => item.text?.trim())
       .filter(Boolean)
       .join("\n")
-      .trim();
+      .trim()
   }
 
-  return "";
+  return ""
 }
 
 function normalizeSummary(summary: string) {
-  // 清掉常见的引号、首尾空白和多余换行，方便直接回填到摘要输入框。
-  return summary.replace(/^['"“”‘’\s]+|['"“”‘’\s]+$/g, "").replace(/\s+/g, " ").trim();
+  return summary.replace(/^['"“”‘’\s]+|['"“”‘’\s]+$/g, "").replace(/\s+/g, " ").trim()
 }
 
 export async function POST(request: Request) {
-  const session = await assertAdmin();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const body = (await request.json()) as { title?: string; content?: string };
-  const content = body.content?.trim();
-
-  if (!content) {
-    return NextResponse.json({ error: "Article content is required" }, { status: 400 });
-  }
-
-  const apiKey = process.env.DASHSCOPE_API_KEY;
-  if (!apiKey) {
-    return NextResponse.json({ error: "DASHSCOPE_API_KEY is not configured" }, { status: 500 });
-  }
-
-  const baseUrl = process.env.DASHSCOPE_BASE_URL ?? "https://dashscope.aliyuncs.com/compatible-mode/v1";
-  const model = process.env.DASHSCOPE_MODEL ?? "qwen3.5-flash";
-  // 用明确规则约束模型输出，减少出现标题、列表符号或过长摘要的概率。
-  const prompt = [
-    "请根据下面的文章内容生成一段中文摘要。",
-    "要求：",
-    "1. 仅输出摘要正文，不要标题、引号、项目符号或 Markdown。",
-    "2. 控制在 70 到 120 个中文字符内。",
-    "3. 准确概括主题、核心观点与读者价值。",
-    body.title?.trim() ? `文章标题：${body.title.trim()}` : undefined,
-    `文章内容：\n${content}`,
-  ]
-    .filter(Boolean)
-    .join("\n\n");
-
   try {
+    await requireAdminSession()
+
+    const body = (await request.json()) as { title?: string; content?: string }
+    const content = body.content?.trim()
+
+    if (!content) {
+      throw new ValidationError("Article content is required")
+    }
+
+    const apiKey = process.env.DASHSCOPE_API_KEY
+    if (!apiKey) {
+      return NextResponse.json({ error: "DASHSCOPE_API_KEY is not configured" }, { status: 500 })
+    }
+
+    const baseUrl = process.env.DASHSCOPE_BASE_URL ?? "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    const model = process.env.DASHSCOPE_MODEL ?? "qwen3.5-flash"
+    const prompt = [
+      "请根据下面的文章内容生成一段中文摘要。",
+      "要求：",
+      "1. 仅输出摘要正文，不要标题、引号、项目符号或 Markdown。",
+      "2. 控制在 70 到 120 个中文字符内。",
+      "3. 准确概括主题、核心观点与读者价值。",
+      body.title?.trim() ? `文章标题：${body.title.trim()}` : undefined,
+      `文章内容：\n${content}`,
+    ]
+      .filter(Boolean)
+      .join("\n\n")
+
     const response = await fetch(`${baseUrl}/chat/completions`, {
       method: "POST",
       headers: {
@@ -94,22 +81,21 @@ export async function POST(request: Request) {
         temperature: 0.3,
         max_tokens: 220,
       }),
-    });
+    })
 
-    const payload = (await response.json()) as DashScopePayload;
+    const payload = (await response.json()) as DashScopePayload
 
     if (!response.ok) {
-      return NextResponse.json({ error: payload.error?.message || "Summary generation failed" }, { status: 502 });
+      return NextResponse.json({ error: payload.error?.message || "Summary generation failed" }, { status: 502 })
     }
 
-    // 即便模型调用成功，也要在服务端做一次结果兜底清洗。
-    const summary = normalizeSummary(extractSummary(payload));
+    const summary = normalizeSummary(extractSummary(payload))
     if (!summary) {
-      return NextResponse.json({ error: "Summary generation failed" }, { status: 502 });
+      return NextResponse.json({ error: "Summary generation failed" }, { status: 502 })
     }
 
-    return NextResponse.json({ success: true, data: { summary } });
-  } catch {
-    return NextResponse.json({ error: "Summary generation failed" }, { status: 500 });
+    return NextResponse.json({ success: true, data: { summary } })
+  } catch (error) {
+    return toErrorResponse(error, "Summary generation failed")
   }
 }

@@ -1,13 +1,23 @@
+import { ValidationError } from "@/lib/api-errors"
+
 const MAX_LIMIT = 50
+const MAX_NAME_LENGTH = 80
+const MAX_SLUG_LENGTH = 120
+const MAX_COLOR_LENGTH = 32
+const MAX_EXCERPT_LENGTH = 320
+const MAX_COMMENT_LENGTH = 5_000
+const MAX_POST_TITLE_LENGTH = 160
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 
 function readString(value: unknown, fieldName: string) {
   if (typeof value !== 'string') {
-    throw new Error(`Invalid ${fieldName}`)
+    throw new ValidationError(`Invalid ${fieldName}`)
   }
 
   const trimmed = value.trim()
   if (!trimmed) {
-    throw new Error(`Invalid ${fieldName}`)
+    throw new ValidationError(`Invalid ${fieldName}`)
   }
 
   return trimmed
@@ -19,11 +29,53 @@ function optionalString(value: unknown, fieldName: string) {
   }
 
   if (typeof value !== 'string') {
-    throw new Error(`Invalid ${fieldName}`)
+    throw new ValidationError(`Invalid ${fieldName}`)
   }
 
   const trimmed = value.trim()
   return trimmed || undefined
+}
+
+function optionalNullableString(value: unknown, fieldName: string) {
+  if (value === null || value === "") {
+    return null
+  }
+
+  return optionalString(value, fieldName)
+}
+
+function assertLength(value: string | undefined, fieldName: string, maxLength: number) {
+  if (value && value.length > maxLength) {
+    throw new ValidationError(`${fieldName} is too long`)
+  }
+}
+
+function assertSlug(value: string, fieldName: string) {
+  assertLength(value, fieldName, MAX_SLUG_LENGTH)
+
+  if (!SLUG_PATTERN.test(value)) {
+    throw new ValidationError(`Invalid ${fieldName}`)
+  }
+}
+
+function normalizeStringArray(value: unknown, fieldName: string) {
+  if (value == null) {
+    return undefined
+  }
+
+  if (!Array.isArray(value) || value.some((item) => typeof item !== "string" || !item.trim())) {
+    throw new ValidationError(`Invalid ${fieldName}`)
+  }
+
+  return value.map((item) => item.trim())
+}
+
+function readBoolean(value: unknown, fieldName: string) {
+  if (typeof value !== "boolean") {
+    throw new ValidationError(`Invalid ${fieldName}`)
+  }
+
+  return value
 }
 
 /**
@@ -45,13 +97,15 @@ export function parseRegisterInput(payload: unknown) {
   const password = readString(data.password, 'password')
   const name = optionalString(data.name, 'name')
 
-  if (!email.includes('@')) {
-    throw new Error('Invalid email')
+  if (!EMAIL_PATTERN.test(email)) {
+    throw new ValidationError('Invalid email')
   }
 
   if (password.length < 8) {
-    throw new Error('Password too short')
+    throw new ValidationError('Password too short')
   }
+
+  assertLength(name, 'name', MAX_NAME_LENGTH)
 
   return { email, password, name }
 }
@@ -64,8 +118,8 @@ export function parseLoginInput(payload: unknown) {
   const email = readString(data.email, 'email')
   const password = readString(data.password, 'password')
 
-  if (!email.includes('@')) {
-    throw new Error('Invalid email')
+  if (!EMAIL_PATTERN.test(email)) {
+    throw new ValidationError('Invalid email')
   }
 
   return { email, password }
@@ -88,10 +142,12 @@ export function parseUploadRequest(payload: unknown) {
  */
 export function parseCommentInput(payload: unknown) {
   const data = (payload ?? {}) as { postId?: unknown; content?: unknown; parentId?: unknown }
+  const content = readString(data.content, 'content')
+  assertLength(content, 'content', MAX_COMMENT_LENGTH)
 
   return {
     postId: readString(data.postId, 'postId'),
-    content: readString(data.content, 'content'),
+    content,
     parentId: optionalString(data.parentId, 'parentId'),
   }
 }
@@ -111,24 +167,24 @@ export function parsePostInput(payload: unknown) {
     published?: unknown
   }
 
-  const tagIds = data.tagIds
-  if (tagIds != null && (!Array.isArray(tagIds) || tagIds.some((tagId) => typeof tagId !== 'string' || !tagId.trim()))) {
-    throw new Error('Invalid tagIds')
-  }
+  const title = readString(data.title, 'title')
+  const slug = readString(data.slug, 'slug')
+  const content = readString(data.content, 'content')
+  const excerpt = optionalString(data.excerpt, 'excerpt')
 
-  if (data.published != null && typeof data.published !== 'boolean') {
-    throw new Error('Invalid published')
-  }
+  assertLength(title, 'title', MAX_POST_TITLE_LENGTH)
+  assertLength(excerpt, 'excerpt', MAX_EXCERPT_LENGTH)
+  assertSlug(slug, 'slug')
 
   return {
-    title: readString(data.title, 'title'),
-    content: readString(data.content, 'content'),
-    slug: readString(data.slug, 'slug'),
-    excerpt: optionalString(data.excerpt, 'excerpt'),
+    title,
+    content,
+    slug,
+    excerpt,
     coverImage: optionalString(data.coverImage, 'coverImage'),
-    categoryId: optionalString(data.categoryId, 'categoryId'),
-    tagIds: tagIds?.map((tagId) => tagId.trim()) as string[] | undefined,
-    published: data.published === true,
+    categoryId: optionalNullableString(data.categoryId, 'categoryId'),
+    tagIds: normalizeStringArray(data.tagIds, 'tagIds'),
+    published: data.published == null ? false : readBoolean(data.published, 'published'),
   }
 }
 
@@ -144,31 +200,80 @@ export function parsePostPatchInput(payload: unknown) {
     categoryId?: unknown
     tagIds?: unknown
     published?: unknown
+    slug?: unknown
   }
 
   const title = optionalString(data.title, 'title')
   const content = optionalString(data.content, 'content')
-  const tagIds = data.tagIds
 
   if (!title || !content) {
-    throw new Error('Title and content are required')
+    throw new ValidationError('Title and content are required')
   }
 
-  if (tagIds != null && (!Array.isArray(tagIds) || tagIds.some((tagId) => typeof tagId !== 'string' || !tagId.trim()))) {
-    throw new Error('Invalid tagIds')
-  }
-
-  if (data.published != null && typeof data.published !== 'boolean') {
-    throw new Error('Invalid published')
-  }
+  assertLength(title, 'title', MAX_POST_TITLE_LENGTH)
+  assertLength(optionalString(data.excerpt, 'excerpt'), 'excerpt', MAX_EXCERPT_LENGTH)
 
   return {
     title,
     content,
+    slug: data.slug == null ? undefined : readString(data.slug, 'slug'),
     excerpt: optionalString(data.excerpt, 'excerpt'),
     coverImage: optionalString(data.coverImage, 'coverImage'),
-    categoryId: optionalString(data.categoryId, 'categoryId'),
-    tagIds: tagIds?.map((tagId) => tagId.trim()) as string[] | undefined,
-    published: data.published,
+    categoryId: optionalNullableString(data.categoryId, 'categoryId'),
+    tagIds: normalizeStringArray(data.tagIds, 'tagIds'),
+    published: data.published == null ? undefined : readBoolean(data.published, 'published'),
+  }
+}
+
+export function parseTaxonomyInput(payload: unknown) {
+  const data = (payload ?? {}) as { id?: unknown; name?: unknown; slug?: unknown; description?: unknown; color?: unknown }
+  const name = readString(data.name, 'name')
+  const slug = readString(data.slug, 'slug')
+
+  assertLength(name, 'name', MAX_NAME_LENGTH)
+  assertSlug(slug, 'slug')
+  assertLength(optionalString(data.description, 'description'), 'description', MAX_EXCERPT_LENGTH)
+  assertLength(optionalString(data.color, 'color'), 'color', MAX_COLOR_LENGTH)
+
+  return {
+    id: optionalString(data.id, 'id'),
+    name,
+    slug,
+    description: optionalNullableString(data.description, 'description'),
+    color: optionalNullableString(data.color, 'color'),
+  }
+}
+
+export function parseProfileUpdateInput(payload: unknown) {
+  const data = (payload ?? {}) as { name?: unknown; email?: unknown }
+  const name = optionalString(data.name, 'name')
+  const email = optionalString(data.email, 'email')
+
+  assertLength(name, 'name', MAX_NAME_LENGTH)
+
+  if (email && !EMAIL_PATTERN.test(email)) {
+    throw new ValidationError('Invalid email')
+  }
+
+  return {
+    name,
+    email,
+  }
+}
+
+export function parseCommentStatusInput(payload: unknown) {
+  const data = (payload ?? {}) as { ids?: unknown; status?: unknown }
+  const ids = normalizeStringArray(data.ids, 'ids') ?? []
+  const status = readString(data.status, 'status').toUpperCase()
+
+  return { ids, status }
+}
+
+export function parsePublishInput(payload: unknown) {
+  const data = (payload ?? {}) as { id?: unknown; published?: unknown }
+
+  return {
+    id: readString(data.id, 'id'),
+    published: readBoolean(data.published, 'published'),
   }
 }

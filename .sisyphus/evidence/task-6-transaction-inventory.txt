@@ -1,0 +1,7 @@
+/api/admin/posts DELETE -> wraps post soft-delete + comment soft-delete in prisma.$transaction
+/api/admin/comments DELETE -> wraps comment + reply soft-delete batch in prisma.$transaction
+/api/admin/categories DELETE -> wraps category soft-delete + post category unlink in prisma.$transaction
+Single-write flows left non-transactional by design:
+- /api/admin/tags DELETE
+- /api/admin/posts/publish PATCH
+- /api/users/me PATCH
