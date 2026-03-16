@@ -9,7 +9,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArticleContinuation, ArticleToc, BackToTopButton, BookmarkButton, LikeButton, ReadingProgress, ShareButton } from "@/components/blog";
-import { CommentAuthGate } from "@/components/CommentAuthGate";
+// import { CommentAuthGate } from "@/components/CommentAuthGate";
 import { prisma } from "@/lib/prisma";
 import { buildArticleJsonLd, buildArticleMetadata } from "@/lib/seo";
 
@@ -135,9 +135,10 @@ function nodeText(node: ReactNode): string {
   return "";
 }
 
-function getCommentLabel(comment: { author?: { name?: string | null } | null; authorLabel?: string | null }) {
-  return comment.author?.name || comment.authorLabel || '匿名读者'
-}
+// 暂时下线文章详情页评论区展示，保留原实现便于后续恢复。
+// function getCommentLabel(comment: { author?: { name?: string | null } | null; authorLabel?: string | null }) {
+//   return comment.author?.name || comment.authorLabel || '匿名读者'
+// }
 
 export default async function PostPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -295,18 +296,18 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
           <LikeButton initialCount={post._count.likes} initialLiked={false} slug={post.slug} />
           <BookmarkButton excerpt={post.excerpt} initialBookmarked={false} slug={post.slug} title={post.title} />
           <ShareButton slug={post.slug} title={post.title} />
-          <Link
+          {/* <Link
             className="ui-btn rounded-xl bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90"
             href="#comments"
           >
             发表评论
-          </Link>
+          </Link> */}
         </div>
       </section>
 
       <ArticleContinuation nextPost={nextPost} previousPost={previousPost} />
 
-      <section className="card-base mx-auto w-full max-w-[980px] p-8 xl:min-w-[880px]" id="comments">
+      {/* <section className="card-base mx-auto w-full max-w-[980px] p-8 xl:min-w-[880px]" id="comments">
         <h2 className="mb-6 font-display text-2xl font-bold text-[var(--foreground)]">评论 ({post._count.comments})</h2>
         <p className="mb-6 text-sm text-[var(--muted)]">欢迎分享你的观点或补充事实和论据，但请避免人身攻击或侮辱他人。</p>
 
@@ -344,7 +345,7 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
 
           {post.comments.length === 0 && <p className="py-4 text-center text-[var(--muted)]">暂无评论</p>}
         </div>
-      </section>
+      </section> */}
     </div>
   );
 }
