@@ -1,0 +1,25 @@
+Task: 16. Authorization regression tests
+Date: 2026-03-17
+Status: Verified
+
+Command:
+pnpm vitest run src/app/api/posts/__tests__/route.test.ts src/app/api/admin/set-admin/__tests__/route.test.ts src/__tests__/middleware.test.ts
+
+Observed result:
+- Exit code: 0
+- Test files passed: 3
+- Tests passed: 10
+
+Relevant coverage:
+- src/app/api/posts/__tests__/route.test.ts
+  - forces non-admin post creation to stay unpublished
+- src/app/api/admin/set-admin/__tests__/route.test.ts
+  - returns not found and never promotes a user
+- src/__tests__/middleware.test.ts
+  - returns json 401 for unauthenticated admin api requests
+  - returns json 403 for non-admin admin api requests
+  - allows admin users to access /admin
+
+Conclusion:
+- Representative authorization success and denial paths are covered.
+- This satisfies the intent of Task 16 at the automated-test level.

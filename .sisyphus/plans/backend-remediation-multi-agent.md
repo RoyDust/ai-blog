@@ -15,6 +15,50 @@
 > **Parallel Execution**: YES - 4 implementation waves + final verification wave
 > **Critical Path**: Task 1 → Task 2 → Task 7 → Task 11 → Task 14
 
+## Audit Snapshot (2026-03-17)
+
+### Current Read
+
+- Code implementation appears largely complete across the scoped backend remediation areas.
+- Plan bookkeeping is not complete: the original task checkboxes remain unchecked.
+- Evidence bookkeeping has improved during this audit pass, but remains incomplete for earlier implementation tasks and real API QA.
+- Fresh repo-wide verification completed on 2026-03-17:
+  - `pnpm test` -> passed (`77` test files, `175` tests)
+  - `pnpm lint` -> passed
+
+### Task Status Audit
+
+| Task | Status | Notes |
+| --- | --- | --- |
+| 1 | Complete | Authorization matrix evidence file exists. |
+| 2 | Implemented, missing task evidence | Shared admin/session guard exists in `src/lib/api-auth.ts`; admin API fallback protection is also present in `middleware.ts`. |
+| 3 | Implemented, missing task evidence | Centralized validation expanded in `src/lib/validation.ts` and is used by scoped routes. |
+| 4 | Implemented, missing task evidence | Shared-safe limiter abstraction exists in `src/lib/rate-limit.ts` with database vs memory mode selection. |
+| 5 | Implemented, missing task evidence | Anonymous identity is bounded through `src/lib/anonymous-actor.ts` and `src/lib/browser-id.ts`. |
+| 6 | Complete | Transaction inventory evidence file exists. |
+| 7 | Implemented, missing task evidence | Public post creation now forces non-admin authors to create unpublished content. |
+| 8 | Implemented, missing task evidence | Scoped admin mutation routes use shared guard and centralized validation patterns. |
+| 9 | Implemented, missing task evidence | Critical scoped routes use the shared limiter path instead of direct in-memory-only logic. |
+| 10 | Implemented, missing task evidence | Like/comment anonymous identity handling is hardened and covered by focused tests. |
+| 11 | Implemented, missing task evidence | Transaction-backed batch mutation flows exist for scoped admin multi-write operations. |
+| 12 | Implemented, missing task evidence | `/api/users/me` now validates payloads and maps duplicate-email conflicts to `409`. |
+| 13 | Implemented, missing task evidence | Legacy `set-admin` route is decommissioned to `404` and has a regression test. |
+| 14 | Implemented, missing task evidence | Shared API error semantics exist, but no per-task evidence artifact has been recorded. |
+| 15 | Implemented, missing task evidence | `/api/admin/*` middleware fallback protection exists and is covered by middleware tests. |
+| 16 | Complete | Focused authorization regression evidence recorded in `.sisyphus/evidence/task-16-auth-tests.txt`. |
+| 17 | Complete | Focused validation/error regression evidence recorded in `.sisyphus/evidence/task-17-validation-tests.txt`. |
+| 18 | Complete | Evidence now covers anonymous identity behavior, real 429 responses, and the database-backed limiter branch. |
+| 19 | Complete | Evidence now covers transaction usage, failing transaction response handling, and direct rollback-state proof. |
+| F1 | Complete | Plan compliance evidence now includes task evidence, transaction rollback proof, and representative live API QA. |
+| F2 | Complete | Backend code quality review evidence recorded. |
+| F3 | Complete | Real API QA evidence now covers representative public, authenticated user, non-admin denial, admin success, validation, conflict, identity, and rate-limit scenarios. |
+| F4 | Complete | Scope fidelity evidence recorded. |
+
+### Completion Call
+
+- This plan should be treated as `implementation and final verification complete`.
+- Remaining rough edge: the original task checkboxes were left as planning artifacts and were not retroactively checked off one by one.
+
 ---
 
 ## Context

@@ -1,0 +1,28 @@
+Task: 19. Transaction and integrity regression tests
+Date: 2026-03-17
+Status: Verified
+
+Commands:
+- rg -n --fixed-strings '$transaction' src/app/api/admin
+- pnpm vitest run src/app/api/admin/categories/__tests__/route.test.ts
+- Real database rollback proof script using Prisma against the configured PostgreSQL database
+
+Observed result:
+- src/app/api/admin/categories/route.ts:116
+- src/app/api/admin/comments/route.ts:126
+- src/app/api/admin/posts/route.ts:138
+- src/app/api/admin/categories/__tests__/route.test.ts -> passed (1 test)
+- Real database proof:
+  - `TX_FAILED=true`
+  - `CATEGORY_DELETED_AT=null`
+  - `POST_CATEGORY_ID=<original category id>`
+  - The second write failed on `posts_categoryId_fkey`, and the first write did not persist
+
+Interpretation:
+- Scoped admin batch mutation flows now use Prisma transactions in the relevant routes.
+- A focused regression test asserts that category cleanup returns a failure response when the wrapped transaction rejects.
+- A real database proof confirms that a failing second write does not leave the first write partially persisted.
+
+Conclusion:
+- Transactional implementation exists.
+- Task 19 now has both automated regression coverage and direct rollback-state evidence for the scoped transaction pattern.

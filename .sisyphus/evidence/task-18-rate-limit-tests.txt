@@ -1,0 +1,36 @@
+Task: 18. Rate-limit and anonymous identity regression tests
+Date: 2026-03-17
+Status: Verified
+
+Command:
+pnpm vitest run src/app/api/posts/[slug]/like/__tests__/route.test.ts src/lib/__tests__/browser-id.test.ts src/lib/__tests__/rate-limit.test.ts src/app/api/comments/__tests__/route.test.ts
+
+Observed result:
+- Exit code: 0
+- Test files passed: 4
+- Tests passed: 10
+
+Relevant coverage:
+- src/app/api/posts/[slug]/like/__tests__/route.test.ts
+  - toggles likes using browser id without login
+  - returns current like state for browser id
+- src/app/api/comments/__tests__/route.test.ts
+  - creates an anonymous comment using browser id and masked ip label
+  - rejects malformed anonymous browser ids
+- src/lib/__tests__/browser-id.test.ts
+  - normalizes browser id from request headers
+  - falls back to null when browser id header is missing
+  - masks ipv4 and ipv6 addresses for public display
+- src/lib/__tests__/rate-limit.test.ts
+  - blocks requests after the limit is reached
+  - uses the database-backed limiter path when RATE_LIMIT_DRIVER=database
+
+Real API QA:
+- POST /api/posts/openclaw-he-claude-code-bian-xie-dai-ma-neng-li-dui-bi/like
+  - requests 1-20 returned 200
+  - request 21 returned 429
+- POST /api/comments with malformed x-browser-id returned 400
+- POST /api/comments with valid anonymous headers returned 200 and produced masked authorLabel plus server-derived anon_ actor id
+
+Conclusion:
+- Task 18 now has automated proof for the database-backed limiter branch and real API proof for anonymous identity plus 429 behavior.

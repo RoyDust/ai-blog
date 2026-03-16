@@ -1,0 +1,24 @@
+Task: F1. Plan Compliance Audit
+Date: 2026-03-17
+Status: Partial
+
+Audit summary:
+- Authorization model changes are implemented:
+  - public post creation forces non-admin users to remain unpublished
+  - admin-only APIs use shared session/role guards
+- Validation has been centralized across scoped mutation routes
+- Rate limiting now has an abstraction with production database mode and development memory fallback
+- Anonymous interaction identity is bounded through server-derived actor IDs
+- Scoped admin batch operations use Prisma transactions
+
+Fresh verification:
+- pnpm test -> passed (77 test files, 175 tests)
+- pnpm lint -> passed
+
+Remaining compliance gap:
+- The plan requires task-level evidence and a final verification wave.
+- Evidence is now present for Tasks 16-19 and F1-F4, with Task 19 backed by direct rollback-state proof and F3 backed by representative live API QA.
+
+Conclusion:
+- Implementation is broadly aligned with plan scope.
+- Formal completion is supported by the current implementation and verification evidence set.

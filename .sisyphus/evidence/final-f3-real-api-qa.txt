@@ -1,0 +1,49 @@
+Task: F3. Real API QA Execution
+Date: 2026-03-17
+Status: Complete
+
+Executed against local dev server:
+- GET /api/posts?page=1&limit=1
+  - Status: 200
+  - Result: returned published post data plus pagination
+- GET /api/admin/posts without session
+  - Status: 401
+  - Body: {"error":"Unauthorized"}
+- GET /api/admin/posts with non-admin session cookie
+  - Status: 403
+  - Body: {"error":"Forbidden"}
+- GET /api/admin/posts with admin session cookie
+  - Status: 200
+  - Result: returned admin post listing payload
+- POST /api/admin/set-admin
+  - Status: 404
+  - Body: {"error":"Not found"}
+- GET /api/users/me with authenticated user session cookie
+  - Status: 200
+  - Result: returned the authenticated user's profile payload
+- PATCH /api/users/me with invalid email
+  - Status: 400
+  - Body: {"error":"Invalid email"}
+- PATCH /api/users/me with another user's email
+  - Status: 409
+  - Body: {"error":"Email already in use"}
+- POST /api/comments with malformed x-browser-id
+  - Status: 400
+  - Body: {"error":"Valid browser ID is required"}
+- POST /api/comments with valid anonymous headers
+  - Status: 200
+  - Result: created comment with masked authorLabel and server-derived anonymous actor id
+- POST /api/posts/openclaw-he-claude-code-bian-xie-dai-ma-neng-li-dui-bi/like repeated 21 times
+  - Requests 1-20: 200
+  - Request 21: 429
+
+What was verified instead:
+- Focused Vitest route tests for authorization, validation, admin protection, anonymous identity, and rate-limiting behavior
+- Full repo verification:
+  - pnpm test -> passed
+  - pnpm lint -> passed
+- Temporary QA-only USER and ADMIN records were created to exercise authenticated scenarios, then deleted afterward
+
+Conclusion:
+- Representative live API QA now covers public access, authenticated user access, non-admin denial, admin success, validation errors, conflict errors, anonymous identity validation, and rate limiting.
+- This satisfies the final-wave real API QA requirement at the representative-scenario level.
