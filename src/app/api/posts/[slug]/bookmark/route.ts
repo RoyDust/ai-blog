@@ -9,7 +9,7 @@ export async function POST(
   { params }: { params: Promise<{ slug: string }> }
 ) {
   try {
-    const rateLimit = checkInteractionRateLimit(request)
+    const rateLimit = await checkInteractionRateLimit(request)
     if (!rateLimit.allowed) {
       return NextResponse.json({ error: "Too many requests" }, { status: 429 })
     }

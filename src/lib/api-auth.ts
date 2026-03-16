@@ -1,11 +1,20 @@
 import { getServerSession } from "next-auth"
+import type { DefaultSession } from "next-auth"
 
 import { authOptions } from "@/lib/auth"
 import { ForbiddenError, UnauthorizedError } from "@/lib/api-errors"
 
-export type RouteSession = NonNullable<Awaited<ReturnType<typeof getServerSession>>>
+type RouteSessionUser = NonNullable<DefaultSession["user"]> & {
+  id: string
+  role: string
+}
 
-export async function requireSession() {
+export type RouteSession = {
+  user: RouteSessionUser
+  expires: string
+}
+
+export async function requireSession(): Promise<RouteSession> {
   const session = await getServerSession(authOptions)
 
   if (!session?.user?.id) {
@@ -15,7 +24,7 @@ export async function requireSession() {
   return session as RouteSession
 }
 
-export async function requireAdminSession() {
+export async function requireAdminSession(): Promise<RouteSession> {
   const session = await requireSession()
 
   if (session.user.role !== "ADMIN") {
