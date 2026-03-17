@@ -1,5 +1,5 @@
-import Image from "next/image";
 import Link from "next/link";
+import { FallbackImage } from "@/components/ui";
 
 interface PostCardFeaturedProps {
   post: {
@@ -21,7 +21,7 @@ export function PostCardFeatured({ post }: PostCardFeaturedProps) {
       <div className="grid grid-cols-1 md:grid-cols-[1.1fr_1fr]">
         <div className="relative min-h-64">
           {post.coverImage ? (
-            <Image src={post.coverImage} alt={post.title} fill className="object-cover" />
+            <FallbackImage src={post.coverImage} alt={post.title} fill className="object-cover" />
           ) : (
             <div className="h-full w-full bg-[var(--surface-alt)]" />
           )}

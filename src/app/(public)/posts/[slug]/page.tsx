@@ -5,11 +5,11 @@ import type { ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
-import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArticleContinuation, ArticleToc, BackToTopButton, BookmarkButton, LikeButton, ReadingProgress, ShareButton } from "@/components/blog";
-// import { CommentAuthGate } from "@/components/CommentAuthGate";
+import { CommentAuthGate } from "@/components/CommentAuthGate";
+import { FallbackImage } from "@/components/ui";
 import { prisma } from "@/lib/prisma";
 import { buildArticleJsonLd, buildArticleMetadata } from "@/lib/seo";
 
@@ -135,10 +135,9 @@ function nodeText(node: ReactNode): string {
   return "";
 }
 
-// 暂时下线文章详情页评论区展示，保留原实现便于后续恢复。
-// function getCommentLabel(comment: { author?: { name?: string | null } | null; authorLabel?: string | null }) {
-//   return comment.author?.name || comment.authorLabel || '匿名读者'
-// }
+function getCommentLabel(comment: { author?: { name?: string | null } | null; authorLabel?: string | null }) {
+  return comment.author?.name || comment.authorLabel || '匿名读者'
+}
 
 export default async function PostPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -193,7 +192,7 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
         <article className="card-base overflow-hidden">
           {post.coverImage && (
             <div className="theme-media relative h-64 w-full md:h-96">
-              <Image alt={post.title} className="theme-media-image object-cover" fill priority src={post.coverImage} />
+              <FallbackImage alt={post.title} className="theme-media-image object-cover" fill priority src={post.coverImage} />
             </div>
           )}
 
@@ -250,7 +249,7 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
 
                       return (
                         <span className="my-8 block overflow-hidden rounded-xl">
-                          <Image
+                          <FallbackImage
                             alt={alt ?? ''}
                             className="theme-media-image h-auto w-full"
                             height={900}
@@ -296,18 +295,18 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
           <LikeButton initialCount={post._count.likes} initialLiked={false} slug={post.slug} />
           <BookmarkButton excerpt={post.excerpt} initialBookmarked={false} slug={post.slug} title={post.title} />
           <ShareButton slug={post.slug} title={post.title} />
-          {/* <Link
+          <Link
             className="ui-btn rounded-xl bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90"
             href="#comments"
           >
             发表评论
-          </Link> */}
+          </Link>
         </div>
       </section>
 
       <ArticleContinuation nextPost={nextPost} previousPost={previousPost} />
 
-      {/* <section className="card-base mx-auto w-full max-w-[980px] p-8 xl:min-w-[880px]" id="comments">
+      <section className="card-base mx-auto w-full max-w-[980px] p-8 xl:min-w-[880px]" id="comments">
         <h2 className="mb-6 font-display text-2xl font-bold text-[var(--foreground)]">评论 ({post._count.comments})</h2>
         <p className="mb-6 text-sm text-[var(--muted)]">欢迎分享你的观点或补充事实和论据，但请避免人身攻击或侮辱他人。</p>
 
@@ -318,7 +317,7 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
             <div className="border-b border-[var(--border)] pb-6" key={comment.id}>
               <div className="mb-2 flex items-center gap-3">
                 {comment.author?.image ? (
-                  <Image alt={getCommentLabel(comment)} className="theme-media-image rounded-full object-cover" height={32} src={comment.author.image} width={32} />
+                  <FallbackImage alt={getCommentLabel(comment)} className="theme-media-image rounded-full object-cover" height={32} src={comment.author.image} width={32} />
                 ) : (
                   <div className="h-8 w-8 rounded-full bg-[var(--surface-alt)]" />
                 )}
@@ -345,7 +344,7 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
 
           {post.comments.length === 0 && <p className="py-4 text-center text-[var(--muted)]">暂无评论</p>}
         </div>
-      </section> */}
+      </section>
     </div>
   );
 }

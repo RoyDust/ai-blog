@@ -1,9 +1,9 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { BookOpenText, Folder, Github, Mail, MessageSquare, Tag, Twitter } from "lucide-react";
+import { FallbackImage } from "@/components/ui";
 
 const profile = {
   name: "RoyDust",
@@ -65,7 +65,7 @@ export function Sidebar() {
         <div className="card-base p-6">
           <div className="flex flex-col items-center text-center">
             <div className="relative mb-4 h-24 w-24 overflow-hidden rounded-full ring-2 ring-[var(--primary)] ring-offset-2 ring-offset-[var(--card-bg)]">
-              <Image alt={profile.name} className="object-cover" fill sizes="96px" src={profile.avatar} />
+              <FallbackImage alt={profile.name} className="object-cover" fill sizes="96px" src={profile.avatar} />
             </div>
             <h2 className="text-90 mb-2 text-xl font-bold">{profile.name}</h2>
             <p className="text-75 mb-4 text-sm leading-relaxed">{profile.bio}</p>

@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import {
   ArrowUpRight,
@@ -17,6 +16,7 @@ import {
   Zap,
 } from "lucide-react";
 import { buildPageMetadata } from "@/lib/seo";
+import { FallbackImage } from "@/components/ui";
 
 const profile = {
   name: "Zhang Wei",
@@ -97,7 +97,7 @@ export default function AboutPage() {
             className="onload-animation relative h-32 w-32 overflow-hidden rounded-3xl ring-1 ring-black/8 ring-offset-4 ring-offset-[var(--card-bg)] dark:ring-white/10 md:h-40 md:w-40"
             style={{ animationDelay: "80ms" }}
           >
-            <Image alt={profile.name} className="object-cover" fill priority sizes="160px" src={profile.avatar} />
+            <FallbackImage alt={profile.name} className="object-cover" fill priority sizes="160px" src={profile.avatar} />
           </div>
 
           <div className="space-y-5">

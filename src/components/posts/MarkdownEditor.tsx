@@ -1,11 +1,11 @@
-﻿"use client";
+"use client";
 
-import NextImage from "next/image";
 import { useId, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
 import remarkGfm from "remark-gfm";
 import { Bold, Code, Heading2, Italic, Link2, List, Quote, Upload } from "lucide-react";
+import { FallbackImage } from "@/components/ui";
 
 interface MarkdownEditorProps {
   label?: string;
@@ -243,7 +243,7 @@ export function MarkdownEditor({ label = "内容", value, onChange, minRows = 18
                     const imageSrc = typeof src === "string" ? src : null;
                     if (!imageSrc) return null;
 
-                    return <NextImage alt={alt ?? ""} className="theme-media-image h-auto w-full" height={720} src={imageSrc} unoptimized width={1280} />;
+                    return <FallbackImage alt={alt ?? ""} className="theme-media-image h-auto w-full" height={720} src={imageSrc} unoptimized width={1280} />;
                   },
                 }}
               >

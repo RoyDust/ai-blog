@@ -1,6 +1,5 @@
-import Image from 'next/image';
 import Link from 'next/link';
-import { Card, CardContent } from '@/components/ui';
+import { Card, CardContent, FallbackImage } from '@/components/ui';
 
 export interface PostCardProps {
   slug: string;
@@ -34,7 +33,7 @@ export function PostCard({
     <Card hover onClick={() => (window.location.href = `/posts/${slug}`)}>
       {coverImage && (
         <div className="theme-media aspect-video w-full rounded-t-lg">
-          <Image
+          <FallbackImage
             src={coverImage}
             alt={title}
             className="theme-media-image h-full w-full object-cover"
@@ -60,7 +59,7 @@ export function PostCard({
         <div className="text-50 flex items-center justify-between text-sm">
           <div className="flex items-center gap-2">
             {author.avatar ? (
-              <Image
+              <FallbackImage
                 src={author.avatar}
                 alt={author.name}
                 className="theme-media-image h-6 w-6 rounded-full object-cover"

@@ -1,4 +1,4 @@
-﻿import Image from "next/image";
+import { FallbackImage } from "@/components/ui";
 import Link from "next/link";
 import { ChevronRight, Eye } from "lucide-react";
 import { PostMeta } from "./PostMeta";
@@ -83,7 +83,7 @@ export function PostCard({ post }: PostCardProps) {
             <div className="absolute z-20 flex h-full w-full items-center justify-center">
               <ChevronRight className="scale-50 text-5xl text-white opacity-0 transition group-hover:scale-100 group-hover:opacity-100" />
             </div>
-            <Image
+            <FallbackImage
               alt={post.title}
               className="object-cover transition-transform duration-500 group-hover:scale-105"
               fill
