@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { requireAiClient } from "@/lib/ai-auth";
 import { getAiDraft } from "@/lib/ai-authoring";
 import { NotFoundError, toErrorResponse } from "@/lib/api-errors";
+import { parseAiDraftExternalId } from "@/lib/validation";
 
 export async function GET(
   request: Request,
@@ -10,7 +11,7 @@ export async function GET(
 ) {
   try {
     const client = await requireAiClient(request, "drafts:read");
-    const { externalId } = await params;
+    const externalId = parseAiDraftExternalId((await params).externalId);
     const draft = await getAiDraft({ client, externalId });
 
     if (!draft) {

@@ -8,6 +8,7 @@ const createBinding = vi.fn();
 const updateBinding = vi.fn();
 const createPost = vi.fn();
 const updatePost = vi.fn();
+const findUniquePost = vi.fn();
 const calculateReadingTimeMinutes = vi.fn();
 const revalidatePublicContent = vi.fn();
 
@@ -28,10 +29,13 @@ vi.mock("@/lib/prisma", () => ({
     post: {
       create: createPost,
       update: updatePost,
+      findUnique: findUniquePost,
     },
     $transaction: vi.fn(async (callback) => callback({
       post: {
         create: createPost,
+        update: updatePost,
+        findUnique: findUniquePost,
       },
       aiDraftBinding: {
         create: createBinding,
@@ -142,7 +146,7 @@ describe("ai authoring", () => {
     });
 
     expect(updatePost).toHaveBeenCalledWith(expect.objectContaining({
-      where: { id: "post-1" },
+      where: expect.objectContaining({ id: "post-1", published: false }),
       data: expect.objectContaining({
         published: false,
         publishedAt: null,
@@ -271,6 +275,52 @@ describe("ai authoring", () => {
     expect(revalidatePublicContent).not.toHaveBeenCalled();
   });
 
+  test("rejects writes when the post becomes published at update time", async () => {
+    findFirstCategory.mockResolvedValueOnce(null);
+    findManyTags.mockResolvedValueOnce([]);
+    findUniqueBinding.mockResolvedValueOnce({
+      clientId: "client-1",
+      externalId: "draft-006b",
+      postId: "post-1",
+      post: {
+        id: "post-1",
+        deletedAt: null,
+        published: false,
+        slug: "draft-006b",
+        category: null,
+        tags: [],
+      },
+    });
+    calculateReadingTimeMinutes.mockReturnValueOnce(5);
+    updatePost.mockRejectedValueOnce({ code: "P2025" });
+    findUniquePost.mockResolvedValueOnce({
+      id: "post-1",
+      deletedAt: null,
+      published: true,
+    });
+
+    const { upsertAiDraft } = await import("../ai-authoring");
+    await expect(upsertAiDraft({
+      client: { id: "client-1", ownerId: "user-1", name: "Codex", scopes: ["drafts:write"] },
+      input: {
+        externalId: "draft-006b",
+        title: "Updated",
+        slug: "updated",
+        content: "Updated",
+      },
+    })).rejects.toMatchObject({ name: "ConflictError" });
+
+    expect(updatePost).toHaveBeenCalledTimes(1);
+    expect(findUniquePost).toHaveBeenCalledWith({
+      where: { id: "post-1" },
+      select: {
+        id: true,
+        deletedAt: true,
+        published: true,
+      },
+    });
+  });
+
   test("falls back to update after prisma conflict during create", async () => {
     findFirstCategory.mockResolvedValueOnce(null);
     findManyTags.mockResolvedValueOnce([]);
@@ -330,7 +380,7 @@ describe("ai authoring", () => {
     });
 
     expect(updatePost).toHaveBeenCalledWith(expect.objectContaining({
-      where: { id: "post-1" },
+      where: expect.objectContaining({ id: "post-1", published: false }),
     }));
     expect(result.operation).toBe("updated");
   });

@@ -101,10 +101,28 @@ type DraftBindingRecord = {
   post: DraftBindingPost | null
 }
 
+type DraftWriteGuardPost = {
+  id: string
+  deletedAt: Date | null
+  published: boolean
+}
+
 function assertDraftBindingIsUnpublished(binding: DraftBindingRecord | null) {
   if (binding?.post && !binding.post.deletedAt && binding.post.published) {
     throw new ConflictError("Draft binding points to a published post")
   }
+}
+
+function isPrismaRecordNotFoundError(error: unknown) {
+  return typeof error === "object" && error !== null && "code" in error && error.code === "P2025"
+}
+
+function throwDraftWriteGuardError(post: DraftWriteGuardPost | null): never {
+  if (post && !post.deletedAt && post.published) {
+    throw new ConflictError("Draft binding points to a published post")
+  }
+
+  throw new NotFoundError("Draft not found")
 }
 
 async function resolveAiTaxonomy(input: AiDraftInput) {
@@ -214,21 +232,44 @@ async function updateDraftPost({
   tagConnections: Array<{ id: string }>
   readingTimeMinutes: number
 }) {
-  return prisma.post.update({
-    where: { id: binding.postId },
-    data: {
-      title: input.title,
-      slug: input.slug,
-      content: input.content,
-      excerpt: input.excerpt,
-      coverImage: input.coverImage,
-      readingTimeMinutes,
-      published: false,
-      publishedAt: null,
-      categoryId,
-      tags: { set: tagConnections },
-    },
-    select: draftSelect,
+  return prisma.$transaction(async (tx) => {
+    try {
+      return await tx.post.update({
+        where: {
+          id: binding.postId,
+          deletedAt: null,
+          published: false,
+        },
+        data: {
+          title: input.title,
+          slug: input.slug,
+          content: input.content,
+          excerpt: input.excerpt,
+          coverImage: input.coverImage,
+          readingTimeMinutes,
+          published: false,
+          publishedAt: null,
+          categoryId,
+          tags: { set: tagConnections },
+        },
+        select: draftSelect,
+      })
+    } catch (error) {
+      if (!isPrismaRecordNotFoundError(error)) {
+        throw error
+      }
+
+      const currentPost = await tx.post.findUnique({
+        where: { id: binding.postId },
+        select: {
+          id: true,
+          deletedAt: true,
+          published: true,
+        },
+      })
+
+      throwDraftWriteGuardError(currentPost)
+    }
   })
 }
 

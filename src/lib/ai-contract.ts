@@ -8,7 +8,7 @@ export const AI_AUTHORING_LIMITS = {
 } as const;
 
 export const AI_AUTHORING_PATTERNS = {
-  externalId: "^[A-Za-z0-9._~-]+$",
+  externalId: "^(?!\\.{1,2}$)[A-Za-z0-9._~-]+$",
 } as const;
 
 export const AI_AUTHORING_ENDPOINTS = {

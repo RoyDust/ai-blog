@@ -38,7 +38,7 @@ export async function GET() {
             externalId: {
               type: "string",
               pattern: AI_AUTHORING_PATTERNS.externalId,
-              description: "Path-safe external draft identifier using RFC 3986 unreserved characters.",
+              description: "Path-safe external draft identifier using RFC 3986 unreserved characters, excluding '.' and '..'.",
             },
             title: { type: "string", maxLength: AI_AUTHORING_LIMITS.titleMaxLength },
             slug: { type: "string", pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
@@ -67,7 +67,10 @@ export async function GET() {
             "tagSlugs",
           ],
           properties: {
-            externalId: { type: "string" },
+            externalId: {
+              type: "string",
+              pattern: AI_AUTHORING_PATTERNS.externalId,
+            },
             postId: { type: "string" },
             title: { type: "string" },
             slug: { type: "string" },

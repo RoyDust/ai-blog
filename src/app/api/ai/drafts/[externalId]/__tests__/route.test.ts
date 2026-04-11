@@ -54,4 +54,21 @@ describe("GET /api/ai/drafts/[externalId]", () => {
 
     expect(response.status).toBe(404);
   });
+
+  test("returns 400 for an invalid externalId path param", async () => {
+    requireAiClient.mockResolvedValueOnce({ id: "client-1", ownerId: "user-1", name: "Codex", scopes: ["drafts:read"] });
+
+    const { GET } = await import("../route");
+    const response = await GET(
+      new Request("http://localhost/api/ai/drafts/..", {
+        headers: { Authorization: "Bearer blog_ai_token_123" },
+      }),
+      { params: Promise.resolve({ externalId: ".." }) },
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(payload).toEqual({ error: "Invalid externalId" });
+    expect(getAiDraft).not.toHaveBeenCalled();
+  });
 });

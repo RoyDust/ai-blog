@@ -38,4 +38,20 @@ describe('validation helpers', () => {
       content: 'content',
     })).toThrow()
   })
+
+  test('rejects dot-segment ai draft externalId values', () => {
+    expect(() => parseAiDraftInput({
+      externalId: '.',
+      title: 'AI Draft',
+      slug: 'ai-draft',
+      content: 'content',
+    })).toThrow()
+
+    expect(() => parseAiDraftInput({
+      externalId: '..',
+      title: 'AI Draft',
+      slug: 'ai-draft',
+      content: 'content',
+    })).toThrow()
+  })
 })

@@ -66,6 +66,12 @@ function assertAiExternalId(value: string) {
   }
 }
 
+export function parseAiDraftExternalId(value: unknown) {
+  const externalId = readString(value, "externalId")
+  assertAiExternalId(externalId)
+  return externalId
+}
+
 function normalizeStringArray(value: unknown, fieldName: string) {
   if (value == null) {
     return undefined
@@ -212,12 +218,11 @@ export function parseAiDraftInput(payload: unknown) {
   const slug = readString(data.slug, "slug")
   const content = readString(data.content, "content")
   const excerpt = optionalString(data.excerpt, "excerpt")
-  const externalId = readString(data.externalId, "externalId")
+  const externalId = parseAiDraftExternalId(data.externalId)
 
   assertLength(title, "title", MAX_POST_TITLE_LENGTH)
   assertLength(excerpt, "excerpt", MAX_EXCERPT_LENGTH)
   assertSlug(slug, "slug")
-  assertAiExternalId(externalId)
 
   return {
     externalId,
