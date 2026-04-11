@@ -1,3 +1,4 @@
+import { AI_AUTHORING_PATTERNS } from "@/lib/ai-contract"
 import { ValidationError } from "@/lib/api-errors"
 
 const MAX_LIMIT = 50
@@ -9,6 +10,7 @@ const MAX_COMMENT_LENGTH = 5_000
 const MAX_POST_TITLE_LENGTH = 160
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
+const AI_EXTERNAL_ID_PATTERN = new RegExp(AI_AUTHORING_PATTERNS.externalId)
 
 function readString(value: unknown, fieldName: string) {
   if (typeof value !== 'string') {
@@ -56,6 +58,18 @@ function assertSlug(value: string, fieldName: string) {
   if (!SLUG_PATTERN.test(value)) {
     throw new ValidationError(`Invalid ${fieldName}`)
   }
+}
+
+function assertAiExternalId(value: string) {
+  if (!AI_EXTERNAL_ID_PATTERN.test(value)) {
+    throw new ValidationError("Invalid externalId")
+  }
+}
+
+export function parseAiDraftExternalId(value: unknown) {
+  const externalId = readString(value, "externalId")
+  assertAiExternalId(externalId)
+  return externalId
 }
 
 function normalizeStringArray(value: unknown, fieldName: string) {
@@ -185,6 +199,40 @@ export function parsePostInput(payload: unknown) {
     categoryId: optionalNullableString(data.categoryId, 'categoryId'),
     tagIds: normalizeStringArray(data.tagIds, 'tagIds'),
     published: data.published == null ? false : readBoolean(data.published, 'published'),
+  }
+}
+
+export function parseAiDraftInput(payload: unknown) {
+  const data = (payload ?? {}) as {
+    externalId?: unknown
+    title?: unknown
+    slug?: unknown
+    content?: unknown
+    excerpt?: unknown
+    coverImage?: unknown
+    categorySlug?: unknown
+    tagSlugs?: unknown
+  }
+
+  const title = readString(data.title, "title")
+  const slug = readString(data.slug, "slug")
+  const content = readString(data.content, "content")
+  const excerpt = optionalString(data.excerpt, "excerpt")
+  const externalId = parseAiDraftExternalId(data.externalId)
+
+  assertLength(title, "title", MAX_POST_TITLE_LENGTH)
+  assertLength(excerpt, "excerpt", MAX_EXCERPT_LENGTH)
+  assertSlug(slug, "slug")
+
+  return {
+    externalId,
+    title,
+    slug,
+    content,
+    excerpt,
+    coverImage: optionalString(data.coverImage, "coverImage"),
+    categorySlug: optionalString(data.categorySlug, "categorySlug"),
+    tagSlugs: normalizeStringArray(data.tagSlugs, "tagSlugs") ?? [],
   }
 }
 

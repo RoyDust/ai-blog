@@ -2,9 +2,9 @@ import { NextResponse } from "next/server"
 
 import { requireAdminSession } from "@/lib/api-auth"
 import { NotFoundError, toErrorResponse } from "@/lib/api-errors"
+import { createAdminPost } from "@/lib/ai-authoring"
 import { revalidatePublicContent } from "@/lib/cache"
 import { prisma } from "@/lib/prisma"
-import { calculateReadingTimeMinutes } from "@/lib/reading-time"
 import { parsePostInput } from "@/lib/validation"
 
 function parseIds(searchParams: URLSearchParams) {
@@ -68,37 +68,8 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const session = await requireAdminSession()
-    const { title, content, slug, excerpt, coverImage, categoryId, tagIds, published } = parsePostInput(await request.json())
-    const readingTimeMinutes = calculateReadingTimeMinutes(content)
-
-    const post = await prisma.post.create({
-      data: {
-        title,
-        content,
-        slug,
-        excerpt,
-        coverImage,
-        categoryId,
-        published,
-        publishedAt: published ? new Date() : null,
-        readingTimeMinutes,
-        authorId: session.user.id,
-        tags: tagIds ? { connect: tagIds.map((id) => ({ id })) } : undefined,
-      },
-      include: {
-        author: { select: { id: true, name: true, image: true } },
-        category: true,
-        tags: true,
-      },
-    })
-
-    if (post.published) {
-      revalidatePublicContent({
-        slug: post.slug,
-        categorySlug: post.category?.slug,
-        tagSlugs: post.tags.map((tag) => tag.slug),
-      })
-    }
+    const input = parsePostInput(await request.json())
+    const post = await createAdminPost({ authorId: session.user.id, input })
 
     return NextResponse.json({ success: true, data: post })
   } catch (error) {

@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import {
   clampPagination,
+  parseAiDraftInput,
   parseLoginInput,
   parseRegisterInput,
   parseUploadRequest,
@@ -27,5 +28,30 @@ describe('validation helpers', () => {
 
   test('rejects missing login password', () => {
     expect(() => parseLoginInput({ email: 'a@b.com' })).toThrow()
+  })
+
+  test('rejects path-unsafe ai draft externalId values', () => {
+    expect(() => parseAiDraftInput({
+      externalId: 'article/42',
+      title: 'AI Draft',
+      slug: 'ai-draft',
+      content: 'content',
+    })).toThrow()
+  })
+
+  test('rejects dot-segment ai draft externalId values', () => {
+    expect(() => parseAiDraftInput({
+      externalId: '.',
+      title: 'AI Draft',
+      slug: 'ai-draft',
+      content: 'content',
+    })).toThrow()
+
+    expect(() => parseAiDraftInput({
+      externalId: '..',
+      title: 'AI Draft',
+      slug: 'ai-draft',
+      content: 'content',
+    })).toThrow()
   })
 })
