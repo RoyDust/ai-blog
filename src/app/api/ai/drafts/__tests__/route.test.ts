@@ -89,4 +89,24 @@ describe("POST /api/ai/drafts", () => {
     expect(response.status).toBe(409);
     expect(payload).toEqual({ error: "Draft binding points to a published post" });
   });
+
+  test("returns 400 for malformed json", async () => {
+    requireAiClient.mockResolvedValueOnce({ id: "client-1", ownerId: "user-1", name: "Codex", scopes: ["drafts:write"] });
+
+    const { POST } = await import("../route");
+    const response = await POST(new Request("http://localhost/api/ai/drafts", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer blog_ai_token_123",
+        "Content-Type": "application/json",
+      },
+      body: "{",
+    }));
+    const payload = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(payload).toEqual({ error: "Malformed JSON body" });
+    expect(parseAiDraftInput).not.toHaveBeenCalled();
+    expect(upsertAiDraft).not.toHaveBeenCalled();
+  });
 });

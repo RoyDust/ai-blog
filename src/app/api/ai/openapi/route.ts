@@ -226,7 +226,7 @@ export async function GET() {
               },
             },
             "400": {
-              description: "Validation error",
+              description: "Malformed JSON or validation error",
               content: {
                 "application/json": {
                   schema: { $ref: "#/components/schemas/AiErrorResponse" },
@@ -288,6 +288,14 @@ export async function GET() {
               content: {
                 "application/json": {
                   schema: { $ref: "#/components/schemas/AiDraftResponse" },
+                },
+              },
+            },
+            "400": {
+              description: "Invalid externalId",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/AiErrorResponse" },
                 },
               },
             },

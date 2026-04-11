@@ -26,7 +26,9 @@ describe("GET /api/ai/openapi", () => {
     expect(payload.paths["/api/ai/meta"].get.responses["200"].content).toBeDefined();
     expect(payload.paths["/api/ai/meta"].get.responses["500"].content).toBeDefined();
     expect(payload.paths["/api/ai/drafts"].post.responses["201"].content).toBeDefined();
+    expect(payload.paths["/api/ai/drafts"].post.responses["400"].description).toBe("Malformed JSON or validation error");
     expect(payload.paths["/api/ai/drafts/{externalId}"].get.responses["200"].content).toBeDefined();
+    expect(payload.paths["/api/ai/drafts/{externalId}"].get.responses["400"].description).toBe("Invalid externalId");
     expect(payload.paths["/api/ai/drafts/{externalId}"].get.responses["500"].content).toBeDefined();
   });
 });

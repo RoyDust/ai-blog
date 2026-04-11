@@ -58,8 +58,8 @@ const draftSelect = {
   excerpt: true,
   coverImage: true,
   readingTimeMinutes: true,
-  category: { select: { slug: true } },
-  tags: { select: { slug: true } },
+  category: { select: { slug: true, deletedAt: true } },
+  tags: { select: { slug: true, deletedAt: true } },
 } as const
 
 function buildAiDraftRecord(externalId: string, post: {
@@ -70,8 +70,8 @@ function buildAiDraftRecord(externalId: string, post: {
   excerpt: string | null
   coverImage: string | null
   readingTimeMinutes: number
-  category: { slug: string } | null
-  tags: Array<{ slug: string }>
+  category: { slug: string; deletedAt?: Date | null } | null
+  tags: Array<{ slug: string; deletedAt?: Date | null }>
 }): AiDraftRecord {
   return {
     externalId,
@@ -82,8 +82,8 @@ function buildAiDraftRecord(externalId: string, post: {
     excerpt: post.excerpt,
     coverImage: post.coverImage,
     readingTimeMinutes: post.readingTimeMinutes,
-    categorySlug: post.category?.slug ?? null,
-    tagSlugs: post.tags.map((tag) => tag.slug),
+    categorySlug: post.category && !post.category.deletedAt ? post.category.slug : null,
+    tagSlugs: post.tags.filter((tag) => !tag.deletedAt).map((tag) => tag.slug),
   }
 }
 
@@ -92,8 +92,8 @@ type DraftBindingPost = {
   deletedAt: Date | null
   published: boolean
   slug: string
-  category: { slug: string } | null
-  tags: Array<{ slug: string }>
+  category: { slug: string; deletedAt?: Date | null } | null
+  tags: Array<{ slug: string; deletedAt?: Date | null }>
 }
 
 type DraftBindingRecord = {

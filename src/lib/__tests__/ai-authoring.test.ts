@@ -243,6 +243,42 @@ describe("ai authoring", () => {
     expect(result).toBeNull();
   });
 
+  test("filters deleted taxonomy from getAiDraft readback", async () => {
+    findFirstBinding.mockResolvedValueOnce({
+      externalId: "draft-005b",
+      post: {
+        id: "post-1",
+        title: "Draft with stale taxonomy",
+        slug: "draft-with-stale-taxonomy",
+        content: "Draft content",
+        excerpt: null,
+        coverImage: null,
+        readingTimeMinutes: 5,
+        published: false,
+        category: {
+          slug: "deleted-category",
+          deletedAt: new Date("2026-01-01"),
+        },
+        tags: [
+          { slug: "active-tag", deletedAt: null },
+          { slug: "deleted-tag", deletedAt: new Date("2026-01-01") },
+        ],
+      },
+    });
+
+    const { getAiDraft } = await import("../ai-authoring");
+    const result = await getAiDraft({
+      client: { id: "client-1", ownerId: "user-1", name: "Codex", scopes: ["drafts:read"] },
+      externalId: "draft-005b",
+    });
+
+    expect(result).toMatchObject({
+      externalId: "draft-005b",
+      categorySlug: null,
+      tagSlugs: ["active-tag"],
+    });
+  });
+
   test("rejects writes when the binding points to a published post", async () => {
     findFirstCategory.mockResolvedValueOnce(null);
     findManyTags.mockResolvedValueOnce([]);
