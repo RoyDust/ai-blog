@@ -73,6 +73,7 @@ model User {
   bookmarks     Bookmark[]
   accounts      Account[]
   sessions      Session[]
+  aiApiClients  AiApiClient[]
 
   @@map("users")
 }
@@ -100,12 +101,48 @@ model Post {
   comments    Comment[]
   likes       Like[]
   bookmarks   Bookmark[]
+  aiDraftBinding AiDraftBinding?
 
   @@index([authorId])
   @@index([categoryId])
   @@index([published, createdAt])
   @@index([deletedAt])
   @@map("posts")
+}
+
+model AiApiClient {
+  id          String    @id @default(cuid())
+  name        String
+  tokenPrefix String    @unique
+  tokenHash   String    @unique
+  scopes      String[]
+  ownerId     String
+  owner       User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  lastUsedAt  DateTime?
+  revokedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  drafts      AiDraftBinding[]
+
+  @@index([ownerId])
+  @@index([revokedAt])
+  @@map("ai_api_clients")
+}
+
+model AiDraftBinding {
+  id         String      @id @default(cuid())
+  clientId   String
+  client     AiApiClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  postId     String      @unique
+  post       Post        @relation(fields: [postId], references: [id], onDelete: Cascade)
+  externalId String
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  @@unique([clientId, externalId])
+  @@index([clientId])
+  @@map("ai_draft_bindings")
 }
 
 model Category {
