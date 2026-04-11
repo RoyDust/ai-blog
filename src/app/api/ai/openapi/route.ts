@@ -144,6 +144,14 @@ export async function GET() {
                 },
               },
             },
+            "500": {
+              description: "Internal server error",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/AiErrorResponse" },
+                },
+              },
+            },
           },
         },
       },
@@ -256,6 +264,14 @@ export async function GET() {
             },
             "404": {
               description: "Not found",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/AiErrorResponse" },
+                },
+              },
+            },
+            "500": {
+              description: "Internal server error",
               content: {
                 "application/json": {
                   schema: { $ref: "#/components/schemas/AiErrorResponse" },

@@ -15,7 +15,9 @@ describe("GET /api/ai/openapi", () => {
     });
     expect(payload.components.schemas.AiMetaResponse).toBeDefined();
     expect(payload.paths["/api/ai/meta"].get.responses["200"].content).toBeDefined();
+    expect(payload.paths["/api/ai/meta"].get.responses["500"].content).toBeDefined();
     expect(payload.paths["/api/ai/drafts"].post.responses["201"].content).toBeDefined();
     expect(payload.paths["/api/ai/drafts/{externalId}"].get.responses["200"].content).toBeDefined();
+    expect(payload.paths["/api/ai/drafts/{externalId}"].get.responses["500"].content).toBeDefined();
   });
 });
