@@ -196,18 +196,55 @@ describe("ai authoring", () => {
 
     expect(findFirstBinding).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({
-        post: { deletedAt: null },
+        post: {
+          deletedAt: null,
+          published: false,
+        },
       }),
     }));
     expect(result).toBeNull();
   });
 
-  test("revalidates previous public cache when published draft becomes unpublished", async () => {
+  test("does not return published bindings from getAiDraft", async () => {
+    findFirstBinding.mockResolvedValueOnce({
+      externalId: "draft-005",
+      post: {
+        id: "post-1",
+        title: "Published",
+        slug: "published-post",
+        content: "Live content",
+        excerpt: null,
+        coverImage: null,
+        readingTimeMinutes: 5,
+        published: true,
+        category: null,
+        tags: [],
+      },
+    });
+
+    const { getAiDraft } = await import("../ai-authoring");
+    const result = await getAiDraft({
+      client: { id: "client-1", ownerId: "user-1", name: "Codex", scopes: ["drafts:read"] },
+      externalId: "draft-005",
+    });
+
+    expect(findFirstBinding).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        post: {
+          deletedAt: null,
+          published: false,
+        },
+      }),
+    }));
+    expect(result).toBeNull();
+  });
+
+  test("rejects writes when the binding points to a published post", async () => {
     findFirstCategory.mockResolvedValueOnce(null);
     findManyTags.mockResolvedValueOnce([]);
     findUniqueBinding.mockResolvedValueOnce({
       clientId: "client-1",
-      externalId: "draft-005",
+      externalId: "draft-006",
       postId: "post-1",
       post: {
         id: "post-1",
@@ -218,36 +255,20 @@ describe("ai authoring", () => {
         tags: [{ slug: "public-tag" }],
       },
     });
-    calculateReadingTimeMinutes.mockReturnValueOnce(5);
-    updatePost.mockResolvedValueOnce({
-      id: "post-1",
-      title: "Updated",
-      slug: "updated",
-      content: "Updated",
-      excerpt: null,
-      coverImage: null,
-      readingTimeMinutes: 5,
-      published: false,
-      category: null,
-      tags: [],
-    });
 
     const { upsertAiDraft } = await import("../ai-authoring");
-    await upsertAiDraft({
+    await expect(upsertAiDraft({
       client: { id: "client-1", ownerId: "user-1", name: "Codex", scopes: ["drafts:write"] },
       input: {
-        externalId: "draft-005",
+        externalId: "draft-006",
         title: "Updated",
         slug: "updated",
         content: "Updated",
       },
-    });
+    })).rejects.toMatchObject({ name: "ConflictError" });
 
-    expect(revalidatePublicContent).toHaveBeenCalledWith(expect.objectContaining({
-      previousSlug: "public-slug",
-      previousCategorySlug: "public-category",
-      previousTagSlugs: ["public-tag"],
-    }));
+    expect(updatePost).not.toHaveBeenCalled();
+    expect(revalidatePublicContent).not.toHaveBeenCalled();
   });
 
   test("falls back to update after prisma conflict during create", async () => {
@@ -257,13 +278,13 @@ describe("ai authoring", () => {
       .mockResolvedValueOnce(null)
       .mockResolvedValueOnce({
         clientId: "client-1",
-        externalId: "draft-006",
+        externalId: "draft-007",
         postId: "post-1",
         post: {
           id: "post-1",
           deletedAt: null,
           published: false,
-          slug: "draft-006",
+          slug: "draft-007",
           category: null,
           tags: [],
         },
@@ -301,7 +322,7 @@ describe("ai authoring", () => {
     const result = await upsertAiDraft({
       client: { id: "client-1", ownerId: "user-1", name: "Codex", scopes: ["drafts:write"] },
       input: {
-        externalId: "draft-006",
+        externalId: "draft-007",
         title: "AI Draft",
         slug: "ai-draft",
         content: "content",
@@ -319,7 +340,7 @@ describe("ai authoring", () => {
     findManyTags.mockResolvedValueOnce([]);
     findUniqueBinding.mockResolvedValueOnce({
       clientId: "client-1",
-      externalId: "draft-007",
+      externalId: "draft-008",
       postId: "post-old",
       post: {
         id: "post-old",
@@ -349,7 +370,7 @@ describe("ai authoring", () => {
     const result = await upsertAiDraft({
       client: { id: "client-1", ownerId: "user-1", name: "Codex", scopes: ["drafts:write"] },
       input: {
-        externalId: "draft-007",
+        externalId: "draft-008",
         title: "AI Draft",
         slug: "ai-draft",
         content: "content",

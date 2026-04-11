@@ -3,7 +3,7 @@ import { describe, expect, test } from "vitest";
 describe("GET /api/ai/openapi", () => {
   test("returns the ai authoring OpenAPI document", async () => {
     const { GET } = await import("../route");
-    const response = await GET(new Request("http://localhost/api/ai/openapi"));
+    const response = await GET();
     const payload = await response.json();
 
     expect(response.status).toBe(200);
@@ -13,7 +13,12 @@ describe("GET /api/ai/openapi", () => {
       type: "http",
       scheme: "bearer",
     });
+    expect(payload.paths["/api/ai/meta"].get.security).toEqual([{ bearerAuth: [] }]);
+    expect(payload.paths["/api/ai/drafts"].post.security).toEqual([{ bearerAuth: [] }]);
+    expect(payload.paths["/api/ai/drafts/{externalId}"].get.security).toEqual([{ bearerAuth: [] }]);
     expect(payload.components.schemas.AiMetaResponse).toBeDefined();
+    expect(payload.components.schemas.AiDraft.properties.externalId).toEqual({ type: "string" });
+    expect(payload.components.schemas.AiDraftInput.properties.externalId.pattern).toBeDefined();
     expect(payload.paths["/api/ai/meta"].get.responses["200"].content).toBeDefined();
     expect(payload.paths["/api/ai/meta"].get.responses["500"].content).toBeDefined();
     expect(payload.paths["/api/ai/drafts"].post.responses["201"].content).toBeDefined();

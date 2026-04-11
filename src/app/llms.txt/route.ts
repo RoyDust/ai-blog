@@ -12,7 +12,7 @@ export async function GET() {
     `- Draft upsert: POST ${baseUrl}${AI_AUTHORING_ENDPOINTS.drafts}`,
     `- Draft readback: GET ${baseUrl}${AI_AUTHORING_ENDPOINTS.drafts}/{externalId}`,
     `- Live taxonomy: GET ${baseUrl}${AI_AUTHORING_ENDPOINTS.meta}`,
-    `- Constraints: Markdown body required; title <= ${AI_AUTHORING_LIMITS.titleMaxLength}; excerpt <= ${AI_AUTHORING_LIMITS.excerptMaxLength}; publish requires human review.`,
+    `- Constraints: externalId must be a path-safe single segment; Markdown body required; title <= ${AI_AUTHORING_LIMITS.titleMaxLength}; excerpt <= ${AI_AUTHORING_LIMITS.excerptMaxLength}; publish requires human review.`,
   ].join("\n");
 
   return new Response(body, {

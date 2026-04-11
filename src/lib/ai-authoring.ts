@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma"
 import { calculateReadingTimeMinutes } from "@/lib/reading-time"
 import { revalidatePublicContent } from "@/lib/cache"
-import { NotFoundError, ValidationError, isPrismaConflictError } from "@/lib/api-errors"
+import { ConflictError, NotFoundError, ValidationError, isPrismaConflictError } from "@/lib/api-errors"
 import type { AiClientSession } from "@/lib/ai-auth"
 
 export type AiDraftInput = {
@@ -99,6 +99,12 @@ type DraftBindingPost = {
 type DraftBindingRecord = {
   postId: string
   post: DraftBindingPost | null
+}
+
+function assertDraftBindingIsUnpublished(binding: DraftBindingRecord | null) {
+  if (binding?.post && !binding.post.deletedAt && binding.post.published) {
+    throw new ConflictError("Draft binding points to a published post")
+  }
 }
 
 async function resolveAiTaxonomy(input: AiDraftInput) {
@@ -208,8 +214,7 @@ async function updateDraftPost({
   tagConnections: Array<{ id: string }>
   readingTimeMinutes: number
 }) {
-  const previous = binding.post
-  const post = await prisma.post.update({
+  return prisma.post.update({
     where: { id: binding.postId },
     data: {
       title: input.title,
@@ -225,16 +230,6 @@ async function updateDraftPost({
     },
     select: draftSelect,
   })
-
-  if (previous?.published) {
-    revalidatePublicContent({
-      previousSlug: previous.slug,
-      previousCategorySlug: previous.category?.slug,
-      previousTagSlugs: previous.tags.map((tag) => tag.slug),
-    })
-  }
-
-  return post
 }
 
 export async function upsertAiDraft({
@@ -269,6 +264,7 @@ export async function upsertAiDraft({
 
   const readingTimeMinutes = calculateReadingTimeMinutes(input.content)
   const tagConnections = tags.map((tag) => ({ id: tag.id }))
+  assertDraftBindingIsUnpublished(binding)
   const isDeletedBinding = Boolean(binding?.post?.deletedAt)
 
   if (!binding || isDeletedBinding) {
@@ -313,6 +309,8 @@ export async function upsertAiDraft({
         })
 
         if (existing?.post && !existing.post.deletedAt) {
+          assertDraftBindingIsUnpublished(existing)
+
           const post = await updateDraftPost({
             binding: existing,
             input,
@@ -357,17 +355,23 @@ export async function getAiDraft({
     where: {
       clientId: client.id,
       externalId,
-      post: { deletedAt: null },
+      post: {
+        deletedAt: null,
+        published: false,
+      },
     },
     select: {
       externalId: true,
       post: {
-        select: draftSelect,
+        select: {
+          ...draftSelect,
+          published: true,
+        },
       },
     },
   })
 
-  if (!binding?.post) {
+  if (!binding?.post || binding.post.published) {
     return null
   }
 

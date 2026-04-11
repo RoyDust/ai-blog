@@ -56,4 +56,37 @@ describe("POST /api/ai/drafts", () => {
 
     expect(response.status).toBe(201);
   });
+
+  test("returns 409 when the binding points at a published post", async () => {
+    const { ConflictError } = await import("@/lib/api-errors");
+
+    requireAiClient.mockResolvedValueOnce({ id: "client-1", ownerId: "user-1", name: "Codex", scopes: ["drafts:write"] });
+    parseAiDraftInput.mockReturnValueOnce({
+      externalId: "draft-002",
+      title: "AI Writing",
+      slug: "ai-writing",
+      content: "# Hello",
+      tagSlugs: [],
+    });
+    upsertAiDraft.mockRejectedValueOnce(new ConflictError("Draft binding points to a published post"));
+
+    const { POST } = await import("../route");
+    const response = await POST(new Request("http://localhost/api/ai/drafts", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer blog_ai_token_123",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        externalId: "draft-002",
+        title: "AI Writing",
+        slug: "ai-writing",
+        content: "# Hello",
+      }),
+    }));
+    const payload = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(payload).toEqual({ error: "Draft binding points to a published post" });
+  });
 });

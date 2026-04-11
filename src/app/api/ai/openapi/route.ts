@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 
-import { AI_AUTHORING_ENDPOINTS, AI_AUTHORING_LIMITS, AI_AUTHORING_VERSION } from "@/lib/ai-contract";
+import {
+  AI_AUTHORING_ENDPOINTS,
+  AI_AUTHORING_LIMITS,
+  AI_AUTHORING_PATTERNS,
+  AI_AUTHORING_VERSION,
+} from "@/lib/ai-contract";
 
 export async function GET() {
   return NextResponse.json({
@@ -30,13 +35,47 @@ export async function GET() {
           type: "object",
           required: ["externalId", "title", "slug", "content"],
           properties: {
-            externalId: { type: "string" },
+            externalId: {
+              type: "string",
+              pattern: AI_AUTHORING_PATTERNS.externalId,
+              description: "Path-safe external draft identifier using RFC 3986 unreserved characters.",
+            },
             title: { type: "string", maxLength: AI_AUTHORING_LIMITS.titleMaxLength },
             slug: { type: "string", pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
             content: { type: "string", description: "Markdown article body" },
             excerpt: { type: "string", maxLength: AI_AUTHORING_LIMITS.excerptMaxLength },
             coverImage: { type: "string" },
             categorySlug: { type: "string" },
+            tagSlugs: {
+              type: "array",
+              items: { type: "string" },
+            },
+          },
+        },
+        AiDraft: {
+          type: "object",
+          required: [
+            "externalId",
+            "postId",
+            "title",
+            "slug",
+            "content",
+            "excerpt",
+            "coverImage",
+            "readingTimeMinutes",
+            "categorySlug",
+            "tagSlugs",
+          ],
+          properties: {
+            externalId: { type: "string" },
+            postId: { type: "string" },
+            title: { type: "string" },
+            slug: { type: "string" },
+            content: { type: "string" },
+            excerpt: { type: ["string", "null"] },
+            coverImage: { type: ["string", "null"] },
+            readingTimeMinutes: { type: "integer", minimum: 0 },
+            categorySlug: { type: ["string", "null"] },
             tagSlugs: {
               type: "array",
               items: { type: "string" },
@@ -102,7 +141,7 @@ export async function GET() {
           properties: {
             success: { type: "boolean", enum: [true] },
             operation: { type: "string", enum: ["created", "updated"] },
-            data: { type: "object" },
+            data: { $ref: "#/components/schemas/AiDraft" },
           },
         },
         AiDraftResponse: {
@@ -110,7 +149,7 @@ export async function GET() {
           required: ["success", "data"],
           properties: {
             success: { type: "boolean", enum: [true] },
-            data: { type: "object" },
+            data: { $ref: "#/components/schemas/AiDraft" },
           },
         },
       },
@@ -118,7 +157,7 @@ export async function GET() {
     paths: {
       [AI_AUTHORING_ENDPOINTS.meta]: {
         get: {
-          security: [{ bearerAuth: ["taxonomy:read"] }],
+          security: [{ bearerAuth: [] }],
           responses: {
             "200": {
               description: "Authoring metadata and taxonomy",
@@ -157,7 +196,7 @@ export async function GET() {
       },
       [AI_AUTHORING_ENDPOINTS.drafts]: {
         post: {
-          security: [{ bearerAuth: ["drafts:write"] }],
+          security: [{ bearerAuth: [] }],
           requestBody: {
             required: true,
             content: {
@@ -228,13 +267,16 @@ export async function GET() {
       },
       "/api/ai/drafts/{externalId}": {
         get: {
-          security: [{ bearerAuth: ["drafts:read"] }],
+          security: [{ bearerAuth: [] }],
           parameters: [
             {
               name: "externalId",
               in: "path",
               required: true,
-              schema: { type: "string" },
+              schema: {
+                type: "string",
+                pattern: AI_AUTHORING_PATTERNS.externalId,
+              },
             },
           ],
           responses: {

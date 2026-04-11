@@ -7,6 +7,10 @@ export const AI_AUTHORING_LIMITS = {
   publishRequiresHumanReview: true,
 } as const;
 
+export const AI_AUTHORING_PATTERNS = {
+  externalId: "^[A-Za-z0-9._~-]+$",
+} as const;
+
 export const AI_AUTHORING_ENDPOINTS = {
   meta: "/api/ai/meta",
   drafts: "/api/ai/drafts",

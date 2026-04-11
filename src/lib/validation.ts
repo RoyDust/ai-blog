@@ -1,3 +1,4 @@
+import { AI_AUTHORING_PATTERNS } from "@/lib/ai-contract"
 import { ValidationError } from "@/lib/api-errors"
 
 const MAX_LIMIT = 50
@@ -9,6 +10,7 @@ const MAX_COMMENT_LENGTH = 5_000
 const MAX_POST_TITLE_LENGTH = 160
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
+const AI_EXTERNAL_ID_PATTERN = new RegExp(AI_AUTHORING_PATTERNS.externalId)
 
 function readString(value: unknown, fieldName: string) {
   if (typeof value !== 'string') {
@@ -55,6 +57,12 @@ function assertSlug(value: string, fieldName: string) {
 
   if (!SLUG_PATTERN.test(value)) {
     throw new ValidationError(`Invalid ${fieldName}`)
+  }
+}
+
+function assertAiExternalId(value: string) {
+  if (!AI_EXTERNAL_ID_PATTERN.test(value)) {
+    throw new ValidationError("Invalid externalId")
   }
 }
 
@@ -204,13 +212,15 @@ export function parseAiDraftInput(payload: unknown) {
   const slug = readString(data.slug, "slug")
   const content = readString(data.content, "content")
   const excerpt = optionalString(data.excerpt, "excerpt")
+  const externalId = readString(data.externalId, "externalId")
 
   assertLength(title, "title", MAX_POST_TITLE_LENGTH)
   assertLength(excerpt, "excerpt", MAX_EXCERPT_LENGTH)
   assertSlug(slug, "slug")
+  assertAiExternalId(externalId)
 
   return {
-    externalId: readString(data.externalId, "externalId"),
+    externalId,
     title,
     slug,
     content,
