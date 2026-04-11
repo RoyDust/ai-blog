@@ -17,6 +17,28 @@ export function hashAiToken(token: string) {
   return createHash("sha256").update(token).digest("hex");
 }
 
+function normalizeAiScopes(scopes: unknown): AiScope[] | null {
+  if (!Array.isArray(scopes)) {
+    return null;
+  }
+
+  const normalized: AiScope[] = [];
+
+  for (const scope of scopes) {
+    if (typeof scope !== "string") {
+      return null;
+    }
+
+    if (!AI_SCOPES.includes(scope as AiScope)) {
+      return null;
+    }
+
+    normalized.push(scope as AiScope);
+  }
+
+  return normalized;
+}
+
 function parseBearerToken(request: Request) {
   const header = request.headers.get("authorization");
 
@@ -55,7 +77,11 @@ export async function requireAiClient(request: Request, requiredScope: AiScope):
     throw new UnauthorizedError();
   }
 
-  const scopes = client.scopes as AiScope[];
+  const scopes = normalizeAiScopes(client.scopes);
+
+  if (!scopes) {
+    throw new ForbiddenError("Invalid AI scopes");
+  }
 
   if (!scopes.includes(requiredScope)) {
     throw new ForbiddenError(`Missing AI scope: ${requiredScope}`);

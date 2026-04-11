@@ -78,4 +78,25 @@ describe("ai auth", () => {
       message: "Missing AI scope: drafts:write",
     });
   });
+
+  test("rejects invalid stored scopes", async () => {
+    findFirst.mockResolvedValueOnce({
+      id: "client-2",
+      ownerId: "user-2",
+      name: "Codex",
+      scopes: ["drafts:read", "invalid:scope"],
+    });
+
+    const { requireAiClient } = await import("../ai-auth");
+    const request = new Request("http://localhost/api/ai/drafts", {
+      headers: {
+        Authorization: "Bearer blog_ai_token_456",
+      },
+    });
+
+    await expect(requireAiClient(request, "drafts:read")).rejects.toMatchObject({
+      status: 403,
+      message: "Invalid AI scopes",
+    });
+  });
 });
