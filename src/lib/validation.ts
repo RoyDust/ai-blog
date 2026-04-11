@@ -188,6 +188,39 @@ export function parsePostInput(payload: unknown) {
   }
 }
 
+export function parseAiDraftInput(payload: unknown) {
+  const data = (payload ?? {}) as {
+    externalId?: unknown
+    title?: unknown
+    slug?: unknown
+    content?: unknown
+    excerpt?: unknown
+    coverImage?: unknown
+    categorySlug?: unknown
+    tagSlugs?: unknown
+  }
+
+  const title = readString(data.title, "title")
+  const slug = readString(data.slug, "slug")
+  const content = readString(data.content, "content")
+  const excerpt = optionalString(data.excerpt, "excerpt")
+
+  assertLength(title, "title", MAX_POST_TITLE_LENGTH)
+  assertLength(excerpt, "excerpt", MAX_EXCERPT_LENGTH)
+  assertSlug(slug, "slug")
+
+  return {
+    externalId: readString(data.externalId, "externalId"),
+    title,
+    slug,
+    content,
+    excerpt,
+    coverImage: optionalString(data.coverImage, "coverImage"),
+    categorySlug: optionalString(data.categorySlug, "categorySlug"),
+    tagSlugs: normalizeStringArray(data.tagSlugs, "tagSlugs") ?? [],
+  }
+}
+
 /**
  * 校验文章更新请求体，同时允许可选元数据字段存在。
  */

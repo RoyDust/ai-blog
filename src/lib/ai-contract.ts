@@ -1,0 +1,15 @@
+export const AI_AUTHORING_VERSION = "2026-04-12";
+
+export const AI_AUTHORING_LIMITS = {
+  excerptMaxLength: 320,
+  titleMaxLength: 160,
+  supportsMarkdown: true,
+  publishRequiresHumanReview: true,
+} as const;
+
+export const AI_AUTHORING_ENDPOINTS = {
+  meta: "/api/ai/meta",
+  drafts: "/api/ai/drafts",
+  openapi: "/api/ai/openapi",
+  llms: "/llms.txt",
+} as const;
