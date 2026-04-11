@@ -39,4 +39,19 @@ describe("GET /api/ai/drafts/[externalId]", () => {
     expect(response.status).toBe(200);
     expect(payload.data.externalId).toBe("draft-001");
   });
+
+  test("returns 404 when the draft is missing", async () => {
+    requireAiClient.mockResolvedValueOnce({ id: "client-1", ownerId: "user-1", name: "Codex", scopes: ["drafts:read"] });
+    getAiDraft.mockResolvedValueOnce(null);
+
+    const { GET } = await import("../route");
+    const response = await GET(
+      new Request("http://localhost/api/ai/drafts/missing-draft", {
+        headers: { Authorization: "Bearer blog_ai_token_123" },
+      }),
+      { params: Promise.resolve({ externalId: "missing-draft" }) },
+    );
+
+    expect(response.status).toBe(404);
+  });
 });
