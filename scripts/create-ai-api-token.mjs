@@ -47,6 +47,10 @@ function readArg(args, name) {
   return args[index + 1] ?? null;
 }
 
+function hasFlag(args, name) {
+  return args.includes(name);
+}
+
 function hashAiToken(token) {
   return crypto.createHash("sha256").update(token).digest("hex");
 }
@@ -56,12 +60,17 @@ async function main() {
   const email = readArg(args, "--email") ?? args[0];
   const name = readArg(args, "--name") ?? "AI Client";
   const scopesArg = readArg(args, "--scopes");
+  const hasScopesFlag = hasFlag(args, "--scopes");
 
   if (!email) {
     throw new Error("Usage: node scripts/create-ai-api-token.mjs --email user@example.com [--name \"AI Client\"] [--scopes drafts:read,drafts:write]");
   }
 
-  const scopes = scopesArg
+  if (hasScopesFlag && (!scopesArg || scopesArg.trim().length === 0)) {
+    throw new Error("Scopes flag provided without a value. Example: --scopes drafts:read,drafts:write");
+  }
+
+  const scopes = scopesArg !== null
     ? scopesArg.split(",").map((scope) => scope.trim()).filter(Boolean)
     : AI_SCOPES;
 
