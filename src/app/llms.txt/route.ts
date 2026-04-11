@@ -7,6 +7,7 @@ export async function GET() {
     "",
     "- Purpose: Create or update unpublished Markdown blog drafts for this site.",
     "- Authentication: Authorization: Bearer <token>",
+    `- Discovery: ${baseUrl}${AI_AUTHORING_ENDPOINTS.llms}`,
     `- OpenAPI: ${baseUrl}${AI_AUTHORING_ENDPOINTS.openapi}`,
     `- Draft upsert: POST ${baseUrl}${AI_AUTHORING_ENDPOINTS.drafts}`,
     `- Draft readback: GET ${baseUrl}${AI_AUTHORING_ENDPOINTS.drafts}/{externalId}`,

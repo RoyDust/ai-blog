@@ -10,5 +10,6 @@ describe("GET /llms.txt", () => {
     expect(body).toContain("/api/ai/openapi");
     expect(body).toContain("/api/ai/drafts");
     expect(body).toContain("Authorization: Bearer <token>");
+    expect(body).toContain("/llms.txt");
   });
 });

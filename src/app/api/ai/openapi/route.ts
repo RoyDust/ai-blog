@@ -19,6 +19,13 @@ export async function GET() {
         },
       },
       schemas: {
+        AiErrorResponse: {
+          type: "object",
+          required: ["error"],
+          properties: {
+            error: { type: "string" },
+          },
+        },
         AiDraftInput: {
           type: "object",
           required: ["externalId", "title", "slug", "content"],
@@ -36,6 +43,76 @@ export async function GET() {
             },
           },
         },
+        AiMetaResponse: {
+          type: "object",
+          required: ["success", "data"],
+          properties: {
+            success: { type: "boolean", enum: [true] },
+            data: {
+              type: "object",
+              required: ["version", "limits", "categories", "tags"],
+              properties: {
+                version: { type: "string" },
+                limits: {
+                  type: "object",
+                  required: [
+                    "excerptMaxLength",
+                    "titleMaxLength",
+                    "supportsMarkdown",
+                    "publishRequiresHumanReview",
+                  ],
+                  properties: {
+                    excerptMaxLength: { type: "number" },
+                    titleMaxLength: { type: "number" },
+                    supportsMarkdown: { type: "boolean" },
+                    publishRequiresHumanReview: { type: "boolean" },
+                  },
+                },
+                categories: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    required: ["name", "slug", "postCount"],
+                    properties: {
+                      name: { type: "string" },
+                      slug: { type: "string" },
+                      postCount: { type: "number" },
+                    },
+                  },
+                },
+                tags: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    required: ["name", "slug", "postCount"],
+                    properties: {
+                      name: { type: "string" },
+                      slug: { type: "string" },
+                      postCount: { type: "number" },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        AiDraftUpsertResponse: {
+          type: "object",
+          required: ["success", "operation", "data"],
+          properties: {
+            success: { type: "boolean", enum: [true] },
+            operation: { type: "string", enum: ["created", "updated"] },
+            data: { type: "object" },
+          },
+        },
+        AiDraftResponse: {
+          type: "object",
+          required: ["success", "data"],
+          properties: {
+            success: { type: "boolean", enum: [true] },
+            data: { type: "object" },
+          },
+        },
       },
     },
     paths: {
@@ -43,7 +120,30 @@ export async function GET() {
         get: {
           security: [{ bearerAuth: ["taxonomy:read"] }],
           responses: {
-            "200": { description: "Authoring metadata and taxonomy" },
+            "200": {
+              description: "Authoring metadata and taxonomy",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/AiMetaResponse" },
+                },
+              },
+            },
+            "401": {
+              description: "Unauthorized",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/AiErrorResponse" },
+                },
+              },
+            },
+            "403": {
+              description: "Forbidden",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/AiErrorResponse" },
+                },
+              },
+            },
           },
         },
       },
@@ -59,8 +159,62 @@ export async function GET() {
             },
           },
           responses: {
-            "201": { description: "Draft created" },
-            "200": { description: "Draft updated" },
+            "201": {
+              description: "Draft created",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/AiDraftUpsertResponse" },
+                },
+              },
+            },
+            "200": {
+              description: "Draft updated",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/AiDraftUpsertResponse" },
+                },
+              },
+            },
+            "400": {
+              description: "Validation error",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/AiErrorResponse" },
+                },
+              },
+            },
+            "401": {
+              description: "Unauthorized",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/AiErrorResponse" },
+                },
+              },
+            },
+            "403": {
+              description: "Forbidden",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/AiErrorResponse" },
+                },
+              },
+            },
+            "409": {
+              description: "Conflict",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/AiErrorResponse" },
+                },
+              },
+            },
+            "500": {
+              description: "Internal server error",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/AiErrorResponse" },
+                },
+              },
+            },
           },
         },
       },
@@ -76,7 +230,38 @@ export async function GET() {
             },
           ],
           responses: {
-            "200": { description: "Stored draft" },
+            "200": {
+              description: "Stored draft",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/AiDraftResponse" },
+                },
+              },
+            },
+            "401": {
+              description: "Unauthorized",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/AiErrorResponse" },
+                },
+              },
+            },
+            "403": {
+              description: "Forbidden",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/AiErrorResponse" },
+                },
+              },
+            },
+            "404": {
+              description: "Not found",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/AiErrorResponse" },
+                },
+              },
+            },
           },
         },
       },

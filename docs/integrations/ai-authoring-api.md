@@ -5,10 +5,8 @@
 ```bash
 node --env-file=.env scripts/create-ai-api-token.mjs \
   --name codex \
-  --owner-email admin@example.com \
-  --scope drafts:read \
-  --scope drafts:write \
-  --scope taxonomy:read
+  --email admin@example.com \
+  --scopes drafts:read,drafts:write,taxonomy:read
 ```
 
 ## Read taxonomy and limits
@@ -16,6 +14,16 @@ node --env-file=.env scripts/create-ai-api-token.mjs \
 ```bash
 curl -H "Authorization: Bearer $AI_TOKEN" \
   http://localhost:3000/api/ai/meta
+```
+
+## Discovery surfaces
+
+```bash
+curl http://localhost:3000/api/ai/openapi
+```
+
+```bash
+curl http://localhost:3000/llms.txt
 ```
 
 ## Upsert a draft
