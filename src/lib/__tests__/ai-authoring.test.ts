@@ -249,4 +249,116 @@ describe("ai authoring", () => {
       previousTagSlugs: ["public-tag"],
     }));
   });
+
+  test("falls back to update after prisma conflict during create", async () => {
+    findFirstCategory.mockResolvedValueOnce(null);
+    findManyTags.mockResolvedValueOnce([]);
+    findUniqueBinding
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        clientId: "client-1",
+        externalId: "draft-006",
+        postId: "post-1",
+        post: {
+          id: "post-1",
+          deletedAt: null,
+          published: false,
+          slug: "draft-006",
+          category: null,
+          tags: [],
+        },
+      });
+    calculateReadingTimeMinutes.mockReturnValueOnce(3);
+    createPost.mockResolvedValueOnce({
+      id: "post-new",
+      title: "AI Draft",
+      slug: "ai-draft",
+      content: "content",
+      excerpt: null,
+      coverImage: null,
+      readingTimeMinutes: 3,
+      published: false,
+      category: null,
+      tags: [],
+    });
+    createBinding.mockImplementationOnce(() => {
+      throw { code: "P2002" };
+    });
+    updatePost.mockResolvedValueOnce({
+      id: "post-1",
+      title: "AI Draft",
+      slug: "ai-draft",
+      content: "content",
+      excerpt: null,
+      coverImage: null,
+      readingTimeMinutes: 3,
+      published: false,
+      category: null,
+      tags: [],
+    });
+
+    const { upsertAiDraft } = await import("../ai-authoring");
+    const result = await upsertAiDraft({
+      client: { id: "client-1", ownerId: "user-1", name: "Codex", scopes: ["drafts:write"] },
+      input: {
+        externalId: "draft-006",
+        title: "AI Draft",
+        slug: "ai-draft",
+        content: "content",
+      },
+    });
+
+    expect(updatePost).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: "post-1" },
+    }));
+    expect(result.operation).toBe("updated");
+  });
+
+  test("rebinds when existing draft post is deleted", async () => {
+    findFirstCategory.mockResolvedValueOnce(null);
+    findManyTags.mockResolvedValueOnce([]);
+    findUniqueBinding.mockResolvedValueOnce({
+      clientId: "client-1",
+      externalId: "draft-007",
+      postId: "post-old",
+      post: {
+        id: "post-old",
+        deletedAt: new Date("2026-01-01"),
+        published: false,
+        slug: "old-draft",
+        category: null,
+        tags: [],
+      },
+    });
+    calculateReadingTimeMinutes.mockReturnValueOnce(2);
+    createPost.mockResolvedValueOnce({
+      id: "post-new",
+      title: "AI Draft",
+      slug: "ai-draft",
+      content: "content",
+      excerpt: null,
+      coverImage: null,
+      readingTimeMinutes: 2,
+      published: false,
+      category: null,
+      tags: [],
+    });
+    updateBinding.mockResolvedValueOnce({});
+
+    const { upsertAiDraft } = await import("../ai-authoring");
+    const result = await upsertAiDraft({
+      client: { id: "client-1", ownerId: "user-1", name: "Codex", scopes: ["drafts:write"] },
+      input: {
+        externalId: "draft-007",
+        title: "AI Draft",
+        slug: "ai-draft",
+        content: "content",
+      },
+    });
+
+    expect(updateBinding).toHaveBeenCalledWith(expect.objectContaining({
+      data: { postId: "post-new" },
+    }));
+    expect(result.operation).toBe("created");
+  });
 });
