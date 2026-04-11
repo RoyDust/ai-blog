@@ -3,10 +3,13 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 const findFirstCategory = vi.fn();
 const findManyTags = vi.fn();
 const findUniqueBinding = vi.fn();
+const findFirstBinding = vi.fn();
 const createBinding = vi.fn();
+const updateBinding = vi.fn();
 const createPost = vi.fn();
 const updatePost = vi.fn();
 const calculateReadingTimeMinutes = vi.fn();
+const revalidatePublicContent = vi.fn();
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -18,17 +21,32 @@ vi.mock("@/lib/prisma", () => ({
     },
     aiDraftBinding: {
       findUnique: findUniqueBinding,
+      findFirst: findFirstBinding,
       create: createBinding,
+      update: updateBinding,
     },
     post: {
       create: createPost,
       update: updatePost,
     },
+    $transaction: vi.fn(async (callback) => callback({
+      post: {
+        create: createPost,
+      },
+      aiDraftBinding: {
+        create: createBinding,
+        update: updateBinding,
+      },
+    })),
   },
 }));
 
 vi.mock("@/lib/reading-time", () => ({
   calculateReadingTimeMinutes,
+}));
+
+vi.mock("@/lib/cache", () => ({
+  revalidatePublicContent,
 }));
 
 describe("ai authoring", () => {
@@ -89,6 +107,14 @@ describe("ai authoring", () => {
       clientId: "client-1",
       externalId: "draft-001",
       postId: "post-1",
+      post: {
+        id: "post-1",
+        deletedAt: null,
+        published: false,
+        slug: "draft-001",
+        category: null,
+        tags: [],
+      },
     });
     calculateReadingTimeMinutes.mockReturnValueOnce(6);
     updatePost.mockResolvedValueOnce({
@@ -123,5 +149,104 @@ describe("ai authoring", () => {
       }),
     }));
     expect(result.operation).toBe("updated");
+  });
+
+  test("rejects unknown categorySlug", async () => {
+    findFirstCategory.mockResolvedValueOnce(null);
+    findManyTags.mockResolvedValueOnce([]);
+
+    const { upsertAiDraft } = await import("../ai-authoring");
+    await expect(upsertAiDraft({
+      client: { id: "client-1", ownerId: "user-1", name: "Codex", scopes: ["drafts:write"] },
+      input: {
+        externalId: "draft-002",
+        title: "AI Draft",
+        slug: "ai-draft",
+        content: "content",
+        categorySlug: "unknown",
+      },
+    })).rejects.toMatchObject({ name: "ValidationError" });
+  });
+
+  test("rejects unknown tagSlugs", async () => {
+    findFirstCategory.mockResolvedValueOnce(null);
+    findManyTags.mockResolvedValueOnce([]);
+
+    const { upsertAiDraft } = await import("../ai-authoring");
+    await expect(upsertAiDraft({
+      client: { id: "client-1", ownerId: "user-1", name: "Codex", scopes: ["drafts:write"] },
+      input: {
+        externalId: "draft-003",
+        title: "AI Draft",
+        slug: "ai-draft",
+        content: "content",
+        tagSlugs: ["unknown-tag"],
+      },
+    })).rejects.toMatchObject({ name: "ValidationError" });
+  });
+
+  test("does not return deleted drafts from getAiDraft", async () => {
+    findFirstBinding.mockResolvedValueOnce(null);
+
+    const { getAiDraft } = await import("../ai-authoring");
+    const result = await getAiDraft({
+      client: { id: "client-1", ownerId: "user-1", name: "Codex", scopes: ["drafts:read"] },
+      externalId: "draft-004",
+    });
+
+    expect(findFirstBinding).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        post: { deletedAt: null },
+      }),
+    }));
+    expect(result).toBeNull();
+  });
+
+  test("revalidates previous public cache when published draft becomes unpublished", async () => {
+    findFirstCategory.mockResolvedValueOnce(null);
+    findManyTags.mockResolvedValueOnce([]);
+    findUniqueBinding.mockResolvedValueOnce({
+      clientId: "client-1",
+      externalId: "draft-005",
+      postId: "post-1",
+      post: {
+        id: "post-1",
+        deletedAt: null,
+        published: true,
+        slug: "public-slug",
+        category: { slug: "public-category" },
+        tags: [{ slug: "public-tag" }],
+      },
+    });
+    calculateReadingTimeMinutes.mockReturnValueOnce(5);
+    updatePost.mockResolvedValueOnce({
+      id: "post-1",
+      title: "Updated",
+      slug: "updated",
+      content: "Updated",
+      excerpt: null,
+      coverImage: null,
+      readingTimeMinutes: 5,
+      published: false,
+      category: null,
+      tags: [],
+    });
+
+    const { upsertAiDraft } = await import("../ai-authoring");
+    await upsertAiDraft({
+      client: { id: "client-1", ownerId: "user-1", name: "Codex", scopes: ["drafts:write"] },
+      input: {
+        externalId: "draft-005",
+        title: "Updated",
+        slug: "updated",
+        content: "Updated",
+      },
+    });
+
+    expect(revalidatePublicContent).toHaveBeenCalledWith(expect.objectContaining({
+      previousSlug: "public-slug",
+      previousCategorySlug: "public-category",
+      previousTagSlugs: ["public-tag"],
+    }));
   });
 });

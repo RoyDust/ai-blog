@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma"
 import { calculateReadingTimeMinutes } from "@/lib/reading-time"
 import { revalidatePublicContent } from "@/lib/cache"
-import { NotFoundError, ValidationError } from "@/lib/api-errors"
+import { NotFoundError, ValidationError, isPrismaConflictError } from "@/lib/api-errors"
 import type { AiClientSession } from "@/lib/ai-auth"
 
 export type AiDraftInput = {
@@ -87,6 +87,20 @@ function buildAiDraftRecord(externalId: string, post: {
   }
 }
 
+type DraftBindingPost = {
+  id: string
+  deletedAt: Date | null
+  published: boolean
+  slug: string
+  category: { slug: string } | null
+  tags: Array<{ slug: string }>
+}
+
+type DraftBindingRecord = {
+  postId: string
+  post: DraftBindingPost | null
+}
+
 async function resolveAiTaxonomy(input: AiDraftInput) {
   const categorySlug = input.categorySlug?.trim()
   let category: { id: string; slug: string } | null = null
@@ -120,6 +134,109 @@ async function resolveAiTaxonomy(input: AiDraftInput) {
   return { category, tags }
 }
 
+async function createDraftWithBinding({
+  clientId,
+  externalId,
+  authorId,
+  input,
+  categoryId,
+  tagConnections,
+  replaceBinding,
+  readingTimeMinutes,
+}: {
+  clientId: string
+  externalId: string
+  authorId: string
+  input: AiDraftInput
+  categoryId?: string
+  tagConnections: Array<{ id: string }>
+  replaceBinding: boolean
+  readingTimeMinutes: number
+}) {
+  return prisma.$transaction(async (tx) => {
+    const post = await tx.post.create({
+      data: {
+        title: input.title,
+        slug: input.slug,
+        content: input.content,
+        excerpt: input.excerpt,
+        coverImage: input.coverImage,
+        readingTimeMinutes,
+        published: false,
+        publishedAt: null,
+        authorId,
+        categoryId,
+        tags: tagConnections.length > 0 ? { connect: tagConnections } : undefined,
+      },
+      select: draftSelect,
+    })
+
+    if (replaceBinding) {
+      await tx.aiDraftBinding.update({
+        where: {
+          clientId_externalId: {
+            clientId,
+            externalId,
+          },
+        },
+        data: { postId: post.id },
+      })
+    } else {
+      await tx.aiDraftBinding.create({
+        data: {
+          clientId,
+          externalId,
+          postId: post.id,
+        },
+      })
+    }
+
+    return post
+  })
+}
+
+async function updateDraftPost({
+  binding,
+  input,
+  categoryId,
+  tagConnections,
+  readingTimeMinutes,
+}: {
+  binding: DraftBindingRecord
+  input: AiDraftInput
+  categoryId?: string
+  tagConnections: Array<{ id: string }>
+  readingTimeMinutes: number
+}) {
+  const previous = binding.post
+  const post = await prisma.post.update({
+    where: { id: binding.postId },
+    data: {
+      title: input.title,
+      slug: input.slug,
+      content: input.content,
+      excerpt: input.excerpt,
+      coverImage: input.coverImage,
+      readingTimeMinutes,
+      published: false,
+      publishedAt: null,
+      categoryId,
+      tags: { set: tagConnections },
+    },
+    select: draftSelect,
+  })
+
+  if (previous?.published) {
+    revalidatePublicContent({
+      previousSlug: previous.slug,
+      previousCategorySlug: previous.category?.slug,
+      previousTagSlugs: previous.tags.map((tag) => tag.slug),
+    })
+  }
+
+  return post
+}
+
 export async function upsertAiDraft({
   client,
   input,
@@ -135,59 +252,92 @@ export async function upsertAiDraft({
         externalId: input.externalId,
       },
     },
-    select: { postId: true },
+    select: {
+      postId: true,
+      post: {
+        select: {
+          id: true,
+          deletedAt: true,
+          published: true,
+          slug: true,
+          category: { select: { slug: true } },
+          tags: { where: { deletedAt: null }, select: { slug: true } },
+        },
+      },
+    },
   })
 
   const readingTimeMinutes = calculateReadingTimeMinutes(input.content)
   const tagConnections = tags.map((tag) => ({ id: tag.id }))
+  const isDeletedBinding = Boolean(binding?.post?.deletedAt)
 
-  if (!binding) {
-    const post = await prisma.post.create({
-      data: {
-        title: input.title,
-        slug: input.slug,
-        content: input.content,
-        excerpt: input.excerpt,
-        coverImage: input.coverImage,
-        readingTimeMinutes,
-        published: false,
-        publishedAt: null,
-        authorId: client.ownerId,
-        categoryId: category?.id,
-        tags: tagConnections.length > 0 ? { connect: tagConnections } : undefined,
-      },
-      select: draftSelect,
-    })
-
-    await prisma.aiDraftBinding.create({
-      data: {
+  if (!binding || isDeletedBinding) {
+    try {
+      const post = await createDraftWithBinding({
         clientId: client.id,
         externalId: input.externalId,
-        postId: post.id,
-      },
-    })
+        authorId: client.ownerId,
+        input,
+        categoryId: category?.id,
+        tagConnections,
+        replaceBinding: Boolean(binding),
+        readingTimeMinutes,
+      })
 
-    return {
-      operation: "created",
-      draft: buildAiDraftRecord(input.externalId, post),
+      return {
+        operation: "created",
+        draft: buildAiDraftRecord(input.externalId, post),
+      }
+    } catch (error) {
+      if (isPrismaConflictError(error)) {
+        const existing = await prisma.aiDraftBinding.findUnique({
+          where: {
+            clientId_externalId: {
+              clientId: client.id,
+              externalId: input.externalId,
+            },
+          },
+          select: {
+            postId: true,
+            post: {
+              select: {
+                id: true,
+                deletedAt: true,
+                published: true,
+                slug: true,
+                category: { select: { slug: true } },
+                tags: { where: { deletedAt: null }, select: { slug: true } },
+              },
+            },
+          },
+        })
+
+        if (existing?.post && !existing.post.deletedAt) {
+          const post = await updateDraftPost({
+            binding: existing,
+            input,
+            categoryId: category?.id,
+            tagConnections,
+            readingTimeMinutes,
+          })
+
+          return {
+            operation: "updated",
+            draft: buildAiDraftRecord(input.externalId, post),
+          }
+        }
+      }
+
+      throw error
     }
   }
 
-  const post = await prisma.post.update({
-    where: { id: binding.postId },
-    data: {
-      title: input.title,
-      slug: input.slug,
-      content: input.content,
-      excerpt: input.excerpt,
-      coverImage: input.coverImage,
-      readingTimeMinutes,
-      published: false,
-      publishedAt: null,
-      categoryId: category?.id,
-      tags: { set: tagConnections },
-    },
-    select: draftSelect,
+  const post = await updateDraftPost({
+    binding,
+    input,
+    categoryId: category?.id,
+    tagConnections,
+    readingTimeMinutes,
   })
 
   return {
@@ -203,12 +353,11 @@ export async function getAiDraft({
   client: AiClientSession
   externalId: string
 }) {
-  const binding = await prisma.aiDraftBinding.findUnique({
+  const binding = await prisma.aiDraftBinding.findFirst({
     where: {
-      clientId_externalId: {
-        clientId: client.id,
-        externalId,
-      },
+      clientId: client.id,
+      externalId,
+      post: { deletedAt: null },
     },
     select: {
       externalId: true,
