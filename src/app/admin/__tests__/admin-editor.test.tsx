@@ -3,8 +3,10 @@ import { afterEach, describe, expect, test, vi } from 'vitest'
 import AdminPostEditPage from '../posts/[id]/edit/page'
 
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: vi.fn(), back: vi.fn() }),
+  useRouter: () => ({ push: vi.fn(), back: vi.fn(), replace: vi.fn() }),
   useParams: () => ({ id: '1' }),
+  usePathname: () => '/admin/posts/1/edit',
+  useSearchParams: () => new URLSearchParams(''),
 }))
 
 afterEach(() => {
@@ -13,7 +15,7 @@ afterEach(() => {
 })
 
 describe('admin editor', () => {
-  test('renders markdown editor as primary workspace', async () => {
+  test('renders editorial inspector sections and top-level publish actions', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue({
@@ -35,12 +37,10 @@ describe('admin editor', () => {
 
     render(<AdminPostEditPage />)
 
-    await waitFor(() => {
-      expect(screen.getByText('后台编辑文章')).toBeInTheDocument()
-    })
-
-    expect(screen.getByText('实时预览')).toBeInTheDocument()
-    expect(screen.getByText('发布面板')).toBeInTheDocument()
+    expect(await screen.findByText('文章状态')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '保存草稿' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '发布文章' })).toBeInTheDocument()
+    expect(screen.getByText('发布准备度')).toBeInTheDocument()
   })
 
   test('shows cover upload trigger', async () => {
@@ -218,7 +218,7 @@ describe('admin editor', () => {
     const categorySelect = await screen.findByLabelText('分类')
     fireEvent.change(categorySelect, { target: { value: 'cat-2' } })
     fireEvent.click(screen.getByRole('checkbox', { name: 'Next.js' }))
-    fireEvent.click(screen.getAllByRole('button', { name: '保存修改' })[0])
+    fireEvent.click(screen.getByRole('button', { name: '保存草稿' }))
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(4)

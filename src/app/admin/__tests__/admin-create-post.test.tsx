@@ -6,12 +6,16 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({
     push: vi.fn(),
     back: vi.fn(),
+    replace: vi.fn(),
   }),
+  usePathname: () => '/admin/posts/new',
+  useSearchParams: () => new URLSearchParams(''),
 }))
 
 afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
+  window.localStorage.clear()
 })
 
 describe('admin create post', () => {
@@ -19,7 +23,10 @@ describe('admin create post', () => {
     render(<AdminCreatePostPage />)
 
     expect(screen.getByRole('heading', { name: '新建文章' })).toBeInTheDocument()
-    expect(screen.getByText('发布面板')).toBeInTheDocument()
+    expect(screen.getByText('文章状态')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '保存草稿' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '发布文章' })).toBeInTheDocument()
+    expect(screen.getByText('发布准备度')).toBeInTheDocument()
     expect(screen.getByText('实时预览')).toBeInTheDocument()
   })
 
@@ -100,7 +107,7 @@ describe('admin create post', () => {
     fireEvent.change(categorySelect, { target: { value: 'cat-1' } })
     fireEvent.click(screen.getByRole('checkbox', { name: 'React' }))
     fireEvent.click(screen.getByRole('checkbox', { name: 'Next.js' }))
-    fireEvent.click(screen.getAllByRole('button', { name: '保存草稿' })[0])
+    fireEvent.click(screen.getByRole('button', { name: '保存草稿' }))
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(3)

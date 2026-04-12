@@ -5,6 +5,7 @@ import { Button, Input } from "@/components/ui";
 import { MarkdownEditor } from "./MarkdownEditor";
 
 interface EditorWorkspaceProps {
+  mode?: "full" | "content";
   title: string;
   slug: string;
   content: string;
@@ -18,6 +19,7 @@ interface EditorWorkspaceProps {
 }
 
 export function EditorWorkspace({
+  mode = "full",
   title,
   slug,
   content,
@@ -118,48 +120,52 @@ export function EditorWorkspace({
         <Input label="Slug" placeholder="url-slug" required value={slug} onChange={(event) => onSlugChange(event.target.value)} />
         <MarkdownEditor label="内容" minRows={36} value={content} onChange={onContentChange} />
 
-        <div className="space-y-2">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm font-medium text-[var(--foreground)]">摘要</p>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={isSummarizing || !content.trim()}
-              onClick={handleGenerateSummary}
-            >
-              {isSummarizing ? "生成中..." : "AI 生成摘要"}
-            </Button>
-          </div>
-          <Input placeholder="文章摘要（可选）" value={excerpt} onChange={(event) => onExcerptChange(event.target.value)} />
-          <p className="text-sm text-[var(--muted)]">基于当前正文生成适合列表页与 SEO 展示的简短摘要。</p>
-          {summaryError ? <p className="text-sm text-rose-500">{summaryError}</p> : null}
-        </div>
+        {mode === "full" ? (
+          <>
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-sm font-medium text-[var(--foreground)]">摘要</p>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={isSummarizing || !content.trim()}
+                  onClick={handleGenerateSummary}
+                >
+                  {isSummarizing ? "生成中..." : "AI 生成摘要"}
+                </Button>
+              </div>
+              <Input placeholder="文章摘要（可选）" value={excerpt} onChange={(event) => onExcerptChange(event.target.value)} />
+              <p className="text-sm text-[var(--muted)]">基于当前正文生成适合列表页与 SEO 展示的简短摘要。</p>
+              {summaryError ? <p className="text-sm text-rose-500">{summaryError}</p> : null}
+            </div>
 
-        <Input
-          label="封面图 URL"
-          placeholder="https://example.com/cover.jpg"
-          value={coverImage}
-          onChange={(event) => onCoverImageChange(event.target.value)}
-        />
-
-        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-alt)] p-4">
-          <div className="flex flex-wrap items-center gap-3">
-            <input
-              ref={fileInputRef}
-              accept="image/*"
-              className="hidden"
-              id="cover-upload"
-              type="file"
-              onChange={handleUpload}
+            <Input
+              label="封面图 URL"
+              placeholder="https://example.com/cover.jpg"
+              value={coverImage}
+              onChange={(event) => onCoverImageChange(event.target.value)}
             />
-            <Button type="button" size="sm" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
-              {isUploading ? "上传中..." : "上传封面到七牛"}
-            </Button>
-            <p className="text-sm text-[var(--muted)]">支持选择图片后直接上传，并自动回填封面地址。</p>
-          </div>
-          {uploadError ? <p className="mt-2 text-sm text-rose-500">{uploadError}</p> : null}
-        </div>
+
+            <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-alt)] p-4">
+              <div className="flex flex-wrap items-center gap-3">
+                <input
+                  ref={fileInputRef}
+                  accept="image/*"
+                  className="hidden"
+                  id="cover-upload"
+                  type="file"
+                  onChange={handleUpload}
+                />
+                <Button type="button" size="sm" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
+                  {isUploading ? "上传中..." : "上传封面到七牛"}
+                </Button>
+                <p className="text-sm text-[var(--muted)]">支持选择图片后直接上传，并自动回填封面地址。</p>
+              </div>
+              {uploadError ? <p className="mt-2 text-sm text-rose-500">{uploadError}</p> : null}
+            </div>
+          </>
+        ) : null}
       </div>
     </section>
   );

@@ -3,9 +3,10 @@ interface PublishChecklistProps {
   slug: string;
   content: string;
   coverImage: string;
+  variant?: "panel" | "inline";
 }
 
-export function PublishChecklist({ title, slug, content, coverImage }: PublishChecklistProps) {
+export function PublishChecklist({ title, slug, content, coverImage, variant = "panel" }: PublishChecklistProps) {
   const checks = [
     { label: "标题已填写", done: title.trim().length >= 8 },
     { label: "Slug 已生成", done: slug.trim().length >= 3 },
@@ -14,9 +15,8 @@ export function PublishChecklist({ title, slug, content, coverImage }: PublishCh
   ];
   const completed = checks.filter((item) => item.done).length;
 
-  return (
-    <section className="ui-surface rounded-2xl p-5">
-      <h3 className="mb-3 font-display text-lg font-semibold text-[var(--foreground)]">发布设置</h3>
+  const contentNode = (
+    <>
       <p className="mb-4 text-sm text-[var(--muted)]">完成 {completed}/4 项后更适合直接发布。</p>
       <ul className="space-y-2">
         {checks.map((item) => (
@@ -26,6 +26,15 @@ export function PublishChecklist({ title, slug, content, coverImage }: PublishCh
           </li>
         ))}
       </ul>
+    </>
+  );
+
+  if (variant === "inline") return contentNode;
+
+  return (
+    <section className="ui-surface rounded-2xl p-5">
+      <h3 className="mb-3 font-display text-lg font-semibold text-[var(--foreground)]">发布设置</h3>
+      {contentNode}
     </section>
   );
 }
