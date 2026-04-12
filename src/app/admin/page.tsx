@@ -1,16 +1,31 @@
-﻿import Link from "next/link";
-import { Clock3, FileText, FolderTree, MessageSquare, Tags } from "lucide-react";
+import Link from "next/link";
+import { Clock3 } from "lucide-react";
+import type { CommentStatus } from "@prisma/client";
+
+import { Button } from "@/components/ui/Button";
 import { PageHeader } from "@/components/admin/primitives/PageHeader";
 import { StatCard } from "@/components/admin/primitives/StatCard";
 import { StatusBadge } from "@/components/admin/primitives/StatusBadge";
+import { WorkspacePanel } from "@/components/admin/primitives/WorkspacePanel";
 import { prisma } from "@/lib/prisma";
+
+export const dynamic = "force-dynamic";
 
 async function getRecentPosts() {
   return prisma.post.findMany({
     where: { deletedAt: null },
     select: { id: true, title: true, slug: true, published: true, createdAt: true },
     orderBy: { createdAt: "desc" },
-    take: 4,
+    take: 6,
+  });
+}
+
+async function getDraftQueue() {
+  return prisma.post.findMany({
+    where: { deletedAt: null, published: false },
+    select: { id: true, title: true, slug: true, published: true, createdAt: true },
+    orderBy: { createdAt: "desc" },
+    take: 3,
   });
 }
 
@@ -21,112 +36,245 @@ async function getRecentComments() {
       id: true,
       content: true,
       createdAt: true,
+      status: true,
       authorLabel: true,
       author: { select: { name: true, email: true } },
       post: { select: { title: true, slug: true } },
     },
     orderBy: { createdAt: "desc" },
-    take: 4,
+    take: 6,
   });
 }
 
-type RecentPost = Awaited<ReturnType<typeof getRecentPosts>>[number];
-type RecentComment = Awaited<ReturnType<typeof getRecentComments>>[number];
+async function getPendingCommentQueue() {
+  return prisma.comment.findMany({
+    where: { deletedAt: null, status: PENDING_COMMENT_STATUS },
+    select: {
+      id: true,
+      content: true,
+      createdAt: true,
+      status: true,
+      authorLabel: true,
+      author: { select: { name: true, email: true } },
+      post: { select: { title: true, slug: true } },
+    },
+    orderBy: { createdAt: "desc" },
+    take: 3,
+  });
+}
+
+const commentToneMap: Record<CommentStatus, "success" | "warning" | "danger"> = {
+  APPROVED: "success",
+  PENDING: "warning",
+  REJECTED: "danger",
+  SPAM: "danger",
+};
+
+const commentLabelMap: Record<CommentStatus, string> = {
+  APPROVED: "已通过",
+  PENDING: "待审核",
+  REJECTED: "已驳回",
+  SPAM: "垃圾",
+};
+
+const PENDING_COMMENT_STATUS: CommentStatus = "PENDING";
+
+const formatDateLabel = (value: Date | string) =>
+  new Date(value).toLocaleDateString("zh-CN", { month: "short", day: "numeric" });
 
 export default async function AdminPage() {
-  const [postCount, userCount, commentCount, categoryCount, draftCount, recentPosts, recentComments] = await Promise.all([
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+  const [
+    postCount,
+    draftCount,
+    pendingCommentCount,
+    categoryCount,
+    tagCount,
+    publishedLast7Days,
+    draftQueue,
+    pendingQueue,
+    recentPosts,
+    recentComments,
+  ] = await Promise.all([
     prisma.post.count({ where: { deletedAt: null } }),
-    prisma.user.count(),
-    prisma.comment.count({ where: { deletedAt: null } }),
+    prisma.post.count({ where: { deletedAt: null, published: false } }),
+    prisma.comment.count({ where: { deletedAt: null, status: PENDING_COMMENT_STATUS } }),
     prisma.category.count({ where: { deletedAt: null } }),
-    prisma.post.count({ where: { published: false, deletedAt: null } }),
+    prisma.tag.count({ where: { deletedAt: null } }),
+    prisma.post.count({
+      where: { deletedAt: null, published: true, publishedAt: { gte: sevenDaysAgo } },
+    }),
+    getDraftQueue(),
+    getPendingCommentQueue(),
     getRecentPosts(),
     getRecentComments(),
   ]);
 
-  const quickLinks = [
-    { href: "/admin/posts", title: "文章管理", description: "批量查看、筛选、发布与删除文章", icon: FileText },
-    { href: "/admin/comments", title: "评论治理", description: "集中处理评论与互动内容", icon: MessageSquare },
-    { href: "/admin/categories", title: "分类配置", description: "统一维护分类结构与说明", icon: FolderTree },
-    { href: "/admin/tags", title: "标签配置", description: "管理标签与颜色体系", icon: Tags },
-  ];
+  const structureCount = categoryCount + tagCount;
+  const changePosts = recentPosts.slice(0, 3);
+  const changeComments = recentComments.slice(0, 3);
 
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Overview"
-        title="运营总览"
-        description="查看累计内容规模与最近活动，统一管理内容、互动和配置。"
-        action={<div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm text-[var(--muted)]">累计概览</div>}
+        eyebrow="Editorial"
+        title="编辑部总览"
+        description="把待发布内容、最近变更和内容风险收进同一工作台。"
+        action={
+          <Link href="/admin/posts/new">
+            <Button size="sm">新建文章</Button>
+          </Link>
+        }
       />
 
-      <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
-        <StatCard label="文章总数" value={postCount} hint={`${draftCount} 篇当前仍为草稿`} />
-        <StatCard label="用户总数" value={userCount} hint="累计注册账号" />
-        <StatCard label="评论总数" value={commentCount} hint="累计互动记录" />
-        <StatCard label="分类总数" value={categoryCount} hint="当前内容结构节点" />
-        <StatCard label="草稿数量" value={draftCount} hint="尚未发布的文章" />
+      <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="全部文章" value={postCount} hint={`${draftCount} 篇仍在写作中`} />
+        <StatCard label="待处理评论" value={pendingCommentCount} hint="优先审查高风险互动" />
+        <StatCard label="最近发布" value={publishedLast7Days} hint="过去 7 天上线的内容" />
+        <StatCard label="结构节点" value={structureCount} hint="分类与标签总数" />
       </section>
 
-      <section className="grid grid-cols-1 gap-4 xl:grid-cols-[1.1fr_0.9fr]">
-        <div className="ui-surface rounded-3xl p-5 shadow-[0_16px_34px_-26px_rgba(15,118,110,0.55)]">
-          <h2 className="font-display text-xl font-bold text-[var(--foreground)]">快捷入口</h2>
-          <p className="mt-1 text-sm text-[var(--muted)]">高频任务直接进入，减少层级跳转。</p>
-          <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
-            {quickLinks.map((item) => {
-              const Icon = item.icon;
-              return (
-                <Link key={item.href} href={item.href} className="group rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 transition-colors hover:bg-[var(--surface-alt)]">
-                  <div className="flex items-start gap-3">
-                    <span className="rounded-2xl bg-[var(--surface-alt)] p-2 text-[var(--primary)]">
-                      <Icon className="h-5 w-5" />
-                    </span>
-                    <div>
-                      <h3 className="font-semibold text-[var(--foreground)] group-hover:text-[var(--primary)]">{item.title}</h3>
-                      <p className="mt-1 text-sm text-[var(--muted)]">{item.description}</p>
-                    </div>
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="ui-surface rounded-3xl p-5 shadow-[0_16px_34px_-26px_rgba(15,118,110,0.45)]">
-          <div className="flex items-center gap-3">
-            <span className="rounded-2xl bg-[var(--surface-alt)] p-2 text-[var(--primary)]"><Clock3 className="h-5 w-5" /></span>
+      <section className="grid grid-cols-1 gap-4 xl:grid-cols-[1.15fr_0.85fr]">
+        <WorkspacePanel
+          title="待处理工作"
+          description="先做会影响发布节奏的草稿与评论。"
+          actions={
+            <Link href="/admin/posts">
+              <Button size="sm" variant="outline">
+                查看全部队列
+              </Button>
+            </Link>
+          }
+          className="space-y-6 border border-[var(--border)]"
+        >
+          <div className="space-y-6">
             <div>
-              <h2 className="font-display text-xl font-bold text-[var(--foreground)]">最近活动</h2>
-              <p className="mt-1 text-sm text-[var(--muted)]">最近发布和最新评论一屏查看。</p>
+              <p className="text-xs uppercase tracking-[0.3em] text-[var(--muted)]">草稿队列</p>
+              <div className="mt-3 space-y-3">
+                {draftQueue.length > 0 ? (
+                  draftQueue.map((post) => (
+                    <Link
+                      key={post.id}
+                      href={`/admin/posts/${post.id}/edit`}
+                      className="group flex items-center justify-between gap-4 rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 transition hover:border-[var(--brand)]"
+                    >
+                      <div>
+                        <p className="font-semibold text-[var(--foreground)]">{post.title}</p>
+                        <p className="text-xs text-[var(--muted)]">
+                          {formatDateLabel(post.createdAt)} · /posts/{post.slug}
+                        </p>
+                      </div>
+                      <StatusBadge tone="warning">草稿</StatusBadge>
+                    </Link>
+                  ))
+                ) : (
+                  <p className="text-sm text-[var(--muted)]">当前没有需要处理的草稿。</p>
+                )}
+              </div>
+            </div>
+
+            <div>
+              <p className="text-xs uppercase tracking-[0.3em] text-[var(--muted)]">待处理评论</p>
+              <div className="mt-3 space-y-3">
+                {pendingQueue.length > 0 ? (
+                  pendingQueue.map((comment) => (
+                    <Link
+                      key={comment.id}
+                      href={`/posts/${comment.post.slug}`}
+                      className="group flex items-start justify-between gap-4 rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 transition hover:border-[var(--brand)]"
+                    >
+                      <div className="flex-1">
+                        <p className="font-semibold text-[var(--foreground)]">
+                          {comment.authorLabel || comment.author?.name || comment.author?.email || "匿名访客"}
+                        </p>
+                        <p className="text-xs text-[var(--muted)]">{formatDateLabel(comment.createdAt)}</p>
+                        <p className="mt-1 text-sm text-[var(--muted)] line-clamp-2">{comment.content}</p>
+                      </div>
+                      <StatusBadge tone="warning">待审核</StatusBadge>
+                    </Link>
+                  ))
+                ) : (
+                  <p className="text-sm text-[var(--muted)]">当前没有需要审核的评论。</p>
+                )}
+              </div>
             </div>
           </div>
+        </WorkspacePanel>
 
-          <div className="mt-4 space-y-4">
-            {recentPosts.map((post: RecentPost) => (
-              <div key={post.id} className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <Link href={`/admin/posts/${post.id}/edit`} className="font-medium text-[var(--foreground)] hover:text-[var(--primary)]">{post.title}</Link>
-                  <StatusBadge tone={post.published ? "success" : "warning"}>{post.published ? "已发布" : "草稿"}</StatusBadge>
-                </div>
-                <p className="mt-2 text-xs text-[var(--muted)]">{new Date(post.createdAt).toLocaleDateString("zh-CN")} · /posts/{post.slug}</p>
+        <WorkspacePanel
+          title="最近变更"
+          description="文章与评论的最新动向，一目了然。"
+          actions={
+            <Link href="/admin/comments">
+              <Button size="sm" variant="secondary">
+                查看评论治理
+              </Button>
+            </Link>
+          }
+          className="space-y-6 border border-[var(--border)]"
+        >
+          <div className="space-y-6">
+            <div>
+              <div className="flex items-center gap-2">
+                <Clock3 className="h-4 w-4 text-[var(--muted)]" />
+                <p className="text-xs uppercase tracking-[0.3em] text-[var(--muted)]">文章动态</p>
               </div>
-            ))}
+              <div className="mt-3 space-y-3">
+                {changePosts.map((post) => (
+                  <article
+                    key={post.id}
+                    className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3"
+                  >
+                    <Link href={`/admin/posts/${post.id}/edit`} className="flex items-center justify-between gap-3">
+                      <p className="font-semibold text-[var(--foreground)]">{post.title}</p>
+                      <StatusBadge tone={post.published ? "success" : "warning"}>
+                        {post.published ? "已发布" : "草稿"}
+                      </StatusBadge>
+                    </Link>
+                    <p className="mt-1 text-xs text-[var(--muted)]">
+                      {formatDateLabel(post.createdAt)} · /posts/{post.slug}
+                    </p>
+                  </article>
+                ))}
+              </div>
+            </div>
 
-            {recentComments.map((comment: RecentComment) => (
-              <div key={comment.id} className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
-                <div className="flex items-center justify-between gap-3 text-sm">
-                  <span className="font-medium text-[var(--foreground)]">{comment.authorLabel || comment.author?.name || comment.author?.email || "匿名访客"}</span>
-                  <span className="text-[var(--muted)]">{new Date(comment.createdAt).toLocaleDateString("zh-CN")}</span>
-                </div>
-                <p className="mt-2 line-clamp-2 text-sm text-[var(--muted)]">{comment.content}</p>
-                <Link href={`/posts/${comment.post.slug}`} className="mt-2 inline-block text-xs text-[var(--primary)] hover:underline">来自《{comment.post.title}》</Link>
+            <div>
+              <div className="flex items-center gap-2">
+                <p className="text-xs uppercase tracking-[0.3em] text-[var(--muted)]">评论动态</p>
               </div>
-            ))}
+              <div className="mt-3 space-y-3">
+                {changeComments.map((comment) => (
+                  <article
+                    key={comment.id}
+                    className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-semibold text-[var(--foreground)]">
+                          {comment.authorLabel || comment.author?.name || comment.author?.email || "匿名访客"}
+                        </p>
+                        <p className="text-xs text-[var(--muted)]">{formatDateLabel(comment.createdAt)}</p>
+                      </div>
+                      <StatusBadge tone={commentToneMap[comment.status]}>
+                        {commentLabelMap[comment.status]}
+                      </StatusBadge>
+                    </div>
+                    <p className="mt-2 text-sm text-[var(--muted)] line-clamp-2">{comment.content}</p>
+                    <Link
+                      href={`/posts/${comment.post.slug}`}
+                      className="mt-3 inline-flex items-center gap-1 text-xs text-[var(--primary)] hover:underline"
+                    >
+                      查看《{comment.post.title}》
+                    </Link>
+                  </article>
+                ))}
+              </div>
+            </div>
           </div>
-        </div>
+        </WorkspacePanel>
       </section>
     </div>
   );
 }
-
-
