@@ -1,7 +1,7 @@
-﻿"use client";
+"use client";
 
 import type { ReactNode } from "react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 export interface DataColumn<T> {
   key: string;
@@ -15,6 +15,11 @@ interface DataTableProps<T extends { id: string }> {
   rows: T[];
   columns: DataColumn<T>[];
   emptyText: string;
+  summary?: string;
+  toolbar?: ReactNode;
+  isLoading?: boolean;
+  loadingLabel?: string;
+  densityLabel?: string;
   bulkActions?: Array<{
     label: string;
     onClick: (ids: string[]) => void;
@@ -22,15 +27,34 @@ interface DataTableProps<T extends { id: string }> {
   }>;
 }
 
-export function DataTable<T extends { id: string }>({ title, rows, columns, emptyText, bulkActions = [] }: DataTableProps<T>) {
+export function DataTable<T extends { id: string }>({
+  title,
+  rows,
+  columns,
+  emptyText,
+  summary,
+  toolbar,
+  isLoading = false,
+  loadingLabel = "加载中...",
+  densityLabel,
+  bulkActions = [],
+}: DataTableProps<T>) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const allSelected = useMemo(() => rows.length > 0 && rows.every((row) => selectedIds.includes(row.id)), [rows, selectedIds]);
+
+  useEffect(() => {
+    setSelectedIds((prev) => {
+      const next = prev.filter((id) => rows.some((row) => row.id === id));
+      return next.length === prev.length && next.every((id, index) => id === prev[index]) ? prev : next;
+    });
+  }, [rows]);
 
   const toggleAll = () => {
     if (allSelected) {
       setSelectedIds([]);
       return;
     }
+
     setSelectedIds(rows.map((row) => row.id));
   };
 
@@ -39,14 +63,18 @@ export function DataTable<T extends { id: string }>({ title, rows, columns, empt
   };
 
   return (
-    <section className="ui-surface overflow-hidden rounded-3xl shadow-[0_18px_40px_-30px_rgba(15,118,110,0.55)]">
+    <section className="ui-surface overflow-hidden rounded-3xl shadow-[var(--shadow-card)]">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] px-4 py-3">
         <div>
-          <h2 className="font-display text-lg font-semibold text-[var(--foreground)]">{title}</h2>
-          <p className="mt-1 text-sm text-[var(--muted)]">共 {rows.length} 条记录</p>
+          <h2 className="font-display text-lg font-semibold tracking-tight text-[var(--foreground)]">{title}</h2>
+          <p className="mt-1 text-sm text-[var(--muted)]">{summary ?? `共 ${rows.length} 条记录`}</p>
         </div>
-        <span className="rounded-full bg-[var(--surface-alt)] px-3 py-1 text-xs font-medium text-[var(--muted)]">密集模式</span>
+        {densityLabel ? (
+          <span className="rounded-full bg-[var(--surface-alt)] px-3 py-1 text-xs font-medium text-[var(--muted)]">{densityLabel}</span>
+        ) : null}
       </header>
+
+      {toolbar ? <div className="border-b border-[var(--border)] px-4 py-3">{toolbar}</div> : null}
 
       {bulkActions.length > 0 ? (
         <div className="flex flex-wrap items-center gap-2 border-b border-[var(--border)] bg-[var(--surface-alt)] px-4 py-3">
@@ -55,7 +83,11 @@ export function DataTable<T extends { id: string }>({ title, rows, columns, empt
           {bulkActions.map((action) => (
             <button
               key={action.label}
-              className={action.variant === "danger" ? "ui-btn rounded-xl bg-rose-600 px-3 py-1.5 text-xs text-white hover:bg-rose-700" : "ui-btn rounded-xl bg-[var(--primary)] px-3 py-1.5 text-xs text-white hover:opacity-92"}
+              className={
+                action.variant === "danger"
+                  ? "ui-btn rounded-xl bg-rose-600 px-3 py-1.5 text-xs text-white hover:bg-rose-700"
+                  : "ui-btn rounded-xl bg-[var(--primary)] px-3 py-1.5 text-xs text-white hover:opacity-92"
+              }
               disabled={selectedIds.length === 0}
               onClick={() => action.onClick(selectedIds)}
               type="button"
@@ -66,7 +98,9 @@ export function DataTable<T extends { id: string }>({ title, rows, columns, empt
         </div>
       ) : null}
 
-      {rows.length === 0 ? (
+      {isLoading ? (
+        <p className="px-4 py-10 text-center text-sm text-[var(--muted)]">{loadingLabel}</p>
+      ) : rows.length === 0 ? (
         <p className="px-4 py-10 text-center text-sm text-[var(--muted)]">{emptyText}</p>
       ) : (
         <div className="overflow-x-auto">
@@ -77,7 +111,12 @@ export function DataTable<T extends { id: string }>({ title, rows, columns, empt
                   <input checked={allSelected} onChange={toggleAll} type="checkbox" aria-label="全选" />
                 </th>
                 {columns.map((column) => (
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-[var(--muted)]" key={column.key}>{column.label}</th>
+                  <th
+                    className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-[var(--muted)]"
+                    key={column.key}
+                  >
+                    {column.label}
+                  </th>
                 ))}
               </tr>
             </thead>
@@ -88,7 +127,9 @@ export function DataTable<T extends { id: string }>({ title, rows, columns, empt
                     <input checked={selectedIds.includes(row.id)} onChange={() => toggleOne(row.id)} type="checkbox" aria-label={`选择 ${row.id}`} />
                   </td>
                   {columns.map((column) => (
-                    <td className={`px-4 py-3 align-top text-sm text-[var(--foreground)] ${column.className ?? ""}`} key={column.key}>{column.render(row)}</td>
+                    <td className={`px-4 py-3 align-top text-sm text-[var(--foreground)] ${column.className ?? ""}`} key={column.key}>
+                      {column.render(row)}
+                    </td>
                   ))}
                 </tr>
               ))}

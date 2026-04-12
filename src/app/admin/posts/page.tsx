@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { DataTable, type DataColumn } from "@/components/admin/DataTable";
 import { DeleteImpactDialog, type DeleteImpactItem } from "@/components/admin/DeleteImpactDialog";
-import { FilterBar } from "@/components/admin/FilterBar";
+import { Toolbar } from "@/components/admin/primitives/Toolbar";
 import { PageHeader } from "@/components/admin/primitives/PageHeader";
 import { StatusBadge } from "@/components/admin/primitives/StatusBadge";
 import { Button } from "@/components/ui";
@@ -55,6 +55,7 @@ export default function AdminPostsPage() {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "published" | "draft">("all");
+  const [busyRowIds, setBusyRowIds] = useState<string[]>([]);
   const [deleteDialog, setDeleteDialog] = useState<DeleteDialogState>(initialDeleteDialog);
 
   const fetchPosts = useCallback(async () => {
@@ -136,13 +137,43 @@ export default function AdminPostsPage() {
     setDeleteDialog((prev) => ({ ...prev, submitting: false }));
   }
 
+  async function togglePublish(row: PostRow) {
+    if (busyRowIds.includes(row.id)) {
+      return;
+    }
+
+    const nextPublished = !row.published;
+    setBusyRowIds((prev) => [...prev, row.id]);
+    setPosts((prev) => prev.map((item) => (item.id === row.id ? { ...item, published: nextPublished } : item)));
+
+    try {
+      const res = await fetch("/api/admin/posts/publish", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: row.id, published: nextPublished }),
+      });
+      const data = await res.json();
+
+      if (!data.success) {
+        throw new Error(data.error || "更新发布状态失败");
+      }
+
+      toast.success(nextPublished ? "文章已发布" : "已转为草稿");
+    } catch (error) {
+      setPosts((prev) => prev.map((item) => (item.id === row.id ? { ...item, published: row.published } : item)));
+      toast.error(error instanceof Error ? error.message : "更新发布状态失败");
+    } finally {
+      setBusyRowIds((prev) => prev.filter((id) => id !== row.id));
+    }
+  }
+
   const columns: DataColumn<PostRow>[] = [
     {
       key: "title",
       label: "标题",
       render: (row) => (
         <div className="space-y-1">
-          <Link className="font-medium text-[var(--foreground)] hover:text-[var(--primary)]" href={`/admin/posts/${row.id}/edit`}>
+          <Link className="font-medium text-[var(--foreground)] hover:text-[var(--brand)]" href={`/admin/posts/${row.id}/edit`}>
             {row.title}
           </Link>
           <p className="text-xs text-[var(--muted)]">/posts/{row.slug}</p>
@@ -154,37 +185,23 @@ export default function AdminPostsPage() {
       key: "status",
       label: "状态",
       render: (row) => (
-        <button
-          className="rounded-full"
-          onClick={async () => {
-            try {
-              const next = !row.published;
-              const res = await fetch("/api/admin/posts/publish", {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ id: row.id, published: next }),
-              });
-              const data = await res.json();
-              if (data.success) {
-                setPosts((prev) => prev.map((post) => (post.id === row.id ? { ...post, published: next } : post)));
-                toast.success(next ? "文章已发布" : "已转为草稿");
-                return;
-              }
-
-              toast.error(getErrorMessage(data, "更新发布状态失败"));
-            } catch {
-              toast.error("更新发布状态失败，请稍后重试");
-            }
-          }}
-          type="button"
-        >
+        <div className="space-y-2">
           <StatusBadge tone={row.published ? "success" : "warning"}>{row.published ? "已发布" : "草稿"}</StatusBadge>
-        </button>
+          <Button
+            size="sm"
+            type="button"
+            variant={row.published ? "outline" : "secondary"}
+            disabled={busyRowIds.includes(row.id)}
+            onClick={() => void togglePublish(row)}
+          >
+            {row.published ? "切换为草稿" : "切换为已发布"}
+          </Button>
+        </div>
       ),
     },
     {
       key: "stats",
-      label: "统计",
+      label: "上下文",
       render: (row) => (
         <div className="flex flex-wrap gap-2 text-xs text-[var(--muted)]">
           <span>阅读 {row.viewCount}</span>
@@ -199,10 +216,10 @@ export default function AdminPostsPage() {
       label: "操作",
       render: (row) => (
         <div className="flex items-center gap-3 text-sm">
-          <Link className="text-[var(--primary)] hover:underline" href={`/admin/posts/${row.id}/edit`}>
+          <Link className="text-[var(--brand)] hover:underline" href={`/admin/posts/${row.id}/edit`}>
             编辑
           </Link>
-          <Link className="text-[var(--foreground)] hover:text-[var(--primary)]" href={`/posts/${row.slug}`}>
+          <Link className="text-[var(--foreground)] hover:text-[var(--brand)]" href={`/posts/${row.slug}`}>
             预览
           </Link>
           <button className="text-rose-600 hover:underline" onClick={() => void openDeleteDialog([row.id])} type="button">
@@ -213,40 +230,61 @@ export default function AdminPostsPage() {
     },
   ];
 
-  if (loading) return <p className="py-20 text-center text-[var(--muted)]">加载中...</p>;
-
   return (
     <>
       <div className="space-y-4">
         <PageHeader
           eyebrow="Content"
-          title="文章管理"
-          description="在统一工作台中搜索、筛选、发布和进入编辑流程。"
-          action={<Link href="/admin/posts/new"><Button size="sm">新建文章</Button></Link>}
+          title="内容队列"
+          description="围绕草稿、发布和复盘组织文章操作。"
+          action={
+            <Link href="/admin/posts/new">
+              <Button size="sm">新建文章</Button>
+            </Link>
+          }
         />
 
-        <FilterBar placeholder="搜索标题或 slug" value={query} onChange={setQuery}>
-          {[
-            { key: "all", label: "全部" },
-            { key: "published", label: "已发布" },
-            { key: "draft", label: "草稿" },
-          ].map((item) => (
-            <button
-              key={item.key}
-              type="button"
-              className={
-                statusFilter === item.key
-                  ? "ui-btn rounded-xl bg-[var(--primary)] px-3 py-2 text-sm text-white"
-                  : "ui-btn rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--surface-alt)]"
-              }
-              onClick={() => setStatusFilter(item.key as typeof statusFilter)}
-            >
-              {item.label}
-            </button>
-          ))}
-        </FilterBar>
+        <Toolbar
+          leading={
+            <>
+              <input
+                aria-label="搜索文章"
+                className="ui-ring min-w-[240px] flex-1 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--foreground)] placeholder:text-[var(--muted)] focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+                placeholder="搜索标题或 slug"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+              />
+              {[
+                { key: "all", label: "全部内容" },
+                { key: "draft", label: "仅看草稿" },
+                { key: "published", label: "已发布" },
+              ].map((item) => (
+                <button
+                  key={item.key}
+                  type="button"
+                  aria-pressed={statusFilter === item.key}
+                  className={
+                    statusFilter === item.key
+                      ? "ui-btn rounded-xl bg-[var(--primary)] px-3 py-2 text-sm text-white"
+                      : "ui-btn rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--surface-alt)]"
+                  }
+                  onClick={() => setStatusFilter(item.key as typeof statusFilter)}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </>
+          }
+          trailing={<span className="text-sm text-[var(--muted)]">共 {filtered.length} 篇内容</span>}
+        />
 
         <DataTable
+          title="文章列表"
+          summary="按内容状态和发布时间组织内容队列。"
+          densityLabel="内容队列"
+          toolbar={<div className="text-xs text-[var(--muted)]">支持批量隐藏与状态切换</div>}
+          isLoading={loading}
+          loadingLabel="正在加载内容队列..."
           bulkActions={[
             {
               label: "批量隐藏",
@@ -257,7 +295,6 @@ export default function AdminPostsPage() {
           columns={columns}
           emptyText="暂无文章"
           rows={filtered}
-          title="文章列表"
         />
       </div>
 
