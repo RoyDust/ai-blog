@@ -93,11 +93,11 @@ export async function GET(request: Request) {
     ])
 
     const rankedItems = items
-      .map((item) => ({
+      .map((item: (typeof items)[number]) => ({
         ...item,
         searchMeta: getSearchMeta(item, normalizedQuery),
       }))
-      .sort((left, right) => {
+      .sort((left: ((typeof items)[number] & { searchMeta: ReturnType<typeof getSearchMeta> }), right: ((typeof items)[number] & { searchMeta: ReturnType<typeof getSearchMeta> })) => {
         if (right.searchMeta.score !== left.searchMeta.score) {
           return right.searchMeta.score - left.searchMeta.score
         }

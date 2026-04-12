@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma"
+import type { Prisma } from "@prisma/client"
 import { calculateReadingTimeMinutes } from "@/lib/reading-time"
 import { revalidatePublicContent } from "@/lib/cache"
 import { ConflictError, NotFoundError, ValidationError, isPrismaConflictError } from "@/lib/api-errors"
@@ -83,7 +84,9 @@ function buildAiDraftRecord(externalId: string, post: {
     coverImage: post.coverImage,
     readingTimeMinutes: post.readingTimeMinutes,
     categorySlug: post.category && !post.category.deletedAt ? post.category.slug : null,
-    tagSlugs: post.tags.filter((tag) => !tag.deletedAt).map((tag) => tag.slug),
+    tagSlugs: post.tags
+      .filter((tag: { deletedAt?: Date | null }) => !tag.deletedAt)
+      .map((tag: { slug: string }) => tag.slug),
   }
 }
 
@@ -177,7 +180,7 @@ async function createDraftWithBinding({
   replaceBinding: boolean
   readingTimeMinutes: number
 }) {
-  return prisma.$transaction(async (tx) => {
+  return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     const post = await tx.post.create({
       data: {
         title: input.title,
@@ -232,7 +235,7 @@ async function updateDraftPost({
   tagConnections: Array<{ id: string }>
   readingTimeMinutes: number
 }) {
-  return prisma.$transaction(async (tx) => {
+  return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     try {
       return await tx.post.update({
         where: {
@@ -304,7 +307,7 @@ export async function upsertAiDraft({
   })
 
   const readingTimeMinutes = calculateReadingTimeMinutes(input.content)
-  const tagConnections = tags.map((tag) => ({ id: tag.id }))
+  const tagConnections = tags.map((tag: { id: string }) => ({ id: tag.id }))
   assertDraftBindingIsUnpublished(binding)
   const isDeletedBinding = Boolean(binding?.post?.deletedAt)
 
@@ -452,7 +455,7 @@ export async function createAdminPost({
     revalidatePublicContent({
       slug: post.slug,
       categorySlug: post.category?.slug,
-      tagSlugs: post.tags.map((tag) => tag.slug),
+      tagSlugs: post.tags.map((tag: { slug: string }) => tag.slug),
     })
   }
 
@@ -513,8 +516,8 @@ export async function updateAdminPost({
     previousSlug: existing.slug,
     categorySlug: updated.published ? updated.category?.slug : null,
     previousCategorySlug: existing.category?.slug,
-    tagSlugs: updated.published ? updated.tags.map((tag) => tag.slug) : [],
-    previousTagSlugs: existing.tags.map((tag) => tag.slug),
+    tagSlugs: updated.published ? updated.tags.map((tag: { slug: string }) => tag.slug) : [],
+    previousTagSlugs: existing.tags.map((tag: { slug: string }) => tag.slug),
   })
 
   return updated

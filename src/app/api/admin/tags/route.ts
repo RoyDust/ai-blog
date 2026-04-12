@@ -110,7 +110,7 @@ export async function DELETE(request: Request) {
       throw new NotFoundError("Tag not found")
     }
 
-    await prisma.tag.updateMany({ where: { id: { in: tags.map((tag) => tag.id) }, deletedAt: null }, data: { deletedAt: new Date() } })
+    await prisma.tag.updateMany({ where: { id: { in: tags.map((tag: { id: string }) => tag.id) }, deletedAt: null }, data: { deletedAt: new Date() } })
     return NextResponse.json({ success: true })
   } catch (error) {
     return toErrorResponse(error, "Failed to delete tag")

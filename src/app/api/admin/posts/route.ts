@@ -104,7 +104,7 @@ export async function DELETE(request: Request) {
     }
 
     const deletedAt = new Date()
-    const postIds = posts.map((post) => post.id)
+    const postIds = posts.map((post: { id: string }) => post.id)
 
     await prisma.$transaction([
       prisma.post.updateMany({
@@ -121,7 +121,7 @@ export async function DELETE(request: Request) {
       revalidatePublicContent({
         previousSlug: post.slug,
         previousCategorySlug: post.category?.slug,
-        previousTagSlugs: post.tags.map((tag) => tag.slug),
+        previousTagSlugs: post.tags.map((tag: { slug: string }) => tag.slug),
       })
     }
 

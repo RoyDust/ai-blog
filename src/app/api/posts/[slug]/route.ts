@@ -130,8 +130,8 @@ export async function PATCH(
       previousSlug: post.slug,
       categorySlug: updatedPost.published ? updatedPost.category?.slug : null,
       previousCategorySlug: post.category?.slug,
-      tagSlugs: updatedPost.published ? updatedPost.tags.map((tag) => tag.slug) : [],
-      previousTagSlugs: post.tags.map((tag) => tag.slug),
+      tagSlugs: updatedPost.published ? updatedPost.tags.map((tag: { slug: string }) => tag.slug) : [],
+      previousTagSlugs: post.tags.map((tag: { slug: string }) => tag.slug),
     })
 
     return NextResponse.json({
@@ -180,7 +180,7 @@ export async function DELETE(
     revalidatePublicContent({
       previousSlug: post.slug,
       previousCategorySlug: post.category?.slug,
-      previousTagSlugs: post.tags.map((tag) => tag.slug),
+      previousTagSlugs: post.tags.map((tag: { slug: string }) => tag.slug),
     })
 
     return NextResponse.json({

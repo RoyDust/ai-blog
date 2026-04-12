@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 export interface DataColumn<T> {
   key: string;
@@ -40,14 +40,14 @@ export function DataTable<T extends { id: string }>({
   bulkActions = [],
 }: DataTableProps<T>) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const allSelected = useMemo(() => rows.length > 0 && rows.every((row) => selectedIds.includes(row.id)), [rows, selectedIds]);
-
-  useEffect(() => {
-    setSelectedIds((prev) => {
-      const next = prev.filter((id) => rows.some((row) => row.id === id));
-      return next.length === prev.length && next.every((id, index) => id === prev[index]) ? prev : next;
-    });
-  }, [rows]);
+  const visibleSelectedIds = useMemo(
+    () => selectedIds.filter((id) => rows.some((row) => row.id === id)),
+    [rows, selectedIds],
+  );
+  const allSelected = useMemo(
+    () => rows.length > 0 && rows.every((row) => visibleSelectedIds.includes(row.id)),
+    [rows, visibleSelectedIds],
+  );
 
   const toggleAll = () => {
     if (allSelected) {
@@ -79,7 +79,7 @@ export function DataTable<T extends { id: string }>({
       {bulkActions.length > 0 ? (
         <div className="flex flex-wrap items-center gap-2 border-b border-[var(--border)] bg-[var(--surface-alt)] px-4 py-3">
           <span className="text-sm font-medium text-[var(--foreground)]">批量操作</span>
-          <span className="text-xs text-[var(--muted)]">已选 {selectedIds.length} 项</span>
+          <span className="text-xs text-[var(--muted)]">已选 {visibleSelectedIds.length} 项</span>
           {bulkActions.map((action) => (
             <button
               key={action.label}
@@ -88,8 +88,8 @@ export function DataTable<T extends { id: string }>({
                   ? "ui-btn rounded-xl bg-rose-600 px-3 py-1.5 text-xs text-white hover:bg-rose-700"
                   : "ui-btn rounded-xl bg-[var(--primary)] px-3 py-1.5 text-xs text-white hover:opacity-92"
               }
-              disabled={selectedIds.length === 0}
-              onClick={() => action.onClick(selectedIds)}
+              disabled={visibleSelectedIds.length === 0}
+              onClick={() => action.onClick(visibleSelectedIds)}
               type="button"
             >
               {action.label}
@@ -124,7 +124,7 @@ export function DataTable<T extends { id: string }>({
               {rows.map((row) => (
                 <tr className="transition-colors hover:bg-[var(--surface-alt)]/60" key={row.id}>
                   <td className="px-4 py-3 align-top">
-                    <input checked={selectedIds.includes(row.id)} onChange={() => toggleOne(row.id)} type="checkbox" aria-label={`选择 ${row.id}`} />
+                    <input checked={visibleSelectedIds.includes(row.id)} onChange={() => toggleOne(row.id)} type="checkbox" aria-label={`选择 ${row.id}`} />
                   </td>
                   {columns.map((column) => (
                     <td className={`px-4 py-3 align-top text-sm text-[var(--foreground)] ${column.className ?? ""}`} key={column.key}>

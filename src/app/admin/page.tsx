@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { Clock3 } from "lucide-react";
-import type { CommentStatus } from "@prisma/client";
 
 import { Button } from "@/components/ui/Button";
 import { PageHeader } from "@/components/admin/primitives/PageHeader";
@@ -10,6 +9,14 @@ import { WorkspacePanel } from "@/components/admin/primitives/WorkspacePanel";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
+
+type CommentStatus = "APPROVED" | "PENDING" | "REJECTED" | "SPAM";
+
+function getSevenDaysAgo() {
+  const value = new Date();
+  value.setDate(value.getDate() - 7);
+  return value;
+}
 
 async function getRecentPosts() {
   return prisma.post.findMany({
@@ -63,6 +70,11 @@ async function getPendingCommentQueue() {
   });
 }
 
+type AdminPostListItem = Awaited<ReturnType<typeof getRecentPosts>>[number];
+type AdminCommentListItem = Awaited<ReturnType<typeof getRecentComments>>[number] & {
+  status: CommentStatus;
+};
+
 const commentToneMap: Record<CommentStatus, "success" | "warning" | "danger"> = {
   APPROVED: "success",
   PENDING: "warning",
@@ -83,7 +95,7 @@ const formatDateLabel = (value: Date | string) =>
   new Date(value).toLocaleDateString("zh-CN", { month: "short", day: "numeric" });
 
 export default async function AdminPage() {
-  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const sevenDaysAgo = getSevenDaysAgo();
 
   const [
     postCount,
@@ -153,7 +165,7 @@ export default async function AdminPage() {
               <p className="text-xs uppercase tracking-[0.3em] text-[var(--muted)]">草稿队列</p>
               <div className="mt-3 space-y-3">
                 {draftQueue.length > 0 ? (
-                  draftQueue.map((post) => (
+                  draftQueue.map((post: AdminPostListItem) => (
                     <Link
                       key={post.id}
                       href={`/admin/posts/${post.id}/edit`}
@@ -178,7 +190,7 @@ export default async function AdminPage() {
               <p className="text-xs uppercase tracking-[0.3em] text-[var(--muted)]">待处理评论</p>
               <div className="mt-3 space-y-3">
                 {pendingQueue.length > 0 ? (
-                  pendingQueue.map((comment) => (
+                  pendingQueue.map((comment: AdminCommentListItem) => (
                     <Link
                       key={comment.id}
                       href={`/posts/${comment.post.slug}`}
@@ -221,7 +233,7 @@ export default async function AdminPage() {
                 <p className="text-xs uppercase tracking-[0.3em] text-[var(--muted)]">文章动态</p>
               </div>
               <div className="mt-3 space-y-3">
-                {changePosts.map((post) => (
+                {changePosts.map((post: AdminPostListItem) => (
                   <article
                     key={post.id}
                     className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3"
@@ -245,31 +257,35 @@ export default async function AdminPage() {
                 <p className="text-xs uppercase tracking-[0.3em] text-[var(--muted)]">评论动态</p>
               </div>
               <div className="mt-3 space-y-3">
-                {changeComments.map((comment) => (
-                  <article
-                    key={comment.id}
-                    className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="font-semibold text-[var(--foreground)]">
-                          {comment.authorLabel || comment.author?.name || comment.author?.email || "匿名访客"}
-                        </p>
-                        <p className="text-xs text-[var(--muted)]">{formatDateLabel(comment.createdAt)}</p>
-                      </div>
-                      <StatusBadge tone={commentToneMap[comment.status]}>
-                        {commentLabelMap[comment.status]}
-                      </StatusBadge>
-                    </div>
-                    <p className="mt-2 text-sm text-[var(--muted)] line-clamp-2">{comment.content}</p>
-                    <Link
-                      href={`/posts/${comment.post.slug}`}
-                      className="mt-3 inline-flex items-center gap-1 text-xs text-[var(--primary)] hover:underline"
+                {changeComments.map((comment: AdminCommentListItem) => {
+                  const status = comment.status as CommentStatus;
+
+                  return (
+                    <article
+                      key={comment.id}
+                      className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3"
                     >
-                      查看《{comment.post.title}》
-                    </Link>
-                  </article>
-                ))}
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-semibold text-[var(--foreground)]">
+                            {comment.authorLabel || comment.author?.name || comment.author?.email || "匿名访客"}
+                          </p>
+                          <p className="text-xs text-[var(--muted)]">{formatDateLabel(comment.createdAt)}</p>
+                        </div>
+                        <StatusBadge tone={commentToneMap[status]}>
+                          {commentLabelMap[status]}
+                        </StatusBadge>
+                      </div>
+                      <p className="mt-2 text-sm text-[var(--muted)] line-clamp-2">{comment.content}</p>
+                      <Link
+                        href={`/posts/${comment.post.slug}`}
+                        className="mt-3 inline-flex items-center gap-1 text-xs text-[var(--primary)] hover:underline"
+                      >
+                        查看《{comment.post.title}》
+                      </Link>
+                    </article>
+                  );
+                })}
               </div>
             </div>
           </div>

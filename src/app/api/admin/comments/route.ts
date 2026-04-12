@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server"
-import type { CommentStatus } from "@prisma/client"
 
 import { requireAdminSession } from "@/lib/api-auth"
 import { NotFoundError, ValidationError, toErrorResponse } from "@/lib/api-errors"
 import { prisma } from "@/lib/prisma"
 import { parseCommentStatusInput } from "@/lib/validation"
+
+type CommentStatus = "APPROVED" | "PENDING" | "REJECTED" | "SPAM"
 
 const allowedStatuses = new Set<CommentStatus>(["APPROVED", "PENDING", "REJECTED", "SPAM"])
 
@@ -121,7 +122,7 @@ export async function DELETE(request: Request) {
     }
 
     const deletedAt = new Date()
-    const resolvedIds = comments.map((comment) => comment.id)
+    const resolvedIds = comments.map((comment: { id: string }) => comment.id)
 
     await prisma.$transaction([
       prisma.comment.updateMany({

@@ -43,8 +43,8 @@ export async function PATCH(request: Request) {
       previousSlug: existing.slug,
       categorySlug: post.published ? post.category?.slug : null,
       previousCategorySlug: existing.category?.slug,
-      tagSlugs: post.published ? post.tags.map((tag) => tag.slug) : [],
-      previousTagSlugs: existing.tags.map((tag) => tag.slug) ?? [],
+      tagSlugs: post.published ? post.tags.map((tag: { slug: string }) => tag.slug) : [],
+      previousTagSlugs: existing.tags.map((tag: { slug: string }) => tag.slug) ?? [],
     })
 
     return NextResponse.json({ success: true, data: post })

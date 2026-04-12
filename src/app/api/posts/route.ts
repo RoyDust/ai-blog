@@ -68,7 +68,7 @@ export async function POST(request: Request) {
       revalidatePublicContent({
         slug: post.slug,
         categorySlug: post.category?.slug,
-        tagSlugs: post.tags.map((tag) => tag.slug),
+        tagSlugs: post.tags.map((tag: { slug: string }) => tag.slug),
       })
     }
 

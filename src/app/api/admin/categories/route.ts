@@ -110,7 +110,7 @@ export async function DELETE(request: Request) {
       throw new NotFoundError("Category not found")
     }
 
-    const resolvedIds = categories.map((category) => category.id)
+    const resolvedIds = categories.map((category: { id: string }) => category.id)
     const deletedAt = new Date()
 
     await prisma.$transaction([
