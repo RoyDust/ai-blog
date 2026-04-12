@@ -1,7 +1,7 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { LogoutButton } from "@/components/LogoutButton";
-import { adminNavItems } from "./config";
+import { adminNavItems, isAdminNavItemActive } from "./config";
 
 interface AdminSiderProps {
   pathname: string;
@@ -13,13 +13,13 @@ export function AdminSider({ pathname, userLabel }: AdminSiderProps) {
 
   return (
     <aside className="hidden border-r border-[var(--border)] bg-[var(--surface)] lg:flex lg:min-h-screen lg:flex-col">
-      <div className="border-b border-[var(--border)] px-5 py-5">
-        <p className="text-xs uppercase tracking-[0.24em] text-[var(--muted)]">Admin Pro Lite</p>
-        <h1 className="mt-2 font-display text-2xl font-bold text-[var(--foreground)]">My Blog Admin</h1>
-        <p className="mt-2 text-sm text-[var(--muted)]">面向内容与互动治理的统一工作台。</p>
+      <div className="px-5 py-6">
+        <p className="text-xs uppercase tracking-[0.24em] text-[var(--muted)]">编辑工作台</p>
+        <p className="mt-2 font-display text-3xl font-semibold text-[var(--foreground)]">内容工作室</p>
+        <p className="mt-2 text-sm text-[var(--muted)]">清新、温润、聚焦内容节奏。</p>
       </div>
 
-      <nav aria-label="Admin navigation" className="flex-1 space-y-6 px-4 py-6">
+      <nav aria-label="Admin navigation" className="flex-1 space-y-6 px-4 pb-6">
         {groups.map((group) => (
           <div key={group}>
             <p className="px-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--muted)]">{group}</p>
@@ -28,17 +28,17 @@ export function AdminSider({ pathname, userLabel }: AdminSiderProps) {
                 .filter((item) => item.group === group)
                 .map((item) => {
                   const Icon = item.icon;
-                  const isActive = item.href === "/admin" ? pathname === item.href : pathname.startsWith(item.href);
+                  const isActive = isAdminNavItemActive(pathname, item.href);
 
                   return (
                     <Link
                       key={item.href}
                       href={item.href}
-                      className={
+                      className={`flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-medium transition-colors ${
                         isActive
-                          ? "flex items-center gap-3 rounded-2xl bg-[var(--primary)] px-3 py-2.5 text-sm font-medium text-white shadow-[0_16px_30px_-22px_color-mix(in_srgb,var(--primary)_55%,transparent)]"
-                          : "flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--surface-alt)]"
-                      }
+                          ? "bg-[var(--surface-alt)] text-[var(--brand)] shadow-[0_12px_24px_rgba(15,23,42,0.12)]"
+                          : "text-[var(--foreground)] hover:bg-[var(--surface-alt)]"
+                      }`}
                     >
                       <Icon className="h-4 w-4" />
                       <span>{item.label}</span>
@@ -54,8 +54,8 @@ export function AdminSider({ pathname, userLabel }: AdminSiderProps) {
         <div className="rounded-2xl bg-[var(--surface-alt)] p-4">
           <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">当前账号</p>
           <p className="mt-2 text-sm font-medium text-[var(--foreground)]">{userLabel}</p>
-          <div className="mt-4 flex items-center justify-between gap-3 text-sm">
-            <Link className="inline-flex items-center gap-2 text-[var(--primary)] hover:underline" href="/">
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm">
+            <Link className="inline-flex items-center gap-2 text-[var(--brand)] hover:underline" href="/">
               <ArrowLeft className="h-4 w-4" />
               返回站点
             </Link>

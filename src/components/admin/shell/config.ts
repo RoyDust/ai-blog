@@ -1,19 +1,32 @@
-﻿import { FileText, FolderTree, LayoutDashboard, MessageSquare, Tags } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import { FileText, FolderTree, LayoutDashboard, MessageSquare } from "lucide-react";
 
 export type AdminNavItem = {
   href: string;
   label: string;
   group: string;
-  icon: typeof LayoutDashboard;
+  icon: LucideIcon;
 };
 
+function hasPathSegment(pathname: string, href: string) {
+  const normalizedPathname = pathname !== "/" ? pathname.replace(/\/+$/, "") : pathname;
+  return normalizedPathname === href || normalizedPathname.startsWith(`${href}/`);
+}
+
 export const adminNavItems: AdminNavItem[] = [
-  { href: "/admin", label: "仪表盘", group: "总览", icon: LayoutDashboard },
-  { href: "/admin/posts", label: "文章管理", group: "内容", icon: FileText },
-  { href: "/admin/comments", label: "评论管理", group: "互动", icon: MessageSquare },
-  { href: "/admin/categories", label: "分类管理", group: "配置", icon: FolderTree },
-  { href: "/admin/tags", label: "标签管理", group: "配置", icon: Tags },
+  { href: "/admin", label: "总览", group: "工作台", icon: LayoutDashboard },
+  { href: "/admin/posts", label: "文章", group: "内容", icon: FileText },
+  { href: "/admin/comments", label: "评论", group: "互动", icon: MessageSquare },
+  { href: "/admin/taxonomy", label: "分类与标签", group: "结构", icon: FolderTree },
 ];
+
+export function isAdminNavItemActive(pathname: string, href: string) {
+  if (href === "/admin") {
+    return pathname === href;
+  }
+
+  return hasPathSegment(pathname, href);
+}
 
 function resolveMatch(pathname: string) {
   if (pathname === "/admin/posts/new") {
@@ -24,7 +37,8 @@ function resolveMatch(pathname: string) {
     };
   }
 
-  if (pathname.startsWith("/admin/posts/") && pathname.includes("/edit")) {
+  const postEditMatch = pathname.match(/^\/admin\/posts\/[^/]+\/edit$/);
+  if (postEditMatch) {
     return {
       currentLabel: "编辑文章",
       currentGroup: "内容",
@@ -34,12 +48,12 @@ function resolveMatch(pathname: string) {
 
   const activeItem =
     adminNavItems.find((item) => pathname === item.href) ??
-    adminNavItems.find((item) => item.href !== "/admin" && pathname.startsWith(item.href));
+    adminNavItems.find((item) => item.href !== "/admin" && isAdminNavItemActive(pathname, item.href));
 
   if (!activeItem) {
     return {
       currentLabel: "管理后台",
-      currentGroup: "总览",
+      currentGroup: "工作台",
       crumbs: ["后台"],
     };
   }
@@ -54,4 +68,3 @@ function resolveMatch(pathname: string) {
 export function getAdminPathMeta(pathname: string) {
   return resolveMatch(pathname);
 }
-

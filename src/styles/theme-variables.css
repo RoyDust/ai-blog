@@ -118,3 +118,48 @@
   --surface: var(--card-bg);
   --muted: var(--text-muted);
 }
+
+.admin-theme {
+  color-scheme: light;
+  --background: #f9f9f8;
+  --surface: #ffffff;
+  --surface-alt: #f1f1f0;
+  --surface-elevated: #ffffff;
+  --surface-contrast: #ececea;
+  --float-panel-bg: #ffffff;
+  --foreground: #111827;
+  --text-body: #30343b;
+  --text-muted: #71717a;
+  --text-faint: #9ca3af;
+  --muted: var(--text-muted);
+  --border: rgba(0, 0, 0, 0.08);
+  --border-strong: rgba(0, 0, 0, 0.12);
+  --line-color: rgba(0, 0, 0, 0.08);
+  --primary: #18181b;
+  --brand: #4f46e5;
+  --brand-strong: #4338ca;
+  --ring: color-mix(in srgb, #4f46e5 35%, transparent);
+  --btn-content: color-mix(in oklab, var(--brand) 26%, var(--foreground) 74%);
+  --btn-regular-bg: color-mix(in oklab, var(--surface-alt) 82%, var(--brand) 18%);
+  --btn-regular-bg-hover: color-mix(in oklab, var(--surface-alt) 68%, var(--brand) 32%);
+  --btn-regular-bg-active: color-mix(in oklab, var(--surface-alt) 58%, var(--brand) 42%);
+  --btn-plain-bg-hover: color-mix(in oklab, var(--surface-alt) 90%, var(--foreground) 10%);
+  --btn-plain-bg-active: color-mix(in oklab, var(--surface-alt) 78%, var(--foreground) 22%);
+  --btn-card-bg-hover: color-mix(in oklab, var(--surface-alt) 84%, var(--foreground) 6%);
+  --danger-surface: #fff1f2;
+  --danger-border: rgba(244, 63, 94, 0.16);
+  --danger-foreground: #be123c;
+  --success-surface: #ecfdf5;
+  --success-border: rgba(16, 185, 129, 0.18);
+  --success-foreground: #047857;
+  --warning-surface: #fffbeb;
+  --warning-border: rgba(245, 158, 11, 0.2);
+  --warning-foreground: #b45309;
+  --shadow-ambient: 0 10px 30px rgba(0, 0, 0, 0.03);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.02);
+  --shadow-card-hover: 0 6px 20px rgba(0, 0, 0, 0.04);
+  --image-filter: none;
+  --image-filter-hover: none;
+  --ambient-primary: transparent;
+  --ambient-secondary: transparent;
+}
