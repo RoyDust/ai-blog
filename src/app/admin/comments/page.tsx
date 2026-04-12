@@ -5,9 +5,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { DataTable, type DataColumn } from "@/components/admin/DataTable";
 import { DeleteImpactDialog, type DeleteImpactItem } from "@/components/admin/DeleteImpactDialog";
-import { FilterBar } from "@/components/admin/FilterBar";
 import { PageHeader } from "@/components/admin/primitives/PageHeader";
 import { StatusBadge } from "@/components/admin/primitives/StatusBadge";
+import { Toolbar } from "@/components/admin/primitives/Toolbar";
+import { WorkspacePanel } from "@/components/admin/primitives/WorkspacePanel";
 
 type CommentStatus = "APPROVED" | "PENDING" | "REJECTED" | "SPAM";
 
@@ -30,6 +31,12 @@ interface DeleteDialogState {
   submitting: boolean;
 }
 
+interface ModerationBucket {
+  status: CommentStatus;
+  description: string;
+  highlight: string;
+}
+
 const initialDeleteDialog: DeleteDialogState = {
   open: false,
   ids: [],
@@ -43,8 +50,26 @@ const statusMeta: Record<CommentStatus, { label: string; tone: "success" | "warn
   APPROVED: { label: "已通过", tone: "success" },
   PENDING: { label: "待审核", tone: "warning" },
   REJECTED: { label: "已驳回", tone: "danger" },
-  SPAM: { label: "已删除", tone: "neutral" },
+  SPAM: { label: "已隐藏", tone: "neutral" },
 };
+
+const moderationBuckets: ModerationBucket[] = [
+  {
+    status: "PENDING",
+    description: "新评论直接进入待处理队列，优先判断是否合规。",
+    highlight: "优先处理新评论",
+  },
+  {
+    status: "APPROVED",
+    description: "确认优质互动继续在线，关注近期通过数量。",
+    highlight: "保持声誉",
+  },
+  {
+    status: "REJECTED",
+    description: "记录驳回原因，确保敏感/低质评论不再曝光。",
+    highlight: "同步驳回记录",
+  },
+];
 
 function getErrorMessage(data: unknown, fallback: string) {
   if (data && typeof data === "object") {
@@ -154,6 +179,28 @@ export default function AdminCommentsPage() {
     setDeleteDialog((prev) => ({ ...prev, submitting: false }));
   }
 
+  const statusCounts = useMemo(() => {
+    const totals: Record<CommentStatus, number> = {
+      APPROVED: 0,
+      PENDING: 0,
+      REJECTED: 0,
+      SPAM: 0,
+    };
+
+    comments.forEach((comment) => {
+      totals[comment.status] = (totals[comment.status] ?? 0) + 1;
+    });
+
+    return totals;
+  }, [comments]);
+
+  const triageBuckets = useMemo(() => {
+    return moderationBuckets.map((bucket) => ({
+      ...bucket,
+      count: statusCounts[bucket.status],
+    }));
+  }, [statusCounts]);
+
   const filtered = useMemo(() => {
     const keyword = query.trim().toLowerCase();
 
@@ -170,65 +217,139 @@ export default function AdminCommentsPage() {
     {
       key: "status",
       label: "状态",
-      render: (row) => <StatusBadge tone={statusMeta[row.status].tone}>{statusMeta[row.status].label}</StatusBadge>,
+      render: (row) => (
+        <div className="flex items-center gap-2">
+          <StatusBadge tone={statusMeta[row.status].tone}>{statusMeta[row.status].label}</StatusBadge>
+          <span className="text-xs text-[var(--muted)]">{row.status === "PENDING" ? "待你决策" : "已处理"}</span>
+        </div>
+      ),
     },
     {
       key: "post",
       label: "所属文章",
-      render: (row) => <Link className="text-[var(--primary)] hover:underline" href={`/posts/${row.post.slug}`}>{row.post.title}</Link>,
+      render: (row) => (
+        <Link className="text-[var(--primary)] hover:underline" href={`/posts/${row.post.slug}`}>
+          {row.post.title}
+        </Link>
+      ),
     },
     { key: "date", label: "日期", render: (row) => new Date(row.createdAt).toLocaleDateString("zh-CN") },
     {
       key: "actions",
       label: "操作",
       render: (row) => (
-        <div className="flex items-center gap-3 text-sm">
-          <button className="text-[var(--primary)] hover:underline" onClick={() => void updateStatuses([row.id], "APPROVED")} type="button">通过</button>
-          <button className="text-[var(--foreground)] hover:text-[var(--primary)]" onClick={() => void updateStatuses([row.id], "REJECTED")} type="button">驳回</button>
-          <button className="text-rose-600 hover:underline" onClick={() => void openDeleteDialog([row.id])} type="button">隐藏</button>
+        <div className="flex flex-wrap gap-3 text-sm">
+          <button className="text-[var(--primary)] hover:underline" onClick={() => void updateStatuses([row.id], "APPROVED")} type="button">
+            通过
+          </button>
+          <button className="text-[var(--foreground)] hover:text-[var(--primary)]" onClick={() => void updateStatuses([row.id], "REJECTED")} type="button">
+            驳回
+          </button>
+          <button className="text-rose-600 hover:underline" onClick={() => void openDeleteDialog([row.id])} type="button">
+            隐藏
+          </button>
         </div>
       ),
     },
   ];
 
+  const triageFilters: Array<{ key: "ALL" | CommentStatus; label: string }> = [
+    { key: "ALL", label: "全部" },
+    { key: "PENDING", label: "待审核" },
+    { key: "APPROVED", label: "已通过" },
+    { key: "REJECTED", label: "已驳回" },
+    { key: "SPAM", label: "已隐藏" },
+  ];
+
+  const toolbarHint =
+    statusFilter === "ALL" ? "当前聚焦 全部评论" : `当前聚焦 ${statusMeta[statusFilter].label} 评论`;
+
+  const triageToolbar = (
+    <Toolbar
+      leading={
+        <>
+          <div className="min-w-0 flex-1">
+            <label className="sr-only" htmlFor="admin-comments-search">
+              搜索评论
+            </label>
+            <input
+              id="admin-comments-search"
+              placeholder="搜索评论内容或文章标题"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              className="ui-ring w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--foreground)] placeholder:text-[var(--muted)] focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+            />
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {triageFilters.map((filter) => (
+              <button
+                key={filter.key}
+                type="button"
+                className={
+                  statusFilter === filter.key
+                    ? "ui-btn rounded-xl bg-[var(--primary)] px-3 py-1.5 text-xs text-white"
+                    : "ui-btn rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-1.5 text-xs text-[var(--foreground)] hover:bg-[var(--surface-alt)]"
+                }
+                onClick={() => setStatusFilter(filter.key)}
+              >
+                {filter.label}
+              </button>
+            ))}
+          </div>
+        </>
+      }
+      trailing={<span className="text-sm text-[var(--muted)]">{toolbarHint}</span>}
+    />
+  );
+
   if (loading) return <p className="py-20 text-center text-[var(--muted)]">加载中...</p>;
 
   return (
     <>
-      <div className="space-y-4">
-        <PageHeader eyebrow="Engagement" title="评论管理" description="集中处理评论审核、状态筛选和批量隐藏。" />
-        <FilterBar placeholder="搜索评论内容或文章标题" value={query} onChange={setQuery}>
-          {[
-            { key: "ALL", label: "全部" },
-            { key: "PENDING", label: "待审核" },
-            { key: "APPROVED", label: "已通过" },
-            { key: "REJECTED", label: "已驳回" },
-          ].map((item) => (
-            <button
-              key={item.key}
-              type="button"
-              className={
-                statusFilter === item.key
-                  ? "ui-btn rounded-xl bg-[var(--primary)] px-3 py-2 text-sm text-white"
-                  : "ui-btn rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--surface-alt)]"
-              }
-              onClick={() => setStatusFilter(item.key as typeof statusFilter)}
-            >
-              {item.label}
-            </button>
-          ))}
-        </FilterBar>
+      <div className="space-y-6">
+        <PageHeader
+          eyebrow="Moderation"
+          title="评论收件箱"
+          description="围绕待审核、已通过与已驳回组织评论治理，优先完成 triage 操作。"
+        />
+
+        <WorkspacePanel title="状态桶" description="按照状态设置审核节奏与优先级。">
+          <div className="grid gap-4 md:grid-cols-3">
+            {triageBuckets.map((bucket) => (
+              <div key={bucket.status} className="flex h-full flex-col gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
+                <div className="flex items-center justify-between gap-3">
+                  <StatusBadge tone={statusMeta[bucket.status].tone}>{statusMeta[bucket.status].label}</StatusBadge>
+                  <button
+                    type="button"
+                    className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--brand)] hover:text-[var(--brand-strong)]"
+                    onClick={() => setStatusFilter(bucket.status)}
+                  >
+                    聚焦
+                  </button>
+                </div>
+                <p className="text-sm text-[var(--muted)]">{bucket.description}</p>
+                <div className="mt-auto">
+                  <p className="text-4xl font-semibold text-[var(--foreground)]">{bucket.count}</p>
+                  <p className="text-xs uppercase tracking-[0.3em] text-[var(--muted)]">{bucket.highlight}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </WorkspacePanel>
+
         <DataTable
+          title="治理队列"
+          summary="在一个视图里完成审核、驳回与隐藏操作。"
+          toolbar={triageToolbar}
+          columns={columns}
+          rows={filtered}
+          emptyText="暂无评论"
           bulkActions={[
             { label: "批量通过", onClick: (ids) => void updateStatuses(ids, "APPROVED") },
             { label: "批量设为待审核", onClick: (ids) => void updateStatuses(ids, "PENDING") },
             { label: "批量驳回", variant: "danger", onClick: (ids) => void updateStatuses(ids, "REJECTED") },
             { label: "批量隐藏", variant: "danger", onClick: (ids) => void openDeleteDialog(ids) },
           ]}
-          columns={columns}
-          emptyText="暂无评论"
-          rows={filtered}
-          title="评论列表"
         />
       </div>
 
@@ -237,7 +358,7 @@ export default function AdminCommentsPage() {
         description={deleteDialog.description}
         impacts={deleteDialog.impacts}
         onConfirm={confirmDelete}
-        onOpenChange={(open) => setDeleteDialog(open ? deleteDialog : initialDeleteDialog)}
+        onOpenChange={(open) => setDeleteDialog((prev) => (open ? prev : initialDeleteDialog))}
         open={deleteDialog.open}
         submitting={deleteDialog.submitting}
         title={deleteDialog.title}
