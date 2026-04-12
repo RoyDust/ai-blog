@@ -68,6 +68,34 @@ describe('admin editor', () => {
     expect(await screen.findByRole('button', { name: '上传封面到七牛' })).toBeInTheDocument()
   })
 
+  test('shows explicit publish state controls for drafts', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: {
+            id: '1',
+            title: 'Post 1',
+            slug: 'post-1',
+            content: '# Hello',
+            excerpt: 'Excerpt',
+            coverImage: '',
+            published: false,
+          },
+        }),
+      })
+    )
+
+    render(<AdminPostEditPage />)
+
+    expect(await screen.findByText('当前状态')).toBeInTheDocument()
+    expect(screen.getByText('草稿')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '切换为已发布' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '保持草稿' })).toBeDisabled()
+  })
+
   test('updates slug from Chinese title with pinyin limit', async () => {
     vi.stubGlobal(
       'fetch',

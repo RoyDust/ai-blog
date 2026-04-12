@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { PageHeader } from "@/components/admin/primitives/PageHeader";
+import { StatusBadge } from "@/components/admin/primitives/StatusBadge";
 import { EditorWorkspace, PublishChecklist } from "@/components/posts";
 import { Button } from "@/components/ui";
 import { generatePostSlug } from "@/lib/slug";
@@ -168,6 +169,37 @@ export default function AdminPostEditPage() {
           <PublishChecklist content={formData.content} coverImage={formData.coverImage} slug={formData.slug} title={formData.title} />
           <section className="ui-surface rounded-2xl p-5 shadow-[0_16px_30px_-24px_rgba(15,118,110,0.45)]">
             <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">发布面板</p>
+            <div className="mt-4 rounded-2xl border border-[var(--border)] bg-[var(--surface-alt)] p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-[var(--foreground)]">当前状态</p>
+                  <p className="text-sm text-[var(--muted)]">先切换状态，再保存修改。</p>
+                </div>
+                <StatusBadge tone={formData.published ? "success" : "warning"}>
+                  {formData.published ? "已发布" : "草稿"}
+                </StatusBadge>
+              </div>
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={formData.published ? "outline" : "primary"}
+                  disabled={!formData.published}
+                  onClick={() => setFormData((prev) => ({ ...prev, published: false }))}
+                >
+                  保持草稿
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={formData.published ? "primary" : "outline"}
+                  disabled={formData.published}
+                  onClick={() => setFormData((prev) => ({ ...prev, published: true }))}
+                >
+                  切换为已发布
+                </Button>
+              </div>
+            </div>
             <div className="mt-4 space-y-4 rounded-2xl border border-[var(--border)] bg-[var(--surface-alt)] p-4">
               <div className="space-y-2">
                 <label className="block text-sm font-medium text-[var(--foreground)]" htmlFor="edit-post-category">
@@ -217,10 +249,6 @@ export default function AdminPostEditPage() {
                 </div>
               </fieldset>
             </div>
-            <label className="mt-4 flex items-center gap-2 text-sm text-[var(--foreground)]">
-              <input type="checkbox" className="h-4 w-4 rounded border-[var(--border)]" checked={formData.published} onChange={(e) => setFormData((prev) => ({ ...prev, published: e.target.checked }))} />
-              直接发布
-            </label>
             <div className="mt-4 space-y-2 rounded-2xl border border-[var(--border)] bg-[var(--surface-alt)] p-3 text-sm text-[var(--muted)]">
               <p>Slug：{formData.slug || "未生成"}</p>
               <p>分类：{categories.find((category) => category.id === formData.categoryId)?.name ?? "未选择"}</p>
