@@ -27,9 +27,10 @@ describe("admin layout", () => {
     expect(container.firstElementChild).toHaveClass("admin-theme");
     expect(container.firstElementChild).toHaveClass("h-screen", "overflow-hidden");
     expect(screen.getByTestId("admin-layout-grid")).toHaveAttribute("data-layout-sidebar-width", "280");
-    expect(screen.getByTestId("admin-layout-main")).toHaveAttribute("data-content-max-width", "1600");
+    expect(screen.getByTestId("admin-layout-main")).toHaveAttribute("data-content-max-width", "full");
     expect(screen.getByTestId("admin-layout-sidebar")).toHaveClass("sticky", "top-0", "h-screen", "overflow-hidden");
     expect(screen.getByTestId("admin-layout-content")).toHaveClass("h-screen", "overflow-hidden");
     expect(screen.getByTestId("admin-layout-main")).toHaveClass("flex-1", "overflow-y-auto");
+    expect(screen.getByTestId("admin-layout-main")).not.toHaveClass("max-w-[1600px]");
   });
 });
