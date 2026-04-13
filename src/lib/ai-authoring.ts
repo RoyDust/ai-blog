@@ -1,5 +1,4 @@
 import { prisma } from "@/lib/prisma"
-import type { Prisma } from "@prisma/client"
 import { calculateReadingTimeMinutes } from "@/lib/reading-time"
 import { revalidatePublicContent } from "@/lib/cache"
 import { ConflictError, NotFoundError, ValidationError, isPrismaConflictError } from "@/lib/api-errors"
@@ -50,6 +49,8 @@ type AdminPostPatchInput = {
   tagIds?: string[] | null
   published?: boolean
 }
+
+type PrismaTransactionClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
 
 const draftSelect = {
   id: true,
@@ -180,7 +181,7 @@ async function createDraftWithBinding({
   replaceBinding: boolean
   readingTimeMinutes: number
 }) {
-  return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+  return prisma.$transaction(async (tx: PrismaTransactionClient) => {
     const post = await tx.post.create({
       data: {
         title: input.title,
@@ -235,7 +236,7 @@ async function updateDraftPost({
   tagConnections: Array<{ id: string }>
   readingTimeMinutes: number
 }) {
-  return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+  return prisma.$transaction(async (tx: PrismaTransactionClient) => {
     try {
       return await tx.post.update({
         where: {

@@ -5,7 +5,9 @@ import { PostCardFeatured } from "../PostCardFeatured";
 
 vi.mock("next/image", () => ({
   default: (props: React.ComponentProps<"img"> & { fill?: boolean; priority?: boolean }) => {
-    const { fill, priority, ...imageProps } = props;
+    const { fill: _fill, priority: _priority, ...imageProps } = props;
+    void _fill;
+    void _priority;
     return React.createElement("img", { ...imageProps, alt: imageProps.alt ?? "" });
   },
 }));
