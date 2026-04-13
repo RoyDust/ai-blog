@@ -7,7 +7,7 @@
 - [x] Task 1: Restore the desktop left rail
 - [x] Task 2: Upgrade text-only post cards
 - [x] Task 3: Rebuild homepage curated hierarchy
-- [ ] Final verification
+- [x] Final verification
 
 ## Validation Record
 
@@ -46,6 +46,26 @@
   - `home-reader-flow.test.tsx` passed after homepage curated hierarchy implementation
 - Notes:
   - Task 3 split homepage into standalone intro row + curated featured grid + latest feed slicing from `posts[3..]`.
+
+### Run 4
+
+- Date: 2026-04-14
+- Commands:
+  - `pnpm exec vitest run src/components/layout/__tests__/app-shell.test.tsx src/components/layout/__tests__/public-chrome.test.tsx src/components/blog/__tests__/PostCard.test.tsx src/app/__tests__/frontend-listing-style.test.tsx src/app/__tests__/home-reader-flow.test.tsx`
+  - `pnpm lint`
+  - `pnpm exec prisma generate`
+  - `pnpm build`
+  - `pnpm start`
+  - `Invoke-WebRequest http://127.0.0.1:3000/`
+  - `Invoke-WebRequest http://127.0.0.1:3000/posts`
+- Results:
+  - 5 targeted test files passed, 9 tests passed
+  - `pnpm lint` passed with existing warnings only
+  - `pnpm build` passed after Prisma client generation
+  - `/` and `/posts` both returned HTTP 200 in local smoke verification
+- Notes:
+  - `/posts` main listing copy is client-rendered, so route reachability rather than static text match was used for the smoke check.
+  - `pnpm build` initially failed before `pnpm exec prisma generate`; this was an environment prerequisite issue in the worktree, not a follow-up UI regression.
 
 ## Task Log
 
@@ -96,10 +116,22 @@
 
 ### Final Verification
 
-- Status: Pending
+- Status: Completed
 - Commands:
+  - `pnpm exec vitest run src/components/layout/__tests__/app-shell.test.tsx src/components/layout/__tests__/public-chrome.test.tsx src/components/blog/__tests__/PostCard.test.tsx src/app/__tests__/frontend-listing-style.test.tsx src/app/__tests__/home-reader-flow.test.tsx`
+  - `pnpm lint`
+  - `pnpm exec prisma generate`
+  - `pnpm build`
+  - `pnpm start`
+  - `Invoke-WebRequest http://127.0.0.1:3000/`
+  - `Invoke-WebRequest http://127.0.0.1:3000/posts`
 - Results:
+  - Targeted follow-up tests passed
+  - Lint passed with existing warnings only
+  - Production build passed
+  - Local smoke verification returned 200 for homepage and posts listing
 - Notes:
+  - No additional code changes were needed after final verification.
 
 ## Execution Notes
 
