@@ -74,6 +74,8 @@ describe('PostsListingClient', () => {
       />,
     )
 
+    expect(screen.getByRole("heading", { name: "文章索引" })).toBeInTheDocument()
+    expect(screen.getByText("按主题、标签和关键词探索全部内容。")).toBeInTheDocument()
     expect(screen.getAllByTestId('post-card-skeleton')).toHaveLength(6)
     expect(
       screen
@@ -109,7 +111,7 @@ describe('PostsListingClient', () => {
     expect(fetch).toHaveBeenCalledWith('/api/posts?page=1&limit=10')
   })
 
-  test('limits reveal animation to the first four loaded cards', async () => {
+  test('uses the first post as a featured lead and limits reveal animation to the next four cards', async () => {
     const posts = Array.from({ length: 6 }, (_, index) => createPost(String(index + 1)))
 
     vi.stubGlobal(
@@ -136,7 +138,9 @@ describe('PostsListingClient', () => {
       expect(screen.getByText('Post 1')).toBeInTheDocument()
     })
 
-    const animatedCards = ['1', '2', '3', '4'].map((id) =>
+    expect(screen.getByText('精选文章')).toBeInTheDocument()
+
+    const animatedCards = ['2', '3', '4', '5'].map((id) =>
       screen.getByText(`Post ${id}`).closest('.onload-animation'),
     )
 
@@ -148,7 +152,7 @@ describe('PostsListingClient', () => {
       'animation-delay: 200ms;',
       'animation-delay: 250ms;',
     ])
-    expect(screen.getByText('Post 5').closest('.onload-animation')).toBeNull()
+    expect(screen.getByText('Post 1').closest('.onload-animation')).toBeNull()
     expect(screen.getByText('Post 6').closest('.onload-animation')).toBeNull()
   })
 
