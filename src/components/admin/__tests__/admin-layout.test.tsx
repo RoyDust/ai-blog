@@ -25,7 +25,11 @@ describe("admin layout", () => {
     expect(screen.getByText("Taxonomy content")).toBeInTheDocument();
 
     expect(container.firstElementChild).toHaveClass("admin-theme");
+    expect(container.firstElementChild).toHaveClass("h-screen", "overflow-hidden");
     expect(screen.getByTestId("admin-layout-grid")).toHaveAttribute("data-layout-sidebar-width", "280");
     expect(screen.getByTestId("admin-layout-main")).toHaveAttribute("data-content-max-width", "1600");
+    expect(screen.getByTestId("admin-layout-sidebar")).toHaveClass("sticky", "top-0", "h-screen", "overflow-hidden");
+    expect(screen.getByTestId("admin-layout-content")).toHaveClass("h-screen", "overflow-hidden");
+    expect(screen.getByTestId("admin-layout-main")).toHaveClass("flex-1", "overflow-y-auto");
   });
 });

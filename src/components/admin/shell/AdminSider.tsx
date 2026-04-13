@@ -12,14 +12,17 @@ export function AdminSider({ pathname, userLabel }: AdminSiderProps) {
   const groups = Array.from(new Set(adminNavItems.map((item) => item.group)));
 
   return (
-    <aside className="hidden border-r border-[var(--border)] bg-[var(--surface)] lg:flex lg:min-h-screen lg:flex-col">
+    <aside
+      className="hidden sticky top-0 h-screen overflow-hidden border-r border-[var(--border)] bg-[var(--surface)] lg:flex lg:flex-col"
+      data-testid="admin-layout-sidebar"
+    >
       <div className="px-5 py-6">
         <p className="text-xs uppercase tracking-[0.24em] text-[var(--muted)]">编辑工作台</p>
         <p className="mt-2 font-display text-3xl font-semibold text-[var(--foreground)]">内容工作室</p>
         <p className="mt-2 text-sm text-[var(--muted)]">清新、温润、聚焦内容节奏。</p>
       </div>
 
-      <nav aria-label="Admin navigation" className="flex-1 space-y-6 px-4 pb-6">
+      <nav aria-label="Admin navigation" className="flex-1 overflow-y-auto space-y-6 px-4 pb-6">
         {groups.map((group) => (
           <div key={group}>
             <p className="px-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--muted)]">{group}</p>
