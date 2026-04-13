@@ -23,6 +23,10 @@ interface HomeLatestPostsProps {
 }
 
 export function HomeLatestPosts({ posts }: HomeLatestPostsProps) {
+  if (posts.length === 0) {
+    return null
+  }
+
   return (
     <section className="ui-section">
       <SectionHeader

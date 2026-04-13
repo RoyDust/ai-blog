@@ -1,7 +1,7 @@
 export const revalidate = 300
 
 import type { Metadata } from 'next'
-import { HomeDiscoveryGrid, HomeHero, HomeLatestPosts } from '@/components/blog'
+import { HomeDiscoveryGrid, HomeFeaturedGrid, HomeHero, HomeLatestPosts } from '@/components/blog'
 import { POSTS_PAGE_SIZE } from '@/lib/pagination'
 import { getPublishedPostsPage } from '@/lib/posts'
 import { prisma } from '@/lib/prisma'
@@ -54,7 +54,9 @@ type HomeCategory = Awaited<ReturnType<typeof getData>>['categories'][number]
 
 export default async function Home() {
   const { posts, categories, hasLoadError } = await getData()
-  const [featuredPost, ...latestPosts] = posts as HomePost[]
+  const [editorialLead, ...remainingPosts] = posts as HomePost[]
+  const secondaryFeatured = remainingPosts.slice(0, 2)
+  const latestPosts = remainingPosts.slice(2)
 
   return (
     <div className="space-y-[var(--section-gap)]">
@@ -64,8 +66,9 @@ export default async function Home() {
         </section>
       ) : null}
 
-      <HomeHero featuredPost={featuredPost ?? null} />
-      <HomeLatestPosts posts={latestPosts.length > 0 ? latestPosts : featuredPost ? [featuredPost] : []} />
+      <HomeHero />
+      <HomeFeaturedGrid leadPost={editorialLead ?? null} secondaryPosts={secondaryFeatured} />
+      <HomeLatestPosts posts={latestPosts} />
       <HomeDiscoveryGrid categories={categories as HomeCategory[]} />
     </div>
   )

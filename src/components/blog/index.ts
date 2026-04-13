@@ -3,6 +3,7 @@ export { PostCard } from "./PostCard";
 export { PostMeta } from "./PostMeta";
 export { PostCardFeatured } from "./PostCardFeatured";
 export { HomeHero } from "./HomeHero";
+export { HomeFeaturedGrid } from "./HomeFeaturedGrid";
 export { HomeDiscoveryGrid } from "./HomeDiscoveryGrid";
 export { FilterBar } from "./FilterBar";
 export { HomeLatestPosts } from "./HomeLatestPosts";
