@@ -60,15 +60,15 @@ export function Sidebar() {
   }, []);
 
   return (
-    <aside id="sidebar" className="onload-animation h-full w-[17.5rem] shrink-0">
-      <div className="flex h-full flex-col gap-4">
-        <div className="card-base p-6">
+    <aside id="sidebar" className="onload-animation h-full w-full">
+      <div className="flex h-full flex-col gap-4 xl:gap-3">
+        <div className="card-base p-[var(--sidebar-profile-padding)]">
           <div className="flex flex-col items-center text-center">
-            <div className="relative mb-4 h-24 w-24 overflow-hidden rounded-full ring-2 ring-[var(--primary)] ring-offset-2 ring-offset-[var(--card-bg)]">
+            <div className="relative mb-3 h-24 w-24 overflow-hidden rounded-full ring-2 ring-[var(--primary)] ring-offset-2 ring-offset-[var(--card-bg)]">
               <FallbackImage alt={profile.name} className="object-cover" fill sizes="96px" src={profile.avatar} />
             </div>
-            <h2 className="text-90 mb-2 text-xl font-bold">{profile.name}</h2>
-            <p className="text-75 mb-4 text-sm leading-relaxed">{profile.bio}</p>
+            <h2 className="text-90 mb-1 text-xl font-bold">{profile.name}</h2>
+            <p className="text-75 mb-3 text-sm leading-relaxed">{profile.bio}</p>
             <div className="flex gap-2">
               {profile.links.map((link) => {
                 const Icon = link.icon;

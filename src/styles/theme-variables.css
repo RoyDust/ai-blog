@@ -5,6 +5,8 @@
   --content-max-width: 72rem;
   --reading-max-width: 48rem;
   --rail-width: 18rem;
+  --layout-rail-gap: clamp(1.5rem, 2vw, 2rem);
+  --sidebar-profile-padding: 1.25rem;
   --section-gap: clamp(2.5rem, 4vw, 4.5rem);
   --hero-media-ratio: 1.35;
   --content-delay: 150ms;

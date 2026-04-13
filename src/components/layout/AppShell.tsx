@@ -18,15 +18,15 @@ export function AppShell({ children }: AppShellProps) {
       </a>
       <Navbar />
       <div className="flex flex-1 flex-col">
-        <div className="mx-auto flex w-full max-w-[var(--page-width)] flex-1 gap-6 px-4 pb-8 pt-4 xl:gap-8">
+        <div className="mx-auto flex w-full max-w-[var(--page-width)] flex-1 flex-col gap-6 px-4 pb-8 pt-4 xl:flex-row xl:gap-[var(--layout-rail-gap)]">
+          <div data-testid="sidebar-rail" className="hidden xl:block xl:w-[var(--rail-width)] xl:shrink-0">
+            <Sidebar />
+          </div>
           <main id="main-content" className="min-w-0 flex-1">
             <div className="mx-auto w-full max-w-[var(--content-max-width)] space-y-[var(--section-gap)]">
               {children}
             </div>
           </main>
-          <div data-testid="sidebar-rail" className="hidden xl:block xl:w-[var(--rail-width)] xl:shrink-0">
-            <Sidebar />
-          </div>
         </div>
         <div className="mx-auto w-full max-w-[var(--page-width)] px-4 pb-8">
           <Footer />
