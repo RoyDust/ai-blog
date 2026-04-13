@@ -1,12 +1,9 @@
 'use client'
 
-import { useCallback } from 'react'
 import Link from 'next/link'
-import { ArrowRight } from 'lucide-react'
-
 import { getListRevealAnimationProps } from './listAnimation'
 import { PostCard } from './PostCard'
-import { useInfinitePosts } from './useInfinitePosts'
+import { SectionHeader } from './SectionHeader'
 
 interface HomeLatestPost {
   id: string
@@ -22,50 +19,29 @@ interface HomeLatestPost {
 }
 
 interface HomeLatestPostsProps {
-  initialPosts: HomeLatestPost[]
-  initialPagination: {
-    page: number
-    limit: number
-    total: number
-    totalPages: number
-  }
+  posts: HomeLatestPost[]
 }
 
-export function HomeLatestPosts({ initialPosts, initialPagination }: HomeLatestPostsProps) {
-  const buildUrl = useCallback(
-    (page: number) => `/api/posts?page=${page}&limit=${initialPagination.limit}`,
-    [initialPagination.limit],
-  )
-
-  const { posts, isLoading, error, hasNextPage, observerTargetRef } = useInfinitePosts({
-    initialPosts,
-    initialPagination,
-    buildUrl,
-  })
-
+export function HomeLatestPosts({ posts }: HomeLatestPostsProps) {
   return (
-    <section className="onload-animation space-y-4" style={{ animationDelay: '50ms' }}>
-      <div className="flex items-center justify-between">
-        <h2 className="text-90 text-2xl font-bold">最新文章</h2>
-        <Link href="/posts" className="btn-plain scale-animation flex h-9 items-center gap-1 rounded-lg px-4 text-sm">
-          查看全部
-          <ArrowRight className="h-4 w-4" />
-        </Link>
-      </div>
+    <section className="ui-section">
+      <SectionHeader
+        eyebrow="最新"
+        title="最新发布"
+        description="保留最近更新的内容入口，但把持续浏览交给文章列表页。"
+        action={
+          <Link href="/posts" className="btn-plain rounded-xl px-4 py-2 text-sm font-medium">
+            查看全部
+          </Link>
+        }
+      />
 
       <div className="space-y-4">
-        {posts.map((post, index) => (
+        {posts.slice(0, 4).map((post, index) => (
           <div key={post.id} {...getListRevealAnimationProps(index)}>
             <PostCard post={post} />
           </div>
         ))}
-
-        {isLoading && <div className="px-2 py-4 text-sm text-[var(--muted)]">正在加载更多文章...</div>}
-        {error && <div className="px-2 py-2 text-sm text-red-500">{error}</div>}
-        {hasNextPage && <div ref={observerTargetRef} aria-hidden="true" className="h-4 w-full" />}
-        {!hasNextPage && posts.length > 0 && initialPagination.totalPages > 1 && (
-          <div className="px-2 py-2 text-sm text-[var(--muted)]">已加载全部文章</div>
-        )}
       </div>
     </section>
   )

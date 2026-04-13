@@ -2,6 +2,8 @@ export { SectionHeader } from "./SectionHeader";
 export { PostCard } from "./PostCard";
 export { PostMeta } from "./PostMeta";
 export { PostCardFeatured } from "./PostCardFeatured";
+export { HomeHero } from "./HomeHero";
+export { HomeDiscoveryGrid } from "./HomeDiscoveryGrid";
 export { FilterBar } from "./FilterBar";
 export { HomeLatestPosts } from "./HomeLatestPosts";
 export { PostsListingClient } from "./PostsListingClient";

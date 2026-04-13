@@ -50,16 +50,16 @@ describe('home reader flow', () => {
     tagFindMany.mockResolvedValue([])
   })
 
-  test('home shows latest feed and category discovery', async () => {
+  test("home shows curated hero, latest feed, and discovery modules", async () => {
     const { default: Home } = await import('../(public)/page')
     const ui = await Home()
     render(ui as React.ReactElement)
 
-    expect(screen.getByRole('heading', { name: '最新文章' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /查看全部/i })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: '浏览分类' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: '核心特性' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /文章/i })).toBeInTheDocument()
+    expect(screen.getByRole("heading", { name: "围绕主题，而不是时间线，浏览这座博客。" })).toBeInTheDocument()
+    expect(screen.getByRole("heading", { name: "最新发布" })).toBeInTheDocument()
+    expect(screen.getByRole("heading", { name: "继续探索" })).toBeInTheDocument()
+    expect(screen.queryByRole("heading", { name: "核心特性" })).not.toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "开始阅读" })).toHaveAttribute("href", "/posts")
   })
 
   test('home surfaces load failures instead of silently pretending content is empty', async () => {
