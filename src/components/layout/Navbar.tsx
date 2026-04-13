@@ -47,7 +47,7 @@ export function Navbar() {
     >
       <div className="absolute -top-8 right-0 left-0 h-8 bg-[var(--card-bg)] transition" />
 
-      <div className="card-base mx-auto flex h-[4.5rem] max-w-[var(--page-width)] items-center justify-between gap-3 !overflow-visible !rounded-t-none px-4 backdrop-blur-lg !bg-[var(--card-bg)]/80">
+      <div className="card-base mx-auto flex h-[4.5rem] max-w-[var(--page-width)] items-center justify-between gap-3 !overflow-visible !rounded-t-none px-4 backdrop-blur-lg !bg-[color:color-mix(in_oklab,var(--card-bg)_88%,transparent)]">
         <Link
           href="/"
           className="btn-plain h-[3.25rem] rounded-lg px-5 font-bold transition-colors hover:bg-[#E2F0FF] hover:text-[var(--primary)]"

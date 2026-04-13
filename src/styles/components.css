@@ -37,10 +37,23 @@
     color: var(--text-muted);
   }
 
+  .ui-kicker {
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--brand);
+  }
+
   .ui-chip {
     @apply inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium;
     background: var(--btn-regular-bg);
     color: var(--btn-content);
+  }
+
+  .ui-section {
+    display: grid;
+    gap: 1.5rem;
   }
 
   .theme-media {

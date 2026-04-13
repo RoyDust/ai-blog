@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { BookOpenText, Folder, Github, Mail, MessageSquare, Tag, Twitter } from "lucide-react";
+import { BookOpenText, Folder, Github, Mail, Tag, Twitter } from "lucide-react";
 import { FallbackImage } from "@/components/ui";
 
 const profile = {
@@ -89,25 +89,6 @@ export function Sidebar() {
           </div>
         </div>
 
-        <div className="card-base p-5">
-          <div className="mb-3 flex items-center gap-2">
-            <BookOpenText className="h-5 w-5 text-[var(--primary)]" />
-            <h3 className="text-90 font-bold">快捷导航</h3>
-          </div>
-          <div className="space-y-2">
-            <Link className="text-75 block rounded-lg px-3 py-2 text-sm transition hover:bg-[var(--btn-plain-bg-hover)]" href="/posts">
-              浏览全部文章
-            </Link>
-            <Link className="text-75 block rounded-lg px-3 py-2 text-sm transition hover:bg-[var(--btn-plain-bg-hover)]" href="/search">
-              搜索关键词
-            </Link>
-            <Link className="text-75 flex items-center justify-between rounded-lg px-3 py-2 text-sm transition hover:bg-[var(--btn-plain-bg-hover)]" href="/bookmarks">
-              我的收藏
-              <MessageSquare className="h-4 w-4 text-[var(--primary)]" />
-            </Link>
-          </div>
-        </div>
-
         <div className="min-h-0 flex-1">
           <div
             data-testid="sidebar-taxonomy-rail"
@@ -117,10 +98,28 @@ export function Sidebar() {
               maxHeight: "calc(100vh - var(--sidebar-sticky-top, 0px) - 1.75rem)",
             }}
           >
+            <div className="card-base p-5">
+              <div className="mb-3 flex items-center gap-2">
+                <BookOpenText className="h-5 w-5 text-[var(--primary)]" />
+                <h3 className="text-90 font-bold">继续探索</h3>
+              </div>
+              <div className="space-y-2">
+                <Link className="text-75 block rounded-lg px-3 py-2 text-sm transition hover:bg-[var(--btn-plain-bg-hover)]" href="/posts">
+                  浏览全部文章
+                </Link>
+                <Link className="text-75 block rounded-lg px-3 py-2 text-sm transition hover:bg-[var(--btn-plain-bg-hover)]" href="/search">
+                  搜索主题或关键词
+                </Link>
+                <Link className="text-75 block rounded-lg px-3 py-2 text-sm transition hover:bg-[var(--btn-plain-bg-hover)]" href="/archives">
+                  按时间回看归档
+                </Link>
+              </div>
+            </div>
+
             <div className="card-base p-6">
               <div className="mb-4 flex items-center gap-2">
                 <Folder className="h-5 w-5 text-[var(--primary)]" />
-                <h3 className="text-90 font-bold">分类</h3>
+                <h3 className="text-90 font-bold">分类索引</h3>
               </div>
               <div className="space-y-2">
                 {categories.map((category) => (
@@ -142,15 +141,11 @@ export function Sidebar() {
             <div className="card-base p-6">
               <div className="mb-4 flex items-center gap-2">
                 <Tag className="h-5 w-5 text-[var(--primary)]" />
-                <h3 className="text-90 font-bold">标签</h3>
+                <h3 className="text-90 font-bold">标签地图</h3>
               </div>
               <div className="flex flex-wrap gap-2">
                 {tags.map((tag) => (
-                  <Link
-                    key={tag.id}
-                    className="rounded-full bg-[var(--btn-regular-bg)] px-3 py-1 text-xs text-[var(--btn-content)] transition hover:bg-[var(--btn-regular-bg-hover)]"
-                    href={`/tags/${tag.slug}`}
-                  >
+                  <Link key={tag.id} className="ui-chip" href={`/tags/${tag.slug}`}>
                     {tag.name}
                   </Link>
                 ))}
