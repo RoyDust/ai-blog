@@ -26,30 +26,28 @@ function AdjacentLink({ label, href, title, align = 'left' }: { label: string; h
 export function ArticleContinuation({ previousPost, nextPost }: ArticleContinuationProps) {
   const hasAdjacent = previousPost || nextPost
 
+  if (!hasAdjacent) return null
+
   return (
-    <div className="mx-auto w-full max-w-[980px] space-y-6 xl:min-w-[880px]">
-      {hasAdjacent ? (
-        <section className="card-base p-6 md:p-8">
-          <div className="mb-5 space-y-2">
-            <h2 className="font-display text-2xl font-bold text-[var(--foreground)]">继续阅读</h2>
-            <p className="text-sm text-[var(--muted)]">按发布时间在相邻文章之间切换，保持阅读节奏不断开。</p>
-          </div>
+    <div className="space-y-5">
+      <div className="space-y-2">
+        <h2 className="font-display text-2xl font-bold text-[var(--foreground)]">继续阅读</h2>
+        <p className="text-sm text-[var(--muted)]">按发布时间在相邻文章之间切换，保持阅读节奏不断开。</p>
+      </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            {previousPost ? (
-              <AdjacentLink href={`/posts/${previousPost.slug}`} label="上一篇" title={previousPost.title} />
-            ) : (
-              <div className="rounded-2xl border border-dashed border-[var(--border)] p-5 text-sm text-[var(--muted)]">这是当前时间线中的第一篇文章。</div>
-            )}
+      <div className="grid gap-4 md:grid-cols-2">
+        {previousPost ? (
+          <AdjacentLink href={`/posts/${previousPost.slug}`} label="上一篇" title={previousPost.title} />
+        ) : (
+          <div className="rounded-2xl border border-dashed border-[var(--border)] p-5 text-sm text-[var(--muted)]">这是当前时间线中的第一篇文章。</div>
+        )}
 
-            {nextPost ? (
-              <AdjacentLink href={`/posts/${nextPost.slug}`} label="下一篇" title={nextPost.title} align="right" />
-            ) : (
-              <div className="rounded-2xl border border-dashed border-[var(--border)] p-5 text-sm text-[var(--muted)] md:text-right">这是当前时间线中的最新一篇文章。</div>
-            )}
-          </div>
-        </section>
-      ) : null}
+        {nextPost ? (
+          <AdjacentLink href={`/posts/${nextPost.slug}`} label="下一篇" title={nextPost.title} align="right" />
+        ) : (
+          <div className="rounded-2xl border border-dashed border-[var(--border)] p-5 text-sm text-[var(--muted)] md:text-right">这是当前时间线中的最新一篇文章。</div>
+        )}
+      </div>
     </div>
   )
 }

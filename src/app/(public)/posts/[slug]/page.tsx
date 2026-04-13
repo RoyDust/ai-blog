@@ -7,7 +7,7 @@ import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArticleContinuation, ArticleToc, BackToTopButton, BookmarkButton, LikeButton, ReadingProgress, ShareButton } from "@/components/blog";
+import { ArticleContinuation, ArticleHero, ArticleToc, BackToTopButton, BookmarkButton, LikeButton, ReadingProgress, SectionHeader, ShareButton } from "@/components/blog";
 import { CommentAuthGate } from "@/components/CommentAuthGate";
 import { FallbackImage } from "@/components/ui";
 import { prisma } from "@/lib/prisma";
@@ -190,29 +190,24 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
 
       <div className="mx-auto w-full max-w-[980px] xl:min-w-[880px]">
         <article className="card-base overflow-hidden">
-          {post.coverImage && (
-            <div className="theme-media relative h-64 w-full md:h-96">
+          {post.coverImage ? (
+            <div className="theme-media relative h-64 w-full md:h-[28rem]">
               <FallbackImage alt={post.title} className="theme-media-image object-cover" fill priority src={post.coverImage} />
             </div>
-          )}
+          ) : null}
 
           <div className="space-y-8 p-8">
-            <div className="space-y-5 border-b border-[var(--border)] pb-8">
-              <div className="flex flex-wrap items-center gap-3 text-xs text-[var(--muted)]">
-                {post.category && (
-                  <Link className="rounded-full bg-[var(--surface-alt)] px-3 py-1 font-semibold text-[var(--primary)]" href={`/categories/${post.category.slug}`}>
-                    {post.category.name}
-                  </Link>
-                )}
-                <span>{new Date(post.createdAt).toLocaleDateString("zh-CN")}</span>
-                <span>{post.viewCount} 阅读</span>
-                <span>预计阅读 {post.readingTimeMinutes} 分钟</span>
-              </div>
+            <ArticleHero
+              title={post.title}
+              excerpt={post.excerpt}
+              category={post.category}
+              author={post.author}
+              createdAt={post.createdAt}
+              viewCount={post.viewCount}
+              readingTimeMinutes={post.readingTimeMinutes}
+            />
 
-              <h1 className="font-display text-4xl font-extrabold leading-tight text-[var(--foreground)]">{post.title}</h1>
-            </div>
-
-            <div className="max-w-[76ch]">
+            <div className="max-w-[var(--reading-max-width)]">
               <article className="prose prose-zinc max-w-none prose-headings:font-display prose-headings:scroll-mt-28 prose-headings:mt-10 prose-headings:mb-4 prose-headings:text-[var(--foreground)] prose-h1:text-[var(--foreground)] prose-h2:text-[var(--foreground)] prose-h3:text-[var(--foreground)] prose-h4:text-[var(--foreground)] prose-h5:text-[var(--foreground)] prose-h6:text-[var(--foreground)] prose-p:my-5 prose-p:leading-8 prose-p:text-[var(--text-body)] prose-a:text-[var(--brand)] prose-a:no-underline hover:prose-a:underline prose-strong:text-[var(--foreground)] prose-li:text-[var(--text-body)] prose-li:marker:text-[var(--text-faint)] prose-blockquote:border-[var(--border-strong)] prose-blockquote:border-l-[3px] prose-blockquote:text-[var(--text-body)] prose-blockquote:font-medium prose-hr:border-[var(--border)] prose-img:rounded-xl prose-pre:rounded-xl prose-pre:border prose-pre:border-[var(--border)] prose-pre:bg-[var(--surface-elevated)] prose-pre:text-[var(--foreground)] prose-code:rounded prose-code:bg-[color-mix(in_oklab,var(--surface-contrast)_82%,black_18%)] prose-code:px-1.5 prose-code:py-0.5 prose-code:text-[color-mix(in_oklab,var(--foreground)_92%,white_8%)] prose-code:font-[var(--font-code)] prose-code:before:content-none prose-code:after:content-none prose-table:w-full prose-th:bg-[var(--surface-contrast)] prose-th:text-[var(--foreground)] prose-td:border-[var(--border)] prose-th:border-[var(--border)] dark:prose-invert">
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
@@ -267,44 +262,44 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
               </article>
             </div>
 
-            {post.tags.length > 0 && (
+            {post.tags.length > 0 ? (
               <div className="flex flex-wrap gap-2 border-t border-[var(--border)] pt-8">
                 {post.tags.map((tag: ArticlePost['tags'][number]) => (
                   <Link
-                    className="rounded-full bg-[var(--surface-alt)] px-3 py-1 text-sm text-[var(--foreground)] transition-colors hover:text-[var(--primary)]"
-                      href={`/tags/${tag.slug}`}
+                    className="ui-chip"
+                    href={`/tags/${tag.slug}`}
                     key={tag.slug}
                   >
                     #{tag.name}
                   </Link>
                 ))}
               </div>
-            )}
+            ) : null}
           </div>
         </article>
       </div>
 
-      <section className="card-base mx-auto w-full max-w-[980px] p-5 xl:min-w-[880px]">
-        <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h2 className="font-display text-xl font-bold text-[var(--foreground)]">与我互动</h2>
-            <p className="mt-1 text-sm text-[var(--muted)]">喜欢这篇文章？说说你的看法</p>
-          </div>
-        </div>
+      <section className="card-base mx-auto w-full max-w-[980px] space-y-6 p-6 xl:min-w-[880px]">
+        <SectionHeader
+          eyebrow="读后"
+          title="读后操作"
+          description="保存、分享、继续阅读，或直接跳到评论区。"
+        />
+
         <div className="flex flex-wrap items-center gap-3">
           <LikeButton initialCount={post._count.likes} initialLiked={false} slug={post.slug} />
           <BookmarkButton excerpt={post.excerpt} initialBookmarked={false} slug={post.slug} title={post.title} />
           <ShareButton slug={post.slug} title={post.title} />
           <Link
-            className="ui-btn rounded-xl bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90"
+            className="ui-btn rounded-xl bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-white"
             href="#comments"
           >
             发表评论
           </Link>
         </div>
-      </section>
 
-      <ArticleContinuation nextPost={nextPost} previousPost={previousPost} />
+        <ArticleContinuation nextPost={nextPost} previousPost={previousPost} />
+      </section>
 
       <section className="card-base mx-auto w-full max-w-[980px] p-8 xl:min-w-[880px]" id="comments">
         <h2 className="mb-6 font-display text-2xl font-bold text-[var(--foreground)]">评论 ({post._count.comments})</h2>

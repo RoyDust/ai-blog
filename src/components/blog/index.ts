@@ -7,6 +7,7 @@ export { HomeDiscoveryGrid } from "./HomeDiscoveryGrid";
 export { FilterBar } from "./FilterBar";
 export { HomeLatestPosts } from "./HomeLatestPosts";
 export { PostsListingClient } from "./PostsListingClient";
+export { ArticleHero } from "./ArticleHero";
 export { ReadingProgress } from "./ReadingProgress";
 export { ArticleToc } from "./ArticleToc";
 export { LikeButton } from "./LikeButton";
