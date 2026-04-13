@@ -1,7 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import React from "react";
 import { describe, expect, test, vi } from "vitest";
-
 import { PostCard } from "../PostCard";
 
 const imageMock = vi.fn(() => null);
@@ -11,7 +10,7 @@ vi.mock("next/image", () => ({
 }));
 
 describe("PostCard", () => {
-  test("uses conservative image loading settings for listing cards", () => {
+  test("renders an editorial card without duplicate chevron CTA treatment", () => {
     imageMock.mockClear();
 
     render(
@@ -32,20 +31,10 @@ describe("PostCard", () => {
       />,
     );
 
-    const postLinks = screen.getAllByRole("link", { name: "Post with cover" });
-
-    expect(postLinks).toHaveLength(2);
-    expect(postLinks[0]).toHaveAttribute("href", "/posts/post-with-cover");
-    expect(postLinks[1]).toHaveAttribute("href", "/posts/post-with-cover");
-
-    expect(imageMock).toHaveBeenCalledTimes(1);
-
-    const imageProps = imageMock.mock.calls[0][0];
-
-    expect(imageProps.loading).toBe("lazy");
-    expect(imageProps.quality).toBe(70);
-    expect(imageProps.sizes).toBe(
-      "(max-width: 768px) calc(100vw - 2rem), (max-width: 1200px) 28vw, 22rem",
-    );
+    const card = screen.getByRole("article");
+    expect(card.className).toContain("md:grid-cols-[minmax(0,1fr)_15rem]");
+    expect(screen.queryByTestId("post-card-chevron")).not.toBeInTheDocument();
+    expect(screen.getByText("Excerpt").className).toContain("line-clamp-3");
+    expect(imageMock.mock.calls[0][0].sizes).toBe("(max-width: 768px) 100vw, 15rem");
   });
 });

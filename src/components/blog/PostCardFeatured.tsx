@@ -17,28 +17,36 @@ interface PostCardFeaturedProps {
 
 export function PostCardFeatured({ post }: PostCardFeaturedProps) {
   return (
-    <article className="ui-surface overflow-hidden rounded-3xl shadow-md">
-      <div className="grid grid-cols-1 md:grid-cols-[1.1fr_1fr]">
-        <div className="relative min-h-64">
+    <article className="card-base overflow-hidden">
+      <div className="grid gap-0 lg:grid-cols-[1.15fr_minmax(18rem,0.85fr)]">
+        <Link href={`/posts/${post.slug}`} className="theme-media relative min-h-[22rem]">
           {post.coverImage ? (
-            <FallbackImage src={post.coverImage} alt={post.title} fill className="object-cover" />
+            <FallbackImage
+              alt=""
+              className="theme-media-image object-cover"
+              fill
+              priority
+              src={post.coverImage}
+            />
           ) : (
             <div className="h-full w-full bg-[var(--surface-alt)]" />
           )}
-        </div>
-        <div className="flex flex-col justify-between p-6 md:p-8">
+        </Link>
+
+        <div className="flex flex-col justify-between gap-6 p-6 md:p-8">
           <div className="space-y-4">
-            <span className="inline-flex rounded-full bg-[var(--surface-alt)] px-3 py-1 text-xs font-semibold tracking-wide text-[var(--primary)]">
-              精选文章
-            </span>
-            <Link href={`/posts/${post.slug}`}>
-              <h2 className="font-display text-2xl font-extrabold leading-tight text-[var(--foreground)] transition-colors hover:text-[var(--primary)]">
-                {post.title}
-              </h2>
-            </Link>
-            {post.excerpt && <p className="text-sm leading-6 text-[var(--muted)]">{post.excerpt}</p>}
+            <span className="ui-chip">精选文章</span>
+            <div className="space-y-3">
+              <Link href={`/posts/${post.slug}`}>
+                <h2 className="text-90 font-display text-3xl font-bold leading-tight transition hover:text-[var(--primary)]">
+                  {post.title}
+                </h2>
+              </Link>
+              {post.excerpt ? <p className="text-75 text-sm leading-7">{post.excerpt}</p> : null}
+            </div>
           </div>
-          <div className="mt-6 flex items-center justify-between text-xs text-[var(--muted)]">
+
+          <div className="text-50 flex flex-wrap items-center gap-3 text-sm">
             <span>{post.category?.name ?? "未分类"}</span>
             <span>{new Date(post.createdAt).toLocaleDateString("zh-CN")}</span>
           </div>

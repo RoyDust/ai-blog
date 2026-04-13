@@ -22,7 +22,7 @@ export function PostMeta({
   return (
     <div className={`text-50 flex flex-wrap items-center gap-2 text-xs ${className}`}>
       {category ? (
-        <Link className="rounded-full bg-[var(--btn-regular-bg)] px-2 py-1 text-[var(--btn-content)]" href={`/categories/${category.slug}`}>
+        <Link className="ui-chip" href={`/categories/${category.slug}`}>
           {category.name}
         </Link>
       ) : null}
@@ -31,7 +31,7 @@ export function PostMeta({
       {tags.map((tag) => (
         <Link
           key={tag.slug}
-          className={`rounded-full px-2 py-1 ${hideTagsForMobile ? "hidden md:inline-flex" : "inline-flex"} bg-[var(--btn-regular-bg)] text-[var(--btn-content)]`}
+          className={`${hideTagsForMobile ? "hidden md:inline-flex" : "inline-flex"} ui-chip`}
           href={`/tags/${tag.slug}`}
         >
           #{tag.name}
