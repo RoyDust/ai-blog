@@ -24,9 +24,9 @@ export function AppShell({ children }: AppShellProps) {
               {children}
             </div>
           </main>
-          <aside className="hidden xl:block xl:w-[var(--rail-width)] xl:shrink-0">
+          <div data-testid="sidebar-rail" className="hidden xl:block xl:w-[var(--rail-width)] xl:shrink-0">
             <Sidebar />
-          </aside>
+          </div>
         </div>
         <div className="mx-auto w-full max-w-[var(--page-width)] px-4 pb-8">
           <Footer />

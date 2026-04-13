@@ -10,20 +10,25 @@ test("sidebar and footer expose discovery-oriented public chrome", () => {
     } as Response),
   );
 
+  const originalFetch = globalThis.fetch;
   globalThis.fetch = fetchMock;
 
-  const { container } = render(
-    <>
-      <Sidebar />
-      <Footer />
-    </>,
-  );
+  try {
+    const { container } = render(
+      <>
+        <Sidebar />
+        <Footer />
+      </>,
+    );
 
-  expect(container.querySelectorAll(".card-base").length).toBeGreaterThan(0);
-  expect(screen.getByRole("heading", { name: "继续探索" })).toBeInTheDocument();
-  expect(screen.getByRole("heading", { name: "分类索引" })).toBeInTheDocument();
-  expect(screen.getByRole("heading", { name: "标签地图" })).toBeInTheDocument();
-  expect(screen.queryByRole("heading", { name: "快捷导航" })).not.toBeInTheDocument();
-  expect(screen.getByRole("link", { name: /文章归档/i })).toHaveAttribute("href", "/archives");
-  expect(screen.getByRole("link", { name: "RSS 订阅" })).toHaveAttribute("href", "/rss.xml");
+    expect(container.querySelectorAll(".card-base").length).toBeGreaterThan(0);
+    expect(screen.getByRole("heading", { name: "继续探索" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "分类索引" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "标签地图" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "快捷导航" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /文章归档/i })).toHaveAttribute("href", "/archives");
+    expect(screen.getByRole("link", { name: "RSS 订阅" })).toHaveAttribute("href", "/rss.xml");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });

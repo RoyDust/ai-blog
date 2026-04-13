@@ -13,6 +13,8 @@ describe("app shell", () => {
     expect(screen.getByRole("navigation")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "跳到主要内容" })).toHaveAttribute("href", "#main-content");
     expect(container.querySelector("main > div")?.className).toContain("max-w-[var(--content-max-width)]");
-    expect(container.querySelector("aside")?.className).toContain("xl:w-[var(--rail-width)]");
+    expect(container.querySelector('[data-testid="sidebar-rail"]')?.className).toContain(
+      "xl:w-[var(--rail-width)]",
+    );
   });
 });
