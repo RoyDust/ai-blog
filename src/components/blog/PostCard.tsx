@@ -34,10 +34,19 @@ interface PostCardProps {
 
 export function PostCard({ post }: PostCardProps) {
   const hasCover = Boolean(post.coverImage);
+  const cardClassName = hasCover
+    ? "card-base grid gap-5 p-5 md:grid-cols-[minmax(0,1fr)_15rem] md:items-start md:p-6"
+    : "card-base post-card--text-only grid gap-4 p-5 md:p-6";
 
   return (
-    <article className="card-base grid gap-5 p-5 md:grid-cols-[minmax(0,1fr)_15rem] md:items-start md:p-6">
+    <article className={cardClassName}>
       <div className="space-y-3">
+        {!hasCover ? (
+          <div className="post-card-text-accent" data-testid="post-card-text-accent">
+            <span className="post-card-text-accent-label">文字精选</span>
+          </div>
+        ) : null}
+
         <PostMeta
           category={post.category}
           hideTagsForMobile={true}
@@ -66,12 +75,12 @@ export function PostCard({ post }: PostCardProps) {
         </div>
       </div>
 
-      <Link
-        href={`/posts/${post.slug}`}
-        aria-label={post.title}
-        className="theme-media relative order-first aspect-[4/3] overflow-hidden rounded-2xl md:order-none"
-      >
-        {hasCover ? (
+      {hasCover ? (
+        <Link
+          href={`/posts/${post.slug}`}
+          aria-label={post.title}
+          className="theme-media relative order-first aspect-[4/3] overflow-hidden rounded-2xl md:order-none"
+        >
           <FallbackImage
             alt={post.title}
             className="theme-media-image object-cover"
@@ -81,10 +90,8 @@ export function PostCard({ post }: PostCardProps) {
             sizes="(max-width: 768px) 100vw, 15rem"
             src={post.coverImage!}
           />
-        ) : (
-          <div className="h-full w-full bg-[var(--surface-alt)]" />
-        )}
-      </Link>
+        </Link>
+      ) : null}
     </article>
   );
 }

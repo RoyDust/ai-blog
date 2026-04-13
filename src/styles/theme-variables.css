@@ -62,6 +62,10 @@
   --image-filter-hover: saturate(1.02) contrast(1.04);
   --ambient-primary: rgb(99 102 241 / 0.08);
   --ambient-secondary: rgb(245 158 11 / 0.07);
+  --post-card-text-accent-line: color-mix(in oklab, var(--brand) 64%, var(--foreground) 36%);
+  --post-card-text-accent-divider: color-mix(in oklab, var(--line-color) 84%, transparent);
+  --post-card-text-accent-label: color-mix(in oklab, var(--brand) 72%, var(--text-body) 28%);
+  --post-card-text-accent-glow: color-mix(in oklab, var(--brand) 16%, transparent);
 
   --background: var(--page-bg);
   --surface: var(--card-bg);
@@ -120,6 +124,10 @@
   --image-filter-hover: brightness(0.9) saturate(0.92) contrast(1.04);
   --ambient-primary: rgb(99 102 241 / 0.09);
   --ambient-secondary: rgb(168 85 247 / 0.06);
+  --post-card-text-accent-line: color-mix(in oklab, var(--brand) 66%, white 34%);
+  --post-card-text-accent-divider: color-mix(in oklab, var(--line-color) 76%, transparent);
+  --post-card-text-accent-label: color-mix(in oklab, var(--brand) 70%, white 30%);
+  --post-card-text-accent-glow: color-mix(in oklab, var(--brand) 22%, transparent);
 
   --background: var(--page-bg);
   --surface: var(--card-bg);
@@ -169,4 +177,8 @@
   --image-filter-hover: none;
   --ambient-primary: transparent;
   --ambient-secondary: transparent;
+  --post-card-text-accent-line: color-mix(in oklab, var(--brand) 60%, var(--foreground) 40%);
+  --post-card-text-accent-divider: color-mix(in oklab, var(--line-color) 85%, transparent);
+  --post-card-text-accent-label: color-mix(in oklab, var(--brand) 68%, var(--text-body) 32%);
+  --post-card-text-accent-glow: color-mix(in oklab, var(--brand) 15%, transparent);
 }

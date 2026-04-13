@@ -56,6 +56,57 @@
     gap: 1.5rem;
   }
 
+  .post-card--text-only {
+    position: relative;
+    isolation: isolate;
+  }
+
+  .post-card--text-only::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(120% 72% at 100% 0, var(--post-card-text-accent-glow), transparent 64%);
+    opacity: 0.95;
+    z-index: 0;
+  }
+
+  .post-card--text-only > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  .post-card-text-accent {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+  }
+
+  .post-card-text-accent::before {
+    content: "";
+    width: 2.5rem;
+    height: 2px;
+    border-radius: 999px;
+    background: var(--post-card-text-accent-line);
+    flex-shrink: 0;
+  }
+
+  .post-card-text-accent::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--post-card-text-accent-divider);
+  }
+
+  .post-card-text-accent-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--post-card-text-accent-label);
+    white-space: nowrap;
+  }
+
   .theme-media {
     @apply relative overflow-hidden;
     background:

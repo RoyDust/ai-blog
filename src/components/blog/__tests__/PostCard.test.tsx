@@ -37,4 +37,33 @@ describe("PostCard", () => {
     expect(screen.getByText("Excerpt").className).toContain("line-clamp-3");
     expect(imageMock.mock.calls[0][0].sizes).toBe("(max-width: 768px) 100vw, 15rem");
   });
+
+  test("renders a dedicated text-only variant without media filler", () => {
+    imageMock.mockClear();
+
+    render(
+      <PostCard
+        post={{
+          id: "post-2",
+          title: "Post without cover",
+          slug: "post-without-cover",
+          excerpt: "No image excerpt",
+          coverImage: null,
+          createdAt: "2026-03-02T00:00:00.000Z",
+          author: { id: "u2", name: "Lin", image: null },
+          category: { name: "Design", slug: "design" },
+          tags: [{ name: "UI", slug: "ui" }],
+          _count: { comments: 4, likes: 8 },
+          viewCount: 18,
+        }}
+      />,
+    );
+
+    const card = screen.getByRole("article");
+    expect(card.className).toContain("post-card--text-only");
+    expect(card.className).not.toContain("md:grid-cols-[minmax(0,1fr)_15rem]");
+    expect(screen.queryByLabelText("Post without cover")).not.toBeInTheDocument();
+    expect(screen.getByTestId("post-card-text-accent")).toBeInTheDocument();
+    expect(imageMock).not.toHaveBeenCalled();
+  });
 });
