@@ -7,7 +7,7 @@ const FALLBACK_IMAGE_SRC = "/imgs/Error.png";
 
 export type FallbackImageProps = ImageProps;
 
-export function FallbackImage({ src, onError, ...props }: FallbackImageProps) {
+export function FallbackImage({ alt, src, onError, ...props }: FallbackImageProps) {
   const [currentSrc, setCurrentSrc] = useState<ImageProps["src"]>(src);
 
   useEffect(() => {
@@ -16,6 +16,7 @@ export function FallbackImage({ src, onError, ...props }: FallbackImageProps) {
 
   return (
     <Image
+      alt={alt}
       {...props}
       src={currentSrc}
       onError={(event) => {

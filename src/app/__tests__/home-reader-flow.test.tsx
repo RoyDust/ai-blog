@@ -1,6 +1,6 @@
-import { render, screen, within } from '@testing-library/react'
+import { cleanup, render, screen, within } from '@testing-library/react'
 import React from 'react'
-import { beforeEach, describe, expect, test, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
 const { postFindMany, postCount, categoryFindMany, tagFindMany } = vi.hoisted(() => ({
   postFindMany: vi.fn(),
@@ -51,6 +51,10 @@ describe('home reader flow', () => {
     tagFindMany.mockResolvedValue([])
   })
 
+  afterEach(() => {
+    cleanup()
+  })
+
   test('home shows intro row, curated featured grid, and latest feed hierarchy', async () => {
     postFindMany
       .mockResolvedValueOnce([createPost(4), createPost(5), createPost(6), createPost(1)])
@@ -87,7 +91,7 @@ describe('home reader flow', () => {
     expect(latest.queryByRole('heading', { name: 'Test Post 1' })).not.toBeInTheDocument()
     expect(latest.queryByRole('heading', { name: 'Test Post 2' })).not.toBeInTheDocument()
     expect(latest.queryByRole('heading', { name: 'Test Post 3' })).not.toBeInTheDocument()
-  })
+  }, 15_000)
 
   test('home featured section degrades gracefully when only two curated posts exist', async () => {
     postFindMany

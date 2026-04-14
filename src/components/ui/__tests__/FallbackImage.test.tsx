@@ -5,7 +5,10 @@ import { describe, expect, test, vi } from "vitest";
 import { FallbackImage } from "../FallbackImage";
 
 vi.mock("next/image", () => ({
-  default: ({ fill: _fill, ...props }: React.ComponentProps<"img"> & { fill?: boolean }) => <img {...props} />,
+  default: ({ fill, ...props }: React.ComponentProps<"img"> & { fill?: boolean }) => {
+    void fill;
+    return React.createElement("img", { ...props, alt: props.alt ?? "" });
+  },
 }));
 
 describe("FallbackImage", () => {

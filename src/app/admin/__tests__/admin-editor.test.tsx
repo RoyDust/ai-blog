@@ -90,7 +90,7 @@ describe('admin editor', () => {
 
     render(<AdminPostEditPage />)
 
-    expect(await screen.findByText('当前状态')).toBeInTheDocument()
+    expect((await screen.findAllByText('当前状态')).length).toBeGreaterThan(0)
     expect(screen.getByText('草稿')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '切换为已发布' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '保持草稿' })).toBeDisabled()

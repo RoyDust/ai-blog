@@ -36,8 +36,8 @@ interface PostCardProps {
 export function PostCard({ post }: PostCardProps) {
   const hasCover = Boolean(post.coverImage);
   const cardClassName = hasCover
-    ? "card-base relative grid gap-4 p-4 md:grid-cols-[minmax(0,1fr)_12rem] md:items-start md:p-5"
-    : "card-base relative grid gap-3 p-4 md:p-5";
+    ? "card-base relative grid gap-4 p-4 md:grid-cols-[minmax(0,1fr)_15rem] md:items-start md:p-5"
+    : "card-base post-card--text-only relative grid gap-3 p-4 md:p-5";
 
   return (
     <article className={cardClassName}>
@@ -46,6 +46,12 @@ export function PostCard({ post }: PostCardProps) {
       ) : null}
 
       <div className="space-y-2">
+        {!hasCover ? (
+          <div className="post-card-text-accent" data-testid="post-card-text-accent">
+            <span className="post-card-text-accent-label">文字精选</span>
+          </div>
+        ) : null}
+
         <PostMeta
           category={post.category}
           hideTagsForMobile={true}
@@ -60,7 +66,7 @@ export function PostCard({ post }: PostCardProps) {
           </h3>
         </Link>
 
-        <p className="text-75 line-clamp-2 text-sm leading-6">{post.excerpt ?? "暂无摘要"}</p>
+        <p className="text-75 line-clamp-3 text-sm leading-6">{post.excerpt ?? "暂无摘要"}</p>
 
         <div className="text-50 flex flex-wrap items-center gap-3 text-xs">
           <span>{post._count.comments} 评论</span>
@@ -86,7 +92,7 @@ export function PostCard({ post }: PostCardProps) {
             fill
             loading="lazy"
             quality={70}
-            sizes="(max-width: 768px) 100vw, 12rem"
+            sizes="(max-width: 768px) 100vw, 15rem"
             src={post.coverImage!}
           />
         </Link>

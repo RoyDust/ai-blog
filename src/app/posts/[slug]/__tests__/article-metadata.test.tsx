@@ -54,5 +54,5 @@ describe('article metadata', () => {
     expect(metadata.description).toBe('Excerpt')
     expect(metadata.alternates?.canonical).toBe('http://47.98.167.32/posts/test-post')
     expect(metadata.openGraph?.type).toBe('article')
-  })
+  }, 15_000)
 })

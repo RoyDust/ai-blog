@@ -1,10 +1,10 @@
 'use client'
 
 import { useCallback } from 'react'
-import { useSearchParams } from 'next/navigation'
 
 import { getListRevealAnimationProps } from './listAnimation'
 import { PostCard } from './PostCard'
+import { PostCardFeatured } from './PostCardFeatured'
 import { PostCardSkeleton } from './PostCardSkeleton'
 import { useInfinitePosts } from './useInfinitePosts'
 
@@ -67,7 +67,7 @@ export function PostsListingClient({ initialPosts, initialPagination }: PostsLis
         <>
           {posts.map((post, index) => (
             <div key={post.id} {...getListRevealAnimationProps(index)}>
-              <PostCard post={post} />
+              {post.featured ? <PostCardFeatured post={post} /> : <PostCard post={post} />}
             </div>
           ))}
         </>

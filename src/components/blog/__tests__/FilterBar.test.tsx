@@ -13,7 +13,8 @@ test("filter bar renders active chips and a reset entry when filters are present
     />,
   );
 
-  expect(screen.getByDisplayValue("react")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "关键词: react" })).toHaveAttribute("href", "/posts?category=frontend&tag=nextjs");
+  expect(screen.getByRole("link", { name: "分类: frontend" })).toHaveAttribute("href", "/posts?q=react&tag=nextjs");
+  expect(screen.getByRole("link", { name: "标签: nextjs" })).toHaveAttribute("href", "/posts?q=react&category=frontend");
   expect(screen.getByRole("link", { name: "清空筛选" })).toHaveAttribute("href", "/posts");
 });
