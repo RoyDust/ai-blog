@@ -3,6 +3,7 @@ import {
   clampPagination,
   parseAiDraftInput,
   parseLoginInput,
+  parsePostPatchInput,
   parseRegisterInput,
   parseUploadRequest,
 } from '../validation'
@@ -53,5 +54,18 @@ describe('validation helpers', () => {
       slug: 'ai-draft',
       content: 'content',
     })).toThrow()
+  })
+
+  test('parses featured flag in admin post patch input', () => {
+    expect(
+      parsePostPatchInput({
+        title: 'Featured Post',
+        slug: 'featured-post',
+        content: 'content',
+        featured: true,
+      }),
+    ).toMatchObject({
+      featured: true,
+    })
   })
 })

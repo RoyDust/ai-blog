@@ -10,6 +10,7 @@ export interface PublicPostRecord {
   slug: string
   excerpt: string | null
   coverImage: string | null
+  featured: boolean
   createdAt: Date
   viewCount: number
   author: {
@@ -34,7 +35,7 @@ export interface PublicPostRecord {
   }
 }
 
-export const PUBLIC_POST_ORDER_BY: PublicPostOrderBy = [{ createdAt: 'desc' }, { id: 'desc' }]
+export const PUBLIC_POST_ORDER_BY: PublicPostOrderBy = [{ featured: 'desc' }, { createdAt: 'desc' }, { id: 'desc' }]
 
 export function getPublicPostSelect(options: { includeTagColor?: boolean } = {}): PublicPostSelect {
   return {
@@ -43,6 +44,7 @@ export function getPublicPostSelect(options: { includeTagColor?: boolean } = {})
     slug: true,
     excerpt: true,
     coverImage: true,
+    featured: true,
     createdAt: true,
     viewCount: true,
     author: {
@@ -78,6 +80,15 @@ interface PublishedPostsPageInput {
   category?: string | null
   tag?: string | null
   search?: string | null
+}
+
+export async function getFeaturedPosts(limit = 3) {
+  return prisma.post.findMany({
+    where: { published: true, featured: true, deletedAt: null },
+    select: getPublicPostSelect(),
+    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    take: limit,
+  }) as unknown as Promise<PublicPostRecord[]>
 }
 
 export async function getPublishedPostsPage({

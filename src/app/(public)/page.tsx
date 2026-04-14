@@ -3,7 +3,7 @@ export const revalidate = 300
 import type { Metadata } from 'next'
 import { HomeDiscoveryGrid, HomeFeaturedGrid, HomeLatestPosts } from '@/components/blog'
 import { POSTS_PAGE_SIZE } from '@/lib/pagination'
-import { getPublishedPostsPage } from '@/lib/posts'
+import { getFeaturedPosts, getPublishedPostsPage } from '@/lib/posts'
 import { prisma } from '@/lib/prisma'
 import { buildPageMetadata } from '@/lib/seo'
 
@@ -14,7 +14,7 @@ export const metadata: Metadata = buildPageMetadata({
 })
 
 async function getData() {
-  const [postsPageResult, categoriesResult] = await Promise.allSettled([
+  const [postsPageResult, categoriesResult, featuredResult] = await Promise.allSettled([
     getPublishedPostsPage({ page: 1, limit: POSTS_PAGE_SIZE }),
     prisma.category.findMany({
       where: { deletedAt: null },
@@ -22,6 +22,7 @@ async function getData() {
       orderBy: { posts: { _count: 'desc' } },
       take: 12,
     }),
+    getFeaturedPosts(3),
   ])
 
   if (postsPageResult.status === 'rejected') {
@@ -30,6 +31,10 @@ async function getData() {
 
   if (categoriesResult.status === 'rejected') {
     console.error('Load home categories error:', categoriesResult.reason)
+  }
+
+  if (featuredResult.status === 'rejected') {
+    console.error('Load home featured posts error:', featuredResult.reason)
   }
 
   const postsPage =
@@ -41,11 +46,16 @@ async function getData() {
         }
 
   const categories = categoriesResult.status === 'fulfilled' ? categoriesResult.value : []
+  const featuredPosts = featuredResult.status === 'fulfilled' ? featuredResult.value : []
 
   return {
     ...postsPage,
+    featuredPosts,
     categories,
-    hasLoadError: postsPageResult.status === 'rejected' || categoriesResult.status === 'rejected',
+    hasLoadError:
+      postsPageResult.status === 'rejected' ||
+      categoriesResult.status === 'rejected' ||
+      featuredResult.status === 'rejected',
   }
 }
 
@@ -53,10 +63,10 @@ type HomePost = Awaited<ReturnType<typeof getData>>['posts'][number]
 type HomeCategory = Awaited<ReturnType<typeof getData>>['categories'][number]
 
 export default async function Home() {
-  const { posts, categories, hasLoadError } = await getData()
-  const [editorialLead, ...remainingPosts] = posts as HomePost[]
-  const secondaryFeatured = remainingPosts.slice(0, 2)
-  const latestPosts = remainingPosts.slice(2)
+  const { posts, featuredPosts, categories, hasLoadError } = await getData()
+  const [featuredLead, ...featuredSecondary] = featuredPosts as HomePost[]
+  const featuredIds = new Set(featuredPosts.map((post) => post.id))
+  const latestPosts = posts.filter((post) => !featuredIds.has(post.id)).slice(0, 4)
 
   return (
     <div className="space-y-[var(--section-gap)]">
@@ -66,7 +76,7 @@ export default async function Home() {
         </section>
       ) : null}
 
-      <HomeFeaturedGrid leadPost={editorialLead ?? null} secondaryPosts={secondaryFeatured} />
+      <HomeFeaturedGrid leadPost={featuredLead ?? null} secondaryPosts={featuredSecondary.slice(0, 2)} />
       <HomeLatestPosts posts={latestPosts} />
       <HomeDiscoveryGrid categories={categories as HomeCategory[]} />
     </div>

@@ -10,6 +10,7 @@ interface PostCardProps {
     slug: string;
     excerpt?: string | null;
     coverImage?: string | null;
+    featured?: boolean;
     createdAt: string | Date;
     author: {
       id: string;
@@ -35,18 +36,16 @@ interface PostCardProps {
 export function PostCard({ post }: PostCardProps) {
   const hasCover = Boolean(post.coverImage);
   const cardClassName = hasCover
-    ? "card-base grid gap-4 p-4 md:grid-cols-[minmax(0,1fr)_12rem] md:items-start md:p-5"
-    : "card-base post-card--text-only grid gap-3 p-4 md:p-5";
+    ? "card-base relative grid gap-4 p-4 md:grid-cols-[minmax(0,1fr)_12rem] md:items-start md:p-5"
+    : "card-base relative grid gap-3 p-4 md:p-5";
 
   return (
     <article className={cardClassName}>
-      <div className="space-y-2">
-        {!hasCover ? (
-          <div className="post-card-text-accent" data-testid="post-card-text-accent">
-            <span className="post-card-text-accent-label">文字精选</span>
-          </div>
-        ) : null}
+      {post.featured ? (
+        <span className="absolute inset-y-0 left-0 w-0.75 rounded-l-[inherit] bg-(--primary)" />
+      ) : null}
 
+      <div className="space-y-2">
         <PostMeta
           category={post.category}
           hideTagsForMobile={true}

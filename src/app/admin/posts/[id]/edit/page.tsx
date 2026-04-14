@@ -43,7 +43,7 @@ export default function AdminPostEditPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [formData, setFormData] = useState({ title: "", slug: "", content: "", excerpt: "", coverImage: "", categoryId: "", tagIds: [] as string[], published: false });
+  const [formData, setFormData] = useState({ title: "", slug: "", content: "", excerpt: "", coverImage: "", categoryId: "", tagIds: [] as string[], published: false, featured: false });
   const [isSlugManuallyEdited, setIsSlugManuallyEdited] = useState(false);
   const [categories, setCategories] = useState<CategoryOption[]>([]);
   const [tags, setTags] = useState<TagOption[]>([]);
@@ -103,6 +103,7 @@ export default function AdminPostEditPage() {
           categoryId: data.data.categoryId ?? "",
           tagIds: Array.isArray(data.data.tags) ? data.data.tags.map((tag: PostTag) => tag.id) : [],
           published: Boolean(data.data.published),
+          featured: Boolean(data.data.featured),
         });
         // 编辑已有文章时也沿用“自动生成 + 用户可手动覆盖”的 slug 规则。
         setIsSlugManuallyEdited(Boolean(data.data.slug) && data.data.slug !== generatePostSlug(data.data.title ?? ""));
@@ -334,6 +335,39 @@ export default function AdminPostEditPage() {
                     onClick={() => setFormData((prev) => ({ ...prev, published: true }))}
                   >
                     切换为已发布
+                  </Button>
+                </div>
+              </div>
+            </WorkspacePanel>
+
+            <WorkspacePanel title="精选状态" description="精选文章会出现在首页和文章列表顶部。">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium text-[var(--foreground)]">当前状态</p>
+                    <p className="text-sm text-[var(--muted)]">最多 3 篇精选文章会展示在前台。</p>
+                  </div>
+                  <StatusBadge tone={formData.featured ? "success" : "neutral"}>{formData.featured ? "精选" : "普通"}</StatusBadge>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={formData.featured ? "outline" : "primary"}
+                    disabled={!formData.featured}
+                    onClick={() => setFormData((prev) => ({ ...prev, featured: false }))}
+                  >
+                    取消精选
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={formData.featured ? "primary" : "outline"}
+                    disabled={formData.featured}
+                    onClick={() => setFormData((prev) => ({ ...prev, featured: true }))}
+                  >
+                    设为精选
                   </Button>
                 </div>
               </div>

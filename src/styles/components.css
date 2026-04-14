@@ -3,6 +3,23 @@
     @apply overflow-hidden rounded-[var(--radius-large)] bg-[var(--card-bg)] transition-all;
     border: 1px solid var(--border);
     box-shadow: var(--shadow-card);
+    position: relative;
+    isolation: isolate;
+  }
+
+  .card-base::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(120% 72% at 100% 0, var(--post-card-text-accent-glow), transparent 64%);
+    opacity: 0.95;
+    z-index: 0;
+  }
+
+  .card-base > * {
+    position: relative;
+    z-index: 1;
   }
 
   .card-base:hover {

@@ -48,6 +48,7 @@ type AdminPostPatchInput = {
   categoryId?: string | null
   tagIds?: string[] | null
   published?: boolean
+  featured?: boolean
 }
 
 type PrismaTransactionClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
@@ -500,12 +501,14 @@ export async function updateAdminPost({
           }
         : undefined,
       published: input.published,
+      featured: input.featured,
       publishedAt: input.published ? new Date() : null,
     },
     select: {
       id: true,
       slug: true,
       published: true,
+      featured: true,
       readingTimeMinutes: true,
       category: { select: { slug: true } },
       tags: { where: { deletedAt: null }, select: { slug: true } },

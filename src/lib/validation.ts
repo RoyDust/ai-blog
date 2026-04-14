@@ -248,6 +248,7 @@ export function parsePostPatchInput(payload: unknown) {
     categoryId?: unknown
     tagIds?: unknown
     published?: unknown
+    featured?: unknown
     slug?: unknown
   }
 
@@ -270,6 +271,7 @@ export function parsePostPatchInput(payload: unknown) {
     categoryId: optionalNullableString(data.categoryId, 'categoryId'),
     tagIds: normalizeStringArray(data.tagIds, 'tagIds'),
     published: data.published == null ? undefined : readBoolean(data.published, 'published'),
+    featured: data.featured == null ? undefined : readBoolean(data.featured, 'featured'),
   }
 }
 

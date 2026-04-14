@@ -70,7 +70,7 @@ describe('getPublishedPostsPage', () => {
             { excerpt: { contains: 'hooks', mode: 'insensitive' } },
           ],
         },
-        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        orderBy: [{ featured: 'desc' }, { createdAt: 'desc' }, { id: 'desc' }],
         skip: 12,
         take: 12,
       }),
@@ -78,15 +78,16 @@ describe('getPublishedPostsPage', () => {
   })
 
   test('exposes reusable public query fragments for listing and taxonomy surfaces', async () => {
-    const { PUBLIC_POST_ORDER_BY, buildOffsetPagination, getPublicPostSelect } = await import('../posts')
+    const { PUBLIC_POST_ORDER_BY, buildOffsetPagination, getFeaturedPosts, getPublicPostSelect } = await import('../posts')
 
-    expect(PUBLIC_POST_ORDER_BY).toEqual([{ createdAt: 'desc' }, { id: 'desc' }])
+    expect(PUBLIC_POST_ORDER_BY).toEqual([{ featured: 'desc' }, { createdAt: 'desc' }, { id: 'desc' }])
     expect(getPublicPostSelect()).toMatchObject({
       id: true,
       title: true,
       slug: true,
       excerpt: true,
       coverImage: true,
+      featured: true,
       createdAt: true,
       viewCount: true,
       tags: {
@@ -104,6 +105,15 @@ describe('getPublishedPostsPage', () => {
       limit: 12,
       total: 13,
       totalPages: 2,
+    })
+
+    await getFeaturedPosts(3)
+
+    expect(findMany).toHaveBeenLastCalledWith({
+      where: { published: true, featured: true, deletedAt: null },
+      select: expect.objectContaining({ featured: true }),
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: 3,
     })
   })
 })

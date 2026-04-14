@@ -27,6 +27,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
           select: { id: true, name: true, slug: true },
         },
         published: true,
+        featured: true,
       },
     })
 

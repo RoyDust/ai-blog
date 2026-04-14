@@ -5,7 +5,6 @@ import { useSearchParams } from 'next/navigation'
 
 import { getListRevealAnimationProps } from './listAnimation'
 import { PostCard } from './PostCard'
-import { PostCardFeatured } from './PostCardFeatured'
 import { PostCardSkeleton } from './PostCardSkeleton'
 import { useInfinitePosts } from './useInfinitePosts'
 
@@ -14,6 +13,7 @@ interface ListingPost {
   title: string
   slug: string
   excerpt: string | null
+  featured: boolean
   createdAt: Date | string
   coverImage?: string | null
   author: { id: string; name: string | null; image: string | null }
@@ -65,8 +65,7 @@ export function PostsListingClient({ initialPosts, initialPagination }: PostsLis
         ))
       ) : posts.length > 0 ? (
         <>
-          <PostCardFeatured post={posts[0]} />
-          {posts.slice(1).map((post, index) => (
+          {posts.map((post, index) => (
             <div key={post.id} {...getListRevealAnimationProps(index)}>
               <PostCard post={post} />
             </div>

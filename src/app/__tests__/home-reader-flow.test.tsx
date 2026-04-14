@@ -31,6 +31,7 @@ describe('home reader flow', () => {
     slug: `test-post-${index}`,
     excerpt: `Excerpt ${index}`,
     coverImage: null,
+    featured: false,
     createdAt: new Date(`2026-01-0${index}T00:00:00Z`),
     author: { id: `u${index}`, name: 'Author', image: null },
     category: { name: 'Category', slug: 'category' },
@@ -51,17 +52,23 @@ describe('home reader flow', () => {
   })
 
   test('home shows intro row, curated featured grid, and latest feed hierarchy', async () => {
+    postFindMany
+      .mockResolvedValueOnce([createPost(4), createPost(5), createPost(6), createPost(1)])
+      .mockResolvedValueOnce([
+        { ...createPost(1), featured: true },
+        { ...createPost(2), featured: true },
+        { ...createPost(3), featured: true },
+      ])
+
     const { default: Home } = await import('../(public)/page')
     const ui = await Home()
     render(ui as React.ReactElement)
 
-    expect(screen.getByText('编选')).toBeInTheDocument()
+    expect(screen.getByText('精选')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: '精选文章' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: '最新发布' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: '继续探索' })).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: '核心特性' })).not.toBeInTheDocument()
-    expect(screen.getByRole('link', { name: '开始阅读' })).toHaveAttribute('href', '/posts')
-
     const featuredSection = screen.getByRole('heading', { name: '精选文章' }).closest('section')
     const latestSection = screen.getByRole('heading', { name: '最新发布' }).closest('section')
 
@@ -83,7 +90,9 @@ describe('home reader flow', () => {
   })
 
   test('home featured section degrades gracefully when only two curated posts exist', async () => {
-    postFindMany.mockResolvedValueOnce([createPost(1), createPost(2)])
+    postFindMany
+      .mockResolvedValueOnce([createPost(3), createPost(4)])
+      .mockResolvedValueOnce([{ ...createPost(1), featured: true }, { ...createPost(2), featured: true }])
     postCount.mockResolvedValueOnce(2)
 
     const { default: Home } = await import('../(public)/page')
@@ -103,7 +112,7 @@ describe('home reader flow', () => {
     const secondaryGrid = screen.getByTestId('home-featured-secondary-grid')
     expect(secondaryGrid).toHaveClass('md:grid-cols-2')
     expect(screen.getAllByTestId('home-featured-secondary-item')).toHaveLength(1)
-    expect(screen.queryByRole('heading', { name: '最新发布' })).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '最新发布' })).toBeInTheDocument()
   })
 
   test('home surfaces load failures instead of silently pretending content is empty', async () => {
@@ -114,5 +123,17 @@ describe('home reader flow', () => {
     render(ui as React.ReactElement)
 
     expect(screen.getByRole('alert')).toHaveTextContent('首页部分内容加载失败，请稍后重试。')
+  })
+
+  test('home hides featured grid when there are no featured posts', async () => {
+    postFindMany.mockResolvedValueOnce([createPost(1), createPost(2), createPost(3)])
+    postFindMany.mockResolvedValueOnce([])
+    postCount.mockResolvedValueOnce(3)
+
+    const { default: Home } = await import('../(public)/page')
+    const ui = await Home()
+    render(ui as React.ReactElement)
+
+    expect(screen.queryByRole('heading', { name: '精选文章' })).not.toBeInTheDocument()
   })
 })

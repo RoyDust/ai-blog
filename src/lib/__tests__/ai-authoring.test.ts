@@ -9,6 +9,7 @@ const updateBinding = vi.fn();
 const createPost = vi.fn();
 const updatePost = vi.fn();
 const findUniquePost = vi.fn();
+const findFirstPost = vi.fn();
 const calculateReadingTimeMinutes = vi.fn();
 const revalidatePublicContent = vi.fn();
 
@@ -30,6 +31,7 @@ vi.mock("@/lib/prisma", () => ({
       create: createPost,
       update: updatePost,
       findUnique: findUniquePost,
+      findFirst: findFirstPost,
     },
     $transaction: vi.fn(async (callback) => callback({
       post: {
@@ -467,5 +469,46 @@ describe("ai authoring", () => {
       data: { postId: "post-new" },
     }));
     expect(result.operation).toBe("created");
+  });
+
+  test("updateAdminPost writes featured and returns it in the response payload", async () => {
+    findFirstPost.mockResolvedValueOnce({
+      slug: "old-slug",
+      category: { slug: "old-category" },
+      tags: [{ slug: "legacy-tag" }],
+    });
+    updatePost.mockResolvedValueOnce({
+      id: "post-1",
+      slug: "new-slug",
+      published: true,
+      featured: true,
+      readingTimeMinutes: 8,
+      category: { slug: "new-category" },
+      tags: [{ slug: "fresh-tag" }],
+    });
+
+    calculateReadingTimeMinutes.mockReturnValueOnce(8);
+
+    const { updateAdminPost } = await import("../ai-authoring");
+    const result = await updateAdminPost({
+      id: "post-1",
+      input: {
+        title: "Updated",
+        slug: "new-slug",
+        content: "updated content",
+        featured: true,
+        published: true,
+      },
+    });
+
+    expect(updatePost).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        featured: true,
+      }),
+      select: expect.objectContaining({
+        featured: true,
+      }),
+    }));
+    expect(result).toMatchObject({ featured: true });
   });
 });

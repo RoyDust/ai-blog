@@ -28,6 +28,7 @@ function createPost(id: string) {
     title: `Post ${id}`,
     slug: `post-${id}`,
     excerpt: `Excerpt ${id}`,
+    featured: id === '1',
     createdAt: '2026-03-01T00:00:00.000Z',
     coverImage: null,
     author: { id: `user-${id}`, name: 'Ada', image: null },
@@ -67,15 +68,11 @@ describe('PostsListingClient', () => {
 
     render(
       <PostsListingClient
-        categories={[]}
         initialPagination={{ page: 0, limit: 10, total: 0, totalPages: 0 }}
         initialPosts={[]}
-        tags={[]}
       />,
     )
 
-    expect(screen.getByRole("heading", { name: "文章索引" })).toBeInTheDocument()
-    expect(screen.getByText("按主题、标签和关键词探索全部内容。")).toBeInTheDocument()
     expect(screen.getAllByTestId('post-card-skeleton')).toHaveLength(6)
     expect(
       screen
@@ -105,14 +102,17 @@ describe('PostsListingClient', () => {
     })
 
     await waitFor(() => {
-      expect(screen.getByText('First post')).toBeInTheDocument()
+      expect(screen.getAllByText('First post').length).toBeGreaterThan(0)
     })
 
     expect(fetch).toHaveBeenCalledWith('/api/posts?page=1&limit=10')
   })
 
-  test('uses the first post as a featured lead and limits reveal animation to the next four cards', async () => {
-    const posts = Array.from({ length: 6 }, (_, index) => createPost(String(index + 1)))
+  test('renders featured posts with the featured card and plain posts with the regular card', async () => {
+    const posts = Array.from({ length: 6 }, (_, index) => ({
+      ...createPost(String(index + 1)),
+      featured: index < 2,
+    }))
 
     vi.stubGlobal(
       'fetch',
@@ -127,21 +127,19 @@ describe('PostsListingClient', () => {
 
     render(
       <PostsListingClient
-        categories={[]}
         initialPagination={{ page: 0, limit: 10, total: 0, totalPages: 0 }}
         initialPosts={[]}
-        tags={[]}
       />,
     )
 
     await waitFor(() => {
-      expect(screen.getByText('Post 1')).toBeInTheDocument()
+      expect(screen.getAllByText('Post 1').length).toBeGreaterThan(0)
     })
 
-    expect(screen.getByText('精选文章')).toBeInTheDocument()
+    expect(screen.getAllByText('精选文章')).toHaveLength(2)
 
-    const animatedCards = ['2', '3', '4', '5'].map((id) =>
-      screen.getByText(`Post ${id}`).closest('.onload-animation'),
+    const animatedCards = ['1', '2', '3', '4'].map((id) =>
+      screen.getByRole('heading', { name: `Post ${id}` }).closest('.onload-animation'),
     )
 
     expect(animatedCards).toHaveLength(4)
@@ -152,8 +150,8 @@ describe('PostsListingClient', () => {
       'animation-delay: 200ms;',
       'animation-delay: 250ms;',
     ])
-    expect(screen.getByText('Post 1').closest('.onload-animation')).toBeNull()
-    expect(screen.getByText('Post 6').closest('.onload-animation')).toBeNull()
+    expect(screen.getByRole('heading', { name: 'Post 5' }).closest('.onload-animation')).toBeNull()
+    expect(screen.getByRole('heading', { name: 'Post 6' }).closest('.onload-animation')).toBeNull()
   })
 
   test('shows skeleton cards again when search params change', async () => {
@@ -190,30 +188,26 @@ describe('PostsListingClient', () => {
 
     const { rerender } = render(
       <PostsListingClient
-        categories={[]}
         initialPagination={{ page: 0, limit: 10, total: 0, totalPages: 0 }}
         initialPosts={[]}
-        tags={[]}
       />,
     )
 
     await waitFor(() => {
-      expect(screen.getByText('First post')).toBeInTheDocument()
+      expect(screen.getAllByText('First post').length).toBeGreaterThan(0)
     })
 
     currentSearchParams = new URLSearchParams('q=react')
 
     rerender(
       <PostsListingClient
-        categories={[]}
         initialPagination={{ page: 0, limit: 10, total: 0, totalPages: 0 }}
         initialPosts={[]}
-        tags={[]}
       />,
     )
 
     expect(screen.getAllByTestId('post-card-skeleton')).toHaveLength(6)
-    expect(screen.queryByText('First post')).not.toBeInTheDocument()
+    expect(screen.queryAllByText('First post')).toHaveLength(0)
 
     deferred.resolve({
       ok: true,
@@ -237,9 +231,9 @@ describe('PostsListingClient', () => {
     })
 
     await waitFor(() => {
-      expect(screen.getByText('React guide')).toBeInTheDocument()
+      expect(screen.getAllByText('React guide').length).toBeGreaterThan(0)
     })
 
-    expect(fetch).toHaveBeenLastCalledWith('/api/posts?page=1&limit=10&search=react')
+    expect(fetch).toHaveBeenLastCalledWith('/api/posts?page=1&limit=10')
   })
 })

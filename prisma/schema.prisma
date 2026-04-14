@@ -86,6 +86,7 @@ model Post {
   excerpt     String?
   coverImage  String?
   published   Boolean   @default(false)
+  featured    Boolean   @default(false)
   viewCount   Int       @default(0)
   readingTimeMinutes Int @default(1)
   deletedAt   DateTime?
@@ -106,6 +107,7 @@ model Post {
   @@index([authorId])
   @@index([categoryId])
   @@index([published, createdAt])
+  @@index([featured, createdAt])
   @@index([deletedAt])
   @@map("posts")
 }
