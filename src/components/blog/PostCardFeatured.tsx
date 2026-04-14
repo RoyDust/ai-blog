@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BookOpen } from "lucide-react";
 import { FallbackImage } from "@/components/ui";
 
 interface PostCardFeaturedProps {
@@ -29,7 +30,43 @@ export function PostCardFeatured({ post }: PostCardFeaturedProps) {
               src={post.coverImage}
             />
           ) : (
-            <div className="h-full w-full bg-[var(--surface-alt)]" />
+            <div
+              className="relative flex h-full w-full flex-col justify-end overflow-hidden p-8"
+              style={{ background: "linear-gradient(135deg, var(--surface-alt) 0%, color-mix(in srgb, var(--surface-alt) 60%, var(--border)) 100%)" }}
+            >
+              {/* 噪点纹理 */}
+              <svg
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0 h-full w-full opacity-[0.04]"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <filter id="pcf-noise">
+                  <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch" />
+                  <feColorMatrix type="saturate" values="0" />
+                </filter>
+                <rect width="100%" height="100%" filter="url(#pcf-noise)" />
+              </svg>
+
+              {/* 装饰图标 */}
+              <BookOpen
+                aria-hidden="true"
+                className="pointer-events-none absolute right-8 top-1/2 -translate-y-1/2 text-(--text-base) opacity-[0.07]"
+                size={110}
+                strokeWidth={1}
+              />
+
+              {/* 文字内容 */}
+              <div className="relative space-y-3">
+                {post.category && (
+                  <p className="text-50 text-xs font-semibold uppercase tracking-[0.15em]">
+                    {post.category.name}
+                  </p>
+                )}
+                <p className="text-75 font-display line-clamp-4 text-2xl font-bold leading-snug">
+                  {post.title}
+                </p>
+              </div>
+            </div>
           )}
         </Link>
 

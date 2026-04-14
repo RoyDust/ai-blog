@@ -35,12 +35,12 @@ interface PostCardProps {
 export function PostCard({ post }: PostCardProps) {
   const hasCover = Boolean(post.coverImage);
   const cardClassName = hasCover
-    ? "card-base grid gap-5 p-5 md:grid-cols-[minmax(0,1fr)_15rem] md:items-start md:p-6"
-    : "card-base post-card--text-only grid gap-4 p-5 md:p-6";
+    ? "card-base grid gap-4 p-4 md:grid-cols-[minmax(0,1fr)_12rem] md:items-start md:p-5"
+    : "card-base post-card--text-only grid gap-3 p-4 md:p-5";
 
   return (
     <article className={cardClassName}>
-      <div className="space-y-3">
+      <div className="space-y-2">
         {!hasCover ? (
           <div className="post-card-text-accent" data-testid="post-card-text-accent">
             <span className="post-card-text-accent-label">文字精选</span>
@@ -56,19 +56,19 @@ export function PostCard({ post }: PostCardProps) {
         />
 
         <Link href={`/posts/${post.slug}`} className="group block">
-          <h3 className="text-90 text-[1.65rem] font-bold leading-tight transition group-hover:text-[var(--primary)]">
+          <h3 className="text-90 text-lg font-bold leading-snug transition group-hover:text-(--primary)">
             {post.title}
           </h3>
         </Link>
 
-        <p className="text-75 line-clamp-3 text-sm leading-7">{post.excerpt ?? "暂无摘要"}</p>
+        <p className="text-75 line-clamp-2 text-sm leading-6">{post.excerpt ?? "暂无摘要"}</p>
 
-        <div className="text-50 flex flex-wrap items-center gap-3 text-sm">
+        <div className="text-50 flex flex-wrap items-center gap-3 text-xs">
           <span>{post._count.comments} 评论</span>
           <span>{post._count.likes} 点赞</span>
           {(post.viewCount ?? 0) > 0 ? (
             <span className="inline-flex items-center gap-1">
-              <Eye className="h-3.5 w-3.5" />
+              <Eye className="h-3 w-3" />
               {post.viewCount} 阅读
             </span>
           ) : null}
@@ -79,7 +79,7 @@ export function PostCard({ post }: PostCardProps) {
         <Link
           href={`/posts/${post.slug}`}
           aria-label={post.title}
-          className="theme-media relative order-first aspect-[4/3] overflow-hidden rounded-2xl md:order-none"
+          className="theme-media relative order-first aspect-4/3 overflow-hidden rounded-xl md:order-0"
         >
           <FallbackImage
             alt={post.title}
@@ -87,7 +87,7 @@ export function PostCard({ post }: PostCardProps) {
             fill
             loading="lazy"
             quality={70}
-            sizes="(max-width: 768px) 100vw, 15rem"
+            sizes="(max-width: 768px) 100vw, 12rem"
             src={post.coverImage!}
           />
         </Link>

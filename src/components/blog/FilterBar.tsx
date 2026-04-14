@@ -36,13 +36,7 @@ export function FilterBar({ search, category, tag, categories, tags }: FilterBar
       method="get"
       style={{ top: "calc(var(--sidebar-sticky-top, 0px) + 1rem)" }}
     >
-      <div className="grid gap-3 lg:grid-cols-[minmax(0,1.4fr)_repeat(2,minmax(0,0.8fr))_auto]">
-        <input
-          name="q"
-          defaultValue={search}
-          placeholder="搜索文章、摘要或主题词"
-          className="ui-ring rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--foreground)] placeholder:text-[var(--muted)]"
-        />
+      <div className="grid gap-3 lg:grid-cols-[repeat(2,minmax(0,1fr))_auto]">
         <select name="category" defaultValue={category ?? ""} className="ui-ring rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--foreground)]">
           <option value="">全部分类</option>
           {categories.map((item) => (

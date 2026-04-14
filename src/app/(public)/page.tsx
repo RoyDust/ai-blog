@@ -1,7 +1,7 @@
 export const revalidate = 300
 
 import type { Metadata } from 'next'
-import { HomeDiscoveryGrid, HomeFeaturedGrid, HomeHero, HomeLatestPosts } from '@/components/blog'
+import { HomeDiscoveryGrid, HomeFeaturedGrid, HomeLatestPosts } from '@/components/blog'
 import { POSTS_PAGE_SIZE } from '@/lib/pagination'
 import { getPublishedPostsPage } from '@/lib/posts'
 import { prisma } from '@/lib/prisma'
@@ -66,7 +66,6 @@ export default async function Home() {
         </section>
       ) : null}
 
-      <HomeHero />
       <HomeFeaturedGrid leadPost={editorialLead ?? null} secondaryPosts={secondaryFeatured} />
       <HomeLatestPosts posts={latestPosts} />
       <HomeDiscoveryGrid categories={categories as HomeCategory[]} />

@@ -1,5 +1,5 @@
-import { PostCard } from "./PostCard";
 import { PostCardFeatured } from "./PostCardFeatured";
+import { PostCardSecondary } from "./PostCardSecondary";
 import { SectionHeader } from "./SectionHeader";
 import { getListRevealAnimationProps } from "./listAnimation";
 
@@ -43,7 +43,7 @@ export function HomeFeaturedGrid({ leadPost, secondaryPosts }: HomeFeaturedGridP
           <div className="grid gap-4 md:grid-cols-2" data-testid="home-featured-secondary-grid">
             {secondaryPosts.map((post, index) => (
               <div key={post.id} data-testid="home-featured-secondary-item" {...getListRevealAnimationProps(index + 1)}>
-                <PostCard post={post} />
+                <PostCardSecondary post={post} />
               </div>
             ))}
           </div>
