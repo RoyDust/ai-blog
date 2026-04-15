@@ -103,7 +103,8 @@ describe('admin create post', () => {
       target: { value: '# Hello' },
     })
 
-    const categorySelect = await screen.findByLabelText('分类')
+    await screen.findByRole('option', { name: '前端' })
+    const categorySelect = screen.getByLabelText('分类')
     fireEvent.change(categorySelect, { target: { value: 'cat-1' } })
     fireEvent.click(screen.getByRole('checkbox', { name: 'React' }))
     fireEvent.click(screen.getByRole('checkbox', { name: 'Next.js' }))
