@@ -5,6 +5,20 @@ set -euo pipefail
 APP_DIR="${DEPLOY_PATH:-$(pwd)}"
 COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.prod.yml}"
 
+clear_loopback_proxy_var() {
+  local var_name="$1"
+  local current_value="${!var_name:-}"
+
+  if [[ -z "$current_value" ]]; then
+    return
+  fi
+
+  if [[ "$current_value" =~ ^[a-zA-Z0-9+.-]+://(127\.0\.0\.1|localhost)(:[0-9]+)?(/.*)?$ ]] || [[ "$current_value" =~ ^(127\.0\.0\.1|localhost)(:[0-9]+)?$ ]]; then
+    echo "Unsetting loopback proxy $var_name for docker build" >&2
+    unset "$var_name"
+  fi
+}
+
 if [[ -d "$APP_DIR/current" ]]; then
   APP_DIR="$APP_DIR/current"
 fi
@@ -15,6 +29,37 @@ if [[ ! -f .env ]]; then
   echo "Missing .env in $APP_DIR" >&2
   exit 1
 fi
+
+set -a
+source .env
+set +a
+
+required_env_vars=(
+  "DATABASE_URL"
+  "AUTH_SECRET"
+  "NEXTAUTH_SECRET"
+  "NEXTAUTH_URL"
+  "NEXT_PUBLIC_SITE_URL"
+)
+
+missing_env_vars=()
+for var_name in "${required_env_vars[@]}"; do
+  if [[ -z "${!var_name:-}" ]]; then
+    missing_env_vars+=("$var_name")
+  fi
+done
+
+if (( ${#missing_env_vars[@]} > 0 )); then
+  printf 'Missing required env vars in %s: %s\n' "$APP_DIR/.env" "${missing_env_vars[*]}" >&2
+  exit 1
+fi
+
+clear_loopback_proxy_var "HTTP_PROXY"
+clear_loopback_proxy_var "HTTPS_PROXY"
+clear_loopback_proxy_var "ALL_PROXY"
+clear_loopback_proxy_var "http_proxy"
+clear_loopback_proxy_var "https_proxy"
+clear_loopback_proxy_var "all_proxy"
 
 docker compose -f "$COMPOSE_FILE" down --remove-orphans
 docker compose -f "$COMPOSE_FILE" up -d --build
