@@ -13,6 +13,10 @@ describe("deploy-remote.sh", () => {
     expect(deployScript).toContain('clear_loopback_proxy_var "http_proxy"');
     expect(deployScript).toContain('clear_loopback_proxy_var "https_proxy"');
     expect(deployScript).toContain('clear_loopback_proxy_var "all_proxy"');
+    expect(deployScript).toContain('clear_loopback_proxy_var "npm_config_proxy"');
+    expect(deployScript).toContain('clear_loopback_proxy_var "npm_config_https_proxy"');
+    expect(deployScript).toContain('clear_loopback_proxy_var "NPM_CONFIG_PROXY"');
+    expect(deployScript).toContain('clear_loopback_proxy_var "NPM_CONFIG_HTTPS_PROXY"');
 
     const proxyCleanupIndex = deployScript.indexOf('clear_loopback_proxy_var "HTTP_PROXY"');
     const composeUpIndex = deployScript.indexOf('docker compose -f "$COMPOSE_FILE" up -d --build');

@@ -60,6 +60,10 @@ clear_loopback_proxy_var "ALL_PROXY"
 clear_loopback_proxy_var "http_proxy"
 clear_loopback_proxy_var "https_proxy"
 clear_loopback_proxy_var "all_proxy"
+clear_loopback_proxy_var "npm_config_proxy"
+clear_loopback_proxy_var "npm_config_https_proxy"
+clear_loopback_proxy_var "NPM_CONFIG_PROXY"
+clear_loopback_proxy_var "NPM_CONFIG_HTTPS_PROXY"
 
 docker compose -f "$COMPOSE_FILE" down --remove-orphans
 docker compose -f "$COMPOSE_FILE" up -d --build
