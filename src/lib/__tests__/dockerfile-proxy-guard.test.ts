@@ -19,8 +19,22 @@ describe("Dockerfile proxy guard", () => {
     expect(dockerfile).toContain('NPM_CONFIG_HTTPS_PROXY=""');
 
     const proxyGuardIndex = dockerfile.indexOf('ENV HTTP_PROXY=""');
-    const firstPnpmIndex = dockerfile.indexOf("RUN pnpm config set registry");
+    const firstPnpmIndex = dockerfile.indexOf("pnpm config set registry");
     expect(proxyGuardIndex).toBeGreaterThan(-1);
     expect(firstPnpmIndex).toBeGreaterThan(proxyGuardIndex);
+  });
+
+  test("bypasses corepack before the first pnpm command", () => {
+    expect(dockerfile).toContain("corepack disable");
+    expect(dockerfile).toContain("npm install -g pnpm@10");
+    expect(dockerfile).not.toContain("RUN corepack enable");
+
+    const disableCorepackIndex = dockerfile.indexOf("corepack disable");
+    const installPnpmIndex = dockerfile.indexOf("npm install -g pnpm@10");
+    const firstPnpmIndex = dockerfile.indexOf("pnpm config set registry");
+
+    expect(disableCorepackIndex).toBeGreaterThan(-1);
+    expect(installPnpmIndex).toBeGreaterThan(disableCorepackIndex);
+    expect(firstPnpmIndex).toBeGreaterThan(installPnpmIndex);
   });
 });

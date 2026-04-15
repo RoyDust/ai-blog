@@ -12,8 +12,11 @@ ENV HTTP_PROXY="" \
  npm_config_https_proxy="" \
  NPM_CONFIG_PROXY="" \
  NPM_CONFIG_HTTPS_PROXY=""
-RUN corepack enable
-RUN pnpm config set registry https://registry.npmmirror.com/ \
+RUN unset HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy all_proxy npm_config_proxy npm_config_https_proxy NPM_CONFIG_PROXY NPM_CONFIG_HTTPS_PROXY \
+ && corepack disable \
+ && npm install -g pnpm@10
+RUN unset HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy all_proxy npm_config_proxy npm_config_https_proxy NPM_CONFIG_PROXY NPM_CONFIG_HTTPS_PROXY \
+ && pnpm config set registry https://registry.npmmirror.com/ \
  && pnpm config set fetch-retries 5 \
  && pnpm config set fetch-retry-factor 2 \
  && pnpm config set fetch-retry-mintimeout 20000 \
@@ -22,7 +25,8 @@ RUN pnpm config set registry https://registry.npmmirror.com/ \
 
 FROM base AS deps
 COPY package.json pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile
+RUN unset HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy all_proxy npm_config_proxy npm_config_https_proxy NPM_CONFIG_PROXY NPM_CONFIG_HTTPS_PROXY \
+ && pnpm install --frozen-lockfile
 
 FROM deps AS builder
 ARG DATABASE_URL
@@ -42,7 +46,8 @@ RUN DATABASE_URL="$DATABASE_URL" \
 FROM base AS runner
 ENV NODE_ENV=production
 COPY package.json pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile --prod
+RUN unset HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy all_proxy npm_config_proxy npm_config_https_proxy NPM_CONFIG_PROXY NPM_CONFIG_HTTPS_PROXY \
+ && pnpm install --frozen-lockfile --prod
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/prisma ./prisma
