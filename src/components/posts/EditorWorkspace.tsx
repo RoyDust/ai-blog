@@ -6,6 +6,9 @@ import { MarkdownEditor } from "./MarkdownEditor";
 
 interface EditorWorkspaceProps {
   mode?: "full" | "content";
+  className?: string;
+  fillHeight?: boolean;
+  contentMinRows?: number;
   title: string;
   slug: string;
   content: string;
@@ -30,6 +33,9 @@ export function EditorWorkspace({
   onContentChange,
   onExcerptChange,
   onCoverImageChange,
+  className = "",
+  fillHeight = false,
+  contentMinRows,
 }: EditorWorkspaceProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -113,12 +119,18 @@ export function EditorWorkspace({
   };
 
   return (
-    <section className="ui-surface rounded-2xl p-6 lg:p-7">
+    <section className={`ui-surface rounded-2xl p-6 lg:p-7 ${fillHeight ? "flex min-h-0 flex-col overflow-hidden" : ""} ${className}`}>
       <h2 className="mb-4 font-display text-xl font-bold text-[var(--foreground)]">编辑器</h2>
-      <div className="space-y-4">
+      <div className={fillHeight ? "flex min-h-0 flex-1 flex-col gap-4" : "space-y-4"}>
         <Input label="标题" placeholder="文章标题" required value={title} onChange={(event) => onTitleChange(event.target.value)} />
         <Input label="Slug" placeholder="url-slug" required value={slug} onChange={(event) => onSlugChange(event.target.value)} />
-        <MarkdownEditor label="内容" minRows={36} value={content} onChange={onContentChange} />
+        <MarkdownEditor
+          fillHeight={fillHeight}
+          label="内容"
+          minRows={contentMinRows ?? 36}
+          value={content}
+          onChange={onContentChange}
+        />
 
         {mode === "full" ? (
           <>

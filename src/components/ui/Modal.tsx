@@ -8,8 +8,10 @@ export interface ModalProps {
   onClose: () => void;
   title?: string;
   children: React.ReactNode;
-  size?: 'sm' | 'md' | 'lg' | 'xl';
+  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl';
   showCloseButton?: boolean;
+  panelClassName?: string;
+  contentClassName?: string;
 }
 
 export function Modal({
@@ -19,6 +21,8 @@ export function Modal({
   children,
   size = 'md',
   showCloseButton = true,
+  panelClassName,
+  contentClassName,
 }: ModalProps) {
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -48,6 +52,9 @@ export function Modal({
     md: 'max-w-md',
     lg: 'max-w-lg',
     xl: 'max-w-xl',
+    '2xl': 'max-w-2xl',
+    '3xl': 'max-w-3xl',
+    '4xl': 'max-w-4xl',
   };
 
   return (
@@ -57,11 +64,10 @@ export function Modal({
         onClick={onClose}
       />
       <div
-        className={`
-          relative w-full ${sizes[size]} mx-4
-          ui-surface rounded-2xl shadow-xl
-          transform transition-all
-        `}
+        className={cn(
+          `relative mx-4 max-h-[calc(100dvh-2rem)] w-full ${sizes[size]} overflow-hidden ui-surface rounded-2xl shadow-xl transform transition-all`,
+          panelClassName
+        )}
         role="dialog"
         aria-modal="true"
         aria-labelledby={title ? 'modal-title' : undefined}
@@ -78,6 +84,7 @@ export function Modal({
             )}
             {showCloseButton && (
               <button
+                type="button"
                 onClick={onClose}
                 className={cn(
                   'ui-ring rounded-md p-1 text-[var(--muted)] transition-colors',
@@ -101,7 +108,7 @@ export function Modal({
             )}
           </div>
         )}
-        <div className="px-6 py-4">{children}</div>
+        <div className={cn("max-h-[calc(100dvh-7rem)] overflow-y-auto px-6 py-4", contentClassName)}>{children}</div>
       </div>
     </div>
   );

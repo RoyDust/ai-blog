@@ -12,6 +12,8 @@ interface MarkdownEditorProps {
   value: string;
   onChange: (value: string) => void;
   minRows?: number;
+  fillHeight?: boolean;
+  editorPanelClassName?: string;
 }
 
 type Snippet = { before: string; after?: string };
@@ -76,7 +78,14 @@ function getClipboardImageFile(event: React.ClipboardEvent<HTMLTextAreaElement>)
   return null;
 }
 
-export function MarkdownEditor({ label = "内容", value, onChange, minRows = 18 }: MarkdownEditorProps) {
+export function MarkdownEditor({
+  label = "内容",
+  value,
+  onChange,
+  minRows = 18,
+  fillHeight = false,
+  editorPanelClassName,
+}: MarkdownEditorProps) {
   const id = useId();
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -170,8 +179,11 @@ export function MarkdownEditor({ label = "内容", value, onChange, minRows = 18
     }
   };
 
+  const panelSizeClassName = fillHeight ? "min-h-0 flex-1 max-h-none" : editorPanelClassName ?? "min-h-[26rem] max-h-[700px]";
+  const columnClassName = fillHeight ? "flex min-h-0 flex-col" : "";
+
   return (
-    <div className="space-y-3">
+    <div className={fillHeight ? "flex min-h-0 flex-1 flex-col gap-3" : "space-y-3"}>
       <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface-alt)] p-2">
         {snippets.map((item) => {
           const Icon = item.icon;
@@ -210,8 +222,8 @@ export function MarkdownEditor({ label = "内容", value, onChange, minRows = 18
 
       {uploadError ? <p className="text-sm text-rose-500">{uploadError}</p> : null}
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <div>
+      <div className={fillHeight ? "grid min-h-0 flex-1 grid-cols-1 gap-4 xl:grid-cols-2" : "grid grid-cols-1 gap-4 xl:grid-cols-2"}>
+        <div className={columnClassName}>
           <label htmlFor={id} className="mb-1 block text-sm font-medium text-[var(--foreground)]">
             {label}
           </label>
@@ -227,13 +239,13 @@ export function MarkdownEditor({ label = "内容", value, onChange, minRows = 18
             onKeyUp={syncSelection}
             onPaste={handlePaste}
             onSelect={syncSelection}
-            className="ui-ring min-h-[26rem] max-h-[700px] w-full overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4 font-[var(--font-code)] text-sm text-[var(--foreground)] placeholder:text-[var(--muted)] focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+            className={`ui-ring ${panelSizeClassName} w-full overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4 font-[var(--font-code)] text-sm text-[var(--foreground)] placeholder:text-[var(--muted)] focus-visible:ring-2 focus-visible:ring-[var(--ring)]`}
           />
         </div>
 
-        <div>
+        <div className={columnClassName}>
           <p className="mb-1 block text-sm font-medium text-[var(--foreground)]">实时预览</p>
-          <div className="min-h-[26rem] max-h-[700px] overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4">
+          <div className={`${panelSizeClassName} overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4`}>
             <article className="prose prose-zinc max-w-none prose-headings:font-display prose-headings:text-[var(--foreground)] prose-h1:text-[var(--foreground)] prose-h2:text-[var(--foreground)] prose-h3:text-[var(--foreground)] prose-h4:text-[var(--foreground)] prose-h5:text-[var(--foreground)] prose-h6:text-[var(--foreground)] prose-p:text-[var(--text-body)] prose-a:text-[var(--brand)] prose-a:no-underline hover:prose-a:underline prose-strong:text-[var(--foreground)] prose-li:text-[var(--text-body)] prose-li:marker:text-[var(--text-faint)] prose-blockquote:border-[var(--border-strong)] prose-blockquote:border-l-[3px] prose-blockquote:text-[var(--text-body)] prose-img:rounded-xl prose-pre:rounded-xl prose-pre:border prose-pre:border-[var(--border)] prose-pre:bg-[var(--surface-elevated)] prose-pre:text-[var(--foreground)] prose-code:rounded prose-code:bg-[color-mix(in_oklab,var(--surface-contrast)_82%,black_18%)] prose-code:px-1.5 prose-code:py-0.5 prose-code:text-[color-mix(in_oklab,var(--foreground)_92%,white_8%)] prose-code:font-[var(--font-code)] prose-code:before:content-none prose-code:after:content-none prose-table:w-full prose-th:bg-[var(--surface-contrast)] prose-th:text-[var(--foreground)] prose-td:border-[var(--border)] prose-th:border-[var(--border)] dark:prose-invert">
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}

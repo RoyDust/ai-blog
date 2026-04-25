@@ -75,47 +75,53 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  posts         Post[]
-  comments      Comment[]
-  likes         Like[]
-  bookmarks     Bookmark[]
-  accounts      Account[]
-  sessions      Session[]
-  aiApiClients  AiApiClient[]
+  posts        Post[]
+  comments     Comment[]
+  likes        Like[]
+  bookmarks    Bookmark[]
+  accounts     Account[]
+  sessions     Session[]
+  aiApiClients AiApiClient[]
+  aiTasks      AiTask[]
 
   @@map("users")
 }
 
 model Post {
-  id          String    @id @default(cuid())
-  title       String
-  slug        String    @unique
-  content     String    @db.Text
-  excerpt     String?
-  summaryStatus PostSummaryStatus @default(EMPTY)
-  summaryError  String?   @db.Text
+  id                 String            @id @default(cuid())
+  title              String
+  slug               String            @unique
+  content            String            @db.Text
+  excerpt            String?
+  seoTitle           String?
+  seoDescription     String?           @db.Text
+  seoGeneratedAt     DateTime?
+  seoModelId         String?
+  summaryStatus      PostSummaryStatus @default(EMPTY)
+  summaryError       String?           @db.Text
   summaryGeneratedAt DateTime?
-  summaryJobId String?
-  summaryModelId String?
-  coverImage  String?
-  published   Boolean   @default(false)
-  featured    Boolean   @default(false)
-  viewCount   Int       @default(0)
-  readingTimeMinutes Int @default(1)
-  deletedAt   DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  publishedAt DateTime?
+  summaryJobId       String?
+  summaryModelId     String?
+  coverImage         String?
+  published          Boolean           @default(false)
+  featured           Boolean           @default(false)
+  viewCount          Int               @default(0)
+  readingTimeMinutes Int               @default(1)
+  deletedAt          DateTime?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  publishedAt        DateTime?
 
-  authorId    String
-  author      User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  categoryId  String?
-  category    Category? @relation(fields: [categoryId], references: [id])
-  tags        Tag[]
-  comments    Comment[]
-  likes       Like[]
-  bookmarks   Bookmark[]
+  authorId       String
+  author         User            @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  categoryId     String?
+  category       Category?       @relation(fields: [categoryId], references: [id])
+  tags           Tag[]
+  comments       Comment[]
+  likes          Like[]
+  bookmarks      Bookmark[]
   aiDraftBinding AiDraftBinding?
+  aiTaskItems    AiTaskItem[]
 
   @@index([authorId])
   @@index([categoryId])
@@ -124,6 +130,7 @@ model Post {
   @@index([deletedAt])
   @@index([summaryStatus])
   @@index([summaryJobId])
+  @@index([seoGeneratedAt])
   @@map("posts")
 }
 
@@ -140,7 +147,7 @@ model AiApiClient {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  drafts      AiDraftBinding[]
+  drafts AiDraftBinding[]
 
   @@index([ownerId])
   @@index([revokedAt])
@@ -185,6 +192,55 @@ model AiModel {
   @@map("ai_models")
 }
 
+model AiTask {
+  id             String    @id @default(cuid())
+  type           String
+  status         String
+  source         String
+  modelId        String?
+  createdById    String?
+  createdBy      User?     @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  requestedCount Int       @default(0)
+  succeededCount Int       @default(0)
+  failedCount    Int       @default(0)
+  startedAt      DateTime?
+  finishedAt     DateTime?
+  lastError      String?   @db.Text
+  metadata       Json?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  items AiTaskItem[]
+
+  @@index([status, createdAt])
+  @@index([type, createdAt])
+  @@index([createdById])
+  @@map("ai_tasks")
+}
+
+model AiTaskItem {
+  id            String    @id @default(cuid())
+  taskId        String
+  task          AiTask    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  postId        String?
+  post          Post?     @relation(fields: [postId], references: [id], onDelete: SetNull)
+  status        String
+  action        String
+  inputSnapshot Json?
+  output        Json?
+  applied       Boolean   @default(false)
+  error         String?   @db.Text
+  startedAt     DateTime?
+  finishedAt    DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([taskId, status])
+  @@index([postId])
+  @@index([action, createdAt])
+  @@map("ai_task_items")
+}
+
 model Category {
   id          String    @id @default(cuid())
   name        String    @unique
@@ -193,7 +249,7 @@ model Category {
   deletedAt   DateTime?
   createdAt   DateTime  @default(now())
 
-  posts       Post[]
+  posts Post[]
 
   @@index([deletedAt])
   @@map("categories")
@@ -207,29 +263,29 @@ model Tag {
   deletedAt DateTime?
   createdAt DateTime  @default(now())
 
-  posts     Post[]
+  posts Post[]
 
   @@index([deletedAt])
   @@map("tags")
 }
 
 model Comment {
-  id          String        @id @default(cuid())
-  content     String        @db.Text
-  status      CommentStatus @default(APPROVED)
-  deletedAt   DateTime?
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  id        String        @id @default(cuid())
+  content   String        @db.Text
+  status    CommentStatus @default(APPROVED)
+  deletedAt DateTime?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
 
   postId      String
-  post        Post          @relation(fields: [postId], references: [id], onDelete: Cascade)
+  post        Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
   authorId    String?
-  author      User?         @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  author      User?     @relation(fields: [authorId], references: [id], onDelete: Cascade)
   browserId   String?
   authorLabel String?
   parentId    String?
-  parent      Comment?      @relation("CommentReplies", fields: [parentId], references: [id])
-  replies     Comment[]     @relation("CommentReplies")
+  parent      Comment?  @relation("CommentReplies", fields: [parentId], references: [id])
+  replies     Comment[] @relation("CommentReplies")
 
   @@index([postId])
   @@index([authorId])
@@ -243,9 +299,9 @@ model Like {
   createdAt DateTime @default(now())
 
   postId    String
-  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  post      Post    @relation(fields: [postId], references: [id], onDelete: Cascade)
   userId    String?
-  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
   browserId String?
 
   @@unique([postId, userId])
@@ -259,10 +315,10 @@ model Bookmark {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
 
-  postId    String
-  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  postId String
+  post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([postId, userId])
   @@index([userId])

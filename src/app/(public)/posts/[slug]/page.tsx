@@ -22,6 +22,7 @@ async function getPost(slug: string) {
       slug: true,
       content: true,
       excerpt: true,
+      seoDescription: true,
       coverImage: true,
       createdAt: true,
       updatedAt: true,
@@ -114,10 +115,11 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       description: '未找到对应文章。',
     }
   }
+  const description = post.seoDescription || post.excerpt || `${post.title} - My Blog`
 
   return buildArticleMetadata({
     title: `Article Title` === post.title ? `${post.title} | My Blog` : `${post.title} | My Blog`,
-    description: post.excerpt || `${post.title} - My Blog`,
+    description,
     path: `/posts/${post.slug}`,
     image: post.coverImage,
     publishedTime: (post.publishedAt || post.createdAt).toISOString(),
@@ -169,9 +171,10 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
   const { previousPost, nextPost } = await getContinuationData(post)
 
   const headings = extractHeadings(post.content);
+  const description = post.seoDescription || post.excerpt || `${post.title} - My Blog`
   const articleJsonLd = buildArticleJsonLd({
     title: post.title,
-    description: post.excerpt || `${post.title} - My Blog`,
+    description,
     path: `/posts/${post.slug}`,
     publishedTime: (post.publishedAt || post.createdAt).toISOString(),
     modifiedTime: post.updatedAt?.toISOString(),

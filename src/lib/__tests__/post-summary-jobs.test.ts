@@ -7,6 +7,10 @@ const prismaMocks = vi.hoisted(() => ({
   aiFindManyMock: vi.fn(),
   aiFindUniqueMock: vi.fn(),
   aiCountMock: vi.fn(),
+  aiTaskFindUniqueMock: vi.fn(),
+  aiTaskUpdateMock: vi.fn(),
+  aiTaskItemFindManyMock: vi.fn(),
+  aiTaskItemUpdateMock: vi.fn(),
   revalidatePublicContentMock: vi.fn(),
 }));
 
@@ -26,6 +30,14 @@ vi.mock("@/lib/prisma", () => ({
       findUnique: prismaMocks.aiFindUniqueMock,
       count: prismaMocks.aiCountMock,
     },
+    aiTask: {
+      findUnique: prismaMocks.aiTaskFindUniqueMock,
+      update: prismaMocks.aiTaskUpdateMock,
+    },
+    aiTaskItem: {
+      findMany: prismaMocks.aiTaskItemFindManyMock,
+      update: prismaMocks.aiTaskItemUpdateMock,
+    },
   },
 }));
 
@@ -39,6 +51,10 @@ describe("post summary jobs", () => {
     prismaMocks.aiFindManyMock.mockResolvedValue([]);
     prismaMocks.aiFindUniqueMock.mockResolvedValue(null);
     prismaMocks.aiCountMock.mockResolvedValue(0);
+    prismaMocks.aiTaskFindUniqueMock.mockResolvedValue(null);
+    prismaMocks.aiTaskUpdateMock.mockResolvedValue({ id: "job-1" });
+    prismaMocks.aiTaskItemFindManyMock.mockResolvedValue([]);
+    prismaMocks.aiTaskItemUpdateMock.mockResolvedValue({ taskId: "job-1" });
     prismaMocks.updateManyMock.mockResolvedValue({ count: 1 });
     prismaMocks.updateMock.mockResolvedValue({ id: "post-1" });
     process.env = {

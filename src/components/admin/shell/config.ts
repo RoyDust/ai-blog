@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { BrainCircuit, FileText, FolderTree, LayoutDashboard, MessageSquare } from "lucide-react";
+import { BrainCircuit, FileText, FolderTree, LayoutDashboard, ListChecks, MessageSquare } from "lucide-react";
 
 export type AdminNavItem = {
   href: string;
@@ -19,6 +19,7 @@ export const adminNavItems: AdminNavItem[] = [
   { href: "/admin/comments", label: "评论", group: "互动", icon: MessageSquare },
   { href: "/admin/taxonomy", label: "分类与标签", group: "结构", icon: FolderTree },
   { href: "/admin/ai/models", label: "AI 模型", group: "智能", icon: BrainCircuit },
+  { href: "/admin/ai/tasks", label: "AI 任务", group: "智能", icon: ListChecks },
 ];
 
 export function isAdminNavItemActive(pathname: string, href: string) {

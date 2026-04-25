@@ -1,6 +1,15 @@
 import { randomUUID } from "node:crypto";
 
 import { getAiModelForCapability } from "@/lib/ai-models";
+import {
+  AI_TASK_ITEM_STATUSES,
+  createAiTask,
+  markAiTaskItemFailed,
+  markAiTaskItemRunning,
+  markAiTaskItemSucceeded,
+  markAiTaskRunning,
+  refreshAiTaskCounts,
+} from "@/lib/ai-tasks";
 import { ApiError, ValidationError } from "@/lib/api-errors";
 import { revalidatePublicContent } from "@/lib/cache";
 import { generatePostSummary } from "@/lib/post-summary";
@@ -80,7 +89,6 @@ export async function createPostSummaryJob({ ids, modelId }: { ids: unknown; mod
     select: { id: true, title: true, content: true },
   });
   const postsById = new Map(posts.map((post) => [post.id, post]));
-  const jobId = randomUUID();
   const queuedIds: string[] = [];
   const results: Array<{
     id: string;
@@ -106,6 +114,29 @@ export async function createPostSummaryJob({ ids, modelId }: { ids: unknown; mod
     results.push({ id, title: post.title, status: "queued" });
   }
 
+  const task =
+    queuedIds.length > 0
+      ? await createAiTask({
+          type: "post-summary",
+          source: "bulk-posts",
+          modelId: aiModel.id,
+          metadata: { requestedIds: normalizedIds },
+          items: queuedIds.map((id) => {
+            const post = postsById.get(id);
+
+            return {
+              postId: id,
+              action: "summary",
+              inputSnapshot: {
+                title: post?.title ?? "",
+                contentLength: post?.content.length ?? 0,
+              },
+            };
+          }),
+        })
+      : null;
+  const jobId = task?.id ?? randomUUID();
+
   if (queuedIds.length > 0) {
     await prisma.post.updateMany({
       where: { id: { in: queuedIds }, deletedAt: null },
@@ -124,6 +155,7 @@ export async function createPostSummaryJob({ ids, modelId }: { ids: unknown; mod
 
   return {
     jobId,
+    taskId: task?.id ?? null,
     modelId: aiModel.id,
     requested: normalizedIds.length,
     queued: queuedIds.length,
@@ -140,9 +172,29 @@ export async function runPostSummaryJob(jobId: string, modelId?: string | null) 
   runningSummaryJobs.add(jobId);
 
   try {
+    const task = await prisma.aiTask.findUnique({
+      where: { id: jobId },
+      include: {
+        items: {
+          where: { status: { in: [AI_TASK_ITEM_STATUSES.queued, AI_TASK_ITEM_STATUSES.running] } },
+          select: { id: true, postId: true },
+        },
+      },
+    });
+    const taskItemsByPostId = new Map((task?.items ?? []).map((item) => [item.postId, item.id]));
+
+    if (task) {
+      await markAiTaskRunning(task.id);
+    }
+
     const aiModel = await getAiModelForCapability("post-summary", modelId);
     if (!aiModel?.apiKey) {
       await failActiveJobPosts(jobId, aiModel ? `${aiModel.apiKeyEnv} is not configured` : "AI model is not available for post summaries", modelId);
+      if (task) {
+        for (const item of task.items) {
+          await markAiTaskItemFailed(item.id, aiModel ? `${aiModel.apiKeyEnv} is not configured` : "AI model is not available for post summaries");
+        }
+      }
       return;
     }
 
@@ -164,6 +216,12 @@ export async function runPostSummaryJob(jobId: string, modelId?: string | null) 
     })) as SummaryPost[];
 
     for (const post of posts) {
+      const taskItemId = taskItemsByPostId.get(post.id);
+
+      if (taskItemId) {
+        await markAiTaskItemRunning(taskItemId);
+      }
+
       await prisma.post.updateMany({
         where: {
           id: post.id,
@@ -188,6 +246,9 @@ export async function runPostSummaryJob(jobId: string, modelId?: string | null) 
           },
           select: { id: true },
         });
+        if (taskItemId) {
+          await markAiTaskItemFailed(taskItemId, "Article content is required");
+        }
         continue;
       }
 
@@ -204,6 +265,9 @@ export async function runPostSummaryJob(jobId: string, modelId?: string | null) 
           },
           select: { id: true },
         });
+        if (taskItemId) {
+          await markAiTaskItemSucceeded(taskItemId, { summary: excerpt }, true);
+        }
 
         revalidatePublicContent({
           slug: post.slug,
@@ -211,16 +275,24 @@ export async function runPostSummaryJob(jobId: string, modelId?: string | null) 
           tagSlugs: post.tags.map((tag) => tag.slug),
         });
       } catch (error) {
+        const message = error instanceof Error ? error.message : "Summary generation failed";
         await prisma.post.update({
           where: { id: post.id },
           data: {
             summaryStatus: POST_SUMMARY_STATUSES.failed,
-            summaryError: error instanceof Error ? error.message : "Summary generation failed",
+            summaryError: message,
             summaryModelId: aiModel.id,
           },
           select: { id: true },
         });
+        if (taskItemId) {
+          await markAiTaskItemFailed(taskItemId, message);
+        }
       }
+    }
+
+    if (task) {
+      await refreshAiTaskCounts(task.id);
     }
   } finally {
     runningSummaryJobs.delete(jobId);

@@ -3,7 +3,7 @@ interface PublishChecklistProps {
   slug: string;
   content: string;
   coverImage: string;
-  variant?: "panel" | "inline";
+  variant?: "panel" | "inline" | "bar";
 }
 
 export function PublishChecklist({ title, slug, content, coverImage, variant = "panel" }: PublishChecklistProps) {
@@ -14,10 +14,11 @@ export function PublishChecklist({ title, slug, content, coverImage, variant = "
     { label: "封面图已设置", done: coverImage.trim().length > 0 },
   ];
   const completed = checks.filter((item) => item.done).length;
+  const summary = `完成 ${completed}/4 项后更适合直接发布。`;
 
   const contentNode = (
     <>
-      <p className="mb-4 text-sm text-[var(--muted)]">完成 {completed}/4 项后更适合直接发布。</p>
+      <p className="mb-4 text-sm text-[var(--muted)]">{summary}</p>
       <ul className="space-y-2">
         {checks.map((item) => (
           <li className="flex items-center gap-2 text-sm" key={item.label}>
@@ -28,6 +29,25 @@ export function PublishChecklist({ title, slug, content, coverImage, variant = "
       </ul>
     </>
   );
+
+  if (variant === "bar") {
+    return (
+      <div className="flex min-w-0 flex-1 flex-col gap-3 2xl:flex-row 2xl:items-center 2xl:justify-between">
+        <p className="shrink-0 text-sm text-[var(--muted)]">{summary}</p>
+        <ul className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
+          {checks.map((item) => (
+            <li
+              className="flex min-w-0 items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface-alt)] px-3 py-2 text-sm"
+              key={item.label}
+            >
+              <span className={item.done ? "text-[var(--success-foreground)]" : "text-[var(--muted)]"}>{item.done ? "●" : "○"}</span>
+              <span className={item.done ? "truncate text-[var(--foreground)]" : "truncate text-[var(--muted)]"}>{item.label}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  }
 
   if (variant === "inline") return contentNode;
 

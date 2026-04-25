@@ -51,7 +51,7 @@ describe('editor publish flow', () => {
     expect(await screen.findByRole('button', { name: '元数据' })).toHaveAttribute('aria-pressed', 'true')
   })
 
-  test('updates ?panel= when switching inspector tabs', async () => {
+  test('updates ?panel= when opening detail panels', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue({
@@ -75,10 +75,10 @@ describe('editor publish flow', () => {
 
     render(<AdminPostEditPage />)
 
-    fireEvent.click(await screen.findByRole('button', { name: '准备度' }))
+    fireEvent.click(await screen.findByRole('button', { name: '元数据' }))
 
     await waitFor(() => {
-      expect(router.replace).toHaveBeenCalledWith(expect.stringContaining('panel=readiness'), { scroll: false })
+      expect(router.replace).toHaveBeenCalledWith(expect.stringContaining('panel=metadata'), { scroll: false })
     })
   })
 
@@ -122,4 +122,3 @@ describe('editor publish flow', () => {
     expect(JSON.parse(String(fourthCall[1]?.body))).toMatchObject({ published: true })
   })
 })
-

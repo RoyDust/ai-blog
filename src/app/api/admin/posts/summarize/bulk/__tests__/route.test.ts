@@ -15,6 +15,7 @@ const prismaMocks = vi.hoisted(() => ({
   aiFindManyMock: vi.fn(),
   aiFindUniqueMock: vi.fn(),
   aiCountMock: vi.fn(),
+  aiTaskCreateMock: vi.fn(),
   revalidatePublicContentMock: vi.fn(),
 }));
 
@@ -34,6 +35,9 @@ vi.mock("@/lib/prisma", () => ({
       findUnique: prismaMocks.aiFindUniqueMock,
       count: prismaMocks.aiCountMock,
     },
+    aiTask: {
+      create: prismaMocks.aiTaskCreateMock,
+    },
   },
 }));
 
@@ -48,6 +52,13 @@ describe("admin bulk post summarize route", () => {
     prismaMocks.aiFindManyMock.mockResolvedValue([]);
     prismaMocks.aiFindUniqueMock.mockResolvedValue(null);
     prismaMocks.aiCountMock.mockResolvedValue(0);
+    prismaMocks.aiTaskCreateMock.mockImplementation(({ data }) =>
+      Promise.resolve({
+        id: "task-1",
+        ...data,
+        items: data.items?.create?.map((item: Record<string, unknown>, index: number) => ({ id: `item-${index + 1}`, ...item })) ?? [],
+      }),
+    );
     prismaMocks.updateManyMock.mockResolvedValue({ count: 0 });
     process.env = {
       ...originalEnv,

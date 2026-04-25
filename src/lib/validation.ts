@@ -6,6 +6,7 @@ const MAX_NAME_LENGTH = 80
 const MAX_SLUG_LENGTH = 120
 const MAX_COLOR_LENGTH = 32
 const MAX_EXCERPT_LENGTH = 320
+const MAX_SEO_DESCRIPTION_LENGTH = 500
 const MAX_COMMENT_LENGTH = 5_000
 const MAX_POST_TITLE_LENGTH = 160
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -209,6 +210,7 @@ export function parseAiDraftInput(payload: unknown) {
     slug?: unknown
     content?: unknown
     excerpt?: unknown
+    seoDescription?: unknown
     coverImage?: unknown
     categorySlug?: unknown
     tagSlugs?: unknown
@@ -244,6 +246,7 @@ export function parsePostPatchInput(payload: unknown) {
     title?: unknown
     content?: unknown
     excerpt?: unknown
+    seoDescription?: unknown
     coverImage?: unknown
     categoryId?: unknown
     tagIds?: unknown
@@ -261,12 +264,14 @@ export function parsePostPatchInput(payload: unknown) {
 
   assertLength(title, 'title', MAX_POST_TITLE_LENGTH)
   assertLength(optionalString(data.excerpt, 'excerpt'), 'excerpt', MAX_EXCERPT_LENGTH)
+  assertLength(optionalNullableString(data.seoDescription, 'seoDescription') ?? undefined, 'seoDescription', MAX_SEO_DESCRIPTION_LENGTH)
 
   return {
     title,
     content,
     slug: data.slug == null ? undefined : readString(data.slug, 'slug'),
     excerpt: optionalString(data.excerpt, 'excerpt'),
+    seoDescription: optionalNullableString(data.seoDescription, 'seoDescription'),
     coverImage: optionalString(data.coverImage, 'coverImage'),
     categoryId: optionalNullableString(data.categoryId, 'categoryId'),
     tagIds: normalizeStringArray(data.tagIds, 'tagIds'),

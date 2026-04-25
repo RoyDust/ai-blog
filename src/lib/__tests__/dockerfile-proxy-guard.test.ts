@@ -37,4 +37,15 @@ describe("Dockerfile proxy guard", () => {
     expect(installPnpmIndex).toBeGreaterThan(disableCorepackIndex);
     expect(firstPnpmIndex).toBeGreaterThan(installPnpmIndex);
   });
+
+  test("uses npm mirror before installing pnpm globally", () => {
+    expect(dockerfile).toContain("npm config set registry https://registry.npmmirror.com/");
+    expect(dockerfile).toContain("npm install -g pnpm@10");
+
+    const npmRegistryIndex = dockerfile.indexOf("npm config set registry https://registry.npmmirror.com/");
+    const installPnpmIndex = dockerfile.indexOf("npm install -g pnpm@10");
+
+    expect(npmRegistryIndex).toBeGreaterThan(-1);
+    expect(installPnpmIndex).toBeGreaterThan(npmRegistryIndex);
+  });
 });

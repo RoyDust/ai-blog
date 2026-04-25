@@ -26,6 +26,14 @@ describe("admin shell config", () => {
     });
   });
 
+  test("maps AI task route into grouped workspace labels", () => {
+    expect(getAdminPathMeta("/admin/ai/tasks")).toEqual({
+      currentLabel: "AI 任务",
+      currentGroup: "智能",
+      crumbs: ["后台", "智能", "AI 任务"],
+    });
+  });
+
   test("exposes the grouped editorial navigation items", () => {
     expect(adminNavItems.map((item) => ({ label: item.label, group: item.group }))).toEqual([
       { label: "总览", group: "工作台" },
@@ -33,6 +41,7 @@ describe("admin shell config", () => {
       { label: "评论", group: "互动" },
       { label: "分类与标签", group: "结构" },
       { label: "AI 模型", group: "智能" },
+      { label: "AI 任务", group: "智能" },
     ]);
   });
 
@@ -42,6 +51,7 @@ describe("admin shell config", () => {
     expect(isAdminNavItemActive("/admin/posts-archive", "/admin/posts")).toBe(false);
     expect(isAdminNavItemActive("/admin/taxonomy", "/admin/taxonomy")).toBe(true);
     expect(isAdminNavItemActive("/admin/ai/models", "/admin/ai/models")).toBe(true);
+    expect(isAdminNavItemActive("/admin/ai/tasks/task-1", "/admin/ai/tasks")).toBe(true);
   });
 
   test("maps only true post edit routes into edit breadcrumbs", () => {

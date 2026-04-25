@@ -45,6 +45,7 @@ type AdminPostPatchInput = {
   content: string
   slug?: string
   excerpt?: string
+  seoDescription?: string | null
   coverImage?: string
   categoryId?: string | null
   tagIds?: string[] | null
@@ -497,6 +498,9 @@ export async function updateAdminPost({
       content: input.content,
       excerpt: input.excerpt,
       ...getOptionalSummaryFieldsForExcerpt(input.excerpt),
+      seoDescription: input.seoDescription,
+      seoGeneratedAt: input.seoDescription ? new Date() : input.seoDescription === null ? null : undefined,
+      seoModelId: input.seoDescription === null ? null : undefined,
       coverImage: input.coverImage,
       readingTimeMinutes,
       categoryId: input.categoryId,

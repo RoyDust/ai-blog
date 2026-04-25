@@ -46,7 +46,7 @@ describe("posts workbench", () => {
     expect(screen.getByText("仅看草稿")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "切换为已发布" })).toBeInTheDocument();
     expect(screen.getByText("评论 2")).toBeInTheDocument();
-    expect(screen.getByText("支持批量 AI 摘要、隐藏与状态切换")).toBeInTheDocument();
+    expect(screen.getByText("支持批量 AI 摘要、内容补全、隐藏与状态切换")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "切换为已发布" }));
 

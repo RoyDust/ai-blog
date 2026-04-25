@@ -14,6 +14,10 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
+async function openMetadataDialog() {
+  fireEvent.click(await screen.findByRole('button', { name: '元数据' }))
+}
+
 describe('admin editor', () => {
   test('renders editorial inspector sections and top-level publish actions', async () => {
     vi.stubGlobal(
@@ -64,6 +68,8 @@ describe('admin editor', () => {
     )
 
     render(<AdminPostEditPage />)
+
+    await openMetadataDialog()
 
     expect(await screen.findByRole('button', { name: '上传封面到七牛' })).toBeInTheDocument()
   })
@@ -183,6 +189,8 @@ describe('admin editor', () => {
 
     render(<AdminPostEditPage />)
 
+    await openMetadataDialog()
+
     expect(await screen.findByLabelText('分类')).toHaveValue('cat-1')
     expect(await screen.findByRole('checkbox', { name: 'React' })).toBeChecked()
     expect(screen.getByRole('checkbox', { name: 'Next.js' })).not.toBeChecked()
@@ -214,6 +222,8 @@ describe('admin editor', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     render(<AdminPostEditPage />)
+
+    await openMetadataDialog()
 
     const categorySelect = await screen.findByLabelText('分类')
     fireEvent.change(categorySelect, { target: { value: 'cat-2' } })

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { DataTable, type DataColumn } from "@/components/admin/DataTable";
 import { DeleteImpactDialog, type DeleteImpactItem } from "@/components/admin/DeleteImpactDialog";
+import { BulkAiCompletionDialog } from "@/components/admin/ai/BulkAiCompletionDialog";
 import { Toolbar } from "@/components/admin/primitives/Toolbar";
 import { PageHeader } from "@/components/admin/primitives/PageHeader";
 import { StatusBadge } from "@/components/admin/primitives/StatusBadge";
@@ -76,6 +77,7 @@ export default function AdminPostsPage() {
   const [statusFilter, setStatusFilter] = useState<"all" | "published" | "draft">("all");
   const [busyRowIds, setBusyRowIds] = useState<string[]>([]);
   const [startingSummary, setStartingSummary] = useState(false);
+  const [bulkAiIds, setBulkAiIds] = useState<string[]>([]);
   const [deleteDialog, setDeleteDialog] = useState<DeleteDialogState>(initialDeleteDialog);
 
   const fetchPosts = useCallback(async () => {
@@ -448,7 +450,7 @@ export default function AdminPostsPage() {
           densityLabel="内容队列"
           toolbar={
             <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
-              <span>支持批量 AI 摘要、隐藏与状态切换</span>
+              <span>支持批量 AI 摘要、内容补全、隐藏与状态切换</span>
               {activeSummaryIds.length > 0 ? <StatusBadge tone="warning">{activeSummaryIds.length} 篇摘要处理中</StatusBadge> : null}
             </div>
           }
@@ -459,6 +461,10 @@ export default function AdminPostsPage() {
               label: startingSummary ? "加入队列中" : "AI 生成摘要",
               disabled: startingSummary,
               onClick: (ids) => void summarizeSelected(ids),
+            },
+            {
+              label: "AI 批量补全",
+              onClick: (ids) => setBulkAiIds(ids),
             },
             {
               label: "批量隐藏",
@@ -481,6 +487,16 @@ export default function AdminPostsPage() {
         open={deleteDialog.open}
         submitting={deleteDialog.submitting}
         title={deleteDialog.title}
+      />
+
+      <BulkAiCompletionDialog
+        open={bulkAiIds.length > 0}
+        selectedIds={bulkAiIds}
+        onClose={() => setBulkAiIds([])}
+        onStarted={(taskId) => {
+          void fetch(`/api/admin/ai/batch?resume=1&taskId=${encodeURIComponent(taskId)}`);
+          void fetchPosts();
+        }}
       />
     </>
   );
