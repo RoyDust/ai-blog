@@ -49,6 +49,15 @@ export function isPrismaConflictError(error: unknown) {
   return typeof error === "object" && error !== null && "code" in error && error.code === "P2002"
 }
 
+export function isPrismaMissingSchemaError(error: unknown) {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error.code === "P2021" || error.code === "P2022")
+  )
+}
+
 export function toErrorResponse(error: unknown, fallbackMessage = "Internal server error") {
   if (error instanceof ApiError) {
     return NextResponse.json({ error: error.message }, { status: error.status })
@@ -56,6 +65,10 @@ export function toErrorResponse(error: unknown, fallbackMessage = "Internal serv
 
   if (isPrismaConflictError(error)) {
     return NextResponse.json({ error: "Conflict" }, { status: 409 })
+  }
+
+  if (isPrismaMissingSchemaError(error)) {
+    return NextResponse.json({ error: "Database schema is not up to date. Apply pending Prisma migrations." }, { status: 503 })
   }
 
   return NextResponse.json({ error: fallbackMessage }, { status: 500 })

@@ -23,6 +23,7 @@ interface DataTableProps<T extends { id: string }> {
   bulkActions?: Array<{
     label: string;
     onClick: (ids: string[]) => void;
+    disabled?: boolean;
     variant?: "default" | "danger";
   }>;
 }
@@ -88,7 +89,7 @@ export function DataTable<T extends { id: string }>({
                   ? "ui-btn rounded-xl bg-rose-600 px-3 py-1.5 text-xs text-white hover:bg-rose-700"
                   : "ui-btn rounded-xl bg-[var(--primary)] px-3 py-1.5 text-xs text-white hover:opacity-92"
               }
-              disabled={visibleSelectedIds.length === 0}
+              disabled={visibleSelectedIds.length === 0 || action.disabled}
               onClick={() => action.onClick(visibleSelectedIds)}
               type="button"
             >

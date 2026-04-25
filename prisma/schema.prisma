@@ -21,6 +21,14 @@ enum CommentStatus {
   SPAM
 }
 
+enum PostSummaryStatus {
+  EMPTY
+  QUEUED
+  GENERATING
+  GENERATED
+  FAILED
+}
+
 model Account {
   id                String  @id @default(cuid())
   userId            String
@@ -84,6 +92,11 @@ model Post {
   slug        String    @unique
   content     String    @db.Text
   excerpt     String?
+  summaryStatus PostSummaryStatus @default(EMPTY)
+  summaryError  String?   @db.Text
+  summaryGeneratedAt DateTime?
+  summaryJobId String?
+  summaryModelId String?
   coverImage  String?
   published   Boolean   @default(false)
   featured    Boolean   @default(false)
@@ -109,6 +122,8 @@ model Post {
   @@index([published, createdAt])
   @@index([featured, createdAt])
   @@index([deletedAt])
+  @@index([summaryStatus])
+  @@index([summaryJobId])
   @@map("posts")
 }
 
@@ -145,6 +160,29 @@ model AiDraftBinding {
   @@unique([clientId, externalId])
   @@index([clientId])
   @@map("ai_draft_bindings")
+}
+
+model AiModel {
+  id                  String    @id @default(cuid())
+  name                String
+  description         String?   @db.Text
+  provider            String    @default("openai-compatible")
+  baseUrl             String
+  requestPath         String    @default("/chat/completions")
+  model               String
+  apiKey              String?   @db.Text
+  capabilities        String[]  @default(["post-summary"])
+  isDefaultForSummary Boolean   @default(false)
+  enabled             Boolean   @default(true)
+  lastTestedAt        DateTime?
+  lastTestStatus      String?
+  lastTestMessage     String?   @db.Text
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@index([enabled])
+  @@index([isDefaultForSummary])
+  @@map("ai_models")
 }
 
 model Category {

@@ -9,11 +9,22 @@ import { Toolbar } from "@/components/admin/primitives/Toolbar";
 import { PageHeader } from "@/components/admin/primitives/PageHeader";
 import { StatusBadge } from "@/components/admin/primitives/StatusBadge";
 import { Button } from "@/components/ui";
+import {
+  getSummaryStatusForExcerpt,
+  isActiveSummaryStatus,
+  type PostSummaryStatus,
+} from "@/lib/post-summary-status";
 
 interface PostRow {
   id: string;
   title: string;
   slug: string;
+  excerpt: string | null;
+  summaryStatus?: PostSummaryStatus | null;
+  summaryError?: string | null;
+  summaryGeneratedAt?: string | null;
+  summaryJobId?: string | null;
+  summaryModelId?: string | null;
   published: boolean;
   viewCount: number;
   createdAt: string;
@@ -50,12 +61,21 @@ function getErrorMessage(data: unknown, fallback: string) {
   return fallback;
 }
 
+function getSummaryStatus(post: PostRow): PostSummaryStatus {
+  if (post.summaryStatus) {
+    return post.summaryStatus;
+  }
+
+  return getSummaryStatusForExcerpt(post.excerpt);
+}
+
 export default function AdminPostsPage() {
   const [posts, setPosts] = useState<PostRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "published" | "draft">("all");
   const [busyRowIds, setBusyRowIds] = useState<string[]>([]);
+  const [startingSummary, setStartingSummary] = useState(false);
   const [deleteDialog, setDeleteDialog] = useState<DeleteDialogState>(initialDeleteDialog);
 
   const fetchPosts = useCallback(async () => {
@@ -80,6 +100,50 @@ export default function AdminPostsPage() {
   useEffect(() => {
     void fetchPosts();
   }, [fetchPosts]);
+
+  const activeSummaryIds = useMemo(
+    () => posts.filter((post) => isActiveSummaryStatus(getSummaryStatus(post))).map((post) => post.id),
+    [posts],
+  );
+
+  const syncSummaryJobs = useCallback(async () => {
+    try {
+      await fetch("/api/admin/posts/summarize/bulk?resume=1");
+      await fetchPosts();
+    } catch {
+      toast.error("摘要任务状态同步失败");
+    }
+  }, [fetchPosts]);
+
+  useEffect(() => {
+    if (activeSummaryIds.length === 0) {
+      return;
+    }
+
+    let cancelled = false;
+    const sync = async () => {
+      try {
+        await fetch("/api/admin/posts/summarize/bulk?resume=1");
+        if (!cancelled) {
+          await fetchPosts();
+        }
+      } catch {
+        if (!cancelled) {
+          toast.error("摘要任务状态同步失败");
+        }
+      }
+    };
+    const timer = window.setInterval(() => {
+      void sync();
+    }, 2500);
+
+    void sync();
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [activeSummaryIds.length, fetchPosts]);
 
   const filtered = useMemo(() => {
     const keyword = query.trim().toLowerCase();
@@ -137,6 +201,70 @@ export default function AdminPostsPage() {
     setDeleteDialog((prev) => ({ ...prev, submitting: false }));
   }
 
+  async function summarizeSelected(ids: string[]) {
+    if (ids.length === 0 || startingSummary) {
+      return;
+    }
+
+    setStartingSummary(true);
+
+    try {
+      const res = await fetch("/api/admin/posts/summarize/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids }),
+      });
+      const data = await res.json();
+
+      if (!data.success) {
+        throw new Error(getErrorMessage(data, "批量摘要生成失败"));
+      }
+
+      const queued = Number(data.data?.queued ?? 0);
+      const failed = Number(data.data?.failed ?? 0);
+      const jobId = typeof data.data?.jobId === "string" ? data.data.jobId : null;
+      const results = Array.isArray(data.data?.results) ? data.data.results : [];
+
+      setPosts((prev) =>
+        prev.map((post) => {
+          const result = results.find((item: { id?: unknown }) => item.id === post.id);
+
+          if (result?.status === "queued") {
+            return {
+              ...post,
+              summaryStatus: "QUEUED",
+              summaryError: null,
+              summaryJobId: jobId,
+            };
+          }
+
+          if (result?.status === "failed") {
+            return {
+              ...post,
+              summaryStatus: "FAILED",
+              summaryError: typeof result.error === "string" ? result.error : "摘要生成失败",
+              summaryJobId: jobId,
+            };
+          }
+
+          return post;
+        }),
+      );
+
+      if (queued > 0) {
+        toast.success(failed > 0 ? `已加入 ${queued} 篇摘要队列，${failed} 篇失败` : `已加入 ${queued} 篇摘要队列`);
+        void syncSummaryJobs();
+        return;
+      }
+
+      toast.error(failed > 0 ? `${failed} 篇摘要生成失败` : "没有文章被更新");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "批量摘要生成失败");
+    } finally {
+      setStartingSummary(false);
+    }
+  }
+
   async function togglePublish(row: PostRow) {
     if (busyRowIds.includes(row.id)) {
       return;
@@ -181,6 +309,42 @@ export default function AdminPostsPage() {
       ),
     },
     { key: "author", label: "作者", render: (row) => row.author.name || row.author.email },
+    {
+      key: "excerpt",
+      label: "摘要",
+      render: (row) => {
+        const summaryStatus = getSummaryStatus(row);
+
+        if (summaryStatus === "QUEUED") {
+          return <StatusBadge tone="warning">排队中</StatusBadge>;
+        }
+
+        if (summaryStatus === "GENERATING") {
+          return <StatusBadge tone="warning">生成中</StatusBadge>;
+        }
+
+        if (summaryStatus === "FAILED") {
+          return (
+            <div className="max-w-[260px] space-y-1">
+              <StatusBadge tone="danger">生成失败</StatusBadge>
+              {row.summaryError ? <p className="line-clamp-2 text-xs leading-5 text-rose-600">{row.summaryError}</p> : null}
+              {row.excerpt?.trim() ? <p className="line-clamp-2 text-xs leading-5 text-[var(--muted)]">{row.excerpt}</p> : null}
+            </div>
+          );
+        }
+
+        if (!row.excerpt?.trim()) {
+          return <StatusBadge>未生成</StatusBadge>;
+        }
+
+        return (
+          <div className="max-w-[260px] space-y-1">
+            <StatusBadge tone="success">{summaryStatus === "GENERATED" ? "已生成" : "已填写"}</StatusBadge>
+            <p className="line-clamp-2 text-xs leading-5 text-[var(--muted)]">{row.excerpt}</p>
+          </div>
+        );
+      },
+    },
     {
       key: "status",
       label: "状态",
@@ -282,10 +446,20 @@ export default function AdminPostsPage() {
           title="文章列表"
           summary="按内容状态和发布时间组织内容队列。"
           densityLabel="内容队列"
-          toolbar={<div className="text-xs text-[var(--muted)]">支持批量隐藏与状态切换</div>}
+          toolbar={
+            <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
+              <span>支持批量 AI 摘要、隐藏与状态切换</span>
+              {activeSummaryIds.length > 0 ? <StatusBadge tone="warning">{activeSummaryIds.length} 篇摘要处理中</StatusBadge> : null}
+            </div>
+          }
           isLoading={loading}
           loadingLabel="正在加载内容队列..."
           bulkActions={[
+            {
+              label: startingSummary ? "加入队列中" : "AI 生成摘要",
+              disabled: startingSummary,
+              onClick: (ids) => void summarizeSelected(ids),
+            },
             {
               label: "批量隐藏",
               variant: "danger",

@@ -16,21 +16,40 @@ import { buildArticleJsonLd, buildArticleMetadata } from "@/lib/seo";
 async function getPost(slug: string) {
   return prisma.post.findFirst({
     where: { slug, deletedAt: null, published: true },
-    include: {
+    select: {
+      id: true,
+      title: true,
+      slug: true,
+      content: true,
+      excerpt: true,
+      coverImage: true,
+      createdAt: true,
+      updatedAt: true,
+      publishedAt: true,
+      viewCount: true,
+      readingTimeMinutes: true,
       author: {
         select: { id: true, name: true, image: true },
       },
-      category: true,
-      tags: { where: { deletedAt: null } },
+      category: { select: { name: true, slug: true } },
+      tags: { where: { deletedAt: null }, select: { name: true, slug: true } },
       comments: {
         where: { parentId: null, deletedAt: null },
-        include: {
+        select: {
+          id: true,
+          content: true,
+          authorLabel: true,
+          createdAt: true,
           author: {
             select: { id: true, name: true, image: true },
           },
           replies: {
             where: { deletedAt: null },
-            include: {
+            select: {
+              id: true,
+              content: true,
+              authorLabel: true,
+              createdAt: true,
               author: {
                 select: { id: true, name: true, image: true },
               },

@@ -5,6 +5,7 @@ import { getPublishedPostsPage } from "@/lib/posts"
 import { clampPagination, parsePostInput } from "@/lib/validation"
 import { canPublish, requireSession } from "@/lib/api-auth"
 import { toErrorResponse } from "@/lib/api-errors"
+import { getSummaryFieldsForExcerpt } from "@/lib/post-summary-status"
 
 export async function GET(request: Request) {
   try {
@@ -46,6 +47,7 @@ export async function POST(request: Request) {
         content,
         slug,
         excerpt,
+        ...getSummaryFieldsForExcerpt(excerpt),
         coverImage,
         categoryId,
         published: publishNow,

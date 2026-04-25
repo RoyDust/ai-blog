@@ -7,6 +7,10 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
 }
 
+function hasCurrentModelDelegates(client: PrismaClient | undefined) {
+  return Boolean(client && 'aiModel' in client)
+}
+
 function createPrismaClient() {
   const connectionString = findDatabaseUrl()
 
@@ -18,6 +22,11 @@ function createPrismaClient() {
   const adapter = new PrismaPg(pool)
 
   return new PrismaClient({ adapter })
+}
+
+if (globalForPrisma.prisma && !hasCurrentModelDelegates(globalForPrisma.prisma)) {
+  void globalForPrisma.prisma.$disconnect().catch(() => undefined)
+  globalForPrisma.prisma = undefined
 }
 
 export const prisma = globalForPrisma.prisma ?? createPrismaClient()

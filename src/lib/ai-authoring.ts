@@ -3,6 +3,7 @@ import { calculateReadingTimeMinutes } from "@/lib/reading-time"
 import { revalidatePublicContent } from "@/lib/cache"
 import { ConflictError, NotFoundError, ValidationError, isPrismaConflictError } from "@/lib/api-errors"
 import type { AiClientSession } from "@/lib/ai-auth"
+import { getOptionalSummaryFieldsForExcerpt, getSummaryFieldsForExcerpt } from "@/lib/post-summary-status"
 
 export type AiDraftInput = {
   externalId: string
@@ -189,6 +190,7 @@ async function createDraftWithBinding({
         slug: input.slug,
         content: input.content,
         excerpt: input.excerpt,
+        ...getSummaryFieldsForExcerpt(input.excerpt),
         coverImage: input.coverImage,
         readingTimeMinutes,
         published: false,
@@ -250,6 +252,7 @@ async function updateDraftPost({
           slug: input.slug,
           content: input.content,
           excerpt: input.excerpt,
+          ...getOptionalSummaryFieldsForExcerpt(input.excerpt),
           coverImage: input.coverImage,
           readingTimeMinutes,
           published: false,
@@ -438,6 +441,7 @@ export async function createAdminPost({
       content: input.content,
       slug: input.slug,
       excerpt: input.excerpt,
+      ...getSummaryFieldsForExcerpt(input.excerpt),
       coverImage: input.coverImage,
       categoryId: input.categoryId,
       published: input.published,
@@ -492,6 +496,7 @@ export async function updateAdminPost({
       slug: input.slug,
       content: input.content,
       excerpt: input.excerpt,
+      ...getOptionalSummaryFieldsForExcerpt(input.excerpt),
       coverImage: input.coverImage,
       readingTimeMinutes,
       categoryId: input.categoryId,

@@ -4,6 +4,7 @@ import { revalidatePublicContent } from "@/lib/cache"
 import { parsePostPatchInput } from "@/lib/validation"
 import { canPublish, requireSession } from "@/lib/api-auth"
 import { ForbiddenError, NotFoundError, toErrorResponse } from "@/lib/api-errors"
+import { getOptionalSummaryFieldsForExcerpt } from "@/lib/post-summary-status"
 
 export async function GET(
   request: Request,
@@ -105,6 +106,7 @@ export async function PATCH(
       content,
       ...(nextSlug ? { slug: nextSlug } : {}),
       excerpt,
+      ...getOptionalSummaryFieldsForExcerpt(excerpt),
       coverImage,
       categoryId,
       ...(typeof publishNow === "boolean" ? { published: publishNow, publishedAt: publishNow ? new Date() : null } : {}),
