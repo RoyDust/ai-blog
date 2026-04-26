@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma"
 import { calculateReadingTimeMinutes } from "@/lib/reading-time"
 import { revalidatePublicContent } from "@/lib/cache"
+import { resolvePostCoverInput, touchCoverAssetUsage } from "@/lib/cover-assets"
 import { ConflictError, NotFoundError, ValidationError, isPrismaConflictError } from "@/lib/api-errors"
 import type { AiClientSession } from "@/lib/ai-auth"
 import { getOptionalSummaryFieldsForExcerpt, getSummaryFieldsForExcerpt } from "@/lib/post-summary-status"
@@ -35,9 +36,11 @@ type AdminPostInput = {
   slug: string
   excerpt?: string
   coverImage?: string
+  coverAssetId?: string | null
   categoryId?: string | null
   tagIds?: string[] | null
   published: boolean
+  featured?: boolean
 }
 
 type AdminPostPatchInput = {
@@ -47,6 +50,7 @@ type AdminPostPatchInput = {
   excerpt?: string
   seoDescription?: string | null
   coverImage?: string
+  coverAssetId?: string | null
   categoryId?: string | null
   tagIds?: string[] | null
   published?: boolean
@@ -436,6 +440,11 @@ export async function createAdminPost({
   input: AdminPostInput
 }) {
   const readingTimeMinutes = calculateReadingTimeMinutes(input.content)
+  const cover = await resolvePostCoverInput({
+    coverImage: input.coverImage,
+    coverAssetId: input.coverAssetId,
+    allowRandom: input.published && !input.coverImage?.trim(),
+  })
   const post = await prisma.post.create({
     data: {
       title: input.title,
@@ -443,9 +452,11 @@ export async function createAdminPost({
       slug: input.slug,
       excerpt: input.excerpt,
       ...getSummaryFieldsForExcerpt(input.excerpt),
-      coverImage: input.coverImage,
+      coverImage: cover.coverImage,
+      coverAssetId: cover.coverAssetId,
       categoryId: input.categoryId,
       published: input.published,
+      featured: input.featured ?? false,
       publishedAt: input.published ? new Date() : null,
       readingTimeMinutes,
       authorId,
@@ -457,6 +468,8 @@ export async function createAdminPost({
       tags: true,
     },
   })
+
+  await touchCoverAssetUsage(cover.selectedAssetId)
 
   if (post.published) {
     revalidatePublicContent({
@@ -481,6 +494,7 @@ export async function updateAdminPost({
     where: { id, deletedAt: null },
     select: {
       slug: true,
+      coverImage: true,
       category: { select: { slug: true } },
       tags: { where: { deletedAt: null }, select: { slug: true } },
     },
@@ -489,6 +503,16 @@ export async function updateAdminPost({
   if (!existing) {
     throw new NotFoundError("Post not found")
   }
+
+  const shouldAutoAssignCover = input.published === true && !input.coverImage?.trim() && !existing.coverImage?.trim()
+  const cover =
+    input.coverAssetId !== undefined || input.coverImage !== undefined || shouldAutoAssignCover
+      ? await resolvePostCoverInput({
+          coverImage: input.coverImage,
+          coverAssetId: input.coverAssetId,
+          allowRandom: shouldAutoAssignCover,
+        })
+      : null
 
   const updated = await prisma.post.update({
     where: { id },
@@ -501,7 +525,8 @@ export async function updateAdminPost({
       seoDescription: input.seoDescription,
       seoGeneratedAt: input.seoDescription ? new Date() : input.seoDescription === null ? null : undefined,
       seoModelId: input.seoDescription === null ? null : undefined,
-      coverImage: input.coverImage,
+      coverImage: cover ? cover.coverImage : undefined,
+      coverAssetId: cover ? cover.coverAssetId : undefined,
       readingTimeMinutes,
       categoryId: input.categoryId,
       tags: input.tagIds
@@ -523,6 +548,8 @@ export async function updateAdminPost({
       tags: { where: { deletedAt: null }, select: { slug: true } },
     },
   })
+
+  await touchCoverAssetUsage(cover?.selectedAssetId)
 
   revalidatePublicContent({
     slug: updated.published ? updated.slug : null,

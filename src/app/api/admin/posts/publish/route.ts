@@ -3,6 +3,7 @@ import { NextResponse } from "next/server"
 import { requireAdminSession } from "@/lib/api-auth"
 import { NotFoundError, toErrorResponse } from "@/lib/api-errors"
 import { revalidatePublicContent } from "@/lib/cache"
+import { resolvePostCoverInput, touchCoverAssetUsage } from "@/lib/cover-assets"
 import { prisma } from "@/lib/prisma"
 import { parsePublishInput } from "@/lib/validation"
 
@@ -15,6 +16,8 @@ export async function PATCH(request: Request) {
       where: { id, deletedAt: null },
       select: {
         slug: true,
+        coverImage: true,
+        coverAssetId: true,
         category: { select: { slug: true } },
         tags: { where: { deletedAt: null }, select: { slug: true } },
       },
@@ -24,19 +27,34 @@ export async function PATCH(request: Request) {
       throw new NotFoundError("Post not found")
     }
 
+    const cover =
+      published && !existing.coverImage?.trim()
+        ? await resolvePostCoverInput({
+            coverImage: existing.coverImage,
+            coverAssetId: existing.coverAssetId,
+            allowRandom: true,
+          })
+        : null
+
     const post = await prisma.post.update({
       where: { id },
       data: {
         published,
         publishedAt: published ? new Date() : null,
+        ...(cover?.coverImage !== undefined ? { coverImage: cover.coverImage } : {}),
+        ...(cover?.coverAssetId !== undefined ? { coverAssetId: cover.coverAssetId } : {}),
       },
       select: {
         slug: true,
         published: true,
+        coverImage: true,
+        coverAssetId: true,
         category: { select: { slug: true } },
         tags: { where: { deletedAt: null }, select: { slug: true } },
       },
     })
+
+    await touchCoverAssetUsage(cover?.selectedAssetId)
 
     revalidatePublicContent({
       slug: post.published ? post.slug : null,

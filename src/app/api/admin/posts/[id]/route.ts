@@ -21,6 +21,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
         excerpt: true,
         seoDescription: true,
         coverImage: true,
+        coverAssetId: true,
         readingTimeMinutes: true,
         categoryId: true,
         tags: {

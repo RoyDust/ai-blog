@@ -12,6 +12,8 @@ const findUniquePost = vi.fn();
 const findFirstPost = vi.fn();
 const calculateReadingTimeMinutes = vi.fn();
 const revalidatePublicContent = vi.fn();
+const resolvePostCoverInput = vi.fn();
+const touchCoverAssetUsage = vi.fn();
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -55,9 +57,20 @@ vi.mock("@/lib/cache", () => ({
   revalidatePublicContent,
 }));
 
+vi.mock("@/lib/cover-assets", () => ({
+  resolvePostCoverInput,
+  touchCoverAssetUsage,
+}));
+
 describe("ai authoring", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    resolvePostCoverInput.mockResolvedValue({
+      coverImage: undefined,
+      coverAssetId: undefined,
+      selectedAssetId: null,
+    });
+    touchCoverAssetUsage.mockResolvedValue(undefined);
   });
 
   test("creates a new unpublished draft for a fresh external id", async () => {
@@ -474,6 +487,7 @@ describe("ai authoring", () => {
   test("updateAdminPost writes featured and returns it in the response payload", async () => {
     findFirstPost.mockResolvedValueOnce({
       slug: "old-slug",
+      coverImage: "https://cdn.example.com/existing.jpg",
       category: { slug: "old-category" },
       tags: [{ slug: "legacy-tag" }],
     });
@@ -510,5 +524,47 @@ describe("ai authoring", () => {
       }),
     }));
     expect(result).toMatchObject({ featured: true });
+  });
+
+  test("createAdminPost resolves cover assets before writing a post", async () => {
+    resolvePostCoverInput.mockResolvedValueOnce({
+      coverImage: "https://cdn.example.com/covers/a.jpg",
+      coverAssetId: "cover-1",
+      selectedAssetId: "cover-1",
+    });
+    calculateReadingTimeMinutes.mockReturnValueOnce(3);
+    createPost.mockResolvedValueOnce({
+      id: "post-1",
+      slug: "new-post",
+      published: false,
+      readingTimeMinutes: 3,
+      category: null,
+      tags: [],
+    });
+
+    const { createAdminPost } = await import("../ai-authoring");
+    await createAdminPost({
+      authorId: "admin-1",
+      input: {
+        title: "New Post",
+        slug: "new-post",
+        content: "content",
+        coverAssetId: "cover-1",
+        published: false,
+      },
+    });
+
+    expect(resolvePostCoverInput).toHaveBeenCalledWith({
+      coverImage: undefined,
+      coverAssetId: "cover-1",
+      allowRandom: false,
+    });
+    expect(createPost).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        coverImage: "https://cdn.example.com/covers/a.jpg",
+        coverAssetId: "cover-1",
+      }),
+    }));
+    expect(touchCoverAssetUsage).toHaveBeenCalledWith("cover-1");
   });
 });

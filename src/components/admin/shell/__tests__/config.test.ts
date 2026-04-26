@@ -26,6 +26,14 @@ describe("admin shell config", () => {
     });
   });
 
+  test("maps cover gallery route into content workspace labels", () => {
+    expect(getAdminPathMeta("/admin/covers")).toEqual({
+      currentLabel: "封面图库",
+      currentGroup: "内容",
+      crumbs: ["后台", "内容", "封面图库"],
+    });
+  });
+
   test("maps AI task route into grouped workspace labels", () => {
     expect(getAdminPathMeta("/admin/ai/tasks")).toEqual({
       currentLabel: "AI 任务",
@@ -38,6 +46,7 @@ describe("admin shell config", () => {
     expect(adminNavItems.map((item) => ({ label: item.label, group: item.group }))).toEqual([
       { label: "总览", group: "工作台" },
       { label: "文章", group: "内容" },
+      { label: "封面图库", group: "内容" },
       { label: "评论", group: "互动" },
       { label: "分类与标签", group: "结构" },
       { label: "AI 模型", group: "智能" },
@@ -49,6 +58,7 @@ describe("admin shell config", () => {
     expect(isAdminNavItemActive("/admin/posts", "/admin/posts")).toBe(true);
     expect(isAdminNavItemActive("/admin/posts/123/edit", "/admin/posts")).toBe(true);
     expect(isAdminNavItemActive("/admin/posts-archive", "/admin/posts")).toBe(false);
+    expect(isAdminNavItemActive("/admin/covers", "/admin/covers")).toBe(true);
     expect(isAdminNavItemActive("/admin/taxonomy", "/admin/taxonomy")).toBe(true);
     expect(isAdminNavItemActive("/admin/ai/models", "/admin/ai/models")).toBe(true);
     expect(isAdminNavItemActive("/admin/ai/tasks/task-1", "/admin/ai/tasks")).toBe(true);

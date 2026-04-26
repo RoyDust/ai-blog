@@ -1,5 +1,6 @@
 import { AI_AUTHORING_PATTERNS } from "@/lib/ai-contract"
 import { ValidationError } from "@/lib/api-errors"
+import type { Prisma } from "@prisma/client"
 
 const MAX_LIMIT = 50
 const MAX_NAME_LENGTH = 80
@@ -9,9 +10,15 @@ const MAX_EXCERPT_LENGTH = 320
 const MAX_SEO_DESCRIPTION_LENGTH = 500
 const MAX_COMMENT_LENGTH = 5_000
 const MAX_POST_TITLE_LENGTH = 160
+const MAX_COVER_URL_LENGTH = 2_048
+const MAX_COVER_TEXT_LENGTH = 160
+const MAX_COVER_DESCRIPTION_LENGTH = 1_000
+const MAX_COVER_TAGS = 20
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 const AI_EXTERNAL_ID_PATTERN = new RegExp(AI_AUTHORING_PATTERNS.externalId)
+const COVER_ASSET_STATUSES = new Set(["active", "archived"])
+const COVER_ASSET_SOURCES = new Set(["upload", "manual", "ai"])
 
 function readString(value: unknown, fieldName: string) {
   if (typeof value !== 'string') {
@@ -93,6 +100,78 @@ function readBoolean(value: unknown, fieldName: string) {
   return value
 }
 
+function readHttpUrl(value: unknown, fieldName: string) {
+  const url = readString(value, fieldName)
+  assertLength(url, fieldName, MAX_COVER_URL_LENGTH)
+
+  try {
+    const parsed = new URL(url)
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      throw new ValidationError(`Invalid ${fieldName}`)
+    }
+  } catch {
+    throw new ValidationError(`Invalid ${fieldName}`)
+  }
+
+  return url
+}
+
+function optionalInteger(value: unknown, fieldName: string) {
+  if (value == null || value === "") {
+    return undefined
+  }
+
+  const number = Number(value)
+  if (!Number.isInteger(number) || number < 0) {
+    throw new ValidationError(`Invalid ${fieldName}`)
+  }
+
+  return number
+}
+
+function optionalJsonObject(value: unknown, fieldName: string) {
+  if (value == null) {
+    return undefined
+  }
+
+  if (typeof value !== "object" || Array.isArray(value)) {
+    throw new ValidationError(`Invalid ${fieldName}`)
+  }
+
+  return value as Prisma.InputJsonObject
+}
+
+function normalizeCoverTags(value: unknown) {
+  const tags = normalizeStringArray(value, "tags") ?? []
+
+  if (tags.length > MAX_COVER_TAGS) {
+    throw new ValidationError("Too many tags")
+  }
+
+  return [...new Set(tags)].map((tag) => {
+    assertLength(tag, "tag", MAX_COVER_TEXT_LENGTH)
+    return tag
+  })
+}
+
+function readCoverAssetStatus(value: unknown) {
+  const status = readString(value, "status").toLowerCase()
+  if (!COVER_ASSET_STATUSES.has(status)) {
+    throw new ValidationError("Invalid status")
+  }
+
+  return status
+}
+
+function readCoverAssetSource(value: unknown) {
+  const source = readString(value, "source").toLowerCase()
+  if (!COVER_ASSET_SOURCES.has(source)) {
+    throw new ValidationError("Invalid source")
+  }
+
+  return source
+}
+
 /**
  * 规范化列表分页参数，并限制在安全范围内。
  */
@@ -152,6 +231,95 @@ export function parseUploadRequest(payload: unknown) {
   }
 }
 
+export function parseCoverAssetInput(payload: unknown) {
+  const data = (payload ?? {}) as {
+    url?: unknown
+    key?: unknown
+    provider?: unknown
+    source?: unknown
+    status?: unknown
+    title?: unknown
+    alt?: unknown
+    description?: unknown
+    tags?: unknown
+    width?: unknown
+    height?: unknown
+    blurDataUrl?: unknown
+    aiPrompt?: unknown
+    aiModelId?: unknown
+    metadata?: unknown
+  }
+
+  const title = optionalString(data.title, "title")
+  const alt = optionalString(data.alt, "alt")
+  const description = optionalString(data.description, "description")
+  const provider = optionalString(data.provider, "provider") ?? "qiniu"
+  const key = optionalString(data.key, "key")
+  const aiPrompt = optionalString(data.aiPrompt, "aiPrompt")
+  const aiModelId = optionalString(data.aiModelId, "aiModelId")
+
+  assertLength(provider, "provider", MAX_COVER_TEXT_LENGTH)
+  assertLength(key, "key", MAX_COVER_URL_LENGTH)
+  assertLength(title, "title", MAX_COVER_TEXT_LENGTH)
+  assertLength(alt, "alt", MAX_COVER_TEXT_LENGTH)
+  assertLength(description, "description", MAX_COVER_DESCRIPTION_LENGTH)
+  assertLength(aiPrompt, "aiPrompt", MAX_COVER_DESCRIPTION_LENGTH)
+  assertLength(aiModelId, "aiModelId", MAX_COVER_TEXT_LENGTH)
+
+  return {
+    url: readHttpUrl(data.url, "url"),
+    key,
+    provider,
+    source: data.source == null ? "upload" : readCoverAssetSource(data.source),
+    status: data.status == null ? "active" : readCoverAssetStatus(data.status),
+    title,
+    alt,
+    description,
+    tags: normalizeCoverTags(data.tags),
+    width: optionalInteger(data.width, "width"),
+    height: optionalInteger(data.height, "height"),
+    blurDataUrl: optionalString(data.blurDataUrl, "blurDataUrl"),
+    aiPrompt,
+    aiModelId,
+    metadata: optionalJsonObject(data.metadata, "metadata"),
+  }
+}
+
+export function parseCoverAssetPatchInput(payload: unknown) {
+  const data = (payload ?? {}) as {
+    title?: unknown
+    alt?: unknown
+    description?: unknown
+    tags?: unknown
+    status?: unknown
+  }
+
+  const title = optionalNullableString(data.title, "title")
+  const alt = optionalNullableString(data.alt, "alt")
+  const description = optionalNullableString(data.description, "description")
+
+  assertLength(title ?? undefined, "title", MAX_COVER_TEXT_LENGTH)
+  assertLength(alt ?? undefined, "alt", MAX_COVER_TEXT_LENGTH)
+  assertLength(description ?? undefined, "description", MAX_COVER_DESCRIPTION_LENGTH)
+
+  return {
+    title,
+    alt,
+    description,
+    tags: data.tags == null ? undefined : normalizeCoverTags(data.tags),
+    status: data.status == null ? undefined : readCoverAssetStatus(data.status),
+  }
+}
+
+export function parseCoverRandomizeInput(payload: unknown) {
+  const data = (payload ?? {}) as { postIds?: unknown; publishedOnly?: unknown }
+
+  return {
+    postIds: normalizeStringArray(data.postIds, "postIds") ?? undefined,
+    publishedOnly: data.publishedOnly == null ? true : readBoolean(data.publishedOnly, "publishedOnly"),
+  }
+}
+
 /**
  * 校验评论创建与回复场景使用的请求体。
  */
@@ -177,9 +345,11 @@ export function parsePostInput(payload: unknown) {
     slug?: unknown
     excerpt?: unknown
     coverImage?: unknown
+    coverAssetId?: unknown
     categoryId?: unknown
     tagIds?: unknown
     published?: unknown
+    featured?: unknown
   }
 
   const title = readString(data.title, 'title')
@@ -197,9 +367,11 @@ export function parsePostInput(payload: unknown) {
     slug,
     excerpt,
     coverImage: optionalString(data.coverImage, 'coverImage'),
+    coverAssetId: optionalNullableString(data.coverAssetId, 'coverAssetId'),
     categoryId: optionalNullableString(data.categoryId, 'categoryId'),
     tagIds: normalizeStringArray(data.tagIds, 'tagIds'),
     published: data.published == null ? false : readBoolean(data.published, 'published'),
+    featured: data.featured == null ? false : readBoolean(data.featured, 'featured'),
   }
 }
 
@@ -248,6 +420,7 @@ export function parsePostPatchInput(payload: unknown) {
     excerpt?: unknown
     seoDescription?: unknown
     coverImage?: unknown
+    coverAssetId?: unknown
     categoryId?: unknown
     tagIds?: unknown
     published?: unknown
@@ -273,6 +446,7 @@ export function parsePostPatchInput(payload: unknown) {
     excerpt: optionalString(data.excerpt, 'excerpt'),
     seoDescription: optionalNullableString(data.seoDescription, 'seoDescription'),
     coverImage: optionalString(data.coverImage, 'coverImage'),
+    coverAssetId: optionalNullableString(data.coverAssetId, 'coverAssetId'),
     categoryId: optionalNullableString(data.categoryId, 'categoryId'),
     tagIds: normalizeStringArray(data.tagIds, 'tagIds'),
     published: data.published == null ? undefined : readBoolean(data.published, 'published'),

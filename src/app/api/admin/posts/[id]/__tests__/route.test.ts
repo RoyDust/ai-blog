@@ -5,6 +5,8 @@ const update = vi.fn()
 const getServerSession = vi.fn()
 const revalidatePublicContent = vi.fn()
 const calculateReadingTimeMinutes = vi.fn()
+const resolvePostCoverInput = vi.fn()
+const touchCoverAssetUsage = vi.fn()
 
 vi.mock('next-auth', () => ({
   getServerSession,
@@ -22,6 +24,11 @@ vi.mock('@/lib/reading-time', () => ({
   calculateReadingTimeMinutes,
 }))
 
+vi.mock('@/lib/cover-assets', () => ({
+  resolvePostCoverInput,
+  touchCoverAssetUsage,
+}))
+
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     post: {
@@ -34,12 +41,19 @@ vi.mock('@/lib/prisma', () => ({
 describe('PATCH /api/admin/posts/[id]', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    resolvePostCoverInput.mockResolvedValue({
+      coverImage: undefined,
+      coverAssetId: undefined,
+      selectedAssetId: null,
+    })
+    touchCoverAssetUsage.mockResolvedValue(undefined)
   })
 
   test('recomputes reading time when updating a post', async () => {
     getServerSession.mockResolvedValueOnce({ user: { id: 'admin-1', role: 'ADMIN' } })
     findFirst.mockResolvedValueOnce({
       slug: 'old-slug',
+      coverImage: 'https://cdn.example.com/old.jpg',
       category: { slug: 'old-category' },
       tags: [{ slug: 'legacy-tag' }],
     })

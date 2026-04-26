@@ -103,6 +103,7 @@ model Post {
   summaryJobId       String?
   summaryModelId     String?
   coverImage         String?
+  coverAssetId       String?
   published          Boolean           @default(false)
   featured           Boolean           @default(false)
   viewCount          Int               @default(0)
@@ -114,6 +115,7 @@ model Post {
 
   authorId       String
   author         User            @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  coverAsset     CoverAsset?     @relation(fields: [coverAssetId], references: [id], onDelete: SetNull)
   categoryId     String?
   category       Category?       @relation(fields: [categoryId], references: [id])
   tags           Tag[]
@@ -127,11 +129,44 @@ model Post {
   @@index([categoryId])
   @@index([published, createdAt])
   @@index([featured, createdAt])
+  @@index([coverAssetId])
   @@index([deletedAt])
   @@index([summaryStatus])
   @@index([summaryJobId])
   @@index([seoGeneratedAt])
   @@map("posts")
+}
+
+model CoverAsset {
+  id          String    @id @default(cuid())
+  url         String    @unique
+  key         String?
+  provider    String    @default("qiniu")
+  source      String    @default("upload")
+  status      String    @default("active")
+  title       String?
+  alt         String?
+  description String?   @db.Text
+  tags        String[]  @default([])
+  width       Int?
+  height      Int?
+  blurDataUrl String?   @db.Text
+  aiPrompt    String?   @db.Text
+  aiModelId   String?
+  metadata    Json?
+  usageCount  Int       @default(0)
+  lastUsedAt  DateTime?
+  createdById String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  posts Post[]
+
+  @@index([status, createdAt])
+  @@index([source, createdAt])
+  @@index([deletedAt])
+  @@map("cover_assets")
 }
 
 model AiApiClient {

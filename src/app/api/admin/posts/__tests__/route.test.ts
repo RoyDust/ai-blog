@@ -4,6 +4,8 @@ const create = vi.fn()
 const getServerSession = vi.fn()
 const revalidatePublicContent = vi.fn()
 const calculateReadingTimeMinutes = vi.fn()
+const resolvePostCoverInput = vi.fn()
+const touchCoverAssetUsage = vi.fn()
 
 vi.mock('next-auth', () => ({
   getServerSession,
@@ -21,6 +23,11 @@ vi.mock('@/lib/reading-time', () => ({
   calculateReadingTimeMinutes,
 }))
 
+vi.mock('@/lib/cover-assets', () => ({
+  resolvePostCoverInput,
+  touchCoverAssetUsage,
+}))
+
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     post: {
@@ -32,6 +39,12 @@ vi.mock('@/lib/prisma', () => ({
 describe('POST /api/admin/posts', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    resolvePostCoverInput.mockResolvedValue({
+      coverImage: undefined,
+      coverAssetId: undefined,
+      selectedAssetId: null,
+    })
+    touchCoverAssetUsage.mockResolvedValue(undefined)
   })
 
   test('stores calculated reading time when creating a post', async () => {
