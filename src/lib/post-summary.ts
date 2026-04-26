@@ -1,4 +1,4 @@
-import type { AiModelOption } from "@/lib/ai-models";
+import { getAiModelChatRequestExtras, type AiModelOption } from "@/lib/ai-models";
 
 type OpenAICompatibleChatPayload = {
   choices?: Array<{
@@ -6,7 +6,7 @@ type OpenAICompatibleChatPayload = {
       content?: string | Array<{ text?: string; type?: string }>;
     };
   }>;
-  error?: {
+  error?: string | {
     message?: string;
   };
 };
@@ -76,6 +76,18 @@ export function normalizeSummary(summary: string) {
   return summary.replace(/^['"“”‘’\s]+|['"“”‘’\s]+$/g, "").replace(/\s+/g, " ").trim();
 }
 
+function getUpstreamErrorMessage(response: Response, payload: OpenAICompatibleChatPayload) {
+  const upstreamMessage = typeof payload.error === "string" ? payload.error : payload.error?.message;
+  const detail = upstreamMessage?.trim();
+
+  if (detail) {
+    return detail;
+  }
+
+  const statusText = response.statusText ? ` ${response.statusText}` : "";
+  return `Summary generation failed (HTTP ${response.status}${statusText})`;
+}
+
 export async function generatePostSummary({
   aiModel,
   title,
@@ -114,6 +126,7 @@ export async function generatePostSummary({
         ],
         temperature: 0.3,
         max_tokens: 220,
+        ...getAiModelChatRequestExtras(aiModel),
       }),
       signal: AbortSignal.timeout(getPostSummaryTimeoutMs()),
     });
@@ -128,12 +141,12 @@ export async function generatePostSummary({
   const payload = (await response.json().catch(() => ({}))) as OpenAICompatibleChatPayload;
 
   if (!response.ok) {
-    throw new Error(payload.error?.message || "Summary generation failed");
+    throw new Error(getUpstreamErrorMessage(response, payload));
   }
 
   const summary = normalizeSummary(extractSummary(payload));
   if (!summary) {
-    throw new Error("Summary generation failed");
+    throw new Error("AI returned empty summary");
   }
 
   return summary;

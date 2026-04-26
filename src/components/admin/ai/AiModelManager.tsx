@@ -72,6 +72,7 @@ export function AiModelManager({ initialModels }: { initialModels: PublicAiModel
   const [form, setForm] = useState<FormState | null>(null);
   const [saving, setSaving] = useState(false);
   const [testingId, setTestingId] = useState<string | null>(null);
+  const [switchingId, setSwitchingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -166,6 +167,28 @@ export function AiModelManager({ initialModels }: { initialModels: PublicAiModel
     }
   };
 
+  const handleSetDefault = async (model: PublicAiModelOption) => {
+    if (model.defaultFor.includes("post-summary") || switchingId) return;
+
+    setSwitchingId(model.id);
+    setError("");
+    setMessage("");
+
+    try {
+      await readJson(await fetch("/api/admin/ai/models/default", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ modelId: model.id, capability: "post-summary" }),
+      }));
+      await refreshModels();
+      setMessage(`已切换为「${model.name}」。`);
+    } catch (switchError) {
+      setError(switchError instanceof Error ? switchError.message : "切换模型失败");
+    } finally {
+      setSwitchingId(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <section className="grid grid-cols-1 gap-4 xl:grid-cols-3">
@@ -225,8 +248,9 @@ export function AiModelManager({ initialModels }: { initialModels: PublicAiModel
                           aria-label={`选择 ${model.name}`}
                           checked={model.defaultFor.includes("post-summary")}
                           className="ui-checkbox h-4 w-4"
+                          disabled={Boolean(switchingId) || model.status !== "ready"}
                           name="ai-model"
-                          readOnly
+                          onChange={() => void handleSetDefault(model)}
                           type="radio"
                           value={model.id}
                         />
@@ -243,6 +267,15 @@ export function AiModelManager({ initialModels }: { initialModels: PublicAiModel
                   </div>
 
                   <div className="flex shrink-0 flex-wrap gap-2 lg:justify-end">
+                    <Button
+                      disabled={model.defaultFor.includes("post-summary") || model.status !== "ready" || Boolean(switchingId)}
+                      onClick={() => void handleSetDefault(model)}
+                      size="sm"
+                      type="button"
+                      variant="outline"
+                    >
+                      {switchingId === model.id ? "切换中" : "设为默认"}
+                    </Button>
                     <Button
                       disabled={testingId === model.id}
                       onClick={() => void handleTest(model)}

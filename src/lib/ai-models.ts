@@ -54,6 +54,12 @@ export interface AiModelMutationInput {
 
 export type PublicAiModelOption = ReturnType<typeof toPublicAiModelOption>;
 
+export type AiModelChatRequestExtras = {
+  thinking?: {
+    type: "disabled";
+  };
+};
+
 type OpenAICompatibleChatPayload = {
   choices?: Array<{
     message?: {
@@ -207,7 +213,26 @@ function resolveEnv(primary: string, fallback: string) {
 }
 
 function normalizeBaseUrl(value: string) {
-  return value.trim().replace(/\/+$/, "");
+  return value.trim().replace(/\/+$/, "").replace(/\/chat\/completions$/i, "");
+}
+
+export function getAiModelChatRequestExtras(
+  model: Pick<AiModelOption, "baseUrl" | "model">,
+): AiModelChatRequestExtras {
+  const normalizedModel = model.model.toLowerCase();
+  let hostname = "";
+
+  try {
+    hostname = new URL(model.baseUrl).hostname.toLowerCase();
+  } catch {
+    hostname = "";
+  }
+
+  if (hostname.endsWith("deepseek.com") || normalizedModel.startsWith("deepseek-")) {
+    return { thinking: { type: "disabled" } };
+  }
+
+  return {};
 }
 
 function normalizeRequestPath(value?: string | null) {
@@ -263,10 +288,10 @@ function dbModelToOption(
   model: AiModelRecord,
 ): AiModelOption {
   const capabilities = normalizeCapabilities(model.capabilities);
-  const defaultFor =
-    model.enabled && model.isDefaultForSummary && capabilities.includes("post-summary") ? ["post-summary" as const] : [];
   const apiKey = decryptApiKeyFromStorage(model.apiKey);
   const hasApiKey = Boolean(apiKey?.trim());
+  const defaultFor =
+    model.enabled && hasApiKey && model.isDefaultForSummary && capabilities.includes("post-summary") ? ["post-summary" as const] : [];
 
   return {
     id: model.id,
@@ -314,7 +339,7 @@ function extractAssistantText(payload: OpenAICompatibleChatPayload) {
   return "";
 }
 
-function ensureMutableModel(model: AiModelOption | null) {
+function ensureMutableModel(model: AiModelOption | null): asserts model is AiModelOption {
   if (!model) {
     throw new ValidationError("AI model not found");
   }
@@ -397,14 +422,18 @@ export async function getAiModelOptions(): Promise<AiModelOption[]> {
   return [getEnvironmentSummaryModel(hasDatabaseDefault), ...databaseModels];
 }
 
-async function hasEnabledDatabaseSummaryDefault() {
+async function hasReadyDatabaseSummaryDefault() {
   const delegate = getOptionalAiModelDelegate();
   if (!delegate) {
     return false;
   }
 
   try {
-    return (await delegate.count({ where: { enabled: true, isDefaultForSummary: true } })) > 0;
+    const records = await delegate.findMany({
+      orderBy: [{ isDefaultForSummary: "desc" }, { updatedAt: "desc" }],
+    });
+
+    return records.map(dbModelToOption).some((model) => model.defaultFor.includes("post-summary"));
   } catch (error) {
     if (isAiModelStorageUnavailable(error)) {
       return false;
@@ -416,7 +445,7 @@ async function hasEnabledDatabaseSummaryDefault() {
 
 export async function getAiModelOption(modelId: string) {
   if (modelId === ENV_SUMMARY_MODEL_ID) {
-    return getEnvironmentSummaryModel(await hasEnabledDatabaseSummaryDefault());
+    return getEnvironmentSummaryModel(await hasReadyDatabaseSummaryDefault());
   }
 
   const delegate = getOptionalAiModelDelegate();
@@ -442,8 +471,8 @@ export async function getDefaultAiModelForCapability(capability: AiModelCapabili
   const models = await getAiModelOptions();
 
   return (
-    models.find((model) => model.enabled && model.defaultFor.includes(capability)) ??
-    models.find((model) => model.enabled && model.capabilities.includes(capability)) ??
+    models.find((model) => model.status === "ready" && model.defaultFor.includes(capability)) ??
+    models.find((model) => model.status === "ready" && model.capabilities.includes(capability)) ??
     null
   );
 }
@@ -454,11 +483,82 @@ export async function getAiModelForCapability(capability: AiModelCapability, mod
   }
 
   const model = await getAiModelOption(modelId);
-  if (!model?.enabled || !model.capabilities.includes(capability)) {
+  if (!model || model.status !== "ready" || !model.capabilities.includes(capability)) {
     return null;
   }
 
   return model;
+}
+
+export async function setDefaultAiModelForCapability(capability: AiModelCapability, modelId: string) {
+  if (capability !== "post-summary") {
+    throw new ValidationError("Unsupported AI model capability");
+  }
+
+  const delegate = getOptionalAiModelDelegate();
+
+  if (modelId === ENV_SUMMARY_MODEL_ID) {
+    const environmentModel = getEnvironmentSummaryModel(false);
+    if (environmentModel.status !== "ready") {
+      throw new ValidationError(`${environmentModel.apiKeyEnv} is not configured`);
+    }
+
+    if (!delegate) {
+      return environmentModel;
+    }
+
+    try {
+      await delegate.updateMany({
+        where: { isDefaultForSummary: true },
+        data: { isDefaultForSummary: false },
+      });
+    } catch (error) {
+      if (isAiModelStorageUnavailable(error)) {
+        return environmentModel;
+      }
+
+      throw error;
+    }
+
+    return environmentModel;
+  }
+
+  const model = await getAiModelOption(modelId);
+  ensureMutableModel(model);
+
+  if (!model.enabled || !model.capabilities.includes(capability)) {
+    throw new ValidationError("AI model is not available for this capability");
+  }
+
+  if (!model.hasApiKey) {
+    throw new ValidationError("AI model API key is not configured");
+  }
+
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const txDelegate = getAiModelDelegate(tx as unknown as AiModelClient);
+      await txDelegate.updateMany({
+        where: { isDefaultForSummary: true, id: { not: modelId } },
+        data: { isDefaultForSummary: false },
+      });
+
+      const record = await txDelegate.update({
+        where: { id: modelId },
+        data: {
+          enabled: true,
+          isDefaultForSummary: true,
+        },
+      });
+
+      return dbModelToOption(record);
+    });
+  } catch (error) {
+    if (isAiModelStorageUnavailable(error)) {
+      throw aiModelStorageNotReadyError();
+    }
+
+    throw error;
+  }
 }
 
 export async function createAiModel(input: AiModelMutationInput) {
@@ -603,6 +703,7 @@ export async function testAiModelConnection(model: AiModelOption) {
       ],
       temperature: 0,
       max_tokens: 16,
+      ...getAiModelChatRequestExtras(model),
     }),
     signal: AbortSignal.timeout(15000),
   });

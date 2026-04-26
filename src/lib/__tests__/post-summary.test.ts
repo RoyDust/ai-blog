@@ -54,6 +54,19 @@ describe("post summary generation", () => {
     );
   });
 
+  test("includes the upstream HTTP status when the model API returns no error message", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: false,
+      status: 404,
+      statusText: "Not Found",
+      json: async () => ({}),
+    }));
+
+    await expect(generatePostSummary({ aiModel, title: "标题", content: "正文" })).rejects.toThrow(
+      "Summary generation failed (HTTP 404 Not Found)",
+    );
+  });
+
   test("truncates long article content before sending it to the model", async () => {
     process.env.AI_POST_SUMMARY_MAX_INPUT_CHARS = "10";
     const fetchMock = vi.fn().mockResolvedValue({
@@ -71,5 +84,26 @@ describe("post summary generation", () => {
     expect(prompt).toContain("一".repeat(10));
     expect(prompt).toContain("已截取前 10 字用于生成摘要");
     expect(prompt).not.toContain("一".repeat(50));
+  });
+
+  test("disables DeepSeek thinking mode for concise summaries", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        choices: [{ message: { content: "生成后的摘要。" } }],
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await generatePostSummary({
+      aiModel: { ...aiModel, baseUrl: "https://api.deepseek.com", model: "deepseek-v4-flash" },
+      title: "标题",
+      content: "正文",
+    });
+
+    expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toMatchObject({
+      model: "deepseek-v4-flash",
+      thinking: { type: "disabled" },
+    });
   });
 });

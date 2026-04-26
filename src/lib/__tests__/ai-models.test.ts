@@ -38,7 +38,15 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
-import { createAiModel, getAiModelForCapability, getAiModelOptions, toPublicAiModelOption, updateAiModel } from "../ai-models";
+import {
+  createAiModel,
+  getAiModelChatRequestExtras,
+  getAiModelForCapability,
+  getAiModelOptions,
+  setDefaultAiModelForCapability,
+  toPublicAiModelOption,
+  updateAiModel,
+} from "../ai-models";
 
 describe("ai model registry", () => {
   const originalEnv = { ...process.env };
@@ -160,7 +168,7 @@ describe("ai model registry", () => {
 
     const model = await createAiModel({
       name: "测试模型",
-      baseUrl: "https://compat.example/v1/",
+      baseUrl: "https://compat.example/v1/chat/completions/",
       model: "summary-model",
       apiKey: "secret",
       isDefaultForSummary: true,
@@ -184,6 +192,18 @@ describe("ai model registry", () => {
       editable: true,
     });
     expect(model.apiKey).toBe("secret");
+  });
+
+  test("adds DeepSeek chat options for short non-thinking operations", () => {
+    expect(getAiModelChatRequestExtras({
+      baseUrl: "https://api.deepseek.com",
+      model: "deepseek-v4-flash",
+    })).toEqual({ thinking: { type: "disabled" } });
+
+    expect(getAiModelChatRequestExtras({
+      baseUrl: "https://compat.example/v1",
+      model: "summary-model",
+    })).toEqual({});
   });
 
   test("patch updates preserve omitted model fields", async () => {
@@ -266,6 +286,108 @@ describe("ai model registry", () => {
       id: "disabled-default",
       defaultFor: [],
       status: "disabled",
+    });
+  });
+
+  test("database defaults without API keys do not override the environment model", async () => {
+    const createdAt = new Date("2026-04-25T00:00:00Z");
+    prismaMocks.findManyMock.mockResolvedValueOnce([
+      {
+        id: "missing-key-default",
+        name: "缺密钥默认",
+        description: "",
+        provider: "openai-compatible",
+        baseUrl: "https://compat.example/v1",
+        requestPath: "/chat/completions",
+        model: "missing-key-model",
+        apiKey: null,
+        capabilities: ["post-summary"],
+        isDefaultForSummary: true,
+        enabled: true,
+        lastTestedAt: null,
+        lastTestStatus: null,
+        lastTestMessage: null,
+        createdAt,
+        updatedAt: createdAt,
+      },
+    ]);
+    process.env = {
+      ...originalEnv,
+      AI_OPENAI_COMPAT_API_KEY: "env-key",
+    };
+
+    const models = await getAiModelOptions();
+
+    expect(models[0]).toMatchObject({
+      id: "post-summary-openai-compatible",
+      defaultFor: ["post-summary"],
+    });
+    expect(models[1]).toMatchObject({
+      id: "missing-key-default",
+      defaultFor: [],
+      status: "missing-api-key",
+    });
+    await expect(getAiModelForCapability("post-summary", "missing-key-default")).resolves.toBeNull();
+  });
+
+  test("switches summary default back to the environment model", async () => {
+    process.env = {
+      ...originalEnv,
+      AI_OPENAI_COMPAT_API_KEY: "env-key",
+    };
+
+    const model = await setDefaultAiModelForCapability("post-summary", "post-summary-openai-compatible");
+
+    expect(prismaMocks.updateManyMock).toHaveBeenCalledWith({
+      where: { isDefaultForSummary: true },
+      data: { isDefaultForSummary: false },
+    });
+    expect(model).toMatchObject({
+      id: "post-summary-openai-compatible",
+      defaultFor: ["post-summary"],
+      status: "ready",
+    });
+  });
+
+  test("switches summary default to a ready database model", async () => {
+    const createdAt = new Date("2026-04-25T00:00:00Z");
+    const record = {
+      id: "model-1",
+      name: "测试模型",
+      description: "",
+      provider: "openai-compatible",
+      baseUrl: "https://compat.example/v1",
+      requestPath: "/chat/completions",
+      model: "summary-model",
+      apiKey: "secret",
+      capabilities: ["post-summary"],
+      isDefaultForSummary: false,
+      enabled: true,
+      lastTestedAt: null,
+      lastTestStatus: null,
+      lastTestMessage: null,
+      createdAt,
+      updatedAt: createdAt,
+    };
+    prismaMocks.findUniqueMock.mockResolvedValueOnce(record);
+    prismaMocks.updateMock.mockImplementationOnce(({ data }) => Promise.resolve({ ...record, ...data }));
+
+    const model = await setDefaultAiModelForCapability("post-summary", "model-1");
+
+    expect(prismaMocks.updateManyMock).toHaveBeenCalledWith({
+      where: { isDefaultForSummary: true, id: { not: "model-1" } },
+      data: { isDefaultForSummary: false },
+    });
+    expect(prismaMocks.updateMock).toHaveBeenCalledWith({
+      where: { id: "model-1" },
+      data: {
+        enabled: true,
+        isDefaultForSummary: true,
+      },
+    });
+    expect(model).toMatchObject({
+      id: "model-1",
+      defaultFor: ["post-summary"],
     });
   });
 
