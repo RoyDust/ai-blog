@@ -11,17 +11,27 @@ import {
   type JsonValue,
 } from "@/lib/ai-tasks";
 import {
+  buildDraftPostForAiAction,
   buildPostAiInputSnapshot,
   getAiTaskTypeForAction,
   getPostForAiAction,
   normalizePostAiAction,
   runPostAiAction,
 } from "@/lib/ai-post-actions";
-import { toErrorResponse } from "@/lib/api-errors";
+import { toErrorResponse, ValidationError } from "@/lib/api-errors";
 import { prisma } from "@/lib/prisma";
 
 type Body = {
   postId?: string;
+  draft?: {
+    title?: unknown;
+    slug?: unknown;
+    content?: unknown;
+    excerpt?: unknown;
+    seoDescription?: unknown;
+    categoryId?: unknown;
+    tagIds?: unknown;
+  };
   action?: string;
   modelId?: string;
 };
@@ -31,23 +41,32 @@ export async function POST(request: Request) {
     const session = await requireAdminSession();
     const body = (await request.json()) as Body;
 
-    if (!body.postId || !body.action) {
-      return NextResponse.json({ error: "Post id and AI action are required" }, { status: 400 });
+    if (!body.action) {
+      throw new ValidationError("AI action is required");
+    }
+
+    if (!body.postId && !body.draft) {
+      throw new ValidationError("Post id or draft content is required");
     }
 
     const action = normalizePostAiAction(body.action);
-    const post = await getPostForAiAction(body.postId);
+    const isDraft = !body.postId;
+    const post = body.postId ? await getPostForAiAction(body.postId) : await buildDraftPostForAiAction(body.draft ?? {});
     const task = await createAiTask({
       type: getAiTaskTypeForAction(action),
-      source: "single-post",
+      source: isDraft ? "draft-post" : "single-post",
       modelId: body.modelId ?? null,
       createdById: session.user.id,
+      metadata: isDraft ? { draft: true } : undefined,
       items: [
         {
-          postId: post.id,
+          postId: isDraft ? null : post.id,
           action,
           status: AI_TASK_ITEM_STATUSES.queued,
-          inputSnapshot: buildPostAiInputSnapshot(post, action),
+          inputSnapshot: {
+            ...(buildPostAiInputSnapshot(post, action) as Record<string, JsonValue>),
+            draft: isDraft,
+          },
         },
       ],
     });

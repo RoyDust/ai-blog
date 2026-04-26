@@ -1,4 +1,4 @@
-import { getAiModelForCapability, type AiModelOption } from "@/lib/ai-models";
+import { getAiModelChatRequestExtras, getAiModelForCapability, type AiModelOption } from "@/lib/ai-models";
 import { AI_TASK_ITEM_STATUSES, getAiTaskItem, markAiTaskItemSucceeded, type JsonValue } from "@/lib/ai-tasks";
 import { ApiError, NotFoundError, ValidationError } from "@/lib/api-errors";
 import { revalidatePublicContent } from "@/lib/cache";
@@ -29,7 +29,7 @@ type ChatPayload = {
   };
 };
 
-type PostForAi = {
+export type PostForAi = {
   id: string;
   title: string;
   slug: string;
@@ -39,6 +39,16 @@ type PostForAi = {
   category: { id: string; name: string; slug: string } | null;
   tags: Array<{ id: string; name: string; slug: string }>;
   published: boolean;
+};
+
+export type DraftPostForAiInput = {
+  title?: unknown;
+  slug?: unknown;
+  content?: unknown;
+  excerpt?: unknown;
+  seoDescription?: unknown;
+  categoryId?: unknown;
+  tagIds?: unknown;
 };
 
 function normalizeAction(action: string): PostAiAction {
@@ -102,6 +112,16 @@ function toStringArray(value: unknown) {
   return [];
 }
 
+function readOptionalString(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function readStringArray(value: unknown) {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+    : [];
+}
+
 function truncateContent(content: string) {
   const normalized = content.trim();
   const maxChars = getPostSummaryMaxInputChars();
@@ -151,6 +171,7 @@ async function runChatText({
         ],
         temperature: 0.25,
         max_tokens: maxTokens,
+        ...getAiModelChatRequestExtras(aiModel),
       }),
       signal: AbortSignal.timeout(getPostSummaryTimeoutMs()),
     });
@@ -194,6 +215,44 @@ export async function getPostForAiAction(postId: string): Promise<PostForAi> {
   }
 
   return post;
+}
+
+export async function buildDraftPostForAiAction(input: DraftPostForAiInput): Promise<PostForAi> {
+  const title = readOptionalString(input.title) || "未命名草稿";
+  const content = readOptionalString(input.content);
+
+  if (!content) {
+    throw new ValidationError("Post content is required for AI action");
+  }
+
+  const categoryId = readOptionalString(input.categoryId);
+  const tagIds = readStringArray(input.tagIds);
+  const [category, tags] = await Promise.all([
+    categoryId
+      ? prisma.category.findFirst({
+          where: { id: categoryId, deletedAt: null },
+          select: { id: true, name: true, slug: true },
+        })
+      : Promise.resolve(null),
+    tagIds.length > 0
+      ? prisma.tag.findMany({
+          where: { id: { in: tagIds }, deletedAt: null },
+          select: { id: true, name: true, slug: true },
+        })
+      : Promise.resolve([]),
+  ]);
+
+  return {
+    id: "draft",
+    title,
+    slug: generatePostSlug(readOptionalString(input.slug) || title) || "draft",
+    content,
+    excerpt: readOptionalString(input.excerpt) || null,
+    seoDescription: readOptionalString(input.seoDescription) || null,
+    category,
+    tags,
+    published: false,
+  };
 }
 
 export function getAiTaskTypeForAction(action: PostAiAction) {

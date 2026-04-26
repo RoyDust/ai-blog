@@ -49,4 +49,58 @@ describe("PostAiWorkspace", () => {
     expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual({ postId: "post-1", action: "seo-description" });
     expect(JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body))).toEqual({ itemId: "item-1" });
   });
+
+  test("generates and applies a draft suggestion without calling the apply endpoint", async () => {
+    const onApplied = vi.fn();
+    const fetchMock = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        success: true,
+        data: {
+          taskId: "task-1",
+          itemId: "item-1",
+          action: "title",
+          modelId: "model-1",
+          output: { titles: ["AI 草稿标题", "备选标题"] },
+        },
+      }),
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <PostAiWorkspace
+        draft={{
+          title: "草稿",
+          slug: "cao-gao",
+          content: "正文内容",
+          excerpt: "",
+          seoDescription: "",
+          categoryId: "",
+          tagIds: [],
+        }}
+        onApplied={onApplied}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /建议标题/ }));
+
+    expect(await screen.findByText(/AI 草稿标题/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "应用建议" }));
+
+    expect(onApplied).toHaveBeenCalledWith({ id: "draft", title: "AI 草稿标题" });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual({
+      draft: {
+        title: "草稿",
+        slug: "cao-gao",
+        content: "正文内容",
+        excerpt: "",
+        seoDescription: "",
+        categoryId: "",
+        tagIds: [],
+      },
+      action: "title",
+    });
+  });
 });

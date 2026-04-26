@@ -30,7 +30,7 @@ export type AiTaskType =
   | "post-category-suggestion"
   | "post-bulk-completion";
 
-export type AiTaskSource = "single-post" | "bulk-posts" | "retry";
+export type AiTaskSource = "single-post" | "draft-post" | "bulk-posts" | "retry";
 
 export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 

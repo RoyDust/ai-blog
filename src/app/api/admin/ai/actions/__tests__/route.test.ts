@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   markAiTaskItemRunning: vi.fn(),
   markAiTaskItemSucceeded: vi.fn(),
   markAiTaskItemFailed: vi.fn(),
+  buildDraftPostForAiAction: vi.fn(),
   buildPostAiInputSnapshot: vi.fn(),
   getAiTaskTypeForAction: vi.fn(),
   getPostForAiAction: vi.fn(),
@@ -29,6 +30,7 @@ vi.mock("@/lib/ai-tasks", () => ({
 }));
 
 vi.mock("@/lib/ai-post-actions", () => ({
+  buildDraftPostForAiAction: mocks.buildDraftPostForAiAction,
   buildPostAiInputSnapshot: mocks.buildPostAiInputSnapshot,
   getAiTaskTypeForAction: mocks.getAiTaskTypeForAction,
   getPostForAiAction: mocks.getPostForAiAction,
@@ -52,6 +54,17 @@ describe("admin AI actions route", () => {
     mocks.normalizePostAiAction.mockReturnValue("seo-description");
     mocks.getAiTaskTypeForAction.mockReturnValue("post-seo-description");
     mocks.getPostForAiAction.mockResolvedValue({ id: "post-1", title: "标题" });
+    mocks.buildDraftPostForAiAction.mockResolvedValue({
+      id: "draft",
+      title: "草稿",
+      slug: "cao-gao",
+      content: "正文",
+      excerpt: null,
+      seoDescription: null,
+      category: null,
+      tags: [],
+      published: false,
+    });
     mocks.buildPostAiInputSnapshot.mockReturnValue({ title: "标题" });
     mocks.createAiTask.mockResolvedValue({ id: "task-1", modelId: null, items: [{ id: "item-1" }] });
     mocks.runPostAiAction.mockResolvedValue({ modelId: "model-1", output: { seoDescription: "SEO 描述" } });
@@ -70,6 +83,45 @@ describe("admin AI actions route", () => {
 
     expect(response.status).toBe(200);
     expect(mocks.markAiTaskItemSucceeded).toHaveBeenCalledWith("item-1", { seoDescription: "SEO 描述" });
+    expect(data).toEqual({
+      success: true,
+      data: {
+        taskId: "task-1",
+        itemId: "item-1",
+        action: "seo-description",
+        modelId: "model-1",
+        output: { seoDescription: "SEO 描述" },
+      },
+    });
+  });
+
+  test("generates a draft AI suggestion without requiring a saved post", async () => {
+    const { POST } = await import("../route");
+    const response = await POST(
+      new Request("http://localhost/api/admin/ai/actions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ draft: { title: "草稿", content: "正文" }, action: "seo-description" }),
+      }),
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(mocks.getPostForAiAction).not.toHaveBeenCalled();
+    expect(mocks.buildDraftPostForAiAction).toHaveBeenCalledWith({ title: "草稿", content: "正文" });
+    expect(mocks.createAiTask).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: "draft-post",
+        metadata: { draft: true },
+        items: [
+          expect.objectContaining({
+            postId: null,
+            action: "seo-description",
+            inputSnapshot: { title: "标题", draft: true },
+          }),
+        ],
+      }),
+    );
     expect(data).toEqual({
       success: true,
       data: {

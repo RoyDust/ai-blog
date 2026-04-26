@@ -47,7 +47,7 @@ describe('admin editor', () => {
     expect(screen.getByText('发布准备度')).toBeInTheDocument()
   })
 
-  test('shows cover upload trigger', async () => {
+  test('shows cover upload and gallery picker triggers', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue({
@@ -71,7 +71,8 @@ describe('admin editor', () => {
 
     await openMetadataDialog()
 
-    expect(await screen.findByRole('button', { name: '上传封面到七牛' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: '上传并保存到图库' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '从图库选择' })).toBeInTheDocument()
   })
 
   test('shows explicit publish state controls for drafts', async () => {

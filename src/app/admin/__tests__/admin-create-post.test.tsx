@@ -19,6 +19,10 @@ afterEach(() => {
 })
 
 describe('admin create post', () => {
+  async function openMetadataDialog() {
+    fireEvent.click(await screen.findByRole('button', { name: '元数据' }))
+  }
+
   test('renders new post workspace in admin style', () => {
     render(<AdminCreatePostPage />)
 
@@ -26,6 +30,7 @@ describe('admin create post', () => {
     expect(screen.getByText('文章状态')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '保存草稿' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '发布文章' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'AI 工作台' })).toBeInTheDocument()
     expect(screen.getByText('发布准备度')).toBeInTheDocument()
     expect(screen.getByText('实时预览')).toBeInTheDocument()
   })
@@ -72,6 +77,8 @@ describe('admin create post', () => {
 
     render(<AdminCreatePostPage />)
 
+    await openMetadataDialog()
+
     expect(await screen.findByLabelText('分类')).toBeInTheDocument()
     expect(await screen.findByRole('checkbox', { name: 'React' })).toBeInTheDocument()
     expect(screen.getByRole('checkbox', { name: 'Next.js' })).toBeInTheDocument()
@@ -102,6 +109,8 @@ describe('admin create post', () => {
     fireEvent.change(screen.getByLabelText('内容'), {
       target: { value: '# Hello' },
     })
+
+    await openMetadataDialog()
 
     await screen.findByRole('option', { name: '前端' })
     const categorySelect = screen.getByLabelText('分类')

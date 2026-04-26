@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/ai-models", () => ({
+  getAiModelChatRequestExtras: vi.fn(() => ({})),
   getAiModelForCapability: mocks.getAiModelForCapability,
 }));
 

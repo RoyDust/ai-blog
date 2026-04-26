@@ -265,6 +265,8 @@ export function AiTaskDetail({ task }: { task: TaskDetail }) {
                       <Link className="font-medium text-[var(--foreground)] hover:text-[var(--brand)]" href={`/admin/posts/${item.post.id}/edit`}>
                         {item.post.title}
                       </Link>
+                    ) : task.source === "draft-post" ? (
+                      <span className="text-sm text-[var(--muted)]">未保存草稿</span>
                     ) : (
                       <span className="text-sm text-[var(--muted)]">文章不存在</span>
                     )}

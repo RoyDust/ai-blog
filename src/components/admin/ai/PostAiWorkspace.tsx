@@ -16,6 +16,16 @@ type AppliedPost = {
   tags?: Array<{ id: string; name?: string | null; slug?: string | null }>;
 };
 
+type DraftPostAiInput = {
+  title: string;
+  slug: string;
+  content: string;
+  excerpt: string;
+  seoDescription: string;
+  categoryId: string;
+  tagIds: string[];
+};
+
 type AiResult = {
   taskId: string;
   itemId: string;
@@ -93,13 +103,43 @@ function renderOutput(result: AiResult | null) {
   return JSON.stringify(output, null, 2);
 }
 
+function buildDraftAppliedPost(result: AiResult): AppliedPost {
+  const output = result.output;
+  const applied: AppliedPost = { id: "draft" };
+
+  if (result.action === "summary" && typeof output.summary === "string") {
+    applied.excerpt = output.summary;
+  } else if (result.action === "seo-description" && typeof output.seoDescription === "string") {
+    applied.seoDescription = output.seoDescription;
+  } else if (result.action === "title") {
+    const title = toStringList(output.titles)[0];
+    if (title) applied.title = title;
+  } else if (result.action === "slug" && typeof output.slug === "string") {
+    applied.slug = output.slug;
+  } else if (result.action === "category" && typeof output.categoryId === "string") {
+    applied.category = {
+      id: output.categoryId,
+      name: typeof output.categoryName === "string" ? output.categoryName : null,
+      slug: typeof output.categorySlug === "string" ? output.categorySlug : null,
+    };
+  } else if (result.action === "tags") {
+    applied.tags = toStringList(output.existingTagIds).map((id) => ({ id }));
+  }
+
+  return applied;
+}
+
 export function PostAiWorkspace({
   postId,
+  draft,
   disabled,
+  disabledMessage,
   onApplied,
 }: {
-  postId: string;
+  postId?: string;
+  draft?: DraftPostAiInput;
   disabled?: boolean;
+  disabledMessage?: string;
   onApplied: (post: AppliedPost) => void;
 }) {
   const [runningAction, setRunningAction] = useState<PostAiAction | null>(null);
@@ -120,7 +160,7 @@ export function PostAiWorkspace({
       const response = await fetch("/api/admin/ai/actions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ postId, action }),
+        body: JSON.stringify(postId ? { postId, action } : { draft, action }),
       });
       const data = await response.json();
 
@@ -147,6 +187,13 @@ export function PostAiWorkspace({
 
   async function applyResult() {
     if (!result || applying) {
+      return;
+    }
+
+    if (!postId) {
+      onApplied(buildDraftAppliedPost(result));
+      toast.success("AI 建议已应用到当前表单");
+      setResult(null);
       return;
     }
 
@@ -222,7 +269,7 @@ export function PostAiWorkspace({
         ) : null}
       </div>
 
-      {disabled ? <p className="text-sm text-[var(--muted)]">保存文章正文后再运行 AI 动作。</p> : null}
+      {disabled ? <p className="text-sm text-[var(--muted)]">{disabledMessage ?? "保存文章正文后再运行 AI 动作。"}</p> : null}
       {error ? <p className="text-sm text-rose-600">{error}</p> : null}
     </div>
   );
