@@ -29,6 +29,12 @@ type ChatPayload = {
   };
 };
 
+type TagForAi = {
+  id: string;
+  name: string;
+  slug: string;
+};
+
 export type PostForAi = {
   id: string;
   title: string;
@@ -110,6 +116,90 @@ function toStringArray(value: unknown) {
   }
 
   return [];
+}
+
+function toCandidateStrings(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.flatMap((item) => {
+      if (typeof item === "string") {
+        return [item.trim()].filter(Boolean);
+      }
+
+      if (item && typeof item === "object") {
+        const record = item as { id?: unknown; slug?: unknown; name?: unknown };
+        return [record.id, record.slug, record.name].filter(
+          (candidate): candidate is string => typeof candidate === "string" && candidate.trim().length > 0,
+        );
+      }
+
+      return [];
+    });
+  }
+
+  return toStringArray(value);
+}
+
+function normalizeTagCandidate(value: string) {
+  return value
+    .trim()
+    .replace(/^[#\[\]{}()'"“”‘’\s]+|[#\[\]{}()'"“”‘’\s]+$/g, "")
+    .toLowerCase();
+}
+
+function resolveExistingTagsFromAiOutput({
+  parsed,
+  fallbackText,
+  tags,
+}: {
+  parsed: Record<string, unknown> | null;
+  fallbackText: string;
+  tags: TagForAi[];
+}) {
+  const candidates = [
+    ...toCandidateStrings(parsed?.tagIds),
+    ...toCandidateStrings(parsed?.selectedTagIds),
+    ...toCandidateStrings(parsed?.ids),
+    ...toCandidateStrings(parsed?.existingTagIds),
+    ...toCandidateStrings(parsed?.tagSlugs),
+    ...toCandidateStrings(parsed?.slugs),
+    ...toCandidateStrings(parsed?.tags),
+    ...toCandidateStrings(parsed?.selectedTags),
+    ...toCandidateStrings(parsed?.existingTags),
+    ...toCandidateStrings(parsed?.names),
+    ...toCandidateStrings(parsed?.tagNames),
+    ...(parsed ? [] : toCandidateStrings(fallbackText)),
+  ];
+  const selected: TagForAi[] = [];
+  const seenIds = new Set<string>();
+  const orderedTags = [...tags].sort((left, right) => Math.max(right.name.length, right.slug.length) - Math.max(left.name.length, left.slug.length));
+
+  for (const candidate of candidates) {
+    const normalized = normalizeTagCandidate(candidate);
+    if (!normalized) continue;
+
+    const exactMatch = orderedTags.find((tag) =>
+      [tag.id, tag.slug, tag.name].some((value) => normalizeTagCandidate(value) === normalized),
+    );
+    const looseMatch =
+      exactMatch ??
+      orderedTags.find((tag) => {
+        const name = normalizeTagCandidate(tag.name);
+        const slug = normalizeTagCandidate(tag.slug);
+
+        return normalized.includes(`(${slug})`) || normalized.includes(name) || normalized.includes(slug);
+      });
+
+    if (looseMatch && !seenIds.has(looseMatch.id)) {
+      selected.push(looseMatch);
+      seenIds.add(looseMatch.id);
+    }
+
+    if (selected.length >= 5) {
+      break;
+    }
+  }
+
+  return selected;
 }
 
 function readOptionalString(value: unknown) {
@@ -371,25 +461,33 @@ export async function runPostAiAction({
       select: { id: true, name: true, slug: true },
       orderBy: { name: "asc" },
     });
+
+    if (tags.length === 0) {
+      throw new ValidationError("No existing tags available for AI selection");
+    }
+
     const text = await runChatText({
       aiModel,
       system: "你是博客信息架构助手，输出必须是 JSON。",
-      user: `请根据文章推荐 3 到 5 个标签，优先从已有标签中选择，也可以建议少量新标签。已有标签：${tags.map((tag) => `${tag.name}(${tag.slug})`).join("、") || "无"}。只输出 JSON：{"tags":["标签1","标签2"]}\n\n${baseContext}`,
+      user: `请根据文章从已有标签中推荐 1 到 5 个最合适的标签。只能从已有标签中选择，不要发明新标签，不要输出列表之外的标签。已有标签 JSON：${JSON.stringify(tags.map((tag) => ({ id: tag.id, name: tag.name, slug: tag.slug })))}。只输出 JSON：{"tagIds":["已有标签id"],"names":["已有标签名"]}\n\n${baseContext}`,
       maxTokens: 360,
     });
     const parsed = parseJsonObject(text);
-    const names = toStringArray(parsed?.tags ?? text).slice(0, 5);
-    const existingTagIds = tags
-      .filter((tag) => names.some((name) => name.toLowerCase() === tag.name.toLowerCase() || name.toLowerCase() === tag.slug.toLowerCase()))
-      .map((tag) => tag.id);
-    const newTagNames = names.filter(
-      (name) => !tags.some((tag) => name.toLowerCase() === tag.name.toLowerCase() || name.toLowerCase() === tag.slug.toLowerCase()),
-    );
+    const selectedTags = resolveExistingTagsFromAiOutput({ parsed, fallbackText: text, tags });
+
+    if (selectedTags.length === 0) {
+      throw new Error("AI tag output did not match existing tags");
+    }
 
     return {
       action: normalizedAction,
       modelId: aiModel.id,
-      output: { existingTagIds, newTagNames, names },
+      output: {
+        existingTagIds: selectedTags.map((tag) => tag.id),
+        tagSlugs: selectedTags.map((tag) => tag.slug),
+        names: selectedTags.map((tag) => tag.name),
+        newTagNames: [],
+      },
     };
   }
 
@@ -466,6 +564,10 @@ export async function applyPostAiTaskItem(itemId: string) {
   }
 
   const tagIds = action === POST_AI_ACTIONS.tags ? toStringArray(output.existingTagIds) : null;
+
+  if (action === POST_AI_ACTIONS.tags && (!tagIds || tagIds.length === 0)) {
+    throw new ValidationError("AI tag output did not match existing tags");
+  }
 
   const updated = await prisma.post.update({
     where: { id: item.postId },

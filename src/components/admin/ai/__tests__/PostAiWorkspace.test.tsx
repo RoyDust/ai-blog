@@ -103,4 +103,92 @@ describe("PostAiWorkspace", () => {
       action: "title",
     });
   });
+
+  test("applies draft tag suggestions with existing tag ids", async () => {
+    const onApplied = vi.fn();
+    const fetchMock = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        success: true,
+        data: {
+          taskId: "task-1",
+          itemId: "item-1",
+          action: "tags",
+          modelId: "model-1",
+          output: { existingTagIds: ["tag-ai", "tag-next"], names: ["AI", "Next.js"], newTagNames: [] },
+        },
+      }),
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <PostAiWorkspace
+        draft={{
+          title: "草稿",
+          slug: "cao-gao",
+          content: "正文内容",
+          excerpt: "",
+          seoDescription: "",
+          categoryId: "",
+          tagIds: ["tag-old"],
+        }}
+        onApplied={onApplied}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /建议标签/ }));
+
+    expect(await screen.findByText(/AI、Next\.js/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "应用建议" }));
+
+    expect(onApplied).toHaveBeenCalledWith({
+      id: "draft",
+      tags: [{ id: "tag-ai" }, { id: "tag-next" }],
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  test("does not apply draft tag suggestions without existing tag ids", async () => {
+    const onApplied = vi.fn();
+    const fetchMock = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        success: true,
+        data: {
+          taskId: "task-1",
+          itemId: "item-1",
+          action: "tags",
+          modelId: "model-1",
+          output: { newTagNames: ["不存在"] },
+        },
+      }),
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <PostAiWorkspace
+        draft={{
+          title: "草稿",
+          slug: "cao-gao",
+          content: "正文内容",
+          excerpt: "",
+          seoDescription: "",
+          categoryId: "",
+          tagIds: ["tag-old"],
+        }}
+        onApplied={onApplied}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /建议标签/ }));
+
+    expect(await screen.findByText("不存在")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "应用建议" }));
+
+    expect(await screen.findByText("AI 标签建议没有匹配到已有标签")).toBeInTheDocument();
+    expect(onApplied).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
 });

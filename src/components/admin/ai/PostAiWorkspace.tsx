@@ -123,7 +123,10 @@ function buildDraftAppliedPost(result: AiResult): AppliedPost {
       slug: typeof output.categorySlug === "string" ? output.categorySlug : null,
     };
   } else if (result.action === "tags") {
-    applied.tags = toStringList(output.existingTagIds).map((id) => ({ id }));
+    const tagIds = toStringList(output.existingTagIds);
+    if (tagIds.length > 0) {
+      applied.tags = tagIds.map((id) => ({ id }));
+    }
   }
 
   return applied;
@@ -191,6 +194,13 @@ export function PostAiWorkspace({
     }
 
     if (!postId) {
+      if (result.action === "tags" && toStringList(result.output.existingTagIds).length === 0) {
+        const message = "AI 标签建议没有匹配到已有标签";
+        setError(message);
+        toast.error(message);
+        return;
+      }
+
       onApplied(buildDraftAppliedPost(result));
       toast.success("AI 建议已应用到当前表单");
       setResult(null);
