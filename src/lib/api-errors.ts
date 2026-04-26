@@ -58,6 +58,24 @@ export function isPrismaMissingSchemaError(error: unknown) {
   )
 }
 
+export function isDatabaseConnectionError(error: unknown) {
+  if (typeof error !== "object" || error === null) {
+    return false
+  }
+
+  const message = "message" in error && typeof error.message === "string" ? error.message : ""
+  const code = "code" in error && typeof error.code === "string" ? error.code : ""
+
+  return (
+    code === "ECONNRESET" ||
+    code === "ETIMEDOUT" ||
+    code === "ECONNREFUSED" ||
+    message.includes("Connection terminated unexpectedly") ||
+    message.includes("Connection terminated due to connection timeout") ||
+    message.includes("timeout exceeded when trying to connect")
+  )
+}
+
 export function toErrorResponse(error: unknown, fallbackMessage = "Internal server error") {
   if (error instanceof ApiError) {
     return NextResponse.json({ error: error.message }, { status: error.status })
@@ -69,6 +87,10 @@ export function toErrorResponse(error: unknown, fallbackMessage = "Internal serv
 
   if (isPrismaMissingSchemaError(error)) {
     return NextResponse.json({ error: "Database schema is not up to date. Apply pending Prisma migrations." }, { status: 503 })
+  }
+
+  if (isDatabaseConnectionError(error)) {
+    return NextResponse.json({ error: "Database connection failed. Please retry shortly." }, { status: 503 })
   }
 
   return NextResponse.json({ error: fallbackMessage }, { status: 500 })
