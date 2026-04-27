@@ -4,10 +4,12 @@ import CredentialsProvider from "next-auth/providers/credentials"
 import GitHubProvider from "next-auth/providers/github"
 import { PrismaAdapter } from "@auth/prisma-adapter"
 import { prisma } from "@/lib/prisma"
+import { requireAuthSecret, resolveAuthSecret } from "@/lib/auth-secret"
 import bcrypt from "bcryptjs"
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma) as Adapter,
+  secret: resolveAuthSecret(),
   providers: [
     GitHubProvider({
       clientId: process.env.AUTH_GITHUB_ID || "",
@@ -20,6 +22,8 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" }
       },
       async authorize(credentials) {
+        requireAuthSecret()
+
         if (!credentials?.email || !credentials?.password) {
           throw new Error("Invalid credentials")
         }

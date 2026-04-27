@@ -1,6 +1,7 @@
 # 项目重大问题分析报告
 
 > 分析日期：2026-04-26 | 范围：全项目 | 分析模型：deepseek-v4-pro
+> 安全说明：本报告已脱敏，不得记录真实数据库密码、认证密钥、AK/SK 或 API Key。
 
 ---
 
@@ -21,8 +22,8 @@
 - **文件**：[.env](.env)、[src/lib/auth.ts](src/lib/auth.ts)、[middleware.ts](middleware.ts)
 - **问题**：
   ```
-  AUTH_SECRET="azd9jcSX011UgGtbE6SNZALCCxFy24m4ctmrRAn4dow="    ← 真正的密钥
-  NEXTAUTH_SECRET="replace-with-a-long-random-secret"               ← 占位符！
+  AUTH_SECRET="<redacted-auth-secret>"                              ← 有效密钥（已脱敏）
+  NEXTAUTH_SECRET="<placeholder-nextauth-secret>"                    ← 占位符！
   ```
   - [auth.ts](src/lib/auth.ts) 未显式设置 `secret`，NextAuth v4 回退读取 `NEXTAUTH_SECRET`（占位符）
   - [middleware.ts](middleware.ts) 使用 `NEXTAUTH_SECRET || AUTH_SECRET`，先读到占位符
@@ -38,7 +39,7 @@
 
 - **文件**：[.env](.env)
 - **问题**：
-  - 明文包含 PostgreSQL 密码 (`XW147369258`)、七牛云 AK/SK、阿里百炼 API Key
+  - 明文包含 PostgreSQL 密码、七牛云 AK/SK、阿里百炼 API Key（具体值已脱敏）
   - `QINIU_ACCESS_KEY` (第17行) 尾部有空格，加载后值带空格导致认证失败
   - `DASHSCOPE_API_KEY` (第24行) 尾部也有空格
 - **影响**：密钥泄露，需要立即轮换。空格问题导致七牛云和阿里百炼 API 调用失败。

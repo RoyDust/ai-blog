@@ -3,7 +3,10 @@
     "allow": [
       "Bash(iconv -f GBK -t UTF-8 \"src/app/\\(public\\)/posts/[slug]/page.tsx\")",
       "Bash(\"src/app/\\(public\\)/posts/[slug]/page.tsx.tmp\")",
-      "Bash(mv \"src/app/\\(public\\)/posts/[slug]/page.tsx.tmp\" \"src/app/\\(public\\)/posts/[slug]/page.tsx\")"
+      "Bash(mv \"src/app/\\(public\\)/posts/[slug]/page.tsx.tmp\" \"src/app/\\(public\\)/posts/[slug]/page.tsx\")",
+      "mcp__plugin_claude-mem_mcp-search__get_observations",
+      "mcp__plugin_claude-mem_mcp-search__smart_unfold",
+      "mcp__plugin_claude-mem_mcp-search__smart_outline"
     ]
   }
 }

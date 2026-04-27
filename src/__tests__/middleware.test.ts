@@ -19,6 +19,7 @@ describe('admin middleware', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.unstubAllEnvs()
     process.env.NEXTAUTH_SECRET = originalNextAuthSecret
     process.env.AUTH_SECRET = originalAuthSecret
   })
@@ -37,6 +38,36 @@ describe('admin middleware', () => {
         secret: 'auth-secret',
       }),
     )
+  })
+
+  test('falls back to AUTH_SECRET when NEXTAUTH_SECRET is a placeholder', async () => {
+    process.env.NEXTAUTH_SECRET = 'replace-with-a-long-random-secret'
+    process.env.AUTH_SECRET = 'auth-secret'
+    getToken.mockResolvedValueOnce(null)
+
+    const request = new NextRequest('http://localhost/admin')
+    await middleware(request)
+
+    expect(getToken).toHaveBeenCalledWith(
+      expect.objectContaining({
+        req: request,
+        secret: 'auth-secret',
+      }),
+    )
+  })
+
+  test('returns an explicit server error for admin APIs when production auth secret is missing', async () => {
+    vi.stubEnv('NODE_ENV', 'production')
+    process.env.NEXTAUTH_SECRET = 'replace-with-a-long-random-secret'
+    process.env.AUTH_SECRET = ''
+
+    const request = new NextRequest('http://localhost/api/admin/posts')
+    const response = await middleware(request)
+    const payload = await response.json()
+
+    expect(response.status).toBe(500)
+    expect(payload).toEqual({ error: 'Authentication secret is not configured' })
+    expect(getToken).not.toHaveBeenCalled()
   })
 
   test('redirects unauthenticated users from /admin to /login with callbackUrl', async () => {
