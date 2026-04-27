@@ -574,6 +574,8 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
             variant="bar"
             content={formData.content}
             coverImage={formData.coverImage}
+            excerpt={formData.excerpt}
+            seoDescription={formData.seoDescription}
             slug={formData.slug}
             title={formData.title}
           />

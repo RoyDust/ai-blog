@@ -11,7 +11,7 @@ import { ArticleContinuation, ArticleHero, ArticleToc, BackToTopButton, Bookmark
 import { CommentAuthGate } from "@/components/CommentAuthGate";
 import { FallbackImage } from "@/components/ui";
 import { prisma } from "@/lib/prisma";
-import { buildArticleJsonLd, buildArticleMetadata } from "@/lib/seo";
+import { buildArticleJsonLd, buildArticleMetadata, buildBreadcrumbJsonLd } from "@/lib/seo";
 
 async function getPost(slug: string) {
   return prisma.post.findFirst({
@@ -118,7 +118,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const description = post.seoDescription || post.excerpt || `${post.title} - My Blog`
 
   return buildArticleMetadata({
-    title: `Article Title` === post.title ? `${post.title} | My Blog` : `${post.title} | My Blog`,
+    title: `${post.title} | My Blog`,
     description,
     path: `/posts/${post.slug}`,
     image: post.coverImage,
@@ -180,13 +180,20 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
     modifiedTime: post.updatedAt?.toISOString(),
     authorName: post.author.name || 'Author',
     image: post.coverImage,
+    categoryName: post.category?.name,
+    tags: post.tags.map((tag) => tag.name),
   })
+  const breadcrumbJsonLd = buildBreadcrumbJsonLd([
+    { name: '首页', path: '/' },
+    { name: '文章', path: '/posts' },
+    { name: post.title, path: `/posts/${post.slug}` },
+  ])
 
   return (
     <div className="relative space-y-8 overflow-x-clip">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify([articleJsonLd, breadcrumbJsonLd]) }}
       />
       <ReadingProgress />
       <BackToTopButton />

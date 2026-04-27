@@ -4,8 +4,8 @@ const originalNextAuthUrl = process.env.NEXTAUTH_URL
 const originalSiteUrl = process.env.NEXT_PUBLIC_SITE_URL
 
 beforeAll(() => {
-  process.env.NEXTAUTH_URL = 'http://47.98.167.32'
-  process.env.NEXT_PUBLIC_SITE_URL = 'http://47.98.167.32'
+  process.env.NEXTAUTH_URL = 'http://127.0.0.1:3000'
+  process.env.NEXT_PUBLIC_SITE_URL = 'http://roydust.top'
 })
 
 afterAll(() => {
@@ -31,6 +31,7 @@ findFirst.mockResolvedValue({
   title: 'Article Title',
   content: '# Intro\nBody text',
   excerpt: 'Excerpt',
+  seoDescription: null,
   coverImage: 'https://example.com/cover.png',
   createdAt: new Date('2026-01-01T00:00:00Z'),
   updatedAt: new Date('2026-01-02T00:00:00Z'),
@@ -52,7 +53,7 @@ describe('article metadata', () => {
 
     expect(metadata.title).toBe('Article Title | My Blog')
     expect(metadata.description).toBe('Excerpt')
-    expect(metadata.alternates?.canonical).toBe('http://47.98.167.32/posts/test-post')
-    expect(metadata.openGraph?.type).toBe('article')
+    expect(metadata.alternates?.canonical).toBe('http://roydust.top/posts/test-post')
+    expect((metadata.openGraph as { type?: string })?.type).toBe('article')
   }, 15_000)
 })

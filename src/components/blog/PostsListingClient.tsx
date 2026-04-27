@@ -49,7 +49,7 @@ export function PostsListingClient({ initialPosts, initialPagination }: PostsLis
     initialPosts,
     initialPagination,
     buildUrl,
-    loadFirstPageOnMount: true,
+    loadFirstPageOnMount: initialPagination.page === 0,
     resetKey: 'all',
   })
 

@@ -1,8 +1,16 @@
 export const revalidate = 300;
 
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Clock3 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
+import { buildPageMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = buildPageMetadata({
+  title: "文章归档",
+  description: "按发布时间倒序浏览全部已发布文章。",
+  path: "/archives",
+});
 
 async function getArchivePosts() {
   try {

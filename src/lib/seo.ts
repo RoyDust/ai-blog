@@ -1,9 +1,20 @@
 import type { Metadata } from 'next'
 
-const defaultSiteUrl = 'https://example.com'
+export const SITE_NAME = 'My Blog'
+
+const defaultSiteUrl = 'http://roydust.top'
+
+function normalizeSiteUrl(value: string | undefined) {
+  return value?.trim().replace(/\/$/, '')
+}
 
 export function getSiteUrl() {
-  return (process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_SITE_URL || defaultSiteUrl).replace(/\/$/, '')
+  return (
+    normalizeSiteUrl(process.env.NEXT_PUBLIC_SITE_URL) ||
+    normalizeSiteUrl(process.env.SITE_URL) ||
+    normalizeSiteUrl(process.env.NEXTAUTH_URL) ||
+    defaultSiteUrl
+  )
 }
 
 export function buildCanonicalUrl(path: string) {
@@ -46,6 +57,24 @@ export function buildPageMetadata({
   }
 }
 
+export function buildNoIndexMetadata({
+  title,
+  description,
+  path,
+}: {
+  title: string
+  description: string
+  path: string
+}): Metadata {
+  return {
+    ...buildPageMetadata({ title, description, path }),
+    robots: {
+      index: false,
+      follow: true,
+    },
+  }
+}
+
 export function buildArticleMetadata({
   title,
   description,
@@ -82,6 +111,8 @@ export function buildArticleJsonLd({
   modifiedTime,
   authorName,
   image,
+  categoryName,
+  tags,
 }: {
   title: string
   description: string
@@ -90,19 +121,44 @@ export function buildArticleJsonLd({
   modifiedTime?: string
   authorName: string
   image?: string | null
+  categoryName?: string | null
+  tags?: string[]
 }) {
+  const url = buildCanonicalUrl(path)
+
   return {
     '@context': 'https://schema.org',
     '@type': 'BlogPosting',
     headline: title,
     description,
-    mainEntityOfPage: buildCanonicalUrl(path),
+    url,
+    mainEntityOfPage: url,
     datePublished: publishedTime,
     dateModified: modifiedTime || publishedTime,
     author: {
       '@type': 'Person',
       name: authorName,
     },
+    publisher: {
+      '@type': 'Organization',
+      name: SITE_NAME,
+      url: getSiteUrl(),
+    },
     image: image || undefined,
+    articleSection: categoryName || undefined,
+    keywords: tags && tags.length > 0 ? tags.join(', ') : undefined,
+  }
+}
+
+export function buildBreadcrumbJsonLd(items: Array<{ name: string; path: string }>) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: items.map((item, index) => ({
+      '@type': 'ListItem',
+      position: index + 1,
+      name: item.name,
+      item: buildCanonicalUrl(item.path),
+    })),
   }
 }
