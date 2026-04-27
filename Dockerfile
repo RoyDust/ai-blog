@@ -15,7 +15,7 @@ ENV HTTP_PROXY="" \
 RUN unset HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy all_proxy npm_config_proxy npm_config_https_proxy NPM_CONFIG_PROXY NPM_CONFIG_HTTPS_PROXY \
  && corepack disable \
  && npm config set registry https://registry.npmmirror.com/ \
- && npm install -g pnpm@10
+ && npm install -g pnpm@10 --registry=https://registry.npmmirror.com/
 RUN unset HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy all_proxy npm_config_proxy npm_config_https_proxy NPM_CONFIG_PROXY NPM_CONFIG_HTTPS_PROXY \
  && pnpm config set registry https://registry.npmmirror.com/ \
  && pnpm config set fetch-retries 5 \

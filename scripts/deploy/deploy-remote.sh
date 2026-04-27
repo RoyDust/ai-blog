@@ -65,8 +65,23 @@ clear_loopback_proxy_var "npm_config_https_proxy"
 clear_loopback_proxy_var "NPM_CONFIG_PROXY"
 clear_loopback_proxy_var "NPM_CONFIG_HTTPS_PROXY"
 
-docker compose -f "$COMPOSE_FILE" down --remove-orphans
-docker compose -f "$COMPOSE_FILE" up -d --build
+# Keep enough transient space for CI-uploaded image tarballs and Docker builds.
+# These prune only dangling images / build cache, not tagged images or volumes.
+docker builder prune -f >/dev/null 2>&1 || true
+docker image prune -f >/dev/null 2>&1 || true
+
+if [[ -f my-next-app.tar.gz ]]; then
+  echo "Loading prebuilt Docker image from release bundle" >&2
+  gzip -dc my-next-app.tar.gz | docker load
+  rm -f my-next-app.tar.gz
+else
+  # Fallback for manual deploys that do not upload a prebuilt image. Build before
+  # touching the running container so a network/build failure does not turn a
+  # deploy failure into an outage.
+  docker compose -f "$COMPOSE_FILE" build app
+fi
+
+docker compose -f "$COMPOSE_FILE" up -d --no-build --remove-orphans
 
 for attempt in {1..12}; do
   if docker compose -f "$COMPOSE_FILE" ps --status running | grep -q "app"; then

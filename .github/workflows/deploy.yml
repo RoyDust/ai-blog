@@ -78,6 +78,21 @@ jobs:
       - name: Build
         run: pnpm build
 
+      - name: Write production env file locally
+        run: |
+          cat > app.env <<'EOF'
+          ${{ secrets.APP_ENV_FILE }}
+          EOF
+
+      - name: Build production Docker image
+        run: |
+          set -euo pipefail
+          set -a
+          source app.env
+          set +a
+          docker compose -f docker-compose.prod.yml build app
+          docker save my-next-app:latest | gzip > my-next-app.tar.gz
+
       - name: Prepare release bundle
         run: |
           mkdir -p release
@@ -91,10 +106,13 @@ jobs:
             --exclude 'e2e/' \
             --exclude 'release/' \
             --exclude 'test-results/' \
+            --exclude 'app.env' \
+            --exclude 'my-next-app.tar.gz' \
             --exclude '.env' \
             --exclude '.env.local' \
             --exclude '.env.development' \
             --exclude '.env.test'
+          mv my-next-app.tar.gz release/my-next-app.tar.gz
           chmod +x release/scripts/deploy/deploy-remote.sh
 
       - name: Start SSH agent
@@ -116,12 +134,6 @@ jobs:
         run: |
           rsync -az --delete -e "ssh -p ${{ secrets.DEPLOY_PORT }}" \
             release/ "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:${{ secrets.DEPLOY_PATH }}/releases/${{ github.sha }}/"
-
-      - name: Write production env file locally
-        run: |
-          cat > app.env <<'EOF'
-          ${{ secrets.APP_ENV_FILE }}
-          EOF
 
       - name: Upload production env file
         run: |
