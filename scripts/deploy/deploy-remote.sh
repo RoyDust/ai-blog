@@ -65,8 +65,11 @@ clear_loopback_proxy_var "npm_config_https_proxy"
 clear_loopback_proxy_var "NPM_CONFIG_PROXY"
 clear_loopback_proxy_var "NPM_CONFIG_HTTPS_PROXY"
 
-docker compose -f "$COMPOSE_FILE" down --remove-orphans
-docker compose -f "$COMPOSE_FILE" up -d --build
+# Build before touching the running container so a network/build failure does not
+# turn a deploy failure into an outage. `up --no-build` then only activates an
+# image that was already built successfully.
+docker compose -f "$COMPOSE_FILE" build app
+docker compose -f "$COMPOSE_FILE" up -d --no-build --remove-orphans
 
 for attempt in {1..12}; do
   if docker compose -f "$COMPOSE_FILE" ps --status running | grep -q "app"; then
