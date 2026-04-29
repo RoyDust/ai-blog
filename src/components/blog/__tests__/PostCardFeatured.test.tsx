@@ -13,7 +13,7 @@ vi.mock("next/image", () => ({
 }));
 
 test("featured card exposes editorial lead-story framing", () => {
-  render(
+  const { container } = render(
     <PostCardFeatured
       post={{
         title: "Lead story",
@@ -22,11 +22,14 @@ test("featured card exposes editorial lead-story framing", () => {
         coverImage: "https://images.unsplash.com/photo-2",
         createdAt: "2026-03-01T00:00:00.000Z",
         category: { name: "Engineering", slug: "engineering" },
+        tags: [{ name: "Next", slug: "next" }],
       }}
     />,
   );
 
+  expect(container.querySelector("article")?.className).toContain("reader-feature-card");
   expect(screen.getByText("精选文章")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Lead story" })).toHaveAttribute("href", "/posts/lead-story");
-  expect(screen.getByText("Engineering")).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: /继续阅读/ })).toHaveAttribute("href", "/posts/lead-story");
+  expect(screen.getAllByText("Engineering").length).toBeGreaterThan(0);
 });

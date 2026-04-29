@@ -1,41 +1,65 @@
+.reader-prose pre {
+  background:
+    radial-gradient(circle at 14% 0%, color-mix(in oklab, var(--accent-sky) 16%, transparent), transparent 38%),
+    color-mix(in oklab, var(--reader-panel-elevated) 78%, black 22%);
+  box-shadow:
+    inset 0 1px 0 color-mix(in oklab, white 7%, transparent),
+    0 18px 48px color-mix(in oklab, black 24%, transparent);
+}
+
+.reader-prose pre code.hljs,
 .prose pre code.hljs {
   display: block;
   overflow-x: auto;
   border-radius: 0.75rem;
-  background: #0b1220;
-  color: #e5eef9;
+  background: transparent;
+  color: color-mix(in oklab, var(--foreground) 92%, white 8%);
   padding: 0.9rem 1rem;
 }
 
+.reader-prose .hljs-comment,
+.reader-prose .hljs-quote,
 .prose .hljs-comment,
 .prose .hljs-quote {
-  color: color-mix(in oklab, var(--text-muted) 86%, white 14%);
+  color: color-mix(in oklab, var(--text-muted) 82%, white 18%);
   font-style: italic;
 }
 
+.reader-prose .hljs-keyword,
+.reader-prose .hljs-selector-tag,
+.reader-prose .hljs-subst,
 .prose .hljs-keyword,
 .prose .hljs-selector-tag,
 .prose .hljs-subst {
-  color: color-mix(in oklab, var(--brand) 82%, white 18%);
+  color: color-mix(in oklab, var(--accent-sky) 84%, white 16%);
 }
 
+.reader-prose .hljs-string,
+.reader-prose .hljs-attr,
+.reader-prose .hljs-template-tag,
 .prose .hljs-string,
 .prose .hljs-attr,
 .prose .hljs-template-tag {
-  color: var(--success-foreground);
+  color: color-mix(in oklab, var(--accent-cyan) 86%, white 14%);
 }
 
+.reader-prose .hljs-number,
+.reader-prose .hljs-literal,
 .prose .hljs-number,
 .prose .hljs-literal {
-  color: var(--danger-foreground);
+  color: color-mix(in oklab, var(--accent-warm) 88%, white 12%);
 }
 
+.reader-prose .hljs-title,
+.reader-prose .hljs-function,
+.reader-prose .hljs-built_in,
 .prose .hljs-title,
 .prose .hljs-function,
 .prose .hljs-built_in {
-  color: var(--warning-foreground);
+  color: color-mix(in oklab, var(--accent-warm) 78%, var(--foreground) 22%);
 }
 
+.reader-prose pre code,
 .prose pre code {
   background: transparent;
   padding: 0;

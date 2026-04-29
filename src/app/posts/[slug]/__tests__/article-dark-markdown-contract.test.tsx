@@ -9,9 +9,11 @@ function readSource(relativePath: string) {
 test('article markdown prose uses semantic dark-mode tokens', () => {
   const source = readSource('src/app/(public)/posts/[slug]/page.tsx')
 
-  expect(source).toContain('prose-pre:bg-[var(--surface-elevated)]')
+  expect(source).toContain('reader-prose prose')
+  expect(source).toContain('prose-pre:bg-[color-mix(in_oklab,var(--reader-panel-elevated)_80%,black_20%)]')
   expect(source).toContain('prose-pre:text-[var(--foreground)]')
-  expect(source).toContain('prose-blockquote:border-[var(--border-strong)]')
+  expect(source).toContain('prose-pre:border-[var(--reader-border)]')
+  expect(source).toContain('prose-blockquote:border-[var(--accent-warm)]')
   expect(source).toContain('prose-blockquote:text-[var(--text-body)]')
   expect(source).toContain('prose-strong:text-[var(--foreground)]')
   expect(source).toContain('prose-li:marker:text-[var(--text-faint)]')
@@ -34,25 +36,28 @@ test('article markdown polish covers h6, table headers, quote rail and inline co
 
   expect(source).toContain('prose-h6:text-[var(--foreground)]')
   expect(source).toContain('prose-th:text-[var(--foreground)]')
-  expect(source).toContain('prose-th:bg-[var(--surface-contrast)]')
+  expect(source).toContain('prose-th:bg-[var(--reader-panel-muted)]')
   expect(source).toContain('prose-blockquote:border-l-[3px]')
-  expect(source).toContain('prose-code:bg-[color-mix(in_oklab,var(--surface-contrast)_82%,black_18%)]')
+  expect(source).toContain('prose-code:bg-[color-mix(in_oklab,var(--reader-panel-muted)_82%,black_18%)]')
   expect(source).toContain('prose-code:text-[color-mix(in_oklab,var(--foreground)_92%,white_8%)]')
 })
 
-test('highlight styles avoid hard-coded dark slate colors', () => {
+test('highlight styles use reader accent tokens instead of hard-coded slate hex colors', () => {
   const source = readSource('src/styles/code-highlight.css')
 
-  expect(source).toContain('#0b1220')
-  expect(source).toContain('#e5eef9')
+  expect(source).not.toContain('#0b1220')
+  expect(source).not.toContain('#e5eef9')
+  expect(source).toContain('var(--reader-panel-elevated)')
+  expect(source).toContain('var(--accent-warm)')
+  expect(source).toContain('var(--accent-cyan)')
   expect(source).toContain('var(--text-muted)')
 })
 
-test('code highlight keeps dark blocks even in light mode', () => {
+test('code highlight keeps tokenized night blocks even in light mode', () => {
   const source = readSource('src/styles/code-highlight.css')
 
-  expect(source).toContain('background: #0b1220')
-  expect(source).toContain('color: #e5eef9')
+  expect(source).toContain('color-mix(in oklab, var(--reader-panel-elevated) 78%, black 22%)')
+  expect(source).toContain('color: color-mix(in oklab, var(--foreground) 92%, white 8%)')
 })
 
 test('fenced code blocks reset inline code chip background', () => {
@@ -68,6 +73,6 @@ test('markdown article images do not use a gray backing wrapper', () => {
   const source = readSource('src/app/(public)/posts/[slug]/page.tsx')
 
   expect(source).toContain('img: ({ src, alt }) =>')
-  expect(source).not.toContain('className="theme-media my-8 block overflow-hidden rounded-xl"')
-  expect(source).toContain('className="my-8 block overflow-hidden rounded-xl"')
+  expect(source).not.toContain('bg-[var(--surface-alt)]')
+  expect(source).toContain('className="theme-media my-8 block overflow-hidden rounded-2xl border border-[var(--reader-border)]"')
 })

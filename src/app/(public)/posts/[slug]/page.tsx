@@ -190,7 +190,7 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
   ])
 
   return (
-    <div className="relative space-y-8 overflow-x-clip">
+    <div className="relative space-y-8 overflow-x-clip pb-16">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify([articleJsonLd, breadcrumbJsonLd]) }}
@@ -202,42 +202,38 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
         data-testid="toc-rail"
         className="hidden transition-[top,max-height,transform,box-shadow] duration-300 ease-out will-change-[top,transform] xl:fixed xl:block xl:w-64"
         style={{
-          left: "calc(50% + 490px + 120px)",
+          left: "calc(50% + 42rem)",
           top: "calc(var(--sidebar-sticky-top, 0px) + 1rem)",
         }}
       >
         <div
-          className="card-base overflow-auto p-4"
+          className="reader-panel overflow-auto p-5"
           style={{
             maxHeight: "calc(100vh - var(--sidebar-sticky-top, 0px) - 2rem)",
           }}
         >
-          <h3 className="mb-3 font-display text-lg font-semibold text-[var(--foreground)]">目录</h3>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">On this page</p>
+          <h3 className="mb-4 font-display text-lg font-semibold text-[var(--foreground)]">目录</h3>
           <ArticleToc headings={headings} />
         </div>
       </aside>
 
       <div className="mx-auto w-full max-w-[980px] xl:min-w-[880px]">
-        <article className="card-base overflow-hidden">
-          {post.coverImage ? (
-            <div className="theme-media relative h-64 w-full md:h-[28rem]">
-              <FallbackImage alt={post.title} className="theme-media-image object-cover" fill priority src={post.coverImage} />
-            </div>
-          ) : null}
+        <article className="reader-card overflow-hidden">
+          <ArticleHero
+            title={post.title}
+            excerpt={post.excerpt}
+            coverImage={post.coverImage}
+            category={post.category}
+            author={post.author}
+            createdAt={post.createdAt}
+            viewCount={post.viewCount}
+            readingTimeMinutes={post.readingTimeMinutes}
+          />
 
-          <div className="space-y-8 p-8">
-            <ArticleHero
-              title={post.title}
-              excerpt={post.excerpt}
-              category={post.category}
-              author={post.author}
-              createdAt={post.createdAt}
-              viewCount={post.viewCount}
-              readingTimeMinutes={post.readingTimeMinutes}
-            />
-
-            <div className="max-w-[var(--reading-max-width)]">
-              <article className="prose prose-zinc max-w-none prose-headings:font-display prose-headings:scroll-mt-28 prose-headings:mt-10 prose-headings:mb-4 prose-headings:text-[var(--foreground)] prose-h1:text-[var(--foreground)] prose-h2:text-[var(--foreground)] prose-h3:text-[var(--foreground)] prose-h4:text-[var(--foreground)] prose-h5:text-[var(--foreground)] prose-h6:text-[var(--foreground)] prose-p:my-5 prose-p:leading-8 prose-p:text-[var(--text-body)] prose-a:text-[var(--brand)] prose-a:no-underline hover:prose-a:underline prose-strong:text-[var(--foreground)] prose-li:text-[var(--text-body)] prose-li:marker:text-[var(--text-faint)] prose-blockquote:border-[var(--border-strong)] prose-blockquote:border-l-[3px] prose-blockquote:text-[var(--text-body)] prose-blockquote:font-medium prose-hr:border-[var(--border)] prose-img:rounded-xl prose-pre:rounded-xl prose-pre:border prose-pre:border-[var(--border)] prose-pre:bg-[var(--surface-elevated)] prose-pre:text-[var(--foreground)] prose-code:rounded prose-code:bg-[color-mix(in_oklab,var(--surface-contrast)_82%,black_18%)] prose-code:px-1.5 prose-code:py-0.5 prose-code:text-[color-mix(in_oklab,var(--foreground)_92%,white_8%)] prose-code:font-[var(--font-code)] prose-code:before:content-none prose-code:after:content-none prose-table:w-full prose-th:bg-[var(--surface-contrast)] prose-th:text-[var(--foreground)] prose-td:border-[var(--border)] prose-th:border-[var(--border)] dark:prose-invert">
+          <div className="px-5 py-8 sm:px-8 lg:px-10 lg:py-10">
+            <div className="mx-auto max-w-[var(--reading-max-width)]">
+              <div className="reader-prose prose prose-zinc max-w-none prose-headings:font-display prose-headings:scroll-mt-28 prose-headings:mt-12 prose-headings:mb-5 prose-headings:text-[var(--foreground)] prose-h1:text-[var(--foreground)] prose-h2:text-[var(--foreground)] prose-h3:text-[var(--foreground)] prose-h4:text-[var(--foreground)] prose-h5:text-[var(--foreground)] prose-h6:text-[var(--foreground)] prose-p:my-5 prose-p:leading-8 prose-p:text-[var(--text-body)] prose-a:text-[var(--accent-sky)] prose-a:no-underline hover:prose-a:text-[var(--foreground)] hover:prose-a:underline prose-strong:text-[var(--foreground)] prose-li:text-[var(--text-body)] prose-li:marker:text-[var(--text-faint)] prose-blockquote:rounded-2xl prose-blockquote:border-[var(--accent-warm)] prose-blockquote:border-l-[3px] prose-blockquote:bg-[color-mix(in_oklab,var(--accent-warm)_10%,transparent)] prose-blockquote:px-5 prose-blockquote:py-1 prose-blockquote:text-[var(--text-body)] prose-blockquote:font-medium prose-hr:border-[var(--reader-border)] prose-img:rounded-2xl prose-pre:rounded-2xl prose-pre:border prose-pre:border-[var(--reader-border)] prose-pre:bg-[color-mix(in_oklab,var(--reader-panel-elevated)_80%,black_20%)] prose-pre:text-[var(--foreground)] prose-code:rounded prose-code:bg-[color-mix(in_oklab,var(--reader-panel-muted)_82%,black_18%)] prose-code:px-1.5 prose-code:py-0.5 prose-code:text-[color-mix(in_oklab,var(--foreground)_92%,white_8%)] prose-code:font-[var(--font-code)] prose-code:before:content-none prose-code:after:content-none prose-table:w-full prose-th:bg-[var(--reader-panel-muted)] prose-th:text-[var(--foreground)] prose-td:border-[var(--reader-border)] prose-th:border-[var(--reader-border)] dark:prose-invert">
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
                   rehypePlugins={[rehypeHighlight]}
@@ -272,7 +268,7 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
                       if (!imageSrc) return null
 
                       return (
-                        <span className="my-8 block overflow-hidden rounded-xl">
+                        <span className="theme-media my-8 block overflow-hidden rounded-2xl border border-[var(--reader-border)]">
                           <FallbackImage
                             alt={alt ?? ''}
                             className="theme-media-image h-auto w-full"
@@ -288,27 +284,27 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
                 >
                   {post.content}
                 </ReactMarkdown>
-              </article>
-            </div>
-
-            {post.tags.length > 0 ? (
-              <div className="flex flex-wrap gap-2 border-t border-[var(--border)] pt-8">
-                {post.tags.map((tag: ArticlePost['tags'][number]) => (
-                  <Link
-                    className="ui-chip"
-                    href={`/tags/${tag.slug}`}
-                    key={tag.slug}
-                  >
-                    #{tag.name}
-                  </Link>
-                ))}
               </div>
-            ) : null}
+
+              {post.tags.length > 0 ? (
+                <div className="mt-10 flex flex-wrap gap-2 border-t border-[var(--reader-border)] pt-8">
+                  {post.tags.map((tag: ArticlePost['tags'][number]) => (
+                    <Link
+                      className="reader-chip"
+                      href={`/tags/${tag.slug}`}
+                      key={tag.slug}
+                    >
+                      #{tag.name}
+                    </Link>
+                  ))}
+                </div>
+              ) : null}
+            </div>
           </div>
         </article>
       </div>
 
-      <section className="card-base mx-auto w-full max-w-[980px] space-y-6 p-6 xl:min-w-[880px]">
+      <section className="reader-panel mx-auto w-full max-w-[980px] space-y-6 p-6 sm:p-8 xl:min-w-[880px]">
         <SectionHeader
           eyebrow="读后"
           title="读后操作"
@@ -320,7 +316,7 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
           <BookmarkButton excerpt={post.excerpt} initialBookmarked={false} slug={post.slug} title={post.title} />
           <ShareButton slug={post.slug} title={post.title} />
           <Link
-            className="ui-btn rounded-xl bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-white"
+            className="inline-flex h-11 items-center justify-center rounded-full border border-[color:color-mix(in_oklab,var(--accent-warm)_58%,var(--reader-border))] bg-[color-mix(in_oklab,var(--accent-warm)_88%,black_12%)] px-4 text-sm font-semibold text-[color-mix(in_oklab,var(--foreground)_12%,white_88%)] transition hover:bg-[var(--accent-warm)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
             href="#comments"
           >
             发表评论
@@ -330,35 +326,35 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
         <ArticleContinuation nextPost={nextPost} previousPost={previousPost} />
       </section>
 
-      <section className="card-base mx-auto w-full max-w-[980px] p-8 xl:min-w-[880px]" id="comments">
-        <h2 className="mb-6 font-display text-2xl font-bold text-[var(--foreground)]">评论 ({post._count.comments})</h2>
-        <p className="mb-6 text-sm text-[var(--muted)]">欢迎分享你的观点或补充事实和论据，但请避免人身攻击或侮辱他人。</p>
+      <section className="reader-panel mx-auto w-full max-w-[980px] p-6 sm:p-8 xl:min-w-[880px]" id="comments">
+        <h2 className="mb-3 font-display text-2xl font-bold text-[var(--foreground)]">评论 ({post._count.comments})</h2>
+        <p className="mb-6 text-sm leading-6 text-[var(--text-muted)]">欢迎分享你的观点或补充事实和论据，但请避免人身攻击或侮辱他人。</p>
 
         <CommentAuthGate postId={post.id} />
 
-        <div className="space-y-6">
+        <div className="mt-8 space-y-6">
           {post.comments.map((comment: ArticlePost['comments'][number]) => (
-            <div className="border-b border-[var(--border)] pb-6" key={comment.id}>
+            <div className="border-b border-[var(--reader-border)] pb-6 last:border-b-0 last:pb-0" key={comment.id}>
               <div className="mb-2 flex items-center gap-3">
                 {comment.author?.image ? (
                   <FallbackImage alt={getCommentLabel(comment)} className="theme-media-image rounded-full object-cover" height={32} src={comment.author.image} width={32} />
                 ) : (
-                  <div className="h-8 w-8 rounded-full bg-[var(--surface-alt)]" />
+                  <div className="h-8 w-8 rounded-full border border-[var(--reader-border)] bg-[var(--reader-panel-muted)]" />
                 )}
                 <span className="font-medium text-[var(--foreground)]">{getCommentLabel(comment)}</span>
-                <span className="text-xs text-[var(--muted)]">{new Date(comment.createdAt).toLocaleDateString("zh-CN")}</span>
+                <span className="text-xs text-[var(--text-muted)]">{new Date(comment.createdAt).toLocaleDateString("zh-CN")}</span>
               </div>
-              <p className="ml-11 text-[var(--foreground)]/90">{comment.content}</p>
+              <p className="ml-11 leading-7 text-[var(--text-body)]">{comment.content}</p>
 
               {comment.replies.length > 0 && (
                 <div className="ml-11 mt-4 space-y-4">
                   {comment.replies.map((reply: ArticlePost['comments'][number]['replies'][number]) => (
-                    <div className="border-l-2 border-[var(--border)] pl-4" key={reply.id}>
+                    <div className="border-l-2 border-[var(--reader-border)] pl-4" key={reply.id}>
                       <div className="mb-1 flex items-center gap-2">
                         <span className="font-medium text-[var(--foreground)]">{getCommentLabel(reply)}</span>
-                        <span className="text-xs text-[var(--muted)]">{new Date(reply.createdAt).toLocaleDateString("zh-CN")}</span>
+                        <span className="text-xs text-[var(--text-muted)]">{new Date(reply.createdAt).toLocaleDateString("zh-CN")}</span>
                       </div>
-                      <p className="text-[var(--foreground)]/90">{reply.content}</p>
+                      <p className="leading-7 text-[var(--text-body)]">{reply.content}</p>
                     </div>
                   ))}
                 </div>
@@ -366,7 +362,7 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
             </div>
           ))}
 
-          {post.comments.length === 0 && <p className="py-4 text-center text-[var(--muted)]">暂无评论</p>}
+          {post.comments.length === 0 && <p className="rounded-2xl border border-dashed border-[var(--reader-border)] py-8 text-center text-sm text-[var(--text-muted)]">暂无评论</p>}
         </div>
       </section>
     </div>

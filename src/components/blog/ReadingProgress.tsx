@@ -28,7 +28,7 @@ export function ReadingProgress() {
       role="progressbar"
     >
       <div
-        className="h-full bg-[var(--primary)] transition-[width] duration-150 ease-out"
+        className="h-full bg-[var(--accent-warm)] shadow-[0_0_18px_color-mix(in_oklab,var(--accent-warm)_60%,transparent)] transition-[width] duration-150 ease-out"
         style={{ width: `${progress}%` }}
       />
     </div>

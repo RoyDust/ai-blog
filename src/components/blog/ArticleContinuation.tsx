@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { ArrowLeft, ArrowRight } from 'lucide-react'
 
 interface AdjacentPost {
   slug: string
@@ -15,10 +16,14 @@ function AdjacentLink({ label, href, title, align = 'left' }: { label: string; h
   return (
     <Link
       href={href}
-      className={`group rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 transition hover:border-[color:color-mix(in_srgb,var(--primary)_35%,var(--border))] hover:bg-[var(--surface-alt)] ${align === 'right' ? 'text-right' : ''}`}
+      className={`reader-feed-card group flex min-h-32 flex-col justify-between gap-5 p-5 ${align === 'right' ? 'items-end text-right' : ''}`}
     >
-      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted)]">{label}</p>
-      <h3 className="mt-3 text-lg font-bold text-[var(--foreground)] transition group-hover:text-[var(--primary)]">{title}</h3>
+      <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+        {align === 'left' ? <ArrowLeft className="h-4 w-4" /> : null}
+        {label}
+        {align === 'right' ? <ArrowRight className="h-4 w-4" /> : null}
+      </p>
+      <h3 className="text-lg font-bold leading-snug text-[var(--foreground)] transition-colors group-hover:text-[var(--accent-warm)]">{title}</h3>
     </Link>
   )
 }
@@ -39,13 +44,13 @@ export function ArticleContinuation({ previousPost, nextPost }: ArticleContinuat
         {previousPost ? (
           <AdjacentLink href={`/posts/${previousPost.slug}`} label="上一篇" title={previousPost.title} />
         ) : (
-          <div className="rounded-2xl border border-dashed border-[var(--border)] p-5 text-sm text-[var(--muted)]">这是当前时间线中的第一篇文章。</div>
+          <div className="rounded-[calc(var(--radius-large)+0.125rem)] border border-dashed border-[var(--reader-border)] p-5 text-sm leading-6 text-[var(--text-muted)]">这是当前时间线中的第一篇文章。</div>
         )}
 
         {nextPost ? (
           <AdjacentLink href={`/posts/${nextPost.slug}`} label="下一篇" title={nextPost.title} align="right" />
         ) : (
-          <div className="rounded-2xl border border-dashed border-[var(--border)] p-5 text-sm text-[var(--muted)] md:text-right">这是当前时间线中的最新一篇文章。</div>
+          <div className="rounded-[calc(var(--radius-large)+0.125rem)] border border-dashed border-[var(--reader-border)] p-5 text-sm leading-6 text-[var(--text-muted)] md:text-right">这是当前时间线中的最新一篇文章。</div>
         )}
       </div>
     </div>

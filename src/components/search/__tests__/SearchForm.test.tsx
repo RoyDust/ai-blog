@@ -19,7 +19,7 @@ test('renders a GET search form targeting the search page', () => {
   expect(button.className).toContain('bg-[var(--primary)]')
 })
 
-test('renders a navbar variant that expands on focus and submits with native search semantics', () => {
+test('renders a navbar variant with wide desktop search and native search semantics', () => {
   const { container } = render(<SearchForm compact appearance="navbar" />)
 
   const form = container.querySelector('form')
@@ -29,7 +29,7 @@ test('renders a navbar variant that expands on focus and submits with native sea
   expect(form?.getAttribute('method')).toBe('get')
   expect(form?.getAttribute('action')).toBe('/search')
   expect(input.getAttribute('type')).toBe('search')
-  expect(input.className).toContain('lg:w-40')
-  expect(input.className).toContain('lg:focus:w-64')
+  expect(input.className).toContain('lg:w-72')
+  expect(input.className).toContain('xl:w-80')
   expect(button).toBeNull()
 })

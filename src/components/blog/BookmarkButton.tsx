@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { Bookmark } from 'lucide-react'
 import { addBookmark, isBookmarked, removeBookmark } from '@/lib/bookmark-store'
 
 interface BookmarkButtonProps {
@@ -42,26 +43,13 @@ export function BookmarkButton({ slug, initialBookmarked, title, excerpt }: Book
       onClick={handleBookmark}
       disabled={loading}
       aria-label={bookmarked ? '已收藏' : '收藏文章'}
-      className={`ui-btn flex items-center gap-2 px-4 py-2 transition-colors ${
+      className={`inline-flex h-11 items-center gap-2 rounded-full border px-4 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-60 ${
         bookmarked
-          ? 'bg-[var(--primary)] text-white'
-          : 'border border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)] hover:bg-[var(--surface-alt)]'
+          ? 'border-[color:color-mix(in_oklab,var(--accent-sky)_55%,var(--reader-border))] bg-[color-mix(in_oklab,var(--accent-sky)_22%,var(--reader-panel))] text-[var(--foreground)]'
+          : 'border-[var(--reader-border)] bg-[color-mix(in_oklab,var(--reader-panel-elevated)_82%,transparent)] text-[var(--text-body)] hover:border-[var(--reader-border-strong)] hover:bg-[var(--reader-panel-elevated)] hover:text-[var(--foreground)]'
       }`}
     >
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        fill={bookmarked ? 'currentColor' : 'none'}
-        viewBox="0 0 24 24"
-        strokeWidth={1.5}
-        stroke="currentColor"
-        className="h-5 w-5"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z"
-        />
-      </svg>
+      <Bookmark className="h-5 w-5" fill={bookmarked ? 'currentColor' : 'none'} />
       <span>{bookmarked ? '已收藏' : '收藏'}</span>
     </button>
   )

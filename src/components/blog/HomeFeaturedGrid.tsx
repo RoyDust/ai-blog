@@ -23,15 +23,37 @@ interface HomeFeaturedGridProps {
 
 export function HomeFeaturedGrid({ leadPost, secondaryPosts }: HomeFeaturedGridProps) {
   if (!leadPost) {
-    return null;
+    return (
+      <section className="reader-section">
+        <SectionHeader
+          eyebrow="精选"
+          title="本期主推"
+          description="精选位正在整理中，先从最新文章继续阅读。"
+          variant="reader"
+        />
+
+        <div className="reader-feature-card p-6 md:p-8">
+          <div className="max-w-2xl space-y-3">
+            <p className="ui-kicker text-[var(--accent-warm)]">Coming Soon</p>
+            <h3 id="home-featured-title" className="font-display text-2xl font-bold text-[var(--foreground)]">
+              夜读书架还在编选
+            </h3>
+            <p className="text-sm leading-7 text-[var(--text-body)]">
+              当前没有置顶精选，页面会继续展示最新发布与主题索引，保持阅读入口完整。
+            </p>
+          </div>
+        </div>
+      </section>
+    );
   }
 
   return (
-    <section className="ui-section">
+    <section className="reader-section">
       <SectionHeader
         eyebrow="精选"
-        title="精选文章"
-        description="先读一篇主推，再延伸到两篇相关内容，保持首页阅读节奏。"
+        title="本期主推"
+        description="像夜间书桌上的第一本打开笔记，先读一篇重点，再顺手延伸到相邻主题。"
+        variant="reader"
       />
 
       <div className="space-y-4">

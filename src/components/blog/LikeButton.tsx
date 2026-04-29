@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { Heart } from 'lucide-react'
 import { getOrCreateBrowserId } from '@/lib/browser-id'
 
 interface LikeButtonProps {
@@ -74,26 +75,13 @@ export function LikeButton({ slug, initialLiked, initialCount }: LikeButtonProps
       onClick={handleLike}
       disabled={loading}
       aria-label={liked ? '取消点赞' : '点赞'}
-      className={`ui-btn flex items-center gap-2 px-4 py-2 transition-colors ${
+      className={`inline-flex h-11 items-center gap-2 rounded-full border px-4 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-60 ${
         liked
-          ? 'bg-rose-500 text-white'
-          : 'border border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)] hover:bg-[var(--surface-alt)]'
+          ? 'border-[color:color-mix(in_oklab,var(--accent-warm)_60%,var(--reader-border))] bg-[color-mix(in_oklab,var(--accent-warm)_24%,var(--reader-panel))] text-[var(--foreground)]'
+          : 'border-[var(--reader-border)] bg-[color-mix(in_oklab,var(--reader-panel-elevated)_82%,transparent)] text-[var(--text-body)] hover:border-[var(--reader-border-strong)] hover:bg-[var(--reader-panel-elevated)] hover:text-[var(--foreground)]'
       }`}
     >
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        fill={liked ? 'currentColor' : 'none'}
-        viewBox="0 0 24 24"
-        strokeWidth={1.5}
-        stroke="currentColor"
-        className="h-5 w-5"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z"
-        />
-      </svg>
+      <Heart className="h-5 w-5" fill={liked ? 'currentColor' : 'none'} />
       <span>{count}</span>
     </button>
   )

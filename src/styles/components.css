@@ -13,7 +13,7 @@
     inset: 0;
     pointer-events: none;
     background: radial-gradient(120% 72% at 100% 0, var(--post-card-text-accent-glow), transparent 64%);
-    opacity: 0.95;
+    opacity: 0.48;
     z-index: 0;
   }
 
@@ -66,6 +66,234 @@
     @apply inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium;
     background: var(--btn-regular-bg);
     color: var(--btn-content);
+  }
+
+  .reader-shell {
+    position: relative;
+    isolation: isolate;
+    background:
+      linear-gradient(
+        180deg,
+        transparent 0,
+        color-mix(in oklab, var(--page-bg) 12%, transparent) 18rem,
+        color-mix(in oklab, var(--page-bg) 62%, transparent) 40rem,
+        var(--page-bg) 62rem
+      ),
+      url("/images/night-reader-global-bg.svg") top center / max(100vw, 108rem) auto no-repeat,
+      var(--page-bg);
+    background-color: var(--page-bg);
+  }
+
+  .reader-shell::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background:
+      linear-gradient(90deg, rgb(255 255 255 / 0.035) 1px, transparent 1px),
+      linear-gradient(180deg, rgb(255 255 255 / 0.028) 1px, transparent 1px);
+    background-size: 72px 72px;
+    mask-image: linear-gradient(180deg, black 0%, transparent 58%);
+    opacity: 0.18;
+    z-index: -1;
+  }
+
+  :root.dark .reader-shell {
+    background:
+      linear-gradient(
+        180deg,
+        transparent 0,
+        color-mix(in oklab, var(--page-bg) 16%, transparent) 18rem,
+        color-mix(in oklab, var(--page-bg) 68%, transparent) 42rem,
+        var(--page-bg) 64rem
+      ),
+      url("/images/night-reader-global-bg.svg") top center / max(100vw, 108rem) auto no-repeat,
+      var(--page-bg);
+    background-color: var(--page-bg);
+  }
+
+  .reader-banner {
+    position: relative;
+    overflow: hidden;
+    min-height: var(--reader-banner-height);
+    border: 1px solid var(--reader-border);
+    border-radius: calc(var(--radius-large) + 0.75rem);
+    background: var(--reader-banner-gradient);
+    box-shadow: var(--reader-shadow);
+  }
+
+  .reader-banner::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(circle at 16% 24%, rgb(255 255 255 / 0.16), transparent 0.22rem),
+      radial-gradient(circle at 74% 18%, rgb(255 255 255 / 0.12), transparent 0.18rem),
+      radial-gradient(circle at 82% 58%, rgb(242 182 109 / 0.18), transparent 0.2rem),
+      linear-gradient(180deg, transparent 0%, rgb(2 6 23 / 0.16) 100%);
+    opacity: 0.8;
+  }
+
+  .reader-nav {
+    overflow: visible;
+    border: 1px solid var(--reader-border);
+    border-radius: 999px;
+    background: color-mix(in oklab, var(--reader-panel) 78%, transparent);
+    box-shadow: var(--reader-shadow);
+    backdrop-filter: blur(18px) saturate(1.08);
+  }
+
+  .reader-panel,
+  .reader-card,
+  .reader-feed-card,
+  .reader-feature-card {
+    position: relative;
+    isolation: isolate;
+    border: 1px solid var(--reader-border);
+    background: var(--reader-panel);
+    box-shadow: var(--reader-shadow);
+    backdrop-filter: blur(18px) saturate(1.08);
+  }
+
+  .reader-panel,
+  .reader-card {
+    border-radius: calc(var(--radius-large) + 0.25rem);
+  }
+
+  .reader-panel {
+    overflow: hidden;
+  }
+
+  .reader-card,
+  .reader-feed-card,
+  .reader-feature-card {
+    transition:
+      border-color 180ms ease,
+      background-color 180ms ease,
+      box-shadow 220ms ease,
+      transform 220ms ease;
+  }
+
+  .reader-card:hover,
+  .reader-feed-card:hover,
+  .reader-feature-card:hover {
+    border-color: var(--reader-border-strong);
+    box-shadow: var(--reader-shadow-hover);
+  }
+
+  .reader-feed-card {
+    overflow: hidden;
+    border-radius: calc(var(--radius-large) + 0.125rem);
+    background: color-mix(in oklab, var(--reader-panel) 92%, transparent);
+  }
+
+  .reader-feed-card:hover {
+    transform: translateY(-1px);
+  }
+
+  .reader-feature-card {
+    overflow: hidden;
+    border-radius: calc(var(--radius-large) + 0.5rem);
+    background:
+      radial-gradient(80% 120% at 90% 10%, color-mix(in oklab, var(--accent-sky) 13%, transparent), transparent 62%),
+      var(--reader-panel-elevated);
+  }
+
+  .reader-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    border: 1px solid color-mix(in oklab, var(--accent-sky) 24%, var(--reader-border));
+    border-radius: 999px;
+    background: color-mix(in oklab, var(--accent-sky) 12%, transparent);
+    color: color-mix(in oklab, var(--accent-sky) 76%, var(--foreground) 24%);
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1;
+    padding: 0.45rem 0.7rem;
+    transition:
+      background-color 180ms ease,
+      border-color 180ms ease,
+      color 180ms ease;
+  }
+
+  .reader-chip:hover {
+    border-color: color-mix(in oklab, var(--accent-sky) 46%, var(--reader-border));
+    background: color-mix(in oklab, var(--accent-sky) 18%, transparent);
+    color: var(--foreground);
+  }
+
+  .reader-link {
+    color: color-mix(in oklab, var(--accent-sky) 82%, var(--foreground) 18%);
+    text-decoration: none;
+    transition:
+      color 180ms ease,
+      opacity 180ms ease;
+  }
+
+  .reader-link:hover {
+    color: var(--foreground);
+  }
+
+  .reader-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    color: var(--text-body);
+    transition:
+      background-color 180ms ease,
+      border-color 180ms ease,
+      color 180ms ease;
+  }
+
+  .reader-icon-btn:hover {
+    border-color: var(--reader-border);
+    background: color-mix(in oklab, var(--reader-panel-elevated) 82%, transparent);
+    color: var(--foreground);
+  }
+
+  .reader-icon-btn:focus-visible,
+  .reader-link:focus-visible,
+  .reader-chip:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 45%, transparent);
+  }
+
+  .reader-section {
+    display: grid;
+    gap: clamp(1rem, 2vw, 1.5rem);
+  }
+
+  .reader-skeleton {
+    position: relative;
+    overflow: hidden;
+    background: color-mix(in oklab, var(--foreground) 8%, transparent);
+  }
+
+  .reader-skeleton::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, color-mix(in oklab, var(--foreground) 10%, transparent), transparent);
+    animation: reader-skeleton-shimmer 1.4s ease-in-out infinite;
+  }
+
+  @keyframes reader-skeleton-shimmer {
+    to {
+      transform: translateX(100%);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .reader-skeleton::after {
+      animation: none;
+    }
   }
 
   .ui-section {

@@ -1,36 +1,49 @@
 :root {
   --hue: 250;
   --radius-large: 1rem;
-  --page-width: 75rem;
-  --content-max-width: 72rem;
+  --page-width: 111rem;
+  --content-max-width: 100%;
   --reading-max-width: 48rem;
-  --rail-width: 18rem;
-  --layout-rail-gap: clamp(1.5rem, 2vw, 2rem);
+  --rail-width: 20.5rem;
+  --layout-rail-gap: clamp(1rem, 1.45vw, 1.5rem);
   --sidebar-profile-padding: 1.25rem;
-  --section-gap: clamp(2.5rem, 4vw, 4.5rem);
+  --section-gap: clamp(1.25rem, 2vw, 2rem);
   --hero-media-ratio: 1.35;
   --content-delay: 150ms;
+  --reader-nav-height: 4rem;
+  --reader-nav-offset: clamp(0.75rem, 1.5vw, 1.25rem);
+  --reader-banner-height: clamp(14rem, 28vw, 23rem);
+  --reader-content-lift: clamp(1.25rem, 4vw, 3rem);
 
-  --page-bg: oklch(0.975 0.002 260);
-  --card-bg: oklch(0.995 0.001 260);
-  --surface-elevated: oklch(1 0 0);
-  --surface-alt: oklch(0.955 0.003 260);
-  --surface-contrast: oklch(0.93 0.004 260);
+  --page-bg: oklch(0.965 0.012 248);
+  --card-bg: oklch(0.985 0.008 248);
+  --surface-elevated: oklch(0.995 0.006 248);
+  --surface-alt: oklch(0.94 0.014 248);
+  --surface-contrast: oklch(0.9 0.018 248);
   --float-panel-bg: color-mix(in oklab, var(--card-bg) 92%, white);
+  --reader-bg: oklch(0.955 0.014 248);
+  --reader-panel: color-mix(in oklab, var(--card-bg) 92%, var(--surface-alt) 8%);
+  --reader-panel-elevated: color-mix(in oklab, var(--card-bg) 96%, white 4%);
+  --reader-panel-muted: color-mix(in oklab, var(--surface-alt) 88%, var(--card-bg) 12%);
 
-  --foreground: oklch(0.22 0.01 260);
-  --text-body: oklch(0.36 0.01 260);
-  --text-muted: oklch(0.52 0.01 260);
-  --text-faint: oklch(0.64 0.01 260);
+  --foreground: oklch(0.22 0.018 248);
+  --text-body: oklch(0.37 0.018 248);
+  --text-muted: oklch(0.53 0.016 248);
+  --text-faint: oklch(0.66 0.014 248);
 
-  --primary: oklch(0.62 0.1 var(--hue));
+  --primary: oklch(0.62 0.095 252);
   --brand: var(--primary);
-  --brand-strong: oklch(0.56 0.11 var(--hue));
-  --ring: oklch(0.7 0.1 var(--hue));
+  --brand-strong: oklch(0.54 0.11 252);
+  --ring: oklch(0.7 0.09 252);
+  --accent-warm: oklch(0.72 0.12 76);
+  --accent-cyan: oklch(0.67 0.075 205);
+  --accent-sky: oklch(0.68 0.1 252);
 
   --border: color-mix(in oklab, var(--foreground) 10%, transparent);
   --border-strong: color-mix(in oklab, var(--foreground) 16%, transparent);
   --line-color: color-mix(in oklab, var(--foreground) 12%, transparent);
+  --reader-border: color-mix(in oklab, var(--foreground) 11%, transparent);
+  --reader-border-strong: color-mix(in oklab, var(--foreground) 18%, transparent);
 
   --btn-content: color-mix(in oklab, var(--brand) 76%, var(--foreground) 24%);
   --btn-regular-bg: color-mix(in oklab, var(--surface-alt) 88%, var(--brand) 12%);
@@ -57,11 +70,23 @@
   --shadow-card-hover:
     0 1px 2px rgba(15, 23, 42, 0.03),
     0 18px 44px rgba(15, 23, 42, 0.08);
+  --reader-shadow:
+    0 1px 1px rgb(15 23 42 / 0.04),
+    0 18px 46px rgb(15 23 42 / 0.08);
+  --reader-shadow-hover:
+    0 1px 1px rgb(15 23 42 / 0.05),
+    0 24px 62px rgb(15 23 42 / 0.12);
 
   --image-filter: saturate(0.98) contrast(1.02);
   --image-filter-hover: saturate(1.02) contrast(1.04);
-  --ambient-primary: rgb(99 102 241 / 0.08);
-  --ambient-secondary: rgb(245 158 11 / 0.07);
+  --ambient-primary: rgb(84 132 194 / 0.1);
+  --ambient-secondary: rgb(242 182 109 / 0.08);
+  --reader-banner-gradient:
+    linear-gradient(180deg, rgb(8 16 30 / 0.04) 0%, color-mix(in oklab, var(--page-bg) 70%, transparent) 82%, var(--page-bg) 100%),
+    radial-gradient(72% 92% at 72% 18%, rgb(242 182 109 / 0.18), transparent 62%),
+    radial-gradient(70% 82% at 18% 8%, rgb(90 143 214 / 0.22), transparent 64%),
+    linear-gradient(135deg, oklch(0.66 0.045 248) 0%, oklch(0.78 0.025 230) 48%, oklch(0.7 0.055 72) 100%);
+  --reader-media-overlay: linear-gradient(180deg, transparent 4%, rgb(15 23 42 / 0.16) 100%);
   --post-card-text-accent-line: color-mix(in oklab, var(--brand) 64%, var(--foreground) 36%);
   --post-card-text-accent-divider: color-mix(in oklab, var(--line-color) 84%, transparent);
   --post-card-text-accent-label: color-mix(in oklab, var(--brand) 72%, var(--text-body) 28%);
@@ -73,26 +98,35 @@
 }
 
 :root.dark {
-  --page-bg: oklch(0.16 0.004 260);
-  --card-bg: oklch(0.205 0.004 260);
-  --surface-elevated: oklch(0.24 0.004 260);
-  --surface-alt: oklch(0.25 0.005 260);
-  --surface-contrast: oklch(0.31 0.005 260);
+  --page-bg: oklch(0.12 0.024 255);
+  --card-bg: oklch(0.205 0.024 255);
+  --surface-elevated: oklch(0.255 0.026 255);
+  --surface-alt: oklch(0.275 0.024 255);
+  --surface-contrast: oklch(0.335 0.028 255);
   --float-panel-bg: color-mix(in oklab, var(--card-bg) 88%, black);
+  --reader-bg: oklch(0.105 0.028 255);
+  --reader-panel: rgb(9 20 35 / 0.68);
+  --reader-panel-elevated: rgb(10 23 40 / 0.76);
+  --reader-panel-muted: rgb(17 32 50 / 0.62);
 
-  --foreground: oklch(0.93 0.006 260);
-  --text-body: oklch(0.8 0.006 260);
-  --text-muted: oklch(0.67 0.005 260);
-  --text-faint: oklch(0.55 0.004 260);
+  --foreground: oklch(0.94 0.012 255);
+  --text-body: oklch(0.78 0.018 255);
+  --text-muted: oklch(0.66 0.018 255);
+  --text-faint: oklch(0.52 0.018 255);
 
-  --primary: oklch(0.74 0.065 var(--hue));
+  --primary: oklch(0.73 0.105 252);
   --brand: var(--primary);
-  --brand-strong: oklch(0.82 0.078 var(--hue));
-  --ring: oklch(0.76 0.07 var(--hue));
+  --brand-strong: oklch(0.8 0.115 252);
+  --ring: oklch(0.75 0.095 252);
+  --accent-warm: oklch(0.78 0.13 76);
+  --accent-cyan: oklch(0.72 0.085 205);
+  --accent-sky: oklch(0.72 0.115 252);
 
   --border: rgba(255, 255, 255, 0.08);
   --border-strong: rgba(255, 255, 255, 0.14);
   --line-color: rgba(255, 255, 255, 0.1);
+  --reader-border: rgb(163 184 216 / 0.22);
+  --reader-border-strong: rgb(174 199 236 / 0.34);
 
   --btn-content: color-mix(in oklab, var(--brand) 64%, white 36%);
   --btn-regular-bg: color-mix(in oklab, var(--surface-alt) 82%, var(--brand) 18%);
@@ -119,11 +153,23 @@
   --shadow-card-hover:
     0 1px 0 rgba(255, 255, 255, 0.05),
     0 28px 64px rgba(0, 0, 0, 0.34);
+  --reader-shadow:
+    0 1px 0 rgb(255 255 255 / 0.04),
+    0 22px 54px rgb(2 8 23 / 0.38);
+  --reader-shadow-hover:
+    0 1px 0 rgb(255 255 255 / 0.06),
+    0 28px 70px rgb(2 8 23 / 0.48);
 
-  --image-filter: brightness(0.84) saturate(0.86) contrast(1.08);
-  --image-filter-hover: brightness(0.9) saturate(0.92) contrast(1.04);
-  --ambient-primary: rgb(99 102 241 / 0.09);
-  --ambient-secondary: rgb(168 85 247 / 0.06);
+  --image-filter: brightness(0.82) saturate(0.86) contrast(1.08);
+  --image-filter-hover: brightness(0.9) saturate(0.94) contrast(1.05);
+  --ambient-primary: rgb(79 133 204 / 0.16);
+  --ambient-secondary: rgb(242 182 109 / 0.08);
+  --reader-banner-gradient:
+    linear-gradient(180deg, rgb(4 10 20 / 0.06) 0%, rgb(4 10 20 / 0.24) 54%, var(--page-bg) 100%),
+    radial-gradient(68% 88% at 78% 18%, rgb(242 182 109 / 0.28), transparent 58%),
+    radial-gradient(60% 70% at 18% 10%, rgb(87 143 216 / 0.3), transparent 62%),
+    linear-gradient(135deg, oklch(0.22 0.04 255) 0%, oklch(0.18 0.035 250) 46%, oklch(0.28 0.045 76) 100%);
+  --reader-media-overlay: linear-gradient(180deg, rgb(2 6 23 / 0.02) 0%, rgb(2 6 23 / 0.42) 100%);
   --post-card-text-accent-line: color-mix(in oklab, var(--brand) 66%, white 34%);
   --post-card-text-accent-divider: color-mix(in oklab, var(--line-color) 76%, transparent);
   --post-card-text-accent-label: color-mix(in oklab, var(--brand) 70%, white 30%);

@@ -28,7 +28,7 @@ export default async function TagsPage() {
   const totalPosts = tags.reduce((sum: number, tag: TagDirectoryEntry) => sum + tag._count.posts, 0)
 
   return (
-    <div className="space-y-6">
+    <div className="reader-section">
       <TaxonomyHero
         eyebrow="Tags"
         title="标签专题"
@@ -41,7 +41,7 @@ export default async function TagsPage() {
       />
 
       {hasLoadError ? (
-        <section role="alert" className="card-base border border-red-200 bg-red-50 p-8 text-sm text-red-700">
+        <section role="alert" className="reader-panel border-[var(--danger-border)] bg-[var(--danger-surface)] p-8 text-sm text-[var(--danger-foreground)]">
           标签专题加载失败，请稍后重试。
         </section>
       ) : tags.length > 0 ? (
@@ -59,7 +59,7 @@ export default async function TagsPage() {
           ))}
         </section>
       ) : (
-        <section className="card-base p-8 text-sm text-[var(--muted)]">当前还没有可展示的标签专题。</section>
+        <section className="reader-panel p-8 text-sm text-[var(--text-muted)]">当前还没有可展示的标签专题。</section>
       )}
     </div>
   )

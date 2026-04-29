@@ -120,7 +120,9 @@ describe('article experience', () => {
     expect(screen.getByRole('link', { name: '上一篇 Older Post' })).toHaveAttribute('href', '/posts/older-post')
     expect(screen.getByRole('link', { name: '下一篇 Newer Post' })).toHaveAttribute('href', '/posts/newer-post')
     expect(findMany).not.toHaveBeenCalled()
-    expect(container.querySelector('.prose')?.className).toContain('prose-pre:rounded-xl')
+    expect(container.querySelector('.reader-banner')).toBeInTheDocument()
+    expect(container.querySelector('.reader-card')).toBeInTheDocument()
+    expect(container.querySelector('.reader-prose')?.className).toContain('prose-pre:rounded-2xl')
     expect(container.querySelector('pre code')?.className).toContain('hljs')
     expect(screen.getByTestId('toc-rail').className).toContain('xl:fixed')
     expect(screen.getByTestId('toc-rail').className).toContain('hidden')
@@ -164,5 +166,6 @@ describe('article experience', () => {
 
     const tocCard = tocRail.firstElementChild
     expect(tocCard?.getAttribute('style')).toContain('max-height: calc(100vh - var(--sidebar-sticky-top, 0px) - 2rem)')
+    expect(tocCard?.className).toContain('reader-panel')
   })
 })

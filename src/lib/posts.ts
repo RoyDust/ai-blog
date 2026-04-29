@@ -12,6 +12,7 @@ export interface PublicPostRecord {
   coverImage: string | null
   featured: boolean
   createdAt: Date
+  readingTimeMinutes: number
   viewCount: number
   author: {
     id: string
@@ -46,6 +47,7 @@ export function getPublicPostSelect(options: { includeTagColor?: boolean } = {})
     coverImage: true,
     featured: true,
     createdAt: true,
+    readingTimeMinutes: true,
     viewCount: true,
     author: {
       select: { id: true, name: true, image: true },

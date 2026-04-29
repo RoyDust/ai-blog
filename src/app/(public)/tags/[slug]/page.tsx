@@ -47,7 +47,7 @@ export default async function TagPage({
   const isOutOfRangePage = tag.posts.length === 0 && tag.pagination.totalPages > 0 && tag.pagination.page > tag.pagination.totalPages
 
   return (
-    <div className="space-y-6">
+    <div className="reader-section">
       <TaxonomyHero
         eyebrow="Tag"
         title={`#${tag.name}`}
@@ -67,17 +67,17 @@ export default async function TagPage({
           posts={tag.posts}
         />
       ) : isOutOfRangePage ? (
-        <section className="card-base p-8 text-sm text-[var(--muted)]">
+        <section className="reader-panel p-8 text-sm text-[var(--text-muted)]">
           当前页没有内容。你可以返回
-          <Link href={`/tags/${tag.slug}?page=1`} className="mx-1 font-medium text-[var(--primary)]">
+          <Link href={`/tags/${tag.slug}?page=1`} className="reader-link mx-1 font-medium">
             返回第一页
           </Link>
           查看这个标签下更早的文章。
         </section>
       ) : (
-        <section className="card-base p-8 text-sm text-[var(--muted)]">
+        <section className="reader-panel p-8 text-sm text-[var(--text-muted)]">
           这个标签下暂时还没有已发布文章。你可以先返回
-          <Link href="/posts" className="mx-1 font-medium text-[var(--primary)]">
+          <Link href="/posts" className="reader-link mx-1 font-medium">
             全部文章
           </Link>
           继续浏览其他主题。

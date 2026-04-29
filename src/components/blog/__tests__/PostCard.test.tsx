@@ -3,14 +3,19 @@ import React from "react";
 import { describe, expect, test, vi } from "vitest";
 import { PostCard } from "../PostCard";
 
-const imageMock = vi.fn(() => null);
+type ImageMockProps = React.ComponentProps<"img"> & { fill?: boolean; quality?: number };
+
+const imageMock = vi.fn((props: ImageMockProps) => {
+  void props;
+  return null;
+});
 
 vi.mock("next/image", () => ({
   default: (props: React.ComponentProps<"img"> & { fill?: boolean; quality?: number }) => imageMock(props),
 }));
 
 describe("PostCard", () => {
-  test("renders an editorial card without duplicate chevron CTA treatment", () => {
+  test("renders a Night Reader feed card with cover media and a compact CTA", () => {
     imageMock.mockClear();
 
     render(
@@ -32,10 +37,11 @@ describe("PostCard", () => {
     );
 
     const card = screen.getByRole("article");
-    expect(card.className).toContain("md:grid-cols-[minmax(0,1fr)_15rem]");
-    expect(screen.queryByTestId("post-card-chevron")).not.toBeInTheDocument();
+    expect(card.className).toContain("reader-feed-card");
+    expect(card.className).toContain("md:grid-cols-[10.75rem_minmax(0,1fr)_2.75rem]");
+    expect(screen.getByLabelText("继续阅读 Post with cover")).toHaveAttribute("href", "/posts/post-with-cover");
     expect(screen.getByText("Excerpt").className).toContain("line-clamp-3");
-    expect(imageMock.mock.calls[0][0].sizes).toBe("(max-width: 768px) 100vw, 15rem");
+    expect(imageMock.mock.calls[0]?.[0].sizes).toBe("(max-width: 768px) 100vw, 11rem");
   });
 
   test("renders a dedicated text-only variant without media filler", () => {
@@ -60,9 +66,10 @@ describe("PostCard", () => {
     );
 
     const card = screen.getByRole("article");
+    expect(card.className).toContain("reader-feed-card");
     expect(card.className).toContain("post-card--text-only");
-    expect(card.className).not.toContain("md:grid-cols-[minmax(0,1fr)_15rem]");
-    expect(screen.queryByLabelText("Post without cover")).not.toBeInTheDocument();
+    expect(card.className).not.toContain("md:grid-cols-[10.75rem_minmax(0,1fr)_2.75rem]");
+    expect(screen.queryByLabelText("阅读 Post without cover")).not.toBeInTheDocument();
     expect(screen.getByTestId("post-card-text-accent")).toBeInTheDocument();
     expect(imageMock).not.toHaveBeenCalled();
   });

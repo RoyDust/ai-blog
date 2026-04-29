@@ -35,6 +35,8 @@ describe("archives page", () => {
     const { container } = render(ui as React.ReactElement);
 
     expect(screen.getByRole("heading", { name: "文章归档" })).toBeInTheDocument();
+    expect(container.querySelector(".reader-banner")).toBeInTheDocument();
+    expect(container.querySelector(".reader-feed-card")).toBeInTheDocument();
 
     const links = container.querySelectorAll('a[href^="/posts/"]');
     expect(links[0]).toHaveTextContent("New Post");

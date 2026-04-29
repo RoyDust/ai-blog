@@ -74,6 +74,8 @@ describe('taxonomy routes', () => {
     render(ui as React.ReactElement)
 
     expect(screen.getByRole('heading', { name: '分类专题' })).toBeInTheDocument()
+    expect(document.querySelector('.reader-banner')).toBeInTheDocument()
+    expect(document.querySelector('.reader-card')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: '前端' })).toHaveAttribute('href', '/categories/frontend')
   })
 
@@ -84,6 +86,8 @@ describe('taxonomy routes', () => {
     render(ui as React.ReactElement)
 
     expect(screen.getByRole('heading', { name: '标签专题' })).toBeInTheDocument()
+    expect(document.querySelector('.reader-banner')).toBeInTheDocument()
+    expect(document.querySelector('.reader-card')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: '#Next.js' })).toHaveAttribute('href', '/tags/nextjs')
   })
 
@@ -94,6 +98,8 @@ describe('taxonomy routes', () => {
     render(ui as React.ReactElement)
 
     expect(screen.getByRole('heading', { name: '前端' })).toBeInTheDocument()
+    expect(document.querySelector('.reader-banner')).toBeInTheDocument()
+    expect(document.querySelector('.reader-section')).toBeInTheDocument()
     expect(screen.getAllByRole('link', { name: 'Build Better UI' })[0]).toHaveAttribute('href', '/posts/build-better-ui')
   })
 
@@ -104,6 +110,8 @@ describe('taxonomy routes', () => {
     render(ui as React.ReactElement)
 
     expect(screen.getByRole('heading', { name: '#Next.js' })).toBeInTheDocument()
+    expect(document.querySelector('.reader-banner')).toBeInTheDocument()
+    expect(document.querySelector('.reader-section')).toBeInTheDocument()
     expect(screen.getAllByRole('link', { name: 'Next Patterns' })[0]).toHaveAttribute('href', '/posts/next-patterns')
   })
 

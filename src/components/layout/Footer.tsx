@@ -1,21 +1,46 @@
 import Link from "next/link";
+import { Archive, BookOpenText, FolderOpen, Rss } from "lucide-react";
+
+const footerLinks = [
+  { href: "/posts", label: "文章", icon: BookOpenText },
+  { href: "/categories", label: "分类", icon: FolderOpen },
+  { href: "/archives", label: "归档", icon: Archive },
+  { href: "/rss.xml", label: "RSS 订阅", icon: Rss, external: true },
+];
 
 export function Footer() {
   return (
     <footer id="footer" className="onload-animation mt-auto">
       <div className="mx-auto max-w-[var(--page-width)] py-8">
-        <div className="card-base p-6 md:p-7">
-          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-            <div className="space-y-2">
-              <p className="ui-kicker">My Blog</p>
-              <p className="text-75 text-sm leading-7">围绕技术主题、实践记录和长期积累组织阅读入口。</p>
+        <div className="reader-panel p-5 md:p-6">
+          <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+            <div className="max-w-xl space-y-2">
+              <p className="ui-kicker text-[var(--accent-warm)]">My Blog</p>
+              <p className="text-75 text-sm leading-7">
+                夜读模式下整理前端、工程实践和部署笔记，让长期积累有清晰入口。
+              </p>
             </div>
-            <div className="text-75 flex flex-wrap items-center gap-4 text-sm">
-              <Link href="/posts">文章</Link>
-              <Link href="/categories">分类</Link>
-              <Link href="/archives">归档</Link>
-              <a href="/rss.xml">RSS 订阅</a>
-            </div>
+            <nav aria-label="Footer" className="flex flex-wrap items-center gap-2">
+              {footerLinks.map((link) => {
+                const Icon = link.icon;
+
+                if (link.external) {
+                  return (
+                    <a key={link.href} className="reader-chip" href={link.href}>
+                      <Icon className="h-3.5 w-3.5" />
+                      {link.label}
+                    </a>
+                  );
+                }
+
+                return (
+                  <Link key={link.href} className="reader-chip" href={link.href}>
+                    <Icon className="h-3.5 w-3.5" />
+                    {link.label}
+                  </Link>
+                );
+              })}
+            </nav>
           </div>
         </div>
       </div>

@@ -14,8 +14,11 @@ describe("app shell", () => {
     const sidebarRail = container.querySelector('[data-testid="sidebar-rail"]');
     const shellColumns = mainContent?.parentElement;
 
-    expect(screen.getByRole("navigation")).toBeInTheDocument();
+    expect(container.firstElementChild?.className).toContain("reader-shell");
+    expect(container.querySelector('[data-testid="reader-ambient-banner"]')).not.toBeInTheDocument();
+    expect(screen.getByRole("navigation", { name: "Primary" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "跳到主要内容" })).toHaveAttribute("href", "#main-content");
+    expect(screen.getByRole("link", { name: "跳到主要内容" }).className).toContain("reader-panel");
     expect(container.querySelector("main > div")?.className).toContain("max-w-[var(--content-max-width)]");
     expect(sidebarRail).toBeInTheDocument();
     expect(mainContent).toBeInTheDocument();

@@ -48,14 +48,17 @@ describe('home reader flow', () => {
     postFindMany.mockResolvedValue([createPost(1), createPost(2), createPost(3), createPost(4)])
     postCount.mockResolvedValue(4)
     categoryFindMany.mockResolvedValue([])
-    tagFindMany.mockResolvedValue([])
+    tagFindMany.mockResolvedValue([
+      { id: 'tag-1', name: 'Next.js', slug: 'nextjs', color: null, _count: { posts: 14 } },
+      { id: 'tag-2', name: '工程化', slug: 'engineering', color: null, _count: { posts: 12 } },
+    ])
   })
 
   afterEach(() => {
     cleanup()
   })
 
-  test('home shows intro row, curated featured grid, and latest feed hierarchy', async () => {
+  test('home shows reference-style feature card, latest feed, and right reader rail', async () => {
     postFindMany
       .mockResolvedValueOnce([createPost(4), createPost(5), createPost(6), createPost(1)])
       .mockResolvedValueOnce([
@@ -68,32 +71,29 @@ describe('home reader flow', () => {
     const ui = await Home()
     render(ui as React.ReactElement)
 
-    expect(screen.getByText('精选')).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: '精选文章' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: '最新发布' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: '继续探索' })).toBeInTheDocument()
+    expect(screen.getAllByRole('heading', { name: 'Test Post 1' }).length).toBeGreaterThan(0)
+    expect(screen.getAllByRole('button', { name: /查看精选文章/ })).toHaveLength(3)
+    expect(postFindMany.mock.calls[1]?.[0]?.take).toBe(4)
+    expect(screen.getByRole('heading', { name: '最新文章' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '目录预览' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '最近更新' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '热门标签' })).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: '核心特性' })).not.toBeInTheDocument()
-    const featuredSection = screen.getByRole('heading', { name: '精选文章' }).closest('section')
-    const latestSection = screen.getByRole('heading', { name: '最新发布' }).closest('section')
+    const latestSection = screen.getByRole('heading', { name: '最新文章' }).closest('section')
 
-    expect(featuredSection).not.toBeNull()
     expect(latestSection).not.toBeNull()
 
-    const featured = within(featuredSection!)
     const latest = within(latestSection!)
 
-    expect(featured.getByRole('heading', { name: 'Test Post 1' })).toBeInTheDocument()
-    expect(featured.getByRole('heading', { name: 'Test Post 2' })).toBeInTheDocument()
-    expect(featured.getByRole('heading', { name: 'Test Post 3' })).toBeInTheDocument()
-    expect(featured.queryByRole('heading', { name: 'Test Post 4' })).not.toBeInTheDocument()
-
     expect(latest.getByRole('heading', { name: 'Test Post 4' })).toBeInTheDocument()
+    expect(latest.getByRole('heading', { name: 'Test Post 5' })).toBeInTheDocument()
+    expect(latest.getByRole('heading', { name: 'Test Post 6' })).toBeInTheDocument()
     expect(latest.queryByRole('heading', { name: 'Test Post 1' })).not.toBeInTheDocument()
     expect(latest.queryByRole('heading', { name: 'Test Post 2' })).not.toBeInTheDocument()
     expect(latest.queryByRole('heading', { name: 'Test Post 3' })).not.toBeInTheDocument()
   }, 15_000)
 
-  test('home featured section degrades gracefully when only two curated posts exist', async () => {
+  test('home keeps featured banner and latest feed when only two curated posts exist', async () => {
     postFindMany
       .mockResolvedValueOnce([createPost(3), createPost(4)])
       .mockResolvedValueOnce([{ ...createPost(1), featured: true }, { ...createPost(2), featured: true }])
@@ -103,20 +103,14 @@ describe('home reader flow', () => {
     const ui = await Home()
     render(ui as React.ReactElement)
 
-    const featuredSection = screen.getByRole('heading', { name: '精选文章' }).closest('section')
+    expect(screen.getAllByRole('heading', { name: 'Test Post 1' }).length).toBeGreaterThan(0)
+    expect(screen.getByRole('heading', { name: '最新文章' })).toBeInTheDocument()
 
-    expect(featuredSection).not.toBeNull()
-
-    const featured = within(featuredSection!)
-
-    expect(featured.getByRole('heading', { name: 'Test Post 1' })).toBeInTheDocument()
-    expect(featured.getByRole('heading', { name: 'Test Post 2' })).toBeInTheDocument()
-    expect(featured.queryByRole('heading', { name: 'Test Post 3' })).not.toBeInTheDocument()
-
-    const secondaryGrid = screen.getByTestId('home-featured-secondary-grid')
-    expect(secondaryGrid).toHaveClass('md:grid-cols-2')
-    expect(screen.getAllByTestId('home-featured-secondary-item')).toHaveLength(1)
-    expect(screen.getByRole('heading', { name: '最新发布' })).toBeInTheDocument()
+    const latestSection = screen.getByRole('heading', { name: '最新文章' }).closest('section')
+    expect(latestSection).not.toBeNull()
+    const latest = within(latestSection!)
+    expect(latest.getByRole('heading', { name: 'Test Post 3' })).toBeInTheDocument()
+    expect(latest.getByRole('heading', { name: 'Test Post 4' })).toBeInTheDocument()
   })
 
   test('home surfaces load failures instead of silently pretending content is empty', async () => {
@@ -129,7 +123,7 @@ describe('home reader flow', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('首页部分内容加载失败，请稍后重试。')
   })
 
-  test('home hides featured grid when there are no featured posts', async () => {
+  test('home keeps a coherent featured fallback when there are no featured posts', async () => {
     postFindMany.mockResolvedValueOnce([createPost(1), createPost(2), createPost(3)])
     postFindMany.mockResolvedValueOnce([])
     postCount.mockResolvedValueOnce(3)
@@ -138,6 +132,20 @@ describe('home reader flow', () => {
     const ui = await Home()
     render(ui as React.ReactElement)
 
-    expect(screen.queryByRole('heading', { name: '精选文章' })).not.toBeInTheDocument()
+    expect(screen.getAllByRole('heading', { name: 'Test Post 1' }).length).toBeGreaterThan(0)
+    expect(screen.getByRole('heading', { name: '最新文章' })).toBeInTheDocument()
+  })
+
+  test('home latest feed keeps an empty reader panel when no latest posts remain', async () => {
+    postFindMany.mockResolvedValueOnce([createPost(1)])
+    postFindMany.mockResolvedValueOnce([{ ...createPost(1), featured: true }])
+    postCount.mockResolvedValueOnce(1)
+
+    const { default: Home } = await import('../(public)/page')
+    const ui = await Home()
+    render(ui as React.ReactElement)
+
+    expect(screen.getByRole('heading', { name: '最新文章' })).toBeInTheDocument()
+    expect(screen.getByText('最新文章区会保留当前位置，避免首页在空数据时突然塌陷。')).toBeInTheDocument()
   })
 })

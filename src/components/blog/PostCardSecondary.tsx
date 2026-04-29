@@ -1,6 +1,8 @@
 import Link from "next/link";
-import { BookOpen } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { FallbackImage } from "@/components/ui";
+import { cn } from "@/lib/cn";
+import { PostMeta } from "./PostMeta";
 
 interface PostCardSecondaryProps {
   post: {
@@ -17,73 +19,65 @@ export function PostCardSecondary({ post }: PostCardSecondaryProps) {
   const hasCover = Boolean(post.coverImage);
 
   return (
-    <article className="card-base relative h-52 overflow-hidden">
+    <article
+      className={cn(
+        "reader-card group relative min-h-52 overflow-hidden",
+        hasCover ? "theme-media" : "post-card--text-only p-5",
+      )}
+    >
       {hasCover ? (
         <>
           <FallbackImage
             alt={post.title}
-            className="object-cover"
+            className="theme-media-image object-cover"
             fill
             loading="lazy"
             quality={75}
             sizes="(max-width: 768px) 100vw, 50vw"
             src={post.coverImage!}
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent" />
+          <div className="absolute inset-0" style={{ background: "var(--reader-media-overlay)" }} />
         </>
-      ) : (
-        <div
-          className="absolute inset-0"
-          style={{ background: "linear-gradient(135deg, color-mix(in srgb, var(--surface-alt) 80%, var(--border)) 0%, color-mix(in srgb, var(--surface-alt) 40%, var(--border)) 100%)" }}
-        >
-          <svg
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0 h-full w-full opacity-[0.04]"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <filter id="pcs-noise">
-              <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch" />
-              <feColorMatrix type="saturate" values="0" />
-            </filter>
-            <rect width="100%" height="100%" filter="url(#pcs-noise)" />
-          </svg>
-          <BookOpen
-            aria-hidden="true"
-            className="pointer-events-none absolute right-5 top-1/2 -translate-y-1/2 text-(--text-base) opacity-[0.07]"
-            size={72}
-            strokeWidth={1}
-          />
-        </div>
-      )}
+      ) : null}
 
-      <div className="absolute inset-0 flex flex-col justify-end p-5">
-        {post.category && (
-          <span
-            className={`mb-2 w-fit rounded-full px-2.5 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wider ${
-              hasCover
-                ? "bg-white/20 text-white backdrop-blur-sm"
-                : "bg-(--surface) text-50"
-            }`}
-          >
-            {post.category.name}
-          </span>
+      <div
+        className={cn(
+          "flex min-h-52 flex-col justify-end gap-3",
+          hasCover ? "absolute inset-0 p-5" : "relative min-h-40",
         )}
+      >
+        <PostMeta
+          category={post.category}
+          className={hasCover ? "text-[color:color-mix(in_oklab,var(--foreground)_8%,white_92%)]" : undefined}
+          hideTagsForMobile
+          publishedAt={post.createdAt}
+          tags={[]}
+          variant="compact"
+        />
         <Link href={`/posts/${post.slug}`}>
           <h3
-            className={`line-clamp-2 text-base font-bold leading-snug transition ${
+            className={cn(
+              "line-clamp-2 text-base font-bold leading-snug transition-colors",
               hasCover
-                ? "text-white hover:text-white/80"
-                : "text-90 hover:text-(--primary)"
-            }`}
+                ? "text-[color:color-mix(in_oklab,var(--foreground)_8%,white_92%)] hover:opacity-85"
+                : "text-90 hover:text-[color:color-mix(in_oklab,var(--accent-sky)_82%,var(--foreground)_18%)]",
+            )}
           >
             {post.title}
           </h3>
         </Link>
-        <span
-          className={`mt-2 text-xs ${hasCover ? "text-white/60" : "text-50"}`}
+        <Link
+          href={`/posts/${post.slug}`}
+          aria-label={`继续阅读 ${post.title}`}
+          className={cn(
+            "inline-flex h-8 w-8 items-center justify-center rounded-full border transition",
+            hasCover
+              ? "border-[color:color-mix(in_oklab,var(--foreground)_18%,transparent)] bg-[color:color-mix(in_oklab,var(--reader-panel)_48%,transparent)] text-[color:color-mix(in_oklab,var(--foreground)_8%,white_92%)] backdrop-blur-md hover:bg-[color:color-mix(in_oklab,var(--reader-panel)_68%,transparent)]"
+              : "border-[var(--reader-border)] text-[var(--text-body)] hover:border-[var(--reader-border-strong)] hover:text-[var(--foreground)]",
+          )}
         >
-          {new Date(post.createdAt).toLocaleDateString("zh-CN")}
-        </span>
+          <ChevronRight aria-hidden="true" className="h-4 w-4" />
+        </Link>
       </div>
     </article>
   );

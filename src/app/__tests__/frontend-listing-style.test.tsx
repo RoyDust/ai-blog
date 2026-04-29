@@ -24,20 +24,21 @@ const post = {
   _count: { comments: 1, likes: 2 },
 };
 
-test("post card uses blogt3 card shell", () => {
+test("post card uses the Night Reader feed shell", () => {
   const { container } = render(<PostCard post={post} />);
-  expect(container.firstElementChild?.className).toContain("card-base");
+  expect(container.firstElementChild?.className).toContain("reader-feed-card");
 });
 
-test("post card renders chevron inline after title and clamps copy", () => {
+test("post card renders cover media, compact CTA, and clamps copy", () => {
   const { container } = render(<PostCard post={{ ...post, coverImage: "http://project.roydust.top/demo.png" }} />);
 
   const article = container.querySelector("article");
   const excerpt = container.querySelector("p.text-75");
-  const coverLink = container.querySelector('a[aria-label="Test title"]');
+  const coverLink = container.querySelector('a[aria-label="阅读 Test title"]');
+  const ctaLink = container.querySelector('a[aria-label="继续阅读 Test title"]');
 
-  expect(article?.className).toContain("md:grid-cols-[minmax(0,1fr)_15rem]");
+  expect(article?.className).toContain("md:grid-cols-[10.75rem_minmax(0,1fr)_2.75rem]");
   expect(excerpt?.className).toContain("line-clamp-3");
   expect(coverLink?.className).toContain("theme-media");
-  expect(container.querySelector('[data-testid="post-card-chevron"]')).toBeNull();
+  expect(ctaLink?.className).toContain("reader-icon-btn");
 });

@@ -74,6 +74,7 @@ describe('PostsListingClient', () => {
     )
 
     expect(screen.getAllByTestId('post-card-skeleton')).toHaveLength(6)
+    expect(screen.getAllByTestId('post-card-skeleton')[0]).toHaveClass('reader-feed-card')
     expect(
       screen
         .getAllByTestId('post-card-skeleton')
@@ -137,6 +138,7 @@ describe('PostsListingClient', () => {
     })
 
     expect(screen.getAllByText('精选文章')).toHaveLength(2)
+    expect(screen.getByTestId('posts-listing')).toHaveClass('reader-section')
 
     const animatedCards = ['1', '2', '3', '4'].map((id) =>
       screen.getByRole('heading', { name: `Post ${id}` }).closest('.onload-animation'),
