@@ -511,4 +511,36 @@ describe("ai authoring", () => {
     }));
     expect(result).toMatchObject({ featured: true });
   });
+
+  test("publishes an AI draft after automatic review approval", async () => {
+    updatePost.mockResolvedValueOnce({
+      id: "post-1",
+      slug: "ai-writing",
+      published: true,
+      category: { slug: "engineering" },
+      tags: [{ slug: "nextjs" }],
+    });
+
+    const { publishAiDraftPost } = await import("../ai-authoring");
+    const result = await publishAiDraftPost({ postId: "post-1" });
+
+    expect(updatePost).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: "post-1", deletedAt: null, published: false },
+      data: expect.objectContaining({
+        published: true,
+        publishedAt: expect.any(Date),
+      }),
+      select: expect.objectContaining({
+        slug: true,
+        published: true,
+      }),
+    }));
+    expect(revalidatePublicContent).toHaveBeenCalledWith({
+      slug: "ai-writing",
+      categorySlug: "engineering",
+      tagSlugs: ["nextjs"],
+    });
+    expect(result).toMatchObject({ published: true, slug: "ai-writing" });
+  });
+
 });

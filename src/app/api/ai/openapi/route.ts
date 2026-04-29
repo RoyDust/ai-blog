@@ -13,7 +13,7 @@ export async function GET() {
     info: {
       title: "My Blog AI Authoring API",
       version: AI_AUTHORING_VERSION,
-      description: "Machine-facing endpoints for AI clients to read taxonomy and upsert unpublished Markdown drafts.",
+      description: "Machine-facing endpoints for AI clients to read taxonomy and upsert Markdown drafts that can auto-publish after AI review.",
     },
     servers: [{ url: process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000" }],
     components: {
@@ -83,6 +83,17 @@ export async function GET() {
               type: "array",
               items: { type: "string" },
             },
+            published: { type: "boolean" },
+          },
+        },
+        AiAutoReview: {
+          type: ["object", "null"],
+          properties: {
+            verdict: { type: "string", enum: ["ready", "needs-work"] },
+            score: { type: "number" },
+            summary: { type: "string" },
+            published: { type: "boolean" },
+            error: { type: "string" },
           },
         },
         AiMetaResponse: {
@@ -102,12 +113,16 @@ export async function GET() {
                     "titleMaxLength",
                     "supportsMarkdown",
                     "publishRequiresHumanReview",
+                    "autoPublishRequiresAiReview",
+                    "autoPublishMinimumScore",
                   ],
                   properties: {
                     excerptMaxLength: { type: "number" },
                     titleMaxLength: { type: "number" },
                     supportsMarkdown: { type: "boolean" },
                     publishRequiresHumanReview: { type: "boolean" },
+                    autoPublishRequiresAiReview: { type: "boolean" },
+                    autoPublishMinimumScore: { type: "number" },
                   },
                 },
                 categories: {
@@ -140,11 +155,12 @@ export async function GET() {
         },
         AiDraftUpsertResponse: {
           type: "object",
-          required: ["success", "operation", "data"],
+          required: ["success", "operation", "data"] ,
           properties: {
             success: { type: "boolean", enum: [true] },
             operation: { type: "string", enum: ["created", "updated"] },
             data: { $ref: "#/components/schemas/AiDraft" },
+            autoReview: { $ref: "#/components/schemas/AiAutoReview" },
           },
         },
         AiDraftResponse: {

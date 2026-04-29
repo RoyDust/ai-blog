@@ -4,7 +4,9 @@ export const AI_AUTHORING_LIMITS = {
   excerptMaxLength: 320,
   titleMaxLength: 160,
   supportsMarkdown: true,
-  publishRequiresHumanReview: true,
+  publishRequiresHumanReview: false,
+  autoPublishRequiresAiReview: true,
+  autoPublishMinimumScore: 85,
 } as const;
 
 export const AI_AUTHORING_PATTERNS = {
