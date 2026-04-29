@@ -39,9 +39,9 @@ describe("POST /api/cron/ai-news", () => {
     expect(runDailyAiNews).not.toHaveBeenCalled()
   })
 
-  test("runs daily AI news as the oldest admin user", async () => {
+  test("queues daily AI news as the oldest admin user without waiting for generation", async () => {
     findFirstUser.mockResolvedValueOnce({ id: "admin-1" })
-    runDailyAiNews.mockResolvedValueOnce({ operation: "created", published: true, post: { id: "post-1" } })
+    runDailyAiNews.mockReturnValueOnce(new Promise(() => undefined))
 
     const { POST } = await import("../route")
     const response = await POST(
@@ -52,14 +52,14 @@ describe("POST /api/cron/ai-news", () => {
     )
     const payload = await response.json()
 
-    expect(response.status).toBe(200)
+    expect(response.status).toBe(202)
     expect(findFirstUser).toHaveBeenCalledWith({
       where: { role: "ADMIN" },
       select: { id: true },
       orderBy: { createdAt: "asc" },
     })
     expect(runDailyAiNews).toHaveBeenCalledWith({ authorId: "admin-1", date: new Date("2026-04-29T00:00:00.000Z") })
-    expect(payload).toEqual({ success: true, data: { operation: "created", published: true, post: { id: "post-1" } } })
+    expect(payload).toEqual({ success: true, data: { operation: "queued", date: "2026-04-29" } })
   })
 
   test("fails closed when the cron secret is not configured", async () => {

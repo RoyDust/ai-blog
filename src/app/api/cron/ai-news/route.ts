@@ -4,6 +4,8 @@ import { runDailyAiNews } from "@/lib/ai-news"
 import { toErrorResponse, UnauthorizedError, ValidationError } from "@/lib/api-errors"
 import { prisma } from "@/lib/prisma"
 
+const activeRuns = new Set<string>()
+
 function requireCronSecret(request: Request) {
   const configuredSecret = process.env.AI_NEWS_CRON_SECRET?.trim()
   if (!configuredSecret) {
@@ -29,6 +31,28 @@ function parseRunDate(request: Request) {
   return date
 }
 
+function formatDateId(date: Date) {
+  return date.toISOString().slice(0, 10)
+}
+
+function queueDailyAiNewsRun({ authorId, date }: { authorId: string; date: Date }) {
+  const dateId = formatDateId(date)
+  if (activeRuns.has(dateId)) {
+    return { operation: "already-queued" as const, date: dateId }
+  }
+
+  activeRuns.add(dateId)
+  void runDailyAiNews({ authorId, date })
+    .catch((error) => {
+      console.error("Daily AI news cron failed:", error)
+    })
+    .finally(() => {
+      activeRuns.delete(dateId)
+    })
+
+  return { operation: "queued" as const, date: dateId }
+}
+
 export async function POST(request: Request) {
   try {
     requireCronSecret(request)
@@ -43,8 +67,8 @@ export async function POST(request: Request) {
       throw new Error("No admin author available for daily AI news")
     }
 
-    const result = await runDailyAiNews({ authorId: author.id, date: parseRunDate(request) })
-    return NextResponse.json({ success: true, data: result })
+    const result = queueDailyAiNewsRun({ authorId: author.id, date: parseRunDate(request) })
+    return NextResponse.json({ success: true, data: result }, { status: 202 })
   } catch (error) {
     return toErrorResponse(error, error instanceof Error ? error.message : "Daily AI news cron failed")
   }
