@@ -26,6 +26,7 @@ interface Post {
 interface SearchResultState {
   query: string;
   posts: Post[];
+  aiSummary: string | null;
   error: string | null;
 }
 
@@ -36,6 +37,7 @@ function SearchContent() {
   const [result, setResult] = useState<SearchResultState>({
     query: "",
     posts: [],
+    aiSummary: null,
     error: null,
   });
 
@@ -46,7 +48,7 @@ function SearchContent() {
 
     let alive = true;
 
-    fetch(`/api/search?q=${encodeURIComponent(query)}`)
+    fetch(`/api/search?q=${encodeURIComponent(query)}&ai=1`)
       .then(async (res) => {
         const data = await res.json();
         if (!res.ok) {
@@ -56,12 +58,12 @@ function SearchContent() {
       })
       .then((data) => {
         if (alive && data.success) {
-          setResult({ query, posts: data.data, error: null });
+          setResult({ query, posts: data.data, aiSummary: typeof data.ai?.summary === "string" ? data.ai.summary : null, error: null });
         }
       })
       .catch((requestError: Error) => {
         if (alive) {
-          setResult({ query, posts: [], error: requestError.message });
+          setResult({ query, posts: [], aiSummary: null, error: requestError.message });
         }
       });
 
@@ -72,6 +74,7 @@ function SearchContent() {
 
   const isResolvedForQuery = result.query === query;
   const visiblePosts = hasQuery && isResolvedForQuery ? result.posts : [];
+  const visibleAiSummary = hasQuery && isResolvedForQuery ? result.aiSummary : null;
   const visibleError = hasQuery && isResolvedForQuery ? result.error : null;
   const visibleLoading = hasQuery && !isResolvedForQuery;
 
@@ -87,6 +90,13 @@ function SearchContent() {
 
       {visibleLoading ? <p className="py-12 text-center text-[var(--muted)]">正在搜索...</p> : null}
       {visibleError ? <p className="py-12 text-center text-[var(--danger-foreground)]">{visibleError}</p> : null}
+
+      {!visibleLoading && !visibleError && visibleAiSummary ? (
+        <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
+          <p className="text-sm font-semibold text-[var(--foreground)]">AI 搜索摘要</p>
+          <p className="mt-2 text-sm leading-7 text-[var(--muted)]">{visibleAiSummary}</p>
+        </section>
+      ) : null}
 
       {!visibleLoading && !visibleError && hasQuery && visiblePosts.length > 0 ? (
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">

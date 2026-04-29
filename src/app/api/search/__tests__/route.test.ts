@@ -151,4 +151,53 @@ describe('GET /api/search', () => {
     expect(payload).toEqual({ error: 'Internal server error' })
     expect(JSON.stringify(payload)).not.toMatch(/database exploded|internals/i)
   })
+
+  test('adds AI search summary and reorders candidates when requested', async () => {
+    process.env.DASHSCOPE_API_KEY = 'test-api-key'
+    findMany.mockResolvedValue([
+      {
+        id: 'p1',
+        title: 'React 搜索体验优化',
+        slug: 'react-search-experience',
+        excerpt: '统一搜索入口与排序',
+        content: '正文',
+        coverImage: null,
+        createdAt: new Date('2026-03-08T00:00:00Z'),
+        author: { id: 'u1', name: 'Ada', image: null },
+        category: { name: '前端', slug: 'frontend' },
+        tags: [{ name: 'React', slug: 'react' }],
+        _count: { comments: 0, likes: 0 },
+      },
+      {
+        id: 'p2',
+        title: 'Next.js 深度搜索实践',
+        slug: 'nextjs-deep-search',
+        excerpt: '用模型总结搜索结果',
+        content: '正文',
+        coverImage: null,
+        createdAt: new Date('2026-03-09T00:00:00Z'),
+        author: { id: 'u2', name: 'Grace', image: null },
+        category: { name: 'AI', slug: 'ai' },
+        tags: [{ name: 'Next.js', slug: 'nextjs' }],
+        _count: { comments: 0, likes: 0 },
+      },
+    ])
+    count.mockResolvedValue(2)
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        choices: [{ message: { content: JSON.stringify({ summary: 'AI 建议优先阅读 Next.js 深度搜索实践。', rankedSlugs: ['nextjs-deep-search', 'react-search-experience'] }) } }],
+      }),
+    }))
+
+    const { GET } = await import('../route')
+    const response = await GET(new Request('http://localhost/api/search?q=搜索&ai=1'))
+    const payload = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(payload.ai).toMatchObject({ summary: 'AI 建议优先阅读 Next.js 深度搜索实践。' })
+    expect(payload.data.map((item: { slug: string }) => item.slug)).toEqual(['nextjs-deep-search', 'react-search-experience'])
+    expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/chat/completions'), expect.objectContaining({ method: 'POST' }))
+  })
+
 })
