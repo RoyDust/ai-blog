@@ -83,6 +83,9 @@ jobs:
           cat > app.env <<'EOF'
           ${{ secrets.APP_ENV_FILE }}
           EOF
+          cat >> app.env <<'EOF'
+          AI_NEWS_CRON_SECRET="${{ secrets.AI_NEWS_CRON_SECRET }}"
+          EOF
 
       - name: Build production Docker image
         run: |

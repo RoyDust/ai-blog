@@ -25,3 +25,9 @@
 - RSS/Atom 解析、去重、AI 生成 JSON 解析均有单元测试覆盖。
 - 审稿 ready 且分数达标时自动发布；否则保持草稿。
 - lint、测试、构建通过。
+
+## 第二阶段：自动触发（已执行）
+- 新增受 `AI_NEWS_CRON_SECRET` 保护的 `POST /api/cron/ai-news`，由系统选择最早的管理员作为日报作者。
+- 新增 GitHub Actions `Daily AI News`，每天北京时间 09:00 调用线上 cron endpoint。
+- 部署流程会把 GitHub secret `AI_NEWS_CRON_SECRET` 注入生产 `.env`，避免手动改 `APP_ENV_FILE`。
+- 保留手动后台入口，自动任务失败时仍可人工补跑。

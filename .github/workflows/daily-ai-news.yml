@@ -1,0 +1,42 @@
+name: Daily AI News
+
+on:
+  schedule:
+    # 09:00 Asia/Shanghai every day.
+    - cron: '0 1 * * *'
+  workflow_dispatch:
+    inputs:
+      date:
+        description: Optional YYYY-MM-DD date override
+        required: false
+        default: ''
+
+env:
+  PRODUCTION_BASE_URL: ${{ secrets.PRODUCTION_BASE_URL || 'http://47.98.167.32' }}
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Trigger protected daily AI news endpoint
+        run: |
+          set -euo pipefail
+          if [ -z "${AI_NEWS_CRON_SECRET}" ]; then
+            echo "Missing AI_NEWS_CRON_SECRET secret" >&2
+            exit 1
+          fi
+
+          url="${PRODUCTION_BASE_URL%/}/api/cron/ai-news"
+          if [ -n "${INPUT_DATE}" ]; then
+            url="${url}?date=${INPUT_DATE}"
+          fi
+
+          curl --fail-with-body --show-error --silent \
+            --request POST \
+            --header "Authorization: Bearer ${AI_NEWS_CRON_SECRET}" \
+            --header "Content-Type: application/json" \
+            "$url"
+        env:
+          AI_NEWS_CRON_SECRET: ${{ secrets.AI_NEWS_CRON_SECRET }}
+          INPUT_DATE: ${{ github.event.inputs.date || '' }}
