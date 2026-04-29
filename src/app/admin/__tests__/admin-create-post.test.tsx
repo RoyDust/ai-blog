@@ -126,6 +126,57 @@ describe('admin create post', () => {
     })
   })
 
+
+  test('fills title slug excerpt category and tags from AI metadata', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ data: [{ id: 'cat-1', name: '前端', slug: 'frontend' }] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ data: [{ id: 'tag-1', name: 'React', slug: 'react' }, { id: 'tag-2', name: 'Next.js', slug: 'nextjs' }] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: {
+            title: 'Next.js AI 元信息补全实践',
+            slug: 'nextjs-ai-metadata',
+            excerpt: '用 AI 一次性补齐博客文章标题、摘要、分类和标签。',
+            categorySlug: 'frontend',
+            tagSlugs: ['react', 'nextjs'],
+          },
+        }),
+      })
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<AdminCreatePostPage />)
+
+    fireEvent.change(screen.getByLabelText('内容'), {
+      target: { value: '# 正文\n\n这是一篇关于 Next.js 和 AI 写作体验的文章。' },
+    })
+
+    await screen.findByRole('option', { name: '前端' })
+    fireEvent.click(screen.getByRole('button', { name: 'AI 补全元信息' }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/admin/posts/metadata',
+        expect.objectContaining({ method: 'POST' })
+      )
+    })
+
+    expect(await screen.findByDisplayValue('Next.js AI 元信息补全实践')).toBeInTheDocument()
+    expect(screen.getByLabelText('Slug')).toHaveValue('nextjs-ai-metadata')
+    expect(screen.getByDisplayValue('用 AI 一次性补齐博客文章标题、摘要、分类和标签。')).toBeInTheDocument()
+    expect(screen.getByLabelText('分类')).toHaveValue('cat-1')
+    expect(screen.getByRole('checkbox', { name: 'React' })).toBeChecked()
+    expect(screen.getByRole('checkbox', { name: 'Next.js' })).toBeChecked()
+  })
+
   test('hydrates legacy draft without categoryId and tagIds', () => {
     window.localStorage.setItem(
       'author:draft:new',

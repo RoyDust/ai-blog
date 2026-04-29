@@ -64,9 +64,11 @@ type HomeCategory = Awaited<ReturnType<typeof getData>>['categories'][number]
 
 export default async function Home() {
   const { posts, featuredPosts, categories, hasLoadError } = await getData()
-  const [featuredLead, ...featuredSecondary] = featuredPosts as HomePost[]
-  const featuredIds = new Set(featuredPosts.map((post) => post.id))
-  const latestPosts = posts.filter((post) => !featuredIds.has(post.id)).slice(0, 4)
+  const homePosts = posts as HomePost[]
+  const homeFeaturedPosts = featuredPosts as HomePost[]
+  const [featuredLead, ...featuredSecondary] = homeFeaturedPosts
+  const featuredIds = new Set(homeFeaturedPosts.map((post) => post.id))
+  const latestPosts = homePosts.filter((post) => !featuredIds.has(post.id)).slice(0, 4)
 
   return (
     <div className="space-y-[var(--section-gap)]">

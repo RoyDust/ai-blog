@@ -24,6 +24,14 @@ type TagOption = {
   slug: string;
 };
 
+type AiMetadataSuggestion = {
+  title?: string;
+  slug?: string;
+  excerpt?: string;
+  categorySlug?: string | null;
+  tagSlugs?: string[];
+};
+
 const initialFormData = {
   title: "",
   slug: "",
@@ -78,6 +86,8 @@ export function CreatePostWorkspace() {
   const [coverUploadError, setCoverUploadError] = useState("");
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [summaryError, setSummaryError] = useState("");
+  const [isCompletingMetadata, setIsCompletingMetadata] = useState(false);
+  const [metadataError, setMetadataError] = useState("");
 
   // 新建文章使用固定 key，便于在刷新后继续恢复同一份未提交草稿。
   const draftKey = useMemo(() => "author:draft:new", []);
@@ -161,6 +171,54 @@ export function CreatePostWorkspace() {
       setSummaryError(error instanceof Error ? error.message : "生成摘要失败");
     } finally {
       setIsSummarizing(false);
+    }
+  };
+
+  const handleGenerateMetadata = async () => {
+    if (!formData.content.trim()) return;
+
+    setIsCompletingMetadata(true);
+    setMetadataError("");
+
+    try {
+      const response = await fetch("/api/admin/posts/metadata", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: formData.title, content: formData.content }),
+      });
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "元信息补全失败");
+      }
+
+      const suggestion = (data.data ?? {}) as AiMetadataSuggestion;
+      const nextCategoryId =
+        typeof suggestion.categorySlug === "string"
+          ? categories.find((category) => category.slug === suggestion.categorySlug)?.id
+          : undefined;
+      const nextTagIds = Array.isArray(suggestion.tagSlugs)
+        ? suggestion.tagSlugs
+            .map((slug) => tags.find((tag) => tag.slug === slug)?.id)
+            .filter((id): id is string => Boolean(id))
+        : undefined;
+
+      setFormData((prev) => ({
+        ...prev,
+        title: suggestion.title?.trim() || prev.title,
+        slug: suggestion.slug?.trim() || prev.slug,
+        excerpt: suggestion.excerpt?.trim() || prev.excerpt,
+        categoryId: nextCategoryId ?? prev.categoryId,
+        tagIds: nextTagIds && nextTagIds.length > 0 ? nextTagIds : prev.tagIds,
+      }));
+
+      if (suggestion.slug?.trim()) {
+        setIsSlugManuallyEdited(true);
+      }
+    } catch (error) {
+      setMetadataError(error instanceof Error ? error.message : "元信息补全失败");
+    } finally {
+      setIsCompletingMetadata(false);
     }
   };
 
@@ -388,6 +446,25 @@ export function CreatePostWorkspace() {
           <div className={inspector.panel === "metadata" ? "" : "hidden xl:block"}>
             <WorkspacePanel title="元数据" description="分类、标签、摘要和封面集中维护。">
               <div className="space-y-4">
+                <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-alt)] p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-medium text-[var(--foreground)]">AI 元信息补全</p>
+                      <p className="mt-1 text-sm text-[var(--muted)]">根据正文补齐标题、Slug、摘要、分类和标签。</p>
+                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={isCompletingMetadata || !formData.content.trim()}
+                      onClick={handleGenerateMetadata}
+                    >
+                      {isCompletingMetadata ? "补全中..." : "AI 补全元信息"}
+                    </Button>
+                  </div>
+                  {metadataError ? <p className="mt-2 text-sm text-rose-500">{metadataError}</p> : null}
+                </div>
+
                 <div className="space-y-2">
                   <label className="block text-sm font-medium text-[var(--foreground)]" htmlFor="post-category">
                     分类
