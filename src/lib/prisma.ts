@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client'
+import { Prisma, PrismaClient } from '@prisma/client'
 import { Pool } from 'pg'
 import { PrismaPg } from '@prisma/adapter-pg'
 import { findDatabaseUrl } from './database-url'
@@ -8,8 +8,15 @@ const globalForPrisma = globalThis as unknown as {
   prismaPoolSignature: string | undefined
 }
 
+function toDelegateName(modelName: string) {
+  return `${modelName.charAt(0).toLowerCase()}${modelName.slice(1)}`
+}
+
 function hasCurrentModelDelegates(client: PrismaClient | undefined) {
-  return Boolean(client && 'aiModel' in client)
+  return Boolean(
+    client &&
+      Object.values(Prisma.ModelName).every((modelName) => toDelegateName(modelName) in client),
+  )
 }
 
 function readPoolMax() {

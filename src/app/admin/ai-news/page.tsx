@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { toast } from "sonner"
 
@@ -8,6 +8,7 @@ import { PageHeader } from "@/components/admin/primitives/PageHeader"
 import { StatusBadge } from "@/components/admin/primitives/StatusBadge"
 import { WorkspacePanel } from "@/components/admin/primitives/WorkspacePanel"
 import { Button } from "@/components/ui/Button"
+import type { PublicAiModelOption } from "@/lib/ai-models"
 
 type RunHistoryItem = {
   id: string
@@ -26,11 +27,12 @@ type RunHistoryItem = {
 }
 
 type RunResult = {
-  operation: "created" | "skipped"
+  operation: "created" | "skipped" | "regenerated"
   reason?: string
   published: boolean
   sourceCount: number
   post?: { id: string; title: string; slug: string; published: boolean }
+  generatedBy?: { id: string; name: string; model: string }
   autoReview?: { verdict?: "ready" | "needs-work"; score?: number; summary?: string; published: boolean; error?: string } | null
   failures?: Array<{ sourceId: string; message: string }>
   run?: { id: string; status: RunHistoryItem["status"] }
@@ -65,13 +67,41 @@ function runTriggerLabel(trigger: RunHistoryItem["trigger"]) {
   return trigger === "CRON" ? "定时" : "手动"
 }
 
+function getDefaultNewsModel(models: PublicAiModelOption[]) {
+  return (
+    models.find((model) => model.status === "ready" && model.defaultFor.includes("post-summary")) ??
+    models.find((model) => model.status === "ready" && model.capabilities.includes("post-summary")) ??
+    null
+  )
+}
+
+function modelStatusLabel(model: PublicAiModelOption) {
+  if (model.status === "ready") return model.defaultFor.includes("post-summary") ? "默认" : "可用"
+  if (model.status === "disabled") return "已停用"
+  return "缺少密钥"
+}
+
 export default function AdminAiNewsPage() {
   const [date, setDate] = useState(todayInputValue())
+  const [models, setModels] = useState<PublicAiModelOption[]>([])
+  const [selectedModelId, setSelectedModelId] = useState("")
+  const [modelsLoading, setModelsLoading] = useState(false)
+  const [modelsError, setModelsError] = useState<string | null>(null)
   const [running, setRunning] = useState(false)
   const [result, setResult] = useState<RunResult | null>(null)
   const [runs, setRuns] = useState<RunHistoryItem[]>([])
   const [runsLoading, setRunsLoading] = useState(false)
   const [runsError, setRunsError] = useState<string | null>(null)
+
+  const selectedModel = useMemo(
+    () => models.find((model) => model.id === selectedModelId) ?? null,
+    [models, selectedModelId],
+  )
+
+  const readyModels = useMemo(
+    () => models.filter((model) => model.status === "ready" && model.capabilities.includes("post-summary")),
+    [models],
+  )
 
   const loadRunHistory = useCallback(async () => {
     setRunsLoading(true)
@@ -92,17 +122,44 @@ export default function AdminAiNewsPage() {
     }
   }, [])
 
+  const loadModels = useCallback(async () => {
+    setModelsLoading(true)
+    setModelsError(null)
+    try {
+      const response = await fetch("/api/admin/ai/models")
+      const data = await response.json()
+
+      if (!response.ok || !data.success) {
+        throw new Error(readError(data))
+      }
+
+      const nextModels = Array.isArray(data.data) ? data.data : []
+      setModels(nextModels)
+      setSelectedModelId((current) => current || getDefaultNewsModel(nextModels)?.id || "")
+    } catch (error) {
+      setModelsError(error instanceof Error ? error.message : "模型列表加载失败")
+    } finally {
+      setModelsLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
     void loadRunHistory()
-  }, [loadRunHistory])
+    void loadModels()
+  }, [loadModels, loadRunHistory])
 
-  async function runNewsGeneration() {
+  async function runNewsGeneration(regenerate = false) {
+    if (!selectedModelId) {
+      toast.error("请选择可用模型")
+      return
+    }
+
     setRunning(true)
     try {
       const response = await fetch("/api/admin/ai-news/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ date }),
+        body: JSON.stringify({ date, modelId: selectedModelId, ...(regenerate ? { regenerate: true } : {}) }),
       })
       const data = await response.json()
 
@@ -114,6 +171,10 @@ export default function AdminAiNewsPage() {
       await loadRunHistory()
       if (data.data.operation === "skipped") {
         toast.message("今日 AI 日报已存在")
+      } else if (data.data.operation === "regenerated" && data.data.published) {
+        toast.success("AI 日报已重新生成并上线")
+      } else if (data.data.operation === "regenerated") {
+        toast.success("AI 日报已重新生成，等待人工检查")
       } else if (data.data.published) {
         toast.success("AI 日报已生成并自动上线")
       } else {
@@ -133,14 +194,19 @@ export default function AdminAiNewsPage() {
         title="每日 AI 新闻推送"
         description="聚合固定 AI 新闻源，生成中文日报草稿，并通过 AI 审稿后自动上线。"
         action={
-          <Button type="button" disabled={running} onClick={() => void runNewsGeneration()}>
-            {running ? "生成中..." : "生成今日 AI 日报"}
-          </Button>
+          <>
+            <Button type="button" disabled={running || !selectedModelId} onClick={() => void runNewsGeneration()}>
+              {running ? "生成中..." : "生成今日 AI 日报"}
+            </Button>
+            <Button type="button" variant="outline" disabled={running || !selectedModelId} onClick={() => void runNewsGeneration(true)}>
+              重新生成今日日报
+            </Button>
+          </>
         }
       />
 
       <WorkspacePanel title="第一版策略" description="固定来源 + 手动触发 + AI 审稿自动上线" className="border border-[var(--border)]">
-        <div className="grid gap-4 md:grid-cols-[220px_1fr]">
+        <div className="grid gap-4 xl:grid-cols-[220px_minmax(280px,360px)_1fr]">
           <label className="space-y-2 text-sm font-medium text-[var(--foreground)]">
             生成日期
             <input
@@ -150,9 +216,33 @@ export default function AdminAiNewsPage() {
               className="w-full rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--brand)]"
             />
           </label>
+          <label className="space-y-2 text-sm font-medium text-[var(--foreground)]">
+            生成模型
+            <select
+              value={selectedModelId}
+              onChange={(event) => setSelectedModelId(event.target.value)}
+              disabled={modelsLoading || readyModels.length === 0}
+              className="w-full rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--brand)] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {modelsLoading ? <option value="">模型加载中</option> : null}
+              {!modelsLoading && readyModels.length === 0 ? <option value="">暂无可用模型</option> : null}
+              {models.map((model) => (
+                <option key={model.id} value={model.id} disabled={model.status !== "ready" || !model.capabilities.includes("post-summary")}>
+                  {model.name} · {model.model} · {modelStatusLabel(model)}
+                </option>
+              ))}
+            </select>
+          </label>
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-muted)] p-4 text-sm text-[var(--muted)]">
             <p>流程：抓取 RSS/Atom → 去重 → AI 生成 Markdown 日报 → 创建草稿 → AI 审稿 → 达标自动发布。</p>
             <p className="mt-2">同一天使用固定 slug，重复触发不会重复创建文章。</p>
+            <p className="mt-2">重新生成会覆盖同日已存在日报内容，并保留原文章链接。</p>
+            {selectedModel ? (
+              <p className="mt-2">
+                当前模型：{selectedModel.name}（{selectedModel.model}）。
+              </p>
+            ) : null}
+            {modelsError ? <p className="mt-2 text-red-600">{modelsError}</p> : null}
           </div>
         </div>
       </WorkspacePanel>
@@ -165,6 +255,11 @@ export default function AdminAiNewsPage() {
                 {result.published ? "已上线" : result.operation === "skipped" ? "已存在" : "草稿"}
               </StatusBadge>
               <span className="text-sm text-[var(--muted)]">候选新闻 {result.sourceCount ?? 0} 条</span>
+              {result.generatedBy ? (
+                <span className="text-sm text-[var(--muted)]">
+                  生成模型 {result.generatedBy.name}（{result.generatedBy.model}）
+                </span>
+              ) : null}
               {result.failures?.length ? <span className="text-sm text-[var(--muted)]">来源失败 {result.failures.length} 个</span> : null}
             </div>
 

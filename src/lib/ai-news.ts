@@ -1,4 +1,5 @@
-import { createAdminPost, publishAiDraftPost } from "@/lib/ai-authoring"
+import { createAdminPost, publishAiDraftPost, updateAdminPost } from "@/lib/ai-authoring"
+import { getAiModelChatRequestExtras, getAiModelForCapability, type AiModelOption } from "@/lib/ai-models"
 import { generatePostReview, isAutoPublishableReview } from "@/lib/ai-review"
 import { ValidationError } from "@/lib/api-errors"
 import { prisma } from "@/lib/prisma"
@@ -25,6 +26,13 @@ export type DailyAiNewsDraft = {
   slug: string
   excerpt: string
   content: string
+  generatedBy: AiNewsGeneratorModel
+}
+
+export type AiNewsGeneratorModel = {
+  id: string
+  name: string
+  model: string
 }
 
 type DashScopePayload = {
@@ -301,22 +309,70 @@ function appendSourceLinks(content: string, candidates: AiNewsItem[]) {
   const missingSources = candidates.filter((item) => !content.includes(item.url)).slice(0, MAX_CANDIDATES_FOR_AI)
   if (missingSources.length === 0) return content
 
+  const sourceLinks = missingSources.map((item) => `- [${item.title}](${item.url}) — ${item.sourceName}`)
+  if (/^#{1,6}\s+来源链接\s*$/im.test(content)) {
+    return `${content.trim()}\n${sourceLinks.join("\n")}`
+  }
+
   const sourceBlock = [
     "",
     "## 来源链接",
-    ...missingSources.map((item) => `- [${item.title}](${item.url}) — ${item.sourceName}`),
+    ...sourceLinks,
   ].join("\n")
 
   return `${content.trim()}\n${sourceBlock}`
 }
 
+function escapeMarkdownInline(value: string) {
+  return value.replace(/([\\`*_{}\[\]()#+\-.!|>])/g, "\\$1")
+}
+
+function getGeneratorModelSnapshot(aiModel: AiModelOption): AiNewsGeneratorModel {
+  return {
+    id: aiModel.id,
+    name: aiModel.name,
+    model: aiModel.model,
+  }
+}
+
+async function resolveDailyAiNewsModel(modelId?: string | null) {
+  const aiModel = await getAiModelForCapability("post-summary", modelId)
+
+  if (!aiModel) {
+    throw new ValidationError("AI model is not available for daily AI news")
+  }
+
+  if (!aiModel.apiKey) {
+    throw new Error(`${aiModel.apiKeyEnv} is not configured`)
+  }
+
+  return aiModel
+}
+
+function appendGeneratorAttribution(content: string, aiModel: AiModelOption) {
+  const modelName = escapeMarkdownInline(aiModel.name)
+  const model = escapeMarkdownInline(aiModel.model)
+  const attribution = [
+    "",
+    "---",
+    "",
+    `> 生成标注：本文由 AI 模型 **${modelName}**（${model}）生成，基于上方公开来源整理。`,
+  ].join("\n")
+
+  return `${content.trim()}\n${attribution}`
+}
+
 export async function generateDailyAiNewsDraft({
   date,
   candidates,
+  aiModel,
+  modelId,
   fetchImpl = fetch,
 }: {
   date: Date
   candidates: AiNewsItem[]
+  aiModel?: AiModelOption
+  modelId?: string | null
   fetchImpl?: typeof fetch
 }): Promise<DailyAiNewsDraft> {
   const selectedCandidates = candidates.slice(0, MAX_CANDIDATES_FOR_AI)
@@ -324,14 +380,9 @@ export async function generateDailyAiNewsDraft({
     throw new ValidationError("No AI news candidates available")
   }
 
-  const apiKey = process.env.DASHSCOPE_API_KEY
-  if (!apiKey) {
-    throw new Error("DASHSCOPE_API_KEY is not configured")
-  }
+  const resolvedModel = aiModel ?? (await resolveDailyAiNewsModel(modelId))
 
   const dateLabel = formatDateId(date)
-  const baseUrl = process.env.DASHSCOPE_BASE_URL ?? "https://dashscope.aliyuncs.com/compatible-mode/v1"
-  const model = process.env.DASHSCOPE_MODEL ?? "qwen3.5-flash"
   const prompt = [
     `请基于候选新闻生成一篇中文 AI 新闻日报博客，日期为 ${dateLabel}。`,
     "只输出一个 JSON 对象，不要 Markdown 代码围栏以外的解释。",
@@ -345,20 +396,21 @@ export async function generateDailyAiNewsDraft({
     `候选新闻：\n${buildCandidateDigest(selectedCandidates)}`,
   ].join("\n\n")
 
-  const response = await fetchImpl(`${baseUrl}/chat/completions`, {
+  const response = await fetchImpl(`${resolvedModel.baseUrl}${resolvedModel.requestPath}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
+      Authorization: `Bearer ${resolvedModel.apiKey}`,
     },
     body: JSON.stringify({
-      model,
+      model: resolvedModel.model,
       messages: [
         { role: "system", content: "你是严谨的中文 AI 新闻主编，输出必须是可解析 JSON。" },
         { role: "user", content: prompt },
       ],
       temperature: 0.25,
       max_tokens: 2400,
+      ...getAiModelChatRequestExtras(resolvedModel),
     }),
   })
 
@@ -380,19 +432,24 @@ export async function generateDailyAiNewsDraft({
     title: title.slice(0, 160),
     slug: buildDailyAiNewsSlug(date),
     excerpt: excerpt.slice(0, 320),
-    content: appendSourceLinks(content, selectedCandidates),
+    content: appendGeneratorAttribution(appendSourceLinks(content, selectedCandidates), resolvedModel),
+    generatedBy: getGeneratorModelSnapshot(resolvedModel),
   }
 }
 
 export async function runDailyAiNews({
   authorId,
   date = new Date(),
+  modelId,
+  regenerate = false,
   sources = DAILY_AI_NEWS_SOURCES,
   fetchImpl = fetch,
   trigger = "manual",
 }: {
   authorId: string
   date?: Date
+  modelId?: string | null
+  regenerate?: boolean
   sources?: AiNewsSource[]
   fetchImpl?: typeof fetch
   trigger?: AiNewsRunTriggerInput
@@ -415,7 +472,7 @@ export async function runDailyAiNews({
       select: { id: true, title: true, slug: true, published: true },
     })
 
-    if (existing) {
+    if (existing && !regenerate) {
       await finishAiNewsRun({
         runId: run.id,
         startedAtMs,
@@ -441,23 +498,38 @@ export async function runDailyAiNews({
       }
     }
 
+    const aiModel = await resolveDailyAiNewsModel(modelId)
     const { items, failures } = await fetchDailyAiNewsCandidates({ date, sources, fetchImpl })
     sourceCount = items.length
     failureCount = failures.length
 
-    const draft = await generateDailyAiNewsDraft({ date, candidates: items, fetchImpl })
-    const post = await createAdminPost({
-      authorId,
-      input: {
-        title: draft.title,
-        slug: draft.slug,
-        content: draft.content,
-        excerpt: draft.excerpt,
-        published: false,
-      },
-    })
+    const draft = await generateDailyAiNewsDraft({ date, candidates: items, aiModel, fetchImpl })
+    const post = existing
+      ? {
+          ...(await updateAdminPost({
+            id: existing.id,
+            input: {
+              title: draft.title,
+              slug: draft.slug,
+              content: draft.content,
+              excerpt: draft.excerpt,
+              published: existing.published,
+            },
+          })),
+          title: draft.title,
+        }
+      : await createAdminPost({
+          authorId,
+          input: {
+            title: draft.title,
+            slug: draft.slug,
+            content: draft.content,
+            excerpt: draft.excerpt,
+            published: false,
+          },
+        })
 
-    let published = false
+    let published = post.published
     let autoReview:
       | { verdict: "ready" | "needs-work"; score: number; summary: string; published: boolean; error?: never }
       | { published: false; error: string; verdict?: never; score?: never; summary?: never }
@@ -471,7 +543,7 @@ export async function runDailyAiNews({
       })
 
       if (review) {
-        if (isAutoPublishableReview(review)) {
+        if (!published && isAutoPublishableReview(review)) {
           await publishAiDraftPost({ postId: post.id })
           published = true
         }
@@ -516,12 +588,13 @@ export async function runDailyAiNews({
     })
 
     return {
-      operation: "created" as const,
+      operation: existing ? "regenerated" as const : "created" as const,
       published,
       post: { ...post, published },
       autoReview,
       sourceCount,
       failures,
+      generatedBy: draft.generatedBy,
       run: { id: run.id, status: "SUCCEEDED" as const },
     }
   } catch (error) {

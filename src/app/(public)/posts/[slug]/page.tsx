@@ -135,16 +135,33 @@ function slugify(text: string) {
     .replace(/\s+/g, "-");
 }
 
+function getUniqueHeadingId(text: string, counters: Map<string, number>) {
+  const baseId = slugify(text) || "section"
+  const count = (counters.get(baseId) ?? 0) + 1
+  counters.set(baseId, count)
+
+  return count === 1 ? baseId : `${baseId}-${count}`
+}
+
 function extractHeadings(content: string) {
-  return content
+  const counters = new Map<string, number>()
+  const headings: Array<{ id: string; text: string; level: 1 | 2 | 3 }> = []
+
+  content
     .split("\n")
     .map((line) => line.trim())
-    .filter((line) => /^#{1,3}\s+/.test(line))
-    .map((line) => {
-      const level = Math.min(3, line.match(/^#+/)?.[0].length ?? 1) as 1 | 2 | 3;
-      const text = line.replace(/^#{1,3}\s+/, "");
-      return { id: slugify(text), text, level };
-    });
+    .filter((line) => /^#{1,5}\s+/.test(line))
+    .forEach((line) => {
+      const level = line.match(/^#+/)?.[0].length ?? 1
+      const text = line.replace(/^#{1,5}\s+/, "")
+      const id = getUniqueHeadingId(text, counters)
+
+      if (level <= 3) {
+        headings.push({ id, text, level: level as 1 | 2 | 3 })
+      }
+    })
+
+  return headings
 }
 
 function nodeText(node: ReactNode): string {
@@ -171,6 +188,8 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
   const { previousPost, nextPost } = await getContinuationData(post)
 
   const headings = extractHeadings(post.content);
+  const renderedHeadingCounters = new Map<string, number>()
+  const getRenderedHeadingId = (children: ReactNode) => getUniqueHeadingId(nodeText(children), renderedHeadingCounters)
   const description = post.seoDescription || post.excerpt || `${post.title} - My Blog`
   const articleJsonLd = buildArticleJsonLd({
     title: post.title,
@@ -220,27 +239,27 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
                     rehypePlugins={[rehypeHighlight]}
                     components={{
                       h1: ({ children, ...props }) => (
-                        <h1 id={slugify(nodeText(children))} {...props}>
+                        <h1 id={getRenderedHeadingId(children)} {...props}>
                           {children}
                         </h1>
                       ),
                       h2: ({ children, ...props }) => (
-                        <h2 id={slugify(nodeText(children))} {...props}>
+                        <h2 id={getRenderedHeadingId(children)} {...props}>
                           {children}
                         </h2>
                       ),
                       h3: ({ children, ...props }) => (
-                        <h3 id={slugify(nodeText(children))} {...props}>
+                        <h3 id={getRenderedHeadingId(children)} {...props}>
                           {children}
                         </h3>
                       ),
                       h4: ({ children, ...props }) => (
-                        <h4 id={slugify(nodeText(children))} {...props}>
+                        <h4 id={getRenderedHeadingId(children)} {...props}>
                           {children}
                         </h4>
                       ),
                       h5: ({ children, ...props }) => (
-                        <h5 id={slugify(nodeText(children))} {...props}>
+                        <h5 id={getRenderedHeadingId(children)} {...props}>
                           {children}
                         </h5>
                       ),

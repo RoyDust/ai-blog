@@ -17,8 +17,8 @@ export function ArticleToc({ headings }: ArticleTocProps) {
 
   return (
     <ul className="relative space-y-1.5 before:absolute before:left-1.5 before:top-2 before:h-[calc(100%-1rem)] before:w-px before:bg-[var(--reader-border)]">
-      {headings.map((heading) => (
-        <li className="relative" key={heading.id}>
+      {headings.map((heading, index) => (
+        <li className="relative" key={`${heading.id}-${index}`}>
           <Link
             className="reader-link group flex min-w-0 items-start gap-2 rounded-xl py-1.5 pr-2 text-sm leading-6 text-[var(--text-body)] hover:bg-[color-mix(in_oklab,var(--reader-panel-elevated)_72%,transparent)]"
             href={`#${heading.id}`}

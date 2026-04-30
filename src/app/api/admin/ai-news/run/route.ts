@@ -22,12 +22,29 @@ function parseRunDate(value: unknown) {
   return date
 }
 
+function parseModelId(value: unknown) {
+  if (value == null || value === "") return null
+  if (typeof value !== "string") throw new ValidationError("Invalid model")
+
+  return value.trim() || null
+}
+
+function parseRegenerate(value: unknown) {
+  if (value == null) return false
+  if (typeof value !== "boolean") throw new ValidationError("Invalid regenerate flag")
+
+  return value
+}
+
 export async function POST(request: Request) {
   try {
     const session = await requireAdminSession()
     const body = await request.json().catch(() => ({}))
-    const date = parseRunDate((body as { date?: unknown }).date)
-    const result = await runDailyAiNews({ authorId: session.user.id, date, trigger: "manual" })
+    const payload = body as { date?: unknown; modelId?: unknown; regenerate?: unknown }
+    const date = parseRunDate(payload.date)
+    const modelId = parseModelId(payload.modelId)
+    const regenerate = parseRegenerate(payload.regenerate)
+    const result = await runDailyAiNews({ authorId: session.user.id, date, modelId, regenerate, trigger: "manual" })
 
     return NextResponse.json({ success: true, data: result })
   } catch (error) {

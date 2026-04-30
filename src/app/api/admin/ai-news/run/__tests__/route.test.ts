@@ -44,14 +44,37 @@ describe("POST /api/admin/ai-news/run", () => {
       new Request("http://localhost/api/admin/ai-news/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ date: "2026-04-29" }),
+        body: JSON.stringify({ date: "2026-04-29", modelId: "model-1" }),
       }),
     )
     const payload = await response.json()
 
     expect(response.status).toBe(200)
-    expect(mocks.runDailyAiNews).toHaveBeenCalledWith({ authorId: "admin-1", date: new Date("2026-04-29T00:00:00.000Z"), trigger: "manual" })
+    expect(mocks.runDailyAiNews).toHaveBeenCalledWith({ authorId: "admin-1", date: new Date("2026-04-29T00:00:00.000Z"), modelId: "model-1", regenerate: false, trigger: "manual" })
     expect(payload).toEqual({ success: true, data: { operation: "created", published: true, post: { id: "post-1" } } })
+  })
+
+  test("passes the regenerate flag through for existing daily posts", async () => {
+    mocks.requireAdminSession.mockResolvedValueOnce({ user: { id: "admin-1", role: "ADMIN" } })
+    mocks.runDailyAiNews.mockResolvedValueOnce({ operation: "regenerated", published: true, post: { id: "post-1" } })
+
+    const { POST } = await import("../route")
+    const response = await POST(
+      new Request("http://localhost/api/admin/ai-news/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date: "2026-04-29", modelId: "model-1", regenerate: true }),
+      }),
+    )
+
+    expect(response.status).toBe(200)
+    expect(mocks.runDailyAiNews).toHaveBeenCalledWith({
+      authorId: "admin-1",
+      date: new Date("2026-04-29T00:00:00.000Z"),
+      modelId: "model-1",
+      regenerate: true,
+      trigger: "manual",
+    })
   })
 })
 

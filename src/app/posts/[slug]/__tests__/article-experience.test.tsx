@@ -170,4 +170,36 @@ describe('article experience', () => {
     expect(tocCard?.className).toContain('reader-panel')
     expect(tocCard?.className).toContain('h-[var(--article-toc-card-height)]')
   })
+
+  test('article heading anchors stay unique when headings repeat', async () => {
+    findFirst
+      .mockResolvedValueOnce({
+        id: 'p1',
+        slug: 'test-post',
+        title: 'Article Title',
+        content: '## 来源链接\n第一组来源\n## 来源链接\n第二组来源',
+        excerpt: 'Excerpt',
+        coverImage: null,
+        createdAt: new Date('2026-01-01T00:00:00Z'),
+        updatedAt: new Date('2026-01-02T00:00:00Z'),
+        publishedAt: new Date('2026-01-01T00:00:00Z'),
+        viewCount: 100,
+        readingTimeMinutes: 1,
+        author: { id: 'u1', name: 'Author', image: null },
+        category: { name: 'Category', slug: 'category' },
+        tags: [],
+        comments: [],
+        _count: { comments: 0, likes: 2 },
+      })
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null)
+
+    const { default: PostPage } = await import('@/app/(public)/posts/[slug]/page')
+    const ui = await PostPage({ params: Promise.resolve({ slug: 'test-post' }) })
+    render(ui as React.ReactElement)
+
+    const tocLinks = Array.from(screen.getByTestId('toc-rail').querySelectorAll('a')).map((link) => link.getAttribute('href'))
+    expect(tocLinks).toEqual(['#来源链接', '#来源链接-2'])
+    expect(screen.getAllByRole('heading', { level: 2, name: '来源链接' }).map((heading) => heading.id)).toEqual(['来源链接', '来源链接-2'])
+  })
 })
