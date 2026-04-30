@@ -81,7 +81,6 @@ export function AiModelManager({ initialModels }: { initialModels: PublicAiModel
     () => models.find((model) => model.defaultFor.includes("post-summary")) ?? models[0],
     [models],
   );
-  const customModelCount = models.filter((model) => model.source === "database").length;
 
   const refreshModels = async () => {
     const data = await readJson(await fetch("/api/admin/ai/models"));
@@ -190,31 +189,11 @@ export function AiModelManager({ initialModels }: { initialModels: PublicAiModel
   };
 
   return (
-    <div className="space-y-6">
-      <section className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-        <div className="ui-surface rounded-3xl p-5">
-          <p className="text-xs uppercase tracking-[0.24em] text-[var(--muted)]">Selectable</p>
-          <p className="mt-3 font-display text-3xl font-semibold text-[var(--foreground)]">{models.length}</p>
-          <p className="mt-2 text-sm text-[var(--muted)]">当前可选模型</p>
-        </div>
-        <div className="ui-surface rounded-3xl p-5">
-          <p className="text-xs uppercase tracking-[0.24em] text-[var(--muted)]">Custom</p>
-          <p className="mt-3 font-display text-3xl font-semibold text-[var(--foreground)]">{customModelCount}</p>
-          <p className="mt-2 text-sm text-[var(--muted)]">可编辑模型</p>
-        </div>
-        <div className="ui-surface rounded-3xl p-5">
-          <p className="text-xs uppercase tracking-[0.24em] text-[var(--muted)]">Default Summary</p>
-          <p className="mt-3 truncate font-display text-2xl font-semibold text-[var(--foreground)]">
-            {defaultSummaryModel?.model ?? "未配置"}
-          </p>
-          <p className="mt-2 text-sm text-[var(--muted)]">摘要默认模型</p>
-        </div>
-      </section>
-
+    <div className="space-y-4">
       {(message || error) ? (
         <div
           role={error ? "alert" : "status"}
-          className={`rounded-2xl border px-4 py-3 text-sm ${
+          className={`rounded-lg border px-4 py-3 text-sm ${
             error ? "ui-alert-danger" : "ui-status-success"
           }`}
         >
@@ -223,10 +202,10 @@ export function AiModelManager({ initialModels }: { initialModels: PublicAiModel
       ) : null}
 
       <WorkspacePanel
-        title="模型列表"
-        description="内置摘要模型来自环境变量；自定义模型会保存在数据库，可编辑、删除、测试并设为摘要默认。"
+        title="模型选择"
+        description={`摘要默认模型：${defaultSummaryModel?.name ?? "未配置"}。内置模型来自环境变量；自定义模型会保存在数据库。`}
         actions={
-          <Button size="sm" type="button" onClick={() => setForm(emptyForm)}>
+          <Button size="sm" type="button" onClick={() => setForm(emptyForm)} className="rounded-lg">
             <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
             新增模型
           </Button>
@@ -237,7 +216,7 @@ export function AiModelManager({ initialModels }: { initialModels: PublicAiModel
           {models.map((model) => (
             <article
               key={model.id}
-              className="rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-4 transition hover:border-[var(--border-strong)]"
+              className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4 transition hover:border-[var(--border-strong)]"
             >
               <div className="flex flex-col gap-4">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -273,6 +252,7 @@ export function AiModelManager({ initialModels }: { initialModels: PublicAiModel
                       size="sm"
                       type="button"
                       variant="outline"
+                      className="rounded-lg"
                     >
                       {switchingId === model.id ? "切换中" : "设为默认"}
                     </Button>
@@ -282,6 +262,7 @@ export function AiModelManager({ initialModels }: { initialModels: PublicAiModel
                       size="sm"
                       type="button"
                       variant="outline"
+                      className="rounded-lg"
                     >
                       <TestTube2 className="mr-2 h-4 w-4" aria-hidden="true" />
                       {testingId === model.id ? "测试中" : "测试"}
@@ -292,6 +273,7 @@ export function AiModelManager({ initialModels }: { initialModels: PublicAiModel
                       size="sm"
                       type="button"
                       variant="secondary"
+                      className="rounded-lg"
                     >
                       <Pencil className="mr-2 h-4 w-4" aria-hidden="true" />
                       修改
@@ -302,6 +284,7 @@ export function AiModelManager({ initialModels }: { initialModels: PublicAiModel
                       size="sm"
                       type="button"
                       variant="danger"
+                      className="rounded-lg"
                     >
                       <Trash2 className="mr-2 h-4 w-4" aria-hidden="true" />
                       删除
@@ -310,7 +293,7 @@ export function AiModelManager({ initialModels }: { initialModels: PublicAiModel
                 </div>
 
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-4">
-                  <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-alt)] p-3">
+                  <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] p-3">
                     <div className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
                       <Network className="h-4 w-4" aria-hidden="true" />
                       Endpoint
@@ -320,14 +303,14 @@ export function AiModelManager({ initialModels }: { initialModels: PublicAiModel
                       {model.requestPath}
                     </p>
                   </div>
-                  <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-alt)] p-3">
+                  <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] p-3">
                     <div className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
                       <RadioTower className="h-4 w-4" aria-hidden="true" />
                       Model
                     </div>
                     <p className="mt-2 break-all text-sm font-medium text-[var(--foreground)]">{model.model}</p>
                   </div>
-                  <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-alt)] p-3">
+                  <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] p-3">
                     <div className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
                       <KeyRound className="h-4 w-4" aria-hidden="true" />
                       Secret
@@ -336,7 +319,7 @@ export function AiModelManager({ initialModels }: { initialModels: PublicAiModel
                       {model.hasApiKey ? "已配置" : model.apiKeyEnv}
                     </p>
                   </div>
-                  <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-alt)] p-3">
+                  <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] p-3">
                     <div className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
                       <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
                       能力
@@ -408,7 +391,7 @@ export function AiModelManager({ initialModels }: { initialModels: PublicAiModel
               onChange={(event) => setForm((prev) => prev ? { ...prev, description: event.target.value } : prev)}
             />
 
-            <div className="flex flex-wrap gap-4 rounded-2xl border border-[var(--border)] bg-[var(--surface-alt)] px-4 py-3">
+            <div className="flex flex-wrap gap-4 rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] px-4 py-3">
               <label className="flex items-center gap-2 text-sm text-[var(--foreground)]">
                 <input
                   checked={form.enabled}
@@ -432,10 +415,10 @@ export function AiModelManager({ initialModels }: { initialModels: PublicAiModel
             </div>
 
             <div className="flex flex-wrap justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => setForm(null)}>
+              <Button type="button" variant="outline" onClick={() => setForm(null)} className="rounded-lg">
                 取消
               </Button>
-              <Button disabled={saving} type="submit">
+              <Button disabled={saving} type="submit" className="rounded-lg">
                 {saving ? "保存中..." : "保存模型"}
               </Button>
             </div>

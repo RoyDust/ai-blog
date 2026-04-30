@@ -1,114 +1,137 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import React from "react";
 import { describe, expect, test, vi } from "vitest";
 
-const recentPosts = [
-  {
-    id: "post-1",
-    title: "AI Draft",
-    slug: "ai-draft",
-    published: false,
-    createdAt: new Date("2026-04-01T00:00:00Z"),
-  },
-];
+const { postFindManyMock, commentCountMock, commentFindManyMock } = vi.hoisted(() => {
+  const draftQueuePosts = [
+    {
+      id: "post-draft-1",
+      title: "Queued Draft",
+      slug: "queued-draft",
+      coverImage: "https://example.com/draft.jpg",
+      updatedAt: new Date("2026-04-04T00:00:00Z"),
+      createdAt: new Date("2026-04-03T00:00:00Z"),
+    },
+  ];
 
-const draftQueuePosts = [
-  {
-    id: "post-draft-1",
-    title: "Queued Draft",
-    slug: "queued-draft",
-    published: false,
-    createdAt: new Date("2026-04-03T00:00:00Z"),
-  },
-];
+  const popularPosts = [
+    {
+      id: "post-popular-1",
+      title: "Most Viewed Post",
+      slug: "most-viewed-post",
+      coverImage: "https://example.com/popular-1.jpg",
+      viewCount: 120,
+      publishedAt: new Date("2026-04-05T00:00:00Z"),
+    },
+    {
+      id: "post-popular-2",
+      title: "Second Viewed Post",
+      slug: "second-viewed-post",
+      coverImage: "https://example.com/popular-2.jpg",
+      viewCount: 42,
+      publishedAt: new Date("2026-04-04T00:00:00Z"),
+    },
+  ];
 
-const recentComments = [
-  {
-    id: "comment-1",
-    content: "待处理评论内容",
-    createdAt: new Date("2026-04-02T00:00:00Z"),
-    author: null,
-    authorLabel: "匿名访客",
-    post: { title: "AI Draft", slug: "ai-draft" },
-    status: "PENDING",
-  },
-];
+  const pendingQueueComments = [
+    {
+      id: "comment-pending-1",
+      content: "待处理评论内容",
+      createdAt: new Date("2026-04-02T00:00:00Z"),
+      author: null,
+      authorLabel: "匿名访客",
+      post: { title: "Most Viewed Post", slug: "most-viewed-post" },
+    },
+  ];
 
-const pendingQueueComments = [
-  {
-    id: "comment-pending-1",
-    content: "待处理评论内容",
-    createdAt: new Date("2026-04-02T00:00:00Z"),
-    author: null,
-    authorLabel: "匿名访客",
-    post: { title: "AI Draft", slug: "ai-draft" },
-    status: "PENDING",
-  },
-];
+  return {
+    postFindManyMock: vi.fn(({ where, orderBy }) => {
+      if (where?.published === false) {
+        return Promise.resolve(draftQueuePosts);
+      }
 
-const postCountMock = vi.fn((whereInput?: { where?: { published?: boolean; publishedAt?: { gte?: Date } } }) => {
-  const where = whereInput?.where;
-  if (where?.published === false) {
-    return Promise.resolve(2);
-  }
+      if (where?.published === true && orderBy?.viewCount === "desc") {
+        return Promise.resolve(popularPosts);
+      }
 
-  if (where?.published === true && where?.publishedAt?.gte instanceof Date) {
-    return Promise.resolve(1);
-  }
-
-  return Promise.resolve(5);
+      return Promise.resolve([]);
+    }),
+    commentCountMock: vi.fn().mockResolvedValue(4),
+    commentFindManyMock: vi.fn().mockResolvedValue(pendingQueueComments),
+  };
 });
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     post: {
-      count: postCountMock,
-      findMany: vi.fn(({ where }) => {
-        if (where?.published === false) {
-          return Promise.resolve(draftQueuePosts);
-        }
-
-        return Promise.resolve(recentPosts);
-      }),
+      findMany: postFindManyMock,
     },
     comment: {
-      count: vi.fn().mockResolvedValue(4),
-      findMany: vi.fn(({ where }) => {
-        if (where?.status === "PENDING") {
-          return Promise.resolve(pendingQueueComments);
-        }
-
-        return Promise.resolve(recentComments);
-      }),
-    },
-    category: {
-      count: vi.fn().mockResolvedValue(3),
-    },
-    tag: {
-      count: vi.fn().mockResolvedValue(2),
+      count: commentCountMock,
+      findMany: commentFindManyMock,
     },
   },
 }));
 
 describe("admin overview", () => {
-  test("renders the editorial home queues and recent changes", async () => {
+  test("renders the lightweight blog dashboard with real queues and static panels", async () => {
     const { default: AdminPage } = await import("../page");
     const ui = await AdminPage();
 
     render(ui as React.ReactElement);
 
-    expect(await screen.findByRole("heading", { name: "编辑部总览" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "待处理工作" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "最近变更" })).toBeInTheDocument();
-    expect(screen.getAllByText("待处理评论").length).toBeGreaterThan(0);
+    expect(screen.getByRole("heading", { name: "访问趋势" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "最近草稿" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "待审评论" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "热门文章" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "发布清单" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "博客后台总览" })).not.toBeInTheDocument();
+
+    expect(screen.getByText("静态示意")).toBeInTheDocument();
+    expect(screen.getByText("7 天")).toBeInTheDocument();
+    expect(screen.getByText("05-15")).toBeInTheDocument();
+    expect(screen.getByText("设置 SEO 信息")).toBeInTheDocument();
+    expect(screen.getByText("编辑清单")).toBeInTheDocument();
+
     expect(screen.getByText("Queued Draft")).toBeInTheDocument();
-    expect(screen.getAllByText("待处理评论内容").length).toBeGreaterThan(0);
-    expect(postCountMock).toHaveBeenCalledWith({
-      where: expect.objectContaining({
-        deletedAt: null,
-        published: true,
-        publishedAt: { gte: expect.any(Date) },
-      }),
+    expect(screen.getByRole("link", { name: "继续编辑" })).toHaveAttribute("href", "/admin/posts/post-draft-1/edit");
+    expect(screen.getByText("待处理评论内容")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "批准" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "垃圾" })).toBeInTheDocument();
+
+    const popularPanel = screen.getByRole("heading", { name: "热门文章" }).closest("section");
+    expect(popularPanel).not.toBeNull();
+    expect(within(popularPanel as HTMLElement).getByText("Most Viewed Post")).toBeInTheDocument();
+    expect(within(popularPanel as HTMLElement).getByText("Second Viewed Post")).toBeInTheDocument();
+    expect(within(popularPanel as HTMLElement).getByText("120 浏览")).toBeInTheDocument();
+
+    expect(commentCountMock).toHaveBeenCalledWith({
+      where: { deletedAt: null, status: "PENDING" },
+    });
+    expect(postFindManyMock).toHaveBeenCalledWith({
+      where: { deletedAt: null, published: false },
+      select: { id: true, title: true, slug: true, coverImage: true, updatedAt: true, createdAt: true },
+      orderBy: { updatedAt: "desc" },
+      take: 4,
+    });
+    expect(commentFindManyMock).toHaveBeenCalledWith({
+      where: { deletedAt: null, status: "PENDING" },
+      select: {
+        id: true,
+        content: true,
+        createdAt: true,
+        authorLabel: true,
+        author: { select: { name: true, email: true } },
+        post: { select: { title: true, slug: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 3,
+    });
+    expect(postFindManyMock).toHaveBeenCalledWith({
+      where: { deletedAt: null, published: true },
+      select: { id: true, title: true, slug: true, coverImage: true, viewCount: true, publishedAt: true },
+      orderBy: { viewCount: "desc" },
+      take: 5,
     });
   });
 });

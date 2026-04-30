@@ -1,11 +1,24 @@
 import type { LucideIcon } from "lucide-react";
-import { BrainCircuit, FileText, FolderTree, Images, LayoutDashboard, ListChecks, MessageSquare, Newspaper } from "lucide-react";
+import {
+  BrainCircuit,
+  FilePenLine,
+  FileText,
+  FolderTree,
+  Images,
+  LayoutDashboard,
+  ListChecks,
+  MessageSquare,
+  Newspaper,
+  Settings,
+} from "lucide-react";
 
 export type AdminNavItem = {
   href: string;
   label: string;
   group: string;
   icon: LucideIcon;
+  disabled?: boolean;
+  badge?: string;
 };
 
 function hasPathSegment(pathname: string, href: string) {
@@ -14,30 +27,34 @@ function hasPathSegment(pathname: string, href: string) {
 }
 
 export const adminNavItems: AdminNavItem[] = [
-  { href: "/admin", label: "总览", group: "工作台", icon: LayoutDashboard },
-  { href: "/admin/posts", label: "文章", group: "内容", icon: FileText },
-  { href: "/admin/covers", label: "封面图库", group: "内容", icon: Images },
-  { href: "/admin/ai-news", label: "AI 日报", group: "内容", icon: Newspaper },
-  { href: "/admin/comments", label: "评论", group: "互动", icon: MessageSquare },
-  { href: "/admin/taxonomy", label: "分类与标签", group: "结构", icon: FolderTree },
-  { href: "/admin/ai/models", label: "AI 模型", group: "智能", icon: BrainCircuit },
-  { href: "/admin/ai/tasks", label: "AI 任务", group: "智能", icon: ListChecks },
+  { href: "/admin", label: "首页", group: "主导航", icon: LayoutDashboard },
+  { href: "/admin/posts", label: "文章", group: "主导航", icon: FileText },
+  { href: "/admin/posts?status=draft", label: "草稿", group: "主导航", icon: FilePenLine },
+  { href: "/admin/comments", label: "评论", group: "主导航", icon: MessageSquare, badge: "5" },
+  { href: "/admin/taxonomy", label: "分类", group: "主导航", icon: FolderTree },
+  { href: "/admin/covers", label: "媒体库", group: "主导航", icon: Images },
+  { href: "/admin/settings", label: "设置", group: "主导航", icon: Settings, disabled: true },
+  { href: "/admin/ai-news", label: "AI 日报", group: "AI 辅助", icon: Newspaper },
+  { href: "/admin/ai/models", label: "AI 模型", group: "AI 辅助", icon: BrainCircuit },
+  { href: "/admin/ai/tasks", label: "AI 任务", group: "AI 辅助", icon: ListChecks },
 ];
 
 export function isAdminNavItemActive(pathname: string, href: string) {
+  const hrefPathname = href.split("?")[0] ?? href;
+
   if (href === "/admin") {
     return pathname === href;
   }
 
-  return hasPathSegment(pathname, href);
+  return hasPathSegment(pathname, hrefPathname);
 }
 
 function resolveMatch(pathname: string) {
   if (pathname === "/admin/posts/new") {
     return {
       currentLabel: "新建文章",
-      currentGroup: "内容",
-      crumbs: ["后台", "内容", "新建文章"],
+      currentGroup: "主导航",
+      crumbs: ["后台", "主导航", "新建文章"],
     };
   }
 
@@ -45,8 +62,8 @@ function resolveMatch(pathname: string) {
   if (postEditMatch) {
     return {
       currentLabel: "编辑文章",
-      currentGroup: "内容",
-      crumbs: ["后台", "内容", "编辑文章"],
+      currentGroup: "主导航",
+      crumbs: ["后台", "主导航", "编辑文章"],
     };
   }
 
@@ -57,7 +74,7 @@ function resolveMatch(pathname: string) {
   if (!activeItem) {
     return {
       currentLabel: "管理后台",
-      currentGroup: "工作台",
+      currentGroup: "主导航",
       crumbs: ["后台"],
     };
   }

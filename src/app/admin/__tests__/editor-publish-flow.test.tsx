@@ -22,7 +22,7 @@ afterEach(() => {
 })
 
 describe('editor publish flow', () => {
-  test('reads ?panel= and reflects active inspector tab', async () => {
+  test('keeps publishing inspector sections mounted even with legacy ?panel=', async () => {
     searchParams = new URLSearchParams('panel=metadata')
 
     vi.stubGlobal(
@@ -48,10 +48,12 @@ describe('editor publish flow', () => {
 
     render(<AdminPostEditPage />)
 
-    expect(await screen.findByRole('button', { name: '元数据' })).toHaveAttribute('aria-pressed', 'true')
+    expect(await screen.findByText('发布设置')).toBeInTheDocument()
+    expect(screen.getByText('发布清单')).toBeInTheDocument()
+    expect(screen.getByText('分类、标签与封面图')).toBeInTheDocument()
   })
 
-  test('updates ?panel= when opening detail panels', async () => {
+  test('does not route static inspector sections through ?panel=', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue({
@@ -75,14 +77,12 @@ describe('editor publish flow', () => {
 
     render(<AdminPostEditPage />)
 
-    fireEvent.click(await screen.findByRole('button', { name: '元数据' }))
+    expect(await screen.findByText('分类、标签与封面图')).toBeInTheDocument()
 
-    await waitFor(() => {
-      expect(router.replace).toHaveBeenCalledWith(expect.stringContaining('panel=metadata'), { scroll: false })
-    })
+    expect(router.replace).not.toHaveBeenCalled()
   })
 
-  test('submits published=true when clicking publish action', async () => {
+  test('submits published=true without static scheduling or comment fields when clicking publish action', async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({ ok: true, json: async () => ({ data: [] }) })
@@ -119,7 +119,12 @@ describe('editor publish flow', () => {
     const fourthCall = fetchMock.mock.calls[3]
     expect(fourthCall[0]).toBe('/api/admin/posts/1')
     expect(fourthCall[1]).toMatchObject({ method: 'PATCH' })
-    expect(JSON.parse(String(fourthCall[1]?.body))).toMatchObject({ published: true })
+    const payload = JSON.parse(String(fourthCall[1]?.body))
+    expect(payload).toMatchObject({ published: true })
+    expect(payload).not.toHaveProperty('publishedAt')
+    expect(payload).not.toHaveProperty('scheduledAt')
+    expect(payload).not.toHaveProperty('allowComments')
+    expect(payload).not.toHaveProperty('commentsEnabled')
   })
 
   test('fills edit metadata from AI suggestions', async () => {
@@ -163,7 +168,6 @@ describe('editor publish flow', () => {
     render(<AdminPostEditPage />)
 
     expect(await screen.findByDisplayValue('旧标题')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: '元数据' }))
     await screen.findByRole('option', { name: '前端' })
     fireEvent.click(screen.getByRole('button', { name: 'AI 补全元信息' }))
 

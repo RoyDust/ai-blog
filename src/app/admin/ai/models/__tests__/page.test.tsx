@@ -37,8 +37,9 @@ describe("admin AI models page", () => {
 
     render(ui as React.ReactElement);
 
-    expect(screen.getByRole("heading", { name: "AI 模型管理" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "模型列表" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "AI 配置选择" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "模型选择" })).toBeInTheDocument();
+    expect(screen.getByText("当前接入范围")).toBeInTheDocument();
     expect(screen.getByRole("radio", { name: "选择 文章摘要生成" })).toBeChecked();
     expect(screen.getByText("当前首选")).toBeInTheDocument();
     expect(screen.getAllByText("summary-model").length).toBeGreaterThan(0);

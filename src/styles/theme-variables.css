@@ -185,24 +185,24 @@
 
 .admin-theme {
   color-scheme: light;
-  --background: #f9f9f8;
+  --background: #fbfaf8;
   --surface: #ffffff;
-  --surface-alt: #f1f1f0;
+  --surface-alt: #f6f7f4;
   --surface-elevated: #ffffff;
-  --surface-contrast: #ececea;
+  --surface-contrast: #eef1ed;
   --float-panel-bg: #ffffff;
-  --foreground: #111827;
-  --text-body: #30343b;
-  --text-muted: #71717a;
-  --text-faint: #9ca3af;
+  --foreground: #17201b;
+  --text-body: #37423b;
+  --text-muted: #778178;
+  --text-faint: #9aa39c;
   --muted: var(--text-muted);
-  --border: rgba(0, 0, 0, 0.08);
-  --border-strong: rgba(0, 0, 0, 0.12);
-  --line-color: rgba(0, 0, 0, 0.08);
-  --primary: #18181b;
-  --brand: #4f46e5;
-  --brand-strong: #4338ca;
-  --ring: color-mix(in srgb, #4f46e5 35%, transparent);
+  --border: rgba(23, 32, 27, 0.1);
+  --border-strong: rgba(23, 32, 27, 0.16);
+  --line-color: rgba(23, 32, 27, 0.1);
+  --primary: #23875f;
+  --brand: #23875f;
+  --brand-strong: #176844;
+  --ring: color-mix(in srgb, #23875f 35%, transparent);
   --btn-content: color-mix(in oklab, var(--brand) 26%, var(--foreground) 74%);
   --btn-regular-bg: color-mix(in oklab, var(--surface-alt) 82%, var(--brand) 18%);
   --btn-regular-bg-hover: color-mix(in oklab, var(--surface-alt) 68%, var(--brand) 32%);

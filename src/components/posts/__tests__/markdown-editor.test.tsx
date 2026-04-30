@@ -33,7 +33,7 @@ describe("markdown editor", () => {
   test("renders qiniu image upload trigger and hides plain image button", () => {
     render(<MarkdownEditor value="" onChange={vi.fn()} />);
 
-    expect(screen.getByRole("button", { name: /上传图片到七牛/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /上传图片/ })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Image" })).toBeNull();
   });
 

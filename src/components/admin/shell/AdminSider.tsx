@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
-import { LogoutButton } from "@/components/LogoutButton";
+import { ChevronDown, Leaf, Sparkles } from "lucide-react";
 import { adminNavItems, isAdminNavItemActive } from "./config";
 
 interface AdminSiderProps {
@@ -9,60 +8,106 @@ interface AdminSiderProps {
 }
 
 export function AdminSider({ pathname, userLabel }: AdminSiderProps) {
-  const groups = Array.from(new Set(adminNavItems.map((item) => item.group)));
+  const mainItems = adminNavItems.filter((item) => item.group === "主导航");
+  const aiItems = adminNavItems.filter((item) => item.group === "AI 辅助");
+  const isAiActive = pathname.startsWith("/admin/ai");
 
   return (
     <aside
       className="hidden sticky top-0 h-screen overflow-hidden border-r border-[var(--border)] bg-[var(--surface)] lg:flex lg:flex-col"
       data-testid="admin-layout-sidebar"
     >
-      <div className="px-5 py-6">
-        <p className="text-xs uppercase tracking-[0.24em] text-[var(--muted)]">编辑工作台</p>
-        <p className="mt-2 font-display text-3xl font-semibold text-[var(--foreground)]">内容工作室</p>
-        <p className="mt-2 text-sm text-[var(--muted)]">清新、温润、聚焦内容节奏。</p>
+      <div className="px-5 pb-7 pt-6">
+        <Link href="/admin" className="flex items-center gap-3">
+          <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-[var(--brand)]">
+            <Leaf className="h-5 w-5" />
+          </span>
+          <span className="font-display text-2xl font-semibold tracking-tight text-[var(--foreground)]">roydust.top</span>
+        </Link>
       </div>
 
-      <nav aria-label="Admin navigation" className="flex-1 overflow-y-auto space-y-6 px-4 pb-6">
-        {groups.map((group) => (
-          <div key={group}>
-            <p className="px-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--muted)]">{group}</p>
-            <div className="mt-2 space-y-1">
-              {adminNavItems
-                .filter((item) => item.group === group)
-                .map((item) => {
-                  const Icon = item.icon;
-                  const isActive = isAdminNavItemActive(pathname, item.href);
+      <nav aria-label="Admin navigation" className="flex-1 overflow-y-auto border-t border-[var(--border)] px-3 py-6">
+        <p className="px-2 pb-4 font-display text-lg font-semibold text-[var(--foreground)]">博客后台</p>
+        <div className="space-y-2">
+          {mainItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = isAdminNavItemActive(pathname, item.href);
+            const itemClassName = `flex w-full items-center gap-3 rounded-lg px-3 py-3 text-base font-medium transition-colors ${
+              isActive
+                ? "bg-[color-mix(in_srgb,var(--brand)_10%,var(--surface-alt))] text-[var(--brand)]"
+                : "text-[var(--foreground)] hover:bg-[var(--surface-alt)]"
+            }`;
 
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      className={`flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-medium transition-colors ${
-                        isActive
-                          ? "bg-[var(--surface-alt)] text-[var(--brand)] shadow-[0_12px_24px_rgba(15,23,42,0.12)]"
-                          : "text-[var(--foreground)] hover:bg-[var(--surface-alt)]"
-                      }`}
-                    >
-                      <Icon className="h-4 w-4" />
-                      <span>{item.label}</span>
-                    </Link>
-                  );
-                })}
-            </div>
-          </div>
-        ))}
+            if (item.disabled) {
+              return (
+                <button
+                  key={item.href}
+                  aria-label={`${item.label}稍后开放`}
+                  className="flex w-full cursor-not-allowed items-center gap-3 rounded-lg px-3 py-3 text-base font-medium text-[var(--muted)] opacity-70"
+                  disabled
+                  type="button"
+                >
+                  <Icon className="h-5 w-5" />
+                  <span>{item.label}</span>
+                </button>
+              );
+            }
+
+            return (
+              <Link key={item.href} href={item.href} className={itemClassName}>
+                <Icon className="h-5 w-5" />
+                <span>{item.label}</span>
+                {item.badge ? (
+                  <span className="ml-auto inline-flex h-7 min-w-7 items-center justify-center rounded-full bg-amber-100 px-2 text-sm font-semibold text-amber-700">
+                    {item.badge}
+                  </span>
+                ) : null}
+              </Link>
+            );
+          })}
+        </div>
       </nav>
 
-      <div className="border-t border-[var(--border)] px-4 py-4">
-        <div className="rounded-2xl bg-[var(--surface-alt)] p-4">
-          <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">当前账号</p>
-          <p className="mt-2 text-sm font-medium text-[var(--foreground)]">{userLabel}</p>
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm">
-            <Link className="inline-flex items-center gap-2 text-[var(--brand)] hover:underline" href="/">
-              <ArrowLeft className="h-4 w-4" />
-              返回站点
-            </Link>
-            <LogoutButton />
+      <div className="space-y-5 border-t border-[var(--border)] px-5 py-5">
+        <div
+          className={`flex items-center justify-between rounded-lg px-1 py-2 text-sm font-medium ${
+            isAiActive ? "text-[var(--brand)]" : "text-[var(--muted)] hover:text-[var(--foreground)]"
+          }`}
+        >
+          <span className="inline-flex items-center gap-3">
+            <Sparkles className="h-5 w-5" />
+            AI 助手
+          </span>
+          <ChevronDown className={`h-4 w-4 ${isAiActive ? "" : "-rotate-90"}`} />
+        </div>
+        <div className="space-y-1 pl-8">
+          {aiItems.map((item) => {
+            const isActive = isAdminNavItemActive(pathname, item.href);
+
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`block rounded-md px-2 py-1.5 text-sm transition-colors ${
+                  isActive ? "bg-emerald-50 font-medium text-[var(--brand)]" : "text-[var(--muted)] hover:bg-[var(--surface-alt)] hover:text-[var(--foreground)]"
+                }`}
+              >
+                {item.label === "AI 模型" ? "模型配置" : item.label}
+              </Link>
+            );
+          })}
+        </div>
+
+        <div className="border-t border-[var(--border)] pt-5">
+          <div className="flex items-center gap-3 rounded-lg py-1">
+            <span className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-[var(--surface-alt)] text-base font-semibold text-[var(--foreground)]">
+              {userLabel.slice(0, 1).toUpperCase()}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-base font-medium text-[var(--foreground)]">{userLabel}</p>
+              <p className="text-sm text-[var(--muted)]">管理员</p>
+            </div>
+            <ChevronDown className="h-4 w-4 text-[var(--muted)]" />
           </div>
         </div>
       </div>

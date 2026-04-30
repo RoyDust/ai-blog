@@ -119,8 +119,8 @@ export function EditorWorkspace({
   };
 
   return (
-    <section className={`ui-surface rounded-2xl p-6 lg:p-7 ${fillHeight ? "flex min-h-0 flex-col overflow-hidden" : ""} ${className}`}>
-      <h2 className="mb-4 font-display text-xl font-bold text-[var(--foreground)]">编辑器</h2>
+    <section className={`ui-surface rounded-2xl p-5 lg:p-6 ${fillHeight ? "flex min-h-0 flex-col overflow-hidden" : ""} ${className}`}>
+      <h2 className="mb-4 font-display text-lg font-semibold text-[var(--foreground)]">写作画布</h2>
       <div className={fillHeight ? "flex min-h-0 flex-1 flex-col gap-4" : "space-y-4"}>
         <Input label="标题" placeholder="文章标题" required value={title} onChange={(event) => onTitleChange(event.target.value)} />
         <Input label="Slug" placeholder="url-slug" required value={slug} onChange={(event) => onSlugChange(event.target.value)} />

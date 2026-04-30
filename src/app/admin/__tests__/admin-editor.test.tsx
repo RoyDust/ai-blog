@@ -14,8 +14,8 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-async function openMetadataDialog() {
-  fireEvent.click(await screen.findByRole('button', { name: '元数据' }))
+async function waitForMetadataInspector() {
+  await screen.findByText('分类、标签与封面图')
 }
 
 describe('admin editor', () => {
@@ -41,10 +41,12 @@ describe('admin editor', () => {
 
     render(<AdminPostEditPage />)
 
-    expect(await screen.findByText('文章状态')).toBeInTheDocument()
+    expect(await screen.findByText('发布设置')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '保存草稿' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '发布文章' })).toBeInTheDocument()
-    expect(screen.getByText('发布准备度')).toBeInTheDocument()
+    expect(screen.getByText('发布清单')).toBeInTheDocument()
+    expect(screen.getByText('分类、标签与封面图')).toBeInTheDocument()
+    expect(screen.getByText('永久链接：/posts/post-1')).toBeInTheDocument()
   })
 
   test('shows cover upload and gallery picker triggers', async () => {
@@ -69,7 +71,7 @@ describe('admin editor', () => {
 
     render(<AdminPostEditPage />)
 
-    await openMetadataDialog()
+    await waitForMetadataInspector()
 
     expect(await screen.findByRole('button', { name: '上传并保存到图库' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '从图库选择' })).toBeInTheDocument()
@@ -97,8 +99,8 @@ describe('admin editor', () => {
 
     render(<AdminPostEditPage />)
 
-    expect((await screen.findAllByText('当前状态')).length).toBeGreaterThan(0)
-    expect(screen.getByText('草稿')).toBeInTheDocument()
+    expect(await screen.findByText('发布状态')).toBeInTheDocument()
+    expect(screen.getAllByText('草稿').length).toBeGreaterThan(0)
     expect(screen.getByRole('button', { name: '切换为已发布' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '保持草稿' })).toBeDisabled()
   })
@@ -190,7 +192,7 @@ describe('admin editor', () => {
 
     render(<AdminPostEditPage />)
 
-    await openMetadataDialog()
+    await waitForMetadataInspector()
 
     expect(await screen.findByLabelText('分类')).toHaveValue('cat-1')
     expect(await screen.findByRole('checkbox', { name: 'React' })).toBeChecked()
@@ -224,7 +226,7 @@ describe('admin editor', () => {
 
     render(<AdminPostEditPage />)
 
-    await openMetadataDialog()
+    await waitForMetadataInspector()
 
     const categorySelect = await screen.findByLabelText('分类')
     fireEvent.change(categorySelect, { target: { value: 'cat-2' } })

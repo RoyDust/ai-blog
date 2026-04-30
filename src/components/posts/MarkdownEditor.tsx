@@ -19,14 +19,14 @@ interface MarkdownEditorProps {
 type Snippet = { before: string; after?: string };
 
 const snippets: Array<{ label: string; icon: typeof Heading2; snippet: Snippet }> = [
-  { label: "H2", icon: Heading2, snippet: { before: "## ", after: "" } },
-  { label: "Bold", icon: Bold, snippet: { before: "**", after: "**" } },
-  { label: "Italic", icon: Italic, snippet: { before: "*", after: "*" } },
-  { label: "Quote", icon: Quote, snippet: { before: "> ", after: "" } },
-  { label: "Code", icon: Code, snippet: { before: "`", after: "`" } },
-  { label: "CodeBlock", icon: Code, snippet: { before: "\n```ts\n", after: "\n```\n" } },
-  { label: "Link", icon: Link2, snippet: { before: "[text](", after: ")" } },
-  { label: "List", icon: List, snippet: { before: "- ", after: "" } },
+  { label: "二级标题", icon: Heading2, snippet: { before: "## ", after: "" } },
+  { label: "加粗", icon: Bold, snippet: { before: "**", after: "**" } },
+  { label: "斜体", icon: Italic, snippet: { before: "*", after: "*" } },
+  { label: "引用", icon: Quote, snippet: { before: "> ", after: "" } },
+  { label: "行内代码", icon: Code, snippet: { before: "`", after: "`" } },
+  { label: "代码块", icon: Code, snippet: { before: "\n```ts\n", after: "\n```\n" } },
+  { label: "链接", icon: Link2, snippet: { before: "[text](", after: ")" } },
+  { label: "列表", icon: List, snippet: { before: "- ", after: "" } },
 ];
 
 function insertSnippet(value: string, snippet: Snippet) {
@@ -192,7 +192,7 @@ export function MarkdownEditor({
               key={item.label}
               type="button"
               title={item.label}
-              className="ui-btn rounded-lg border border-transparent px-2 py-1 text-xs text-[var(--foreground)] hover:border-[var(--border)] hover:bg-[var(--surface)]"
+              className="ui-btn rounded-lg border border-transparent px-2 py-1 text-xs text-[var(--muted)] hover:border-[var(--border)] hover:bg-[var(--surface)] hover:text-[var(--foreground)]"
               onClick={() => onChange(insertSnippet(value, item.snippet))}
             >
               <span className="inline-flex items-center gap-1">
@@ -206,7 +206,7 @@ export function MarkdownEditor({
         <input ref={fileInputRef} accept="image/*" className="hidden" type="file" onChange={handleImageUpload} />
         <button
           type="button"
-          className="ui-btn rounded-lg border border-transparent px-2 py-1 text-xs text-[var(--foreground)] hover:border-[var(--border)] hover:bg-[var(--surface)] disabled:cursor-not-allowed disabled:opacity-50"
+          className="ui-btn rounded-lg border border-transparent px-2 py-1 text-xs text-[var(--muted)] hover:border-[var(--border)] hover:bg-[var(--surface)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-50"
           onClick={() => {
             syncSelection();
             fileInputRef.current?.click();
@@ -215,7 +215,7 @@ export function MarkdownEditor({
         >
           <span className="inline-flex items-center gap-1">
             <Upload className="h-3.5 w-3.5" />
-            {isUploading ? "上传中..." : "上传图片到七牛"}
+            {isUploading ? "上传中..." : "上传图片"}
           </span>
         </button>
       </div>

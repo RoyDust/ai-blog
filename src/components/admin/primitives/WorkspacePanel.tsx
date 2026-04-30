@@ -20,17 +20,17 @@ export function WorkspacePanel({
   const shouldShowEmptyState = Boolean(emptyState) && Children.toArray(children).length === 0;
 
   return (
-    <section className={`ui-surface rounded-3xl ${className}`}>
+    <section className={`ui-surface rounded-xl shadow-[var(--shadow-card)] ${className}`}>
       {(title || description || actions) ? (
-        <header className="flex flex-wrap items-start justify-between gap-3 border-b border-[var(--border)] px-5 py-4">
+        <header className="flex flex-wrap items-start justify-between gap-3 px-5 pb-2 pt-5">
           <div>
-            {title ? <h2 className="font-display text-lg font-semibold text-[var(--foreground)]">{title}</h2> : null}
-            {description ? <p className="mt-1 text-sm text-[var(--muted)]">{description}</p> : null}
+            {title ? <h2 className="font-display text-lg font-semibold leading-none text-[var(--foreground)]">{title}</h2> : null}
+            {description ? <p className="mt-3 text-sm leading-5 text-[var(--muted)]">{description}</p> : null}
           </div>
           {actions}
         </header>
       ) : null}
-      <div className="px-5 py-4">{shouldShowEmptyState ? emptyState : children}</div>
+      <div className="px-5 pb-5 pt-4">{shouldShowEmptyState ? emptyState : children}</div>
     </section>
   );
 }

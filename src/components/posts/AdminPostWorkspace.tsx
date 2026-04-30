@@ -2,16 +2,14 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 import { PostAiWorkspace } from "@/components/admin/ai/PostAiWorkspace";
 import { CoverPicker } from "@/components/admin/covers/CoverPicker";
 import type { CoverAsset } from "@/components/admin/covers/types";
-import { PageHeader } from "@/components/admin/primitives/PageHeader";
 import { StatusBadge } from "@/components/admin/primitives/StatusBadge";
-import { Toolbar } from "@/components/admin/primitives/Toolbar";
 import { WorkspacePanel } from "@/components/admin/primitives/WorkspacePanel";
-import { Button, Input, Modal } from "@/components/ui";
-import { useInspectorState } from "@/hooks/useInspectorState";
+import { Button, Input } from "@/components/ui";
 import { generatePostSlug } from "@/lib/slug";
 
 import { EditorWorkspace } from "./EditorWorkspace";
@@ -108,10 +106,6 @@ function resolvePostRoute(
   return "/admin/posts";
 }
 
-function panelButtonClassName() {
-  return "ui-btn rounded-lg border border-transparent px-2 py-1 text-sm text-[var(--foreground)] hover:border-[var(--border)] hover:bg-[var(--surface)] aria-pressed:border-[var(--border)] aria-pressed:bg-[var(--surface)]";
-}
-
 export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
   const router = useRouter();
   const isEditMode = mode === "edit";
@@ -126,7 +120,6 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
   const [isSlugManuallyEdited, setIsSlugManuallyEdited] = useState(false);
   const [categories, setCategories] = useState<CategoryOption[]>([]);
   const [tags, setTags] = useState<TagOption[]>([]);
-  const [activeModal, setActiveModal] = useState<"metadata" | "ai" | null>(null);
   const coverFileInputRef = useRef<HTMLInputElement | null>(null);
   const [isCoverUploading, setIsCoverUploading] = useState(false);
   const [coverUploadError, setCoverUploadError] = useState("");
@@ -135,13 +128,6 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
   const [isCompletingMetadata, setIsCompletingMetadata] = useState(false);
   const [metadataError, setMetadataError] = useState("");
 
-  const inspectorPanels = (
-    canUseAiWorkspace ? ["status", "metadata", "ai"] : ["status", "metadata"]
-  ) as readonly ("status" | "metadata" | "ai")[];
-  const inspector = useInspectorState({
-    defaultPanel: "status",
-    allowedPanels: inspectorPanels,
-  });
   const canSubmit = useMemo(
     () => formData.title.trim().length > 0 && formData.slug.trim().length > 0 && formData.content.trim().length > 0,
     [formData],
@@ -244,27 +230,6 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
 
     return () => window.clearTimeout(timer);
   }, [draftKey, formData, mode]);
-
-  useEffect(() => {
-    if (inspector.panel === "metadata" || (inspector.panel === "ai" && canUseAiWorkspace)) {
-      setActiveModal(inspector.panel);
-      return;
-    }
-
-    setActiveModal(null);
-  }, [canUseAiWorkspace, inspector.panel]);
-
-  const openDetailPanel = (panel: "metadata" | "ai") => {
-    setActiveModal(panel);
-    inspector.setPanel(panel);
-  };
-
-  const closeDetailPanel = () => {
-    setActiveModal(null);
-    if (inspector.panel === "metadata" || inspector.panel === "ai") {
-      inspector.setPanel("status");
-    }
-  };
 
   const handleGenerateSummary = async () => {
     if (!formData.content.trim()) return;
@@ -443,8 +408,7 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
   };
 
   const metadataEditor = (
-    <div className="grid gap-5 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
-      <div className="space-y-4">
+    <div className="space-y-4">
         <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-alt)] p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -540,9 +504,6 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
           </div>
           {coverUploadError ? <p className="mt-2 text-sm text-rose-500">{coverUploadError}</p> : null}
         </div>
-      </div>
-
-      <div className="space-y-4">
         <div className="space-y-2">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm font-medium text-[var(--foreground)]">摘要</p>
@@ -578,7 +539,6 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
           />
           <p className="text-sm text-[var(--muted)]">为空时前台元数据会继续回退到文章摘要。</p>
         </div>
-      </div>
     </div>
   );
 
@@ -618,46 +578,61 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
     return <p className="py-20 text-center text-[var(--muted)]">加载中...</p>;
   }
 
+  const previewHref = formData.published && formData.slug.trim() ? `/posts/${formData.slug.trim()}` : null;
+  const saveStatusLabel = isEditMode
+    ? "手动保存"
+    : saveStatus === "saving"
+      ? "本地草稿保存中..."
+      : saveStatus === "saved"
+        ? "本地草稿已保存"
+        : "本地草稿待保存";
+
   return (
-    <form className="flex min-h-0 flex-col gap-4 lg:h-[calc(100dvh-10rem)] lg:overflow-hidden" onSubmit={handleSubmit}>
-      <PageHeader
-        eyebrow="Editor"
-        title={isEditMode ? "后台编辑文章" : "新建文章"}
-        description={isEditMode ? "正文保持在单屏工作台内，元数据和 AI 操作按需展开。" : "使用与编辑页一致的后台工作台完成 Markdown 创作、元数据维护和发布检查。"}
-        action={
-          <>
+    <form className="flex min-h-0 flex-col gap-4 lg:h-[calc(100dvh-8rem)] lg:overflow-hidden" onSubmit={handleSubmit}>
+      <header className="ui-surface rounded-2xl px-4 py-3">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+          <div className="min-w-0">
+            <button
+              type="button"
+              className="text-sm font-medium text-[var(--muted)] hover:text-[var(--foreground)]"
+              onClick={() => (isEditMode ? router.back() : router.push("/admin/posts"))}
+            >
+              ← 返回文章
+            </button>
+            <div className="mt-2 flex flex-wrap items-center gap-3">
+              <h1 className="font-display text-xl font-semibold text-[var(--foreground)]">
+                {isEditMode ? "编辑文章" : "新建文章"}
+              </h1>
+              <StatusBadge tone={formData.published ? "success" : "warning"}>{formData.published ? "已发布" : "草稿"}</StatusBadge>
+              <span className="text-sm text-[var(--muted)]">{saveStatusLabel}</span>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {previewHref ? (
+              <Link
+                className="ui-btn ui-ring inline-flex items-center justify-center rounded-xl border border-[var(--border)] px-3 py-1.5 text-sm font-medium text-[var(--foreground)] hover:bg-[var(--surface-alt)]"
+                href={previewHref}
+                target="_blank"
+              >
+                预览
+              </Link>
+            ) : (
+              <Button type="button" disabled size="sm" variant="outline" title="草稿暂不支持前台预览">
+                预览
+              </Button>
+            )}
             <Button type="submit" disabled={saving || !canSubmit} size="sm" name="intent" value="draft" variant="outline">
               保存草稿
             </Button>
             <Button type="submit" disabled={saving || !canSubmit} size="sm" name="intent" value="publish">
-              {saving && !isEditMode ? "提交中..." : "发布文章"}
+              {saving ? "提交中..." : "发布文章"}
             </Button>
-            <Button type="button" variant="outline" size="sm" onClick={() => (isEditMode ? router.back() : router.push("/admin/posts"))}>
-              返回列表
-            </Button>
-          </>
-        }
-      />
+          </div>
+        </div>
+      </header>
 
       {error ? <p className="rounded-xl border border-rose-300 bg-rose-50 p-3 text-sm text-rose-700">{error}</p> : null}
-
-      <section className="ui-surface rounded-2xl px-5 py-4">
-        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-          <div className="shrink-0">
-            <h2 className="font-display text-lg font-semibold text-[var(--foreground)]">发布准备度</h2>
-            <p className="mt-1 text-sm text-[var(--muted)]">围绕标题、slug、正文和封面给出发布前检查。</p>
-          </div>
-          <PublishChecklist
-            variant="bar"
-            content={formData.content}
-            coverImage={formData.coverImage}
-            excerpt={formData.excerpt}
-            seoDescription={formData.seoDescription}
-            slug={formData.slug}
-            title={formData.title}
-          />
-        </div>
-      </section>
 
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
         <EditorWorkspace
@@ -686,146 +661,114 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
           }
         />
 
-        <div className="flex min-h-0 flex-col gap-3 overflow-hidden">
-          <Toolbar
-            leading={
-              <>
-                <button
-                  type="button"
-                  aria-pressed={inspector.panel === "status" && activeModal === null}
-                  className={panelButtonClassName()}
-                  onClick={() => {
-                    setActiveModal(null);
-                    inspector.setPanel("status");
-                  }}
-                >
-                  状态
-                </button>
-                <button
-                  type="button"
-                  aria-haspopup="dialog"
-                  aria-pressed={activeModal === "metadata" || inspector.panel === "metadata"}
-                  className={panelButtonClassName()}
-                  onClick={() => openDetailPanel("metadata")}
-                >
-                  元数据
-                </button>
-                {canUseAiWorkspace ? (
-                  <button
-                    type="button"
-                    aria-haspopup="dialog"
-                    aria-pressed={activeModal === "ai" || inspector.panel === "ai"}
-                    className={panelButtonClassName()}
-                    onClick={() => openDetailPanel("ai")}
-                  >
-                    AI 工作台
-                  </button>
-                ) : null}
-              </>
-            }
-          />
-
-          <div className="space-y-3">
-            <WorkspacePanel title="文章状态" description="保存前先决定该内容停留在草稿还是已发布。">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium text-[var(--foreground)]">当前状态</p>
-                    <p className="text-sm text-[var(--muted)]">
-                      {isEditMode ? "先切换状态，再保存。" : `自动草稿状态：${saveStatus === "saving" ? "保存中..." : saveStatus === "saved" ? "已保存" : "未开始"}`}
-                    </p>
-                  </div>
-                  <StatusBadge tone={formData.published ? "success" : "warning"}>{formData.published ? "已发布" : "草稿"}</StatusBadge>
+        <aside className="flex min-h-0 flex-col gap-3 overflow-y-auto pr-1">
+          <WorkspacePanel title="发布设置" description="保存、发布和前台展示相关设置。" className="rounded-2xl">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between gap-3">
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-[var(--foreground)]">发布状态</p>
+                  <p className="text-sm text-[var(--muted)]">{isEditMode ? "切换后通过保存或发布提交。" : saveStatusLabel}</p>
                 </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={formData.published ? "outline" : "primary"}
-                    disabled={!formData.published}
-                    onClick={() => setFormData((prev) => ({ ...prev, published: false }))}
-                  >
-                    保持草稿
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={formData.published ? "primary" : "outline"}
-                    disabled={formData.published}
-                    onClick={() => setFormData((prev) => ({ ...prev, published: true }))}
-                  >
-                    切换为已发布
-                  </Button>
-                </div>
-
-                <div className="space-y-2 rounded-2xl border border-[var(--border)] bg-[var(--surface-alt)] p-3 text-sm text-[var(--muted)]">
-                  <p>Slug：{formData.slug || "未生成"}</p>
-                  <p>分类：{categories.find((category) => category.id === formData.categoryId)?.name ?? "未选择"}</p>
-                  <p>标签：{formData.tagIds.length > 0 ? `${formData.tagIds.length} 个` : "未选择"}</p>
-                  <p>摘要：{formData.excerpt ? `${formData.excerpt.length} 字` : "未填写"}</p>
-                  <p>封面：{formData.coverImage ? "已设置" : "未设置"}</p>
-                </div>
+                <StatusBadge tone={formData.published ? "success" : "warning"}>{formData.published ? "已发布" : "草稿"}</StatusBadge>
               </div>
-            </WorkspacePanel>
 
-            <WorkspacePanel title="精选状态" description="精选文章会出现在首页和文章列表顶部。">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium text-[var(--foreground)]">当前状态</p>
-                    <p className="text-sm text-[var(--muted)]">最多 3 篇精选文章会展示在前台。</p>
-                  </div>
-                  <StatusBadge tone={formData.featured ? "success" : "neutral"}>{formData.featured ? "精选" : "普通"}</StatusBadge>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={formData.featured ? "outline" : "primary"}
-                    disabled={!formData.featured}
-                    onClick={() => setFormData((prev) => ({ ...prev, featured: false }))}
-                  >
-                    取消精选
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={formData.featured ? "primary" : "outline"}
-                    disabled={formData.featured}
-                    onClick={() => setFormData((prev) => ({ ...prev, featured: true }))}
-                  >
-                    设为精选
-                  </Button>
-                </div>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={formData.published ? "outline" : "primary"}
+                  disabled={!formData.published}
+                  onClick={() => setFormData((prev) => ({ ...prev, published: false }))}
+                >
+                  保持草稿
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={formData.published ? "primary" : "outline"}
+                  disabled={formData.published}
+                  onClick={() => setFormData((prev) => ({ ...prev, published: true }))}
+                >
+                  切换为已发布
+                </Button>
               </div>
+
+              <div className="space-y-2">
+                <Input label="发布时间" value={isEditMode && formData.published ? "随发布保存更新" : "立即发布"} disabled readOnly />
+                <p className="text-xs text-[var(--muted)]">静态字段，当前不会提交排程数据。</p>
+              </div>
+
+              <label className="flex items-center justify-between gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface-alt)] px-3 py-2 text-sm">
+                <span className="text-[var(--foreground)]">允许评论</span>
+                <input type="checkbox" disabled className="h-4 w-4 rounded border-[var(--border)]" />
+              </label>
+              <p className="text-xs text-[var(--muted)]">静态开关，当前文章接口没有评论开关字段。</p>
+
+              <div className="space-y-2 rounded-xl border border-[var(--border)] bg-[var(--surface-alt)] p-3 text-sm text-[var(--muted)]">
+                <p>永久链接：{formData.slug ? `/posts/${formData.slug}` : "未生成"}</p>
+                <p>分类：{categories.find((category) => category.id === formData.categoryId)?.name ?? "未选择"}</p>
+                <p>标签：{formData.tagIds.length > 0 ? `${formData.tagIds.length} 个` : "未选择"}</p>
+                <p>封面图：{formData.coverImage ? "已设置" : "未设置"}</p>
+              </div>
+            </div>
+          </WorkspacePanel>
+
+          <WorkspacePanel title="发布清单" description="发布前检查标题、正文、SEO 与封面。" className="rounded-2xl">
+            <PublishChecklist
+              variant="inline"
+              content={formData.content}
+              coverImage={formData.coverImage}
+              excerpt={formData.excerpt}
+              seoDescription={formData.seoDescription}
+              slug={formData.slug}
+              title={formData.title}
+            />
+          </WorkspacePanel>
+
+          <WorkspacePanel title="分类、标签与封面图" description="这些字段会随保存或发布提交。" className="rounded-2xl">
+            {metadataEditor}
+          </WorkspacePanel>
+
+          <WorkspacePanel title="精选状态" description="精选文章会出现在首页和文章列表顶部。" className="rounded-2xl">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between gap-3">
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-[var(--foreground)]">当前状态</p>
+                  <p className="text-sm text-[var(--muted)]">最多 3 篇精选文章会展示在前台。</p>
+                </div>
+                <StatusBadge tone={formData.featured ? "success" : "neutral"}>{formData.featured ? "精选" : "普通"}</StatusBadge>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={formData.featured ? "outline" : "primary"}
+                  disabled={!formData.featured}
+                  onClick={() => setFormData((prev) => ({ ...prev, featured: false }))}
+                >
+                  取消精选
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={formData.featured ? "primary" : "outline"}
+                  disabled={formData.featured}
+                  onClick={() => setFormData((prev) => ({ ...prev, featured: true }))}
+                >
+                  设为精选
+                </Button>
+              </div>
+            </div>
+          </WorkspacePanel>
+
+          {canUseAiWorkspace ? (
+            <WorkspacePanel title="AI 辅助" description="可用于摘要、元信息和审稿，不影响手动编辑。" className="rounded-2xl">
+              {aiWorkspace}
             </WorkspacePanel>
-          </div>
-        </div>
+          ) : null}
+        </aside>
       </div>
-
-      <Modal
-        isOpen={activeModal === "metadata"}
-        onClose={closeDetailPanel}
-        title="元数据"
-        size="4xl"
-        contentClassName="max-h-[calc(100dvh-7rem)]"
-      >
-        {metadataEditor}
-      </Modal>
-
-      {canUseAiWorkspace ? (
-        <Modal
-          isOpen={activeModal === "ai"}
-          onClose={closeDetailPanel}
-          title="AI 工作台"
-          size="3xl"
-          contentClassName="max-h-[calc(100dvh-7rem)]"
-        >
-          {aiWorkspace}
-        </Modal>
-      ) : null}
     </form>
   );
 }

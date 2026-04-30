@@ -20,18 +20,18 @@ afterEach(() => {
 
 describe('admin create post', () => {
   async function openMetadataDialog() {
-    fireEvent.click(await screen.findByRole('button', { name: '元数据' }))
+    await screen.findByRole('heading', { name: '分类、标签与封面图' })
   }
 
   test('renders new post workspace in admin style', () => {
     render(<AdminCreatePostPage />)
 
     expect(screen.getByRole('heading', { name: '新建文章' })).toBeInTheDocument()
-    expect(screen.getByText('文章状态')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '发布设置' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '保存草稿' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '发布文章' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'AI 工作台' })).toBeInTheDocument()
-    expect(screen.getByText('发布准备度')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'AI 辅助' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '发布清单' })).toBeInTheDocument()
     expect(screen.getByText('实时预览')).toBeInTheDocument()
   })
 
@@ -168,7 +168,7 @@ describe('admin create post', () => {
       target: { value: '# 正文\n\n这是一篇关于 Next.js 和 AI 写作体验的文章。' },
     })
 
-    fireEvent.click(await screen.findByRole('button', { name: '元数据' }))
+    await openMetadataDialog()
     await screen.findByRole('option', { name: '前端' })
     fireEvent.click(screen.getByRole('button', { name: 'AI 补全元信息' }))
 
