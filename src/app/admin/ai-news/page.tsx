@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
 import { toast } from "sonner"
 
@@ -8,6 +8,22 @@ import { PageHeader } from "@/components/admin/primitives/PageHeader"
 import { StatusBadge } from "@/components/admin/primitives/StatusBadge"
 import { WorkspacePanel } from "@/components/admin/primitives/WorkspacePanel"
 import { Button } from "@/components/ui/Button"
+
+type RunHistoryItem = {
+  id: string
+  runDate: string
+  trigger: "MANUAL" | "CRON"
+  status: "RUNNING" | "SUCCEEDED" | "FAILED" | "SKIPPED"
+  sourceCount: number
+  failureCount: number
+  error?: string | null
+  postId?: string | null
+  postSlug?: string | null
+  published: boolean
+  reviewScore?: number | null
+  createdAt: string
+  durationMs?: number | null
+}
 
 type RunResult = {
   operation: "created" | "skipped"
@@ -17,6 +33,7 @@ type RunResult = {
   post?: { id: string; title: string; slug: string; published: boolean }
   autoReview?: { verdict?: "ready" | "needs-work"; score?: number; summary?: string; published: boolean; error?: string } | null
   failures?: Array<{ sourceId: string; message: string }>
+  run?: { id: string; status: RunHistoryItem["status"] }
 }
 
 function todayInputValue() {
@@ -31,10 +48,53 @@ function readError(data: unknown) {
   return "AI 日报生成失败"
 }
 
+function runStatusMeta(status: RunHistoryItem["status"]): { label: string; tone: "neutral" | "success" | "warning" | "danger" } {
+  switch (status) {
+    case "SUCCEEDED":
+      return { label: "已完成", tone: "success" }
+    case "FAILED":
+      return { label: "生成失败", tone: "danger" }
+    case "RUNNING":
+      return { label: "运行中", tone: "warning" }
+    case "SKIPPED":
+      return { label: "已跳过", tone: "warning" }
+  }
+}
+
+function runTriggerLabel(trigger: RunHistoryItem["trigger"]) {
+  return trigger === "CRON" ? "定时" : "手动"
+}
+
 export default function AdminAiNewsPage() {
   const [date, setDate] = useState(todayInputValue())
   const [running, setRunning] = useState(false)
   const [result, setResult] = useState<RunResult | null>(null)
+  const [runs, setRuns] = useState<RunHistoryItem[]>([])
+  const [runsLoading, setRunsLoading] = useState(false)
+  const [runsError, setRunsError] = useState<string | null>(null)
+
+  const loadRunHistory = useCallback(async () => {
+    setRunsLoading(true)
+    setRunsError(null)
+    try {
+      const response = await fetch("/api/admin/ai-news/run")
+      const data = await response.json()
+
+      if (!response.ok || !data.success) {
+        throw new Error(readError(data))
+      }
+
+      setRuns(Array.isArray(data.data) ? data.data : [])
+    } catch (error) {
+      setRunsError(error instanceof Error ? error.message : "运行记录加载失败")
+    } finally {
+      setRunsLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void loadRunHistory()
+  }, [loadRunHistory])
 
   async function runNewsGeneration() {
     setRunning(true)
@@ -51,6 +111,7 @@ export default function AdminAiNewsPage() {
       }
 
       setResult(data.data)
+      await loadRunHistory()
       if (data.data.operation === "skipped") {
         toast.message("今日 AI 日报已存在")
       } else if (data.data.published) {
@@ -138,6 +199,51 @@ export default function AdminAiNewsPage() {
           </div>
         </WorkspacePanel>
       ) : null}
+
+      <WorkspacePanel
+        title="运行记录"
+        description={runsLoading ? "正在加载最近运行状态" : "最近 20 次手动或定时生成结果"}
+        className="border border-[var(--border)]"
+      >
+        <div className="space-y-3">
+          {runsError ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{runsError}</p> : null}
+          {!runsError && runs.length === 0 ? <p className="text-sm text-[var(--muted)]">暂无运行记录。</p> : null}
+
+          {runs.map((run) => {
+            const meta = runStatusMeta(run.status)
+            return (
+              <div key={run.id} className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
+                <div className="flex flex-wrap items-center gap-3">
+                  <StatusBadge tone={meta.tone}>{meta.label}</StatusBadge>
+                  <span className="text-sm text-[var(--muted)]">{runTriggerLabel(run.trigger)}</span>
+                  <span className="text-sm text-[var(--muted)]">{run.runDate.slice(0, 10)}</span>
+                  <span className="text-sm text-[var(--muted)]">来源 {run.sourceCount ?? 0} 条</span>
+                  {run.failureCount ? <span className="text-sm text-[var(--muted)]">失败 {run.failureCount} 个</span> : null}
+                  {run.durationMs ? <span className="text-sm text-[var(--muted)]">{Math.round(run.durationMs / 1000)} 秒</span> : null}
+                </div>
+
+                {run.error ? <p className="mt-3 text-sm text-red-600">{run.error}</p> : null}
+                {typeof run.reviewScore === "number" ? <p className="mt-2 text-sm text-[var(--muted)]">审稿得分 {run.reviewScore}</p> : null}
+
+                {run.postId || run.postSlug ? (
+                  <div className="mt-3 flex flex-wrap gap-3 text-sm">
+                    {run.postId ? (
+                      <Link className="text-[var(--brand)] hover:underline" href={`/admin/posts/${run.postId}/edit`}>
+                        编辑
+                      </Link>
+                    ) : null}
+                    {run.postSlug && run.published ? (
+                      <Link className="text-[var(--brand)] hover:underline" href={`/posts/${run.postSlug}`}>
+                        查看文章
+                      </Link>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+            )
+          })}
+        </div>
+      </WorkspacePanel>
     </div>
   )
 }

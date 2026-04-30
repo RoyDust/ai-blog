@@ -21,6 +21,18 @@ enum CommentStatus {
   SPAM
 }
 
+enum AiNewsRunStatus {
+  RUNNING
+  SUCCEEDED
+  FAILED
+  SKIPPED
+}
+
+enum AiNewsRunTrigger {
+  MANUAL
+  CRON
+}
+
 model Account {
   id                String  @id @default(cuid())
   userId            String
@@ -145,6 +157,33 @@ model AiDraftBinding {
   @@unique([clientId, externalId])
   @@index([clientId])
   @@map("ai_draft_bindings")
+}
+
+model AiNewsRun {
+  id            String          @id @default(cuid())
+  runDate       DateTime
+  trigger       AiNewsRunTrigger
+  status        AiNewsRunStatus @default(RUNNING)
+  sourceCount   Int             @default(0)
+  failureCount  Int             @default(0)
+  error         String?         @db.Text
+  postId        String?
+  postTitle     String?
+  postSlug      String?
+  published     Boolean         @default(false)
+  reviewVerdict String?
+  reviewScore   Int?
+  reviewSummary String?         @db.Text
+  startedAt     DateTime        @default(now())
+  finishedAt    DateTime?
+  durationMs    Int?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@index([createdAt])
+  @@index([runDate])
+  @@index([status])
+  @@map("ai_news_runs")
 }
 
 model Category {

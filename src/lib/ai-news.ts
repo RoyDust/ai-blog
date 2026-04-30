@@ -44,6 +44,9 @@ type DraftCandidate = {
   content?: unknown
 }
 
+type AiNewsRunTriggerInput = "manual" | "cron"
+type AiNewsRunStatusValue = "RUNNING" | "SUCCEEDED" | "FAILED" | "SKIPPED"
+
 export const DAILY_AI_NEWS_SOURCES: AiNewsSource[] = [
   { id: "openai", name: "OpenAI Blog", feedUrl: "https://openai.com/news/rss.xml", homepage: "https://openai.com/news/" },
   { id: "anthropic", name: "Anthropic News", feedUrl: "https://www.anthropic.com/news/rss.xml", homepage: "https://www.anthropic.com/news" },
@@ -121,6 +124,33 @@ function normalizeExcerpt(value: string) {
 
 function formatDateId(date: Date) {
   return date.toISOString().slice(0, 10)
+}
+
+function normalizeRunTrigger(trigger: AiNewsRunTriggerInput) {
+  return trigger === "cron" ? "CRON" : "MANUAL"
+}
+
+function readErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "Daily AI news generation failed"
+}
+
+async function finishAiNewsRun({
+  runId,
+  startedAtMs,
+  data,
+}: {
+  runId: string
+  startedAtMs: number
+  data: Record<string, unknown> & { status: AiNewsRunStatusValue }
+}) {
+  await prisma.aiNewsRun.update({
+    where: { id: runId },
+    data: {
+      ...data,
+      finishedAt: new Date(),
+      durationMs: Math.max(0, Date.now() - startedAtMs),
+    },
+  })
 }
 
 export function buildDailyAiNewsSlug(date: Date) {
@@ -359,78 +389,153 @@ export async function runDailyAiNews({
   date = new Date(),
   sources = DAILY_AI_NEWS_SOURCES,
   fetchImpl = fetch,
+  trigger = "manual",
 }: {
   authorId: string
   date?: Date
   sources?: AiNewsSource[]
   fetchImpl?: typeof fetch
+  trigger?: AiNewsRunTriggerInput
 }) {
-  const slug = buildDailyAiNewsSlug(date)
-  const existing = await prisma.post.findFirst({
-    where: { slug, deletedAt: null },
-    select: { id: true, title: true, slug: true, published: true },
-  })
-
-  if (existing) {
-    return {
-      operation: "skipped" as const,
-      reason: "Daily AI news already exists",
-      published: existing.published,
-      post: existing,
-      sourceCount: 0,
-      failures: [],
-    }
-  }
-
-  const { items, failures } = await fetchDailyAiNewsCandidates({ date, sources, fetchImpl })
-  const draft = await generateDailyAiNewsDraft({ date, candidates: items, fetchImpl })
-  const post = await createAdminPost({
-    authorId,
-    input: {
-      title: draft.title,
-      slug: draft.slug,
-      content: draft.content,
-      excerpt: draft.excerpt,
-      published: false,
+  const startedAtMs = Date.now()
+  const run = await prisma.aiNewsRun.create({
+    data: {
+      runDate: date,
+      trigger: normalizeRunTrigger(trigger),
+      status: "RUNNING",
     },
   })
+  let sourceCount = 0
+  let failureCount = 0
 
-  let published = false
-  let autoReview:
-    | { verdict: "ready" | "needs-work"; score: number; summary: string; published: boolean; error?: never }
-    | { published: false; error: string; verdict?: never; score?: never; summary?: never }
-    | null = null
-
+  const slug = buildDailyAiNewsSlug(date)
   try {
-    const review = await generatePostReview({
-      title: draft.title,
-      slug: draft.slug,
-      content: draft.content,
+    const existing = await prisma.post.findFirst({
+      where: { slug, deletedAt: null },
+      select: { id: true, title: true, slug: true, published: true },
     })
 
-    if (review) {
-      if (isAutoPublishableReview(review)) {
-        await publishAiDraftPost({ postId: post.id })
-        published = true
-      }
+    if (existing) {
+      await finishAiNewsRun({
+        runId: run.id,
+        startedAtMs,
+        data: {
+          status: "SKIPPED",
+          sourceCount: 0,
+          failureCount: 0,
+          postId: existing.id,
+          postTitle: existing.title,
+          postSlug: existing.slug,
+          published: existing.published,
+        },
+      })
 
-      autoReview = {
-        verdict: review.verdict,
-        score: review.score,
-        summary: review.summary,
-        published,
+      return {
+        operation: "skipped" as const,
+        reason: "Daily AI news already exists",
+        published: existing.published,
+        post: existing,
+        sourceCount: 0,
+        failures: [],
+        run: { id: run.id, status: "SKIPPED" as const },
       }
     }
-  } catch {
-    autoReview = { published: false, error: "Automatic review failed" }
-  }
 
-  return {
-    operation: "created" as const,
-    published,
-    post: { ...post, published },
-    autoReview,
-    sourceCount: items.length,
-    failures,
+    const { items, failures } = await fetchDailyAiNewsCandidates({ date, sources, fetchImpl })
+    sourceCount = items.length
+    failureCount = failures.length
+
+    const draft = await generateDailyAiNewsDraft({ date, candidates: items, fetchImpl })
+    const post = await createAdminPost({
+      authorId,
+      input: {
+        title: draft.title,
+        slug: draft.slug,
+        content: draft.content,
+        excerpt: draft.excerpt,
+        published: false,
+      },
+    })
+
+    let published = false
+    let autoReview:
+      | { verdict: "ready" | "needs-work"; score: number; summary: string; published: boolean; error?: never }
+      | { published: false; error: string; verdict?: never; score?: never; summary?: never }
+      | null = null
+
+    try {
+      const review = await generatePostReview({
+        title: draft.title,
+        slug: draft.slug,
+        content: draft.content,
+      })
+
+      if (review) {
+        if (isAutoPublishableReview(review)) {
+          await publishAiDraftPost({ postId: post.id })
+          published = true
+        }
+
+        autoReview = {
+          verdict: review.verdict,
+          score: review.score,
+          summary: review.summary,
+          published,
+        }
+      }
+    } catch {
+      autoReview = { published: false, error: "Automatic review failed" }
+    }
+
+    const reviewRunData =
+      autoReview && !("error" in autoReview)
+        ? {
+            reviewVerdict: autoReview.verdict,
+            reviewScore: autoReview.score,
+            reviewSummary: autoReview.summary,
+          }
+        : {
+            reviewVerdict: null,
+            reviewScore: null,
+            reviewSummary: autoReview?.error ?? null,
+          }
+
+    await finishAiNewsRun({
+      runId: run.id,
+      startedAtMs,
+      data: {
+        status: "SUCCEEDED",
+        sourceCount,
+        failureCount,
+        postId: post.id,
+        postTitle: post.title,
+        postSlug: post.slug,
+        published,
+        ...reviewRunData,
+      },
+    })
+
+    return {
+      operation: "created" as const,
+      published,
+      post: { ...post, published },
+      autoReview,
+      sourceCount,
+      failures,
+      run: { id: run.id, status: "SUCCEEDED" as const },
+    }
+  } catch (error) {
+    await finishAiNewsRun({
+      runId: run.id,
+      startedAtMs,
+      data: {
+        status: "FAILED",
+        sourceCount,
+        failureCount: Math.max(failureCount, 1),
+        error: readErrorMessage(error),
+      },
+    })
+
+    throw error
   }
 }

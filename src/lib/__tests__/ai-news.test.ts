@@ -5,6 +5,8 @@ const generatePostReview = vi.fn()
 const isAutoPublishableReview = vi.fn()
 const publishAiDraftPost = vi.fn()
 const findFirst = vi.fn()
+const createAiNewsRun = vi.fn()
+const updateAiNewsRun = vi.fn()
 
 vi.mock("@/lib/ai-authoring", () => ({
   createAdminPost,
@@ -21,6 +23,10 @@ vi.mock("@/lib/prisma", () => ({
     post: {
       findFirst,
     },
+    aiNewsRun: {
+      create: createAiNewsRun,
+      update: updateAiNewsRun,
+    },
   },
 }))
 
@@ -30,6 +36,7 @@ describe("ai news aggregation", () => {
   beforeEach(() => {
     vi.resetModules()
     vi.clearAllMocks()
+    createAiNewsRun.mockResolvedValue({ id: "run-1", startedAt: new Date("2026-04-29T08:00:00Z") })
     process.env = {
       ...originalEnv,
       DASHSCOPE_API_KEY: "test-key",
@@ -138,7 +145,14 @@ describe("ai news aggregation", () => {
     })
     expect(generatePostReview).toHaveBeenCalledWith(expect.objectContaining({ slug: "ai-daily-2026-04-29" }))
     expect(publishAiDraftPost).toHaveBeenCalledWith({ postId: "post-1" })
-    expect(result).toMatchObject({ operation: "created", published: true, post: { id: "post-1" } })
+    expect(createAiNewsRun).toHaveBeenCalledWith({
+      data: expect.objectContaining({ status: "RUNNING", trigger: "MANUAL", runDate: new Date("2026-04-29T08:00:00Z") }),
+    })
+    expect(updateAiNewsRun).toHaveBeenCalledWith({
+      where: { id: "run-1" },
+      data: expect.objectContaining({ status: "SUCCEEDED", sourceCount: 1, failureCount: 0, postId: "post-1", published: true, reviewScore: 92 }),
+    })
+    expect(result).toMatchObject({ operation: "created", published: true, post: { id: "post-1" }, run: { id: "run-1", status: "SUCCEEDED" } })
   })
 
   test("skips generation when the daily slug already exists", async () => {
@@ -153,6 +167,30 @@ describe("ai news aggregation", () => {
     })
 
     expect(createAdminPost).not.toHaveBeenCalled()
-    expect(result).toMatchObject({ operation: "skipped", reason: "Daily AI news already exists" })
+    expect(updateAiNewsRun).toHaveBeenCalledWith({
+      where: { id: "run-1" },
+      data: expect.objectContaining({ status: "SKIPPED", postId: "post-existing", published: true }),
+    })
+    expect(result).toMatchObject({ operation: "skipped", reason: "Daily AI news already exists", run: { id: "run-1", status: "SKIPPED" } })
+  })
+
+  test("records failed daily AI news runs before rethrowing", async () => {
+    findFirst.mockResolvedValueOnce(null)
+
+    const { runDailyAiNews } = await import("@/lib/ai-news")
+
+    await expect(
+      runDailyAiNews({
+        authorId: "admin-1",
+        date: new Date("2026-04-29T08:00:00Z"),
+        sources: [{ id: "broken", name: "Broken", feedUrl: "https://example.com/feed.xml" }],
+        fetchImpl: vi.fn().mockResolvedValue({ ok: false, status: 500 }) as unknown as typeof fetch,
+      }),
+    ).rejects.toThrow("No AI news candidates available")
+
+    expect(updateAiNewsRun).toHaveBeenCalledWith({
+      where: { id: "run-1" },
+      data: expect.objectContaining({ status: "FAILED", sourceCount: 0, failureCount: 1, error: "No AI news candidates available" }),
+    })
   })
 })

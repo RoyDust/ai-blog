@@ -58,7 +58,7 @@ describe("POST /api/cron/ai-news", () => {
       select: { id: true },
       orderBy: { createdAt: "asc" },
     })
-    expect(runDailyAiNews).toHaveBeenCalledWith({ authorId: "admin-1", date: new Date("2026-04-29T00:00:00.000Z") })
+    expect(runDailyAiNews).toHaveBeenCalledWith({ authorId: "admin-1", date: new Date("2026-04-29T00:00:00.000Z"), trigger: "cron" })
     expect(payload).toEqual({ success: true, data: { operation: "queued", date: "2026-04-29" } })
   })
 

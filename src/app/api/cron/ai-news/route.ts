@@ -42,7 +42,7 @@ function queueDailyAiNewsRun({ authorId, date }: { authorId: string; date: Date 
   }
 
   activeRuns.add(dateId)
-  void runDailyAiNews({ authorId, date })
+  void runDailyAiNews({ authorId, date, trigger: "cron" })
     .catch((error) => {
       console.error("Daily AI news cron failed:", error)
     })

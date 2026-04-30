@@ -3,6 +3,7 @@ import { NextResponse } from "next/server"
 import { requireAdminSession } from "@/lib/api-auth"
 import { runDailyAiNews } from "@/lib/ai-news"
 import { toErrorResponse, ValidationError } from "@/lib/api-errors"
+import { prisma } from "@/lib/prisma"
 
 function parseRunDate(value: unknown) {
   if (value == null || value === "") return new Date()
@@ -21,10 +22,24 @@ export async function POST(request: Request) {
     const session = await requireAdminSession()
     const body = await request.json().catch(() => ({}))
     const date = parseRunDate((body as { date?: unknown }).date)
-    const result = await runDailyAiNews({ authorId: session.user.id, date })
+    const result = await runDailyAiNews({ authorId: session.user.id, date, trigger: "manual" })
 
     return NextResponse.json({ success: true, data: result })
   } catch (error) {
     return toErrorResponse(error, error instanceof Error ? error.message : "Daily AI news generation failed")
+  }
+}
+
+export async function GET() {
+  try {
+    await requireAdminSession()
+    const runs = await prisma.aiNewsRun.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 20,
+    })
+
+    return NextResponse.json({ success: true, data: runs })
+  } catch (error) {
+    return toErrorResponse(error, error instanceof Error ? error.message : "Failed to load daily AI news runs")
   }
 }
