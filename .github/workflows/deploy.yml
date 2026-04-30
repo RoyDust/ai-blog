@@ -49,6 +49,7 @@ jobs:
       QINIU_DOMAIN: http://project.roydust.top
       QINIU_UPLOAD_URL: https://up-z2.qiniup.com
       DASHSCOPE_API_KEY: test-dashscope-key
+      SSH_KEEPALIVE_OPTS: -o ServerAliveInterval=30 -o ServerAliveCountMax=20 -o TCPKeepAlive=yes
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -130,21 +131,21 @@ jobs:
 
       - name: Create remote release directory
         run: |
-          ssh -p "${{ secrets.DEPLOY_PORT }}" "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+          ssh $SSH_KEEPALIVE_OPTS -p "${{ secrets.DEPLOY_PORT }}" "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
             "mkdir -p '${{ secrets.DEPLOY_PATH }}/releases/${{ github.sha }}' '${{ secrets.DEPLOY_PATH }}/shared'"
 
       - name: Upload release bundle
         run: |
-          rsync -az --delete -e "ssh -p ${{ secrets.DEPLOY_PORT }}" \
+          rsync -az --delete -e "ssh $SSH_KEEPALIVE_OPTS -p ${{ secrets.DEPLOY_PORT }}" \
             release/ "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:${{ secrets.DEPLOY_PATH }}/releases/${{ github.sha }}/"
 
       - name: Upload production env file
         run: |
-          scp -P "${{ secrets.DEPLOY_PORT }}" app.env "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:${{ secrets.DEPLOY_PATH }}/shared/.env"
+          scp $SSH_KEEPALIVE_OPTS -P "${{ secrets.DEPLOY_PORT }}" app.env "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:${{ secrets.DEPLOY_PATH }}/shared/.env"
 
       - name: Activate release and restart services
         run: |
-          ssh -p "${{ secrets.DEPLOY_PORT }}" "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" '
+          ssh $SSH_KEEPALIVE_OPTS -p "${{ secrets.DEPLOY_PORT }}" "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" '
             set -euo pipefail
             ln -sfn "${{ secrets.DEPLOY_PATH }}/shared/.env" "${{ secrets.DEPLOY_PATH }}/releases/${{ github.sha }}/.env"
             ln -sfn "${{ secrets.DEPLOY_PATH }}/releases/${{ github.sha }}" "${{ secrets.DEPLOY_PATH }}/current"
