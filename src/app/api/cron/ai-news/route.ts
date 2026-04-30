@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 
 import { runDailyAiNews } from "@/lib/ai-news"
-import { toErrorResponse, UnauthorizedError, ValidationError } from "@/lib/api-errors"
+import { ConflictError, toErrorResponse, UnauthorizedError, ValidationError } from "@/lib/api-errors"
 import { prisma } from "@/lib/prisma"
 
 const activeRuns = new Set<string>()
@@ -35,22 +35,19 @@ function formatDateId(date: Date) {
   return date.toISOString().slice(0, 10)
 }
 
-function queueDailyAiNewsRun({ authorId, date }: { authorId: string; date: Date }) {
+async function runDailyAiNewsForCron({ authorId, date }: { authorId: string; date: Date }) {
   const dateId = formatDateId(date)
   if (activeRuns.has(dateId)) {
-    return { operation: "already-queued" as const, date: dateId }
+    throw new ConflictError("Daily AI news is already running for this date")
   }
 
   activeRuns.add(dateId)
-  void runDailyAiNews({ authorId, date, trigger: "cron" })
-    .catch((error) => {
-      console.error("Daily AI news cron failed:", error)
-    })
-    .finally(() => {
-      activeRuns.delete(dateId)
-    })
-
-  return { operation: "queued" as const, date: dateId }
+  try {
+    const result = await runDailyAiNews({ authorId, date, trigger: "cron" })
+    return { operation: "completed" as const, date: dateId, result }
+  } finally {
+    activeRuns.delete(dateId)
+  }
 }
 
 export async function POST(request: Request) {
@@ -67,8 +64,8 @@ export async function POST(request: Request) {
       throw new Error("No admin author available for daily AI news")
     }
 
-    const result = queueDailyAiNewsRun({ authorId: author.id, date: parseRunDate(request) })
-    return NextResponse.json({ success: true, data: result }, { status: 202 })
+    const result = await runDailyAiNewsForCron({ authorId: author.id, date: parseRunDate(request) })
+    return NextResponse.json({ success: true, data: result })
   } catch (error) {
     return toErrorResponse(error, error instanceof Error ? error.message : "Daily AI news cron failed")
   }

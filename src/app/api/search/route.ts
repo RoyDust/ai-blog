@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { checkAiSearchRateLimit, checkSearchRateLimit } from "@/lib/rate-limit"
 import { clampPagination } from "@/lib/validation"
+
+const SEARCH_MIN_QUERY_LENGTH = 2
+const AI_SEARCH_CACHE_TTL_MS = 5 * 60_000
 
 type DashScopePayload = {
   choices?: Array<{
@@ -23,8 +27,19 @@ type SearchPostCandidate = {
   tags?: Array<{ name?: string | null; slug?: string | null }>
 }
 
+type AiSearchResult = {
+  summary: string
+  rankedSlugs: string[]
+}
+
+const aiSearchCache = new Map<string, { expiresAt: number; value: AiSearchResult }>()
+
 function contains(source: string | null | undefined, query: string) {
   return source?.toLowerCase().includes(query) ?? false
+}
+
+function countQueryCharacters(query: string) {
+  return Array.from(query).length
 }
 
 function getSearchMeta(
@@ -105,7 +120,7 @@ function stripJsonFence(value: string) {
   return trimmed
 }
 
-function parseAiSearchPayload(text: string) {
+function parseAiSearchPayload(text: string): AiSearchResult {
   try {
     const parsed = JSON.parse(stripJsonFence(text)) as { summary?: unknown; rankedSlugs?: unknown }
     const summary = typeof parsed.summary === 'string' ? parsed.summary.trim() : ''
@@ -117,6 +132,37 @@ function parseAiSearchPayload(text: string) {
   } catch {
     return { summary: '', rankedSlugs: [] }
   }
+}
+
+function buildAiSearchCacheKey(query: string, items: SearchPostCandidate[]) {
+  const candidateSignature = items
+    .slice(0, 8)
+    .map((item) => item.slug)
+    .join(',')
+
+  return `${query.toLowerCase()}::${candidateSignature}`
+}
+
+function readAiSearchCache(cacheKey: string) {
+  const cached = aiSearchCache.get(cacheKey)
+
+  if (!cached) {
+    return null
+  }
+
+  if (cached.expiresAt <= Date.now()) {
+    aiSearchCache.delete(cacheKey)
+    return null
+  }
+
+  return cached.value
+}
+
+function writeAiSearchCache(cacheKey: string, value: AiSearchResult) {
+  aiSearchCache.set(cacheKey, {
+    expiresAt: Date.now() + AI_SEARCH_CACHE_TTL_MS,
+    value,
+  })
 }
 
 function reorderByAiSlugs<T extends { slug: string }>(items: T[], rankedSlugs: string[]) {
@@ -202,6 +248,15 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Query is required' }, { status: 400 })
     }
 
+    if (countQueryCharacters(query) < SEARCH_MIN_QUERY_LENGTH) {
+      return NextResponse.json({ error: `Query must be at least ${SEARCH_MIN_QUERY_LENGTH} characters` }, { status: 400 })
+    }
+
+    const searchRateLimit = await checkSearchRateLimit(request)
+    if (!searchRateLimit.allowed) {
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+    }
+
     const { page, limit } = clampPagination({
       page: searchParams.get('page'),
       limit: searchParams.get('limit'),
@@ -249,7 +304,24 @@ export async function GET(request: Request) {
         return new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()
       })
 
-    const ai = aiRequested ? await generateAiSearchResult({ query, items: rankedItems }) : null
+    let ai: AiSearchResult | null = null
+
+    if (aiRequested) {
+      const aiCacheKey = buildAiSearchCacheKey(query, rankedItems)
+      ai = readAiSearchCache(aiCacheKey)
+
+      if (!ai) {
+        const aiRateLimit = await checkAiSearchRateLimit(request)
+        if (!aiRateLimit.allowed) {
+          return NextResponse.json({ error: 'Too many AI search requests' }, { status: 429 })
+        }
+
+        ai = await generateAiSearchResult({ query, items: rankedItems })
+        if (ai) {
+          writeAiSearchCache(aiCacheKey, ai)
+        }
+      }
+    }
 
     if (ai?.rankedSlugs.length) {
       rankedItems = reorderByAiSlugs(rankedItems, ai.rankedSlugs)
