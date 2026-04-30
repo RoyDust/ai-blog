@@ -42,11 +42,20 @@ describe("admin shell config", () => {
     });
   });
 
+  test("maps AI news route into content breadcrumbs", () => {
+    expect(getAdminPathMeta("/admin/ai-news")).toEqual({
+      currentLabel: "AI 日报",
+      currentGroup: "内容",
+      crumbs: ["后台", "内容", "AI 日报"],
+    });
+  });
+
   test("exposes the grouped editorial navigation items", () => {
     expect(adminNavItems.map((item) => ({ label: item.label, group: item.group }))).toEqual([
       { label: "总览", group: "工作台" },
       { label: "文章", group: "内容" },
       { label: "封面图库", group: "内容" },
+      { label: "AI 日报", group: "内容" },
       { label: "评论", group: "互动" },
       { label: "分类与标签", group: "结构" },
       { label: "AI 模型", group: "智能" },

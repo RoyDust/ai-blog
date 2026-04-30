@@ -432,6 +432,35 @@ export async function getAiDraft({
   return buildAiDraftRecord(binding.externalId, binding.post)
 }
 
+export async function publishAiDraftPost({ postId }: { postId: string }) {
+  const published = await prisma.post.update({
+    where: {
+      id: postId,
+      deletedAt: null,
+      published: false,
+    },
+    data: {
+      published: true,
+      publishedAt: new Date(),
+    },
+    select: {
+      id: true,
+      slug: true,
+      published: true,
+      category: { select: { slug: true } },
+      tags: { where: { deletedAt: null }, select: { slug: true } },
+    },
+  })
+
+  revalidatePublicContent({
+    slug: published.slug,
+    categorySlug: published.category?.slug,
+    tagSlugs: published.tags.map((tag: { slug: string }) => tag.slug),
+  })
+
+  return published
+}
+
 export async function createAdminPost({
   authorId,
   input,

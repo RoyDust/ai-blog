@@ -32,6 +32,8 @@ describe("GET /api/ai/meta", () => {
     expect(response.status).toBe(200);
     expect(payload.data.categories).toEqual([{ name: "Engineering", slug: "engineering", postCount: 4 }]);
     expect(payload.data.tags).toEqual([{ name: "Next.js", slug: "nextjs", postCount: 2 }]);
-    expect(payload.data.limits.publishRequiresHumanReview).toBe(true);
+    expect(payload.data.limits.publishRequiresHumanReview).toBe(false);
+    expect(payload.data.limits.autoPublishRequiresAiReview).toBe(true);
+    expect(payload.data.limits.autoPublishMinimumScore).toBe(85);
   });
 });

@@ -121,4 +121,61 @@ describe('editor publish flow', () => {
     expect(fourthCall[1]).toMatchObject({ method: 'PATCH' })
     expect(JSON.parse(String(fourthCall[1]?.body))).toMatchObject({ published: true })
   })
+
+  test('fills edit metadata from AI suggestions', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ data: [{ id: 'cat-1', name: '前端', slug: 'frontend' }] }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ data: [{ id: 'tag-1', name: 'React', slug: 'react' }] }) })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: {
+            id: '1',
+            title: '旧标题',
+            slug: 'old-title',
+            content: '# Hello',
+            excerpt: '',
+            coverImage: '',
+            categoryId: '',
+            tags: [],
+            published: false,
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: {
+            title: 'AI 编辑后的标题',
+            slug: 'ai-edited-title',
+            excerpt: 'AI 生成的摘要。',
+            categorySlug: 'frontend',
+            tagSlugs: ['react'],
+          },
+        }),
+      })
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<AdminPostEditPage />)
+
+    expect(await screen.findByDisplayValue('旧标题')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '元数据' }))
+    await screen.findByRole('option', { name: '前端' })
+    fireEvent.click(screen.getByRole('button', { name: 'AI 补全元信息' }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/admin/posts/metadata', expect.objectContaining({ method: 'POST' }))
+    })
+
+    expect(await screen.findByDisplayValue('AI 编辑后的标题')).toBeInTheDocument()
+    expect(screen.getByLabelText('Slug')).toHaveValue('ai-edited-title')
+    expect(screen.getByDisplayValue('AI 生成的摘要。')).toBeInTheDocument()
+    expect(screen.getByLabelText('分类')).toHaveValue('cat-1')
+    expect(screen.getByRole('checkbox', { name: 'React' })).toBeChecked()
+  })
+
 })

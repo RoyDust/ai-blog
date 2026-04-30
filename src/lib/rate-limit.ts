@@ -37,6 +37,8 @@ export function createMemoryRateLimiter({ limit, windowMs }: { limit: number; wi
 }
 
 const authLimiter = createMemoryRateLimiter({ limit: 5, windowMs: 60_000 })
+const searchLimiter = createMemoryRateLimiter({ limit: 60, windowMs: 60_000 })
+const aiSearchLimiter = createMemoryRateLimiter({ limit: 8, windowMs: 60_000 })
 const interactionLimiter = createMemoryRateLimiter({ limit: 20, windowMs: 60_000 })
 const uploadLimiter = createMemoryRateLimiter({ limit: 10, windowMs: 60_000 })
 let rateLimitTableReady = false
@@ -115,6 +117,14 @@ async function checkRateLimit(request: Request, scope: string, options: { limit:
     return authLimiter.check(key)
   }
 
+  if (scope === "search") {
+    return searchLimiter.check(key)
+  }
+
+  if (scope === "ai-search") {
+    return aiSearchLimiter.check(key)
+  }
+
   if (scope === "upload") {
     return uploadLimiter.check(key)
   }
@@ -138,6 +148,20 @@ export function getRateLimitKey(request: Request, scope: string) {
  */
 export function checkAuthRateLimit(request: Request) {
   return checkRateLimit(request, 'auth', { limit: 5, windowMs: 60_000 })
+}
+
+/**
+ * 对公开站内搜索应用宽松限流，保护数据库查询路径。
+ */
+export function checkSearchRateLimit(request: Request) {
+  return checkRateLimit(request, 'search', { limit: 60, windowMs: 60_000 })
+}
+
+/**
+ * 对 AI 搜索摘要应用更严格的限流，避免公开入口消耗过快。
+ */
+export function checkAiSearchRateLimit(request: Request) {
+  return checkRateLimit(request, 'ai-search', { limit: 8, windowMs: 60_000 })
 }
 
 /**

@@ -1,3 +1,7 @@
+"use client";
+
+import { useState } from "react";
+
 interface PublishChecklistProps {
   title: string;
   slug: string;
@@ -8,7 +12,19 @@ interface PublishChecklistProps {
   variant?: "panel" | "inline" | "bar";
 }
 
+type AiReviewReport = {
+  verdict: "ready" | "needs-work";
+  score: number;
+  summary: string;
+  checks: Array<{ label: string; status: "pass" | "warn" | "fail"; detail: string }>;
+  suggestions: string[];
+};
+
 const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+function getVerdictLabel(verdict: AiReviewReport["verdict"]) {
+  return verdict === "ready" ? "可以发布" : "需要修改";
+}
 
 export function PublishChecklist({
   title,
@@ -19,6 +35,9 @@ export function PublishChecklist({
   coverImage,
   variant = "panel",
 }: PublishChecklistProps) {
+  const [isReviewing, setIsReviewing] = useState(false);
+  const [reviewError, setReviewError] = useState("");
+  const [review, setReview] = useState<AiReviewReport | null>(null);
   const normalizedSlug = slug.trim();
   const normalizedSeoDescription = seoDescription.trim();
   const hasSearchDescription = Boolean(normalizedSeoDescription || excerpt.trim());
@@ -34,9 +53,82 @@ export function PublishChecklist({
   const completed = checks.filter((item) => item.done).length;
   const summary = `完成 ${completed}/${checks.length} 项后更适合直接发布。`;
 
+  const handleReview = async () => {
+    if (!title.trim() || !slug.trim() || !content.trim()) return;
+
+    setIsReviewing(true);
+    setReviewError("");
+
+    try {
+      const response = await fetch("/api/admin/posts/review", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, slug, content, coverImage }),
+      });
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "AI 审稿失败");
+      }
+
+      setReview(data.data as AiReviewReport);
+    } catch (error) {
+      setReviewError(error instanceof Error ? error.message : "AI 审稿失败");
+    } finally {
+      setIsReviewing(false);
+    }
+  };
+
+  const aiReviewNode = (
+    <>
+      {reviewError ? <p className="mt-3 text-sm text-rose-500">{reviewError}</p> : null}
+      {review ? (
+        <div className="mt-4 rounded-2xl border border-[var(--border)] bg-[var(--surface-alt)] p-4">
+          <p className="text-sm font-semibold text-[var(--foreground)]">
+            AI 审稿：{getVerdictLabel(review.verdict)} · {review.score} 分
+          </p>
+          <p className="mt-2 text-sm leading-6 text-[var(--muted)]">{review.summary}</p>
+          {review.checks.length > 0 ? (
+            <ul className="mt-3 space-y-1.5">
+              {review.checks.map((item) => (
+                <li key={`${item.label}-${item.detail}`} className="text-sm text-[var(--foreground)]">
+                  {item.label}：{item.detail}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {review.suggestions.length > 0 ? (
+            <div className="mt-3">
+              <p className="text-sm font-medium text-[var(--foreground)]">修改建议</p>
+              <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-[var(--muted)]">
+                {review.suggestions.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </>
+  );
+
+  const reviewButton = (
+    <button
+      type="button"
+      className="ui-btn ui-ring rounded-xl border border-[var(--border)] px-3 py-1.5 text-sm font-medium text-[var(--foreground)] hover:bg-[var(--surface-alt)] disabled:cursor-not-allowed disabled:opacity-50"
+      disabled={isReviewing || !title.trim() || !slug.trim() || !content.trim()}
+      onClick={handleReview}
+    >
+      {isReviewing ? "审稿中..." : "AI 审稿"}
+    </button>
+  );
+
   const contentNode = (
     <>
-      <p className="mb-4 text-sm text-[var(--muted)]">{summary}</p>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-[var(--muted)]">{summary}</p>
+        {reviewButton}
+      </div>
       <ul className="space-y-2">
         {checks.map((item) => (
           <li className="flex items-center gap-2 text-sm" key={item.label}>
@@ -45,13 +137,17 @@ export function PublishChecklist({
           </li>
         ))}
       </ul>
+      {aiReviewNode}
     </>
   );
 
   if (variant === "bar") {
     return (
       <div className="flex min-w-0 flex-1 flex-col gap-3 2xl:flex-row 2xl:items-center 2xl:justify-between">
-        <p className="shrink-0 text-sm text-[var(--muted)]">{summary}</p>
+        <div className="flex shrink-0 flex-wrap items-center gap-3">
+          <p className="text-sm text-[var(--muted)]">{summary}</p>
+          {reviewButton}
+        </div>
         <ul className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
           {checks.map((item) => (
             <li
@@ -63,6 +159,7 @@ export function PublishChecklist({
             </li>
           ))}
         </ul>
+        {aiReviewNode}
       </div>
     );
   }
