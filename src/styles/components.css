@@ -182,6 +182,16 @@
     box-shadow: var(--reader-shadow-hover);
   }
 
+  .article-shell {
+    border-radius: var(--article-radius);
+  }
+
+  .article-shell > .reader-banner {
+    border-width: 0 0 1px;
+    border-radius: var(--article-radius) var(--article-radius) 0 0;
+    box-shadow: none;
+  }
+
   .reader-feed-card {
     overflow: hidden;
     border-radius: calc(var(--radius-large) + 0.125rem);

@@ -7,6 +7,9 @@
   --rail-width: 20.5rem;
   --layout-rail-gap: clamp(1rem, 1.45vw, 1.5rem);
   --sidebar-profile-padding: 1.25rem;
+  --sidebar-profile-card-height: 18.375rem;
+  --article-toc-card-height: 22rem;
+  --article-radius: calc(var(--radius-large) + 0.75rem);
   --section-gap: clamp(1.25rem, 2vw, 2rem);
   --hero-media-ratio: 1.35;
   --content-delay: 150ms;

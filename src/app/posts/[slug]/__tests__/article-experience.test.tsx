@@ -122,13 +122,14 @@ describe('article experience', () => {
     expect(findMany).not.toHaveBeenCalled()
     expect(container.querySelector('.reader-banner')).toBeInTheDocument()
     expect(container.querySelector('.reader-card')).toBeInTheDocument()
+    expect(container.querySelector('.article-shell')).toBeInTheDocument()
     expect(container.querySelector('.reader-prose')?.className).toContain('prose-pre:rounded-2xl')
     expect(container.querySelector('pre code')?.className).toContain('hljs')
-    expect(screen.getByTestId('toc-rail').className).toContain('xl:fixed')
+    expect(screen.getByTestId('toc-rail').className).toContain('xl:sticky')
     expect(screen.getByTestId('toc-rail').className).toContain('hidden')
   })
 
-  test('article toc rail offsets with navbar sticky height', async () => {
+  test('article toc rail aligns with the public content grid', async () => {
     findFirst
       .mockResolvedValueOnce({
         id: 'p1',
@@ -156,16 +157,17 @@ describe('article experience', () => {
     render(ui as React.ReactElement)
 
     const tocRail = screen.getByTestId('toc-rail')
-    expect(tocRail.className).toContain('xl:fixed')
+    expect(tocRail.className).toContain('xl:sticky')
+    expect(tocRail.className).not.toContain('xl:fixed')
     expect(tocRail.className).toContain('transition-[top,max-height,transform,box-shadow]')
     expect(tocRail.className).toContain('duration-300')
     expect(tocRail.className).toContain('ease-out')
     expect(tocRail.className).toContain('will-change-[top,transform]')
     expect(tocRail.className).not.toContain('xl:top-24')
-    expect(tocRail.getAttribute('style')).toContain('top: calc(var(--sidebar-sticky-top, 0px) + 1rem)')
+    expect(tocRail.getAttribute('style')).toContain('top: calc(var(--sidebar-sticky-top, 0px) + 0.75rem)')
 
     const tocCard = tocRail.firstElementChild
-    expect(tocCard?.getAttribute('style')).toContain('max-height: calc(100vh - var(--sidebar-sticky-top, 0px) - 2rem)')
     expect(tocCard?.className).toContain('reader-panel')
+    expect(tocCard?.className).toContain('h-[var(--article-toc-card-height)]')
   })
 })

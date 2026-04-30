@@ -69,7 +69,7 @@ export function Sidebar() {
           maxHeight: "calc(100vh - var(--sidebar-sticky-top, 0px) - 1.75rem)",
         }}
       >
-        <section aria-label="作者资料" className="reader-panel p-5">
+        <section aria-label="作者资料" className="reader-panel min-h-[var(--sidebar-profile-card-height)] p-5">
           <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full border border-[var(--reader-border-strong)] bg-[color:color-mix(in_oklab,var(--accent-sky)_18%,var(--reader-panel-elevated))] text-xl font-bold text-[var(--foreground)] shadow-[var(--reader-shadow)]">
             {profile.initials}
           </div>

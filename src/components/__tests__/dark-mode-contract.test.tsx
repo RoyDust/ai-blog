@@ -81,3 +81,14 @@ test('night reader theme exposes reusable tokens and semantic classes', () => {
   expect(componentSource).toContain('.reader-chip')
   expect(componentSource).toContain('.reader-icon-btn')
 })
+
+test('global scrollbars stay thin and transparent across surfaces', () => {
+  const source = readSource('src/app/globals.css')
+
+  expect(source).toContain('scrollbar-color: rgb(148 163 184 / 0.22) transparent')
+  expect(source).toContain('scrollbar-width: thin')
+  expect(source).toContain('width: 4px')
+  expect(source).toContain('height: 4px')
+  expect(source).toContain('background: transparent')
+  expect(source).toContain('background-color: rgb(148 163 184 / 0.22)')
+})
