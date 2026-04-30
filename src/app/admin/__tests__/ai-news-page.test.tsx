@@ -93,8 +93,8 @@ describe("admin AI news page", () => {
     render(<AdminAiNewsPage />)
 
     expect(await screen.findByRole("heading", { name: "运行记录" })).toBeInTheDocument()
-    expect(screen.getByText("生成失败")).toBeInTheDocument()
-    expect(screen.getByText("No AI news candidates available")).toBeInTheDocument()
+    expect(await screen.findByText("生成失败")).toBeInTheDocument()
+    expect(await screen.findByText("No AI news candidates available")).toBeInTheDocument()
     expect(fetchMock).toHaveBeenCalledWith("/api/admin/ai-news/run")
   })
 })
