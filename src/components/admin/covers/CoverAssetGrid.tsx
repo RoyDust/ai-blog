@@ -2,7 +2,7 @@
 
 import { Archive, Copy, Pencil, Trash2 } from "lucide-react";
 
-import { Button, FallbackImage } from "@/components/ui";
+import { Button, FallbackImage } from "@/components/admin/ui";
 import type { CoverAsset } from "./types";
 
 type CoverAssetGridProps = {

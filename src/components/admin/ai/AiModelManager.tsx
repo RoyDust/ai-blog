@@ -5,8 +5,8 @@ import { CheckCircle2, KeyRound, Network, Pencil, Plus, RadioTower, TestTube2, T
 
 import { WorkspacePanel } from "@/components/admin/primitives/WorkspacePanel";
 import { StatusBadge } from "@/components/admin/primitives/StatusBadge";
-import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
+import { Button } from "@/components/admin/ui";
+import { Input } from "@/components/admin/ui";
 import type { PublicAiModelOption } from "@/lib/ai-models";
 
 type FormState = {

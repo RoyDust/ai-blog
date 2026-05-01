@@ -1,6 +1,16 @@
 "use client";
 
-import { Button } from "@/components/ui";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  Button,
+} from "@/components/admin/ui";
 
 export interface DeleteImpactItem {
   label: string;
@@ -31,27 +41,14 @@ export function DeleteImpactDialog({
   onConfirm,
   onOpenChange,
 }: DeleteImpactDialogProps) {
-  if (!open) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/55 backdrop-blur-sm" onClick={() => onOpenChange(false)} />
-      <div
-        aria-describedby="delete-impact-description"
-        aria-labelledby="delete-impact-title"
-        aria-modal="true"
-        className="ui-surface relative w-full max-w-lg rounded-2xl border border-[var(--border)] shadow-2xl"
-        role="alertdialog"
-      >
-        <div className="border-b border-[var(--border)] px-6 py-5">
+    <AlertDialog open={open} onOpenChange={onOpenChange}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
           <p className="text-xs uppercase tracking-[0.18em] text-rose-500">Danger Zone</p>
-          <h2 id="delete-impact-title" className="mt-2 text-xl font-semibold text-[var(--foreground)]">
-            {title}
-          </h2>
-          <p id="delete-impact-description" className="mt-2 text-sm text-[var(--muted)]">
-            {description}
-          </p>
-        </div>
+          <AlertDialogTitle className="mt-2">{title}</AlertDialogTitle>
+          <AlertDialogDescription>{description}</AlertDialogDescription>
+        </AlertDialogHeader>
 
         <div className="space-y-3 px-6 py-5">
           {impacts.map((impact) => (
@@ -67,15 +64,25 @@ export function DeleteImpactDialog({
           ))}
         </div>
 
-        <div className="flex justify-end gap-3 border-t border-[var(--border)] px-6 py-4">
-          <Button onClick={() => onOpenChange(false)} type="button" variant="outline">
-            {cancelLabel}
-          </Button>
-          <Button disabled={submitting} onClick={() => void onConfirm()} type="button" variant="danger">
-            {submitting ? "处理中..." : confirmLabel}
-          </Button>
-        </div>
-      </div>
-    </div>
+        <AlertDialogFooter>
+          <AlertDialogCancel asChild>
+            <Button type="button" variant="outline">
+              {cancelLabel}
+            </Button>
+          </AlertDialogCancel>
+          <AlertDialogAction
+            asChild
+            onClick={(event) => {
+              event.preventDefault();
+              void onConfirm();
+            }}
+          >
+            <Button disabled={submitting} type="button" variant="danger">
+              {submitting ? "处理中..." : confirmLabel}
+            </Button>
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }

@@ -19,6 +19,9 @@ const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 const AI_EXTERNAL_ID_PATTERN = new RegExp(AI_AUTHORING_PATTERNS.externalId)
 const COVER_ASSET_STATUSES = new Set(["active", "archived"])
 const COVER_ASSET_SOURCES = new Set(["upload", "manual", "ai"])
+const UPLOAD_PURPOSES = ["cover", "avatar"] as const
+
+export type UploadPurpose = (typeof UPLOAD_PURPOSES)[number]
 
 function readString(value: unknown, fieldName: string) {
   if (typeof value !== 'string') {
@@ -223,11 +226,17 @@ export function parseLoginInput(payload: unknown) {
  * 校验上传请求，确保后续上传 token 生成只处理合法字符串。
  */
 export function parseUploadRequest(payload: unknown) {
-  const data = (payload ?? {}) as { filename?: unknown; contentType?: unknown }
+  const data = (payload ?? {}) as { filename?: unknown; contentType?: unknown; purpose?: unknown }
+  const purpose = optionalString(data.purpose, 'purpose') ?? 'cover'
+
+  if (!UPLOAD_PURPOSES.includes(purpose as UploadPurpose)) {
+    throw new ValidationError('Invalid purpose')
+  }
 
   return {
     filename: readString(data.filename, 'filename'),
     contentType: optionalString(data.contentType, 'contentType'),
+    purpose: purpose as UploadPurpose,
   }
 }
 
@@ -474,11 +483,13 @@ export function parseTaxonomyInput(payload: unknown) {
 }
 
 export function parseProfileUpdateInput(payload: unknown) {
-  const data = (payload ?? {}) as { name?: unknown; email?: unknown }
+  const data = (payload ?? {}) as { name?: unknown; email?: unknown; image?: unknown }
   const name = optionalString(data.name, 'name')
   const email = optionalString(data.email, 'email')
+  const image = optionalNullableString(data.image, 'image')
 
   assertLength(name, 'name', MAX_NAME_LENGTH)
+  assertLength(image ?? undefined, 'image', MAX_COVER_URL_LENGTH)
 
   if (email && !EMAIL_PATTERN.test(email)) {
     throw new ValidationError('Invalid email')
@@ -487,6 +498,7 @@ export function parseProfileUpdateInput(payload: unknown) {
   return {
     name,
     email,
+    image,
   }
 }
 

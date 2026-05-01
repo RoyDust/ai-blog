@@ -33,7 +33,7 @@ export async function GET() {
 export async function PATCH(request: Request) {
   try {
     const session = await requireSession()
-    const { name, email } = parseProfileUpdateInput(await request.json())
+    const { name, email, image } = parseProfileUpdateInput(await request.json())
 
     // 检查邮箱是否已被其他用户使用
     if (email) {
@@ -51,7 +51,7 @@ export async function PATCH(request: Request) {
 
     const user = await prisma.user.update({
       where: { id: session.user.id },
-      data: { name, email },
+      data: { name, email, image },
       select: {
         id: true,
         name: true,

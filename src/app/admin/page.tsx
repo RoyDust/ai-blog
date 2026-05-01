@@ -11,7 +11,7 @@ import {
 
 import { WorkspacePanel } from "@/components/admin/primitives/WorkspacePanel";
 import { StatusBadge } from "@/components/admin/primitives/StatusBadge";
-import { FallbackImage } from "@/components/ui";
+import { FallbackImage } from "@/components/admin/ui";
 import { getPublicAiModelOptions, type PublicAiModelOption } from "@/lib/ai-models";
 import { prisma } from "@/lib/prisma";
 

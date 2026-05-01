@@ -9,7 +9,7 @@ import { CoverPicker } from "@/components/admin/covers/CoverPicker";
 import type { CoverAsset } from "@/components/admin/covers/types";
 import { StatusBadge } from "@/components/admin/primitives/StatusBadge";
 import { WorkspacePanel } from "@/components/admin/primitives/WorkspacePanel";
-import { Button, Input } from "@/components/ui";
+import { Button, Input } from "@/components/admin/ui";
 import { generatePostSlug } from "@/lib/slug";
 
 import { EditorWorkspace } from "./EditorWorkspace";

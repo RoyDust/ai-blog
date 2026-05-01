@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 
-import { Button, Modal } from "@/components/ui";
+import { Button, Modal } from "@/components/admin/ui";
 
 type AiBatchAction = "summary" | "seo-description" | "tags" | "category";
 type AiBatchMode = "missing-only" | "overwrite" | "suggest-only";

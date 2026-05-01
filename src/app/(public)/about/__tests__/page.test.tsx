@@ -1,26 +1,46 @@
 import { render, screen } from "@testing-library/react";
 import React from "react";
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
+
+vi.mock("@/lib/public-profile", () => ({
+  getPublicProfile: vi.fn(async () => ({
+    name: "RoyDust",
+    initials: "RD",
+    avatar: "https://example.com/avatar.png",
+    email: "roy@example.com",
+    subtitle: "专注前端开发与工程实践",
+    tagline: "内容创作 / 前端体验 / 开源实践",
+    bio: "后台个人信息驱动的作者资料。",
+    intro: "我更喜欢把个人主页做成一个适合停留和阅读的地方。",
+    links: [
+      { kind: "github", name: "GitHub", url: "https://github.com/RoyDust" },
+      { kind: "twitter", name: "Twitter", url: "https://x.com/luoyichen12" },
+      { kind: "email", name: "Email", url: "mailto:roy@example.com" },
+    ],
+  })),
+}));
 
 test("about page renders editorial personal homepage content", async () => {
   const { default: AboutPage } = await import("../page");
-  const ui = AboutPage();
+  const ui = await AboutPage();
 
   render(ui as React.ReactElement);
 
-  expect(screen.getByRole("heading", { name: "Zhang Wei" })).toBeInTheDocument();
-  expect(screen.getByText("全栈开发者，热爱开源和技术分享。专注于 React 生态和现代 Web 开发。")).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "RoyDust" })).toBeInTheDocument();
+  expect(screen.getByText("后台个人信息驱动的作者资料。")).toBeInTheDocument();
   expect(screen.getByText("内容创作 / 前端体验 / 开源实践")).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "关于我" })).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "我在做什么" })).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "技术栈" })).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "联系我" })).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "GitHub" })).toHaveAttribute("href", "https://github.com/RoyDust");
+  expect(screen.getByRole("link", { name: "Email" })).toHaveAttribute("href", "mailto:roy@example.com");
+  expect(screen.getByRole("link", { name: "发送邮件" })).toHaveAttribute("href", "mailto:roy@example.com");
 });
 
 test("about page wires in staged motion classes", async () => {
   const { default: AboutPage } = await import("../page");
-  const ui = AboutPage();
+  const ui = await AboutPage();
 
   const { container } = render(ui as React.ReactElement);
 
@@ -37,7 +57,7 @@ test("about page wires in staged motion classes", async () => {
 
 test("about page cards include richer hover feedback hooks", async () => {
   const { default: AboutPage } = await import("../page");
-  const ui = AboutPage();
+  const ui = await AboutPage();
 
   const { container } = render(ui as React.ReactElement);
 

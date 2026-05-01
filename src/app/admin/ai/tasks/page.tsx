@@ -4,7 +4,7 @@ import { AiTaskActivitySync } from "@/components/admin/ai/AiTaskActivitySync";
 import { AiTaskList } from "@/components/admin/ai/AiTaskList";
 import { PageHeader } from "@/components/admin/primitives/PageHeader";
 import { StatusBadge } from "@/components/admin/primitives/StatusBadge";
-import { Button } from "@/components/ui";
+import { Button } from "@/components/admin/ui";
 import { listAiTasks } from "@/lib/ai-tasks";
 
 export const dynamic = "force-dynamic";

@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { StatusBadge } from "@/components/admin/primitives/StatusBadge";
-import { Button } from "@/components/ui";
+import { Button } from "@/components/admin/ui";
 
 type Task = {
   id: string;

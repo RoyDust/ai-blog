@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { StatusBadge } from "@/components/admin/primitives/StatusBadge";
-import { Button } from "@/components/ui";
+import { Button } from "@/components/admin/ui";
 
 type TaskItem = {
   id: string;

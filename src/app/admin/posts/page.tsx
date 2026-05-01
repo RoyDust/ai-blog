@@ -9,7 +9,7 @@ import { BulkAiCompletionDialog } from "@/components/admin/ai/BulkAiCompletionDi
 import { Toolbar } from "@/components/admin/primitives/Toolbar";
 import { PageHeader } from "@/components/admin/primitives/PageHeader";
 import { StatusBadge } from "@/components/admin/primitives/StatusBadge";
-import { Button } from "@/components/ui";
+import { Button } from "@/components/admin/ui";
 import {
   getSummaryStatusForExcerpt,
   isActiveSummaryStatus,

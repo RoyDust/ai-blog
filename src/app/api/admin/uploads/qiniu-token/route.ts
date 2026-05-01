@@ -15,7 +15,7 @@ function encodeBase64Url(value: string | Buffer) {
     .replace(/\//g, '_')
 }
 
-function sanitizeFilename(filename: string) {
+function sanitizeFilename(filename: string, fallbackBase = 'cover') {
   const extIndex = filename.lastIndexOf('.')
   const ext = extIndex > -1 ? filename.slice(extIndex).toLowerCase() : ''
 
@@ -28,15 +28,16 @@ function sanitizeFilename(filename: string) {
         .toLowerCase()
         .replace(/[^a-z0-9-_]+/g, '-')
         .replace(/-+/g, '-')
-        .replace(/^-|-$/g, '') || 'cover',
+        .replace(/^-|-$/g, '') || fallbackBase,
   }
 }
 
-function buildUploadKey(filename: string) {
-  const { base, ext } = sanitizeFilename(filename)
+function buildUploadKey(filename: string, purpose: 'cover' | 'avatar') {
+  const folder = purpose === 'avatar' ? 'avatars' : 'covers'
+  const { base, ext } = sanitizeFilename(filename, purpose)
   const timestamp = Date.now()
   const random = crypto.randomBytes(4).toString('hex')
-  return `covers/${timestamp}-${random}-${base}${ext}`
+  return `${folder}/${timestamp}-${random}-${base}${ext}`
 }
 
 function createUploadToken(bucket: string, key: string, accessKey: string, secretKey: string) {
@@ -63,7 +64,7 @@ export async function POST(request: Request) {
 
     await requireAdminSession()
 
-    const { filename } = parseUploadRequest(await request.json())
+    const { filename, purpose } = parseUploadRequest(await request.json())
     const accessKey = process.env.QINIU_ACCESS_KEY
     const secretKey = process.env.QINIU_SECRET_KEY
     const bucket = process.env.QINIU_BUCKET
@@ -74,7 +75,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'Missing Qiniu config' }, { status: 500 })
     }
 
-    const key = buildUploadKey(filename)
+    const key = buildUploadKey(filename, purpose)
     const token = createUploadToken(bucket, key, accessKey, secretKey)
 
     return NextResponse.json({

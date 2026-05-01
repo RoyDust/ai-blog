@@ -8,7 +8,7 @@ import { DeleteImpactDialog, type DeleteImpactItem } from "@/components/admin/De
 import { EntityFormShell } from "@/components/admin/forms/EntityFormShell";
 import { FilterBar } from "@/components/admin/FilterBar";
 import { PageHeader } from "@/components/admin/primitives/PageHeader";
-import { Button, Input } from "@/components/ui";
+import { Button, Input } from "@/components/admin/ui";
 
 type TabId = "categories" | "tags";
 

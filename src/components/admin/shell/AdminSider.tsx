@@ -1,18 +1,50 @@
+"use client";
+
 import Link from "next/link";
-import { ChevronDown, Leaf, Sparkles } from "lucide-react";
+import { useState } from "react";
+import { signOut } from "next-auth/react";
+import { ChevronDown, Leaf, LogOut, Settings, Sparkles } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/admin/ui";
 import { type AdminNavItem, adminNavItems, isAdminNavItemActive } from "./config";
 
 interface AdminSiderProps {
   pathname: string;
-  userLabel: string;
+  user: {
+    email?: string | null;
+    image?: string | null;
+    label: string;
+    role?: string | null;
+  };
 }
 
-export function AdminSider({ pathname, userLabel }: AdminSiderProps) {
+function getInitials(value: string) {
+  const words = value.trim().match(/[A-Z]?[a-z0-9]+|[A-Z]+(?![a-z])/g);
+  if (words?.length) {
+    return words
+      .slice(0, 2)
+      .map((word) => word.charAt(0).toUpperCase())
+      .join("");
+  }
+
+  return [...value.trim()].slice(0, 2).join("").toUpperCase() || "A";
+}
+
+export function AdminSider({ pathname, user }: AdminSiderProps) {
+  const userLabel = user.label;
   const mainItems = adminNavItems.filter((item) => item.group === "主导航");
   const aiItems = adminNavItems.filter((item) => item.group === "AI 辅助");
-  const primaryItems = mainItems.filter((item) => item.label !== "设置");
-  const settingsItems = mainItems.filter((item) => item.label === "设置");
   const isAiActive = aiItems.some((item) => isAdminNavItemActive(pathname, item.href));
+  const isSettingsActive = pathname === "/admin/settings";
+  const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(isSettingsActive);
+  const userMeta = user.email || (user.role === "ADMIN" ? "管理员" : user.role) || "管理员";
+
+  const handleLogout = async () => {
+    if (typeof window !== "undefined") {
+      localStorage.clear();
+    }
+
+    await signOut({ callbackUrl: "/" });
+  };
 
   const renderMainNavItem = (item: AdminNavItem) => {
     const Icon = item.icon;
@@ -68,7 +100,7 @@ export function AdminSider({ pathname, userLabel }: AdminSiderProps) {
       <nav aria-label="Admin navigation" className="flex-1 overflow-y-auto border-t border-[var(--border)] px-3 py-6">
         <p className="px-2 pb-4 font-display text-lg font-semibold text-[var(--foreground)]">博客后台</p>
         <div className="space-y-2">
-          {primaryItems.map(renderMainNavItem)}
+          {mainItems.map(renderMainNavItem)}
 
           <details className="group/ai" open={isAiActive}>
             <summary
@@ -100,22 +132,47 @@ export function AdminSider({ pathname, userLabel }: AdminSiderProps) {
               })}
             </div>
           </details>
-
-          {settingsItems.map(renderMainNavItem)}
         </div>
       </nav>
 
-      <div className="border-t border-[var(--border)] px-5 py-5">
-        <div className="flex items-center gap-3 rounded-lg py-1">
-          <span className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-[var(--surface-alt)] text-base font-semibold text-[var(--foreground)]">
-            {userLabel.slice(0, 1).toUpperCase()}
-          </span>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-base font-medium text-[var(--foreground)]">{userLabel}</p>
-            <p className="text-sm text-[var(--muted)]">管理员</p>
-          </div>
-          <ChevronDown className="h-4 w-4 text-[var(--muted)]" />
-        </div>
+      <div className="relative border-t border-[var(--border)] px-5 py-5">
+        <DropdownMenu modal={false} open={isAccountMenuOpen} onOpenChange={setIsAccountMenuOpen}>
+          <DropdownMenuTrigger asChild>
+            <button
+              aria-label={`${userLabel} 账号菜单`}
+              className={`flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition-colors ${
+                isSettingsActive ? "bg-[color-mix(in_srgb,var(--brand)_10%,var(--surface-alt))]" : "hover:bg-[var(--surface-alt)]"
+              }`}
+              type="button"
+            >
+              <span className="inline-flex h-11 w-11 items-center justify-center overflow-hidden rounded-full bg-[var(--surface-alt)] text-base font-semibold text-[var(--foreground)]">
+                {user.image ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img alt={`${userLabel} 头像`} className="h-full w-full object-cover" src={user.image} />
+                ) : (
+                  getInitials(userLabel)
+                )}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-base font-medium text-[var(--foreground)]">{userLabel}</p>
+                <p className="truncate text-sm text-[var(--muted)]">{userMeta}</p>
+              </div>
+              <ChevronDown className={`h-4 w-4 text-[var(--muted)] transition-transform ${isAccountMenuOpen ? "rotate-180" : ""}`} />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-48" side="top">
+            <DropdownMenuItem asChild className={isSettingsActive ? "bg-emerald-50 text-[var(--brand)]" : undefined}>
+              <Link href="/admin/settings">
+                <Settings className="h-4 w-4" />
+                设置
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem className="text-rose-600 focus:bg-rose-50 focus:text-rose-600" onSelect={() => void handleLogout()}>
+              <LogOut className="h-4 w-4" />
+              退出账号
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </aside>
   );

@@ -24,7 +24,7 @@ test("sidebar and footer expose discovery-oriented public chrome", () => {
     expect(container.querySelector("#footer .reader-panel")).toBeInTheDocument();
     expect(container.querySelector("#sidebar .reader-panel")).toBeInTheDocument();
     expect(screen.getByRole("navigation", { name: "Footer" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "My Blog" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Zhang Wei" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "分类" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "阅读统计" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "本月阅读目标" })).toBeInTheDocument();

@@ -43,6 +43,22 @@ describe('qiniu token route', () => {
     expect(data.data.uploadUrl).toBe('https://upload.qiniup.com')
   })
 
+  test('uses avatar namespace when requested', async () => {
+    const { POST } = await import('../qiniu-token/route')
+    const request = new Request('http://localhost/api/admin/uploads/qiniu-token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filename: 'profile.png', contentType: 'image/webp', purpose: 'avatar' }),
+    })
+
+    const response = await POST(request)
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.success).toBe(true)
+    expect(data.data.key).toMatch(/^avatars\//)
+  })
+
   test('rejects missing filename', async () => {
     const { POST } = await import('../qiniu-token/route')
     const request = new Request('http://localhost/api/admin/uploads/qiniu-token', {

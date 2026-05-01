@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-import { Button, Input } from "@/components/ui";
+import { Button, Input } from "@/components/admin/ui";
 import type { CoverAsset } from "./types";
 
 type CoverAssetFormProps = {

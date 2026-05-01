@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { StatusBadge } from "@/components/admin/primitives/StatusBadge";
-import { Button } from "@/components/ui";
+import { Button } from "@/components/admin/ui";
 
 type AppliedPost = {
   id: string;

@@ -8,7 +8,6 @@ import {
   ListChecks,
   MessageSquare,
   Newspaper,
-  Settings,
 } from "lucide-react";
 
 export type AdminNavItem = {
@@ -31,7 +30,6 @@ export const adminNavItems: AdminNavItem[] = [
   { href: "/admin/comments", label: "评论", group: "主导航", icon: MessageSquare, badge: "5" },
   { href: "/admin/taxonomy", label: "分类", group: "主导航", icon: FolderTree },
   { href: "/admin/covers", label: "媒体库", group: "主导航", icon: Images },
-  { href: "/admin/settings", label: "设置", group: "主导航", icon: Settings, disabled: true },
   { href: "/admin/ai-news", label: "AI 日报", group: "AI 辅助", icon: Newspaper },
   { href: "/admin/ai/models", label: "模型配置", group: "AI 辅助", icon: BrainCircuit },
   { href: "/admin/ai/tasks", label: "AI 任务", group: "AI 辅助", icon: ListChecks },
@@ -62,6 +60,14 @@ function resolveMatch(pathname: string) {
       currentLabel: "编辑文章",
       currentGroup: "主导航",
       crumbs: ["后台", "主导航", "编辑文章"],
+    };
+  }
+
+  if (pathname === "/admin/settings") {
+    return {
+      currentLabel: "设置",
+      currentGroup: "账号",
+      crumbs: ["后台", "账号", "设置"],
     };
   }
 

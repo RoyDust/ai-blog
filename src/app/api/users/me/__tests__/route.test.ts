@@ -44,4 +44,33 @@ describe("PATCH /api/users/me", () => {
     expect(payload).toEqual({ error: "Email already in use" })
     expect(update).not.toHaveBeenCalled()
   })
+
+  test("updates profile image with the current user profile", async () => {
+    getServerSession.mockResolvedValueOnce({ user: { id: "user-1", role: "USER" } })
+    findFirst.mockResolvedValueOnce(null)
+    update.mockResolvedValueOnce({ id: "user-1", name: "Roy", email: "roy@example.com", image: "https://example.com/avatar.png" })
+
+    const { PATCH } = await import("../route")
+    const response = await PATCH(
+      new Request("http://localhost/api/users/me", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "Roy", email: "roy@example.com", image: "https://example.com/avatar.png" }),
+      }),
+    )
+    const payload = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(update).toHaveBeenCalledWith({
+      where: { id: "user-1" },
+      data: { name: "Roy", email: "roy@example.com", image: "https://example.com/avatar.png" },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        image: true,
+      },
+    })
+    expect(payload.data.image).toBe("https://example.com/avatar.png")
+  })
 })

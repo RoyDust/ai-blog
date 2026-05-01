@@ -1,13 +1,7 @@
 import Link from "next/link";
-import { Bell, ChevronDown, PenLine, Search, UserCircle } from "lucide-react";
+import { Bell, PenLine, Search } from "lucide-react";
 
-interface AdminHeaderProps {
-  groupLabel: string;
-  currentLabel: string;
-  userLabel: string;
-}
-
-export function AdminHeader({ userLabel }: AdminHeaderProps) {
+export function AdminHeader() {
   return (
     <header className="border-b border-[var(--border)] bg-[var(--surface)] px-4 py-4 lg:px-7">
       <div className="flex min-h-11 w-full flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -42,12 +36,6 @@ export function AdminHeader({ userLabel }: AdminHeaderProps) {
             <Bell className="h-5 w-5" />
             <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-[var(--surface)]" />
           </button>
-
-          <div className="hidden min-w-0 items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-[var(--foreground)] md:flex">
-            <UserCircle className="h-7 w-7 text-[var(--muted)]" />
-            <span className="max-w-24 truncate">{userLabel}</span>
-            <ChevronDown className="h-4 w-4 text-[var(--muted)]" />
-          </div>
         </div>
       </div>
     </header>

@@ -3,17 +3,14 @@
 import NextLink from "next/link";
 import { BarChart3, Folder, Github, Link2, Mail, Target } from "lucide-react";
 import { useEffect, useState } from "react";
+import { FallbackImage } from "@/components/ui";
+import { PUBLIC_PROFILE_FALLBACK, type PublicProfile, type PublicProfileLinkKind } from "@/lib/public-profile-data";
 
-const profile = {
-  name: "My Blog",
-  initials: "MB",
-  subtitle: "专注前端开发与工程实践",
-  bio: "记录在前端、工程化与技术体系建设过程中的思考与实践。",
-  links: [
-    { name: "GitHub", url: "https://github.com/RoyDust", icon: Github },
-    { name: "Link", url: "https://roydust.top", icon: Link2 },
-    { name: "Email", url: "mailto:roydust@foxmail.com", icon: Mail },
-  ],
+const linkIcons: Record<PublicProfileLinkKind, typeof Github> = {
+  email: Mail,
+  github: Github,
+  link: Link2,
+  twitter: Link2,
 };
 
 type CategoryItem = {
@@ -25,7 +22,7 @@ type CategoryItem = {
 
 const categoryDotColors = ["var(--accent-warm)", "var(--accent-warm)", "var(--accent-warm)", "var(--text-faint)", "var(--text-faint)", "var(--accent-cyan)"];
 
-export function Sidebar() {
+export function Sidebar({ profile = PUBLIC_PROFILE_FALLBACK }: { profile?: PublicProfile }) {
   const [categories, setCategories] = useState<CategoryItem[]>([]);
 
   useEffect(() => {
@@ -71,7 +68,11 @@ export function Sidebar() {
       >
         <section aria-label="作者资料" className="reader-panel min-h-[var(--sidebar-profile-card-height)] p-5">
           <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full border border-[var(--reader-border-strong)] bg-[color:color-mix(in_oklab,var(--accent-sky)_18%,var(--reader-panel-elevated))] text-xl font-bold text-[var(--foreground)] shadow-[var(--reader-shadow)]">
-            {profile.initials}
+            {profile.avatar ? (
+              <FallbackImage alt={profile.name} className="rounded-full object-cover" height={64} src={profile.avatar} width={64} />
+            ) : (
+              profile.initials
+            )}
           </div>
 
           <div className="space-y-3">
@@ -84,7 +85,7 @@ export function Sidebar() {
 
             <div className="flex gap-2 pt-1">
               {profile.links.map((link) => {
-                const Icon = link.icon;
+                const Icon = linkIcons[link.kind];
                 return (
                   <a
                     key={link.name}

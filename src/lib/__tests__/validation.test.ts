@@ -31,6 +31,21 @@ describe('validation helpers', () => {
     expect(() => parseUploadRequest({ filename: 123 })).toThrow()
   })
 
+  test('defaults upload purpose to cover and accepts avatar uploads', () => {
+    expect(parseUploadRequest({ filename: 'cover.png' })).toMatchObject({
+      filename: 'cover.png',
+      purpose: 'cover',
+    })
+    expect(parseUploadRequest({ filename: 'avatar.webp', purpose: 'avatar' })).toMatchObject({
+      filename: 'avatar.webp',
+      purpose: 'avatar',
+    })
+  })
+
+  test('rejects unsupported upload purpose values', () => {
+    expect(() => parseUploadRequest({ filename: 'avatar.webp', purpose: 'document' })).toThrow()
+  })
+
   test('rejects missing login password', () => {
     expect(() => parseLoginInput({ email: 'a@b.com' })).toThrow()
   })

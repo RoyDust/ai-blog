@@ -16,20 +16,15 @@ import {
   Zap,
 } from "lucide-react";
 import { buildPageMetadata } from "@/lib/seo";
+import { getPublicProfile } from "@/lib/public-profile";
+import type { PublicProfileLinkKind } from "@/lib/public-profile-data";
 import { FallbackImage } from "@/components/ui";
 
-const profile = {
-  name: "Zhang Wei",
-  avatar: "https://avatars.githubusercontent.com/u/50167909",
-  bio: "全栈开发者，热爱开源和技术分享。专注于 React 生态和现代 Web 开发。",
-  tagline: "内容创作 / 前端体验 / 开源实践",
-  intro:
-    "我更喜欢把个人主页做成一个适合停留和阅读的地方，而不是只堆一组链接。这里既是作者简介，也是我表达工作方法、内容方向与技术偏好的入口。",
-  links: [
-    { name: "GitHub", url: "https://github.com/RoyDust", icon: Github },
-    { name: "Twitter", url: "https://x.com/luoyichen12", icon: Twitter },
-    { name: "Email", url: "mailto:roydust@foxmail.com", icon: Mail },
-  ],
+const linkIcons: Record<PublicProfileLinkKind, typeof Github> = {
+  email: Mail,
+  github: Github,
+  link: ArrowUpRight,
+  twitter: Twitter,
 };
 
 const highlights = [
@@ -79,13 +74,22 @@ const stack = [
   },
 ];
 
-export const metadata: Metadata = buildPageMetadata({
-  title: "关于",
-  description: profile.bio,
-  path: "/about",
-});
+export async function generateMetadata(): Promise<Metadata> {
+  const profile = await getPublicProfile();
 
-export default function AboutPage() {
+  return buildPageMetadata({
+    title: "关于",
+    description: profile.bio,
+    image: profile.avatar,
+    path: "/about",
+  });
+}
+
+export default async function AboutPage() {
+  const profile = await getPublicProfile();
+  const emailLink = profile.links.find((link) => link.kind === "email");
+  const githubLink = profile.links.find((link) => link.kind === "github");
+
   return (
     <div className="space-y-6">
       <section className="card-base onload-animation relative overflow-hidden px-6 py-8 md:px-10 md:py-10">
@@ -97,7 +101,13 @@ export default function AboutPage() {
             className="onload-animation relative h-32 w-32 overflow-hidden rounded-3xl ring-1 ring-black/8 ring-offset-4 ring-offset-[var(--card-bg)] dark:ring-white/10 md:h-40 md:w-40"
             style={{ animationDelay: "80ms" }}
           >
-            <FallbackImage alt={profile.name} className="object-cover" fill priority sizes="160px" src={profile.avatar} />
+            {profile.avatar ? (
+              <FallbackImage alt={profile.name} className="object-cover" fill priority sizes="160px" src={profile.avatar} />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center bg-[color:color-mix(in_srgb,var(--primary)_12%,transparent)] text-4xl font-bold text-[var(--foreground)]">
+                {profile.initials}
+              </div>
+            )}
           </div>
 
           <div className="space-y-5">
@@ -113,7 +123,7 @@ export default function AboutPage() {
 
             <div className="onload-animation flex flex-wrap gap-3" style={{ animationDelay: "200ms" }}>
               {profile.links.map((link) => {
-                const Icon = link.icon;
+                const Icon = linkIcons[link.kind];
                 return (
                   <Link
                     key={link.name}
@@ -218,18 +228,22 @@ export default function AboutPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
-          <Link className="btn-plain scale-animation inline-flex h-11 items-center gap-2 rounded-xl px-5" href="mailto:roydust@foxmail.com">
-            <Mail className="h-4 w-4" />发送邮件
-          </Link>
-          <Link
-            className="btn-plain scale-animation inline-flex h-11 items-center gap-2 rounded-xl px-5"
-            href="https://github.com/RoyDust"
-            rel="noopener noreferrer"
-            target="_blank"
-          >
-            <Github className="h-4 w-4" />访问 GitHub
-            <ArrowUpRight className="h-4 w-4" />
-          </Link>
+          {emailLink ? (
+            <Link className="btn-plain scale-animation inline-flex h-11 items-center gap-2 rounded-xl px-5" href={emailLink.url}>
+              <Mail className="h-4 w-4" />发送邮件
+            </Link>
+          ) : null}
+          {githubLink ? (
+            <Link
+              className="btn-plain scale-animation inline-flex h-11 items-center gap-2 rounded-xl px-5"
+              href={githubLink.url}
+              rel="noopener noreferrer"
+              target="_blank"
+            >
+              <Github className="h-4 w-4" />访问 GitHub
+              <ArrowUpRight className="h-4 w-4" />
+            </Link>
+          ) : null}
         </div>
       </section>
     </div>

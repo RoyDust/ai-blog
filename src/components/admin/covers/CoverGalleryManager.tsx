@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { PageHeader } from "@/components/admin/primitives/PageHeader";
 import { Toolbar } from "@/components/admin/primitives/Toolbar";
 import { WorkspacePanel } from "@/components/admin/primitives/WorkspacePanel";
-import { Button, Modal } from "@/components/ui";
+import { Button, Modal } from "@/components/admin/ui";
 import { CoverAssetForm } from "./CoverAssetForm";
 import { CoverAssetGrid } from "./CoverAssetGrid";
 import { CoverUploadDropzone } from "./CoverUploadDropzone";

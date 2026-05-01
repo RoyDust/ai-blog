@@ -7,7 +7,7 @@ import { toast } from "sonner"
 import { PageHeader } from "@/components/admin/primitives/PageHeader"
 import { StatusBadge } from "@/components/admin/primitives/StatusBadge"
 import { WorkspacePanel } from "@/components/admin/primitives/WorkspacePanel"
-import { Button } from "@/components/ui/Button"
+import { Button } from "@/components/admin/ui"
 import type { PublicAiModelOption } from "@/lib/ai-models"
 
 type RunHistoryItem = {

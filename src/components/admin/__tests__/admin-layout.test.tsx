@@ -1,9 +1,15 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { within } from "@testing-library/react";
 import { describe, expect, test, vi } from "vitest";
 
+const signOut = vi.fn();
+
 vi.mock("next/navigation", () => ({
   usePathname: () => "/admin/taxonomy",
+}));
+
+vi.mock("next-auth/react", () => ({
+  signOut,
 }));
 
 describe("admin layout", () => {
@@ -11,7 +17,7 @@ describe("admin layout", () => {
     const { AdminLayout } = await import("@/components/admin/shell/AdminLayout");
 
     const { container } = render(
-      <AdminLayout userLabel="Admin">
+      <AdminLayout user={{ email: "roy@example.com", image: "https://example.com/avatar.png", label: "RoyDust", role: "ADMIN" }}>
         <div>Taxonomy content</div>
       </AdminLayout>,
     );
@@ -36,7 +42,16 @@ describe("admin layout", () => {
     expect(within(aiAssistant as HTMLElement).getByRole("link", { name: "AI 日报" })).toHaveAttribute("href", "/admin/ai-news");
     expect(within(aiAssistant as HTMLElement).getByRole("link", { name: "模型配置" })).toHaveAttribute("href", "/admin/ai/models");
     expect(within(aiAssistant as HTMLElement).getByRole("link", { name: "AI 任务" })).toHaveAttribute("href", "/admin/ai/tasks");
-    expect(within(nav).getByRole("button", { name: "设置稍后开放" })).toBeDisabled();
+    expect(within(nav).queryByRole("button", { name: "设置稍后开放" })).not.toBeInTheDocument();
+    expect(within(nav).queryByRole("link", { name: "设置" })).not.toBeInTheDocument();
+    const accountMenuButton = screen.getByRole("button", { name: "RoyDust 账号菜单" });
+    expect(accountMenuButton).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByRole("img", { name: "RoyDust 头像" })).toHaveAttribute("src", "https://example.com/avatar.png");
+    expect(screen.getByText("roy@example.com")).toBeInTheDocument();
+    fireEvent.keyDown(accountMenuButton, { key: "ArrowDown" });
+    await waitFor(() => expect(accountMenuButton).toHaveAttribute("aria-expanded", "true"));
+    expect(screen.getByRole("menuitem", { name: "设置" })).toHaveAttribute("href", "/admin/settings");
+    expect(screen.getByRole("menuitem", { name: "退出账号" })).toBeInTheDocument();
     expect(screen.getByText("Taxonomy content")).toBeInTheDocument();
     expect(screen.getByText("roydust.top")).toBeInTheDocument();
     expect(screen.getByText("博客后台")).toBeInTheDocument();

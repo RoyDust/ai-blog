@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { UploadCloud } from "lucide-react";
 
-import { Button } from "@/components/ui";
+import { Button } from "@/components/admin/ui";
 import type { CoverAsset } from "./types";
 
 type CoverUploadDropzoneProps = {

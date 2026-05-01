@@ -57,11 +57,19 @@ describe("admin shell config", () => {
       { label: "评论", group: "主导航", disabled: false },
       { label: "分类", group: "主导航", disabled: false },
       { label: "媒体库", group: "主导航", disabled: false },
-      { label: "设置", group: "主导航", disabled: true },
       { label: "AI 日报", group: "AI 辅助", disabled: false },
       { label: "模型配置", group: "AI 辅助", disabled: false },
       { label: "AI 任务", group: "AI 辅助", disabled: false },
     ]);
+  });
+
+  test("keeps account settings out of the main navigation list", () => {
+    expect(adminNavItems.some((item) => item.href === "/admin/settings")).toBe(false);
+    expect(getAdminPathMeta("/admin/settings")).toEqual({
+      currentLabel: "设置",
+      currentGroup: "账号",
+      crumbs: ["后台", "账号", "设置"],
+    });
   });
 
   test("matches only complete admin nav path segments", () => {

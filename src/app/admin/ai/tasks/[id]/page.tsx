@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { AiTaskActivitySync } from "@/components/admin/ai/AiTaskActivitySync";
 import { AiTaskDetail } from "@/components/admin/ai/AiTaskDetail";
 import { PageHeader } from "@/components/admin/primitives/PageHeader";
-import { Button } from "@/components/ui";
+import { Button } from "@/components/admin/ui";
 import { NotFoundError } from "@/lib/api-errors";
 import { getAiTaskDetail } from "@/lib/ai-tasks";
 

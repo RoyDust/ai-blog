@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Images, Search } from "lucide-react";
 
-import { Button, FallbackImage, Modal } from "@/components/ui";
+import { Button, FallbackImage, Modal } from "@/components/admin/ui";
 import type { CoverAsset, CoverAssetListResponse } from "./types";
 
 type CoverPickerProps = {
