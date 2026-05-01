@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { within } from "@testing-library/react";
 import { describe, expect, test, vi } from "vitest";
 
@@ -23,16 +23,20 @@ describe("admin layout", () => {
     expect(within(nav).queryByText("AI 辅助")).not.toBeInTheDocument();
     expect(within(nav).getByRole("link", { name: "首页" })).toHaveAttribute("href", "/admin");
     expect(within(nav).getByRole("link", { name: "文章" })).toHaveAttribute("href", "/admin/posts");
-    expect(within(nav).getByRole("link", { name: "草稿" })).toHaveAttribute("href", "/admin/posts?status=draft");
+    expect(within(nav).queryByRole("link", { name: "草稿" })).not.toBeInTheDocument();
     expect(within(nav).getByRole("link", { name: /评论/ })).toHaveAttribute("href", "/admin/comments");
     expect(within(nav).getByText("5")).toBeInTheDocument();
     expect(within(nav).getByRole("link", { name: "分类" })).toHaveAttribute("href", "/admin/taxonomy");
     expect(within(nav).getByRole("link", { name: "媒体库" })).toHaveAttribute("href", "/admin/covers");
+    const aiAssistant = within(nav).getByText("AI 助手").closest("details");
+    expect(aiAssistant).not.toBeNull();
+    expect(aiAssistant).not.toHaveAttribute("open");
+    fireEvent.click(within(aiAssistant as HTMLElement).getByText("AI 助手"));
+    expect(aiAssistant).toHaveAttribute("open");
+    expect(within(aiAssistant as HTMLElement).getByRole("link", { name: "AI 日报" })).toHaveAttribute("href", "/admin/ai-news");
+    expect(within(aiAssistant as HTMLElement).getByRole("link", { name: "模型配置" })).toHaveAttribute("href", "/admin/ai/models");
+    expect(within(aiAssistant as HTMLElement).getByRole("link", { name: "AI 任务" })).toHaveAttribute("href", "/admin/ai/tasks");
     expect(within(nav).getByRole("button", { name: "设置稍后开放" })).toBeDisabled();
-    expect(screen.getByText("AI 助手")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "AI 日报" })).toHaveAttribute("href", "/admin/ai-news");
-    expect(screen.getByRole("link", { name: "模型配置" })).toHaveAttribute("href", "/admin/ai/models");
-    expect(screen.getByRole("link", { name: "AI 任务" })).toHaveAttribute("href", "/admin/ai/tasks");
     expect(screen.getByText("Taxonomy content")).toBeInTheDocument();
     expect(screen.getByText("roydust.top")).toBeInTheDocument();
     expect(screen.getByText("博客后台")).toBeInTheDocument();
@@ -47,6 +51,6 @@ describe("admin layout", () => {
     expect(screen.getByTestId("admin-layout-sidebar")).toHaveClass("sticky", "top-0", "h-screen", "overflow-hidden");
     expect(screen.getByTestId("admin-layout-content")).toHaveClass("h-screen", "overflow-hidden");
     expect(screen.getByTestId("admin-layout-main")).toHaveClass("flex-1", "overflow-y-auto");
-    expect(screen.getByTestId("admin-layout-main").firstElementChild).toHaveClass("max-w-[1600px]");
+    expect(screen.getByTestId("admin-layout-main").firstElementChild).toHaveClass("max-w-[1840px]");
   });
 });

@@ -1,7 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import {
   BrainCircuit,
-  FilePenLine,
   FileText,
   FolderTree,
   Images,
@@ -29,13 +28,12 @@ function hasPathSegment(pathname: string, href: string) {
 export const adminNavItems: AdminNavItem[] = [
   { href: "/admin", label: "首页", group: "主导航", icon: LayoutDashboard },
   { href: "/admin/posts", label: "文章", group: "主导航", icon: FileText },
-  { href: "/admin/posts?status=draft", label: "草稿", group: "主导航", icon: FilePenLine },
   { href: "/admin/comments", label: "评论", group: "主导航", icon: MessageSquare, badge: "5" },
   { href: "/admin/taxonomy", label: "分类", group: "主导航", icon: FolderTree },
   { href: "/admin/covers", label: "媒体库", group: "主导航", icon: Images },
   { href: "/admin/settings", label: "设置", group: "主导航", icon: Settings, disabled: true },
   { href: "/admin/ai-news", label: "AI 日报", group: "AI 辅助", icon: Newspaper },
-  { href: "/admin/ai/models", label: "AI 模型", group: "AI 辅助", icon: BrainCircuit },
+  { href: "/admin/ai/models", label: "模型配置", group: "AI 辅助", icon: BrainCircuit },
   { href: "/admin/ai/tasks", label: "AI 任务", group: "AI 辅助", icon: ListChecks },
 ];
 

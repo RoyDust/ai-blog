@@ -2,7 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import React from "react";
 import { describe, expect, test, vi } from "vitest";
 
-const { postFindManyMock, commentCountMock, commentFindManyMock } = vi.hoisted(() => {
+const { postFindManyMock, commentCountMock, commentFindManyMock, getPublicAiModelOptionsMock } = vi.hoisted(() => {
   const draftQueuePosts = [
     {
       id: "post-draft-1",
@@ -44,6 +44,55 @@ const { postFindManyMock, commentCountMock, commentFindManyMock } = vi.hoisted((
     },
   ];
 
+  const aiModels = [
+    {
+      id: "post-summary-openai-compatible",
+      name: "文章摘要生成",
+      description: "用于后台编辑器的一键中文摘要，当前走 OpenAI Chat Completions 兼容接口。",
+      provider: "openai-compatible",
+      baseUrl: "https://compat.example/v1",
+      requestPath: "/chat/completions",
+      model: "summary-model",
+      apiKeyEnv: "AI_OPENAI_COMPAT_API_KEY",
+      baseUrlEnv: "AI_OPENAI_COMPAT_BASE_URL",
+      modelEnv: "AI_OPENAI_COMPAT_MODEL",
+      capabilities: ["post-summary"],
+      defaultFor: ["post-summary"],
+      source: "environment",
+      editable: false,
+      deletable: false,
+      enabled: true,
+      status: "ready",
+      hasApiKey: true,
+      lastTestedAt: null,
+      lastTestStatus: null,
+      lastTestMessage: null,
+    },
+    {
+      id: "backup-summary",
+      name: "备用摘要模型",
+      description: "用于摘要生成的备用数据库模型。",
+      provider: "openai-compatible",
+      baseUrl: "https://backup.example/v1",
+      requestPath: "/chat/completions",
+      model: "backup-summary-model",
+      apiKeyEnv: "AI_BACKUP_API_KEY",
+      baseUrlEnv: "database",
+      modelEnv: "database",
+      capabilities: ["post-summary"],
+      defaultFor: [],
+      source: "database",
+      editable: true,
+      deletable: true,
+      enabled: true,
+      status: "missing-api-key",
+      hasApiKey: false,
+      lastTestedAt: null,
+      lastTestStatus: null,
+      lastTestMessage: null,
+    },
+  ];
+
   return {
     postFindManyMock: vi.fn(({ where, orderBy }) => {
       if (where?.published === false) {
@@ -58,6 +107,7 @@ const { postFindManyMock, commentCountMock, commentFindManyMock } = vi.hoisted((
     }),
     commentCountMock: vi.fn().mockResolvedValue(4),
     commentFindManyMock: vi.fn().mockResolvedValue(pendingQueueComments),
+    getPublicAiModelOptionsMock: vi.fn().mockResolvedValue(aiModels),
   };
 });
 
@@ -73,8 +123,12 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
+vi.mock("@/lib/ai-models", () => ({
+  getPublicAiModelOptions: getPublicAiModelOptionsMock,
+}));
+
 describe("admin overview", () => {
-  test("renders the lightweight blog dashboard with real queues and static panels", async () => {
+  test("renders the lightweight blog dashboard with real queues and AI model panel", async () => {
     const { default: AdminPage } = await import("../page");
     const ui = await AdminPage();
 
@@ -84,16 +138,18 @@ describe("admin overview", () => {
     expect(screen.getByRole("heading", { name: "最近草稿" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "待审评论" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "热门文章" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "发布清单" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "AI 模型清单" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "博客后台总览" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "发布清单" })).not.toBeInTheDocument();
 
     expect(screen.getByText("静态示意")).toBeInTheDocument();
     expect(screen.getByText("7 天")).toBeInTheDocument();
     expect(screen.getByText("05-15")).toBeInTheDocument();
-    expect(screen.getByText("设置 SEO 信息")).toBeInTheDocument();
-    expect(screen.getByText("编辑清单")).toBeInTheDocument();
 
     expect(screen.getByText("Queued Draft")).toBeInTheDocument();
+    const recentDraftsPanel = screen.getByRole("heading", { name: "最近草稿" }).closest("section");
+    expect(recentDraftsPanel).not.toBeNull();
+    expect(within(recentDraftsPanel as HTMLElement).getByRole("img", { name: "Queued Draft 封面" })).toHaveAttribute("src", "https://example.com/draft.jpg");
     expect(screen.getByRole("link", { name: "继续编辑" })).toHaveAttribute("href", "/admin/posts/post-draft-1/edit");
     expect(screen.getByText("待处理评论内容")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "批准" })).toBeInTheDocument();
@@ -104,6 +160,18 @@ describe("admin overview", () => {
     expect(within(popularPanel as HTMLElement).getByText("Most Viewed Post")).toBeInTheDocument();
     expect(within(popularPanel as HTMLElement).getByText("Second Viewed Post")).toBeInTheDocument();
     expect(within(popularPanel as HTMLElement).getByText("120 浏览")).toBeInTheDocument();
+
+    const aiModelPanel = screen.getByRole("heading", { name: "AI 模型清单" }).closest("section");
+    expect(aiModelPanel).not.toBeNull();
+    expect(within(aiModelPanel as HTMLElement).getByText("文章摘要生成")).toBeInTheDocument();
+    expect(within(aiModelPanel as HTMLElement).getByText("summary-model")).toBeInTheDocument();
+    expect(within(aiModelPanel as HTMLElement).getByText("当前首选")).toBeInTheDocument();
+    expect(within(aiModelPanel as HTMLElement).getByText("可用")).toBeInTheDocument();
+    expect(within(aiModelPanel as HTMLElement).getByText("环境变量")).toBeInTheDocument();
+    expect(within(aiModelPanel as HTMLElement).getByText("备用摘要模型")).toBeInTheDocument();
+    expect(within(aiModelPanel as HTMLElement).getByText("缺少密钥")).toBeInTheDocument();
+    expect(within(aiModelPanel as HTMLElement).getByText("AI_BACKUP_API_KEY")).toBeInTheDocument();
+    expect(within(aiModelPanel as HTMLElement).getByRole("link", { name: "管理模型" })).toHaveAttribute("href", "/admin/ai/models");
 
     expect(commentCountMock).toHaveBeenCalledWith({
       where: { deletedAt: null, status: "PENDING" },
@@ -133,5 +201,6 @@ describe("admin overview", () => {
       orderBy: { viewCount: "desc" },
       take: 5,
     });
+    expect(getPublicAiModelOptionsMock).toHaveBeenCalledTimes(1);
   });
 });

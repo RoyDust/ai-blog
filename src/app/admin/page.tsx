@@ -1,12 +1,18 @@
 import Link from "next/link";
 import {
+  BrainCircuit,
   CheckCircle2,
-  Circle,
+  CircleAlert,
   Eye,
+  ImageIcon,
+  KeyRound,
   MoreHorizontal,
 } from "lucide-react";
 
 import { WorkspacePanel } from "@/components/admin/primitives/WorkspacePanel";
+import { StatusBadge } from "@/components/admin/primitives/StatusBadge";
+import { FallbackImage } from "@/components/ui";
+import { getPublicAiModelOptions, type PublicAiModelOption } from "@/lib/ai-models";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -23,14 +29,6 @@ export const STATIC_VISIT_TREND = [
   { label: "05-19", visits: 1620 },
   { label: "05-20", visits: 1950 },
   { label: "05-21", visits: 2680 },
-] as const;
-
-export const STATIC_DASHBOARD_PUBLISH_CHECKLIST = [
-  { label: "文章有封面图", description: "为文章设置一张吸引人的封面图", done: true },
-  { label: "设置文章分类", description: "为文章选择合适的分类", done: true },
-  { label: "添加文章摘要", description: "撰写 1-2 句摘要，吸引读者", done: true },
-  { label: "检查错别字", description: "发布前检查错别字和语句通顺", done: false },
-  { label: "设置 SEO 信息", description: "设置标题、描述和关键词", done: false },
 ] as const;
 
 async function getDraftQueue() {
@@ -70,6 +68,7 @@ async function getPopularPosts() {
 type DraftListItem = Awaited<ReturnType<typeof getDraftQueue>>[number];
 type PendingCommentListItem = Awaited<ReturnType<typeof getPendingCommentQueue>>[number];
 type PopularPostListItem = Awaited<ReturnType<typeof getPopularPosts>>[number];
+type AiModelListItem = PublicAiModelOption;
 
 const formatRelativeDate = (value: Date | string | null) => {
   if (!value) return "未发布";
@@ -110,15 +109,36 @@ function StaticPill() {
   );
 }
 
-function Thumbnail({ src, label, className = "h-16 w-24" }: { src?: string | null; label: string; className?: string }) {
-  const imageStyle = src ? { backgroundImage: `url("${src}")` } : undefined;
-
+function Thumbnail({
+  src,
+  label,
+  className = "h-16 w-24",
+  placeholder = "未设置封面",
+}: {
+  src?: string | null;
+  label: string;
+  className?: string;
+  placeholder?: string;
+}) {
   return (
-    <div
-      aria-label={label}
-      className={`${className} shrink-0 rounded-lg border border-[var(--border)] bg-[linear-gradient(135deg,#f4f1ea,#d7e6dc)] bg-cover bg-center`}
-      style={imageStyle}
-    />
+    <div className={`${className} relative shrink-0 overflow-hidden rounded-lg border border-[var(--border)] bg-[linear-gradient(135deg,#f4f1ea,#d7e6dc)]`}>
+      {src ? (
+        <FallbackImage
+          alt={label}
+          className="object-cover"
+          fill
+          loading="lazy"
+          sizes="(max-width: 768px) 100vw, 18rem"
+          src={src}
+          unoptimized
+        />
+      ) : (
+        <div aria-label={label} className="flex h-full w-full flex-col items-center justify-center gap-1 px-2 text-center text-[var(--muted)]" role="img">
+          <ImageIcon className="h-4 w-4" aria-hidden="true" />
+          <span className="line-clamp-1 text-xs">{placeholder}</span>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -134,6 +154,22 @@ function Avatar({ name, index }: { name: string; index: number }) {
 
 function EmptyPanelMessage({ children }: { children: React.ReactNode }) {
   return <p className="rounded-lg bg-[var(--surface-alt)] px-4 py-4 text-sm text-[var(--muted)]">{children}</p>;
+}
+
+function aiModelStatusMeta(status: AiModelListItem["status"]) {
+  if (status === "ready") {
+    return { label: "可用", tone: "success" as const, icon: CheckCircle2 };
+  }
+
+  if (status === "disabled") {
+    return { label: "已停用", tone: "neutral" as const, icon: CircleAlert };
+  }
+
+  return { label: "缺少密钥", tone: "warning" as const, icon: KeyRound };
+}
+
+function aiModelSourceLabel(source: AiModelListItem["source"]) {
+  return source === "environment" ? "环境变量" : "数据库";
 }
 
 function VisitTrendPanel() {
@@ -152,9 +188,9 @@ function VisitTrendPanel() {
           </div>
         </div>
       }
-      className="min-h-[378px]"
+      className="min-h-[430px]"
     >
-      <div className="flex h-[278px] gap-3 pt-3">
+      <div className="flex h-[330px] gap-4 pt-3">
         <div className="flex w-9 flex-col justify-between pb-9 pt-2 text-right text-xs text-[var(--muted)]">
           <span>4K</span>
           <span>3K</span>
@@ -190,35 +226,59 @@ function VisitTrendPanel() {
 }
 
 function RecentDraftsPanel({ drafts }: { drafts: DraftListItem[] }) {
+  const [featuredDraft, ...remainingDrafts] = drafts;
+
   return (
-    <WorkspacePanel title="最近草稿" className="min-h-[378px]">
-      <div className="divide-y divide-[var(--border)]">
-        {drafts.length > 0 ? (
-          drafts.map((post) => (
-            <article key={post.id} className="flex items-center gap-4 py-4 first:pt-0">
-              <Thumbnail src={post.coverImage} label={`${post.title} 封面`} />
+    <WorkspacePanel title="最近草稿" className="min-h-[430px]">
+      {featuredDraft ? (
+        <div className="space-y-4">
+          <article className="overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)]">
+            <Thumbnail
+              src={featuredDraft.coverImage}
+              label={`${featuredDraft.title} 封面`}
+              className="aspect-[2.15] w-full"
+              placeholder="草稿还没有封面"
+            />
+            <div className="flex flex-wrap items-center gap-3 p-4">
               <div className="min-w-0 flex-1">
                 <div className="flex min-w-0 items-center gap-2">
-                  <h3 className="truncate text-base font-semibold text-[var(--foreground)]">{post.title}</h3>
+                  <h3 className="truncate text-base font-semibold text-[var(--foreground)]">{featuredDraft.title}</h3>
                   <span className="rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-medium text-[var(--brand)]">草稿</span>
                 </div>
-                <p className="mt-1 text-sm text-[var(--muted)]">{formatRelativeDate(post.updatedAt ?? post.createdAt)}</p>
+                <p className="mt-1 text-sm text-[var(--muted)]">{formatRelativeDate(featuredDraft.updatedAt ?? featuredDraft.createdAt)}</p>
               </div>
               <Link
-                href={`/admin/posts/${post.id}/edit`}
+                href={`/admin/posts/${featuredDraft.id}/edit`}
                 className="rounded-lg border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--surface-alt)]"
               >
                 继续编辑
               </Link>
-              <button aria-label={`${post.title} 更多操作`} className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--border)] text-[var(--muted)]" type="button">
-                <MoreHorizontal className="h-4 w-4" />
-              </button>
-            </article>
-          ))
-        ) : (
-          <EmptyPanelMessage>当前没有最近草稿。</EmptyPanelMessage>
-        )}
-      </div>
+            </div>
+          </article>
+
+          {remainingDrafts.length > 0 ? (
+            <div className="divide-y divide-[var(--border)]">
+              {remainingDrafts.map((post) => (
+                <article key={post.id} className="flex items-center gap-4 py-3 first:pt-0">
+                  <Thumbnail src={post.coverImage} label={`${post.title} 封面`} className="h-14 w-20" />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <h3 className="truncate text-sm font-semibold text-[var(--foreground)]">{post.title}</h3>
+                      <span className="rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-medium text-[var(--brand)]">草稿</span>
+                    </div>
+                    <p className="mt-1 text-xs text-[var(--muted)]">{formatRelativeDate(post.updatedAt ?? post.createdAt)}</p>
+                  </div>
+                  <button aria-label={`${post.title} 更多操作`} className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--border)] text-[var(--muted)]" type="button">
+                    <MoreHorizontal className="h-4 w-4" />
+                  </button>
+                </article>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : (
+        <EmptyPanelMessage>当前没有最近草稿。</EmptyPanelMessage>
+      )}
       <Link href="/admin/posts?status=draft" className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-blue-600">
         查看全部草稿
         <span aria-hidden>→</span>
@@ -232,7 +292,7 @@ function PendingCommentsPanel({ comments, count }: { comments: PendingCommentLis
     <WorkspacePanel
       title="待审评论"
       actions={<span className="rounded-full bg-amber-100 px-3 py-1 text-sm font-medium text-amber-700">{count}</span>}
-      className="min-h-[430px]"
+      className="min-h-[460px]"
     >
       <div className="divide-y divide-[var(--border)]">
         {comments.length > 0 ? (
@@ -277,11 +337,11 @@ function PopularPostsPanel({ posts }: { posts: PopularPostListItem[] }) {
   const rankTone = ["bg-amber-400 text-white", "bg-slate-200 text-slate-700", "bg-orange-400 text-white", "bg-emerald-50 text-[var(--brand)]", "bg-emerald-50 text-[var(--brand)]"];
 
   return (
-    <WorkspacePanel title="热门文章" className="min-h-[430px]">
+    <WorkspacePanel title="热门文章" className="min-h-[460px]">
       <div className="divide-y divide-[var(--border)]">
         {posts.length > 0 ? (
           posts.map((post, index) => (
-            <article key={post.id} className="flex items-center gap-4 py-3 first:pt-0">
+            <article key={post.id} className="flex items-center gap-4 py-4 first:pt-0">
               <span className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${rankTone[index] ?? rankTone[4]}`}>
                 {index + 1}
               </span>
@@ -294,7 +354,7 @@ function PopularPostsPanel({ posts }: { posts: PopularPostListItem[] }) {
                   {post.viewCount.toLocaleString("zh-CN")} 浏览
                 </p>
               </div>
-              <Thumbnail src={post.coverImage} label={`${post.title} 封面`} className="h-14 w-20" />
+              <Thumbnail src={post.coverImage} label={`${post.title} 封面`} className="h-16 w-24" />
             </article>
           ))
         ) : (
@@ -309,54 +369,93 @@ function PopularPostsPanel({ posts }: { posts: PopularPostListItem[] }) {
   );
 }
 
-function PublishChecklistPanel() {
+function AiModelChecklistPanel({ models }: { models: AiModelListItem[] }) {
+  const visibleModels = models.slice(0, 5);
+  const readyCount = models.filter((model) => model.status === "ready").length;
+  const summaryLabel = models.length > 0 ? `${readyCount}/${models.length} 可用` : "未配置";
+
   return (
-    <WorkspacePanel title="发布清单" className="min-h-[430px]">
-      <ul className="divide-y divide-[var(--border)]">
-        {STATIC_DASHBOARD_PUBLISH_CHECKLIST.map((item) => (
-          <li key={item.label} className="flex items-start justify-between gap-4 py-4 first:pt-0">
-            <div className="flex min-w-0 gap-3">
-              {item.done ? (
-                <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-[var(--brand)]" />
-              ) : (
-                <Circle className="mt-0.5 h-5 w-5 shrink-0 text-[var(--muted)]" />
-              )}
-              <div>
-                <p className="font-medium text-[var(--foreground)]">{item.label}</p>
-                <p className="mt-1 text-sm leading-5 text-[var(--muted)]">{item.description}</p>
-              </div>
-            </div>
-            {item.done ? <CheckCircle2 className="mt-1 h-5 w-5 shrink-0 text-[var(--brand)]" /> : <Circle className="mt-1 h-5 w-5 shrink-0 text-[var(--muted)]" />}
-          </li>
-        ))}
-      </ul>
-      <Link href="/admin/posts/new" className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-blue-600">
-        编辑清单
-        <span aria-hidden>→</span>
-      </Link>
+    <WorkspacePanel
+      title="AI 模型清单"
+      actions={<span className="rounded-full bg-emerald-50 px-3 py-1 text-sm font-medium text-[var(--brand)]">{summaryLabel}</span>}
+      className="min-h-[460px]"
+    >
+      {visibleModels.length > 0 ? (
+        <ul className="divide-y divide-[var(--border)]">
+          {visibleModels.map((model) => {
+            const status = aiModelStatusMeta(model.status);
+            const StatusIcon = status.icon;
+            const isDefaultSummary = model.defaultFor.includes("post-summary");
+
+            return (
+              <li key={model.id} className="py-5 first:pt-0">
+                <div className="flex items-start gap-4">
+                  <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-[var(--surface-alt)] text-[var(--brand)]">
+                    <BrainCircuit className="h-6 w-6" aria-hidden="true" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="font-semibold text-[var(--foreground)]">{model.name}</h3>
+                      {isDefaultSummary ? <StatusBadge tone="success">当前首选</StatusBadge> : null}
+                      <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
+                    </div>
+                    <p className="mt-1 break-all text-sm font-medium text-[var(--foreground)]">{model.model}</p>
+                    <p className="mt-2 line-clamp-2 text-sm leading-5 text-[var(--muted)]">
+                      {model.description || "未填写模型说明。"}
+                    </p>
+                    <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-[var(--surface-alt)] px-2.5 py-1">
+                        <StatusIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                        {model.hasApiKey ? "密钥已配置" : model.apiKeyEnv}
+                      </span>
+                      <span className="rounded-full bg-[var(--surface-alt)] px-2.5 py-1">{aiModelSourceLabel(model.source)}</span>
+                      <span className="rounded-full bg-[var(--surface-alt)] px-2.5 py-1">文章摘要</span>
+                    </div>
+                  </div>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <EmptyPanelMessage>当前没有可用的 AI 模型配置。</EmptyPanelMessage>
+      )}
+
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+        {models.length > visibleModels.length ? (
+          <p className="text-sm text-[var(--muted)]">还有 {models.length - visibleModels.length} 个模型未显示。</p>
+        ) : (
+          <span aria-hidden="true" />
+        )}
+        <Link href="/admin/ai/models" className="inline-flex items-center gap-2 text-sm font-medium text-blue-600">
+          管理模型
+          <span aria-hidden>→</span>
+        </Link>
+      </div>
     </WorkspacePanel>
   );
 }
 
 export default async function AdminPage() {
-  const [pendingCommentCount, draftQueue, pendingQueue, popularPosts] = await Promise.all([
+  const [pendingCommentCount, draftQueue, pendingQueue, popularPosts, aiModels] = await Promise.all([
     prisma.comment.count({ where: { deletedAt: null, status: PENDING_COMMENT_STATUS } }),
     getDraftQueue(),
     getPendingCommentQueue(),
     getPopularPosts(),
+    getPublicAiModelOptions(),
   ]);
 
   return (
-    <div className="space-y-6">
-      <section className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.18fr)_minmax(380px,0.82fr)]">
+    <div className="space-y-5 2xl:space-y-6" data-testid="admin-dashboard">
+      <section className="grid grid-cols-1 gap-5 2xl:gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(440px,0.75fr)]">
         <VisitTrendPanel />
         <RecentDraftsPanel drafts={draftQueue} />
       </section>
 
-      <section className="grid grid-cols-1 gap-6 xl:grid-cols-[1.08fr_0.9fr_0.86fr]">
+      <section className="grid grid-cols-1 gap-5 2xl:gap-6 xl:grid-cols-[minmax(360px,1.05fr)_minmax(380px,1.05fr)_minmax(440px,1.15fr)]">
         <PendingCommentsPanel comments={pendingQueue} count={pendingCommentCount} />
         <PopularPostsPanel posts={popularPosts} />
-        <PublishChecklistPanel />
+        <AiModelChecklistPanel models={aiModels} />
       </section>
 
       <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border)] pt-5 text-sm text-[var(--muted)]">

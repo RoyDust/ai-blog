@@ -20,9 +20,9 @@ describe("admin shell config", () => {
 
   test("maps AI model management route into grouped workspace labels", () => {
     expect(getAdminPathMeta("/admin/ai/models")).toEqual({
-      currentLabel: "AI 模型",
+      currentLabel: "模型配置",
       currentGroup: "AI 辅助",
-      crumbs: ["后台", "AI 辅助", "AI 模型"],
+      crumbs: ["后台", "AI 辅助", "模型配置"],
     });
   });
 
@@ -54,20 +54,18 @@ describe("admin shell config", () => {
     expect(adminNavItems.map((item) => ({ label: item.label, group: item.group, disabled: item.disabled ?? false }))).toEqual([
       { label: "首页", group: "主导航", disabled: false },
       { label: "文章", group: "主导航", disabled: false },
-      { label: "草稿", group: "主导航", disabled: false },
       { label: "评论", group: "主导航", disabled: false },
       { label: "分类", group: "主导航", disabled: false },
       { label: "媒体库", group: "主导航", disabled: false },
       { label: "设置", group: "主导航", disabled: true },
       { label: "AI 日报", group: "AI 辅助", disabled: false },
-      { label: "AI 模型", group: "AI 辅助", disabled: false },
+      { label: "模型配置", group: "AI 辅助", disabled: false },
       { label: "AI 任务", group: "AI 辅助", disabled: false },
     ]);
   });
 
   test("matches only complete admin nav path segments", () => {
     expect(isAdminNavItemActive("/admin/posts", "/admin/posts")).toBe(true);
-    expect(isAdminNavItemActive("/admin/posts", "/admin/posts?status=draft")).toBe(true);
     expect(isAdminNavItemActive("/admin/posts/123/edit", "/admin/posts")).toBe(true);
     expect(isAdminNavItemActive("/admin/posts-archive", "/admin/posts")).toBe(false);
     expect(isAdminNavItemActive("/admin/covers", "/admin/covers")).toBe(true);
