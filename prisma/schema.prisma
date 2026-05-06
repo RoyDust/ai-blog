@@ -41,6 +41,14 @@ enum AiNewsRunTrigger {
   CRON
 }
 
+enum AiNewsSourceType {
+  RSS
+  HACKERNEWS
+  GITHUB_RELEASES
+  GITHUB_TRENDING_RSS
+  REDDIT
+}
+
 model Account {
   id                String  @id @default(cuid())
   userId            String
@@ -295,6 +303,14 @@ model AiNewsRun {
   status        AiNewsRunStatus @default(RUNNING)
   sourceCount   Int             @default(0)
   failureCount  Int             @default(0)
+  rawCandidateCount      Int     @default(0)
+  dedupedCandidateCount  Int     @default(0)
+  scoredCandidateCount   Int     @default(0)
+  selectedCandidateCount Int     @default(0)
+  sourceFailureJson      Json?
+  qualityScore           Int?
+  citationCoverage       Float?
+  generationMode         String?
   error         String?         @db.Text
   postId        String?
   postTitle     String?
@@ -309,10 +325,75 @@ model AiNewsRun {
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
 
+  candidates AiNewsCandidate[]
+
   @@index([createdAt])
   @@index([runDate])
   @@index([status])
   @@map("ai_news_runs")
+}
+
+model AiNewsSource {
+  id         String           @id @default(cuid())
+  type       AiNewsSourceType
+  name       String
+  url        String
+  homepage   String?
+  category   String?
+  enabled    Boolean          @default(true)
+  weight     Int              @default(1)
+  minScore   Int?
+  fetchLimit Int?
+  config     Json?
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+
+  candidates AiNewsCandidate[]
+
+  @@index([enabled, type])
+  @@index([category])
+  @@map("ai_news_sources")
+}
+
+model AiNewsCandidate {
+  id              String           @id @default(cuid())
+  runId           String
+  run             AiNewsRun        @relation(fields: [runId], references: [id], onDelete: Cascade)
+  sourceId        String?
+  source          AiNewsSource?    @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+  sourceType      AiNewsSourceType
+  sourceName      String
+  title           String
+  url             String
+  canonicalUrl    String
+  summary         String?          @db.Text
+  content         String?          @db.Text
+  author          String?
+  publishedAt     DateTime?
+  metadata        Json?
+  community       Json?
+  aiScore         Float?
+  aiReason        String?          @db.Text
+  aiSummary       String?          @db.Text
+  aiTags          String[]         @default([])
+  aiRiskFlags     String[]         @default([])
+  scoreError      String?          @db.Text
+  duplicateOfId   String?
+  duplicateOf     AiNewsCandidate? @relation("AiNewsCandidateDuplicates", fields: [duplicateOfId], references: [id], onDelete: SetNull)
+  duplicates      AiNewsCandidate[] @relation("AiNewsCandidateDuplicates")
+  selected        Boolean          @default(false)
+  selectionReason String?          @db.Text
+  enrichment      Json?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@index([runId])
+  @@index([sourceId])
+  @@index([sourceType])
+  @@index([canonicalUrl])
+  @@index([selected])
+  @@index([duplicateOfId])
+  @@map("ai_news_candidates")
 }
 
 model Category {

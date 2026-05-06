@@ -17,6 +17,13 @@ type RunHistoryItem = {
   status: "RUNNING" | "SUCCEEDED" | "FAILED" | "SKIPPED"
   sourceCount: number
   failureCount: number
+  rawCandidateCount?: number | null
+  dedupedCandidateCount?: number | null
+  scoredCandidateCount?: number | null
+  selectedCandidateCount?: number | null
+  qualityScore?: number | null
+  citationCoverage?: number | null
+  generationMode?: string | null
   error?: string | null
   postId?: string | null
   postSlug?: string | null
@@ -24,6 +31,27 @@ type RunHistoryItem = {
   reviewScore?: number | null
   createdAt: string
   durationMs?: number | null
+}
+
+type RunCandidateItem = {
+  id: string
+  title: string
+  url: string
+  sourceType: string
+  sourceName: string
+  aiScore: number | null
+  aiReason: string | null
+  aiTags: string[]
+  selected: boolean
+  duplicateOfId: string | null
+  citationCount: number
+}
+
+type CandidateState = {
+  expanded: boolean
+  loading: boolean
+  error: string | null
+  data: RunCandidateItem[] | null
 }
 
 type RunResult = {
@@ -35,6 +63,15 @@ type RunResult = {
   generatedBy?: { id: string; name: string; model: string }
   autoReview?: { verdict?: "ready" | "needs-work"; score?: number; summary?: string; published: boolean; error?: string } | null
   failures?: Array<{ sourceId: string; message: string }>
+  metrics?: {
+    rawCandidateCount: number
+    dedupedCandidateCount: number
+    scoredCandidateCount: number
+    selectedCandidateCount: number
+    qualityScore?: number | null
+    citationCoverage?: number | null
+    generationMode?: string | null
+  }
   run?: { id: string; status: RunHistoryItem["status"] }
 }
 
@@ -81,6 +118,14 @@ function modelStatusLabel(model: PublicAiModelOption) {
   return "缺少密钥"
 }
 
+function runCandidateFunnel(run: Pick<RunHistoryItem, "sourceCount" | "rawCandidateCount" | "dedupedCandidateCount" | "selectedCandidateCount">) {
+  const raw = run.rawCandidateCount ?? run.sourceCount ?? 0
+  const deduped = run.dedupedCandidateCount ?? raw
+  const selected = run.selectedCandidateCount ?? 0
+
+  return `原始 ${raw} · 去重 ${deduped} · 入选 ${selected}`
+}
+
 export default function AdminAiNewsPage() {
   const [date, setDate] = useState(todayInputValue())
   const [models, setModels] = useState<PublicAiModelOption[]>([])
@@ -92,6 +137,7 @@ export default function AdminAiNewsPage() {
   const [runs, setRuns] = useState<RunHistoryItem[]>([])
   const [runsLoading, setRunsLoading] = useState(false)
   const [runsError, setRunsError] = useState<string | null>(null)
+  const [candidateStates, setCandidateStates] = useState<Record<string, CandidateState>>({})
 
   const selectedModel = useMemo(
     () => models.find((model) => model.id === selectedModelId) ?? null,
@@ -143,6 +189,60 @@ export default function AdminAiNewsPage() {
     }
   }, [])
 
+  const toggleRunCandidates = useCallback(async (runId: string) => {
+    const current = candidateStates[runId]
+    if (current?.expanded) {
+      setCandidateStates((states) => ({
+        ...states,
+        [runId]: { ...current, expanded: false },
+      }))
+      return
+    }
+
+    setCandidateStates((states) => ({
+      ...states,
+      [runId]: {
+        expanded: true,
+        loading: !states[runId]?.data,
+        error: null,
+        data: states[runId]?.data ?? null,
+      },
+    }))
+
+    if (current?.data) {
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/admin/ai-news/candidates?runId=${encodeURIComponent(runId)}`)
+      const data = await response.json()
+
+      if (!response.ok || !data.success) {
+        throw new Error(readError(data))
+      }
+
+      setCandidateStates((states) => ({
+        ...states,
+        [runId]: {
+          expanded: true,
+          loading: false,
+          error: null,
+          data: Array.isArray(data.data) ? data.data : [],
+        },
+      }))
+    } catch (error) {
+      setCandidateStates((states) => ({
+        ...states,
+        [runId]: {
+          expanded: true,
+          loading: false,
+          error: error instanceof Error ? error.message : "候选列表加载失败",
+          data: null,
+        },
+      }))
+    }
+  }, [candidateStates])
+
   useEffect(() => {
     void loadRunHistory()
     void loadModels()
@@ -192,7 +292,7 @@ export default function AdminAiNewsPage() {
       <PageHeader
         eyebrow="AI News"
         title="每日 AI 新闻推送"
-        description="聚合固定 AI 新闻源，生成中文日报草稿，并通过 AI 审稿后自动上线。"
+        description="聚合多源候选，筛选高价值 AI 新闻，生成中文日报草稿，并通过 AI 审稿后自动上线。"
         action={
           <>
             <Button type="button" disabled={running || !selectedModelId} onClick={() => void runNewsGeneration()}>
@@ -205,7 +305,7 @@ export default function AdminAiNewsPage() {
         }
       />
 
-      <WorkspacePanel title="第一版策略" description="固定来源 + 手动触发 + AI 审稿自动上线" className="border border-[var(--border)]">
+      <WorkspacePanel title="候选策略" description="多源抓取 + 去重评分 + AI 审稿自动上线" className="border border-[var(--border)]">
         <div className="grid gap-4 xl:grid-cols-[220px_minmax(280px,360px)_1fr]">
           <label className="space-y-2 text-sm font-medium text-[var(--foreground)]">
             生成日期
@@ -234,7 +334,7 @@ export default function AdminAiNewsPage() {
             </select>
           </label>
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-muted)] p-4 text-sm text-[var(--muted)]">
-            <p>流程：抓取 RSS/Atom → 去重 → AI 生成 Markdown 日报 → 创建草稿 → AI 审稿 → 达标自动发布。</p>
+            <p>流程：抓取 RSS/Atom/HN/GitHub → URL 去重 → AI 评分筛选 → 生成 Markdown 日报 → AI 审稿 → 达标自动发布。</p>
             <p className="mt-2">同一天使用固定 slug，重复触发不会重复创建文章。</p>
             <p className="mt-2">重新生成会覆盖同日已存在日报内容，并保留原文章链接。</p>
             {selectedModel ? (
@@ -254,7 +354,14 @@ export default function AdminAiNewsPage() {
               <StatusBadge tone={result.published ? "success" : result.operation === "skipped" ? "warning" : "warning"}>
                 {result.published ? "已上线" : result.operation === "skipped" ? "已存在" : "草稿"}
               </StatusBadge>
-              <span className="text-sm text-[var(--muted)]">候选新闻 {result.sourceCount ?? 0} 条</span>
+              <span className="text-sm text-[var(--muted)]">
+                {result.metrics
+                  ? `原始 ${result.metrics.rawCandidateCount} · 去重 ${result.metrics.dedupedCandidateCount} · 入选 ${result.metrics.selectedCandidateCount}`
+                  : `候选新闻 ${result.sourceCount ?? 0} 条`}
+              </span>
+              {typeof result.metrics?.qualityScore === "number" ? (
+                <span className="text-sm text-[var(--muted)]">候选质量 {result.metrics.qualityScore} 分</span>
+              ) : null}
               {result.generatedBy ? (
                 <span className="text-sm text-[var(--muted)]">
                   生成模型 {result.generatedBy.name}（{result.generatedBy.model}）
@@ -306,15 +413,20 @@ export default function AdminAiNewsPage() {
 
           {runs.map((run) => {
             const meta = runStatusMeta(run.status)
+            const candidates = candidateStates[run.id]
             return (
               <div key={run.id} className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
                 <div className="flex flex-wrap items-center gap-3">
                   <StatusBadge tone={meta.tone}>{meta.label}</StatusBadge>
                   <span className="text-sm text-[var(--muted)]">{runTriggerLabel(run.trigger)}</span>
                   <span className="text-sm text-[var(--muted)]">{run.runDate.slice(0, 10)}</span>
-                  <span className="text-sm text-[var(--muted)]">来源 {run.sourceCount ?? 0} 条</span>
+                  <span className="text-sm text-[var(--muted)]">{runCandidateFunnel(run)}</span>
                   {run.failureCount ? <span className="text-sm text-[var(--muted)]">失败 {run.failureCount} 个</span> : null}
+                  {typeof run.qualityScore === "number" ? <span className="text-sm text-[var(--muted)]">质量 {run.qualityScore} 分</span> : null}
                   {run.durationMs ? <span className="text-sm text-[var(--muted)]">{Math.round(run.durationMs / 1000)} 秒</span> : null}
+                  <Button type="button" variant="outline" onClick={() => void toggleRunCandidates(run.id)}>
+                    {candidates?.expanded ? "收起候选" : "展开候选"}
+                  </Button>
                 </div>
 
                 {run.error ? <p className="mt-3 text-sm text-red-600">{run.error}</p> : null}
@@ -332,6 +444,48 @@ export default function AdminAiNewsPage() {
                         查看文章
                       </Link>
                     ) : null}
+                  </div>
+                ) : null}
+
+                {candidates?.expanded ? (
+                  <div className="mt-4 space-y-3 border-t border-[var(--border)] pt-4">
+                    {candidates.loading ? <p className="text-sm text-[var(--muted)]">候选加载中...</p> : null}
+                    {candidates.error ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{candidates.error}</p> : null}
+                    {!candidates.loading && !candidates.error && candidates.data?.length === 0 ? (
+                      <p className="text-sm text-[var(--muted)]">暂无候选。</p>
+                    ) : null}
+                    {candidates.data?.map((candidate) => (
+                      <div key={candidate.id} className="rounded-2xl border border-[var(--border)] bg-[var(--surface-muted)] p-3">
+                        <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
+                          <StatusBadge tone={candidate.selected ? "success" : "neutral"}>
+                            {candidate.selected ? "入选" : "未入选"}
+                          </StatusBadge>
+                          <span>{candidate.aiScore == null ? "未评分" : `${candidate.aiScore} 分`}</span>
+                          <span>{candidate.sourceType}</span>
+                          <span>{candidate.sourceName}</span>
+                          <span>引用 {candidate.citationCount}</span>
+                        </div>
+                        <a
+                          className="mt-2 block text-sm font-semibold text-[var(--brand)] hover:underline"
+                          href={candidate.url}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          {candidate.title}
+                        </a>
+                        {candidate.aiReason ? <p className="mt-2 text-sm text-[var(--muted)]">{candidate.aiReason}</p> : null}
+                        {candidate.aiTags.length ? (
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {candidate.aiTags.map((tag) => (
+                              <span key={tag} className="rounded-full border border-[var(--border)] px-2 py-1 text-xs text-[var(--muted)]">
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        ) : null}
+                        {candidate.duplicateOfId ? <p className="mt-2 text-xs text-[var(--muted)]">重复于 {candidate.duplicateOfId}</p> : null}
+                      </div>
+                    ))}
                   </div>
                 ) : null}
               </div>

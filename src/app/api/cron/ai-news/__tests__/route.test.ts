@@ -47,6 +47,16 @@ describe("POST /api/cron/ai-news", () => {
       post: { id: "post-1", title: "AI 日报", slug: "ai-daily-2026-04-29", published: true },
       sourceCount: 8,
       failures: [],
+      metrics: {
+        rawCandidateCount: 10,
+        dedupedCandidateCount: 8,
+        scoredCandidateCount: 8,
+        selectedCandidateCount: 6,
+        sourceFailureJson: null,
+        qualityScore: 86,
+        citationCoverage: 1,
+        generationMode: "candidate-pipeline",
+      },
       run: { id: "run-1", status: "SUCCEEDED" },
     })
 
@@ -65,7 +75,7 @@ describe("POST /api/cron/ai-news", () => {
       select: { id: true },
       orderBy: { createdAt: "asc" },
     })
-    expect(runDailyAiNews).toHaveBeenCalledWith({ authorId: "admin-1", date: new Date("2026-04-29T00:00:00.000Z"), trigger: "cron" })
+    expect(runDailyAiNews).toHaveBeenCalledWith({ authorId: "admin-1", date: new Date("2026-04-29T00:00:00.000Z"), regenerate: false, trigger: "cron" })
     expect(payload).toEqual({
       success: true,
       data: {
@@ -77,9 +87,47 @@ describe("POST /api/cron/ai-news", () => {
           post: { id: "post-1", title: "AI 日报", slug: "ai-daily-2026-04-29", published: true },
           sourceCount: 8,
           failures: [],
+          metrics: {
+            rawCandidateCount: 10,
+            dedupedCandidateCount: 8,
+            scoredCandidateCount: 8,
+            selectedCandidateCount: 6,
+            sourceFailureJson: null,
+            qualityScore: 86,
+            citationCoverage: 1,
+            generationMode: "candidate-pipeline",
+          },
           run: { id: "run-1", status: "SUCCEEDED" },
         },
       },
+    })
+  })
+
+  test("passes regenerate=true for protected cron reruns", async () => {
+    findFirstUser.mockResolvedValueOnce({ id: "admin-1" })
+    runDailyAiNews.mockResolvedValueOnce({
+      operation: "regenerated",
+      published: false,
+      post: { id: "post-1", title: "AI 日报", slug: "ai-daily-2026-04-29", published: false },
+      sourceCount: 8,
+      failures: [],
+      run: { id: "run-1", status: "SUCCEEDED" },
+    })
+
+    const { POST } = await import("../route")
+    const response = await POST(
+      new Request("http://localhost/api/cron/ai-news?date=2026-04-29&regenerate=true", {
+        method: "POST",
+        headers: { Authorization: "Bearer cron-secret" },
+      }),
+    )
+
+    expect(response.status).toBe(200)
+    expect(runDailyAiNews).toHaveBeenCalledWith({
+      authorId: "admin-1",
+      date: new Date("2026-04-29T00:00:00.000Z"),
+      regenerate: true,
+      trigger: "cron",
     })
   })
 

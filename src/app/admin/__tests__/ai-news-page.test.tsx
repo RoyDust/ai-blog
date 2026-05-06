@@ -195,4 +195,84 @@ describe("admin AI news page", () => {
     expect(await screen.findByText("No AI news candidates available")).toBeInTheDocument()
     expect(fetchMock).toHaveBeenCalledWith("/api/admin/ai-news/run")
   })
+
+  test("loads and renders candidates when a run is expanded", async () => {
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+
+      if (url === "/api/admin/ai/models") {
+        return Promise.resolve(jsonResponse({ success: true, data: modelPayload }))
+      }
+
+      if (url === "/api/admin/ai-news/run") {
+        return Promise.resolve(jsonResponse({
+          success: true,
+          data: [
+            {
+              id: "run-1",
+              runDate: "2026-04-29T00:00:00.000Z",
+              trigger: "MANUAL",
+              status: "SUCCEEDED",
+              sourceCount: 4,
+              rawCandidateCount: 4,
+              dedupedCandidateCount: 3,
+              selectedCandidateCount: 1,
+              failureCount: 0,
+              published: true,
+              createdAt: "2026-04-29T08:00:00.000Z",
+            },
+          ],
+        }))
+      }
+
+      if (url === "/api/admin/ai-news/candidates?runId=run-1") {
+        return Promise.resolve(jsonResponse({
+          success: true,
+          data: [
+            {
+              id: "candidate-1",
+              title: "OpenAI ships an update",
+              url: "https://example.com/openai",
+              sourceType: "RSS",
+              sourceName: "OpenAI Blog",
+              aiScore: 88,
+              aiReason: "重要产品更新",
+              aiTags: ["model", "release"],
+              selected: true,
+              duplicateOfId: null,
+              citationCount: 2,
+            },
+            {
+              id: "candidate-2",
+              title: "Rumored model benchmark",
+              url: "https://example.com/rumor",
+              sourceType: "HN",
+              sourceName: "Hacker News",
+              aiScore: 61,
+              aiReason: null,
+              aiTags: [],
+              selected: false,
+              duplicateOfId: "candidate-1",
+              citationCount: 1,
+            },
+          ],
+        }))
+      }
+
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    render(<AdminAiNewsPage />)
+
+    fireEvent.click(await screen.findByRole("button", { name: "展开候选" }))
+
+    expect(await screen.findByRole("link", { name: "OpenAI ships an update" })).toHaveAttribute("href", "https://example.com/openai")
+    expect(screen.getByText("入选")).toBeInTheDocument()
+    expect(screen.getByText("未入选")).toBeInTheDocument()
+    expect(screen.getByText("88 分")).toBeInTheDocument()
+    expect(screen.getByText("引用 2")).toBeInTheDocument()
+    expect(screen.getByText("model")).toBeInTheDocument()
+    expect(fetchMock).toHaveBeenCalledWith("/api/admin/ai-news/candidates?runId=run-1")
+  })
 })

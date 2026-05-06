@@ -73,9 +73,64 @@ function stripJsonFence(value: string) {
   return trimmed
 }
 
+function extractFirstJsonObject(text: string) {
+  const start = text.indexOf("{")
+  if (start === -1) return null
+
+  let depth = 0
+  let inString = false
+  let escaped = false
+
+  for (let index = start; index < text.length; index += 1) {
+    const char = text[index]
+
+    if (escaped) {
+      escaped = false
+      continue
+    }
+
+    if (char === "\\") {
+      escaped = inString
+      continue
+    }
+
+    if (char === "\"") {
+      inString = !inString
+      continue
+    }
+
+    if (inString) continue
+
+    if (char === "{") {
+      depth += 1
+    } else if (char === "}") {
+      depth -= 1
+      if (depth === 0) {
+        return text.slice(start, index + 1)
+      }
+    }
+  }
+
+  return null
+}
+
 function parseCandidate(text: string): ReviewCandidate {
+  const candidates = [
+    stripJsonFence(text),
+    extractFirstJsonObject(text),
+  ].filter((candidate): candidate is string => Boolean(candidate))
+
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(candidate)
+      return typeof parsed === "object" && parsed !== null ? (parsed as ReviewCandidate) : {}
+    } catch {
+      // Try the next extraction strategy before reporting a structured review error.
+    }
+  }
+
   try {
-    const parsed = JSON.parse(stripJsonFence(text))
+    const parsed = JSON.parse(text)
     return typeof parsed === "object" && parsed !== null ? (parsed as ReviewCandidate) : {}
   } catch {
     throw new ValidationError("Review generation returned invalid JSON")
@@ -170,12 +225,14 @@ export async function generatePostReview(
 
   const baseUrl = process.env.DASHSCOPE_BASE_URL ?? "https://dashscope.aliyuncs.com/compatible-mode/v1"
   const model = process.env.DASHSCOPE_MODEL ?? "qwen3.5-flash"
+  const reviewDate = new Date().toISOString().slice(0, 10)
   const prompt = [
     "请对这篇准备发布的博客文章做发布前审稿。",
     "只输出一个 JSON 对象，不要 Markdown、注释或额外说明。",
     "JSON 字段：verdict, score, summary, checks, suggestions。",
     "verdict 只能是 ready 或 needs-work；score 为 0-100；checks 数组元素包含 label、status、detail，其中 status 只能是 pass、warn、fail；suggestions 是字符串数组。",
     "重点检查：标题清晰度、结构完整度、摘要/导读价值、事实风险、可读性、SEO、是否适合发布。",
+    `审稿基准日期：${reviewDate}。如果文章日期等于或早于该日期，不要仅因年份或日期本身判定为未来内容；只有来源事实与文章日期明显冲突时才标记时间线风险。`,
     `标题：${title}`,
     `Slug：${slug}`,
     `封面：${input.coverImage?.trim() ? "已设置" : "未设置"}`,
@@ -195,7 +252,7 @@ export async function generatePostReview(
         { role: "user", content: prompt },
       ],
       temperature: 0.2,
-      max_tokens: 700,
+      max_tokens: 1400,
     }),
   })
 
