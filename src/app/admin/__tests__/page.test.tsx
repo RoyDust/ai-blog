@@ -8,9 +8,28 @@ const { postFindManyMock, commentCountMock, commentFindManyMock, findVisitLogsIn
       id: "post-draft-1",
       title: "Queued Draft",
       slug: "queued-draft",
-      coverImage: "https://example.com/draft.jpg",
+      excerpt: "这是第一篇草稿的内容摘要，用于后台快速查看。",
+      content: "# Queued Draft\n\n这是第一篇草稿正文。",
       updatedAt: new Date("2026-04-04T00:00:00Z"),
       createdAt: new Date("2026-04-03T00:00:00Z"),
+    },
+    {
+      id: "post-draft-2",
+      title: "Second Draft",
+      slug: "second-draft",
+      excerpt: null,
+      content: "# Second Draft\n\n这是第二篇草稿正文内容，来自正文预览。",
+      updatedAt: new Date("2026-04-03T00:00:00Z"),
+      createdAt: new Date("2026-04-02T00:00:00Z"),
+    },
+    {
+      id: "post-draft-3",
+      title: "Third Draft",
+      slug: "third-draft",
+      excerpt: "第三篇草稿摘要。",
+      content: "正文备用。",
+      updatedAt: new Date("2026-04-02T00:00:00Z"),
+      createdAt: new Date("2026-04-01T00:00:00Z"),
     },
   ];
 
@@ -160,8 +179,11 @@ describe("admin overview", () => {
     expect(screen.getByText("Queued Draft")).toBeInTheDocument();
     const recentDraftsPanel = screen.getByRole("heading", { name: "最近草稿" }).closest("section");
     expect(recentDraftsPanel).not.toBeNull();
-    expect(within(recentDraftsPanel as HTMLElement).getByRole("img", { name: "Queued Draft 封面" })).toHaveAttribute("src", "https://example.com/draft.jpg");
-    expect(screen.getByRole("link", { name: "继续编辑" })).toHaveAttribute("href", "/admin/posts/post-draft-1/edit");
+    expect(within(recentDraftsPanel as HTMLElement).queryByRole("img", { name: /封面/ })).not.toBeInTheDocument();
+    expect(within(recentDraftsPanel as HTMLElement).getByText("这是第一篇草稿的内容摘要，用于后台快速查看。"));
+    expect(within(recentDraftsPanel as HTMLElement).getByText(/这是第二篇草稿正文内容/)).toBeInTheDocument();
+    expect(within(recentDraftsPanel as HTMLElement).getByText("Third Draft")).toBeInTheDocument();
+    expect(within(recentDraftsPanel as HTMLElement).getAllByRole("link", { name: "继续编辑" })[0]).toHaveAttribute("href", "/admin/posts/post-draft-1/edit");
     expect(screen.getByText("待处理评论内容")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "批准" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "垃圾" })).toBeInTheDocument();
@@ -189,9 +211,9 @@ describe("admin overview", () => {
     });
     expect(postFindManyMock).toHaveBeenCalledWith({
       where: { deletedAt: null, published: false },
-      select: { id: true, title: true, slug: true, coverImage: true, updatedAt: true, createdAt: true },
+      select: { id: true, title: true, slug: true, excerpt: true, content: true, updatedAt: true, createdAt: true },
       orderBy: { updatedAt: "desc" },
-      take: 4,
+      take: 3,
     });
     expect(commentFindManyMock).toHaveBeenCalledWith({
       where: { deletedAt: null, status: "PENDING" },

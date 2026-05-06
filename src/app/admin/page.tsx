@@ -6,7 +6,6 @@ import {
   Eye,
   ImageIcon,
   KeyRound,
-  MoreHorizontal,
 } from "lucide-react";
 
 import { WorkspacePanel } from "@/components/admin/primitives/WorkspacePanel";
@@ -40,9 +39,9 @@ type VisitTrendSummary = {
 async function getDraftQueue() {
   return prisma.post.findMany({
     where: { deletedAt: null, published: false },
-    select: { id: true, title: true, slug: true, coverImage: true, updatedAt: true, createdAt: true },
+    select: { id: true, title: true, slug: true, excerpt: true, content: true, updatedAt: true, createdAt: true },
     orderBy: { updatedAt: "desc" },
-    take: 4,
+    take: 3,
   });
 }
 
@@ -315,56 +314,34 @@ function VisitTrendPanel({ trend, range, summary }: { trend: VisitTrendItem[]; r
   );
 }
 
-function RecentDraftsPanel({ drafts }: { drafts: DraftListItem[] }) {
-  const [featuredDraft, ...remainingDrafts] = drafts;
+function getDraftPreview(post: DraftListItem) {
+  const source = post.excerpt?.trim() || post.content.replace(/[#>*_`\-[\]()]/g, " ").replace(/\s+/g, " ").trim();
+  return source.length > 120 ? `${source.slice(0, 120)}…` : source || "还没有正文内容。";
+}
 
+function RecentDraftsPanel({ drafts }: { drafts: DraftListItem[] }) {
   return (
     <WorkspacePanel title="最近草稿" className="min-h-[430px]">
-      {featuredDraft ? (
-        <div className="space-y-4">
-          <article className="overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)]">
-            <Thumbnail
-              src={featuredDraft.coverImage}
-              label={`${featuredDraft.title} 封面`}
-              className="aspect-[2.15] w-full"
-              placeholder="草稿还没有封面"
-            />
-            <div className="flex flex-wrap items-center gap-3 p-4">
-              <div className="min-w-0 flex-1">
-                <div className="flex min-w-0 items-center gap-2">
-                  <h3 className="truncate text-base font-semibold text-[var(--foreground)]">{featuredDraft.title}</h3>
-                  <span className="rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-medium text-[var(--brand)]">草稿</span>
-                </div>
-                <p className="mt-1 text-sm text-[var(--muted)]">{formatRelativeDate(featuredDraft.updatedAt ?? featuredDraft.createdAt)}</p>
+      {drafts.length > 0 ? (
+        <div className="divide-y divide-[var(--border)]">
+          {drafts.slice(0, 3).map((post) => (
+            <article key={post.id} className="py-4 first:pt-0">
+              <div className="flex min-w-0 items-center gap-2">
+                <h3 className="truncate text-base font-semibold text-[var(--foreground)]">{post.title}</h3>
+                <span className="shrink-0 rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-medium text-[var(--brand)]">草稿</span>
               </div>
-              <Link
-                href={`/admin/posts/${featuredDraft.id}/edit`}
-                className="rounded-lg border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--surface-alt)]"
-              >
-                继续编辑
-              </Link>
-            </div>
-          </article>
-
-          {remainingDrafts.length > 0 ? (
-            <div className="divide-y divide-[var(--border)]">
-              {remainingDrafts.map((post) => (
-                <article key={post.id} className="flex items-center gap-4 py-3 first:pt-0">
-                  <Thumbnail src={post.coverImage} label={`${post.title} 封面`} className="h-14 w-20" />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <h3 className="truncate text-sm font-semibold text-[var(--foreground)]">{post.title}</h3>
-                      <span className="rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-medium text-[var(--brand)]">草稿</span>
-                    </div>
-                    <p className="mt-1 text-xs text-[var(--muted)]">{formatRelativeDate(post.updatedAt ?? post.createdAt)}</p>
-                  </div>
-                  <button aria-label={`${post.title} 更多操作`} className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--border)] text-[var(--muted)]" type="button">
-                    <MoreHorizontal className="h-4 w-4" />
-                  </button>
-                </article>
-              ))}
-            </div>
-          ) : null}
+              <p className="mt-2 line-clamp-3 text-sm leading-6 text-[var(--muted)]">{getDraftPreview(post)}</p>
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                <p className="text-xs text-[var(--muted)]">{formatRelativeDate(post.updatedAt ?? post.createdAt)}</p>
+                <Link
+                  href={`/admin/posts/${post.id}/edit`}
+                  className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--surface-alt)]"
+                >
+                  继续编辑
+                </Link>
+              </div>
+            </article>
+          ))}
         </div>
       ) : (
         <EmptyPanelMessage>当前没有最近草稿。</EmptyPanelMessage>
