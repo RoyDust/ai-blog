@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 const redirectError = new Error("NEXT_REDIRECT");
-const redirect = vi.fn(() => {
+const redirect = vi.fn((target: string) => {
+  void target;
   throw redirectError;
 });
 
@@ -51,4 +52,3 @@ describe("admin taxonomy legacy redirects", () => {
     expect(params.get("tab")).toBe("tags");
   });
 });
-

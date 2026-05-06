@@ -209,7 +209,7 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
   ])
 
   return (
-    <div className="relative overflow-x-clip pb-16">
+    <div className="article-detail-page relative overflow-x-clip pb-16">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify([articleJsonLd, breadcrumbJsonLd]) }}
@@ -368,7 +368,7 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
 
         <aside
           data-testid="toc-rail"
-          className="hidden transition-[top,max-height,transform,box-shadow] duration-300 ease-out will-change-[top,transform] xl:sticky xl:block"
+          className="article-toc-rail hidden transition-[top,max-height,transform,box-shadow] duration-300 ease-out will-change-[top,transform] xl:sticky xl:block"
           style={{
             top: "calc(var(--sidebar-sticky-top, 0px) + 0.75rem)",
           }}

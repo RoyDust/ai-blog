@@ -1,4 +1,4 @@
-import { afterAll, beforeEach, describe, expect, test, vi } from "vitest"
+import { afterAll, afterEach, beforeEach, describe, expect, test, vi } from "vitest"
 
 vi.mock("next-auth", () => ({
   getServerSession: vi.fn(),
@@ -23,16 +23,18 @@ vi.mock("@/lib/prisma", () => ({
 }))
 
 describe("GET /api/admin/comments", () => {
-  const originalNodeEnv = process.env.NODE_ENV
   const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {})
 
   beforeEach(() => {
     vi.clearAllMocks()
-    process.env.NODE_ENV = "test"
+    vi.stubEnv("NODE_ENV", "test")
+  })
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
   })
 
   afterAll(() => {
-    process.env.NODE_ENV = originalNodeEnv
     consoleErrorSpy.mockRestore()
   })
 
