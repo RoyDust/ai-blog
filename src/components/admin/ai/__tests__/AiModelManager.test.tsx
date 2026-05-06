@@ -79,7 +79,7 @@ describe("AiModelManager", () => {
 
     render(<AiModelManager initialModels={[environmentModel, databaseModel]} />);
 
-    fireEvent.click(screen.getByRole("radio", { name: "选择 自定义摘要" }));
+    fireEvent.click(screen.getByRole("radio", { name: "选择 文章摘要 自定义摘要" }));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
@@ -92,7 +92,7 @@ describe("AiModelManager", () => {
       modelId: "db-model-1",
       capability: "post-summary",
     });
-    expect(await screen.findByText("已切换为「自定义摘要」。")).toBeInTheDocument();
-    expect(screen.getByRole("radio", { name: "选择 自定义摘要" })).toBeChecked();
+    expect(await screen.findByText("已将文章摘要切换为「自定义摘要」。")).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "选择 文章摘要 自定义摘要" })).toBeChecked();
   });
 });

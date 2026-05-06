@@ -16,11 +16,26 @@ export type GenerateAiCoverInput = {
   createdById: string;
 };
 
+type DashScopeMessagePart = {
+  type?: string;
+  image?: string;
+  url?: string;
+  b64_json?: string;
+};
+
 type ImageGenerationPayload = {
   data?: Array<{ url?: string; b64_json?: string }>;
   output?: {
     results?: Array<{ url?: string; b64_json?: string }>;
+    task_id?: string;
     task_status?: string;
+    code?: string;
+    message?: string;
+    choices?: Array<{
+      message?: {
+        content?: DashScopeMessagePart[];
+      };
+    }>;
   };
   error?: { message?: string };
   message?: string;
@@ -30,6 +45,12 @@ const sizeMap: Record<AiCoverSize, string> = {
   "16:9": "1280x720",
   "4:3": "1024x768",
   "1:1": "1024x1024",
+};
+
+const dashScopeSizeMap: Record<AiCoverSize, string> = {
+  "16:9": "1280*720",
+  "4:3": "1024*768",
+  "1:1": "1024*1024",
 };
 
 function truncate(value: string | null | undefined, maxLength: number) {
@@ -57,7 +78,15 @@ export function buildCoverImagePrompt(input: Pick<GenerateAiCoverInput, "title" 
 
 function parseGeneratedImage(payload: ImageGenerationPayload) {
   const item = payload.data?.[0] ?? payload.output?.results?.[0];
-  return item?.url ? { type: "url" as const, value: item.url } : item?.b64_json ? { type: "base64" as const, value: item.b64_json } : null;
+  if (item?.url) return { type: "url" as const, value: item.url };
+  if (item?.b64_json) return { type: "base64" as const, value: item.b64_json };
+
+  const contentItem = payload.output?.choices?.flatMap((choice) => choice.message?.content ?? [])
+    .find((part) => part.image || part.url || part.b64_json);
+  if (contentItem?.image || contentItem?.url) return { type: "url" as const, value: contentItem.image ?? contentItem.url ?? "" };
+  if (contentItem?.b64_json) return { type: "base64" as const, value: contentItem.b64_json };
+
+  return null;
 }
 
 async function imageToBuffer(image: { type: "url" | "base64"; value: string }) {
@@ -76,11 +105,76 @@ async function imageToBuffer(image: { type: "url" | "base64"; value: string }) {
   };
 }
 
-async function callImageModel(model: AiModelOption, prompt: string, size: AiCoverSize) {
-  if (!model.apiKey) {
-    throw new ValidationError(`${model.apiKeyEnv} is not configured`);
+function isDashScopeNativeImageModel(model: AiModelOption) {
+  return new URL(model.baseUrl).hostname.toLowerCase().endsWith("dashscope.aliyuncs.com") && model.requestPath.includes("/services/aigc/image-generation/generation");
+}
+
+async function pollDashScopeImageTask(model: AiModelOption, taskId: string) {
+  const taskUrl = `${model.baseUrl.replace(/\/api\/v1\/?$/, "/api/v1")}/tasks/${taskId}`;
+
+  for (let attempt = 0; attempt < 24; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 5_000));
+    const response = await fetch(taskUrl, {
+      headers: { Authorization: `Bearer ${model.apiKey}` },
+      signal: AbortSignal.timeout(30_000),
+    });
+    const payload = (await response.json().catch(() => ({}))) as ImageGenerationPayload;
+    if (!response.ok) {
+      throw new Error(payload.error?.message || payload.message || `Image task polling failed with HTTP ${response.status}`);
+    }
+
+    if (payload.output?.task_status === "SUCCEEDED") {
+      const image = parseGeneratedImage(payload);
+      if (!image) throw new Error("Image generation returned no image");
+      return imageToBuffer(image);
+    }
+
+    if (payload.output?.task_status === "FAILED" || payload.output?.task_status === "CANCELED") {
+      throw new Error(payload.output.message || payload.message || `Image generation task ${payload.output.task_status.toLowerCase()}`);
+    }
   }
 
+  throw new Error("Image generation task timed out");
+}
+
+async function callDashScopeNativeImageModel(model: AiModelOption, prompt: string, size: AiCoverSize) {
+  const response = await fetch(`${model.baseUrl}${model.requestPath}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${model.apiKey}`,
+      "X-DashScope-Async": "enable",
+    },
+    body: JSON.stringify({
+      model: model.model,
+      input: {
+        messages: [{ role: "user", content: [{ text: prompt }] }],
+      },
+      parameters: {
+        size: dashScopeSizeMap[size],
+        n: 1,
+        enable_interleave: true,
+      },
+    }),
+    signal: AbortSignal.timeout(90_000),
+  });
+
+  const payload = (await response.json().catch(() => ({}))) as ImageGenerationPayload;
+  if (!response.ok) {
+    throw new Error(payload.error?.message || payload.message || `Image generation failed with HTTP ${response.status}`);
+  }
+
+  const taskId = payload.output?.task_id;
+  if (!taskId) {
+    const image = parseGeneratedImage(payload);
+    if (!image) throw new Error("Image generation returned no task or image");
+    return imageToBuffer(image);
+  }
+
+  return pollDashScopeImageTask(model, taskId);
+}
+
+async function callOpenAICompatibleImageModel(model: AiModelOption, prompt: string, size: AiCoverSize) {
   const response = await fetch(`${model.baseUrl}${model.requestPath}`, {
     method: "POST",
     headers: {
@@ -108,6 +202,16 @@ async function callImageModel(model: AiModelOption, prompt: string, size: AiCove
   }
 
   return imageToBuffer(image);
+}
+
+async function callImageModel(model: AiModelOption, prompt: string, size: AiCoverSize) {
+  if (!model.apiKey) {
+    throw new ValidationError(`${model.apiKeyEnv} is not configured`);
+  }
+
+  return isDashScopeNativeImageModel(model)
+    ? callDashScopeNativeImageModel(model, prompt, size)
+    : callOpenAICompatibleImageModel(model, prompt, size);
 }
 
 export async function generateAiCoverImage(input: GenerateAiCoverInput): Promise<CoverAssetRecord> {
