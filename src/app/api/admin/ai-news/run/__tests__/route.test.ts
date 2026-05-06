@@ -37,7 +37,21 @@ describe("POST /api/admin/ai-news/run", () => {
 
   test("requires an admin session and starts a daily AI news run", async () => {
     mocks.requireAdminSession.mockResolvedValueOnce({ user: { id: "admin-1", role: "ADMIN" } })
-    mocks.runDailyAiNews.mockResolvedValueOnce({ operation: "created", published: true, post: { id: "post-1" } })
+    mocks.runDailyAiNews.mockResolvedValueOnce({
+      operation: "created",
+      published: true,
+      post: { id: "post-1" },
+      metrics: {
+        rawCandidateCount: 10,
+        dedupedCandidateCount: 8,
+        scoredCandidateCount: 8,
+        selectedCandidateCount: 6,
+        sourceFailureJson: null,
+        qualityScore: 86,
+        citationCoverage: 1,
+        generationMode: "candidate-pipeline",
+      },
+    })
 
     const { POST } = await import("../route")
     const response = await POST(
@@ -51,7 +65,24 @@ describe("POST /api/admin/ai-news/run", () => {
 
     expect(response.status).toBe(200)
     expect(mocks.runDailyAiNews).toHaveBeenCalledWith({ authorId: "admin-1", date: new Date("2026-04-29T00:00:00.000Z"), modelId: "model-1", regenerate: false, trigger: "manual" })
-    expect(payload).toEqual({ success: true, data: { operation: "created", published: true, post: { id: "post-1" } } })
+    expect(payload).toEqual({
+      success: true,
+      data: {
+        operation: "created",
+        published: true,
+        post: { id: "post-1" },
+        metrics: {
+          rawCandidateCount: 10,
+          dedupedCandidateCount: 8,
+          scoredCandidateCount: 8,
+          selectedCandidateCount: 6,
+          sourceFailureJson: null,
+          qualityScore: 86,
+          citationCoverage: 1,
+          generationMode: "candidate-pipeline",
+        },
+      },
+    })
   })
 
   test("passes the regenerate flag through for existing daily posts", async () => {
@@ -95,6 +126,14 @@ describe("GET /api/admin/ai-news/run", () => {
         status: "FAILED",
         sourceCount: 0,
         failureCount: 4,
+        rawCandidateCount: 5,
+        dedupedCandidateCount: 4,
+        scoredCandidateCount: 4,
+        selectedCandidateCount: 0,
+        sourceFailureJson: [{ sourceId: "broken", stage: "fetch", message: "HTTP 500" }],
+        qualityScore: 0,
+        citationCoverage: 0,
+        generationMode: "fallback",
         error: "No AI news candidates available",
         postId: null,
         postTitle: null,
@@ -127,6 +166,14 @@ describe("GET /api/admin/ai-news/run", () => {
           status: "FAILED",
           trigger: "CRON",
           error: "No AI news candidates available",
+          rawCandidateCount: 5,
+          dedupedCandidateCount: 4,
+          scoredCandidateCount: 4,
+          selectedCandidateCount: 0,
+          sourceFailureJson: [{ sourceId: "broken", stage: "fetch", message: "HTTP 500" }],
+          qualityScore: 0,
+          citationCoverage: 0,
+          generationMode: "fallback",
           runDate: "2026-04-29T00:00:00.000Z",
         }),
       ],
@@ -144,6 +191,14 @@ describe("GET /api/admin/ai-news/run", () => {
         status: "SUCCEEDED",
         sourceCount: 12,
         failureCount: 0,
+        rawCandidateCount: 12,
+        dedupedCandidateCount: 10,
+        scoredCandidateCount: 10,
+        selectedCandidateCount: 8,
+        sourceFailureJson: null,
+        qualityScore: 88,
+        citationCoverage: 1,
+        generationMode: "candidate-pipeline",
         error: null,
         postId: "post-1",
         postTitle: "AI 日报",
@@ -171,6 +226,14 @@ describe("GET /api/admin/ai-news/run", () => {
       id: "run-raw-1",
       status: "SUCCEEDED",
       postSlug: "ai-daily-2026-04-29",
+      rawCandidateCount: 12,
+      dedupedCandidateCount: 10,
+      scoredCandidateCount: 10,
+      selectedCandidateCount: 8,
+      sourceFailureJson: null,
+      qualityScore: 88,
+      citationCoverage: 1,
+      generationMode: "candidate-pipeline",
       runDate: "2026-04-29T00:00:00.000Z",
     })
   })

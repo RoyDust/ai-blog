@@ -31,11 +31,17 @@ function parseRunDate(request: Request) {
   return date
 }
 
+function parseRegenerate(request: Request) {
+  const value = new URL(request.url).searchParams.get("regenerate")
+  if (value == null || value === "") return false
+  return value === "1" || value.toLowerCase() === "true"
+}
+
 function formatDateId(date: Date) {
   return date.toISOString().slice(0, 10)
 }
 
-async function runDailyAiNewsForCron({ authorId, date }: { authorId: string; date: Date }) {
+async function runDailyAiNewsForCron({ authorId, date, regenerate }: { authorId: string; date: Date; regenerate: boolean }) {
   const dateId = formatDateId(date)
   if (activeRuns.has(dateId)) {
     throw new ConflictError("Daily AI news is already running for this date")
@@ -43,7 +49,7 @@ async function runDailyAiNewsForCron({ authorId, date }: { authorId: string; dat
 
   activeRuns.add(dateId)
   try {
-    const result = await runDailyAiNews({ authorId, date, trigger: "cron" })
+    const result = await runDailyAiNews({ authorId, date, regenerate, trigger: "cron" })
     return { operation: "completed" as const, date: dateId, result }
   } finally {
     activeRuns.delete(dateId)
@@ -64,7 +70,7 @@ export async function POST(request: Request) {
       throw new Error("No admin author available for daily AI news")
     }
 
-    const result = await runDailyAiNewsForCron({ authorId: author.id, date: parseRunDate(request) })
+    const result = await runDailyAiNewsForCron({ authorId: author.id, date: parseRunDate(request), regenerate: parseRegenerate(request) })
     return NextResponse.json({ success: true, data: result })
   } catch (error) {
     return toErrorResponse(error, error instanceof Error ? error.message : "Daily AI news cron failed")
