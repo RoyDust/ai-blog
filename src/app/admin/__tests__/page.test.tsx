@@ -2,7 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import React from "react";
 import { describe, expect, test, vi } from "vitest";
 
-const { postFindManyMock, commentCountMock, commentFindManyMock, getPublicAiModelOptionsMock } = vi.hoisted(() => {
+const { postFindManyMock, commentCountMock, commentFindManyMock, visitLogFindManyMock, getPublicAiModelOptionsMock } = vi.hoisted(() => {
   const draftQueuePosts = [
     {
       id: "post-draft-1",
@@ -107,6 +107,10 @@ const { postFindManyMock, commentCountMock, commentFindManyMock, getPublicAiMode
     }),
     commentCountMock: vi.fn().mockResolvedValue(4),
     commentFindManyMock: vi.fn().mockResolvedValue(pendingQueueComments),
+    visitLogFindManyMock: vi.fn().mockResolvedValue([
+      { createdAt: new Date(), visitorId: "visitor-1", ipHash: "ip-1", userAgent: "agent-1" },
+      { createdAt: new Date(), visitorId: "visitor-1", ipHash: "ip-1", userAgent: "agent-1" },
+    ]),
     getPublicAiModelOptionsMock: vi.fn().mockResolvedValue(aiModels),
   };
 });
@@ -119,6 +123,9 @@ vi.mock("@/lib/prisma", () => ({
     comment: {
       count: commentCountMock,
       findMany: commentFindManyMock,
+    },
+    visitLog: {
+      findMany: visitLogFindManyMock,
     },
   },
 }));
@@ -142,9 +149,11 @@ describe("admin overview", () => {
     expect(screen.queryByRole("heading", { name: "博客后台总览" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "发布清单" })).not.toBeInTheDocument();
 
-    expect(screen.getByText("静态示意")).toBeInTheDocument();
+    expect(screen.getByText("真实统计")).toBeInTheDocument();
     expect(screen.getByText("7 天")).toBeInTheDocument();
-    expect(screen.getByText("05-15")).toBeInTheDocument();
+    expect(screen.getByText("30 天")).toBeInTheDocument();
+    expect(screen.getByText("区间 PV")).toBeInTheDocument();
+    expect(screen.getByText("区间 UV")).toBeInTheDocument();
 
     expect(screen.getByText("Queued Draft")).toBeInTheDocument();
     const recentDraftsPanel = screen.getByRole("heading", { name: "最近草稿" }).closest("section");
@@ -201,6 +210,11 @@ describe("admin overview", () => {
       orderBy: { viewCount: "desc" },
       take: 5,
     });
+    expect(visitLogFindManyMock).toHaveBeenCalledWith(expect.objectContaining({
+      where: { createdAt: { gte: expect.any(Date), lt: expect.any(Date) } },
+      select: { createdAt: true, visitorId: true, ipHash: true, userAgent: true },
+      orderBy: { createdAt: "asc" },
+    }));
     expect(getPublicAiModelOptionsMock).toHaveBeenCalledTimes(1);
   });
 });

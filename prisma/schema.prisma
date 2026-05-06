@@ -162,6 +162,7 @@ model Post {
   comments       Comment[]
   likes          Like[]
   bookmarks      Bookmark[]
+  visitLogs      VisitLog[]
   aiDraftBinding AiDraftBinding?
   aiTaskItems    AiTaskItem[]
 
@@ -175,6 +176,24 @@ model Post {
   @@index([summaryJobId])
   @@index([seoGeneratedAt])
   @@map("posts")
+}
+
+model VisitLog {
+  id        String   @id @default(cuid())
+  path      String
+  postId    String?
+  post      Post?    @relation(fields: [postId], references: [id], onDelete: SetNull)
+  referrer  String?
+  userAgent String?
+  ipHash    String?
+  visitorId String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([path])
+  @@index([postId])
+  @@index([visitorId])
+  @@map("visit_logs")
 }
 
 model CoverAsset {
