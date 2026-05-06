@@ -13,6 +13,7 @@ import { WorkspacePanel } from "@/components/admin/primitives/WorkspacePanel";
 import { StatusBadge } from "@/components/admin/primitives/StatusBadge";
 import { FallbackImage } from "@/components/admin/ui";
 import { getPublicAiModelOptions, type PublicAiModelOption } from "@/lib/ai-models";
+import { addUtcDays, formatVisitTrendDate, formatVisitTrendLabel, parseVisitTrendRange, startOfUtcDay, type VisitTrendRange } from "@/lib/analytics";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -21,15 +22,19 @@ type CommentStatus = "APPROVED" | "PENDING" | "REJECTED" | "SPAM";
 
 const PENDING_COMMENT_STATUS: CommentStatus = "PENDING";
 
-export const STATIC_VISIT_TREND = [
-  { label: "05-15", visits: 1700 },
-  { label: "05-16", visits: 2200 },
-  { label: "05-17", visits: 3180 },
-  { label: "05-18", visits: 2350 },
-  { label: "05-19", visits: 1620 },
-  { label: "05-20", visits: 1950 },
-  { label: "05-21", visits: 2680 },
-] as const;
+type VisitTrendItem = {
+  date: string;
+  label: string;
+  pv: number;
+  uv: number;
+};
+
+type VisitTrendSummary = {
+  totalPv: number;
+  totalUv: number;
+  todayPv: number;
+  yesterdayPv: number;
+};
 
 async function getDraftQueue() {
   return prisma.post.findMany({
@@ -65,6 +70,63 @@ async function getPopularPosts() {
   });
 }
 
+async function getVisitTrend(range: VisitTrendRange): Promise<{ trend: VisitTrendItem[]; summary: VisitTrendSummary }> {
+  const today = startOfUtcDay(new Date());
+  const start = addUtcDays(today, -(range - 1));
+  const end = addUtcDays(today, 1);
+  const yesterday = addUtcDays(today, -1);
+
+  const logs = await prisma.visitLog.findMany({
+    where: { createdAt: { gte: start, lt: end } },
+    select: { createdAt: true, visitorId: true, ipHash: true, userAgent: true },
+    orderBy: { createdAt: "asc" },
+  });
+
+  const buckets = new Map<string, { pv: number; visitors: Set<string> }>();
+
+  for (let index = 0; index < range; index += 1) {
+    const date = addUtcDays(start, index);
+    buckets.set(formatVisitTrendDate(date), { pv: 0, visitors: new Set<string>() });
+  }
+
+  for (const log of logs) {
+    const dateKey = formatVisitTrendDate(startOfUtcDay(log.createdAt));
+    const bucket = buckets.get(dateKey);
+    if (!bucket) continue;
+
+    bucket.pv += 1;
+    bucket.visitors.add(log.visitorId || `${log.ipHash ?? "unknown-ip"}:${log.userAgent ?? "unknown-agent"}`);
+  }
+
+  const trend = Array.from(buckets.entries()).map(([date, bucket]) => {
+    const dateValue = new Date(`${date}T00:00:00.000Z`);
+    return {
+      date,
+      label: formatVisitTrendLabel(dateValue),
+      pv: bucket.pv,
+      uv: bucket.visitors.size,
+    };
+  });
+
+  const totalVisitors = new Set<string>();
+  for (const log of logs) {
+    totalVisitors.add(log.visitorId || `${log.ipHash ?? "unknown-ip"}:${log.userAgent ?? "unknown-agent"}`);
+  }
+
+  const todayKey = formatVisitTrendDate(today);
+  const yesterdayKey = formatVisitTrendDate(yesterday);
+
+  return {
+    trend,
+    summary: {
+      totalPv: logs.length,
+      totalUv: totalVisitors.size,
+      todayPv: buckets.get(todayKey)?.pv ?? 0,
+      yesterdayPv: buckets.get(yesterdayKey)?.pv ?? 0,
+    },
+  };
+}
+
 type DraftListItem = Awaited<ReturnType<typeof getDraftQueue>>[number];
 type PendingCommentListItem = Awaited<ReturnType<typeof getPendingCommentQueue>>[number];
 type PopularPostListItem = Awaited<ReturnType<typeof getPopularPosts>>[number];
@@ -83,30 +145,30 @@ const formatRelativeDate = (value: Date | string | null) => {
   return `更新于 ${date.toLocaleDateString("zh-CN", { month: "short", day: "numeric" })}`;
 };
 
-const getChartGeometry = () => {
+const getChartGeometry = (trend: VisitTrendItem[]) => {
   const width = 760;
   const height = 238;
   const paddingX = 12;
   const paddingTop = 20;
   const paddingBottom = 30;
-  const max = 4000;
-  const points = STATIC_VISIT_TREND.map((item, index) => {
-    const x = paddingX + (index / (STATIC_VISIT_TREND.length - 1)) * (width - paddingX * 2);
-    const y = paddingTop + (1 - item.visits / max) * (height - paddingTop - paddingBottom);
+  const max = Math.max(10, ...trend.map((item) => item.pv));
+  const divisor = Math.max(1, trend.length - 1);
+  const points = trend.map((item, index) => {
+    const x = paddingX + (index / divisor) * (width - paddingX * 2);
+    const y = paddingTop + (1 - item.pv / max) * (height - paddingTop - paddingBottom);
     return { ...item, x, y };
   });
   const linePath = points.map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`).join(" ");
-  const areaPath = `${linePath} L ${points[points.length - 1]?.x ?? width} ${height - paddingBottom} L ${points[0]?.x ?? 0} ${height - paddingBottom} Z`;
+  const areaPath = points.length > 0
+    ? `${linePath} L ${points[points.length - 1]?.x ?? width} ${height - paddingBottom} L ${points[0]?.x ?? 0} ${height - paddingBottom} Z`
+    : "";
+  const axisMax = Math.ceil(max / 10) * 10;
 
-  return { width, height, points, linePath, areaPath };
+  return { width, height, points, linePath, areaPath, axisMax };
 };
 
-function StaticPill() {
-  return (
-    <span className="inline-flex items-center rounded-full bg-[var(--surface-alt)] px-3 py-1 text-xs font-medium text-[var(--muted)]">
-      静态示意
-    </span>
-  );
+function formatCompactNumber(value: number) {
+  return value >= 1000 ? `${Number((value / 1000).toFixed(1))}K` : value.toLocaleString("zh-CN");
 }
 
 function Thumbnail({
@@ -172,33 +234,57 @@ function aiModelSourceLabel(source: AiModelListItem["source"]) {
   return source === "environment" ? "环境变量" : "数据库";
 }
 
-function VisitTrendPanel() {
-  const chart = getChartGeometry();
+function VisitTrendPanel({ trend, range, summary }: { trend: VisitTrendItem[]; range: VisitTrendRange; summary: VisitTrendSummary }) {
+  const chart = getChartGeometry(trend);
+  const ranges: VisitTrendRange[] = [7, 30, 90];
+  const yAxisValues = [chart.axisMax, Math.round(chart.axisMax * 0.75), Math.round(chart.axisMax * 0.5), Math.round(chart.axisMax * 0.25), 0];
 
   return (
     <WorkspacePanel
       title="访问趋势"
       actions={
         <div className="flex flex-wrap items-center gap-3">
-          <StaticPill />
+          <span className="inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-[var(--brand)]">
+            真实统计
+          </span>
           <div className="flex items-center overflow-hidden rounded-lg border border-[var(--border)] text-sm">
-            <span className="bg-emerald-50 px-4 py-2 font-medium text-[var(--brand)]">7 天</span>
-            <span className="border-l border-[var(--border)] px-4 py-2 text-[var(--muted)]">30 天</span>
-            <span className="border-l border-[var(--border)] px-4 py-2 text-[var(--muted)]">90 天</span>
+            {ranges.map((item, index) => (
+              <Link
+                key={item}
+                href={`/admin?range=${item}`}
+                className={`${index === 0 ? "" : "border-l border-[var(--border)]"} px-4 py-2 font-medium ${range === item ? "bg-emerald-50 text-[var(--brand)]" : "text-[var(--muted)] hover:bg-[var(--surface-alt)]"}`}
+              >
+                {item} 天
+              </Link>
+            ))}
           </div>
         </div>
       }
       className="min-h-[430px]"
     >
-      <div className="flex h-[330px] gap-4 pt-3">
-        <div className="flex w-9 flex-col justify-between pb-9 pt-2 text-right text-xs text-[var(--muted)]">
-          <span>4K</span>
-          <span>3K</span>
-          <span>2K</span>
-          <span>1K</span>
-          <span>0</span>
+      <dl className="grid grid-cols-2 gap-3 pt-2 sm:grid-cols-4">
+        <div className="rounded-lg bg-[var(--surface-alt)] px-4 py-3">
+          <dt className="text-xs text-[var(--muted)]">区间 PV</dt>
+          <dd className="mt-1 text-xl font-semibold text-[var(--foreground)]">{summary.totalPv.toLocaleString("zh-CN")}</dd>
         </div>
-        <svg className="h-full min-w-0 flex-1 overflow-visible" viewBox={`0 0 ${chart.width} ${chart.height}`} role="img" aria-label="最近 7 天访问趋势静态示意">
+        <div className="rounded-lg bg-[var(--surface-alt)] px-4 py-3">
+          <dt className="text-xs text-[var(--muted)]">区间 UV</dt>
+          <dd className="mt-1 text-xl font-semibold text-[var(--foreground)]">{summary.totalUv.toLocaleString("zh-CN")}</dd>
+        </div>
+        <div className="rounded-lg bg-[var(--surface-alt)] px-4 py-3">
+          <dt className="text-xs text-[var(--muted)]">今日 PV</dt>
+          <dd className="mt-1 text-xl font-semibold text-[var(--foreground)]">{summary.todayPv.toLocaleString("zh-CN")}</dd>
+        </div>
+        <div className="rounded-lg bg-[var(--surface-alt)] px-4 py-3">
+          <dt className="text-xs text-[var(--muted)]">昨日 PV</dt>
+          <dd className="mt-1 text-xl font-semibold text-[var(--foreground)]">{summary.yesterdayPv.toLocaleString("zh-CN")}</dd>
+        </div>
+      </dl>
+      <div className="flex h-[265px] gap-4 pt-5">
+        <div className="flex w-9 flex-col justify-between pb-9 pt-2 text-right text-xs text-[var(--muted)]">
+          {yAxisValues.map((value) => <span key={value}>{formatCompactNumber(value)}</span>)}
+        </div>
+        <svg className="h-full min-w-0 flex-1 overflow-visible" viewBox={`0 0 ${chart.width} ${chart.height}`} role="img" aria-label={`最近 ${range} 天访问趋势`}>
           <defs>
             <linearGradient id="visit-area" x1="0" x2="0" y1="0" y2="1">
               <stop offset="0%" stopColor="#23875f" stopOpacity="0.18" />
@@ -209,16 +295,23 @@ function VisitTrendPanel() {
             const y = 20 + line * 47;
             return <line key={line} x1="12" x2="748" y1={y} y2={y} stroke="rgba(23,32,27,0.09)" strokeWidth="1" />;
           })}
-          <path d={chart.areaPath} fill="url(#visit-area)" />
-          <path d={chart.linePath} fill="none" stroke="#23875f" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" />
+          {chart.areaPath ? <path d={chart.areaPath} fill="url(#visit-area)" /> : null}
+          {chart.linePath ? <path d={chart.linePath} fill="none" stroke="#23875f" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" /> : null}
           {chart.points.map((point) => (
-            <circle key={point.label} cx={point.x} cy={point.y} fill="#23875f" r="4.2" stroke="#fff" strokeWidth="2" />
+            <g key={point.date}>
+              <circle cx={point.x} cy={point.y} fill="#23875f" r="4.2" stroke="#fff" strokeWidth="2" />
+              <title>{`${point.date}: PV ${point.pv}, UV ${point.uv}`}</title>
+            </g>
           ))}
-          {chart.points.map((point) => (
-            <text key={`${point.label}-label`} x={point.x} y="232" fill="#778178" fontSize="12" textAnchor="middle">
-              {point.label}
-            </text>
-          ))}
+          {chart.points.map((point, index) => {
+            const interval = range > 30 ? 14 : range > 7 ? 5 : 1;
+            if (index !== 0 && index !== chart.points.length - 1 && index % interval !== 0) return null;
+            return (
+              <text key={`${point.date}-label`} x={point.x} y="232" fill="#778178" fontSize="12" textAnchor="middle">
+                {point.label}
+              </text>
+            );
+          })}
         </svg>
       </div>
     </WorkspacePanel>
@@ -436,19 +529,22 @@ function AiModelChecklistPanel({ models }: { models: AiModelListItem[] }) {
   );
 }
 
-export default async function AdminPage() {
-  const [pendingCommentCount, draftQueue, pendingQueue, popularPosts, aiModels] = await Promise.all([
+export default async function AdminPage({ searchParams }: { searchParams?: Promise<{ range?: string }> } = {}) {
+  const resolvedSearchParams = await searchParams;
+  const range = parseVisitTrendRange(resolvedSearchParams?.range);
+  const [pendingCommentCount, draftQueue, pendingQueue, popularPosts, aiModels, visitTrend] = await Promise.all([
     prisma.comment.count({ where: { deletedAt: null, status: PENDING_COMMENT_STATUS } }),
     getDraftQueue(),
     getPendingCommentQueue(),
     getPopularPosts(),
     getPublicAiModelOptions(),
+    getVisitTrend(range),
   ]);
 
   return (
     <div className="space-y-5 2xl:space-y-6" data-testid="admin-dashboard">
       <section className="grid grid-cols-1 gap-5 2xl:gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(440px,0.75fr)]">
-        <VisitTrendPanel />
+        <VisitTrendPanel trend={visitTrend.trend} range={range} summary={visitTrend.summary} />
         <RecentDraftsPanel drafts={draftQueue} />
       </section>
 
