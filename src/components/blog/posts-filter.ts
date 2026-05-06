@@ -2,7 +2,7 @@ interface FilterablePost {
   title: string
   excerpt: string | null
   category: { slug: string } | null
-  tags: Array<{ slug: string }>
+  tags: ReadonlyArray<{ slug: string }>
 }
 
 interface PostFilters {
@@ -11,7 +11,7 @@ interface PostFilters {
   tag: string
 }
 
-export function filterPosts<T extends FilterablePost>(posts: T[], filters: PostFilters) {
+export function filterPosts<T extends FilterablePost>(posts: readonly T[], filters: PostFilters) {
   const search = filters.search.trim().toLowerCase()
 
   return posts.filter((post) => {

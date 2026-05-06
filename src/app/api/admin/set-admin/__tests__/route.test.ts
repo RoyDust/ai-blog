@@ -17,13 +17,7 @@ vi.mock('@/lib/prisma', () => ({
 describe('POST /api/admin/set-admin', () => {
   test('returns not found and never promotes a user', async () => {
     const { POST } = await import('../route')
-    const request = new Request('http://localhost/api/admin/set-admin', {
-      method: 'POST',
-      body: JSON.stringify({ email: 'admin@example.com' }),
-      headers: { 'Content-Type': 'application/json' },
-    })
-
-    const response = await POST(request)
+    const response = await POST()
     const payload = await response.json()
 
     expect(response.status).toBe(404)

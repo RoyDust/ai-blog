@@ -12,7 +12,6 @@ describe("app shell", () => {
 
     const mainContent = container.querySelector("#main-content");
     const sidebarRail = container.querySelector('[data-testid="sidebar-rail"]');
-    const shellColumns = mainContent?.parentElement;
 
     expect(container.firstElementChild?.className).toContain("reader-shell");
     expect(container.querySelector('[data-testid="reader-ambient-banner"]')).not.toBeInTheDocument();
@@ -22,11 +21,17 @@ describe("app shell", () => {
     expect(container.querySelector("main > div")?.className).toContain("max-w-[var(--content-max-width)]");
     expect(sidebarRail).toBeInTheDocument();
     expect(mainContent).toBeInTheDocument();
-    expect(sidebarRail?.className).toContain("xl:w-[var(--rail-width)]");
-    expect(sidebarRail?.className).toContain("hidden");
-    expect(sidebarRail?.className).toContain("xl:block");
+
+    if (!sidebarRail || !mainContent) {
+      throw new Error("Expected app shell layout nodes to render");
+    }
+
+    const shellColumns = mainContent.parentElement;
+    expect(sidebarRail.className).toContain("xl:w-[var(--rail-width)]");
+    expect(sidebarRail.className).toContain("hidden");
+    expect(sidebarRail.className).toContain("xl:block");
     expect(shellColumns?.className).toContain("flex-col");
     expect(shellColumns?.className).toContain("xl:flex-row");
-    expect(sidebarRail?.compareDocumentPosition(mainContent as Node) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(sidebarRail.compareDocumentPosition(mainContent) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });
