@@ -59,6 +59,49 @@ afterEach(() => {
 });
 
 describe("AiModelManager", () => {
+  test("preserves request path when editing a model", async () => {
+    const coverModel: PublicAiModelOption = {
+      ...databaseModel,
+      id: "cover-model-1",
+      name: "自定义生图",
+      baseUrl: "https://images.example/v1",
+      requestPath: "/images/generations",
+      model: "image-model",
+      capabilities: ["cover-image"],
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true, data: coverModel }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true, data: [environmentModel, coverModel] }),
+      });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<AiModelManager initialModels={[environmentModel, coverModel]} />);
+
+    fireEvent.click(screen.getAllByRole("button", { name: /修改/ })[1]);
+    fireEvent.change(screen.getByLabelText("模型名称"), { target: { value: "自定义生图更新" } });
+    fireEvent.click(screen.getByRole("button", { name: "保存模型" }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/admin/ai/models/cover-model-1",
+        expect.objectContaining({ method: "PATCH" }),
+      );
+    });
+
+    expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toMatchObject({
+      name: "自定义生图更新",
+      requestPath: "/images/generations",
+      capabilities: ["cover-image"],
+    });
+  });
+
   test("switches the summary default model from the model list", async () => {
     const updatedModels = [
       { ...environmentModel, defaultFor: [] },

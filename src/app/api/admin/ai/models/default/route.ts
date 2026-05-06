@@ -18,7 +18,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Model id is required" }, { status: 400 });
     }
 
-    const model = await setDefaultAiModelForCapability(body.capability ?? "post-summary", body.modelId);
+    const capability = body.capability ?? "post-summary";
+    if (capability !== "post-summary" && capability !== "cover-image") {
+      return NextResponse.json({ error: "Unsupported AI model capability" }, { status: 400 });
+    }
+
+    const model = await setDefaultAiModelForCapability(capability, body.modelId);
 
     return NextResponse.json({ success: true, data: toPublicAiModelOption(model) });
   } catch (error) {

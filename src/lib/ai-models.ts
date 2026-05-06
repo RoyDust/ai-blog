@@ -542,6 +542,10 @@ export async function getAiModelForCapability(capability: AiModelCapability, mod
 }
 
 export async function setDefaultAiModelForCapability(capability: AiModelCapability, modelId: string) {
+  if (capability !== "post-summary" && capability !== "cover-image") {
+    throw new ValidationError("Unsupported AI model capability");
+  }
+
   const defaultField = capability === "post-summary" ? "isDefaultForSummary" : "isDefaultForCoverImage";
   const environmentModelId = capability === "post-summary" ? ENV_SUMMARY_MODEL_ID : ENV_COVER_IMAGE_MODEL_ID;
   const getEnvironmentModel = capability === "post-summary"

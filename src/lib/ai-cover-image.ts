@@ -106,7 +106,11 @@ async function imageToBuffer(image: { type: "url" | "base64"; value: string }) {
 }
 
 function isDashScopeNativeImageModel(model: AiModelOption) {
-  return new URL(model.baseUrl).hostname.toLowerCase().endsWith("dashscope.aliyuncs.com") && model.requestPath.includes("/services/aigc/image-generation/generation");
+  try {
+    return new URL(model.baseUrl).hostname.toLowerCase().endsWith("dashscope.aliyuncs.com") && model.requestPath.includes("/services/aigc/image-generation/generation");
+  } catch {
+    return false;
+  }
 }
 
 async function pollDashScopeImageTask(model: AiModelOption, taskId: string) {

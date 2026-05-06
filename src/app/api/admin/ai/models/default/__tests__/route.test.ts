@@ -42,6 +42,22 @@ describe("admin AI model default route", () => {
     expect(data.data).toMatchObject({ id: "model-1" });
   });
 
+  test("rejects unsupported capabilities", async () => {
+    getServerSession.mockResolvedValueOnce({ user: { id: "admin-1", role: "ADMIN" } });
+
+    const { POST } = await import("../route");
+    const response = await POST(new Request("http://localhost/api/admin/ai/models/default", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ modelId: "model-1", capability: "unknown" }),
+    }));
+    const data = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(data.error).toBe("Unsupported AI model capability");
+    expect(setDefaultAiModelForCapability).not.toHaveBeenCalled();
+  });
+
   test("rejects missing model ids", async () => {
     getServerSession.mockResolvedValueOnce({ user: { id: "admin-1", role: "ADMIN" } });
 

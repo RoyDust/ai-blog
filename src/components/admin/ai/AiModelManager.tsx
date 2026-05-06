@@ -16,6 +16,7 @@ type FormState = {
   name: string;
   description: string;
   baseUrl: string;
+  requestPath: string;
   model: string;
   apiKey: string;
   enabled: boolean;
@@ -28,6 +29,7 @@ const emptyForm: FormState = {
   name: "",
   description: "",
   baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+  requestPath: "/chat/completions",
   model: "",
   apiKey: "",
   enabled: true,
@@ -66,6 +68,7 @@ function formFromModel(model: PublicAiModelOption): FormState {
     name: model.name,
     description: model.description,
     baseUrl: model.baseUrl,
+    requestPath: model.requestPath,
     model: model.model,
     apiKey: "",
     enabled: model.enabled,
@@ -173,11 +176,11 @@ export function AiModelManager({ initialModels }: { initialModels: PublicAiModel
   const [error, setError] = useState("");
 
   const defaultSummaryModel = useMemo(
-    () => models.find((model) => model.defaultFor.includes("post-summary")) ?? models.find((model) => model.capabilities.includes("post-summary")),
+    () => models.find((model) => model.defaultFor.includes("post-summary")),
     [models],
   );
   const defaultCoverModel = useMemo(
-    () => models.find((model) => model.defaultFor.includes("cover-image")) ?? models.find((model) => model.capabilities.includes("cover-image")),
+    () => models.find((model) => model.defaultFor.includes("cover-image")),
     [models],
   );
 
@@ -199,9 +202,7 @@ export function AiModelManager({ initialModels }: { initialModels: PublicAiModel
         name: form.name,
         description: form.description,
         baseUrl: form.baseUrl,
-        requestPath: form.capabilities.includes("cover-image") && !form.capabilities.includes("post-summary")
-          ? "/services/aigc/image-generation/generation"
-          : "/chat/completions",
+        requestPath: form.requestPath,
         model: form.model,
         apiKey: form.apiKey || undefined,
         capabilities: form.capabilities,
@@ -468,6 +469,13 @@ export function AiModelManager({ initialModels }: { initialModels: PublicAiModel
                 placeholder="https://api.openai.com/v1"
                 value={form.baseUrl}
                 onChange={(event) => setForm((prev) => prev ? { ...prev, baseUrl: event.target.value } : prev)}
+                required
+              />
+              <Input
+                label="Request Path"
+                placeholder="/chat/completions / /images/generations"
+                value={form.requestPath}
+                onChange={(event) => setForm((prev) => prev ? { ...prev, requestPath: event.target.value } : prev)}
                 required
               />
               <Input
