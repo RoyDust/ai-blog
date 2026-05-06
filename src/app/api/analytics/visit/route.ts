@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 
 import { extractPostSlugFromPath, normalizeAnalyticsPath, shouldTrackVisitPath } from "@/lib/analytics";
 import { prisma } from "@/lib/prisma";
+import { createVisitLogOperation } from "@/lib/visit-log-repository";
 
 const MAX_REFERRER_LENGTH = 500;
 const MAX_USER_AGENT_LENGTH = 500;
@@ -57,15 +58,13 @@ export async function POST(request: Request) {
     : null;
 
   await prisma.$transaction([
-    prisma.visitLog.create({
-      data: {
-        path,
-        postId: post?.id ?? null,
-        referrer,
-        visitorId,
-        userAgent,
-        ipHash,
-      },
+    createVisitLogOperation({
+      path,
+      postId: post?.id ?? null,
+      referrer,
+      visitorId,
+      userAgent,
+      ipHash,
     }),
     ...(post ? [prisma.post.update({ where: { id: post.id }, data: { viewCount: { increment: 1 } } })] : []),
   ]);

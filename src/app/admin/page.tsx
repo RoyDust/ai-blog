@@ -15,6 +15,7 @@ import { FallbackImage } from "@/components/admin/ui";
 import { getPublicAiModelOptions, type PublicAiModelOption } from "@/lib/ai-models";
 import { addUtcDays, formatVisitTrendDate, formatVisitTrendLabel, parseVisitTrendRange, startOfUtcDay, type VisitTrendRange } from "@/lib/analytics";
 import { prisma } from "@/lib/prisma";
+import { findVisitLogsInRange } from "@/lib/visit-log-repository";
 
 export const dynamic = "force-dynamic";
 
@@ -76,11 +77,7 @@ async function getVisitTrend(range: VisitTrendRange): Promise<{ trend: VisitTren
   const end = addUtcDays(today, 1);
   const yesterday = addUtcDays(today, -1);
 
-  const logs = await prisma.visitLog.findMany({
-    where: { createdAt: { gte: start, lt: end } },
-    select: { createdAt: true, visitorId: true, ipHash: true, userAgent: true },
-    orderBy: { createdAt: "asc" },
-  });
+  const logs = await findVisitLogsInRange(start, end);
 
   const buckets = new Map<string, { pv: number; visitors: Set<string> }>();
 

@@ -1,18 +1,19 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 const findFirstPost = vi.fn();
-const visitLogCreate = vi.fn();
+const createVisitLogOperation = vi.fn();
 const postUpdate = vi.fn();
 const transaction = vi.fn(async (operations: unknown[]) => operations);
+
+vi.mock("@/lib/visit-log-repository", () => ({
+  createVisitLogOperation,
+}));
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     post: {
       findFirst: findFirstPost,
       update: postUpdate,
-    },
-    visitLog: {
-      create: visitLogCreate,
     },
     $transaction: transaction,
   },
@@ -21,7 +22,7 @@ vi.mock("@/lib/prisma", () => ({
 describe("POST /api/analytics/visit", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    visitLogCreate.mockReturnValue({ kind: "create-visit" });
+    createVisitLogOperation.mockReturnValue({ kind: "create-visit" });
     postUpdate.mockReturnValue({ kind: "update-post" });
   });
 
@@ -36,16 +37,14 @@ describe("POST /api/analytics/visit", () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ ok: true });
     expect(findFirstPost).not.toHaveBeenCalled();
-    expect(visitLogCreate).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        path: "/about",
-        postId: null,
-        referrer: "https://example.com",
-        visitorId: "visitor-1",
-        userAgent: "vitest",
-        ipHash: expect.any(String),
-      }),
-    });
+    expect(createVisitLogOperation).toHaveBeenCalledWith(expect.objectContaining({
+      path: "/about",
+      postId: null,
+      referrer: "https://example.com",
+      visitorId: "visitor-1",
+      userAgent: "vitest",
+      ipHash: expect.any(String),
+    }));
     expect(transaction).toHaveBeenCalledWith([{ kind: "create-visit" }]);
   });
 
@@ -64,7 +63,7 @@ describe("POST /api/analytics/visit", () => {
       where: { slug: "hello-world", deletedAt: null, published: true },
       select: { id: true },
     });
-    expect(visitLogCreate).toHaveBeenCalledWith({ data: expect.objectContaining({ path: "/posts/hello-world", postId: "post-1" }) });
+    expect(createVisitLogOperation).toHaveBeenCalledWith(expect.objectContaining({ path: "/posts/hello-world", postId: "post-1" }));
     expect(postUpdate).toHaveBeenCalledWith({ where: { id: "post-1" }, data: { viewCount: { increment: 1 } } });
     expect(transaction).toHaveBeenCalledWith([{ kind: "create-visit" }, { kind: "update-post" }]);
   });
@@ -79,7 +78,7 @@ describe("POST /api/analytics/visit", () => {
 
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ ok: true, skipped: true });
-    expect(visitLogCreate).not.toHaveBeenCalled();
+    expect(createVisitLogOperation).not.toHaveBeenCalled();
     expect(transaction).not.toHaveBeenCalled();
   });
 
@@ -92,6 +91,6 @@ describe("POST /api/analytics/visit", () => {
     }));
 
     expect(response.status).toBe(400);
-    expect(visitLogCreate).not.toHaveBeenCalled();
+    expect(createVisitLogOperation).not.toHaveBeenCalled();
   });
 });

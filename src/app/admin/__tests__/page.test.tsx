@@ -2,7 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import React from "react";
 import { describe, expect, test, vi } from "vitest";
 
-const { postFindManyMock, commentCountMock, commentFindManyMock, visitLogFindManyMock, getPublicAiModelOptionsMock } = vi.hoisted(() => {
+const { postFindManyMock, commentCountMock, commentFindManyMock, findVisitLogsInRangeMock, getPublicAiModelOptionsMock } = vi.hoisted(() => {
   const draftQueuePosts = [
     {
       id: "post-draft-1",
@@ -107,7 +107,7 @@ const { postFindManyMock, commentCountMock, commentFindManyMock, visitLogFindMan
     }),
     commentCountMock: vi.fn().mockResolvedValue(4),
     commentFindManyMock: vi.fn().mockResolvedValue(pendingQueueComments),
-    visitLogFindManyMock: vi.fn().mockResolvedValue([
+    findVisitLogsInRangeMock: vi.fn().mockResolvedValue([
       { createdAt: new Date(), visitorId: "visitor-1", ipHash: "ip-1", userAgent: "agent-1" },
       { createdAt: new Date(), visitorId: "visitor-1", ipHash: "ip-1", userAgent: "agent-1" },
     ]),
@@ -124,14 +124,16 @@ vi.mock("@/lib/prisma", () => ({
       count: commentCountMock,
       findMany: commentFindManyMock,
     },
-    visitLog: {
-      findMany: visitLogFindManyMock,
-    },
+
   },
 }));
 
 vi.mock("@/lib/ai-models", () => ({
   getPublicAiModelOptions: getPublicAiModelOptionsMock,
+}));
+
+vi.mock("@/lib/visit-log-repository", () => ({
+  findVisitLogsInRange: findVisitLogsInRangeMock,
 }));
 
 describe("admin overview", () => {
@@ -210,11 +212,7 @@ describe("admin overview", () => {
       orderBy: { viewCount: "desc" },
       take: 5,
     });
-    expect(visitLogFindManyMock).toHaveBeenCalledWith(expect.objectContaining({
-      where: { createdAt: { gte: expect.any(Date), lt: expect.any(Date) } },
-      select: { createdAt: true, visitorId: true, ipHash: true, userAgent: true },
-      orderBy: { createdAt: "asc" },
-    }));
+    expect(findVisitLogsInRangeMock).toHaveBeenCalledWith(expect.any(Date), expect.any(Date));
     expect(getPublicAiModelOptionsMock).toHaveBeenCalledTimes(1);
   });
 });
