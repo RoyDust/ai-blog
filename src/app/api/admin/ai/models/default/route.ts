@@ -2,11 +2,11 @@ import { NextResponse } from "next/server";
 
 import { requireAdminSession } from "@/lib/api-auth";
 import { toErrorResponse } from "@/lib/api-errors";
-import { setDefaultAiModelForCapability, toPublicAiModelOption } from "@/lib/ai-models";
+import { setDefaultAiModelForCapability, toPublicAiModelOption, type AiModelCapability } from "@/lib/ai-models";
 
 type Body = {
   modelId?: string;
-  capability?: "post-summary";
+  capability?: AiModelCapability;
 };
 
 export async function POST(request: Request) {

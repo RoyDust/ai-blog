@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 import { PostAiWorkspace } from "@/components/admin/ai/PostAiWorkspace";
+import { AiCoverGenerator } from "@/components/admin/covers/AiCoverGenerator";
 import { CoverPicker } from "@/components/admin/covers/CoverPicker";
 import type { CoverAsset } from "@/components/admin/covers/types";
 import { StatusBadge } from "@/components/admin/primitives/StatusBadge";
@@ -499,6 +500,12 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
             <CoverPicker
               selectedAssetId={formData.coverAssetId}
               onSelect={(asset: CoverAsset) => setFormData((prev) => ({ ...prev, coverImage: asset.url, coverAssetId: asset.id }))}
+            />
+            <AiCoverGenerator
+              title={formData.title}
+              excerpt={formData.excerpt}
+              content={formData.content}
+              onGenerated={(asset: CoverAsset) => setFormData((prev) => ({ ...prev, coverImage: asset.url, coverAssetId: asset.id }))}
             />
             <p className="text-sm text-[var(--muted)]">选择图片后自动回填封面地址。</p>
           </div>
