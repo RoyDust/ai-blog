@@ -139,12 +139,16 @@ describe("ai model registry", () => {
 
     const models = await getAiModelOptions();
 
-    expect(models).toHaveLength(1);
+    expect(models).toHaveLength(2);
     expect(models[0]).toMatchObject({
       id: "post-summary-openai-compatible",
       source: "environment",
       defaultFor: ["post-summary"],
       status: "ready",
+    });
+    expect(models[1]).toMatchObject({
+      id: "qwen-wan2.6-image",
+      capabilities: ["cover-image"],
     });
   });
 

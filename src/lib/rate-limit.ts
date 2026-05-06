@@ -41,6 +41,7 @@ const searchLimiter = createMemoryRateLimiter({ limit: 60, windowMs: 60_000 })
 const aiSearchLimiter = createMemoryRateLimiter({ limit: 8, windowMs: 60_000 })
 const interactionLimiter = createMemoryRateLimiter({ limit: 20, windowMs: 60_000 })
 const uploadLimiter = createMemoryRateLimiter({ limit: 10, windowMs: 60_000 })
+const aiCoverLimiter = createMemoryRateLimiter({ limit: 5, windowMs: 60_000 })
 let rateLimitTableReady = false
 
 async function ensureRateLimitTable() {
@@ -129,6 +130,10 @@ async function checkRateLimit(request: Request, scope: string, options: { limit:
     return uploadLimiter.check(key)
   }
 
+  if (scope === "ai-cover") {
+    return aiCoverLimiter.check(key)
+  }
+
   return interactionLimiter.check(key)
 }
 
@@ -176,4 +181,11 @@ export function checkInteractionRateLimit(request: Request) {
  */
 export function checkUploadRateLimit(request: Request) {
   return checkRateLimit(request, 'upload', { limit: 10, windowMs: 60_000 })
+}
+
+/**
+ * 对后台 AI 封面生成应用严格限流，避免生图成本失控。
+ */
+export function checkAiCoverRateLimit(request: Request) {
+  return checkRateLimit(request, 'ai-cover', { limit: 5, windowMs: 60_000 })
 }

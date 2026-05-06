@@ -3,7 +3,7 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:
 import { prisma } from "@/lib/prisma";
 import { ValidationError } from "@/lib/api-errors";
 
-export type AiModelCapability = "post-summary";
+export type AiModelCapability = "post-summary" | "cover-image";
 
 export type AiModelProvider = "openai-compatible";
 
@@ -19,7 +19,7 @@ export interface AiModelOption {
   description: string;
   provider: AiModelProvider;
   baseUrl: string;
-  requestPath: "/chat/completions";
+  requestPath: string;
   model: string;
   apiKey?: string;
   apiKeyEnv: string;
@@ -105,9 +105,12 @@ type AiModelClient = {
 };
 
 const ENV_SUMMARY_MODEL_ID = "post-summary-openai-compatible";
+const ENV_COVER_IMAGE_MODEL_ID = "qwen-wan2.6-image";
 const DASH_SCOPE_COMPAT_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1";
 const DASH_SCOPE_SUMMARY_MODEL = "qwen3.5-flash";
+const DASH_SCOPE_IMAGE_MODEL = "wan2.6-image";
 const DEFAULT_REQUEST_PATH = "/chat/completions";
+const DEFAULT_IMAGE_REQUEST_PATH = "/images/generations";
 const ENCRYPTED_API_KEY_PREFIX = "enc:v1:";
 
 function getOptionalAiModelDelegate(client: AiModelClient = prisma as unknown as AiModelClient) {
@@ -237,12 +240,12 @@ export function getAiModelChatRequestExtras(
 
 function normalizeRequestPath(value?: string | null) {
   const trimmed = value?.trim() || DEFAULT_REQUEST_PATH;
-  return (`/${trimmed.replace(/^\/+/, "")}`.replace(/\/+$/, "") || DEFAULT_REQUEST_PATH) as "/chat/completions";
+  return `/${trimmed.replace(/^\/+/, "")}`.replace(/\/+$/, "") || DEFAULT_REQUEST_PATH;
 }
 
 function normalizeCapabilities(capabilities?: string[] | null): AiModelCapability[] {
   const normalized = (capabilities ?? [])
-    .filter((capability): capability is AiModelCapability => capability === "post-summary");
+    .filter((capability): capability is AiModelCapability => capability === "post-summary" || capability === "cover-image");
 
   return normalized.length > 0 ? Array.from(new Set(normalized)) : ["post-summary"];
 }
@@ -275,6 +278,35 @@ function getEnvironmentSummaryModel(hasDatabaseDefault: boolean): AiModelOption 
     modelEnv: model.value ? model.envName : "DASHSCOPE_MODEL",
     capabilities: ["post-summary"],
     defaultFor: hasDatabaseDefault ? [] : ["post-summary"],
+    source: "environment",
+    editable: false,
+    deletable: false,
+    enabled: true,
+    hasApiKey,
+    status: getStatus({ enabled: true, hasApiKey }),
+  };
+}
+
+function getEnvironmentCoverImageModel(): AiModelOption {
+  const apiKey = resolveEnv("AI_IMAGE_DASHSCOPE_API_KEY", "DASHSCOPE_API_KEY");
+  const baseUrl = resolveEnv("AI_IMAGE_DASHSCOPE_BASE_URL", "DASHSCOPE_IMAGE_BASE_URL");
+  const model = resolveEnv("AI_IMAGE_DASHSCOPE_MODEL", "DASHSCOPE_IMAGE_MODEL");
+  const hasApiKey = Boolean(apiKey.value);
+
+  return {
+    id: ENV_COVER_IMAGE_MODEL_ID,
+    name: "千问 Wan 2.6 生图",
+    description: "用于文章封面的 AI 生图模型。默认按 OpenAI Images 兼容接口调用；如 DashScope 实际协议不同，可通过环境变量调整 Base URL。",
+    provider: "openai-compatible",
+    baseUrl: normalizeBaseUrl(baseUrl.value || DASH_SCOPE_COMPAT_BASE_URL),
+    requestPath: DEFAULT_IMAGE_REQUEST_PATH,
+    model: model.value || DASH_SCOPE_IMAGE_MODEL,
+    apiKey: apiKey.value || undefined,
+    apiKeyEnv: apiKey.envName,
+    baseUrlEnv: baseUrl.value ? baseUrl.envName : "AI_IMAGE_DASHSCOPE_BASE_URL",
+    modelEnv: model.value ? model.envName : "AI_IMAGE_DASHSCOPE_MODEL",
+    capabilities: ["cover-image"],
+    defaultFor: [],
     source: "environment",
     editable: false,
     deletable: false,
@@ -375,8 +407,13 @@ function normalizeMutationInput(input: AiModelMutationInput, existing?: AiModelO
     throw new ValidationError("Base URL must be a valid URL");
   }
 
-  if (requestPath !== DEFAULT_REQUEST_PATH) {
-    throw new ValidationError("Only /chat/completions is supported for now");
+  const allowedPaths = new Set([DEFAULT_REQUEST_PATH, DEFAULT_IMAGE_REQUEST_PATH]);
+  if (!allowedPaths.has(requestPath)) {
+    throw new ValidationError("Only /chat/completions and /images/generations are supported for now");
+  }
+
+  if (capabilities.includes("cover-image") && requestPath === DEFAULT_REQUEST_PATH && !capabilities.includes("post-summary")) {
+    throw new ValidationError("Cover image models must use /images/generations");
   }
 
   if (!model) {
@@ -400,7 +437,7 @@ function normalizeMutationInput(input: AiModelMutationInput, existing?: AiModelO
 export async function getAiModelOptions(): Promise<AiModelOption[]> {
   const delegate = getOptionalAiModelDelegate();
   if (!delegate) {
-    return [getEnvironmentSummaryModel(false)];
+    return [getEnvironmentSummaryModel(false), getEnvironmentCoverImageModel()];
   }
 
   let records: AiModelRecord[];
@@ -410,7 +447,7 @@ export async function getAiModelOptions(): Promise<AiModelOption[]> {
     });
   } catch (error) {
     if (isAiModelStorageUnavailable(error)) {
-      return [getEnvironmentSummaryModel(false)];
+      return [getEnvironmentSummaryModel(false), getEnvironmentCoverImageModel()];
     }
 
     throw error;
@@ -419,7 +456,7 @@ export async function getAiModelOptions(): Promise<AiModelOption[]> {
   const databaseModels = records.map(dbModelToOption);
   const hasDatabaseDefault = databaseModels.some((model) => model.enabled && model.defaultFor.includes("post-summary"));
 
-  return [getEnvironmentSummaryModel(hasDatabaseDefault), ...databaseModels];
+  return [getEnvironmentSummaryModel(hasDatabaseDefault), ...databaseModels, getEnvironmentCoverImageModel()];
 }
 
 async function hasReadyDatabaseSummaryDefault() {
@@ -446,6 +483,10 @@ async function hasReadyDatabaseSummaryDefault() {
 export async function getAiModelOption(modelId: string) {
   if (modelId === ENV_SUMMARY_MODEL_ID) {
     return getEnvironmentSummaryModel(await hasReadyDatabaseSummaryDefault());
+  }
+
+  if (modelId === ENV_COVER_IMAGE_MODEL_ID) {
+    return getEnvironmentCoverImageModel();
   }
 
   const delegate = getOptionalAiModelDelegate();
@@ -687,6 +728,10 @@ export async function recordAiModelTestResult(modelId: string, status: AiModelTe
 export async function testAiModelConnection(model: AiModelOption) {
   if (!model.apiKey) {
     throw new ValidationError(`${model.apiKeyEnv} is not configured`);
+  }
+
+  if (model.capabilities.includes("cover-image") && !model.capabilities.includes("post-summary")) {
+    return "图片生成模型配置完整，实际连通性将在生成封面时验证。";
   }
 
   const response = await fetch(`${model.baseUrl}${model.requestPath}`, {

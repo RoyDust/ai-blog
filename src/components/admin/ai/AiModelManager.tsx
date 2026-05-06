@@ -17,6 +17,7 @@ type FormState = {
   model: string;
   apiKey: string;
   enabled: boolean;
+  capabilities: Array<"post-summary" | "cover-image">;
   isDefaultForSummary: boolean;
 };
 
@@ -27,11 +28,13 @@ const emptyForm: FormState = {
   model: "",
   apiKey: "",
   enabled: true,
+  capabilities: ["post-summary"],
   isDefaultForSummary: false,
 };
 
 const capabilityLabels: Record<string, string> = {
   "post-summary": "文章摘要",
+  "cover-image": "封面生图",
 };
 
 function statusTone(status: string) {
@@ -53,6 +56,7 @@ function formFromModel(model: PublicAiModelOption): FormState {
     model: model.model,
     apiKey: "",
     enabled: model.enabled,
+    capabilities: model.capabilities.filter((capability): capability is "post-summary" | "cover-image" => capability === "post-summary" || capability === "cover-image"),
     isDefaultForSummary: model.defaultFor.includes("post-summary"),
   };
 }
@@ -100,11 +104,11 @@ export function AiModelManager({ initialModels }: { initialModels: PublicAiModel
         name: form.name,
         description: form.description,
         baseUrl: form.baseUrl,
-        requestPath: "/chat/completions",
+        requestPath: form.capabilities.includes("cover-image") && !form.capabilities.includes("post-summary") ? "/images/generations" : "/chat/completions",
         model: form.model,
         apiKey: form.apiKey || undefined,
-        capabilities: ["post-summary"],
-        isDefaultForSummary: form.isDefaultForSummary,
+        capabilities: form.capabilities,
+        isDefaultForSummary: form.capabilities.includes("post-summary") && form.isDefaultForSummary,
         enabled: form.enabled,
       };
       const response = form.id
@@ -411,6 +415,40 @@ export function AiModelManager({ initialModels }: { initialModels: PublicAiModel
                   }
                 />
                 设为文章摘要默认模型
+              </label>
+              <label className="flex items-center gap-2 text-sm text-[var(--foreground)]">
+                <input
+                  checked={form.capabilities.includes("post-summary")}
+                  className="ui-checkbox h-4 w-4"
+                  type="checkbox"
+                  onChange={(event) =>
+                    setForm((prev) => {
+                      if (!prev) return prev;
+                      const next = event.target.checked
+                        ? Array.from(new Set([...prev.capabilities, "post-summary" as const]))
+                        : prev.capabilities.filter((capability) => capability !== "post-summary");
+                      return { ...prev, capabilities: next.length ? next : ["cover-image"], isDefaultForSummary: event.target.checked ? prev.isDefaultForSummary : false };
+                    })
+                  }
+                />
+                文章摘要能力
+              </label>
+              <label className="flex items-center gap-2 text-sm text-[var(--foreground)]">
+                <input
+                  checked={form.capabilities.includes("cover-image")}
+                  className="ui-checkbox h-4 w-4"
+                  type="checkbox"
+                  onChange={(event) =>
+                    setForm((prev) => {
+                      if (!prev) return prev;
+                      const next = event.target.checked
+                        ? Array.from(new Set([...prev.capabilities, "cover-image" as const]))
+                        : prev.capabilities.filter((capability) => capability !== "cover-image");
+                      return { ...prev, capabilities: next.length ? next : ["post-summary"] };
+                    })
+                  }
+                />
+                封面生图能力
               </label>
             </div>
 
