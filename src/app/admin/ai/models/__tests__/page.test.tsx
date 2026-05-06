@@ -38,11 +38,10 @@ describe("admin AI models page", () => {
     render(ui as React.ReactElement);
 
     expect(screen.getByRole("heading", { name: "AI 配置选择" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "按能力选择默认模型" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "模型库" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "模型选择" })).toBeInTheDocument();
     expect(screen.getByText("当前接入范围")).toBeInTheDocument();
-    expect(screen.getByRole("radio", { name: "选择 文章摘要 文章摘要生成" })).toBeChecked();
-    expect(screen.getAllByText("当前默认").length).toBeGreaterThan(0);
+    expect(screen.getByRole("radio", { name: "选择 文章摘要生成" })).toBeChecked();
+    expect(screen.getByText("当前首选")).toBeInTheDocument();
     expect(screen.getAllByText("summary-model").length).toBeGreaterThan(0);
     expect(screen.getByText("https://compat.example/v1/chat/completions")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /新增模型/ })).toBeInTheDocument();

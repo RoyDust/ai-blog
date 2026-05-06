@@ -274,7 +274,6 @@ model AiModel {
   apiKey              String?   @db.Text
   capabilities        String[]  @default(["post-summary"])
   isDefaultForSummary Boolean   @default(false)
-  isDefaultForCoverImage Boolean @default(false)
   enabled             Boolean   @default(true)
   lastTestedAt        DateTime?
   lastTestStatus      String?
@@ -284,7 +283,6 @@ model AiModel {
 
   @@index([enabled])
   @@index([isDefaultForSummary])
-  @@index([isDefaultForCoverImage])
   @@map("ai_models")
 }
 
