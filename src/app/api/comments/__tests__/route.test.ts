@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, test, vi } from 'vitest'
 
 const create = vi.fn()
 const findFirstPost = vi.fn()
+const createAdminNotification = vi.fn()
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
@@ -18,6 +19,12 @@ vi.mock('@/lib/rate-limit', () => ({
   checkInteractionRateLimit: () => ({ allowed: true }),
 }))
 
+vi.mock('@/lib/notifications', () => ({
+  createAdminNotification,
+  NOTIFICATION_SEVERITIES: { info: 'INFO' },
+  NOTIFICATION_TYPES: { commentCreated: 'COMMENT_CREATED' },
+}))
+
 vi.mock('next-auth', () => ({
   getServerSession: vi.fn().mockResolvedValue(null),
 }))
@@ -28,10 +35,11 @@ describe('POST /api/comments', () => {
   beforeEach(() => {
     create.mockReset()
     findFirstPost.mockReset()
+    createAdminNotification.mockReset()
   })
 
   test('creates an anonymous comment using browser id and masked ip label', async () => {
-    findFirstPost.mockResolvedValue({ id: 'post-1', published: true })
+    findFirstPost.mockResolvedValue({ id: 'post-1', slug: 'hello', title: 'Hello', published: true })
     create.mockResolvedValue({
       id: 'comment-1',
       content: 'Nice post',
@@ -62,6 +70,14 @@ describe('POST /api/comments', () => {
       }),
     }))
     expect(payload.success).toBe(true)
+    expect(createAdminNotification).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'COMMENT_CREATED',
+      title: '有新评论',
+      actionUrl: '/admin/comments',
+      entityType: 'comment',
+      entityId: 'comment-1',
+      dedupeKey: 'comment:comment-1:created',
+    }))
   })
 
   test('rejects malformed anonymous browser ids', async () => {

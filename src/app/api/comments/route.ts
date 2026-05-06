@@ -5,6 +5,7 @@ import { parseCommentInput } from '@/lib/validation'
 import { checkInteractionRateLimit } from '@/lib/rate-limit'
 import { ForbiddenError, NotFoundError, toErrorResponse } from '@/lib/api-errors'
 import { requireSession } from '@/lib/api-auth'
+import { createAdminNotification, NOTIFICATION_SEVERITIES, NOTIFICATION_TYPES } from '@/lib/notifications'
 
 export async function POST(request: Request) {
   try {
@@ -15,7 +16,10 @@ export async function POST(request: Request) {
 
     const anonymousActor = createAnonymousActorId(request.headers)
     const { postId, content, parentId } = parseCommentInput(await request.json())
-    const post = await prisma.post.findFirst({ where: { id: postId, deletedAt: null, published: true } })
+    const post = await prisma.post.findFirst({
+      where: { id: postId, deletedAt: null, published: true },
+      select: { id: true, slug: true, title: true, published: true },
+    })
     if (!post) {
       throw new NotFoundError('Post not found')
     }
@@ -34,6 +38,22 @@ export async function POST(request: Request) {
         },
       },
     })
+
+    try {
+      await createAdminNotification({
+        type: NOTIFICATION_TYPES.commentCreated,
+        severity: NOTIFICATION_SEVERITIES.info,
+        title: '有新评论',
+        body: `${comment.authorLabel || '匿名访客'} 评论了《${post.title}》。`,
+        actionUrl: '/admin/comments',
+        entityType: 'comment',
+        entityId: comment.id,
+        dedupeKey: `comment:${comment.id}:created`,
+        metadata: { postId: post.id, postSlug: post.slug, parentId: parentId ?? null },
+      })
+    } catch (notificationError) {
+      console.error('Create comment notification error:', notificationError)
+    }
 
     return NextResponse.json({ success: true, data: comment })
   } catch (error) {

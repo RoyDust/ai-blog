@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Bell, PenLine, Search } from "lucide-react";
+import { PenLine, Search } from "lucide-react";
+import { NotificationBell } from "@/components/admin/notifications/NotificationBell";
 
 export function AdminHeader() {
   return (
@@ -27,15 +28,7 @@ export function AdminHeader() {
             新建文章
           </Link>
 
-          <button
-            aria-label="通知功能稍后开放"
-            className="relative inline-flex h-11 w-11 items-center justify-center rounded-lg text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-90"
-            disabled
-            type="button"
-          >
-            <Bell className="h-5 w-5" />
-            <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-[var(--surface)]" />
-          </button>
+          <NotificationBell />
         </div>
       </div>
     </header>

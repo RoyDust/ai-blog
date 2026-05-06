@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 
 import { runDailyAiNews } from "@/lib/ai-news"
+import { notifyDailyAiNewsFailure, notifyDailyAiNewsSuccess } from "@/lib/ai-news-notifications"
 import { ConflictError, toErrorResponse, UnauthorizedError, ValidationError } from "@/lib/api-errors"
 import { prisma } from "@/lib/prisma"
 
@@ -50,7 +51,11 @@ async function runDailyAiNewsForCron({ authorId, date, regenerate }: { authorId:
   activeRuns.add(dateId)
   try {
     const result = await runDailyAiNews({ authorId, date, regenerate, trigger: "cron" })
+    await notifyDailyAiNewsSuccess(result, date)
     return { operation: "completed" as const, date: dateId, result }
+  } catch (error) {
+    await notifyDailyAiNewsFailure(date, error)
+    throw error
   } finally {
     activeRuns.delete(dateId)
   }

@@ -1,11 +1,12 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { within } from "@testing-library/react";
-import { describe, expect, test, vi } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 
 const signOut = vi.fn();
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/admin/taxonomy",
+  useRouter: () => ({ push: vi.fn() }),
 }));
 
 vi.mock("next-auth/react", () => ({
@@ -13,6 +14,16 @@ vi.mock("next-auth/react", () => ({
 }));
 
 describe("admin layout", () => {
+  beforeEach(() => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ success: true, data: { items: [], unreadCount: 0, nextCursor: null } }),
+      }),
+    );
+  });
+
   test("renders lightweight blog navigation, static toolbar, and workspace framing", async () => {
     const { AdminLayout } = await import("@/components/admin/shell/AdminLayout");
 
@@ -31,7 +42,6 @@ describe("admin layout", () => {
     expect(within(nav).getByRole("link", { name: "文章" })).toHaveAttribute("href", "/admin/posts");
     expect(within(nav).queryByRole("link", { name: "草稿" })).not.toBeInTheDocument();
     expect(within(nav).getByRole("link", { name: /评论/ })).toHaveAttribute("href", "/admin/comments");
-    expect(within(nav).getByText("5")).toBeInTheDocument();
     expect(within(nav).getByRole("link", { name: "分类" })).toHaveAttribute("href", "/admin/taxonomy");
     expect(within(nav).getByRole("link", { name: "媒体库" })).toHaveAttribute("href", "/admin/covers");
     const aiAssistant = within(nav).getByText("AI 助手").closest("details");
@@ -57,7 +67,7 @@ describe("admin layout", () => {
     expect(screen.getByText("博客后台")).toBeInTheDocument();
     expect(screen.getByPlaceholderText("搜索文章、页面、评论...")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "新建文章" })).toHaveAttribute("href", "/admin/posts/new");
-    expect(screen.getByRole("button", { name: "通知功能稍后开放" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "通知" })).toBeEnabled();
 
     expect(container.firstElementChild).toHaveClass("admin-theme");
     expect(container.firstElementChild).toHaveClass("h-screen", "overflow-hidden");

@@ -1,4 +1,5 @@
 import { NotFoundError, ValidationError } from "@/lib/api-errors";
+import { createAdminNotification, NOTIFICATION_SEVERITIES, NOTIFICATION_TYPES } from "@/lib/notifications";
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
 
@@ -128,6 +129,68 @@ function toJson(value: JsonValue | undefined) {
   return value === undefined ? undefined : (value as unknown as Prisma.InputJsonValue);
 }
 
+function getTaskCompletionNotification(status: AiTaskStatus, failedCount: number) {
+  if (status === AI_TASK_STATUSES.succeeded) {
+    return {
+      type: NOTIFICATION_TYPES.aiTaskSucceeded,
+      severity: NOTIFICATION_SEVERITIES.success,
+      title: "AI 任务已完成",
+      body: "全部 AI 任务项已处理完成。",
+    };
+  }
+
+  if (status === AI_TASK_STATUSES.partialFailed) {
+    return {
+      type: NOTIFICATION_TYPES.aiTaskPartialFailed,
+      severity: NOTIFICATION_SEVERITIES.warning,
+      title: "AI 任务部分失败",
+      body: `有 ${failedCount} 个 AI 任务项处理失败，可进入详情页重试。`,
+    };
+  }
+
+  if (status === AI_TASK_STATUSES.failed) {
+    return {
+      type: NOTIFICATION_TYPES.aiTaskFailed,
+      severity: NOTIFICATION_SEVERITIES.error,
+      title: "AI 任务失败",
+      body: "AI 任务未能完成，可进入详情页查看错误并重试。",
+    };
+  }
+
+  return null;
+}
+
+async function notifyAiTaskCompletion({
+  taskId,
+  status,
+  failedCount,
+  lastError,
+}: {
+  taskId: string;
+  status: AiTaskStatus;
+  failedCount: number;
+  lastError?: string | null;
+}) {
+  const notification = getTaskCompletionNotification(status, failedCount);
+  if (!notification) {
+    return;
+  }
+
+  try {
+    await createAdminNotification({
+      ...notification,
+      body: lastError ? `${notification.body} 最近错误：${lastError}` : notification.body,
+      actionUrl: `/admin/ai/tasks/${taskId}`,
+      entityType: "aiTask",
+      entityId: taskId,
+      dedupeKey: `ai-task:${taskId}:${status}`,
+      metadata: { status, failedCount },
+    });
+  } catch (error) {
+    console.error("Create AI task notification error:", error);
+  }
+}
+
 export async function createAiTask(input: CreateAiTaskInput): Promise<CreatedAiTask> {
   const items = input.items ?? [];
 
@@ -237,7 +300,7 @@ export async function refreshAiTaskCounts(taskId: string) {
   const status = resolveTaskStatus({ succeeded, failed, skipped, total: items.length });
   const finished = status !== AI_TASK_STATUSES.running;
 
-  return prisma.aiTask.update({
+  const task = await prisma.aiTask.update({
     where: { id: taskId },
     data: {
       status,
@@ -248,6 +311,17 @@ export async function refreshAiTaskCounts(taskId: string) {
       lastError: failedItems.at(-1)?.error ?? null,
     },
   });
+
+  if (finished) {
+    await notifyAiTaskCompletion({
+      taskId,
+      status,
+      failedCount: failed,
+      lastError: failedItems.at(-1)?.error ?? null,
+    });
+  }
+
+  return task;
 }
 
 export async function listAiTasks({

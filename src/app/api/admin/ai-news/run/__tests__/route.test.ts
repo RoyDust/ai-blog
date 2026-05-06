@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => {
   return {
     requireAdminSession: vi.fn(),
     runDailyAiNews: vi.fn(),
+    createAdminNotification: vi.fn(),
     findManyAiNewsRun,
     queryRawUnsafe,
     prisma: {
@@ -29,6 +30,18 @@ vi.mock("@/lib/prisma", () => ({
   prisma: mocks.prisma,
 }))
 
+vi.mock("@/lib/notifications", () => ({
+  createAdminNotification: mocks.createAdminNotification,
+  NOTIFICATION_SEVERITIES: {
+    success: "SUCCESS",
+    error: "ERROR",
+  },
+  NOTIFICATION_TYPES: {
+    aiNewsSucceeded: "AI_NEWS_SUCCEEDED",
+    aiNewsFailed: "AI_NEWS_FAILED",
+  },
+}))
+
 describe("POST /api/admin/ai-news/run", () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -40,7 +53,7 @@ describe("POST /api/admin/ai-news/run", () => {
     mocks.runDailyAiNews.mockResolvedValueOnce({
       operation: "created",
       published: true,
-      post: { id: "post-1" },
+      post: { id: "post-1", title: "AI 日报", slug: "ai-daily-2026-04-29" },
       metrics: {
         rawCandidateCount: 10,
         dedupedCandidateCount: 8,
@@ -51,6 +64,7 @@ describe("POST /api/admin/ai-news/run", () => {
         citationCoverage: 1,
         generationMode: "candidate-pipeline",
       },
+      run: { id: "run-1", status: "SUCCEEDED" },
     })
 
     const { POST } = await import("../route")
@@ -70,7 +84,7 @@ describe("POST /api/admin/ai-news/run", () => {
       data: {
         operation: "created",
         published: true,
-        post: { id: "post-1" },
+          post: { id: "post-1", title: "AI 日报", slug: "ai-daily-2026-04-29" },
         metrics: {
           rawCandidateCount: 10,
           dedupedCandidateCount: 8,
@@ -81,8 +95,18 @@ describe("POST /api/admin/ai-news/run", () => {
           citationCoverage: 1,
           generationMode: "candidate-pipeline",
         },
+          run: { id: "run-1", status: "SUCCEEDED" },
       },
     })
+    expect(mocks.createAdminNotification).toHaveBeenCalledWith(expect.objectContaining({
+      type: "AI_NEWS_SUCCEEDED",
+      severity: "SUCCESS",
+      title: "AI 日报已上线",
+      actionUrl: "/admin/posts/post-1/edit",
+      entityType: "aiNewsRun",
+      entityId: "run-1",
+      dedupeKey: "ai-news-run:run-1:SUCCEEDED",
+    }))
   })
 
   test("passes the regenerate flag through for existing daily posts", async () => {
@@ -106,6 +130,30 @@ describe("POST /api/admin/ai-news/run", () => {
       regenerate: true,
       trigger: "manual",
     })
+  })
+
+  test("creates a failure notification when generation fails after validation", async () => {
+    mocks.requireAdminSession.mockResolvedValueOnce({ user: { id: "admin-1", role: "ADMIN" } })
+    mocks.runDailyAiNews.mockRejectedValueOnce(new Error("No AI news candidates available"))
+
+    const { POST } = await import("../route")
+    const response = await POST(
+      new Request("http://localhost/api/admin/ai-news/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date: "2026-04-29", modelId: "model-1" }),
+      }),
+    )
+
+    expect(response.status).toBe(500)
+    expect(mocks.createAdminNotification).toHaveBeenCalledWith(expect.objectContaining({
+      type: "AI_NEWS_FAILED",
+      severity: "ERROR",
+      title: "AI 日报生成失败",
+      body: "No AI news candidates available",
+      actionUrl: "/admin/ai-news",
+      dedupeKey: "ai-news:2026-04-29:FAILED",
+    }))
   })
 })
 

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 
 import { requireAdminSession } from "@/lib/api-auth"
 import { runDailyAiNews } from "@/lib/ai-news"
+import { notifyDailyAiNewsFailure, notifyDailyAiNewsSuccess } from "@/lib/ai-news-notifications"
 import { toErrorResponse, ValidationError } from "@/lib/api-errors"
 import { prisma } from "@/lib/prisma"
 
@@ -37,6 +38,9 @@ function parseRegenerate(value: unknown) {
 }
 
 export async function POST(request: Request) {
+  let runDate: Date | null = null
+  let notifyFailure = false
+
   try {
     const session = await requireAdminSession()
     const body = await request.json().catch(() => ({}))
@@ -44,10 +48,18 @@ export async function POST(request: Request) {
     const date = parseRunDate(payload.date)
     const modelId = parseModelId(payload.modelId)
     const regenerate = parseRegenerate(payload.regenerate)
+    runDate = date
+    notifyFailure = true
     const result = await runDailyAiNews({ authorId: session.user.id, date, modelId, regenerate, trigger: "manual" })
+
+    await notifyDailyAiNewsSuccess(result, date)
 
     return NextResponse.json({ success: true, data: result })
   } catch (error) {
+    if (notifyFailure && runDate) {
+      await notifyDailyAiNewsFailure(runDate, error)
+    }
+
     return toErrorResponse(error, error instanceof Error ? error.message : "Daily AI news generation failed")
   }
 }

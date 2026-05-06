@@ -8,6 +8,7 @@ const prismaMocks = vi.hoisted(() => ({
   aiTaskFindMany: vi.fn(),
   aiTaskItemFindMany: vi.fn(),
   aiTaskItemUpdate: vi.fn(),
+  createAdminNotification: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -23,6 +24,20 @@ vi.mock("@/lib/prisma", () => ({
       findMany: prismaMocks.aiTaskItemFindMany,
       update: prismaMocks.aiTaskItemUpdate,
     },
+  },
+}));
+
+vi.mock("@/lib/notifications", () => ({
+  createAdminNotification: prismaMocks.createAdminNotification,
+  NOTIFICATION_SEVERITIES: {
+    success: "SUCCESS",
+    warning: "WARNING",
+    error: "ERROR",
+  },
+  NOTIFICATION_TYPES: {
+    aiTaskSucceeded: "AI_TASK_SUCCEEDED",
+    aiTaskFailed: "AI_TASK_FAILED",
+    aiTaskPartialFailed: "AI_TASK_PARTIAL_FAILED",
   },
 }));
 
@@ -93,6 +108,14 @@ describe("ai task service", () => {
         lastError: "timeout",
       }),
     });
+    expect(prismaMocks.createAdminNotification).toHaveBeenCalledWith(expect.objectContaining({
+      type: "AI_TASK_PARTIAL_FAILED",
+      severity: "WARNING",
+      actionUrl: "/admin/ai/tasks/task-1",
+      entityType: "aiTask",
+      entityId: "task-1",
+      dedupeKey: "ai-task:task-1:PARTIAL_FAILED",
+    }));
   });
 
   test("creates a retry task from failed items only", async () => {

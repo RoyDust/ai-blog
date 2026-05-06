@@ -49,6 +49,25 @@ enum AiNewsSourceType {
   REDDIT
 }
 
+enum NotificationType {
+  COMMENT_CREATED
+  COMMENT_PENDING
+  COMMENT_REPLY
+  AI_TASK_SUCCEEDED
+  AI_TASK_FAILED
+  AI_TASK_PARTIAL_FAILED
+  AI_NEWS_SUCCEEDED
+  AI_NEWS_FAILED
+  SYSTEM_WARNING
+}
+
+enum NotificationSeverity {
+  INFO
+  SUCCESS
+  WARNING
+  ERROR
+}
+
 model Account {
   id                String  @id @default(cuid())
   userId            String
@@ -103,6 +122,7 @@ model User {
   sessions     Session[]
   aiApiClients AiApiClient[]
   aiTasks      AiTask[]
+  notificationReceipts NotificationRecipient[]
 
   @@map("users")
 }
@@ -394,6 +414,44 @@ model AiNewsCandidate {
   @@index([selected])
   @@index([duplicateOfId])
   @@map("ai_news_candidates")
+}
+
+model Notification {
+  id         String               @id @default(cuid())
+  type       NotificationType
+  severity   NotificationSeverity @default(INFO)
+  title      String
+  body       String?              @db.Text
+  actionUrl  String?
+  entityType String?
+  entityId   String?
+  dedupeKey  String?              @unique
+  metadata   Json?
+  createdAt  DateTime             @default(now())
+  updatedAt  DateTime             @updatedAt
+
+  recipients NotificationRecipient[]
+
+  @@index([type, createdAt])
+  @@index([severity, createdAt])
+  @@index([entityType, entityId])
+  @@map("notifications")
+}
+
+model NotificationRecipient {
+  id             String       @id @default(cuid())
+  notificationId String
+  notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  readAt         DateTime?
+  dismissedAt    DateTime?
+  createdAt      DateTime     @default(now())
+
+  @@unique([notificationId, userId])
+  @@index([userId, readAt, createdAt])
+  @@index([userId, dismissedAt, createdAt])
+  @@map("notification_recipients")
 }
 
 model Category {

@@ -27,7 +27,7 @@ function hasPathSegment(pathname: string, href: string) {
 export const adminNavItems: AdminNavItem[] = [
   { href: "/admin", label: "首页", group: "主导航", icon: LayoutDashboard },
   { href: "/admin/posts", label: "文章", group: "主导航", icon: FileText },
-  { href: "/admin/comments", label: "评论", group: "主导航", icon: MessageSquare, badge: "5" },
+  { href: "/admin/comments", label: "评论", group: "主导航", icon: MessageSquare },
   { href: "/admin/taxonomy", label: "分类", group: "主导航", icon: FolderTree },
   { href: "/admin/covers", label: "媒体库", group: "主导航", icon: Images },
   { href: "/admin/ai-news", label: "AI 日报", group: "AI 辅助", icon: Newspaper },
@@ -68,6 +68,14 @@ function resolveMatch(pathname: string) {
       currentLabel: "设置",
       currentGroup: "账号",
       crumbs: ["后台", "账号", "设置"],
+    };
+  }
+
+  if (pathname === "/admin/notifications") {
+    return {
+      currentLabel: "通知中心",
+      currentGroup: "后台",
+      crumbs: ["后台", "通知中心"],
     };
   }
 

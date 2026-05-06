@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest"
 
 const findFirstUser = vi.fn()
 const runDailyAiNews = vi.fn()
+const notifyDailyAiNewsSuccess = vi.fn()
+const notifyDailyAiNewsFailure = vi.fn()
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -13,6 +15,11 @@ vi.mock("@/lib/prisma", () => ({
 
 vi.mock("@/lib/ai-news", () => ({
   runDailyAiNews,
+}))
+
+vi.mock("@/lib/ai-news-notifications", () => ({
+  notifyDailyAiNewsSuccess,
+  notifyDailyAiNewsFailure,
 }))
 
 describe("POST /api/cron/ai-news", () => {
@@ -76,6 +83,7 @@ describe("POST /api/cron/ai-news", () => {
       orderBy: { createdAt: "asc" },
     })
     expect(runDailyAiNews).toHaveBeenCalledWith({ authorId: "admin-1", date: new Date("2026-04-29T00:00:00.000Z"), regenerate: false, trigger: "cron" })
+    expect(notifyDailyAiNewsSuccess).toHaveBeenCalledWith(expect.objectContaining({ run: { id: "run-1", status: "SUCCEEDED" } }), new Date("2026-04-29T00:00:00.000Z"))
     expect(payload).toEqual({
       success: true,
       data: {
@@ -129,6 +137,7 @@ describe("POST /api/cron/ai-news", () => {
       regenerate: true,
       trigger: "cron",
     })
+    expect(notifyDailyAiNewsSuccess).toHaveBeenCalledWith(expect.objectContaining({ run: { id: "run-1", status: "SUCCEEDED" } }), new Date("2026-04-29T00:00:00.000Z"))
   })
 
   test("returns a failure response when the daily AI news run rejects", async () => {
@@ -146,6 +155,7 @@ describe("POST /api/cron/ai-news", () => {
 
     expect(response.status).toBe(500)
     expect(payload).toEqual({ error: "feed fetch failed" })
+    expect(notifyDailyAiNewsFailure).toHaveBeenCalledWith(new Date("2026-04-29T00:00:00.000Z"), expect.any(Error))
   })
 
   test("fails closed when the cron secret is not configured", async () => {

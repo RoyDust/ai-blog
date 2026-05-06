@@ -72,6 +72,15 @@ describe("admin shell config", () => {
     });
   });
 
+  test("maps notification center outside the main navigation list", () => {
+    expect(adminNavItems.some((item) => item.href === "/admin/notifications")).toBe(false);
+    expect(getAdminPathMeta("/admin/notifications")).toEqual({
+      currentLabel: "通知中心",
+      currentGroup: "后台",
+      crumbs: ["后台", "通知中心"],
+    });
+  });
+
   test("matches only complete admin nav path segments", () => {
     expect(isAdminNavItemActive("/admin/posts", "/admin/posts")).toBe(true);
     expect(isAdminNavItemActive("/admin/posts/123/edit", "/admin/posts")).toBe(true);
