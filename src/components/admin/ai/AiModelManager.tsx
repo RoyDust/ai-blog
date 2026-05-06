@@ -1,13 +1,15 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CheckCircle2, KeyRound, Network, Pencil, Plus, RadioTower, TestTube2, Trash2 } from "lucide-react";
+import { CheckCircle2, ImageIcon, KeyRound, Network, Pencil, Plus, RadioTower, Sparkles, TestTube2, Trash2 } from "lucide-react";
 
 import { WorkspacePanel } from "@/components/admin/primitives/WorkspacePanel";
 import { StatusBadge } from "@/components/admin/primitives/StatusBadge";
 import { Button } from "@/components/admin/ui";
 import { Input } from "@/components/admin/ui";
 import type { PublicAiModelOption } from "@/lib/ai-models";
+
+type Capability = "post-summary" | "cover-image";
 
 type FormState = {
   id?: string;
@@ -17,8 +19,9 @@ type FormState = {
   model: string;
   apiKey: string;
   enabled: boolean;
-  capabilities: Array<"post-summary" | "cover-image">;
+  capabilities: Capability[];
   isDefaultForSummary: boolean;
+  isDefaultForCoverImage: boolean;
 };
 
 const emptyForm: FormState = {
@@ -30,11 +33,17 @@ const emptyForm: FormState = {
   enabled: true,
   capabilities: ["post-summary"],
   isDefaultForSummary: false,
+  isDefaultForCoverImage: false,
 };
 
-const capabilityLabels: Record<string, string> = {
+const capabilityLabels: Record<Capability, string> = {
   "post-summary": "文章摘要",
   "cover-image": "封面生图",
+};
+
+const capabilityDescriptions: Record<Capability, string> = {
+  "post-summary": "编辑器摘要、SEO 辅助与批量摘要任务使用。",
+  "cover-image": "文章封面 AI 生图流程使用，生成后会落库并上传七牛。",
 };
 
 function statusTone(status: string) {
@@ -48,6 +57,10 @@ function statusLabel(status: string) {
 }
 
 function formFromModel(model: PublicAiModelOption): FormState {
+  const capabilities = model.capabilities.filter(
+    (capability): capability is Capability => capability === "post-summary" || capability === "cover-image",
+  );
+
   return {
     id: model.id,
     name: model.name,
@@ -56,8 +69,9 @@ function formFromModel(model: PublicAiModelOption): FormState {
     model: model.model,
     apiKey: "",
     enabled: model.enabled,
-    capabilities: model.capabilities.filter((capability): capability is "post-summary" | "cover-image" => capability === "post-summary" || capability === "cover-image"),
+    capabilities,
     isDefaultForSummary: model.defaultFor.includes("post-summary"),
+    isDefaultForCoverImage: model.defaultFor.includes("cover-image"),
   };
 }
 
@@ -71,6 +85,83 @@ async function readJson(response: Response) {
   return data;
 }
 
+function CapabilityDefaultCard({
+  capability,
+  icon,
+  models,
+  defaultModel,
+  switchingId,
+  onSwitch,
+}: {
+  capability: Capability;
+  icon: React.ReactNode;
+  models: PublicAiModelOption[];
+  defaultModel?: PublicAiModelOption;
+  switchingId: string | null;
+  onSwitch: (model: PublicAiModelOption, capability: Capability) => void;
+}) {
+  const availableModels = models.filter((model) => model.capabilities.includes(capability));
+
+  return (
+    <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-sm">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-alt)] p-2 text-[var(--brand)]">{icon}</div>
+          <div>
+            <h3 className="text-base font-semibold text-[var(--foreground)]">{capabilityLabels[capability]}</h3>
+            <p className="mt-1 text-sm leading-6 text-[var(--muted)]">{capabilityDescriptions[capability]}</p>
+          </div>
+        </div>
+        <StatusBadge tone={defaultModel?.status === "ready" ? "success" : "warning"}>
+          {defaultModel ? "已选择" : "待选择"}
+        </StatusBadge>
+      </div>
+
+      <div className="mt-4 space-y-2">
+        {availableModels.map((model) => {
+          const checked = model.defaultFor.includes(capability);
+          const disabled = Boolean(switchingId) || model.status !== "ready";
+
+          return (
+            <label
+              key={`${capability}-${model.id}`}
+              className={`flex cursor-pointer items-start gap-3 rounded-xl border px-3 py-3 transition ${
+                checked
+                  ? "border-[var(--brand)] bg-[var(--surface-alt)]"
+                  : "border-[var(--border)] bg-[var(--surface)] hover:border-[var(--border-strong)]"
+              } ${disabled ? "cursor-not-allowed opacity-70" : ""}`}
+            >
+              <input
+                aria-label={`选择 ${capabilityLabels[capability]} ${model.name}`}
+                checked={checked}
+                className="ui-checkbox mt-1 h-4 w-4"
+                disabled={disabled}
+                name={`ai-model-${capability}`}
+                onChange={() => onSwitch(model, capability)}
+                type="radio"
+                value={model.id}
+              />
+              <span className="min-w-0 flex-1">
+                <span className="flex flex-wrap items-center gap-2 text-sm font-semibold text-[var(--foreground)]">
+                  {model.name}
+                  {checked ? <StatusBadge tone="success">当前默认</StatusBadge> : null}
+                  <StatusBadge tone={statusTone(model.status)}>{statusLabel(model.status)}</StatusBadge>
+                </span>
+                <span className="mt-1 block truncate text-xs text-[var(--muted)]">{model.model}</span>
+              </span>
+            </label>
+          );
+        })}
+        {availableModels.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-[var(--border)] px-4 py-5 text-sm text-[var(--muted)]">
+            暂无支持{capabilityLabels[capability]}的模型。
+          </div>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
 export function AiModelManager({ initialModels }: { initialModels: PublicAiModelOption[] }) {
   const [models, setModels] = useState(initialModels);
   const [form, setForm] = useState<FormState | null>(null);
@@ -82,7 +173,11 @@ export function AiModelManager({ initialModels }: { initialModels: PublicAiModel
   const [error, setError] = useState("");
 
   const defaultSummaryModel = useMemo(
-    () => models.find((model) => model.defaultFor.includes("post-summary")) ?? models[0],
+    () => models.find((model) => model.defaultFor.includes("post-summary")) ?? models.find((model) => model.capabilities.includes("post-summary")),
+    [models],
+  );
+  const defaultCoverModel = useMemo(
+    () => models.find((model) => model.defaultFor.includes("cover-image")) ?? models.find((model) => model.capabilities.includes("cover-image")),
     [models],
   );
 
@@ -104,11 +199,14 @@ export function AiModelManager({ initialModels }: { initialModels: PublicAiModel
         name: form.name,
         description: form.description,
         baseUrl: form.baseUrl,
-        requestPath: form.capabilities.includes("cover-image") && !form.capabilities.includes("post-summary") ? "/images/generations" : "/chat/completions",
+        requestPath: form.capabilities.includes("cover-image") && !form.capabilities.includes("post-summary")
+          ? "/services/aigc/image-generation/generation"
+          : "/chat/completions",
         model: form.model,
         apiKey: form.apiKey || undefined,
         capabilities: form.capabilities,
         isDefaultForSummary: form.capabilities.includes("post-summary") && form.isDefaultForSummary,
+        isDefaultForCoverImage: form.capabilities.includes("cover-image") && form.isDefaultForCoverImage,
         enabled: form.enabled,
       };
       const response = form.id
@@ -170,10 +268,10 @@ export function AiModelManager({ initialModels }: { initialModels: PublicAiModel
     }
   };
 
-  const handleSetDefault = async (model: PublicAiModelOption) => {
-    if (model.defaultFor.includes("post-summary") || switchingId) return;
+  const handleSetDefault = async (model: PublicAiModelOption, capability: Capability) => {
+    if (model.defaultFor.includes(capability) || switchingId) return;
 
-    setSwitchingId(model.id);
+    setSwitchingId(`${capability}:${model.id}`);
     setError("");
     setMessage("");
 
@@ -181,10 +279,10 @@ export function AiModelManager({ initialModels }: { initialModels: PublicAiModel
       await readJson(await fetch("/api/admin/ai/models/default", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ modelId: model.id, capability: "post-summary" }),
+        body: JSON.stringify({ modelId: model.id, capability }),
       }));
       await refreshModels();
-      setMessage(`已切换为「${model.name}」。`);
+      setMessage(`已将${capabilityLabels[capability]}切换为「${model.name}」。`);
     } catch (switchError) {
       setError(switchError instanceof Error ? switchError.message : "切换模型失败");
     } finally {
@@ -193,21 +291,19 @@ export function AiModelManager({ initialModels }: { initialModels: PublicAiModel
   };
 
   return (
-    <div className="space-y-4">
-      {(message || error) ? (
+    <div className="space-y-5">
+      {message || error ? (
         <div
           role={error ? "alert" : "status"}
-          className={`rounded-lg border px-4 py-3 text-sm ${
-            error ? "ui-alert-danger" : "ui-status-success"
-          }`}
+          className={`rounded-lg border px-4 py-3 text-sm ${error ? "ui-alert-danger" : "ui-status-success"}`}
         >
           {error || message}
         </div>
       ) : null}
 
       <WorkspacePanel
-        title="模型选择"
-        description={`摘要默认模型：${defaultSummaryModel?.name ?? "未配置"}。内置模型来自环境变量；自定义模型会保存在数据库。`}
+        title="按能力选择默认模型"
+        description={`文章摘要：${defaultSummaryModel?.name ?? "未配置"}；封面生图：${defaultCoverModel?.name ?? "未配置"}。每种能力独立单选，互不影响。`}
         actions={
           <Button size="sm" type="button" onClick={() => setForm(emptyForm)} className="rounded-lg">
             <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
@@ -216,134 +312,131 @@ export function AiModelManager({ initialModels }: { initialModels: PublicAiModel
         }
         className="border border-[var(--border)]"
       >
-        <div className="space-y-4">
+        <div className="grid gap-4 xl:grid-cols-2">
+          <CapabilityDefaultCard
+            capability="post-summary"
+            icon={<Sparkles className="h-5 w-5" aria-hidden="true" />}
+            models={models}
+            defaultModel={defaultSummaryModel}
+            switchingId={switchingId}
+            onSwitch={handleSetDefault}
+          />
+          <CapabilityDefaultCard
+            capability="cover-image"
+            icon={<ImageIcon className="h-5 w-5" aria-hidden="true" />}
+            models={models}
+            defaultModel={defaultCoverModel}
+            switchingId={switchingId}
+            onSwitch={handleSetDefault}
+          />
+        </div>
+      </WorkspacePanel>
+
+      <WorkspacePanel
+        title="模型库"
+        description="统一维护环境变量内置模型与数据库自定义模型。模型可同时支持多种能力，但默认选择按能力独立设置。"
+        className="border border-[var(--border)]"
+      >
+        <div className="grid gap-3">
           {models.map((model) => (
             <article
               key={model.id}
-              className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4 transition hover:border-[var(--border-strong)]"
+              className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 transition hover:border-[var(--border-strong)]"
             >
-              <div className="flex flex-col gap-4">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <label className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--foreground)]">
-                        <input
-                          aria-label={`选择 ${model.name}`}
-                          checked={model.defaultFor.includes("post-summary")}
-                          className="ui-checkbox h-4 w-4"
-                          disabled={Boolean(switchingId) || model.status !== "ready"}
-                          name="ai-model"
-                          onChange={() => void handleSetDefault(model)}
-                          type="radio"
-                          value={model.id}
-                        />
-                        {model.name}
-                      </label>
-                      {defaultSummaryModel?.id === model.id ? <StatusBadge tone="success">当前首选</StatusBadge> : null}
-                      {model.defaultFor.includes("post-summary") ? <StatusBadge tone="success">摘要默认</StatusBadge> : null}
-                      <StatusBadge tone={statusTone(model.status)}>{statusLabel(model.status)}</StatusBadge>
-                      {model.source === "environment" ? <StatusBadge>环境变量</StatusBadge> : <StatusBadge>数据库</StatusBadge>}
-                    </div>
-                    <p className="mt-3 max-w-3xl text-sm leading-6 text-[var(--muted)]">
-                      {model.description || "未填写描述。"}
-                    </p>
+              <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-start">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="text-base font-semibold text-[var(--foreground)]">{model.name}</h3>
+                    {model.defaultFor.map((capability) => (
+                      <StatusBadge key={capability} tone="success">
+                        {capabilityLabels[capability]}默认
+                      </StatusBadge>
+                    ))}
+                    <StatusBadge tone={statusTone(model.status)}>{statusLabel(model.status)}</StatusBadge>
+                    {model.source === "environment" ? <StatusBadge>环境变量</StatusBadge> : <StatusBadge>数据库</StatusBadge>}
                   </div>
-
-                  <div className="flex shrink-0 flex-wrap gap-2 lg:justify-end">
-                    <Button
-                      disabled={model.defaultFor.includes("post-summary") || model.status !== "ready" || Boolean(switchingId)}
-                      onClick={() => void handleSetDefault(model)}
-                      size="sm"
-                      type="button"
-                      variant="outline"
-                      className="rounded-lg"
-                    >
-                      {switchingId === model.id ? "切换中" : "设为默认"}
-                    </Button>
-                    <Button
-                      disabled={testingId === model.id}
-                      onClick={() => void handleTest(model)}
-                      size="sm"
-                      type="button"
-                      variant="outline"
-                      className="rounded-lg"
-                    >
-                      <TestTube2 className="mr-2 h-4 w-4" aria-hidden="true" />
-                      {testingId === model.id ? "测试中" : "测试"}
-                    </Button>
-                    <Button
-                      disabled={!model.editable}
-                      onClick={() => setForm(formFromModel(model))}
-                      size="sm"
-                      type="button"
-                      variant="secondary"
-                      className="rounded-lg"
-                    >
-                      <Pencil className="mr-2 h-4 w-4" aria-hidden="true" />
-                      修改
-                    </Button>
-                    <Button
-                      disabled={!model.deletable || deletingId === model.id}
-                      onClick={() => void handleDelete(model)}
-                      size="sm"
-                      type="button"
-                      variant="danger"
-                      className="rounded-lg"
-                    >
-                      <Trash2 className="mr-2 h-4 w-4" aria-hidden="true" />
-                      删除
-                    </Button>
-                  </div>
+                  <p className="mt-2 max-w-4xl text-sm leading-6 text-[var(--muted)]">{model.description || "未填写描述。"}</p>
                 </div>
 
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-4">
-                  <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] p-3">
-                    <div className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
-                      <Network className="h-4 w-4" aria-hidden="true" />
-                      Endpoint
-                    </div>
-                    <p className="mt-2 break-all text-sm font-medium text-[var(--foreground)]">
-                      {model.baseUrl}
-                      {model.requestPath}
-                    </p>
-                  </div>
-                  <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] p-3">
-                    <div className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
-                      <RadioTower className="h-4 w-4" aria-hidden="true" />
-                      Model
-                    </div>
-                    <p className="mt-2 break-all text-sm font-medium text-[var(--foreground)]">{model.model}</p>
-                  </div>
-                  <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] p-3">
-                    <div className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
-                      <KeyRound className="h-4 w-4" aria-hidden="true" />
-                      Secret
-                    </div>
-                    <p className="mt-2 break-all text-sm font-medium text-[var(--foreground)]">
-                      {model.hasApiKey ? "已配置" : model.apiKeyEnv}
-                    </p>
-                  </div>
-                  <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] p-3">
-                    <div className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
-                      <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
-                      能力
-                    </div>
-                    <div className="mt-3 space-y-2">
-                      {model.capabilities.map((capability) => (
-                        <div key={capability} className="flex items-center gap-2 text-sm text-[var(--foreground)]">
-                          <CheckCircle2 className="h-4 w-4 text-[var(--brand)]" aria-hidden="true" />
-                          {capabilityLabels[capability] ?? capability}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+                <div className="flex flex-wrap gap-2 xl:justify-end">
+                  <Button
+                    disabled={testingId === model.id}
+                    onClick={() => void handleTest(model)}
+                    size="sm"
+                    type="button"
+                    variant="outline"
+                    className="rounded-lg"
+                  >
+                    <TestTube2 className="mr-2 h-4 w-4" aria-hidden="true" />
+                    {testingId === model.id ? "测试中" : "测试"}
+                  </Button>
+                  <Button
+                    disabled={!model.editable}
+                    onClick={() => setForm(formFromModel(model))}
+                    size="sm"
+                    type="button"
+                    variant="secondary"
+                    className="rounded-lg"
+                  >
+                    <Pencil className="mr-2 h-4 w-4" aria-hidden="true" />
+                    修改
+                  </Button>
+                  <Button
+                    disabled={!model.deletable || deletingId === model.id}
+                    onClick={() => void handleDelete(model)}
+                    size="sm"
+                    type="button"
+                    variant="danger"
+                    className="rounded-lg"
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" aria-hidden="true" />
+                    删除
+                  </Button>
                 </div>
-                {model.lastTestMessage ? (
-                  <p className="text-sm text-[var(--muted)]">
-                    最近测试：{model.lastTestStatus === "success" ? "通过" : "失败"} · {model.lastTestMessage}
-                  </p>
-                ) : null}
               </div>
+
+              <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-4">
+                <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] p-3">
+                  <div className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+                    <Network className="h-4 w-4" aria-hidden="true" />
+                    Endpoint
+                  </div>
+                  <p className="mt-2 break-all text-sm font-medium text-[var(--foreground)]">
+                    {model.baseUrl}
+                    {model.requestPath}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] p-3">
+                  <div className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+                    <RadioTower className="h-4 w-4" aria-hidden="true" />
+                    Model
+                  </div>
+                  <p className="mt-2 break-all text-sm font-medium text-[var(--foreground)]">{model.model}</p>
+                </div>
+                <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] p-3">
+                  <div className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+                    <KeyRound className="h-4 w-4" aria-hidden="true" />
+                    Secret
+                  </div>
+                  <p className="mt-2 break-all text-sm font-medium text-[var(--foreground)]">{model.hasApiKey ? "已配置" : model.apiKeyEnv}</p>
+                </div>
+                <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] p-3">
+                  <div className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+                    <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+                    能力
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {model.capabilities.map((capability) => (
+                      <StatusBadge key={capability}>{capabilityLabels[capability] ?? capability}</StatusBadge>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              {model.lastTestMessage ? (
+                <p className="mt-3 text-sm text-[var(--muted)]">
+                  最近测试：{model.lastTestStatus === "success" ? "通过" : "失败"} · {model.lastTestMessage}
+                </p>
+              ) : null}
             </article>
           ))}
         </div>
@@ -365,7 +458,7 @@ export function AiModelManager({ initialModels }: { initialModels: PublicAiModel
               />
               <Input
                 label="模型 ID"
-                placeholder="qwen3.5-flash"
+                placeholder="qwen3.5-flash / wan2.6-t2i"
                 value={form.model}
                 onChange={(event) => setForm((prev) => prev ? { ...prev, model: event.target.value } : prev)}
                 required
@@ -395,7 +488,7 @@ export function AiModelManager({ initialModels }: { initialModels: PublicAiModel
               onChange={(event) => setForm((prev) => prev ? { ...prev, description: event.target.value } : prev)}
             />
 
-            <div className="flex flex-wrap gap-4 rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] px-4 py-3">
+            <div className="grid gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-alt)] p-4 lg:grid-cols-3">
               <label className="flex items-center gap-2 text-sm text-[var(--foreground)]">
                 <input
                   checked={form.enabled}
@@ -404,17 +497,6 @@ export function AiModelManager({ initialModels }: { initialModels: PublicAiModel
                   onChange={(event) => setForm((prev) => prev ? { ...prev, enabled: event.target.checked } : prev)}
                 />
                 启用模型
-              </label>
-              <label className="flex items-center gap-2 text-sm text-[var(--foreground)]">
-                <input
-                  checked={form.isDefaultForSummary}
-                  className="ui-checkbox h-4 w-4"
-                  type="checkbox"
-                  onChange={(event) =>
-                    setForm((prev) => prev ? { ...prev, isDefaultForSummary: event.target.checked } : prev)
-                  }
-                />
-                设为文章摘要默认模型
               </label>
               <label className="flex items-center gap-2 text-sm text-[var(--foreground)]">
                 <input
@@ -427,7 +509,11 @@ export function AiModelManager({ initialModels }: { initialModels: PublicAiModel
                       const next = event.target.checked
                         ? Array.from(new Set([...prev.capabilities, "post-summary" as const]))
                         : prev.capabilities.filter((capability) => capability !== "post-summary");
-                      return { ...prev, capabilities: next.length ? next : ["cover-image"], isDefaultForSummary: event.target.checked ? prev.isDefaultForSummary : false };
+                      return {
+                        ...prev,
+                        capabilities: next.length ? next : ["cover-image"],
+                        isDefaultForSummary: event.target.checked ? prev.isDefaultForSummary : false,
+                      };
                     })
                   }
                 />
@@ -444,11 +530,35 @@ export function AiModelManager({ initialModels }: { initialModels: PublicAiModel
                       const next = event.target.checked
                         ? Array.from(new Set([...prev.capabilities, "cover-image" as const]))
                         : prev.capabilities.filter((capability) => capability !== "cover-image");
-                      return { ...prev, capabilities: next.length ? next : ["post-summary"] };
+                      return {
+                        ...prev,
+                        capabilities: next.length ? next : ["post-summary"],
+                        isDefaultForCoverImage: event.target.checked ? prev.isDefaultForCoverImage : false,
+                      };
                     })
                   }
                 />
                 封面生图能力
+              </label>
+              <label className="flex items-center gap-2 text-sm text-[var(--foreground)]">
+                <input
+                  checked={form.isDefaultForSummary}
+                  className="ui-checkbox h-4 w-4"
+                  disabled={!form.capabilities.includes("post-summary")}
+                  type="checkbox"
+                  onChange={(event) => setForm((prev) => prev ? { ...prev, isDefaultForSummary: event.target.checked } : prev)}
+                />
+                设为文章摘要默认
+              </label>
+              <label className="flex items-center gap-2 text-sm text-[var(--foreground)]">
+                <input
+                  checked={form.isDefaultForCoverImage}
+                  className="ui-checkbox h-4 w-4"
+                  disabled={!form.capabilities.includes("cover-image")}
+                  type="checkbox"
+                  onChange={(event) => setForm((prev) => prev ? { ...prev, isDefaultForCoverImage: event.target.checked } : prev)}
+                />
+                设为封面生图默认
               </label>
             </div>
 

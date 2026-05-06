@@ -49,6 +49,7 @@ export interface AiModelMutationInput {
   apiKey?: string | null;
   capabilities?: AiModelCapability[];
   isDefaultForSummary?: boolean;
+  isDefaultForCoverImage?: boolean;
   enabled?: boolean;
 }
 
@@ -82,6 +83,7 @@ type AiModelRecord = {
   apiKey: string | null;
   capabilities: string[];
   isDefaultForSummary: boolean;
+  isDefaultForCoverImage: boolean;
   enabled: boolean;
   lastTestedAt: Date | null;
   lastTestStatus: string | null;
@@ -108,7 +110,6 @@ const ENV_SUMMARY_MODEL_ID = "post-summary-openai-compatible";
 const ENV_COVER_IMAGE_MODEL_ID = "qwen-wan2.6-image";
 const DASH_SCOPE_COMPAT_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1";
 const DASH_SCOPE_SUMMARY_MODEL = "qwen3.5-flash";
-const DASH_SCOPE_IMAGE_MODEL = "wan2.6-image";
 const DEFAULT_REQUEST_PATH = "/chat/completions";
 const DEFAULT_IMAGE_REQUEST_PATH = "/images/generations";
 const ENCRYPTED_API_KEY_PREFIX = "enc:v1:";
@@ -287,7 +288,7 @@ function getEnvironmentSummaryModel(hasDatabaseDefault: boolean): AiModelOption 
   };
 }
 
-function getEnvironmentCoverImageModel(): AiModelOption {
+function getEnvironmentCoverImageModel(hasDatabaseDefault = false): AiModelOption {
   const apiKey = resolveEnv("AI_IMAGE_DASHSCOPE_API_KEY", "DASHSCOPE_API_KEY");
   const baseUrl = resolveEnv("AI_IMAGE_DASHSCOPE_BASE_URL", "DASHSCOPE_IMAGE_BASE_URL");
   const model = resolveEnv("AI_IMAGE_DASHSCOPE_MODEL", "DASHSCOPE_IMAGE_MODEL");
@@ -296,17 +297,17 @@ function getEnvironmentCoverImageModel(): AiModelOption {
   return {
     id: ENV_COVER_IMAGE_MODEL_ID,
     name: "千问 Wan 2.6 生图",
-    description: "用于文章封面的 AI 生图模型。默认按 OpenAI Images 兼容接口调用；如 DashScope 实际协议不同，可通过环境变量调整 Base URL。",
+    description: "用于文章封面的 AI 生图模型。默认按 DashScope 异步生图接口调用。",
     provider: "openai-compatible",
-    baseUrl: normalizeBaseUrl(baseUrl.value || DASH_SCOPE_COMPAT_BASE_URL),
-    requestPath: DEFAULT_IMAGE_REQUEST_PATH,
-    model: model.value || DASH_SCOPE_IMAGE_MODEL,
+    baseUrl: normalizeBaseUrl(baseUrl.value || "https://dashscope.aliyuncs.com/api/v1"),
+    requestPath: process.env.AI_IMAGE_DASHSCOPE_REQUEST_PATH?.trim() || "/services/aigc/image-generation/generation",
+    model: model.value || "wan2.6-t2i",
     apiKey: apiKey.value || undefined,
     apiKeyEnv: apiKey.envName,
     baseUrlEnv: baseUrl.value ? baseUrl.envName : "AI_IMAGE_DASHSCOPE_BASE_URL",
     modelEnv: model.value ? model.envName : "AI_IMAGE_DASHSCOPE_MODEL",
     capabilities: ["cover-image"],
-    defaultFor: [],
+    defaultFor: hasDatabaseDefault ? [] : ["cover-image"],
     source: "environment",
     editable: false,
     deletable: false,
@@ -322,8 +323,13 @@ function dbModelToOption(
   const capabilities = normalizeCapabilities(model.capabilities);
   const apiKey = decryptApiKeyFromStorage(model.apiKey);
   const hasApiKey = Boolean(apiKey?.trim());
-  const defaultFor =
-    model.enabled && hasApiKey && model.isDefaultForSummary && capabilities.includes("post-summary") ? ["post-summary" as const] : [];
+  const defaultFor: AiModelCapability[] = [];
+  if (model.enabled && hasApiKey && model.isDefaultForSummary && capabilities.includes("post-summary")) {
+    defaultFor.push("post-summary");
+  }
+  if (model.enabled && hasApiKey && model.isDefaultForCoverImage && capabilities.includes("cover-image")) {
+    defaultFor.push("cover-image");
+  }
 
   return {
     id: model.id,
@@ -391,7 +397,9 @@ function normalizeMutationInput(input: AiModelMutationInput, existing?: AiModelO
   const capabilities = input.capabilities === undefined && existing ? existing.capabilities : normalizeCapabilities(input.capabilities);
   const enabled = input.enabled ?? existing?.enabled ?? true;
   const isDefaultForSummary =
-    enabled && (input.isDefaultForSummary ?? existing?.defaultFor.includes("post-summary") ?? false);
+    enabled && capabilities.includes("post-summary") && (input.isDefaultForSummary ?? existing?.defaultFor.includes("post-summary") ?? false);
+  const isDefaultForCoverImage =
+    enabled && capabilities.includes("cover-image") && (input.isDefaultForCoverImage ?? existing?.defaultFor.includes("cover-image") ?? false);
 
   if (!name) {
     throw new ValidationError("Model name is required");
@@ -407,13 +415,13 @@ function normalizeMutationInput(input: AiModelMutationInput, existing?: AiModelO
     throw new ValidationError("Base URL must be a valid URL");
   }
 
-  const allowedPaths = new Set([DEFAULT_REQUEST_PATH, DEFAULT_IMAGE_REQUEST_PATH]);
+  const allowedPaths = new Set([DEFAULT_REQUEST_PATH, DEFAULT_IMAGE_REQUEST_PATH, "/services/aigc/image-generation/generation"]);
   if (!allowedPaths.has(requestPath)) {
-    throw new ValidationError("Only /chat/completions and /images/generations are supported for now");
+    throw new ValidationError("Only /chat/completions, /images/generations and DashScope image generation paths are supported for now");
   }
 
   if (capabilities.includes("cover-image") && requestPath === DEFAULT_REQUEST_PATH && !capabilities.includes("post-summary")) {
-    throw new ValidationError("Cover image models must use /images/generations");
+    throw new ValidationError("Cover image models must use an image generation endpoint");
   }
 
   if (!model) {
@@ -430,6 +438,7 @@ function normalizeMutationInput(input: AiModelMutationInput, existing?: AiModelO
     apiKey,
     capabilities,
     isDefaultForSummary,
+    isDefaultForCoverImage,
     enabled,
   };
 }
@@ -454,12 +463,13 @@ export async function getAiModelOptions(): Promise<AiModelOption[]> {
   }
 
   const databaseModels = records.map(dbModelToOption);
-  const hasDatabaseDefault = databaseModels.some((model) => model.enabled && model.defaultFor.includes("post-summary"));
+  const hasDatabaseSummaryDefault = databaseModels.some((model) => model.enabled && model.defaultFor.includes("post-summary"));
+  const hasDatabaseCoverDefault = databaseModels.some((model) => model.enabled && model.defaultFor.includes("cover-image"));
 
-  return [getEnvironmentSummaryModel(hasDatabaseDefault), ...databaseModels, getEnvironmentCoverImageModel()];
+  return [getEnvironmentSummaryModel(hasDatabaseSummaryDefault), ...databaseModels, getEnvironmentCoverImageModel(hasDatabaseCoverDefault)];
 }
 
-async function hasReadyDatabaseSummaryDefault() {
+async function hasReadyDatabaseDefaultForCapability(capability: AiModelCapability) {
   const delegate = getOptionalAiModelDelegate();
   if (!delegate) {
     return false;
@@ -470,7 +480,7 @@ async function hasReadyDatabaseSummaryDefault() {
       orderBy: [{ isDefaultForSummary: "desc" }, { updatedAt: "desc" }],
     });
 
-    return records.map(dbModelToOption).some((model) => model.defaultFor.includes("post-summary"));
+    return records.map(dbModelToOption).some((model) => model.defaultFor.includes(capability));
   } catch (error) {
     if (isAiModelStorageUnavailable(error)) {
       return false;
@@ -482,11 +492,11 @@ async function hasReadyDatabaseSummaryDefault() {
 
 export async function getAiModelOption(modelId: string) {
   if (modelId === ENV_SUMMARY_MODEL_ID) {
-    return getEnvironmentSummaryModel(await hasReadyDatabaseSummaryDefault());
+    return getEnvironmentSummaryModel(await hasReadyDatabaseDefaultForCapability("post-summary"));
   }
 
   if (modelId === ENV_COVER_IMAGE_MODEL_ID) {
-    return getEnvironmentCoverImageModel();
+    return getEnvironmentCoverImageModel(await hasReadyDatabaseDefaultForCapability("cover-image"));
   }
 
   const delegate = getOptionalAiModelDelegate();
@@ -532,14 +542,15 @@ export async function getAiModelForCapability(capability: AiModelCapability, mod
 }
 
 export async function setDefaultAiModelForCapability(capability: AiModelCapability, modelId: string) {
-  if (capability !== "post-summary") {
-    throw new ValidationError("Unsupported AI model capability");
-  }
-
+  const defaultField = capability === "post-summary" ? "isDefaultForSummary" : "isDefaultForCoverImage";
+  const environmentModelId = capability === "post-summary" ? ENV_SUMMARY_MODEL_ID : ENV_COVER_IMAGE_MODEL_ID;
+  const getEnvironmentModel = capability === "post-summary"
+    ? () => getEnvironmentSummaryModel(false)
+    : getEnvironmentCoverImageModel;
   const delegate = getOptionalAiModelDelegate();
 
-  if (modelId === ENV_SUMMARY_MODEL_ID) {
-    const environmentModel = getEnvironmentSummaryModel(false);
+  if (modelId === environmentModelId) {
+    const environmentModel = getEnvironmentModel();
     if (environmentModel.status !== "ready") {
       throw new ValidationError(`${environmentModel.apiKeyEnv} is not configured`);
     }
@@ -550,8 +561,8 @@ export async function setDefaultAiModelForCapability(capability: AiModelCapabili
 
     try {
       await delegate.updateMany({
-        where: { isDefaultForSummary: true },
-        data: { isDefaultForSummary: false },
+        where: { [defaultField]: true },
+        data: { [defaultField]: false },
       });
     } catch (error) {
       if (isAiModelStorageUnavailable(error)) {
@@ -579,15 +590,15 @@ export async function setDefaultAiModelForCapability(capability: AiModelCapabili
     return await prisma.$transaction(async (tx) => {
       const txDelegate = getAiModelDelegate(tx as unknown as AiModelClient);
       await txDelegate.updateMany({
-        where: { isDefaultForSummary: true, id: { not: modelId } },
-        data: { isDefaultForSummary: false },
+        where: { [defaultField]: true, id: { not: modelId } },
+        data: { [defaultField]: false },
       });
 
       const record = await txDelegate.update({
         where: { id: modelId },
         data: {
           enabled: true,
-          isDefaultForSummary: true,
+          [defaultField]: true,
         },
       });
 
@@ -615,6 +626,13 @@ export async function createAiModel(input: AiModelMutationInput) {
         await delegate.updateMany({
           where: { isDefaultForSummary: true },
           data: { isDefaultForSummary: false },
+        });
+      }
+
+      if (normalized.isDefaultForCoverImage) {
+        await delegate.updateMany({
+          where: { isDefaultForCoverImage: true },
+          data: { isDefaultForCoverImage: false },
         });
       }
 
@@ -655,6 +673,13 @@ export async function updateAiModel(modelId: string, input: AiModelMutationInput
         });
       }
 
+      if (normalized.isDefaultForCoverImage) {
+        await delegate.updateMany({
+          where: { isDefaultForCoverImage: true, id: { not: modelId } },
+          data: { isDefaultForCoverImage: false },
+        });
+      }
+
       return delegate.update({
         where: { id: modelId },
         data: {
@@ -666,6 +691,7 @@ export async function updateAiModel(modelId: string, input: AiModelMutationInput
           model: normalized.model,
           capabilities: normalized.capabilities,
           isDefaultForSummary: normalized.isDefaultForSummary,
+          isDefaultForCoverImage: normalized.isDefaultForCoverImage,
           enabled: normalized.enabled,
           ...(normalized.apiKey !== undefined ? { apiKey: encryptApiKeyForStorage(normalized.apiKey) } : {}),
         },

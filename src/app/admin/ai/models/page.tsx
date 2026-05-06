@@ -8,6 +8,7 @@ export const dynamic = "force-dynamic";
 export default async function AdminAiModelsPage() {
   const models = await getPublicAiModelOptions();
   const defaultSummaryModel = models.find((model) => model.defaultFor.includes("post-summary")) ?? models.find((model) => model.capabilities.includes("post-summary"));
+  const defaultCoverModel = models.find((model) => model.defaultFor.includes("cover-image")) ?? models.find((model) => model.capabilities.includes("cover-image"));
   const readyCount = models.filter((model) => model.status === "ready").length;
   const coverModelCount = models.filter((model) => model.capabilities.includes("cover-image")).length;
   const customCount = models.filter((model) => model.source === "database").length;
@@ -24,14 +25,14 @@ export default async function AdminAiModelsPage() {
               <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--muted)]">AI Config</p>
               <h1 className="mt-2 font-display text-2xl font-semibold tracking-tight text-[var(--foreground)]">AI 配置选择</h1>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--muted)]">
-                管理后台写作和封面生成使用的 AI 模型。内置模型来自环境变量，自定义模型保存在数据库；摘要与封面生图通过能力标签区分。
+                管理后台写作和封面生成使用的 AI 模型。每种能力独立选择默认模型，摘要切换不会影响封面生图。
               </p>
             </div>
           </div>
 
           <dl className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-4">
             <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] px-4 py-3">
-              <dt className="text-xs text-[var(--muted)]">当前默认</dt>
+              <dt className="text-xs text-[var(--muted)]">摘要默认</dt>
               <dd className="mt-2 truncate text-sm font-semibold text-[var(--foreground)]">{defaultSummaryModel?.model ?? "未配置"}</dd>
             </div>
             <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] px-4 py-3">
@@ -39,8 +40,8 @@ export default async function AdminAiModelsPage() {
               <dd className="mt-2 text-sm font-semibold text-[var(--foreground)]">{readyCount}</dd>
             </div>
             <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] px-4 py-3">
-              <dt className="text-xs text-[var(--muted)]">生图模型</dt>
-              <dd className="mt-2 text-sm font-semibold text-[var(--foreground)]">{coverModelCount}</dd>
+              <dt className="text-xs text-[var(--muted)]">生图默认</dt>
+              <dd className="mt-2 truncate text-sm font-semibold text-[var(--foreground)]">{defaultCoverModel?.model ?? `${coverModelCount} 个可选`}</dd>
             </div>
             <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] px-4 py-3">
               <dt className="text-xs text-[var(--muted)]">自定义模型</dt>
