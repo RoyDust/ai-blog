@@ -76,7 +76,6 @@ export default function AdminPostsPage() {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "published" | "draft">("all");
   const [busyRowIds, setBusyRowIds] = useState<string[]>([]);
-  const [startingSummary, setStartingSummary] = useState(false);
   const [bulkAiIds, setBulkAiIds] = useState<string[]>([]);
   const [deleteDialog, setDeleteDialog] = useState<DeleteDialogState>(initialDeleteDialog);
 
@@ -201,70 +200,6 @@ export default function AdminPostsPage() {
     }
 
     setDeleteDialog((prev) => ({ ...prev, submitting: false }));
-  }
-
-  async function summarizeSelected(ids: string[]) {
-    if (ids.length === 0 || startingSummary) {
-      return;
-    }
-
-    setStartingSummary(true);
-
-    try {
-      const res = await fetch("/api/admin/posts/summarize/bulk", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids }),
-      });
-      const data = await res.json();
-
-      if (!data.success) {
-        throw new Error(getErrorMessage(data, "批量摘要生成失败"));
-      }
-
-      const queued = Number(data.data?.queued ?? 0);
-      const failed = Number(data.data?.failed ?? 0);
-      const jobId = typeof data.data?.jobId === "string" ? data.data.jobId : null;
-      const results = Array.isArray(data.data?.results) ? data.data.results : [];
-
-      setPosts((prev) =>
-        prev.map((post) => {
-          const result = results.find((item: { id?: unknown }) => item.id === post.id);
-
-          if (result?.status === "queued") {
-            return {
-              ...post,
-              summaryStatus: "QUEUED",
-              summaryError: null,
-              summaryJobId: jobId,
-            };
-          }
-
-          if (result?.status === "failed") {
-            return {
-              ...post,
-              summaryStatus: "FAILED",
-              summaryError: typeof result.error === "string" ? result.error : "摘要生成失败",
-              summaryJobId: jobId,
-            };
-          }
-
-          return post;
-        }),
-      );
-
-      if (queued > 0) {
-        toast.success(failed > 0 ? `已加入 ${queued} 篇摘要队列，${failed} 篇失败` : `已加入 ${queued} 篇摘要队列`);
-        void syncSummaryJobs();
-        return;
-      }
-
-      toast.error(failed > 0 ? `${failed} 篇摘要生成失败` : "没有文章被更新");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "批量摘要生成失败");
-    } finally {
-      setStartingSummary(false);
-    }
   }
 
   async function togglePublish(row: PostRow) {
@@ -450,18 +385,13 @@ export default function AdminPostsPage() {
           densityLabel="内容队列"
           toolbar={
             <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
-              <span>支持批量 AI 摘要、内容补全、隐藏与状态切换</span>
+              <span>支持批量 AI 摘要、封面生成、内容补全、隐藏与状态切换</span>
               {activeSummaryIds.length > 0 ? <StatusBadge tone="warning">{activeSummaryIds.length} 篇摘要处理中</StatusBadge> : null}
             </div>
           }
           isLoading={loading}
           loadingLabel="正在加载内容队列..."
           bulkActions={[
-            {
-              label: startingSummary ? "加入队列中" : "AI 生成摘要",
-              disabled: startingSummary,
-              onClick: (ids) => void summarizeSelected(ids),
-            },
             {
               label: "AI 批量补全",
               onClick: (ids) => setBulkAiIds(ids),
@@ -496,6 +426,7 @@ export default function AdminPostsPage() {
         onStarted={(taskId) => {
           void fetch(`/api/admin/ai/batch?resume=1&taskId=${encodeURIComponent(taskId)}`);
           void fetchPosts();
+          void syncSummaryJobs();
         }}
       />
     </>

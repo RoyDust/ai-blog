@@ -33,6 +33,7 @@ const taskTypeLabels: Record<string, string> = {
   "post-slug-suggestion": "Slug 建议",
   "post-tag-suggestion": "标签建议",
   "post-category-suggestion": "分类建议",
+  "post-cover-image": "封面生图",
   "post-bulk-completion": "批量补全",
 };
 

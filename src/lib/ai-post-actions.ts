@@ -1,3 +1,4 @@
+import { generateAiCoverImage } from "@/lib/ai-cover-image";
 import { getAiModelChatRequestExtras, getAiModelForCapability, type AiModelOption } from "@/lib/ai-models";
 import { AI_TASK_ITEM_STATUSES, getAiTaskItem, markAiTaskItemSucceeded, type JsonValue } from "@/lib/ai-tasks";
 import { ApiError, NotFoundError, ValidationError } from "@/lib/api-errors";
@@ -14,6 +15,7 @@ export const POST_AI_ACTIONS = {
   slug: "slug",
   tags: "tags",
   category: "category",
+  coverImage: "cover-image",
 } as const;
 
 export type PostAiAction = (typeof POST_AI_ACTIONS)[keyof typeof POST_AI_ACTIONS];
@@ -45,6 +47,7 @@ export type PostForAi = {
   category: { id: string; name: string; slug: string } | null;
   tags: Array<{ id: string; name: string; slug: string }>;
   published: boolean;
+  coverImage?: string | null;
 };
 
 export type DraftPostForAiInput = {
@@ -295,6 +298,7 @@ export async function getPostForAiAction(postId: string): Promise<PostForAi> {
       excerpt: true,
       seoDescription: true,
       published: true,
+      coverImage: true,
       category: { select: { id: true, name: true, slug: true } },
       tags: { where: { deletedAt: null }, select: { id: true, name: true, slug: true } },
     },
@@ -342,6 +346,7 @@ export async function buildDraftPostForAiAction(input: DraftPostForAiInput): Pro
     category,
     tags,
     published: false,
+    coverImage: null,
   };
 }
 
@@ -351,6 +356,8 @@ export function getAiTaskTypeForAction(action: PostAiAction) {
   if (action === POST_AI_ACTIONS.title) return "post-title-suggestion";
   if (action === POST_AI_ACTIONS.slug) return "post-slug-suggestion";
   if (action === POST_AI_ACTIONS.tags) return "post-tag-suggestion";
+  if (action === POST_AI_ACTIONS.category) return "post-category-suggestion";
+  if (action === POST_AI_ACTIONS.coverImage) return "post-cover-image";
   return "post-category-suggestion";
 }
 
@@ -362,6 +369,7 @@ export function buildPostAiInputSnapshot(post: PostForAi, action: PostAiAction):
     action,
     excerpt: post.excerpt,
     seoDescription: post.seoDescription,
+    coverImage: post.coverImage ?? null,
     contentLength: post.content.length,
     categorySlug: post.category?.slug ?? null,
     tagSlugs: post.tags.map((tag) => tag.slug),
@@ -386,6 +394,27 @@ export async function runPostAiAction({
       modelId: aiModel.id,
       output: {
         summary: await generatePostSummary({ aiModel, title: post.title, content: post.content }),
+      },
+    };
+  }
+
+  if (normalizedAction === POST_AI_ACTIONS.coverImage) {
+    const asset = await generateAiCoverImage({
+      title: post.title,
+      excerpt: post.excerpt,
+      content: post.content,
+      modelId,
+      size: "16:9",
+      createdById: "system",
+    });
+
+    return {
+      action: normalizedAction,
+      modelId: asset.aiModelId ?? modelId ?? null,
+      output: {
+        coverAssetId: asset.id,
+        coverImage: asset.url,
+        alt: asset.alt,
       },
     };
   }
@@ -561,6 +590,11 @@ export async function applyPostAiTaskItem(itemId: string) {
     data.slug = slug;
   } else if (action === POST_AI_ACTIONS.category) {
     data.categoryId = typeof output.categoryId === "string" ? output.categoryId : null;
+  } else if (action === POST_AI_ACTIONS.coverImage) {
+    const coverImage = typeof output.coverImage === "string" ? output.coverImage.trim() : "";
+    const coverAssetId = typeof output.coverAssetId === "string" ? output.coverAssetId.trim() : "";
+    if (!coverImage || !coverAssetId) throw new ValidationError("AI cover output is invalid");
+    Object.assign(data, { coverImage, coverAssetId });
   }
 
   const tagIds = action === POST_AI_ACTIONS.tags ? toStringArray(output.existingTagIds) : null;

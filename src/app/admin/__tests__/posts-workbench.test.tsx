@@ -46,7 +46,7 @@ describe("posts workbench", () => {
     expect(screen.getByText("仅看草稿")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "切换为已发布" })).toBeInTheDocument();
     expect(screen.getByText("评论 2")).toBeInTheDocument();
-    expect(screen.getByText("支持批量 AI 摘要、内容补全、隐藏与状态切换")).toBeInTheDocument();
+    expect(screen.getByText("支持批量 AI 摘要、封面生成、内容补全、隐藏与状态切换")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "切换为已发布" }));
 
@@ -59,36 +59,21 @@ describe("posts workbench", () => {
     });
   });
 
-  test("runs AI summary generation for selected posts", async () => {
-    let postListLoads = 0;
+  test("opens AI batch completion for selected posts", async () => {
     const fetchMock = vi.fn(async (url, options) => {
-      if (url === "/api/admin/posts/summarize/bulk" && (options as { method?: string } | undefined)?.method === "POST") {
+      if (url === "/api/admin/ai/batch" && (options as { method?: string } | undefined)?.method === "POST") {
         return {
-          json: async () => ({
-            success: true,
-            data: {
-              jobId: "job-1",
-              requested: 1,
-              queued: 1,
-              failed: 0,
-              status: "queued",
-              results: [{ id: "1", status: "queued" }],
-            },
-          }),
+          ok: true,
+          json: async () => ({ success: true, data: { id: "task-1", items: [{ id: "item-1" }] } }),
         };
       }
 
-      if (String(url).startsWith("/api/admin/posts/summarize/bulk?resume=1")) {
-        return {
-          json: async () => ({
-            success: true,
-            data: { active: false, counts: { GENERATED: 1 }, posts: [] },
-          }),
-        };
+      if (String(url).startsWith("/api/admin/ai/batch?resume=1") || String(url).startsWith("/api/admin/posts/summarize/bulk?resume=1")) {
+        return { ok: true, json: async () => ({ success: true }) };
       }
 
-      postListLoads += 1;
       return {
+        ok: true,
         json: async () => ({
           success: true,
           data: [
@@ -96,11 +81,11 @@ describe("posts workbench", () => {
               id: "1",
               title: "AI Draft",
               slug: "ai-draft",
-              excerpt: postListLoads > 1 ? "生成后的摘要。" : null,
-              summaryStatus: postListLoads > 1 ? "GENERATED" : "EMPTY",
+              excerpt: null,
+              summaryStatus: "EMPTY",
               summaryError: null,
-              summaryGeneratedAt: postListLoads > 1 ? "2026-04-01T00:00:00Z" : null,
-              summaryJobId: postListLoads > 1 ? "job-1" : null,
+              summaryGeneratedAt: null,
+              summaryJobId: null,
               published: false,
               viewCount: 3,
               createdAt: "2026-04-01T00:00:00Z",
@@ -121,26 +106,20 @@ describe("posts workbench", () => {
     });
 
     fireEvent.click(screen.getByLabelText("选择 1"));
-    fireEvent.click(screen.getByRole("button", { name: "AI 生成摘要" }));
+    fireEvent.click(screen.getByRole("button", { name: "AI 批量补全" }));
+    fireEvent.click(screen.getByLabelText(/AI 生成封面/));
+    fireEvent.click(screen.getByRole("button", { name: "开始补全" }));
 
     await waitFor(() => {
-      expect(
-        fetchMock.mock.calls.some(
-          ([url, options]) =>
-            url === "/api/admin/posts/summarize/bulk" &&
-            (options as { method?: string } | undefined)?.method === "POST",
-        ),
-      ).toBe(true);
+      expect(fetchMock.mock.calls.some(([url]) => url === "/api/admin/ai/batch")).toBe(true);
     });
-    const bulkCall = fetchMock.mock.calls.find(
-      ([url, options]) =>
-        url === "/api/admin/posts/summarize/bulk" &&
-        (options as { method?: string } | undefined)?.method === "POST",
-    );
-    expect(JSON.parse(String(bulkCall?.[1]?.body))).toEqual({ ids: ["1"] });
-
-    await waitFor(() => {
-      expect(screen.getByText("生成后的摘要。")).toBeInTheDocument();
+    const bulkCall = fetchMock.mock.calls.find(([url]) => url === "/api/admin/ai/batch");
+    expect(JSON.parse(String(bulkCall?.[1]?.body))).toMatchObject({
+      postIds: ["1"],
+      actions: ["summary", "seo-description", "cover-image"],
+      mode: "missing-only",
+      apply: true,
     });
+    expect(await screen.findByText("查看详情")).toHaveAttribute("href", "/admin/ai/tasks/task-1");
   });
 });

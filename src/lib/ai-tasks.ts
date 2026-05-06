@@ -29,6 +29,7 @@ export type AiTaskType =
   | "post-slug-suggestion"
   | "post-tag-suggestion"
   | "post-category-suggestion"
+  | "post-cover-image"
   | "post-bulk-completion";
 
 export type AiTaskSource = "single-post" | "draft-post" | "bulk-posts" | "retry";

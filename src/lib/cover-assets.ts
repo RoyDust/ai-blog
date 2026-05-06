@@ -45,6 +45,7 @@ export type CoverAssetRecord = {
   usageCount: number
   lastUsedAt: Date | null
   createdAt: Date
+  aiModelId?: string | null
 }
 
 type RandomSource = () => number

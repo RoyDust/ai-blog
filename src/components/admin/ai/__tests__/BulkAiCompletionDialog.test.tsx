@@ -51,7 +51,32 @@ describe("BulkAiCompletionDialog", () => {
       mode: "missing-only",
       apply: true,
     });
+    expect(screen.getByLabelText(/AI 生成封面/)).toBeInTheDocument();
     expect(onStarted).toHaveBeenCalledWith("task-1");
     expect(await screen.findByText("查看详情")).toHaveAttribute("href", "/admin/ai/tasks/task-1");
+  });
+
+  test("can include AI cover generation in a batch task", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true, data: { id: "task-2", items: [{ id: "item-2" }] } }),
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<BulkAiCompletionDialog open selectedIds={["post-1"]} onClose={vi.fn()} />);
+
+    fireEvent.click(screen.getByLabelText(/AI 生成封面/));
+    fireEvent.click(screen.getByRole("button", { name: "开始补全" }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalled();
+    });
+
+    expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toMatchObject({
+      postIds: ["post-1"],
+      actions: ["summary", "seo-description", "cover-image"],
+      apply: true,
+    });
   });
 });

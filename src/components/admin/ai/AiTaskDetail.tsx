@@ -54,6 +54,7 @@ const taskTypeLabels: Record<string, string> = {
   "post-slug-suggestion": "Slug 建议",
   "post-tag-suggestion": "标签建议",
   "post-category-suggestion": "分类建议",
+  "post-cover-image": "封面生图",
   "post-bulk-completion": "批量补全",
 };
 
@@ -64,6 +65,7 @@ const actionLabels: Record<string, string> = {
   slug: "Slug",
   tags: "标签",
   category: "分类",
+  "cover-image": "封面",
 };
 
 const statusLabels: Record<string, string> = {

@@ -6,14 +6,15 @@ import { toast } from "sonner";
 
 import { Button, Modal } from "@/components/admin/ui";
 
-type AiBatchAction = "summary" | "seo-description" | "tags" | "category";
+type AiBatchAction = "summary" | "seo-description" | "tags" | "category" | "cover-image";
 type AiBatchMode = "missing-only" | "overwrite" | "suggest-only";
 
 const actionOptions: Array<{ value: AiBatchAction; label: string; hint: string; autoApply: boolean }> = [
-  { value: "summary", label: "摘要", hint: "可自动写入空摘要", autoApply: true },
+  { value: "summary", label: "AI 生成摘要", hint: "可自动写入空摘要", autoApply: true },
   { value: "seo-description", label: "SEO 描述", hint: "可自动写入空 SEO 描述", autoApply: true },
   { value: "tags", label: "标签建议", hint: "只保存建议，人工确认后应用", autoApply: false },
   { value: "category", label: "分类建议", hint: "只保存建议，人工确认后应用", autoApply: false },
+  { value: "cover-image", label: "AI 生成封面", hint: "生成后保存图库，可自动回填空封面", autoApply: true },
 ];
 
 const modeOptions: Array<{ value: AiBatchMode; label: string; hint: string }> = [
@@ -49,7 +50,7 @@ export function BulkAiCompletionDialog({
   const [applySafeFields, setApplySafeFields] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [taskId, setTaskId] = useState<string | null>(null);
-  const safeApplyDisabled = useMemo(() => !actions.some((action) => action === "summary" || action === "seo-description"), [actions]);
+  const safeApplyDisabled = useMemo(() => !actions.some((action) => action === "summary" || action === "seo-description" || action === "cover-image"), [actions]);
 
   function toggleAction(action: AiBatchAction) {
     setActions((current) => (current.includes(action) ? current.filter((item) => item !== action) : [...current, action]));
@@ -157,8 +158,8 @@ export function BulkAiCompletionDialog({
             onChange={(event) => setApplySafeFields(event.target.checked)}
           />
           <span>
-            <span className="block font-medium">自动应用摘要和 SEO 描述</span>
-            <span className="mt-1 block text-xs text-[var(--muted)]">标签和分类仍只生成建议，不会批量覆盖。</span>
+            <span className="block font-medium">自动应用摘要、SEO 描述和封面</span>
+            <span className="mt-1 block text-xs text-[var(--muted)]">标签和分类仍只生成建议，不会批量覆盖；封面只在任务输出成功后回填。</span>
           </span>
         </label>
 

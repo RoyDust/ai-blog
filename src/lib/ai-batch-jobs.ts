@@ -64,11 +64,12 @@ function shouldCreateItemForAction({
   if (action === POST_AI_ACTIONS.seoDescription) return !post.seoDescription?.trim();
   if (action === POST_AI_ACTIONS.tags) return post.tags.length === 0;
   if (action === POST_AI_ACTIONS.category) return !post.category;
+  if (action === POST_AI_ACTIONS.coverImage) return !post.coverImage?.trim();
   return false;
 }
 
 function canAutoApply(action: PostAiAction, apply: boolean) {
-  return apply && (action === POST_AI_ACTIONS.summary || action === POST_AI_ACTIONS.seoDescription);
+  return apply && (action === POST_AI_ACTIONS.summary || action === POST_AI_ACTIONS.seoDescription || action === POST_AI_ACTIONS.coverImage);
 }
 
 function scheduleBatchTask(taskId: string, modelId?: string | null, apply = false) {
