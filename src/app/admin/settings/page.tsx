@@ -39,7 +39,7 @@ export default async function AdminSettingsPage() {
         email: user.email,
         image: user.image,
         role: user.role,
-        githubLinked: user.accounts.length > 0,
+        githubLinked: (user.accounts?.length ?? 0) > 0,
       }
     : fallbackUser;
 
