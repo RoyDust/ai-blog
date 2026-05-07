@@ -26,8 +26,6 @@ export function VisitTracker() {
     const path = normalizeAnalyticsPath(pathname);
     if (!path || !shouldTrackVisitPath(path)) return;
 
-    const controller = new AbortController();
-
     try {
       const visitorId = getVisitorId();
 
@@ -40,13 +38,10 @@ export function VisitTracker() {
           visitorId,
         }),
         keepalive: true,
-        signal: controller.signal,
       }).catch(() => undefined);
     } catch {
       // Analytics should never block page rendering or navigation.
     }
-
-    return () => controller.abort();
   }, [pathname]);
 
   return null;
