@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 
 import { runDailyAiNews } from "@/lib/ai-news"
 import { notifyDailyAiNewsFailure, notifyDailyAiNewsSuccess } from "@/lib/ai-news-notifications"
-import { ConflictError, toErrorResponse, UnauthorizedError, ValidationError } from "@/lib/api-errors"
+import { toErrorResponse, UnauthorizedError, ValidationError } from "@/lib/api-errors"
 import { prisma } from "@/lib/prisma"
 
 const activeRuns = new Set<string>()
@@ -42,23 +42,34 @@ function formatDateId(date: Date) {
   return date.toISOString().slice(0, 10)
 }
 
-async function runDailyAiNewsForCron({ authorId, date, regenerate }: { authorId: string; date: Date; regenerate: boolean }) {
+function queueDailyAiNewsRun({ authorId, date, regenerate }: { authorId: string; date: Date; regenerate: boolean }) {
   const dateId = formatDateId(date)
   if (activeRuns.has(dateId)) {
-    throw new ConflictError("Daily AI news is already running for this date")
+    return { operation: "already-queued" as const, date: dateId }
   }
 
   activeRuns.add(dateId)
-  try {
-    const result = await runDailyAiNews({ authorId, date, regenerate, trigger: "cron" })
-    await notifyDailyAiNewsSuccess(result, date)
-    return { operation: "completed" as const, date: dateId, result }
-  } catch (error) {
-    await notifyDailyAiNewsFailure(date, error)
-    throw error
-  } finally {
-    activeRuns.delete(dateId)
-  }
+  void (async () => {
+    try {
+      const result = await runDailyAiNews({ authorId, date, regenerate, trigger: "cron" })
+      try {
+        await notifyDailyAiNewsSuccess(result, date)
+      } catch (error) {
+        console.error("Daily AI news success notification failed:", error)
+      }
+    } catch (error) {
+      try {
+        await notifyDailyAiNewsFailure(date, error)
+      } catch (notificationError) {
+        console.error("Daily AI news failure notification failed:", notificationError)
+      }
+      console.error("Daily AI news cron failed:", error)
+    } finally {
+      activeRuns.delete(dateId)
+    }
+  })()
+
+  return { operation: "queued" as const, date: dateId }
 }
 
 export async function POST(request: Request) {
@@ -75,8 +86,8 @@ export async function POST(request: Request) {
       throw new Error("No admin author available for daily AI news")
     }
 
-    const result = await runDailyAiNewsForCron({ authorId: author.id, date: parseRunDate(request), regenerate: parseRegenerate(request) })
-    return NextResponse.json({ success: true, data: result })
+    const result = queueDailyAiNewsRun({ authorId: author.id, date: parseRunDate(request), regenerate: parseRegenerate(request) })
+    return NextResponse.json({ success: true, data: result }, { status: 202 })
   } catch (error) {
     return toErrorResponse(error, error instanceof Error ? error.message : "Daily AI news cron failed")
   }
