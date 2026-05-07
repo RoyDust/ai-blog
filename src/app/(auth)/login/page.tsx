@@ -3,13 +3,15 @@
 import { Suspense, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { signIn } from 'next-auth/react'
+import { getSession, signIn } from 'next-auth/react'
 import { ArrowRight, KeyRound, LockKeyhole, ShieldCheck } from 'lucide-react';
 import { Button, Input, Card, CardContent } from '@/components/ui';
+import { getPostLoginRedirect, getSafeLoginCallbackUrl } from '@/lib/login-redirect';
 
 function LoginForm() {
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get('callbackUrl') || '/';
+  const callbackUrl = getSafeLoginCallbackUrl(searchParams.get('callbackUrl'));
+  const oauthCallbackUrl = '/auth/redirect';
   const authError = searchParams.get('error');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -41,7 +43,8 @@ function LoginForm() {
         throw new Error(result.error);
       }
 
-      window.location.href = callbackUrl;
+      const session = await getSession();
+      window.location.href = getPostLoginRedirect(session?.user?.role, callbackUrl);
     } catch (err) {
       setError(err instanceof Error ? err.message : '登录失败，请稍后重试');
     } finally {
@@ -121,7 +124,7 @@ function LoginForm() {
             type="button"
             variant="outline"
             className="w-full gap-2 py-2.5"
-            onClick={() => signIn('github', { callbackUrl })}
+            onClick={() => signIn('github', { callbackUrl: oauthCallbackUrl })}
           >
             使用 GitHub 登录
           </Button>
