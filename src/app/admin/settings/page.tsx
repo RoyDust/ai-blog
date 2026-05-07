@@ -10,6 +10,7 @@ const fallbackUser = {
   email: "admin@example.com",
   image: null,
   role: "ADMIN",
+  githubLinked: false,
 };
 
 export default async function AdminSettingsPage() {
@@ -23,9 +24,24 @@ export default async function AdminSettingsPage() {
           email: true,
           image: true,
           role: true,
+          accounts: {
+            where: { provider: "github" },
+            select: { providerAccountId: true },
+          },
         },
       })
     : null;
+
+  const settingsUser = user
+    ? {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        image: user.image,
+        role: user.role,
+        githubLinked: user.accounts.length > 0,
+      }
+    : fallbackUser;
 
   return (
     <AdminSettingsClient
@@ -35,7 +51,7 @@ export default async function AdminSettingsPage() {
         siteUrl: getSiteUrl(),
         locale: "zh-CN",
       }}
-      user={user ?? fallbackUser}
+      user={settingsUser}
     />
   );
 }

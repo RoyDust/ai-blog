@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { signIn } from 'next-auth/react';
 import { Button, Input, Card, CardContent } from '@/components/ui';
 
 export default function RegisterPage() {
@@ -130,6 +131,24 @@ export default function RegisterPage() {
             {isLoading ? 'Creating account...' : 'Create Account'}
           </Button>
         </form>
+
+        <div className="relative my-6">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-[var(--border)]" />
+          </div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-[var(--surface)] px-3 text-[var(--muted)]">or</span>
+          </div>
+        </div>
+
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full"
+          onClick={() => signIn('github', { callbackUrl: '/' })}
+        >
+          Continue with GitHub
+        </Button>
 
         <div className="mt-6 text-center">
           <p className="text-75 text-sm">

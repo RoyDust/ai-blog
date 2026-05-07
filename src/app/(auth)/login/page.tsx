@@ -16,7 +16,13 @@ function LoginForm() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const helperMessage = authError === 'not-admin' ? '当前不是管理员账号，请切换到拥有后台权限的账号。' : '';
+  const errorMessages: Record<string, string> = {
+    'not-admin': '当前不是管理员账号，请切换到拥有后台权限的账号。',
+    OAuthAccountNotLinked: '该邮箱已注册，请先使用邮箱密码登录，然后在设置页绑定 GitHub。',
+    GitHubEmailRequired: 'GitHub 未返回可用邮箱，请在 GitHub 账号中添加并验证邮箱后重试。',
+    Configuration: 'GitHub 登录暂未正确配置，请联系管理员。',
+  };
+  const helperMessage = authError ? errorMessages[authError] ?? '登录失败，请稍后重试。' : '';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -101,6 +107,24 @@ function LoginForm() {
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </Button>
           </form>
+
+          <div className="relative my-5">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-[var(--border)]" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-[var(--surface)] px-3 text-[var(--muted)]">或</span>
+            </div>
+          </div>
+
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full gap-2 py-2.5"
+            onClick={() => signIn('github', { callbackUrl })}
+          >
+            使用 GitHub 登录
+          </Button>
 
           <div className="mt-5 flex items-start gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-alt)] px-4 py-3 text-sm text-[var(--muted)]">
             <KeyRound className="mt-0.5 h-4 w-4 shrink-0 text-[var(--brand)]" aria-hidden="true" />

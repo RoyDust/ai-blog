@@ -6,6 +6,7 @@ import { Globe2, Image as ImageIcon, ShieldCheck, UserRound } from "lucide-react
 import { PageHeader } from "@/components/admin/primitives/PageHeader";
 import { WorkspacePanel } from "@/components/admin/primitives/WorkspacePanel";
 import { Button, ImageCropUploadDialog, Input, Textarea } from "@/components/admin/ui";
+import { GitHubBinding } from "@/components/admin/settings/GitHubBinding";
 
 type SettingsUser = {
   id: string;
@@ -13,6 +14,7 @@ type SettingsUser = {
   email: string;
   image: string | null;
   role: string;
+  githubLinked: boolean;
 };
 
 type BlogSettingsDraft = {
@@ -131,6 +133,8 @@ export function AdminSettingsClient({ user, blogSettings }: AdminSettingsClientP
               placeholder="https://example.com/avatar.png"
               value={profile.image}
             />
+
+            <GitHubBinding initialLinked={user.githubLinked} />
 
             <div className="flex items-center justify-between gap-3">
               <p className="text-sm text-[var(--muted)]">角色：{user.role === "ADMIN" ? "管理员" : user.role}</p>

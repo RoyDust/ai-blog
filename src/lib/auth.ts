@@ -26,6 +26,11 @@ export const authOptions: NextAuthOptions = {
     GitHubProvider({
       clientId: process.env.AUTH_GITHUB_ID || "",
       clientSecret: process.env.AUTH_GITHUB_SECRET || "",
+      authorization: {
+        params: {
+          scope: "read:user user:email",
+        },
+      },
     }),
     CredentialsProvider({
       name: "credentials",
@@ -85,12 +90,28 @@ export const authOptions: NextAuthOptions = {
   },
   callbacks: {
     /**
+     * OAuth 登录前置校验。
+     *
+     * GitHub 登录需要可用邮箱，因为当前 User.email 是必填且唯一字段。
+     * 不启用基于邮箱的危险自动合并；已存在本地账号时，用户应先登录后显式绑定 GitHub。
+     */
+    async signIn({ user, account }) {
+      if (account?.provider === "github" && !user.email) {
+        return "/login?error=GitHubEmailRequired"
+      }
+
+      return true
+    },
+    /**
      * 把数据库里的用户标识与角色写进 token，便于后续无状态鉴权。
      */
-    async jwt({ token, user }) {
+    async jwt({ token, user, account }) {
       if (user) {
         token.id = user.id
         token.role = (user as { role?: string }).role ?? "USER"
+      }
+      if (account?.provider) {
+        token.provider = account.provider
       }
       return token
     },
@@ -101,6 +122,7 @@ export const authOptions: NextAuthOptions = {
       if (session.user) {
         session.user.id = token.id as string
         session.user.role = token.role as string
+        session.user.provider = token.provider as string | undefined
       }
       return session
     }
