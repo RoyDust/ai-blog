@@ -1,3 +1,12 @@
+/**
+ * 封面素材仓库与文章封面解析逻辑。
+ *
+ * 职责：
+ * - 管理封面素材的创建、更新、软删除与随机挑选
+ * - 统一校验七牛封面地址与 key 规则
+ * - 在文章写入时解析“手填 URL / 指定素材 / 随机素材”三种封面来源
+ * - 维护封面素材的使用次数与前台缓存刷新
+ */
 import type { Prisma } from "@prisma/client"
 
 import { revalidatePublicContent } from "@/lib/cache"
@@ -121,6 +130,10 @@ function buildListWhere(input: {
   }
 }
 
+/**
+ * 分页查询封面素材库。
+ * 支持关键字、来源、状态过滤，供后台素材管理页复用。
+ */
 export async function listCoverAssets(input: {
   q?: string
   source?: string
@@ -149,6 +162,10 @@ export async function listCoverAssets(input: {
   }
 }
 
+/**
+ * 创建封面素材。
+ * 若 URL 已存在，则优先复用现有记录；若记录已软删除，则恢复并覆盖为最新元数据。
+ */
 export async function createCoverAsset(input: CoverAssetInput) {
   assertQiniuCoverAsset(input)
 
@@ -216,6 +233,9 @@ export async function createCoverAsset(input: CoverAssetInput) {
   }
 }
 
+/**
+ * 更新封面素材的展示元数据。
+ */
 export async function updateCoverAsset(id: string, input: CoverAssetPatchInput) {
   const existing = await prisma.coverAsset.findFirst({
     where: { id, deletedAt: null },
@@ -238,6 +258,10 @@ export async function updateCoverAsset(id: string, input: CoverAssetPatchInput) 
   })
 }
 
+/**
+ * 软删除封面素材。
+ * 通过 archived + deletedAt 标记，而不是直接物理删除。
+ */
 export async function softDeleteCoverAsset(id: string) {
   const existing = await prisma.coverAsset.findFirst({
     where: { id, deletedAt: null },
@@ -257,6 +281,10 @@ export async function softDeleteCoverAsset(id: string) {
   })
 }
 
+/**
+ * 从活跃封面素材中随机选择一张。
+ * 主要用于文章发布时的自动补封面策略。
+ */
 export async function selectRandomCoverAsset(input: { random?: RandomSource } = {}) {
   const where = {
     status: ACTIVE_COVER_STATUS,
@@ -278,6 +306,9 @@ export async function selectRandomCoverAsset(input: { random?: RandomSource } = 
   })
 }
 
+/**
+ * 读取一条仍可用于文章的活跃封面素材。
+ */
 export async function getActiveCoverAsset(id: string) {
   const asset = await prisma.coverAsset.findFirst({
     where: {
@@ -294,6 +325,10 @@ export async function getActiveCoverAsset(id: string) {
   return asset
 }
 
+/**
+ * 解析文章封面输入。
+ * 优先级：指定素材 > 手填 URL > 随机活跃素材 > 保持空值。
+ */
 export async function resolvePostCoverInput(input: {
   coverImage?: string | null
   coverAssetId?: string | null
@@ -335,6 +370,10 @@ export async function resolvePostCoverInput(input: {
   }
 }
 
+/**
+ * 更新封面素材使用统计。
+ * 当文章实际采用某条素材时调用，用于后台素材热度管理。
+ */
 export async function touchCoverAssetUsage(coverAssetId: string | null | undefined) {
   if (!coverAssetId) {
     return
@@ -361,6 +400,10 @@ function revalidatePost(post: PostForRevalidation) {
   })
 }
 
+/**
+ * 把一条封面素材正式应用到文章。
+ * 会在事务里同时更新文章封面字段与素材使用统计，并在必要时刷新前台缓存。
+ */
 export async function applyCoverAssetToPost(postId: string, coverAsset: CoverAssetRecord) {
   const updated = await prisma.$transaction(async (tx) => {
     const post = await tx.post.update({
@@ -393,6 +436,10 @@ export async function applyCoverAssetToPost(postId: string, coverAsset: CoverAss
   return updated
 }
 
+/**
+ * 为缺少封面的文章从素材库补一张随机封面。
+ * 如果文章已有封面，或当前素材库为空，则返回 null。
+ */
 export async function ensurePostCoverFromLibrary(post: { id: string; coverImage?: string | null }) {
   if (post.coverImage?.trim()) {
     return null
@@ -406,6 +453,10 @@ export async function ensurePostCoverFromLibrary(post: { id: string; coverImage?
   return applyCoverAssetToPost(post.id, asset)
 }
 
+/**
+ * 批量为缺少封面的文章补齐封面。
+ * 主要用于后台批处理操作，支持限定文章集合以及“仅已发布文章”模式。
+ */
 export async function backfillMissingPostCovers(input: {
   postIds?: string[]
   publishedOnly?: boolean

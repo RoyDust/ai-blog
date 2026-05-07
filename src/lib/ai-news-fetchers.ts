@@ -1,3 +1,11 @@
+/**
+ * AI 日报抓取器集合。
+ *
+ * 职责：
+ * - 从 RSS / Atom、Hacker News、GitHub Releases 等来源抓取原始新闻项
+ * - 把不同来源格式统一映射成 AiNewsRawItem
+ * - 在抓取失败时产出结构化 failure，供运行日志展示
+ */
 import type { AiNewsRawItem, AiNewsSourceConfig, AiNewsSourceFailure } from "@/lib/ai-news-types"
 
 type FetchAiNewsRawItemsOptions = {
@@ -92,6 +100,9 @@ function getSourceConfig(source: AiNewsSourceConfig) {
   return source.config && typeof source.config === "object" && !Array.isArray(source.config) ? source.config : {}
 }
 
+/**
+ * 对抓取阶段的 URL 做轻量规范化，便于生成稳定 item id 与 canonicalUrl。
+ */
 export function canonicalizeAiNewsFetcherUrl(value: string) {
   try {
     const url = new URL(value)
@@ -133,6 +144,9 @@ async function readJson<T>(response: Response): Promise<T> {
   return (await response.json()) as T
 }
 
+/**
+ * 解析 RSS / Atom feed，并映射为统一的原始候选项结构。
+ */
 export function parseAiNewsFeed(xml: string, source: AiNewsSourceConfig): AiNewsRawItem[] {
   const rssItems = readBlocks(xml, "item").map((block) => {
     const title = stripTags(readTag(block, "title"))
@@ -399,6 +413,10 @@ async function fetchSourceItems(source: AiNewsSourceConfig, since: Date, fetchIm
   }
 }
 
+/**
+ * 抓取所有来源的原始新闻项。
+ * 返回 items 与 failures，供上层编排器继续做去重、评分和富化。
+ */
 export async function fetchAiNewsRawItems({ sources, since, fetchImpl = fetch }: FetchAiNewsRawItemsOptions): Promise<{
   items: AiNewsRawItem[]
   failures: AiNewsSourceFailure[]

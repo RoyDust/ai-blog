@@ -1,3 +1,11 @@
+/**
+ * AI 日报 Markdown 渲染器。
+ *
+ * 职责：
+ * - 把已筛选候选与事实卡转成最终可发布的 Markdown 正文
+ * - 按开发者 / 研究 / 商业主题组织板块
+ * - 统一来源链接、标题展示与生成模型标注格式
+ */
 import type { AiModelOption } from "@/lib/ai-models"
 import type { AiNewsFactCard, AiNewsScoredCandidate, AiNewsSourceType } from "@/lib/ai-news-types"
 
@@ -281,6 +289,10 @@ function renderOverview(candidateFacts: CandidateFact[], categorized: Record<Cat
   ]
 }
 
+/**
+ * 生成 AI 日报最终 Markdown。
+ * 输入必须是“已完成筛选”的候选集，避免正文中混入低质量或重复项。
+ */
 export function renderDailyAiNewsMarkdown({
   date,
   selectedCandidates,

@@ -1,5 +1,19 @@
 export const revalidate = 300;
 
+/**
+ * 前台文章详情页。
+ *
+ * 职责：
+ * - 加载已发布文章的完整阅读数据
+ * - 生成文章页 SEO metadata、JSON-LD 与目录结构
+ * - 组合正文、互动组件、延伸阅读和评论区
+ *
+ * 阅读建议：
+ * - 先看 getPost / getContinuationData 的数据装配
+ * - 再看 generateMetadata 与 JSON-LD 生成
+ * - 最后看 PostPage 内部的页面结构拼装
+ */
+
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
@@ -13,6 +27,10 @@ import { FallbackImage } from "@/components/ui";
 import { prisma } from "@/lib/prisma";
 import { buildArticleJsonLd, buildArticleMetadata, buildBreadcrumbJsonLd } from "@/lib/seo";
 
+/**
+ * 读取单篇已发布文章详情。
+ * 返回正文、作者、分类、标签、评论与互动统计，供文章页一次性渲染。
+ */
 async function getPost(slug: string) {
   return prisma.post.findFirst({
     where: { slug, deletedAt: null, published: true },
@@ -68,6 +86,9 @@ async function getPost(slug: string) {
 
 type ArticlePost = NonNullable<Awaited<ReturnType<typeof getPost>>>
 
+/**
+ * 查找当前文章的上一篇 / 下一篇，用于文章末尾继续阅读模块。
+ */
 async function getContinuationData(post: ArticlePost) {
   const [previousPost, nextPost] = await Promise.all([
     prisma.post.findFirst({
@@ -88,6 +109,9 @@ async function getContinuationData(post: ArticlePost) {
   }
 }
 
+/**
+ * 预生成一批高频文章路径，提升常见文章首访性能。
+ */
 export async function generateStaticParams() {
   try {
     const posts = await prisma.post.findMany({
@@ -127,6 +151,9 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   })
 }
 
+/**
+ * 把标题文本转为目录锚点可用的基础 id。
+ */
 function slugify(text: string) {
   return text
     .toLowerCase()
@@ -143,6 +170,9 @@ function getUniqueHeadingId(text: string, counters: Map<string, number>) {
   return count === 1 ? baseId : `${baseId}-${count}`
 }
 
+/**
+ * 从 Markdown 正文中提取 1-3 级标题，供侧边目录组件使用。
+ */
 function extractHeadings(content: string) {
   const counters = new Map<string, number>()
   const headings: Array<{ id: string; text: string; level: 1 | 2 | 3 }> = []
@@ -177,6 +207,10 @@ function getCommentLabel(comment: { author?: { name?: string | null } | null; au
   return comment.author?.name || comment.authorLabel || '匿名读者'
 }
 
+/**
+ * 文章详情页入口。
+ * 负责把正文、目录、互动按钮、上一篇/下一篇与评论区组合成完整阅读体验。
+ */
 export default async function PostPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const post = await getPost(slug);

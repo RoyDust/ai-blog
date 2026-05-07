@@ -1,5 +1,9 @@
 import { revalidatePath } from 'next/cache'
 
+/**
+ * 公共页面默认的重验证时间。
+ * 供页面和数据层在 ISR / 缓存策略上保持一致。
+ */
 export const PUBLIC_REVALIDATE_SECONDS = 300
 
 const PUBLIC_LIST_PATHS = ['/', '/posts', '/archives'] as const
@@ -9,14 +13,23 @@ function normalizePathSlug(value: string | null | undefined) {
   return normalized ? normalized : null
 }
 
+/**
+ * 构造文章详情页路径。
+ */
 export function buildPostPath(slug: string) {
   return `/posts/${slug}`
 }
 
+/**
+ * 构造分类详情页路径。
+ */
 export function buildCategoryPath(slug: string) {
   return `/categories/${slug}`
 }
 
+/**
+ * 构造标签详情页路径。
+ */
 export function buildTagPath(slug: string) {
   return `/tags/${slug}`
 }
@@ -25,6 +38,18 @@ function dedupePaths(paths: Array<string | null | undefined>) {
   return [...new Set(paths.filter((path): path is string => Boolean(path)))]
 }
 
+/**
+ * 在公共内容发生变化后，统一刷新受影响的前台页面缓存。
+ *
+ * 典型触发场景：
+ * - 文章发布 / 下线 / 删除
+ * - 文章 slug 变更
+ * - 分类或标签归属变化
+ *
+ * 注意：
+ * - 这里负责“哪些页面需要失效”，不负责具体写库逻辑
+ * - previous* 字段用于处理内容迁移前的旧路径清理
+ */
 export function revalidatePublicContent(options: {
   slug?: string | null
   previousSlug?: string | null

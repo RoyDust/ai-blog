@@ -1,5 +1,15 @@
 import type { Metadata } from 'next'
 
+/**
+ * SEO / 结构化数据辅助工具。
+ *
+ * 职责：
+ * - 统一站点 URL 与 canonical 构造逻辑
+ * - 生成常用页面 metadata
+ * - 生成文章页与面包屑 JSON-LD
+ *
+ * 这样做可以避免各页面各写一套 SEO 逻辑，减少字段漂移。
+ */
 export const SITE_NAME = 'My Blog'
 
 const defaultSiteUrl = 'http://roydust.top'
@@ -8,6 +18,10 @@ function normalizeSiteUrl(value: string | undefined) {
   return value?.trim().replace(/\/$/, '')
 }
 
+/**
+ * 返回站点对外公开的根 URL。
+ * 读取顺序按“前台显式配置优先，认证配置兜底”处理。
+ */
 export function getSiteUrl() {
   return (
     normalizeSiteUrl(process.env.NEXT_PUBLIC_SITE_URL) ||
@@ -17,11 +31,18 @@ export function getSiteUrl() {
   )
 }
 
+/**
+ * 把相对路径转换成完整 canonical URL。
+ */
 export function buildCanonicalUrl(path: string) {
   const normalizedPath = path.startsWith('/') ? path : `/${path}`
   return `${getSiteUrl()}${normalizedPath}`
 }
 
+/**
+ * 生成通用页面 metadata。
+ * 适用于首页、列表页、普通内容页等“website”类型页面。
+ */
 export function buildPageMetadata({
   title,
   description,
@@ -57,6 +78,10 @@ export function buildPageMetadata({
   }
 }
 
+/**
+ * 生成 noindex 页面 metadata。
+ * 常用于搜索页、书签页等不希望被搜索引擎收录的工具型页面。
+ */
 export function buildNoIndexMetadata({
   title,
   description,
@@ -75,6 +100,10 @@ export function buildNoIndexMetadata({
   }
 }
 
+/**
+ * 生成文章页 metadata。
+ * 在通用页面字段之上补充 article 类型和发布时间信息。
+ */
 export function buildArticleMetadata({
   title,
   description,
@@ -103,6 +132,9 @@ export function buildArticleMetadata({
   }
 }
 
+/**
+ * 生成文章页 JSON-LD，提升搜索引擎对文章实体的理解能力。
+ */
 export function buildArticleJsonLd({
   title,
   description,
@@ -150,6 +182,10 @@ export function buildArticleJsonLd({
   }
 }
 
+/**
+ * 生成面包屑 JSON-LD。
+ * 适合分类页、文章页等有层级导航关系的页面。
+ */
 export function buildBreadcrumbJsonLd(items: Array<{ name: string; path: string }>) {
   return {
     '@context': 'https://schema.org',

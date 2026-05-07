@@ -1,3 +1,11 @@
+/**
+ * AI 日报候选富化模块。
+ *
+ * 职责：
+ * - 为候选新闻生成保守的事实卡
+ * - 校验引用链接是否合法、是否超出候选已知来源范围
+ * - 计算事实卡引用覆盖率，供运行质量评估使用
+ */
 import type {
   AiNewsCandidateInput,
   AiNewsFactCard,
@@ -312,6 +320,10 @@ function getAllowedCitationUrls(candidate: AiNewsCandidateInput) {
   return new Map(urls.filter(Boolean).map((url) => [canonicalizeCitationUrl(url), url]))
 }
 
+/**
+ * 校验事实卡引用。
+ * 只允许引用候选项自身携带的来源 URL，防止模型臆造外部链接。
+ */
 export function validateFactCardCitations(
   card: AiNewsEnrichedFactCard,
   candidate: AiNewsCandidateInput,
@@ -361,6 +373,10 @@ export function validateFactCardCitations(
   }, `Removed ${removedCount} citation with unknown ${suffix}.`)
 }
 
+/**
+ * 计算事实卡整体引用覆盖率。
+ * 这个指标用于评估日报内容是否具备足够的来源支撑。
+ */
 export function calculateCitationCoverage(cards: Array<Pick<AiNewsFactCard, "citations">>) {
   if (cards.length === 0) {
     return 0
@@ -369,6 +385,10 @@ export function calculateCitationCoverage(cards: Array<Pick<AiNewsFactCard, "cit
   return cards.filter((card) => card.citations.length > 0).length / cards.length
 }
 
+/**
+ * 为单条候选新闻生成事实卡。
+ * 如果模型输出不可靠，会回退到保守的 fallbackFactCard，确保流水线不中断。
+ */
 export async function generateFactCardForCandidate({
   candidate,
   aiModel,

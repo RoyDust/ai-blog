@@ -1,5 +1,14 @@
 "use client";
 
+/**
+ * Markdown 编辑器组件。
+ *
+ * 职责：
+ * - 提供文本编辑与实时预览双栏体验
+ * - 提供常用 Markdown 片段快捷插入
+ * - 支持图片选择上传与粘贴上传，并自动写回 Markdown 图片语法
+ */
+
 import { useId, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
@@ -29,6 +38,10 @@ const snippets: Array<{ label: string; icon: typeof Heading2; snippet: Snippet }
   { label: "列表", icon: List, snippet: { before: "- ", after: "" } },
 ];
 
+/**
+ * 在当前内容末尾拼接一个预设 Markdown 片段。
+ * 该编辑器当前走的是轻量插入策略，不做复杂富文本选区变换。
+ */
 function insertSnippet(value: string, snippet: Snippet) {
   const after = snippet.after ?? "";
   return `${value}${snippet.before}${after}`;
@@ -46,6 +59,10 @@ function getImageAltText(filename: string) {
   return normalized || "image";
 }
 
+/**
+ * 把上传后的图片地址插入为 Markdown 图片语法。
+ * 若存在选区，则替换选区；否则按段落形式追加到文末。
+ */
 function insertImageMarkdown(
   value: string,
   imageUrl: string,
@@ -65,6 +82,9 @@ function insertImageMarkdown(
   return `${value}${separator}${markdown}`;
 }
 
+/**
+ * 从粘贴事件中提取第一张图片文件，用于支持截图直接粘贴上传。
+ */
 function getClipboardImageFile(event: React.ClipboardEvent<HTMLTextAreaElement>) {
   const items = Array.from(event.clipboardData?.items ?? []);
 
@@ -78,6 +98,13 @@ function getClipboardImageFile(event: React.ClipboardEvent<HTMLTextAreaElement>)
   return null;
 }
 
+/**
+ * Markdown 编辑器主组件。
+ *
+ * 说明：
+ * - 通过 selectionRef 记住插图时的光标位置
+ * - 上传图片后会把结果回填为 Markdown，而不是维护独立富媒体结构
+ */
 export function MarkdownEditor({
   label = "内容",
   value,
@@ -93,6 +120,9 @@ export function MarkdownEditor({
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
 
+  /**
+   * 同步当前 textarea 选区，供插入图片或其他增强操作复用。
+   */
   const syncSelection = () => {
     const textarea = textareaRef.current;
     if (!textarea) return;
@@ -103,6 +133,10 @@ export function MarkdownEditor({
     };
   };
 
+  /**
+   * 向服务端申请上传凭证并完成图片直传。
+   * 返回最终可写入 Markdown 的图片 URL 与默认 alt 文本。
+   */
   const uploadImageFile = async (file: File) => {
     const tokenResponse = await fetch("/api/admin/uploads/qiniu-token", {
       method: "POST",
@@ -136,6 +170,9 @@ export function MarkdownEditor({
     };
   };
 
+  /**
+   * 处理用户通过文件选择器上传图片的流程。
+   */
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -158,6 +195,10 @@ export function MarkdownEditor({
     }
   };
 
+  /**
+   * 处理截图粘贴上传场景。
+   * 如果剪贴板里没有图片，则保持浏览器默认粘贴行为。
+   */
   const handlePaste = async (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
     const file = getClipboardImageFile(event);
     if (!file) return;

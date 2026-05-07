@@ -1,3 +1,11 @@
+/**
+ * AI 日报候选项持久化仓库。
+ *
+ * 职责：
+ * - 把抓取后的候选新闻写入 aiNewsCandidate 表
+ * - 回写评分、去重、富化、入选结果等中间状态
+ * - 为后台候选列表与运行详情页提供查询能力
+ */
 import type { AiNewsCandidateInput, AiNewsJsonObject, AiNewsSourceType } from "@/lib/ai-news-types"
 
 type JsonPrimitive = string | number | boolean | null
@@ -170,6 +178,10 @@ function toError(value: unknown): Error {
   return value instanceof Error ? value : new Error(String(value))
 }
 
+/**
+ * 批量持久化候选新闻。
+ * 若某条写入失败，会在错误消息中附带候选序号与标题，便于排查来源问题。
+ */
 export async function persistAiNewsCandidates({
   prisma,
   runId,
@@ -199,6 +211,10 @@ export async function persistAiNewsCandidates({
   )
 }
 
+/**
+ * 批量回写候选项 AI 评分结果。
+ * 失败项会收集到 failures 中，而不是中断整批流程。
+ */
 export async function updateAiNewsCandidateScores({
   prisma,
   scores,
@@ -232,6 +248,10 @@ export async function updateAiNewsCandidateScores({
   return { updated, failures }
 }
 
+/**
+ * 标记本次运行中最终入选的候选项。
+ * 当传入 runId 时，会先清空该轮的旧选中状态，再写入新的选择结果。
+ */
 export async function markSelectedAiNewsCandidates({
   prisma,
   runId,
@@ -267,6 +287,9 @@ export async function markSelectedAiNewsCandidates({
   return { clearedCount: clearResult.count, selected: selectedRecords }
 }
 
+/**
+ * 批量标记候选项的重复关系。
+ */
 export async function markAiNewsCandidateDuplicates({
   prisma,
   duplicates,
@@ -293,6 +316,9 @@ export async function markAiNewsCandidateDuplicates({
   return { updated, failures }
 }
 
+/**
+ * 批量回写候选项的富化结果（如事实卡、合并来源等）。
+ */
 export async function updateAiNewsCandidateEnrichments({
   prisma,
   enrichments,
@@ -319,6 +345,9 @@ export async function updateAiNewsCandidateEnrichments({
   return { updated, failures }
 }
 
+/**
+ * 查询某次运行的候选项列表，供后台候选详情面板使用。
+ */
 export async function listAiNewsRunCandidates({
   prisma,
   runId,

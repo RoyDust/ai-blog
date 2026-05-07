@@ -1,5 +1,14 @@
 "use client";
 
+/**
+ * 文章编辑工作区。
+ *
+ * 职责：
+ * - 提供标题、slug、正文、摘要、封面图等基础编辑能力
+ * - 在 full 模式下额外暴露摘要生成与封面上传功能
+ * - 把编辑状态上抛给外层工作台，由外层负责保存与发布
+ */
+
 import { useRef, useState } from "react";
 import { Button, Input } from "@/components/ui";
 import { MarkdownEditor } from "./MarkdownEditor";
@@ -21,6 +30,10 @@ interface EditorWorkspaceProps {
   onCoverImageChange: (value: string) => void;
 }
 
+/**
+ * 可复用的文章编辑面板。
+ * 既可在完整后台编辑器中使用，也可在只关注正文的轻量场景中复用。
+ */
 export function EditorWorkspace({
   mode = "full",
   title,
@@ -43,6 +56,10 @@ export function EditorWorkspace({
   const [uploadError, setUploadError] = useState("");
   const [summaryError, setSummaryError] = useState("");
 
+  /**
+   * 基于当前标题与正文请求服务端生成摘要。
+   * 结果只回填 excerpt，不直接保存数据库。
+   */
   const handleGenerateSummary = async () => {
     // 没有正文时不请求摘要接口，避免生成无意义内容。
     if (!content.trim()) return;
@@ -70,6 +87,10 @@ export function EditorWorkspace({
     }
   };
 
+  /**
+   * 上传封面图到对象存储，并把最终 URL 回填到表单。
+   * 整个流程通过服务端签发上传凭证，避免在客户端暴露存储密钥。
+   */
   const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;

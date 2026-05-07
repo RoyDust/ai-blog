@@ -1,3 +1,15 @@
+/**
+ * 发布前 AI 审稿模块。
+ *
+ * 职责：
+ * - 调用模型对待发布文章做结构化质量检查
+ * - 统一解析模型返回的 JSON 审稿报告
+ * - 提供“是否可自动发布”的机器判定依据
+ *
+ * 说明：
+ * - 这里输出的是审稿意见，不直接修改文章内容
+ * - 后台发布检查与 AI 日报自动上线流程都会复用这里的判断逻辑
+ */
 import { ValidationError } from "@/lib/api-errors"
 
 type DashScopePayload = {
@@ -194,6 +206,10 @@ function normalizeSuggestions(value: unknown) {
     .slice(0, 6)
 }
 
+/**
+ * 判断审稿结果是否满足自动发布条件。
+ * 当前要求：结论 ready、分数 >= 85、且没有 fail 级检查项。
+ */
 export function isAutoPublishableReview(review: PostReviewReport | null | undefined) {
   if (!review) {
     return false
@@ -202,6 +218,19 @@ export function isAutoPublishableReview(review: PostReviewReport | null | undefi
   return review.verdict === "ready" && review.score >= 85 && review.checks.every((check) => check.status !== "fail")
 }
 
+/**
+ * 为文章生成结构化审稿报告。
+ *
+ * 输入要求：
+ * - title / slug / content 必须齐全
+ * - 未配置模型时可按 requireConfigured 控制是抛错还是返回 null
+ *
+ * 输出内容包含：
+ * - verdict / score
+ * - summary
+ * - checks
+ * - suggestions
+ */
 export async function generatePostReview(
   input: PostReviewInput,
   options: { requireConfigured?: boolean } = {},

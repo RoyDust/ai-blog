@@ -1,5 +1,14 @@
 import { pinyin } from "pinyin-pro";
 
+/**
+ * 文章 slug 生成工具。
+ *
+ * 设计目标：
+ * - 中英文标题都能得到稳定、可读、URL 安全的 slug
+ * - 后台创建文章与作者工作台共用同一套规则
+ * - 在极端输入下仍然返回可用兜底值
+ */
+
 // 后台和作者工作台统一复用这条长度约束，避免生成的 slug 过长。
 export const POST_SLUG_MAX_LENGTH = 60;
 
@@ -13,6 +22,15 @@ function normalizeSlugPart(value: string) {
     .replace(/^-|-$/g, "");
 }
 
+/**
+ * 根据文章标题生成 slug。
+ *
+ * 规则：
+ * - 中文先转拼音
+ * - 英文 / 数字尽量保留
+ * - 超长时按 maxLength 截断并清理边界连字符
+ * - 完全无法生成时回退为 `post`
+ */
 export function generatePostSlug(title: string, maxLength = POST_SLUG_MAX_LENGTH) {
   // 先把中文标题转成拼音数组，英文和数字会按连续片段保留下来。
   const transliterated = pinyin(title.trim(), {

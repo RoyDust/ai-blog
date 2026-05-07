@@ -1,5 +1,14 @@
 'use client'
 
+/**
+ * 前台文章列表客户端增强层。
+ *
+ * 职责：
+ * - 在服务端首屏数据之上接管无限滚动加载
+ * - 根据文章类型选择普通卡片或精选卡片展示
+ * - 处理加载中、错误态与“已加载全部”提示
+ */
+
 import { useCallback } from 'react'
 
 import { getListRevealAnimationProps } from './listAnimation'
@@ -33,6 +42,10 @@ interface PostsListingClientProps {
   }
 }
 
+/**
+ * 文章列表客户端容器。
+ * buildUrl 定义了翻页 API 规则，具体的分页状态与观察器逻辑交给 useInfinitePosts。
+ */
 export function PostsListingClient({ initialPosts, initialPagination }: PostsListingClientProps) {
   const buildUrl = useCallback(
     (page: number) => {

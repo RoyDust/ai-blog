@@ -1,3 +1,15 @@
+/**
+ * 单篇文章 AI 动作编排层。
+ *
+ * 职责：
+ * - 为文章或草稿提供摘要、SEO、标题、slug、标签、分类、封面等 AI 能力
+ * - 统一封装模型调用输入上下文
+ * - 生成 AI 任务快照，并把成功结果应用回文章
+ *
+ * 说明：
+ * - 这里负责“动作路由与结果归一化”
+ * - 真正的摘要生成、生图、任务记录等能力分别在其他模块中实现
+ */
 import { generateAiCoverImage } from "@/lib/ai-cover-image";
 import { getAiModelChatRequestExtras, getAiModelForCapability, type AiModelOption } from "@/lib/ai-models";
 import { AI_TASK_ITEM_STATUSES, getAiTaskItem, markAiTaskItemSucceeded, type JsonValue } from "@/lib/ai-tasks";
@@ -8,6 +20,10 @@ import { getSummaryFieldsForExcerpt } from "@/lib/post-summary-status";
 import { prisma } from "@/lib/prisma";
 import { generatePostSlug } from "@/lib/slug";
 
+/**
+ * 后台文章支持的 AI 动作枚举。
+ * 前后端都应尽量复用这里的常量，避免 action 字符串漂移。
+ */
 export const POST_AI_ACTIONS = {
   summary: "summary",
   seoDescription: "seo-description",
@@ -287,6 +303,9 @@ async function runChatText({
   return text;
 }
 
+/**
+ * 读取单篇正式文章，构造 AI 动作所需上下文。
+ */
 export async function getPostForAiAction(postId: string): Promise<PostForAi> {
   const post = await prisma.post.findFirst({
     where: { id: postId, deletedAt: null },
@@ -311,6 +330,10 @@ export async function getPostForAiAction(postId: string): Promise<PostForAi> {
   return post;
 }
 
+/**
+ * 把尚未落库的编辑器草稿拼装成 AI 可消费的文章上下文。
+ * 这样摘要、分类建议、标签建议等动作可以在“未保存草稿”阶段提前运行。
+ */
 export async function buildDraftPostForAiAction(input: DraftPostForAiInput): Promise<PostForAi> {
   const title = readOptionalString(input.title) || "未命名草稿";
   const content = readOptionalString(input.content);
@@ -350,6 +373,9 @@ export async function buildDraftPostForAiAction(input: DraftPostForAiInput): Pro
   };
 }
 
+/**
+ * 把文章 AI 动作映射为统一任务类型，便于任务中心统计与重试。
+ */
 export function getAiTaskTypeForAction(action: PostAiAction) {
   if (action === POST_AI_ACTIONS.summary) return "post-summary";
   if (action === POST_AI_ACTIONS.seoDescription) return "post-seo-description";
@@ -361,6 +387,10 @@ export function getAiTaskTypeForAction(action: PostAiAction) {
   return "post-category-suggestion";
 }
 
+/**
+ * 为 AI 任务记录生成输入快照。
+ * 快照用于审计、重试与详情页展示，不追求完整正文，只保留关键定位字段。
+ */
 export function buildPostAiInputSnapshot(post: PostForAi, action: PostAiAction): JsonValue {
   return {
     postId: post.id,
@@ -376,6 +406,13 @@ export function buildPostAiInputSnapshot(post: PostForAi, action: PostAiAction):
   };
 }
 
+/**
+ * 执行单个文章 AI 动作。
+ *
+ * 输出约定：
+ * - 始终返回 action、实际使用的 modelId 以及归一化后的 output
+ * - 不直接写回文章，写回动作交由 applyPostAiTaskItem 统一处理
+ */
 export async function runPostAiAction({
   post,
   action,
@@ -557,6 +594,12 @@ function readOutputObject(output: unknown) {
   return output as Record<string, unknown>;
 }
 
+/**
+ * 把已成功生成的 AI 任务结果应用到文章。
+ *
+ * 这里会根据 action 类型把 output 解析成数据库更新数据，
+ * 并在文章已发布时刷新前台缓存。
+ */
 export async function applyPostAiTaskItem(itemId: string) {
   const item = await getAiTaskItem(itemId);
 

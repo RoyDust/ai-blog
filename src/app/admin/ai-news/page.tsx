@@ -1,5 +1,14 @@
 "use client"
 
+/**
+ * 后台 AI 日报控制台。
+ *
+ * 职责：
+ * - 手动触发当日 AI 日报生成 / 重生成
+ * - 展示可用模型、运行历史、候选新闻与生成结果
+ * - 作为人工观察“抓取 → 去重 → 生成 → 审稿 → 发布”流水线的主要界面
+ */
+
 import { useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { toast } from "sonner"
@@ -126,6 +135,10 @@ function runCandidateFunnel(run: Pick<RunHistoryItem, "sourceCount" | "rawCandid
   return `原始 ${raw} · 去重 ${deduped} · 入选 ${selected}`
 }
 
+/**
+ * AI 日报后台页面入口。
+ * 负责协调模型列表、运行记录、候选明细和手动触发动作。
+ */
 export default function AdminAiNewsPage() {
   const [date, setDate] = useState(todayInputValue())
   const [models, setModels] = useState<PublicAiModelOption[]>([])
@@ -149,6 +162,9 @@ export default function AdminAiNewsPage() {
     [models],
   )
 
+  /**
+   * 加载 AI 日报运行历史，用于展示近几次生成结果与漏斗指标。
+   */
   const loadRunHistory = useCallback(async () => {
     setRunsLoading(true)
     setRunsError(null)
@@ -168,6 +184,9 @@ export default function AdminAiNewsPage() {
     }
   }, [])
 
+  /**
+   * 加载可用于日报生成的模型列表，并自动选择默认模型。
+   */
   const loadModels = useCallback(async () => {
     setModelsLoading(true)
     setModelsError(null)
@@ -189,6 +208,10 @@ export default function AdminAiNewsPage() {
     }
   }, [])
 
+  /**
+   * 展开或收起某次运行的候选新闻列表。
+   * 首次展开时才请求服务端，避免页面首屏加载过重。
+   */
   const toggleRunCandidates = useCallback(async (runId: string) => {
     const current = candidateStates[runId]
     if (current?.expanded) {
@@ -248,6 +271,10 @@ export default function AdminAiNewsPage() {
     void loadModels()
   }, [loadModels, loadRunHistory])
 
+  /**
+   * 手动执行 AI 日报生成。
+   * regenerate=true 时表示强制重生成当日内容，而不是命中“已存在则跳过”的幂等逻辑。
+   */
   async function runNewsGeneration(regenerate = false) {
     if (!selectedModelId) {
       toast.error("请选择可用模型")

@@ -1,5 +1,14 @@
 "use client";
 
+/**
+ * 后台文章列表页。
+ *
+ * 职责：
+ * - 展示文章列表、摘要状态、发布状态与基础统计
+ * - 提供搜索、状态过滤、发布切换、隐藏删除、批量 AI 补全等操作
+ * - 在摘要任务进行中时，周期性同步任务状态
+ */
+
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -70,6 +79,10 @@ function getSummaryStatus(post: PostRow): PostSummaryStatus {
   return getSummaryStatusForExcerpt(post.excerpt);
 }
 
+/**
+ * 后台文章管理主页面。
+ * 这里负责协调列表数据、批量操作弹窗与行级异步动作状态。
+ */
 export default function AdminPostsPage() {
   const [posts, setPosts] = useState<PostRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -79,6 +92,10 @@ export default function AdminPostsPage() {
   const [bulkAiIds, setBulkAiIds] = useState<string[]>([]);
   const [deleteDialog, setDeleteDialog] = useState<DeleteDialogState>(initialDeleteDialog);
 
+  /**
+   * 拉取后台文章列表。
+   * 是本页所有刷新动作的统一入口。
+   */
   const fetchPosts = useCallback(async () => {
     try {
       const res = await fetch("/api/admin/posts");
@@ -156,6 +173,10 @@ export default function AdminPostsPage() {
     });
   }, [posts, query, statusFilter]);
 
+  /**
+   * 打开删除影响预览弹窗。
+   * 先请求服务端返回影响说明，再允许用户确认隐藏文章。
+   */
   async function openDeleteDialog(ids: string[]) {
     try {
       const params = new URLSearchParams({ preview: "delete", ids: ids.join(",") });
@@ -180,6 +201,10 @@ export default function AdminPostsPage() {
     }
   }
 
+  /**
+   * 确认隐藏文章。
+   * 这里走的是软删除 / 隐藏语义，不直接物理删除数据库记录。
+   */
   async function confirmDelete() {
     try {
       setDeleteDialog((prev) => ({ ...prev, submitting: true }));
@@ -202,6 +227,10 @@ export default function AdminPostsPage() {
     setDeleteDialog((prev) => ({ ...prev, submitting: false }));
   }
 
+  /**
+   * 切换单篇文章的发布状态。
+   * 采用乐观更新：先更新本地 UI，再在失败时回滚。
+   */
   async function togglePublish(row: PostRow) {
     if (busyRowIds.includes(row.id)) {
       return;
