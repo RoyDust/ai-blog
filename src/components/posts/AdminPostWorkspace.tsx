@@ -326,7 +326,7 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
   };
 
   const handleGenerateMetadata = async (field: AiMetadataField) => {
-    if (!formData.content.trim()) return;
+    if (!formData.content.trim() && !(field === "slug" && formData.title.trim())) return;
 
     setMetadataPendingField(field);
     setMetadataError("");
@@ -335,7 +335,7 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
       const response = await fetch("/api/admin/posts/metadata", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: formData.title, content: formData.content }),
+        body: JSON.stringify({ field, title: formData.title, content: formData.content }),
       });
       const data = await response.json();
 
@@ -736,7 +736,7 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
             <AiFieldButton
               label="AI 补全 Slug"
               loading={metadataPendingField === "slug"}
-              disabled={isCompletingMetadata || !formData.content.trim()}
+              disabled={isCompletingMetadata || (!formData.title.trim() && !formData.content.trim())}
               onClick={() => handleGenerateMetadata("slug")}
             />
           }

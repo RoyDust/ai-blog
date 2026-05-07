@@ -157,20 +157,20 @@ describe('admin create post', () => {
         ok: true,
         json: async () => ({
           success: true,
-          data: metadataSuggestion,
+          data: { title: metadataSuggestion.title },
         }),
       })
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ success: true, data: metadataSuggestion }),
+        json: async () => ({ success: true, data: { slug: metadataSuggestion.slug } }),
       })
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ success: true, data: metadataSuggestion }),
+        json: async () => ({ success: true, data: { categorySlug: metadataSuggestion.categorySlug } }),
       })
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ success: true, data: metadataSuggestion }),
+        json: async () => ({ success: true, data: { tagSlugs: metadataSuggestion.tagSlugs } }),
       })
       .mockResolvedValueOnce({
         ok: true,
@@ -212,9 +212,19 @@ describe('admin create post', () => {
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
         '/api/admin/posts/metadata',
-        expect.objectContaining({ method: 'POST' })
+        expect.objectContaining({
+          method: 'POST',
+          body: expect.stringContaining('"field":"title"'),
+        })
       )
     })
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/admin/posts/metadata',
+      expect.objectContaining({
+        method: 'POST',
+        body: expect.stringContaining('"field":"slug"'),
+      })
+    )
 
     expect(screen.getByDisplayValue('Next.js AI 元信息补全实践')).toBeInTheDocument()
     expect(screen.getByLabelText('Slug')).toHaveValue('nextjs-ai-metadata')

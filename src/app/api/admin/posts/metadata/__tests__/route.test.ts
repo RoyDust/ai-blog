@@ -113,4 +113,138 @@ describe("admin post metadata route", () => {
       },
     });
   });
+
+  test("generates only slug when field is slug", async () => {
+    const { getServerSession } = await import("next-auth");
+    const { getCategoryDirectory, getTagDirectory } = await import("@/lib/taxonomy");
+    vi.mocked(getServerSession).mockResolvedValueOnce({ user: { id: "admin-1", role: "ADMIN" } } as never);
+
+    const upstreamFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({ slug: "AI Generated Slug!" }),
+            },
+          },
+        ],
+      }),
+    });
+
+    vi.stubGlobal("fetch", upstreamFetch);
+
+    const { POST } = await import("../route");
+    const response = await POST(
+      new Request("http://localhost/api/admin/posts/metadata", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ field: "slug", title: "草稿标题" }),
+      })
+    );
+
+    const payload = await response.json();
+    const requestBody = JSON.parse(String(upstreamFetch.mock.calls[0]?.[1]?.body));
+
+    expect(response.status).toBe(200);
+    expect(payload).toMatchObject({
+      success: true,
+      data: { slug: "ai-generated-slug" },
+    });
+    expect(requestBody).toMatchObject({ max_tokens: 80 });
+    expect(String(requestBody.messages[1].content)).toContain("JSON 字段：slug");
+    expect(String(requestBody.messages[1].content)).not.toContain("JSON 字段：title, slug, excerpt, categorySlug, tagSlugs");
+    expect(getCategoryDirectory).not.toHaveBeenCalled();
+    expect(getTagDirectory).not.toHaveBeenCalled();
+  });
+
+  test("generates only category when field is category", async () => {
+    const { getServerSession } = await import("next-auth");
+    const { getCategoryDirectory, getTagDirectory } = await import("@/lib/taxonomy");
+    vi.mocked(getServerSession).mockResolvedValueOnce({ user: { id: "admin-1", role: "ADMIN" } } as never);
+
+    const upstreamFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({ categorySlug: "frontend" }),
+            },
+          },
+        ],
+      }),
+    });
+
+    vi.stubGlobal("fetch", upstreamFetch);
+
+    const { POST } = await import("../route");
+    const response = await POST(
+      new Request("http://localhost/api/admin/posts/metadata", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ field: "category", title: "草稿标题", content: "这是一篇关于 React 的文章。" }),
+      })
+    );
+
+    const payload = await response.json();
+    const requestBody = JSON.parse(String(upstreamFetch.mock.calls[0]?.[1]?.body));
+
+    expect(response.status).toBe(200);
+    expect(payload).toMatchObject({
+      success: true,
+      data: { categorySlug: "frontend" },
+    });
+    expect(requestBody).toMatchObject({ max_tokens: 80 });
+    expect(String(requestBody.messages[1].content)).toContain("JSON 字段：categorySlug");
+    expect(String(requestBody.messages[1].content)).toContain("可选分类");
+    expect(String(requestBody.messages[1].content)).not.toContain("可选标签");
+    expect(getCategoryDirectory).toHaveBeenCalledTimes(1);
+    expect(getTagDirectory).not.toHaveBeenCalled();
+  });
+
+  test("generates only tags when field is tags", async () => {
+    const { getServerSession } = await import("next-auth");
+    const { getCategoryDirectory, getTagDirectory } = await import("@/lib/taxonomy");
+    vi.mocked(getServerSession).mockResolvedValueOnce({ user: { id: "admin-1", role: "ADMIN" } } as never);
+
+    const upstreamFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({ tagSlugs: ["react", "nextjs", "unknown"] }),
+            },
+          },
+        ],
+      }),
+    });
+
+    vi.stubGlobal("fetch", upstreamFetch);
+
+    const { POST } = await import("../route");
+    const response = await POST(
+      new Request("http://localhost/api/admin/posts/metadata", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ field: "tags", title: "草稿标题", content: "这是一篇关于 React 和 Next.js 的文章。" }),
+      })
+    );
+
+    const payload = await response.json();
+    const requestBody = JSON.parse(String(upstreamFetch.mock.calls[0]?.[1]?.body));
+
+    expect(response.status).toBe(200);
+    expect(payload).toMatchObject({
+      success: true,
+      data: { tagSlugs: ["react", "nextjs"] },
+    });
+    expect(requestBody).toMatchObject({ max_tokens: 160 });
+    expect(String(requestBody.messages[1].content)).toContain("JSON 字段：tagSlugs");
+    expect(String(requestBody.messages[1].content)).toContain("可选标签");
+    expect(String(requestBody.messages[1].content)).not.toContain("可选分类");
+    expect(getCategoryDirectory).not.toHaveBeenCalled();
+    expect(getTagDirectory).toHaveBeenCalledTimes(1);
+  });
 });

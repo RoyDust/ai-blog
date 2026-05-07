@@ -158,19 +158,19 @@ describe('editor publish flow', () => {
       })
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ success: true, data: metadataSuggestion }),
+        json: async () => ({ success: true, data: { title: metadataSuggestion.title } }),
       })
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ success: true, data: metadataSuggestion }),
+        json: async () => ({ success: true, data: { slug: metadataSuggestion.slug } }),
       })
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ success: true, data: metadataSuggestion }),
+        json: async () => ({ success: true, data: { categorySlug: metadataSuggestion.categorySlug } }),
       })
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ success: true, data: metadataSuggestion }),
+        json: async () => ({ success: true, data: { tagSlugs: metadataSuggestion.tagSlugs } }),
       })
       .mockResolvedValueOnce({
         ok: true,
@@ -205,7 +205,13 @@ describe('editor publish flow', () => {
     expect(await screen.findByDisplayValue('AI 生成的摘要。')).toBeInTheDocument()
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith('/api/admin/posts/metadata', expect.objectContaining({ method: 'POST' }))
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/admin/posts/metadata',
+        expect.objectContaining({
+          method: 'POST',
+          body: expect.stringContaining('"field":"slug"'),
+        })
+      )
     })
 
     expect(screen.getByDisplayValue('AI 编辑后的标题')).toBeInTheDocument()
