@@ -5,12 +5,14 @@ export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> 
   label?: string;
   error?: string;
   helperText?: string;
+  rightSlot?: React.ReactNode;
 }
 
 export function Input({
   label,
   error,
   helperText,
+  rightSlot,
   className = '',
   id,
   ...props
@@ -28,18 +30,22 @@ export function Input({
           {label}
         </label>
       )}
-      <input
-        id={inputId}
-        className={cn(
-          "ui-ring w-full rounded-xl border bg-[var(--surface)] px-4 py-2 text-[var(--foreground)] transition-colors placeholder:text-[var(--muted)] focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-60",
-          error
-            ? "border-rose-500 focus-visible:ring-rose-400"
-            : "border-[var(--border)] focus-visible:ring-[var(--ring)]",
-          className
-        )}
-        aria-invalid={Boolean(error)}
-        {...props}
-      />
+      <div className={rightSlot ? "relative" : undefined}>
+        <input
+          id={inputId}
+          className={cn(
+            "ui-ring w-full rounded-xl border bg-[var(--surface)] px-4 py-2 text-[var(--foreground)] transition-colors placeholder:text-[var(--muted)] focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-60",
+            rightSlot ? "pr-12" : "",
+            error
+              ? "border-rose-500 focus-visible:ring-rose-400"
+              : "border-[var(--border)] focus-visible:ring-[var(--ring)]",
+            className
+          )}
+          aria-invalid={Boolean(error)}
+          {...props}
+        />
+        {rightSlot ? <div className="absolute right-2 top-1/2 -translate-y-1/2">{rightSlot}</div> : null}
+      </div>
       {error && (
         <p className="mt-1 text-sm text-rose-500">{error}</p>
       )}

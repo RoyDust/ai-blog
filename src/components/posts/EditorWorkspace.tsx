@@ -28,6 +28,8 @@ interface EditorWorkspaceProps {
   onContentChange: (value: string) => void;
   onExcerptChange: (value: string) => void;
   onCoverImageChange: (value: string) => void;
+  titleRightSlot?: React.ReactNode;
+  slugRightSlot?: React.ReactNode;
 }
 
 /**
@@ -46,6 +48,8 @@ export function EditorWorkspace({
   onContentChange,
   onExcerptChange,
   onCoverImageChange,
+  titleRightSlot,
+  slugRightSlot,
   className = "",
   fillHeight = false,
   contentMinRows,
@@ -143,8 +147,22 @@ export function EditorWorkspace({
     <section className={`ui-surface rounded-2xl p-5 lg:p-6 ${fillHeight ? "flex min-h-0 flex-col overflow-hidden" : ""} ${className}`}>
       <h2 className="mb-4 font-display text-lg font-semibold text-[var(--foreground)]">写作画布</h2>
       <div className={fillHeight ? "flex min-h-0 flex-1 flex-col gap-4" : "space-y-4"}>
-        <Input label="标题" placeholder="文章标题" required value={title} onChange={(event) => onTitleChange(event.target.value)} />
-        <Input label="Slug" placeholder="url-slug" required value={slug} onChange={(event) => onSlugChange(event.target.value)} />
+        <Input
+          label="标题"
+          placeholder="文章标题"
+          required
+          rightSlot={titleRightSlot}
+          value={title}
+          onChange={(event) => onTitleChange(event.target.value)}
+        />
+        <Input
+          label="Slug"
+          placeholder="url-slug"
+          required
+          rightSlot={slugRightSlot}
+          value={slug}
+          onChange={(event) => onSlugChange(event.target.value)}
+        />
         <MarkdownEditor
           fillHeight={fillHeight}
           label="内容"

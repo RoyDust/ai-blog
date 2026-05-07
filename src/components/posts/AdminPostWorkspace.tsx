@@ -17,6 +17,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { LoaderCircle, Sparkles } from "lucide-react";
 
 import { PostAiWorkspace } from "@/components/admin/ai/PostAiWorkspace";
 import { AiCoverGenerator } from "@/components/admin/covers/AiCoverGenerator";
@@ -56,6 +57,8 @@ type AiMetadataSuggestion = {
   tagSlugs?: string[];
 };
 
+type AiMetadataField = "title" | "slug" | "category" | "tags";
+
 type PostFormData = {
   title: string;
   slug: string;
@@ -90,6 +93,33 @@ const emptyFormData: PostFormData = {
   published: false,
   featured: false,
 };
+
+function AiFieldButton({
+  disabled,
+  label,
+  loading,
+  onClick,
+}: {
+  disabled?: boolean;
+  label: string;
+  loading?: boolean;
+  onClick: () => void;
+}) {
+  const Icon = loading ? LoaderCircle : Sparkles;
+
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      className="ui-ring inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[color-mix(in_oklab,var(--brand)_28%,var(--border)_72%)] bg-[color-mix(in_oklab,var(--brand)_8%,var(--surface)_92%)] text-[var(--brand)] transition-colors hover:border-[var(--brand)] hover:bg-[color-mix(in_oklab,var(--brand)_14%,var(--surface)_86%)] disabled:cursor-not-allowed disabled:opacity-45"
+      disabled={disabled || loading}
+      onClick={onClick}
+    >
+      <Icon className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+    </button>
+  );
+}
 
 /**
  * 把 localStorage 中恢复出的草稿规范化为完整表单结构。
@@ -162,8 +192,9 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
   const [coverUploadError, setCoverUploadError] = useState("");
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [summaryError, setSummaryError] = useState("");
-  const [isCompletingMetadata, setIsCompletingMetadata] = useState(false);
+  const [metadataPendingField, setMetadataPendingField] = useState<AiMetadataField | null>(null);
   const [metadataError, setMetadataError] = useState("");
+  const isCompletingMetadata = metadataPendingField !== null;
 
   const canSubmit = useMemo(
     () => formData.title.trim().length > 0 && formData.slug.trim().length > 0 && formData.content.trim().length > 0,
@@ -294,10 +325,10 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
     }
   };
 
-  const handleGenerateMetadata = async () => {
+  const handleGenerateMetadata = async (field: AiMetadataField) => {
     if (!formData.content.trim()) return;
 
-    setIsCompletingMetadata(true);
+    setMetadataPendingField(field);
     setMetadataError("");
 
     try {
@@ -323,22 +354,40 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
             .filter((id): id is string => Boolean(id))
         : undefined;
 
-      setFormData((prev) => ({
-        ...prev,
-        title: suggestion.title?.trim() || prev.title,
-        slug: suggestion.slug?.trim() || prev.slug,
-        excerpt: suggestion.excerpt?.trim() || prev.excerpt,
-        categoryId: nextCategoryId ?? prev.categoryId,
-        tagIds: nextTagIds && nextTagIds.length > 0 ? nextTagIds : prev.tagIds,
-      }));
+      setFormData((prev) => {
+        const next = { ...prev };
+        const suggestedTitle = suggestion.title?.trim();
+        const suggestedSlug = suggestion.slug?.trim();
 
-      if (suggestion.slug?.trim()) {
+        if (field === "title" && suggestedTitle) {
+          next.title = suggestedTitle;
+          if (!isSlugManuallyEdited) {
+            next.slug = suggestedSlug || generatePostSlug(suggestedTitle);
+          }
+        }
+
+        if (field === "slug" && suggestedSlug) {
+          next.slug = suggestedSlug;
+        }
+
+        if (field === "category" && nextCategoryId) {
+          next.categoryId = nextCategoryId;
+        }
+
+        if (field === "tags" && nextTagIds && nextTagIds.length > 0) {
+          next.tagIds = nextTagIds;
+        }
+
+        return next;
+      });
+
+      if (field === "slug" && suggestion.slug?.trim()) {
         setIsSlugManuallyEdited(true);
       }
     } catch (error) {
       setMetadataError(error instanceof Error ? error.message : "元信息补全失败");
     } finally {
-      setIsCompletingMetadata(false);
+      setMetadataPendingField(null);
     }
   };
 
@@ -446,29 +495,20 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
 
   const metadataEditor = (
     <div className="space-y-4">
-        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-alt)] p-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="text-sm font-medium text-[var(--foreground)]">AI 元信息补全</p>
-              <p className="mt-1 text-sm text-[var(--muted)]">根据正文补齐标题、Slug、摘要、分类和标签。</p>
-            </div>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={isCompletingMetadata || !formData.content.trim()}
-              onClick={handleGenerateMetadata}
-            >
-              {isCompletingMetadata ? "补全中..." : "AI 补全元信息"}
-            </Button>
-          </div>
-          {metadataError ? <p className="mt-2 text-sm text-rose-500">{metadataError}</p> : null}
-        </div>
+        {metadataError ? <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{metadataError}</p> : null}
 
         <div className="space-y-2">
-          <label className="block text-sm font-medium text-[var(--foreground)]" htmlFor={`${mode}-post-category`}>
-            分类
-          </label>
+          <div className="flex items-center justify-between gap-3">
+            <label className="block text-sm font-medium text-[var(--foreground)]" htmlFor={`${mode}-post-category`}>
+              分类
+            </label>
+            <AiFieldButton
+              label="AI 选择分类"
+              loading={metadataPendingField === "category"}
+              disabled={isCompletingMetadata || !formData.content.trim()}
+              onClick={() => handleGenerateMetadata("category")}
+            />
+          </div>
           <select
             id={`${mode}-post-category`}
             className="ui-ring w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm text-[var(--foreground)] focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
@@ -484,9 +524,17 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
           </select>
         </div>
 
-        <fieldset className="space-y-2">
-          <legend className="text-sm font-medium text-[var(--foreground)]">标签</legend>
-          <div className="max-h-56 space-y-2 overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3">
+        <div className="space-y-2" role="group" aria-labelledby={`${mode}-post-tags-label`}>
+          <div className="flex items-center justify-between gap-3">
+            <p id={`${mode}-post-tags-label`} className="text-sm font-medium text-[var(--foreground)]">标签</p>
+            <AiFieldButton
+              label="AI 选择标签"
+              loading={metadataPendingField === "tags"}
+              disabled={isCompletingMetadata || !formData.content.trim()}
+              onClick={() => handleGenerateMetadata("tags")}
+            />
+          </div>
+          <div className="grid gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 sm:grid-cols-2 xl:grid-cols-1">
             {tags.length === 0 ? <p className="text-sm text-[var(--muted)]">暂无可选标签</p> : null}
             {tags.map((tag) => {
               const inputId = `${mode}-post-tag-${tag.id}`;
@@ -511,7 +559,7 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
               );
             })}
           </div>
-        </fieldset>
+        </div>
 
         <Input
           label="封面图 URL"
@@ -548,20 +596,17 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
           {coverUploadError ? <p className="mt-2 text-sm text-rose-500">{coverUploadError}</p> : null}
         </div>
         <div className="space-y-2">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm font-medium text-[var(--foreground)]">摘要</p>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={isSummarizing || !formData.content.trim()}
-              onClick={handleGenerateSummary}
-            >
-              {isSummarizing ? "生成中..." : "AI 生成摘要"}
-            </Button>
-          </div>
           <Input
+            label="摘要"
             placeholder="文章摘要（可选）"
+            rightSlot={
+              <AiFieldButton
+                label="AI 生成摘要"
+                loading={isSummarizing}
+                disabled={!formData.content.trim()}
+                onClick={handleGenerateSummary}
+              />
+            }
             value={formData.excerpt}
             onChange={(event) => setFormData((prev) => ({ ...prev, excerpt: event.target.value }))}
           />
@@ -631,7 +676,7 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
         : "本地草稿待保存";
 
   return (
-    <form className="flex min-h-0 flex-col gap-4 lg:h-[calc(100dvh-8rem)] lg:overflow-hidden" onSubmit={handleSubmit}>
+    <form className="flex min-h-0 flex-col gap-4 lg:h-[calc(100dvh-8.75rem)] lg:overflow-hidden" onSubmit={handleSubmit}>
       <header className="ui-surface rounded-2xl px-4 py-3">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
           <div className="min-w-0">
@@ -682,12 +727,28 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
           className="h-full"
           fillHeight
           mode="content"
-          contentMinRows={18}
+          contentMinRows={12}
           content={formData.content}
           coverImage={formData.coverImage}
           excerpt={formData.excerpt}
           slug={formData.slug}
+          slugRightSlot={
+            <AiFieldButton
+              label="AI 补全 Slug"
+              loading={metadataPendingField === "slug"}
+              disabled={isCompletingMetadata || !formData.content.trim()}
+              onClick={() => handleGenerateMetadata("slug")}
+            />
+          }
           title={formData.title}
+          titleRightSlot={
+            <AiFieldButton
+              label="AI 补全标题"
+              loading={metadataPendingField === "title"}
+              disabled={isCompletingMetadata || !formData.content.trim()}
+              onClick={() => handleGenerateMetadata("title")}
+            />
+          }
           onContentChange={(value) => setFormData((prev) => ({ ...prev, content: value }))}
           onCoverImageChange={(value) => setFormData((prev) => ({ ...prev, coverImage: value, coverAssetId: "" }))}
           onExcerptChange={(value) => setFormData((prev) => ({ ...prev, excerpt: value }))}

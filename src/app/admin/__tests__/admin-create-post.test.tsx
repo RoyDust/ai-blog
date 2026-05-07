@@ -136,7 +136,14 @@ describe('admin create post', () => {
   })
 
 
-  test('fills title slug excerpt category and tags from AI metadata', async () => {
+  test('fills title slug excerpt category and tags from field-level AI actions', async () => {
+    const metadataSuggestion = {
+      title: 'Next.js AI 元信息补全实践',
+      slug: 'nextjs-ai-metadata',
+      excerpt: '用 AI 一次性补齐博客文章标题、摘要、分类和标签。',
+      categorySlug: 'frontend',
+      tagSlugs: ['react', 'nextjs'],
+    }
     const fetchMock = vi.fn()
       .mockResolvedValueOnce({
         ok: true,
@@ -150,14 +157,24 @@ describe('admin create post', () => {
         ok: true,
         json: async () => ({
           success: true,
-          data: {
-            title: 'Next.js AI 元信息补全实践',
-            slug: 'nextjs-ai-metadata',
-            excerpt: '用 AI 一次性补齐博客文章标题、摘要、分类和标签。',
-            categorySlug: 'frontend',
-            tagSlugs: ['react', 'nextjs'],
-          },
+          data: metadataSuggestion,
         }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true, data: metadataSuggestion }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true, data: metadataSuggestion }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true, data: metadataSuggestion }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true, data: { summary: metadataSuggestion.excerpt } }),
       })
 
     vi.stubGlobal('fetch', fetchMock)
@@ -170,7 +187,27 @@ describe('admin create post', () => {
 
     await openMetadataDialog()
     await screen.findByRole('option', { name: '前端' })
-    fireEvent.click(screen.getByRole('button', { name: 'AI 补全元信息' }))
+
+    fireEvent.click(screen.getByRole('button', { name: 'AI 补全标题' }))
+    expect(await screen.findByDisplayValue('Next.js AI 元信息补全实践')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'AI 补全 Slug' }))
+    await waitFor(() => {
+      expect(screen.getByLabelText('Slug')).toHaveValue('nextjs-ai-metadata')
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'AI 选择分类' }))
+    await waitFor(() => {
+      expect(screen.getByLabelText('分类')).toHaveValue('cat-1')
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'AI 选择标签' }))
+    await waitFor(() => {
+      expect(screen.getByRole('checkbox', { name: 'React' })).toBeChecked()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'AI 生成摘要' }))
+    expect(await screen.findByDisplayValue('用 AI 一次性补齐博客文章标题、摘要、分类和标签。')).toBeInTheDocument()
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
@@ -179,7 +216,7 @@ describe('admin create post', () => {
       )
     })
 
-    expect(await screen.findByDisplayValue('Next.js AI 元信息补全实践')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('Next.js AI 元信息补全实践')).toBeInTheDocument()
     expect(screen.getByLabelText('Slug')).toHaveValue('nextjs-ai-metadata')
     expect(screen.getByDisplayValue('用 AI 一次性补齐博客文章标题、摘要、分类和标签。')).toBeInTheDocument()
     expect(screen.getByLabelText('分类')).toHaveValue('cat-1')

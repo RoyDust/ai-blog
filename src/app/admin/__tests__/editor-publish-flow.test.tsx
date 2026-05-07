@@ -127,7 +127,14 @@ describe('editor publish flow', () => {
     expect(payload).not.toHaveProperty('commentsEnabled')
   })
 
-  test('fills edit metadata from AI suggestions', async () => {
+  test('fills edit metadata from field-level AI actions', async () => {
+    const metadataSuggestion = {
+      title: 'AI 编辑后的标题',
+      slug: 'ai-edited-title',
+      excerpt: 'AI 生成的摘要。',
+      categorySlug: 'frontend',
+      tagSlugs: ['react'],
+    }
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({ ok: true, json: async () => ({ data: [{ id: 'cat-1', name: '前端', slug: 'frontend' }] }) })
@@ -151,16 +158,23 @@ describe('editor publish flow', () => {
       })
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({
-          success: true,
-          data: {
-            title: 'AI 编辑后的标题',
-            slug: 'ai-edited-title',
-            excerpt: 'AI 生成的摘要。',
-            categorySlug: 'frontend',
-            tagSlugs: ['react'],
-          },
-        }),
+        json: async () => ({ success: true, data: metadataSuggestion }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true, data: metadataSuggestion }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true, data: metadataSuggestion }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true, data: metadataSuggestion }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true, data: { summary: metadataSuggestion.excerpt } }),
       })
 
     vi.stubGlobal('fetch', fetchMock)
@@ -169,13 +183,32 @@ describe('editor publish flow', () => {
 
     expect(await screen.findByDisplayValue('旧标题')).toBeInTheDocument()
     await screen.findByRole('option', { name: '前端' })
-    fireEvent.click(screen.getByRole('button', { name: 'AI 补全元信息' }))
+    fireEvent.click(screen.getByRole('button', { name: 'AI 补全标题' }))
+    expect(await screen.findByDisplayValue('AI 编辑后的标题')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'AI 补全 Slug' }))
+    await waitFor(() => {
+      expect(screen.getByLabelText('Slug')).toHaveValue('ai-edited-title')
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'AI 选择分类' }))
+    await waitFor(() => {
+      expect(screen.getByLabelText('分类')).toHaveValue('cat-1')
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'AI 选择标签' }))
+    await waitFor(() => {
+      expect(screen.getByRole('checkbox', { name: 'React' })).toBeChecked()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'AI 生成摘要' }))
+    expect(await screen.findByDisplayValue('AI 生成的摘要。')).toBeInTheDocument()
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith('/api/admin/posts/metadata', expect.objectContaining({ method: 'POST' }))
     })
 
-    expect(await screen.findByDisplayValue('AI 编辑后的标题')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('AI 编辑后的标题')).toBeInTheDocument()
     expect(screen.getByLabelText('Slug')).toHaveValue('ai-edited-title')
     expect(screen.getByDisplayValue('AI 生成的摘要。')).toBeInTheDocument()
     expect(screen.getByLabelText('分类')).toHaveValue('cat-1')
