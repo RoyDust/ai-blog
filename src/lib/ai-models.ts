@@ -1,3 +1,16 @@
+/**
+ * AI 模型目录与管理中心。
+ *
+ * 职责：
+ * - 统一聚合环境变量模型与数据库自定义模型
+ * - 处理模型默认项、能力匹配、启停状态和连通性测试
+ * - 对数据库中保存的 API Key 做加解密封装
+ * - 为后台模型管理页面提供稳定的数据视图
+ *
+ * 说明：
+ * - 当前主要面向 OpenAI Chat Completions 兼容接口
+ * - 环境变量模型是内建只读模型，数据库模型才允许后台修改
+ */
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 
 import { prisma } from "@/lib/prisma";
@@ -220,6 +233,10 @@ function normalizeBaseUrl(value: string) {
   return value.trim().replace(/\/+$/, "").replace(/\/chat\/completions$/i, "");
 }
 
+/**
+ * 根据模型 / 服务商兼容性追加请求参数。
+ * 目前主要用于 DeepSeek 兼容接口，显式关闭 thinking 扩展参数。
+ */
 export function getAiModelChatRequestExtras(
   model: Pick<AiModelOption, "baseUrl" | "model">,
 ): AiModelChatRequestExtras {
@@ -443,6 +460,10 @@ function normalizeMutationInput(input: AiModelMutationInput, existing?: AiModelO
   };
 }
 
+/**
+ * 返回后台可见的完整模型列表。
+ * 会把环境变量模型与数据库模型合并，并处理默认模型优先级。
+ */
 export async function getAiModelOptions(): Promise<AiModelOption[]> {
   const delegate = getOptionalAiModelDelegate();
   if (!delegate) {
@@ -490,6 +511,10 @@ async function hasReadyDatabaseDefaultForCapability(capability: AiModelCapabilit
   }
 }
 
+/**
+ * 按 id 读取单个模型。
+ * 支持读取内建环境变量模型，也支持读取数据库模型。
+ */
 export async function getAiModelOption(modelId: string) {
   if (modelId === ENV_SUMMARY_MODEL_ID) {
     return getEnvironmentSummaryModel(await hasReadyDatabaseDefaultForCapability("post-summary"));
@@ -518,6 +543,10 @@ export async function getAiModelOption(modelId: string) {
   return record ? dbModelToOption(record) : null;
 }
 
+/**
+ * 为指定能力挑选默认模型。
+ * 优先使用 ready 且显式设为默认的模型，其次回退到同能力下第一个可用模型。
+ */
 export async function getDefaultAiModelForCapability(capability: AiModelCapability) {
   const models = await getAiModelOptions();
 
@@ -528,6 +557,10 @@ export async function getDefaultAiModelForCapability(capability: AiModelCapabili
   );
 }
 
+/**
+ * 为某项能力解析最终可用模型。
+ * 若传入 modelId，则验证该模型是否可用且具备所需能力；否则回退到默认模型。
+ */
 export async function getAiModelForCapability(capability: AiModelCapability, modelId?: string | null) {
   if (!modelId) {
     return getDefaultAiModelForCapability(capability);
@@ -541,6 +574,13 @@ export async function getAiModelForCapability(capability: AiModelCapability, mod
   return model;
 }
 
+/**
+ * 设置某项能力的默认模型。
+ *
+ * 注意：
+ * - 同一能力同一时刻只允许一个默认模型
+ * - 环境变量模型也可以成为默认项，但它本身不可在后台编辑
+ */
 export async function setDefaultAiModelForCapability(capability: AiModelCapability, modelId: string) {
   if (capability !== "post-summary" && capability !== "cover-image") {
     throw new ValidationError("Unsupported AI model capability");
@@ -617,6 +657,10 @@ export async function setDefaultAiModelForCapability(capability: AiModelCapabili
   }
 }
 
+/**
+ * 创建数据库模型配置。
+ * 创建时会校验能力与请求路径组合是否合法，并按需重置旧的默认模型。
+ */
 export async function createAiModel(input: AiModelMutationInput) {
   getAiModelDelegate();
   const normalized = normalizeMutationInput(input);
@@ -658,6 +702,10 @@ export async function createAiModel(input: AiModelMutationInput) {
   return dbModelToOption(record);
 }
 
+/**
+ * 更新数据库模型配置。
+ * 若包含默认能力切换，会在事务中同步取消其他模型的默认标记。
+ */
 export async function updateAiModel(modelId: string, input: AiModelMutationInput) {
   getAiModelDelegate();
   const existing = await getAiModelOption(modelId);
@@ -712,6 +760,10 @@ export async function updateAiModel(modelId: string, input: AiModelMutationInput
   return dbModelToOption(record);
 }
 
+/**
+ * 删除数据库模型配置。
+ * 仅允许删除可编辑的数据库模型，不允许删除内建环境变量模型。
+ */
 export async function deleteAiModel(modelId: string) {
   const delegate = getAiModelDelegate();
   const existing = await getAiModelOption(modelId);
@@ -755,6 +807,10 @@ export async function recordAiModelTestResult(modelId: string, status: AiModelTe
   }
 }
 
+/**
+ * 对模型做轻量连通性测试。
+ * 文本模型会发起一次极小的 health-check 请求；纯生图模型只做配置完整性校验。
+ */
 export async function testAiModelConnection(model: AiModelOption) {
   if (!model.apiKey) {
     throw new ValidationError(`${model.apiKeyEnv} is not configured`);
@@ -797,6 +853,10 @@ export async function testAiModelConnection(model: AiModelOption) {
   return assistantText;
 }
 
+/**
+ * 把内部模型对象转换成可返回给前端的公开版本。
+ * 会保留状态与来源信息，但不会暴露真实 API Key。
+ */
 export function toPublicAiModelOption(model: AiModelOption) {
   return {
     id: model.id,
@@ -823,6 +883,9 @@ export function toPublicAiModelOption(model: AiModelOption) {
   };
 }
 
+/**
+ * 返回前端管理页面消费的公开模型列表。
+ */
 export async function getPublicAiModelOptions() {
   const models = await getAiModelOptions();
   return models.map(toPublicAiModelOption);

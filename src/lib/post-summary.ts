@@ -1,3 +1,11 @@
+/**
+ * 文章摘要生成模块。
+ *
+ * 职责：
+ * - 按模型配置调用上游接口生成中文摘要
+ * - 统一处理输入截断、超时控制、上游错误转译与结果清洗
+ * - 为编辑器摘要按钮与批量摘要任务提供可复用能力
+ */
 import { getAiModelChatRequestExtras, type AiModelOption } from "@/lib/ai-models";
 
 type OpenAICompatibleChatPayload = {
@@ -20,10 +28,16 @@ function readPositiveIntegerEnv(name: string, fallback: number) {
   return Number.isInteger(value) && value > 0 ? value : fallback;
 }
 
+/**
+ * 读取摘要生成超时时间配置。
+ */
 export function getPostSummaryTimeoutMs() {
   return readPositiveIntegerEnv("AI_POST_SUMMARY_TIMEOUT_MS", DEFAULT_POST_SUMMARY_TIMEOUT_MS);
 }
 
+/**
+ * 读取摘要生成时允许送入模型的最大正文长度。
+ */
 export function getPostSummaryMaxInputChars() {
   return readPositiveIntegerEnv("AI_POST_SUMMARY_MAX_INPUT_CHARS", DEFAULT_POST_SUMMARY_MAX_INPUT_CHARS);
 }
@@ -54,6 +68,9 @@ function excerptContentForSummary(content: string) {
   return `${normalized.slice(0, maxChars)}\n\n[文章过长，已截取前 ${maxChars} 字用于生成摘要。]`;
 }
 
+/**
+ * 从 OpenAI 兼容响应中提取纯文本摘要。
+ */
 export function extractSummary(payload: OpenAICompatibleChatPayload) {
   const content = payload.choices?.[0]?.message?.content;
 
@@ -72,6 +89,9 @@ export function extractSummary(payload: OpenAICompatibleChatPayload) {
   return "";
 }
 
+/**
+ * 规范化摘要文本，去掉多余引号与空白。
+ */
 export function normalizeSummary(summary: string) {
   return summary.replace(/^['"“”‘’\s]+|['"“”‘’\s]+$/g, "").replace(/\s+/g, " ").trim();
 }
@@ -88,6 +108,13 @@ function getUpstreamErrorMessage(response: Response, payload: OpenAICompatibleCh
   return `Summary generation failed (HTTP ${response.status}${statusText})`;
 }
 
+/**
+ * 调用模型生成文章摘要。
+ *
+ * 说明：
+ * - 过长正文会先截断，避免请求体过大
+ * - 请求超时会返回更面向运营同学的可操作错误提示
+ */
 export async function generatePostSummary({
   aiModel,
   title,

@@ -1,3 +1,17 @@
+/**
+ * AI 日报聚合与发布主流程。
+ *
+ * 职责：
+ * - 拉取多源 RSS / Atom 新闻
+ * - 规范化、去重、筛选候选内容
+ * - 调用模型生成日报草稿
+ * - 记录运行状态、质量指标与来源失败信息
+ * - 视配置把草稿创建为后台文章，必要时自动发布
+ *
+ * 说明：
+ * - 这是“编排层”模块，真正的去重、评分、富化、渲染逻辑拆在子模块中
+ * - 阅读时建议优先看 runDailyAiNews，再回溯上游候选抓取与草稿生成函数
+ */
 import { createAdminPost, publishAiDraftPost, updateAdminPost } from "@/lib/ai-authoring"
 import { getAiModelChatRequestExtras, getAiModelForCapability, type AiModelOption } from "@/lib/ai-models"
 import {
@@ -88,6 +102,10 @@ function readScoreThresholdEnv(key: string, fallback: number) {
   return Number.isFinite(value) && value >= 0 && value <= 10 ? value : fallback
 }
 
+/**
+ * 默认的 AI 新闻来源清单。
+ * 当数据库里没有自定义来源配置时，会使用这组兜底源。
+ */
 export const DAILY_AI_NEWS_SOURCES: AiNewsSource[] = [
   { id: "openai", name: "OpenAI Blog", feedUrl: "https://openai.com/news/rss.xml", homepage: "https://openai.com/news/" },
   { id: "anthropic", name: "Anthropic News", feedUrl: "https://www.anthropic.com/news/rss.xml", homepage: "https://www.anthropic.com/news" },
@@ -547,10 +565,18 @@ async function finishAiNewsRun({
   })
 }
 
+/**
+ * 根据日期生成日报文章 slug。
+ * 该 slug 稳定且可预测，便于幂等更新同一天的日报文章。
+ */
 export function buildDailyAiNewsSlug(date: Date) {
   return `ai-daily-${formatDateId(date)}`
 }
 
+/**
+ * 解析单个 RSS / Atom feed，并统一映射为内部 AiNewsItem。
+ * 这里只做格式解析与字段清洗，不负责跨源去重和业务筛选。
+ */
 export function parseNewsFeed(
   xml: string,
   source: Pick<AiNewsSource, "id" | "name"> | { sourceId: string; sourceName: string },
@@ -586,6 +612,10 @@ export function parseNewsFeed(
     }))
 }
 
+/**
+ * 基于 canonical URL 对新闻项做轻量去重。
+ * 这是抓取阶段的第一层去重，后续还会有更重的语义去重流程。
+ */
 export function dedupeNewsItems(items: AiNewsItem[]) {
   const seen = new Set<string>()
   const result: AiNewsItem[] = []
@@ -600,6 +630,13 @@ export function dedupeNewsItems(items: AiNewsItem[]) {
   return result
 }
 
+/**
+ * 拉取日报候选新闻。
+ *
+ * 返回内容包含：
+ * - items: 已完成格式统一、时间窗口过滤、基础去重后的候选集合
+ * - failures: 抓取失败的来源列表，供后台运行日志展示
+ */
 export async function fetchDailyAiNewsCandidates({
   date,
   sources = DAILY_AI_NEWS_SOURCES,
@@ -748,6 +785,17 @@ function appendGeneratorAttribution(content: string, aiModel: AiModelOption) {
   return `${content.trim()}\n${attribution}`
 }
 
+/**
+ * 调用选定模型生成中文 AI 日报草稿。
+ *
+ * 输入要求：
+ * - candidates 必须先经过候选筛选，否则会放大模型噪声
+ * - modelId 可选；不传时会回退到 post-summary 能力对应的默认模型
+ *
+ * 输出结果：
+ * - 标题、slug、摘要、Markdown 正文
+ * - generatedBy 快照，便于后续追踪是哪个模型生成的内容
+ */
 export async function generateDailyAiNewsDraft({
   date,
   candidates,
@@ -823,6 +871,18 @@ export async function generateDailyAiNewsDraft({
   }
 }
 
+/**
+ * 执行完整的 AI 日报流水线。
+ *
+ * 这是模块主入口，会串联：
+ * 1. 创建运行记录
+ * 2. 拉取并持久化候选新闻
+ * 3. 去重、评分、富化、筛选
+ * 4. 生成日报草稿
+ * 5. 创建或更新后台文章
+ * 6. 依据审核结果决定是否自动发布
+ * 7. 回写运行状态与质量指标
+ */
 export async function runDailyAiNews({
   authorId,
   date = new Date(),

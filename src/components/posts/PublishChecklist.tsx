@@ -1,5 +1,14 @@
 "use client";
 
+/**
+ * 发布检查清单组件。
+ *
+ * 职责：
+ * - 根据当前表单内容给出基础发布检查项
+ * - 提供 AI 审稿入口与结果展示
+ * - 适配 panel / inline / bar 三种展示模式，供不同后台布局复用
+ */
+
 import { useState } from "react";
 
 interface PublishChecklistProps {
@@ -26,6 +35,13 @@ function getVerdictLabel(verdict: AiReviewReport["verdict"]) {
   return verdict === "ready" ? "可以发布" : "需要修改";
 }
 
+/**
+ * 发布前检查面板。
+ *
+ * 说明：
+ * - 静态 checks 负责最低限度的发布准备度判断
+ * - AI 审稿负责补充更主观的结构、事实风险、可读性评估
+ */
 export function PublishChecklist({
   title,
   slug,
@@ -53,6 +69,10 @@ export function PublishChecklist({
   const completed = checks.filter((item) => item.done).length;
   const summary = `完成 ${completed}/${checks.length} 项后更适合直接发布。`;
 
+  /**
+   * 触发服务端 AI 审稿。
+   * 仅在标题、slug、正文都存在时才发请求，避免无效消耗。
+   */
   const handleReview = async () => {
     if (!title.trim() || !slug.trim() || !content.trim()) return;
 

@@ -1,3 +1,16 @@
+/**
+ * AI 草稿与后台文章写入流程。
+ *
+ * 职责：
+ * - 管理 AI 客户端草稿与正式文章之间的绑定关系
+ * - 把 AI 生成内容安全地落为未发布草稿
+ * - 提供后台创建 / 更新 / 发布文章时可复用的写库逻辑
+ * - 在必要时刷新前台缓存并维护封面素材使用状态
+ *
+ * 阅读建议：
+ * - AI 客户端草稿链路先看 upsertAiDraft / getAiDraft / publishAiDraftPost
+ * - 后台管理链路再看 createAdminPost / updateAdminPost
+ */
 import { prisma } from "@/lib/prisma"
 import { calculateReadingTimeMinutes } from "@/lib/reading-time"
 import { revalidatePublicContent } from "@/lib/cache"
@@ -286,6 +299,14 @@ async function updateDraftPost({
   })
 }
 
+/**
+ * 按 externalId 幂等写入 AI 草稿。
+ *
+ * 行为：
+ * - 首次写入时创建未发布文章并建立 binding
+ * - 已存在未发布 binding 时更新原草稿
+ * - 若 binding 指向已发布文章，则拒绝覆盖，防止 AI 草稿污染正式内容
+ */
 export async function upsertAiDraft({
   client,
   input,
@@ -398,6 +419,10 @@ export async function upsertAiDraft({
   }
 }
 
+/**
+ * 读取某个 AI 客户端在指定 externalId 下的未发布草稿。
+ * 只返回仍然有效、未删除、未发布的绑定记录。
+ */
 export async function getAiDraft({
   client,
   externalId,
@@ -432,6 +457,9 @@ export async function getAiDraft({
   return buildAiDraftRecord(binding.externalId, binding.post)
 }
 
+/**
+ * 将 AI 草稿提升为正式发布文章，并刷新受影响的前台列表页/详情页缓存。
+ */
 export async function publishAiDraftPost({ postId }: { postId: string }) {
   const published = await prisma.post.update({
     where: {
@@ -461,6 +489,14 @@ export async function publishAiDraftPost({ postId }: { postId: string }) {
   return published
 }
 
+/**
+ * 后台手动创建文章。
+ *
+ * 额外处理：
+ * - 计算阅读时长
+ * - 解析封面输入或自动分配封面
+ * - 已发布文章会立即触发前台缓存失效
+ */
 export async function createAdminPost({
   authorId,
   input,
@@ -511,6 +547,13 @@ export async function createAdminPost({
   return post
 }
 
+/**
+ * 后台更新文章。
+ *
+ * 说明：
+ * - 统一处理封面、摘要、SEO、标签、分类与发布状态变更
+ * - 当发布状态或路径相关字段变化时，会同步刷新前台缓存
+ */
 export async function updateAdminPost({
   id,
   input,

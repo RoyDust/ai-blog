@@ -1,3 +1,12 @@
+/**
+ * 前台搜索 API。
+ *
+ * 职责：
+ * - 对已发布文章做全文 / 分类 / 标签 / 作者维度的站内检索
+ * - 计算基础相关性分数并排序
+ * - 在用户显式请求时调用 AI 生成搜索摘要与推荐顺序
+ * - 处理搜索与 AI 搜索的独立限流
+ */
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { checkAiSearchRateLimit, checkSearchRateLimit } from "@/lib/rate-limit"
@@ -237,6 +246,14 @@ async function generateAiSearchResult({ query, items }: { query: string; items: 
   return parsed
 }
 
+/**
+ * 处理搜索请求。
+ *
+ * 查询参数：
+ * - q: 搜索词
+ * - page / limit: 分页
+ * - ai=1: 显式请求 AI 搜索增强
+ */
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)

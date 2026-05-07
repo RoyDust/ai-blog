@@ -7,6 +7,18 @@ import { prisma } from "@/lib/prisma"
 import { requireAuthSecret, resolveAuthSecret } from "@/lib/auth-secret"
 import bcrypt from "bcryptjs"
 
+/**
+ * NextAuth 服务端配置。
+ *
+ * 职责：
+ * - 声明博客支持的登录方式（GitHub OAuth / 本地账号密码）
+ * - 统一会话策略与 cookie 配置
+ * - 在 JWT / Session 回调里补齐项目自定义字段（id、role）
+ *
+ * 说明：
+ * - 本地账号登录会直接查询 Prisma 用户表并校验 bcrypt 密码
+ * - 角色字段最终会进入 session.user.role，供 API 权限判断复用
+ */
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma) as Adapter,
   secret: resolveAuthSecret(),
@@ -64,14 +76,17 @@ export const authOptions: NextAuthOptions = {
       name: `next-auth.session-token`,
       options: {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        path: '/',
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: "/",
         maxAge: 30 * 24 * 60 * 60
       }
     }
   },
   callbacks: {
+    /**
+     * 把数据库里的用户标识与角色写进 token，便于后续无状态鉴权。
+     */
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id
@@ -79,6 +94,9 @@ export const authOptions: NextAuthOptions = {
       }
       return token
     },
+    /**
+     * 把 token 中的自定义字段回填到 session，供页面与 API 统一消费。
+     */
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string

@@ -1,3 +1,15 @@
+/**
+ * 后台总览页。
+ *
+ * 职责：
+ * - 汇总访问趋势、最近草稿、待审评论、热门文章、AI 模型状态
+ * - 作为编辑后台首页，提供“当前系统健康度与待办”的总入口
+ *
+ * 阅读建议：
+ * - 先看底部 AdminPage 如何并发拉取数据
+ * - 再看各个 get* 数据装配函数
+ * - 最后看 VisitTrendPanel / RecentDraftsPanel 等展示面板
+ */
 import Link from "next/link";
 import {
   BrainCircuit,
@@ -36,6 +48,9 @@ type VisitTrendSummary = {
   yesterdayPv: number;
 };
 
+/**
+ * 读取最近更新的草稿队列，供首页快速继续编辑。
+ */
 async function getDraftQueue() {
   return prisma.post.findMany({
     where: { deletedAt: null, published: false },
@@ -45,6 +60,9 @@ async function getDraftQueue() {
   });
 }
 
+/**
+ * 读取待审核评论队列，便于后台首页直接暴露社区待办。
+ */
 async function getPendingCommentQueue() {
   return prisma.comment.findMany({
     where: { deletedAt: null, status: PENDING_COMMENT_STATUS },
@@ -61,6 +79,9 @@ async function getPendingCommentQueue() {
   });
 }
 
+/**
+ * 读取热门已发布文章，按浏览量倒序展示。
+ */
 async function getPopularPosts() {
   return prisma.post.findMany({
     where: { deletedAt: null, published: true },
@@ -70,6 +91,14 @@ async function getPopularPosts() {
   });
 }
 
+/**
+ * 聚合指定时间范围内的访问趋势。
+ *
+ * 这里会把原始 visit log 按 UTC 日维度归桶，计算：
+ * - 每日 PV / UV
+ * - 区间总 PV / UV
+ * - 今日与昨日 PV 对比
+ */
 async function getVisitTrend(range: VisitTrendRange): Promise<{ trend: VisitTrendItem[]; summary: VisitTrendSummary }> {
   const today = startOfUtcDay(new Date());
   const start = addUtcDays(today, -(range - 1));
@@ -503,6 +532,10 @@ function AiModelChecklistPanel({ models }: { models: AiModelListItem[] }) {
   );
 }
 
+/**
+ * 后台首页入口。
+ * 使用并发查询一次性拿到首页卡片所需数据，避免串行等待拖慢首屏。
+ */
 export default async function AdminPage({ searchParams }: { searchParams?: Promise<{ range?: string }> } = {}) {
   const resolvedSearchParams = await searchParams;
   const range = parseVisitTrendRange(resolvedSearchParams?.range);

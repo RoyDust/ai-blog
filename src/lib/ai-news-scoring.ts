@@ -1,3 +1,11 @@
+/**
+ * AI 日报评分与筛选模块。
+ *
+ * 职责：
+ * - 调用模型为候选新闻打分并生成摘要、标签、风险标记
+ * - 根据风险标记对分数做降权或直接排除
+ * - 在阈值、数量上限和来源多样性约束下选出最终候选集合
+ */
 import type {
   AiNewsCandidateInput,
   AiNewsScoredCandidate,
@@ -144,6 +152,10 @@ function extractFirstJsonObject(text: string) {
   return null
 }
 
+/**
+ * 解析模型返回的评分 JSON。
+ * 即使模型输出夹带围栏或额外文本，也会尽量提取出第一个可用 JSON 对象。
+ */
 export function parseAiNewsScoreResponse(text: string): AiNewsScoreResult {
   const trimmed = text.trim()
 
@@ -203,6 +215,10 @@ function buildScoringPrompt(candidate: AiNewsCandidateInput) {
   ].join("\n")
 }
 
+/**
+ * 对单条候选新闻执行 AI 评分。
+ * 任何上游失败最终都会折叠成结构化 invalidScore，避免打断整批流程。
+ */
 export async function scoreAiNewsCandidate({
   candidate,
   aiModel,
@@ -294,6 +310,10 @@ function selectCandidate(candidate: AiNewsScoredCandidate, selectionReason: stri
   }
 }
 
+/**
+ * 从已评分候选中筛出最终入选集合。
+ * 选择时会同时考虑：最低分阈值、最大条数、风险标记与来源多样性。
+ */
 export function selectScoredCandidates({
   candidates,
   threshold = 7,

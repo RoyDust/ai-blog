@@ -1,3 +1,11 @@
+/**
+ * AI 日报去重模块。
+ *
+ * 职责：
+ * - 先基于 canonical URL 做确定性去重
+ * - 再在需要时调用模型做语义级去重
+ * - 保留合并来源信息，避免去重后丢失多源上下文
+ */
 import type { AiNewsCandidateInput, AiNewsJsonObject, AiNewsRawItem } from "@/lib/ai-news-types"
 
 type SemanticDedupeAiModel = {
@@ -74,6 +82,9 @@ function canonicalizeInvalidUrl(value: string) {
   return normalizedQuery ? `${normalizedPath}?${normalizedQuery}` : normalizedPath
 }
 
+/**
+ * 规范化新闻 URL，去掉 hash、追踪参数和主机格式差异，作为去重主键基础。
+ */
 export function canonicalizeAiNewsUrl(url: string) {
   const trimmed = url.trim()
   if (!trimmed) return ""
@@ -173,6 +184,10 @@ function toCandidateInput(item: AiNewsRawItem): AiNewsCandidateInput {
   }
 }
 
+/**
+ * 基于 canonical URL 合并重复候选。
+ * 同 URL 冲突时，会优先保留内容信息更丰富的那条记录。
+ */
 export function dedupeByCanonicalUrl(items: AiNewsRawItem[]): AiNewsCandidateInput[] {
   const byCanonicalUrl = new Map<string, AiNewsCandidateInput>()
 
@@ -358,6 +373,10 @@ function parseDuplicateMap(text: string, candidates: AiNewsCandidateInput[]): Ai
   return duplicateMap
 }
 
+/**
+ * 基于模型做语义去重。
+ * 仅在“可能是同一事件的不同来源报道”场景下使用，用于补足 URL 去重覆盖不到的情况。
+ */
 export async function semanticDedupeCandidates({
   candidates,
   aiModel,

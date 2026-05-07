@@ -1,5 +1,19 @@
 "use client";
 
+/**
+ * 后台文章工作台主组件。
+ *
+ * 职责：
+ * - 承载文章创建与编辑两种模式
+ * - 协调编辑器、AI 辅助、封面管理、发布检查等多个子面板
+ * - 管理本地草稿恢复、slug 自动生成、封面上传、保存状态等复杂交互
+ *
+ * 阅读建议：
+ * - 先看 AdminPostWorkspace 入口，理解主要状态与模式切换
+ * - 再看 normalizeDraft / resolvePostRoute 这两个辅助函数
+ * - 最后进入 EditorWorkspace、PublishChecklist、PostAiWorkspace 等子面板
+ */
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -77,6 +91,10 @@ const emptyFormData: PostFormData = {
   featured: false,
 };
 
+/**
+ * 把 localStorage 中恢复出的草稿规范化为完整表单结构。
+ * 目标是屏蔽旧草稿、缺字段草稿或被污染草稿带来的 UI 异常。
+ */
 function normalizeDraft(payload: unknown): PostFormData {
   const data = (payload ?? {}) as Partial<PostFormData>;
 
@@ -91,6 +109,12 @@ function normalizeDraft(payload: unknown): PostFormData {
   };
 }
 
+/**
+ * 根据文章当前状态决定保存成功后的跳转目标。
+ * - 已发布：优先跳到前台文章页
+ * - 未发布：回到后台编辑页
+ * - 缺少关键标识：回退到文章列表
+ */
 function resolvePostRoute(
   post: { id?: string | null; slug?: string | null; published?: boolean | null },
   fallbackId: string | undefined,
@@ -107,6 +131,18 @@ function resolvePostRoute(
   return "/admin/posts";
 }
 
+/**
+ * 后台文章编辑工作台。
+ *
+ * 输入：
+ * - mode: create / edit
+ * - postId: 编辑模式下的文章 id
+ *
+ * 主要副作用：
+ * - 拉取分类、标签、文章详情
+ * - 读写本地草稿
+ * - 调用文章保存、封面上传、AI 摘要/元数据接口
+ */
 export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
   const router = useRouter();
   const isEditMode = mode === "edit";

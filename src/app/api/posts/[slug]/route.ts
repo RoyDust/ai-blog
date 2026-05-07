@@ -6,6 +6,26 @@ import { canPublish, requireSession } from "@/lib/api-auth"
 import { ForbiddenError, NotFoundError, toErrorResponse } from "@/lib/api-errors"
 import { getOptionalSummaryFieldsForExcerpt } from "@/lib/post-summary-status"
 
+/**
+ * 文章详情 API（按 slug 访问）。
+ *
+ * 这里同时承担三类职责：
+ * - GET：返回公开文章详情，并累加浏览量
+ * - PATCH：作者或管理员更新文章内容，并刷新受影响的公共页面缓存
+ * - DELETE：软删除文章，避免直接物理删除历史数据
+ *
+ * 说明：
+ * - 这里的 slug 是路由层主键，更新时仍通过查询结果里的真实 id 落库
+ * - PATCH / DELETE 都需要先验证登录态，再校验资源归属或管理员身份
+ */
+
+/**
+ * 返回已发布文章的公开详情。
+ *
+ * 副作用：
+ * - 读取文章、作者、分类、标签、评论与点赞数量
+ * - 成功返回后会把 viewCount +1
+ */
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ slug: string }> }
@@ -51,7 +71,6 @@ export async function GET(
       )
     }
 
-    // 增加浏览量
     await prisma.post.update({
       where: { id: post.id },
       data: { viewCount: { increment: 1 } }
@@ -70,6 +89,18 @@ export async function GET(
   }
 }
 
+/**
+ * 更新文章内容。
+ *
+ * 权限规则：
+ * - 文章作者可编辑自己的文章
+ * - 管理员可编辑任意文章
+ * - 只有管理员能真正控制 published 状态
+ *
+ * 副作用：
+ * - 更新文章主体、摘要、封面、分类、标签
+ * - 当 slug / 分类 / 标签 / 发布状态变化时，刷新前台缓存路径
+ */
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ slug: string }> }
@@ -99,6 +130,7 @@ export async function PATCH(
       throw new ForbiddenError()
     }
 
+    // 作者可以提交 published 字段，但真正生效与否由角色决定。
     const publishNow = typeof published === "boolean" ? (canPublish(session) ? published : false) : undefined
 
     const updateData = {
@@ -146,6 +178,13 @@ export async function PATCH(
   }
 }
 
+/**
+ * 软删除文章。
+ *
+ * 说明：
+ * - 不直接删除数据库记录，而是写入 deletedAt 并取消发布
+ * - 删除后同步清理前台依赖该文章的路径缓存
+ */
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ slug: string }> }

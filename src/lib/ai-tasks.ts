@@ -1,3 +1,15 @@
+/**
+ * AI 任务中心。
+ *
+ * 职责：
+ * - 管理 AI 任务与任务项的生命周期状态
+ * - 统计成功/失败/跳过数量并推导整体任务状态
+ * - 为后台提供列表、详情、重试与通知能力
+ *
+ * 说明：
+ * - 任务是批次级对象，任务项是单动作级对象
+ * - 任务完成后会尝试发送后台通知，便于人工回看
+ */
 import { NotFoundError, ValidationError } from "@/lib/api-errors";
 import { createAdminNotification, NOTIFICATION_SEVERITIES, NOTIFICATION_TYPES } from "@/lib/notifications";
 import { prisma } from "@/lib/prisma";
@@ -192,6 +204,10 @@ async function notifyAiTaskCompletion({
   }
 }
 
+/**
+ * 创建一个新的 AI 任务批次，并按需同时创建任务项。
+ * 没有 items 的任务会被视为立即完成。
+ */
 export async function createAiTask(input: CreateAiTaskInput): Promise<CreatedAiTask> {
   const items = input.items ?? [];
 
@@ -221,6 +237,9 @@ export async function createAiTask(input: CreateAiTaskInput): Promise<CreatedAiT
   }) as unknown as Promise<CreatedAiTask>;
 }
 
+/**
+ * 标记任务批次已开始执行。
+ */
 export async function markAiTaskRunning(taskId: string) {
   return prisma.aiTask.update({
     where: { id: taskId },
@@ -233,6 +252,9 @@ export async function markAiTaskRunning(taskId: string) {
   });
 }
 
+/**
+ * 标记单个任务项进入执行中状态。
+ */
 export async function markAiTaskItemRunning(itemId: string) {
   return prisma.aiTaskItem.update({
     where: { id: itemId },
@@ -245,6 +267,10 @@ export async function markAiTaskItemRunning(itemId: string) {
   });
 }
 
+/**
+ * 标记任务项执行成功，并把输出结果与 applied 状态写回数据库。
+ * 随后会触发整批任务的统计刷新。
+ */
 export async function markAiTaskItemSucceeded(itemId: string, output?: JsonValue, applied = false) {
   const item = await prisma.aiTaskItem.update({
     where: { id: itemId },
@@ -261,6 +287,9 @@ export async function markAiTaskItemSucceeded(itemId: string, output?: JsonValue
   await refreshAiTaskCounts(item.taskId);
 }
 
+/**
+ * 标记任务项失败，并记录最近错误信息。
+ */
 export async function markAiTaskItemFailed(itemId: string, error: string) {
   const item = await prisma.aiTaskItem.update({
     where: { id: itemId },
@@ -275,6 +304,10 @@ export async function markAiTaskItemFailed(itemId: string, error: string) {
   await refreshAiTaskCounts(item.taskId);
 }
 
+/**
+ * 标记任务项被跳过。
+ * 跳过通常意味着输入不满足条件，而不是模型调用报错。
+ */
 export async function markAiTaskItemSkipped(itemId: string, error?: string) {
   const item = await prisma.aiTaskItem.update({
     where: { id: itemId },
@@ -289,6 +322,10 @@ export async function markAiTaskItemSkipped(itemId: string, error?: string) {
   await refreshAiTaskCounts(item.taskId);
 }
 
+/**
+ * 重新统计任务批次的成功/失败/跳过数量，并推导最终状态。
+ * 当任务结束时，还会触发后台通知。
+ */
 export async function refreshAiTaskCounts(taskId: string) {
   const items = await prisma.aiTaskItem.findMany({
     where: { taskId },
@@ -325,6 +362,9 @@ export async function refreshAiTaskCounts(taskId: string) {
   return task;
 }
 
+/**
+ * 分页列出 AI 任务，供后台任务面板使用。
+ */
 export async function listAiTasks({
   page,
   limit,
@@ -371,6 +411,9 @@ export async function listAiTasks({
   };
 }
 
+/**
+ * 获取任务详情与全部任务项，用于后台详情页。
+ */
 export async function getAiTaskDetail(taskId: string) {
   const task = await prisma.aiTask.findUnique({
     where: { id: taskId },
@@ -400,6 +443,9 @@ export async function getAiTaskDetail(taskId: string) {
   return task;
 }
 
+/**
+ * 获取单个任务项详情，并带出关联文章和所属任务。
+ */
 export async function getAiTaskItem(itemId: string) {
   const item = await prisma.aiTaskItem.findUnique({
     where: { id: itemId },
@@ -421,6 +467,10 @@ export async function getAiTaskItem(itemId: string) {
   return item;
 }
 
+/**
+ * 基于失败任务项创建一个新的 retry 任务批次。
+ * 仅复制失败项需要的最小输入快照，不直接复用旧状态。
+ */
 export async function retryAiTaskFailedItems(taskId: string, createdById?: string | null) {
   const task = await getAiTaskDetail(taskId);
   const failedItems = task.items.filter((item) => item.status === AI_TASK_ITEM_STATUSES.failed);
@@ -448,6 +498,9 @@ export async function retryAiTaskFailedItems(taskId: string, createdById?: strin
   });
 }
 
+/**
+ * 判断任务当前是否仍处于活动态。
+ */
 export function isAiTaskActive(status: string | null | undefined) {
   return status === AI_TASK_STATUSES.queued || status === AI_TASK_STATUSES.running;
 }

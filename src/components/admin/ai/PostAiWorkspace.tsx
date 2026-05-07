@@ -1,5 +1,14 @@
 "use client";
 
+/**
+ * 单篇文章 AI 操作工作区。
+ *
+ * 职责：
+ * - 触发摘要、SEO、标题、slug、标签、分类等 AI 动作
+ * - 展示 AI 输出预览，并允许应用到当前表单或正式文章
+ * - 兼容已落库文章与未保存草稿两种使用场景
+ */
+
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -132,6 +141,10 @@ function buildDraftAppliedPost(result: AiResult): AppliedPost {
   return applied;
 }
 
+/**
+ * 后台文章 AI 工作区主组件。
+ * 已有 postId 时结果会通过服务端 apply 落库；草稿模式下则只把结果回填给外层表单。
+ */
 export function PostAiWorkspace({
   postId,
   draft,
@@ -151,6 +164,9 @@ export function PostAiWorkspace({
   const [error, setError] = useState("");
   const preview = useMemo(() => renderOutput(result), [result]);
 
+  /**
+   * 触发一个 AI 动作，并把返回结果缓存到本地预览区。
+   */
   async function runAction(action: PostAiAction) {
     if (runningAction || disabled) {
       return;
@@ -188,6 +204,11 @@ export function PostAiWorkspace({
     }
   }
 
+  /**
+   * 应用当前 AI 结果。
+   * - 草稿模式：直接回填到外层表单
+   * - 正式文章模式：通过服务端接口把 AI 结果落库并刷新文章状态
+   */
   async function applyResult() {
     if (!result || applying) {
       return;

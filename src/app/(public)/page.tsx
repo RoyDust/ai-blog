@@ -1,5 +1,14 @@
 export const revalidate = 300
 
+/**
+ * 前台首页。
+ *
+ * 职责：
+ * - 组合精选文章、最新文章、标签发现区等读者入口
+ * - 尽量并发加载首页所需数据，并在局部失败时优雅降级
+ * - 作为站点最重要的内容分发页，承担首屏阅读引导作用
+ */
+
 import type { Metadata } from 'next'
 import { HomeDiscoveryGrid, HomeLatestPosts } from '@/components/blog'
 import { HomeReaderBanner } from '@/components/blog/HomeReaderBanner'
@@ -14,6 +23,10 @@ export const metadata: Metadata = buildPageMetadata({
   path: '/',
 })
 
+/**
+ * 并发加载首页数据。
+ * 使用 Promise.allSettled 的原因是：即使某一块数据失败，也尽量保住首页其余内容可展示。
+ */
 async function getData() {
   const [postsPageResult, categoriesResult, tagsResult, featuredResult] = await Promise.allSettled([
     getPublishedPostsPage({ page: 1, limit: POSTS_PAGE_SIZE }),
@@ -76,6 +89,10 @@ async function getData() {
 type HomePost = Awaited<ReturnType<typeof getData>>['posts'][number]
 type HomeTag = Awaited<ReturnType<typeof getData>>['tags'][number]
 
+/**
+ * 前台首页入口。
+ * 负责把数据按“主阅读流 + 发现侧栏”的结构装配到首页组件树中。
+ */
 export default async function Home() {
   const { posts, featuredPosts, tags, hasLoadError } = await getData()
   const [featuredLead] = featuredPosts as HomePost[]

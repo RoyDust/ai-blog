@@ -1,3 +1,15 @@
+/**
+ * API / 后台表单输入校验中心。
+ *
+ * 职责：
+ * - 把来自请求体的 unknown 数据收敛为可安全使用的业务输入
+ * - 统一长度、格式、枚举值与空值处理规则
+ * - 在进入数据库或业务逻辑前尽早抛出 ValidationError
+ *
+ * 阅读建议：
+ * - 先看底部各个 parse* 导出函数
+ * - 再回头理解上方的 readString / optionalString / assert* 等基础校验积木
+ */
 import { AI_AUTHORING_PATTERNS } from "@/lib/ai-contract"
 import { ValidationError } from "@/lib/api-errors"
 import type { Prisma } from "@prisma/client"
@@ -77,6 +89,10 @@ function assertAiExternalId(value: string) {
   }
 }
 
+/**
+ * 校验 AI 草稿 externalId。
+ * 这个标识通常来自外部 AI 生成链路，需要严格匹配约定格式，避免错误关联草稿记录。
+ */
 export function parseAiDraftExternalId(value: unknown) {
   const externalId = readString(value, "externalId")
   assertAiExternalId(externalId)
@@ -240,6 +256,14 @@ export function parseUploadRequest(payload: unknown) {
   }
 }
 
+/**
+ * 校验封面素材创建请求。
+ *
+ * 适用场景：
+ * - 手动上传封面
+ * - 录入外部封面地址
+ * - AI 生成封面后落库存档
+ */
 export function parseCoverAssetInput(payload: unknown) {
   const data = (payload ?? {}) as {
     url?: unknown
@@ -294,6 +318,10 @@ export function parseCoverAssetInput(payload: unknown) {
   }
 }
 
+/**
+ * 校验封面素材更新请求。
+ * 允许 title / alt / description 这类展示层字段被置空为 null。
+ */
 export function parseCoverAssetPatchInput(payload: unknown) {
   const data = (payload ?? {}) as {
     title?: unknown
@@ -320,6 +348,10 @@ export function parseCoverAssetPatchInput(payload: unknown) {
   }
 }
 
+/**
+ * 校验“随机分配封面”批量操作的输入。
+ * 支持限定文章集合，也支持只针对已发布文章执行。
+ */
 export function parseCoverRandomizeInput(payload: unknown) {
   const data = (payload ?? {}) as { postIds?: unknown; publishedOnly?: unknown }
 
@@ -384,6 +416,11 @@ export function parsePostInput(payload: unknown) {
   }
 }
 
+/**
+ * 校验 AI 草稿落库输入。
+ *
+ * 这类输入通常来自 AI 生成流程，因此除了普通文章字段，还会额外校验 externalId 与分类/标签 slug。
+ */
 export function parseAiDraftInput(payload: unknown) {
   const data = (payload ?? {}) as {
     externalId?: unknown
@@ -463,6 +500,10 @@ export function parsePostPatchInput(payload: unknown) {
   }
 }
 
+/**
+ * 校验分类 / 标签编辑输入。
+ * 统一处理名称、slug、描述、颜色等字段，供 taxonomy 相关后台接口复用。
+ */
 export function parseTaxonomyInput(payload: unknown) {
   const data = (payload ?? {}) as { id?: unknown; name?: unknown; slug?: unknown; description?: unknown; color?: unknown }
   const name = readString(data.name, 'name')
@@ -482,6 +523,10 @@ export function parseTaxonomyInput(payload: unknown) {
   }
 }
 
+/**
+ * 校验用户资料更新输入。
+ * 允许部分字段缺省，但会保证 email、头像 URL、名称长度满足约束。
+ */
 export function parseProfileUpdateInput(payload: unknown) {
   const data = (payload ?? {}) as { name?: unknown; email?: unknown; image?: unknown }
   const name = optionalString(data.name, 'name')
@@ -502,6 +547,10 @@ export function parseProfileUpdateInput(payload: unknown) {
   }
 }
 
+/**
+ * 校验评论状态批量更新输入。
+ * 常用于后台审核界面，ids 与 status 都需要先规范化后再进入更新流程。
+ */
 export function parseCommentStatusInput(payload: unknown) {
   const data = (payload ?? {}) as { ids?: unknown; status?: unknown }
   const ids = normalizeStringArray(data.ids, 'ids') ?? []
@@ -510,6 +559,10 @@ export function parseCommentStatusInput(payload: unknown) {
   return { ids, status }
 }
 
+/**
+ * 校验发布动作输入。
+ * 用于显式切换文章发布状态的轻量接口。
+ */
 export function parsePublishInput(payload: unknown) {
   const data = (payload ?? {}) as { id?: unknown; published?: unknown }
 

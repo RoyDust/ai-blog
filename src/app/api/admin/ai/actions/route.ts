@@ -1,3 +1,12 @@
+/**
+ * 后台单篇文章 AI 动作执行入口。
+ *
+ * 职责：
+ * - 校验管理员身份
+ * - 接收“已保存文章”或“未保存草稿”的 AI 动作请求
+ * - 创建 AI 任务与任务项，驱动执行并记录结果
+ * - 返回前端可直接预览或后续 apply 的结构化输出
+ */
 import { NextResponse } from "next/server";
 
 import { requireAdminSession } from "@/lib/api-auth";
@@ -36,6 +45,14 @@ type Body = {
   modelId?: string;
 };
 
+/**
+ * 执行一次文章 AI 动作。
+ *
+ * 副作用：
+ * - 创建任务记录
+ * - 更新任务状态
+ * - 在失败时写入任务错误信息
+ */
 export async function POST(request: Request) {
   try {
     const session = await requireAdminSession();
