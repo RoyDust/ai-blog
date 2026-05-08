@@ -1,8 +1,11 @@
 import { describe, expect, test } from "vitest";
 
-import { shouldUseSecureAuthCookies } from "../auth";
+import { authSessionCookieName, shouldUseSecureAuthCookies } from "../auth-cookies";
 
 describe("auth cookie security", () => {
+  test("uses one explicit session cookie name across auth and middleware", () => {
+    expect(authSessionCookieName).toBe("next-auth.session-token");
+  });
   test("does not force secure cookies for an explicitly configured HTTP site", () => {
     expect(
       shouldUseSecureAuthCookies({

@@ -5,23 +5,8 @@ import GitHubProvider from "next-auth/providers/github"
 import { PrismaAdapter } from "@auth/prisma-adapter"
 import { prisma } from "@/lib/prisma"
 import { requireAuthSecret, resolveAuthSecret } from "@/lib/auth-secret"
+import { authSessionCookieName, shouldUseSecureAuthCookies } from "@/lib/auth-cookies"
 import bcrypt from "bcryptjs"
-
-type AuthCookieEnv = Partial<Record<"NEXTAUTH_URL" | "NEXT_PUBLIC_SITE_URL" | "SITE_URL" | "NODE_ENV", string>>;
-
-export function shouldUseSecureAuthCookies(env: AuthCookieEnv = process.env) {
-  const configuredUrl = env.NEXTAUTH_URL || env.NEXT_PUBLIC_SITE_URL || env.SITE_URL;
-
-  if (configuredUrl) {
-    try {
-      return new URL(configuredUrl).protocol === "https:";
-    } catch {
-      return env.NODE_ENV === "production";
-    }
-  }
-
-  return env.NODE_ENV === "production";
-}
 
 /**
  * NextAuth 服务端配置。
@@ -94,7 +79,7 @@ export const authOptions: NextAuthOptions = {
   },
   cookies: {
     sessionToken: {
-      name: `next-auth.session-token`,
+      name: authSessionCookieName,
       options: {
         httpOnly: true,
         secure: shouldUseSecureAuthCookies(),
@@ -113,6 +98,24 @@ export const authOptions: NextAuthOptions = {
      */
     async signIn({ user, account }) {
       if (account?.provider === "github" && !user.email) {
+        const providerAccountId = account.providerAccountId
+
+        if (providerAccountId) {
+          const existingAccount = await prisma.account.findUnique({
+            where: {
+              provider_providerAccountId: {
+                provider: "github",
+                providerAccountId,
+              },
+            },
+            select: { userId: true },
+          })
+
+          if (existingAccount) {
+            return true
+          }
+        }
+
         return "/login?error=GitHubEmailRequired"
       }
 

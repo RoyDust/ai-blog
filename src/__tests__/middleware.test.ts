@@ -36,6 +36,7 @@ describe('admin middleware', () => {
       expect.objectContaining({
         req: request,
         secret: 'auth-secret',
+        cookieName: 'next-auth.session-token',
       }),
     )
   })
@@ -52,6 +53,7 @@ describe('admin middleware', () => {
       expect.objectContaining({
         req: request,
         secret: 'auth-secret',
+        cookieName: 'next-auth.session-token',
       }),
     )
   })

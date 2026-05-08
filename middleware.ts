@@ -2,6 +2,7 @@
 import type { NextRequest } from 'next/server'
 import { getToken } from 'next-auth/jwt'
 import { resolveAuthSecret } from '@/lib/auth-secret'
+import { authSessionCookieName } from '@/lib/auth-cookies'
 
 /**
  * 棰勭暀缁熶竴涓棿浠跺叆鍙ｏ紝鍚庣画鍙湪杩欓噷鏀舵暃杈圭紭渚у畨鍏ㄧ瓥鐣ャ€? */
@@ -26,7 +27,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl)
   }
 
-  const token = await getToken({ req: request, secret })
+  const token = await getToken({ req: request, secret, cookieName: authSessionCookieName })
 
   if (!token) {
     if (isAdminApi) {
