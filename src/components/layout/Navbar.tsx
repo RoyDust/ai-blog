@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { Archive, BookOpenText, Home, Menu, Palette, Search, Sparkles, UserRound } from "lucide-react";
 
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { AccountEntry } from "@/components/auth/AccountEntry";
 import { SearchForm } from "@/components/search/SearchForm";
 import { HuePicker } from "@/components/ui/HuePicker";
 import { useScrollHide } from "@/hooks/useScrollHide";
@@ -111,6 +112,8 @@ export function Navbar() {
           </button>
 
           <ThemeToggle />
+
+          <AccountEntry />
 
           <button
             aria-label="菜单"

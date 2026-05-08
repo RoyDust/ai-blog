@@ -1,6 +1,18 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 import { AppShell } from "@/components/layout/AppShell";
+
+vi.mock("next-auth/react", () => ({
+  getSession: vi.fn(),
+  signIn: vi.fn(),
+  signOut: vi.fn(),
+  useSession: () => ({ data: null, status: "unauthenticated" }),
+}));
+
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/",
+  useRouter: () => ({ refresh: vi.fn() }),
+}));
 
 describe("app shell", () => {
   test("keeps skip link contract and renders desktop rail before main content", () => {

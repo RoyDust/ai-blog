@@ -1,0 +1,215 @@
+"use client";
+
+import type { Session } from "next-auth";
+import { getSession, signIn } from "next-auth/react";
+import Link from "next/link";
+import type { FormEvent } from "react";
+import { useState } from "react";
+import { ArrowRight, KeyRound, LockKeyhole, ShieldCheck, UserRound } from "lucide-react";
+
+import { Button, Card, CardContent, Input } from "@/components/ui";
+import { getPostLoginRedirect } from "@/lib/login-redirect";
+
+export type LoginFormMode = "page" | "dialog";
+
+export type LoginFormCopy = {
+  eyebrow: string;
+  title: string;
+  description: string;
+  submitLabel: string;
+  submittingLabel: string;
+  githubLabel: string;
+  registerPrompt: string;
+  registerLinkLabel: string;
+  registerSuffix?: string;
+};
+
+export type LoginFormProps = {
+  mode?: LoginFormMode;
+  callbackUrl?: string;
+  oauthCallbackUrl?: string;
+  authError?: string | null;
+  copy?: Partial<LoginFormCopy>;
+  onAdminSuccess?: () => void;
+  onSuccess?: (session: Session | null) => void;
+};
+
+const loginFormCopyByMode: Record<LoginFormMode, LoginFormCopy> = {
+  page: {
+    eyebrow: "编辑工作台",
+    title: "后台登录",
+    description: "进入内容工作室，管理文章、评论与分类结构。",
+    submitLabel: "进入后台",
+    submittingLabel: "正在验证...",
+    githubLabel: "使用 GitHub 登录",
+    registerPrompt: "没有账号？",
+    registerLinkLabel: "创建账号",
+    registerSuffix: "，再由管理员分配后台权限。",
+  },
+  dialog: {
+    eyebrow: "账号",
+    title: "登录账号",
+    description: "登录后可收藏文章、继续阅读，并查看与你相关的内容。",
+    submitLabel: "登录",
+    submittingLabel: "正在登录...",
+    githubLabel: "使用 GitHub 登录",
+    registerPrompt: "没有账号？",
+    registerLinkLabel: "创建账号",
+  },
+};
+
+const errorMessages: Record<string, string> = {
+  "not-admin": "当前不是管理员账号，请切换到拥有后台权限的账号。",
+  OAuthAccountNotLinked: "该邮箱已注册，请先使用邮箱密码登录，然后在设置页绑定 GitHub。",
+  GitHubEmailRequired: "GitHub 未返回可用邮箱，请在 GitHub 账号中添加并验证邮箱后重试。",
+  Configuration: "GitHub 登录暂未正确配置，请联系管理员。",
+};
+
+export function LoginForm({
+  mode = "page",
+  callbackUrl = "/admin",
+  oauthCallbackUrl = "/auth/redirect",
+  authError,
+  copy,
+  onAdminSuccess,
+  onSuccess,
+}: LoginFormProps) {
+  const formCopy = { ...loginFormCopyByMode[mode], ...copy };
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const helperMessage = authError ? errorMessages[authError] ?? "登录失败，请稍后重试。" : "";
+  const HeaderIcon = mode === "page" ? ShieldCheck : UserRound;
+
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    setError("");
+    setIsLoading(true);
+
+    try {
+      const result = await signIn("credentials", {
+        email,
+        password,
+        redirect: false,
+        callbackUrl,
+      });
+
+      if (result?.error) {
+        throw new Error(result.error);
+      }
+
+      const session = await getSession();
+
+      if (mode === "dialog") {
+        if (session?.user?.role === "ADMIN") {
+          if (onAdminSuccess) {
+            onAdminSuccess();
+          } else {
+            window.location.assign("/admin");
+          }
+          return;
+        }
+
+        onSuccess?.(session);
+        return;
+      }
+
+      window.location.href = getPostLoginRedirect(session?.user?.role, callbackUrl);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "登录失败，请稍后重试");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <Card className="rounded-3xl border-[var(--border)] bg-[var(--surface)]">
+      <CardContent className="p-0">
+        <div className="border-b border-[var(--border)] bg-[var(--surface-alt)] px-6 py-5">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--muted)]">{formCopy.eyebrow}</p>
+              <h1 className="mt-2 font-display text-3xl font-semibold text-[var(--foreground)]">{formCopy.title}</h1>
+            </div>
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[var(--surface)] text-[var(--brand)] shadow-[var(--shadow-card)]">
+              <HeaderIcon className="h-5 w-5" aria-hidden="true" />
+            </div>
+          </div>
+          <p className="mt-3 text-sm leading-6 text-[var(--muted)]">{formCopy.description}</p>
+        </div>
+
+        <div className="px-6 py-6">
+          {error ? (
+            <div className="ui-alert-danger mb-4 rounded-2xl px-4 py-3">
+              <p className="text-sm">{error}</p>
+            </div>
+          ) : null}
+
+          {!error && helperMessage ? (
+            <div className="ui-alert-danger mb-4 rounded-2xl px-4 py-3">
+              <p className="text-sm">{helperMessage}</p>
+            </div>
+          ) : null}
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <Input
+              type="email"
+              label="邮箱"
+              placeholder="admin@example.com"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              autoComplete="email"
+              required
+            />
+
+            <Input
+              type="password"
+              label="密码"
+              placeholder="输入账号密码"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              autoComplete="current-password"
+              required
+            />
+
+            <Button type="submit" className="w-full gap-2 py-2.5" disabled={isLoading}>
+              <LockKeyhole className="h-4 w-4" aria-hidden="true" />
+              {isLoading ? formCopy.submittingLabel : formCopy.submitLabel}
+              <ArrowRight className="h-4 w-4" aria-hidden="true" />
+            </Button>
+          </form>
+
+          <div className="relative my-5">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-[var(--border)]" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-[var(--surface)] px-3 text-[var(--muted)]">或</span>
+            </div>
+          </div>
+
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full gap-2 py-2.5"
+            onClick={() => signIn("github", { callbackUrl: oauthCallbackUrl })}
+          >
+            {formCopy.githubLabel}
+          </Button>
+
+          <div className="mt-5 flex items-start gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-alt)] px-4 py-3 text-sm text-[var(--muted)]">
+            <KeyRound className="mt-0.5 h-4 w-4 shrink-0 text-[var(--brand)]" aria-hidden="true" />
+            <p>
+              {formCopy.registerPrompt}{" "}
+              <Link href="/register" className="ui-link font-medium">
+                {formCopy.registerLinkLabel}
+              </Link>
+              {formCopy.registerSuffix}
+            </p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
