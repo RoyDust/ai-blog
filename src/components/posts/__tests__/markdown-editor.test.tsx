@@ -1,10 +1,29 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { useState } from "react";
-import { afterEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { MarkdownEditor } from "@/components/posts/MarkdownEditor";
+import { compressImageForUpload } from "@/lib/client-image-compression";
+
+vi.mock("@/lib/client-image-compression", () => ({
+  compressImageForUpload: vi.fn(),
+}));
+
+const compressImageForUploadMock = vi.mocked(compressImageForUpload);
+
+beforeEach(() => {
+  compressImageForUploadMock.mockImplementation(async (file) => ({
+    file,
+    originalFile: file,
+    compressed: false,
+    originalSize: file.size,
+    outputSize: file.size,
+    skippedReason: "not-smaller",
+  }));
+});
 
 afterEach(() => {
   cleanup();
+  vi.clearAllMocks();
   vi.unstubAllGlobals();
 });
 
@@ -67,6 +86,15 @@ describe("markdown editor", () => {
     const { container } = render(<Wrapper />);
     const input = container.querySelector('input[type="file"]') as HTMLInputElement;
     const file = new File(["image"], "demo.png", { type: "image/png" });
+    const compressedFile = new File(["small"], "demo.png", { type: "image/png" });
+
+    compressImageForUploadMock.mockResolvedValueOnce({
+      file: compressedFile,
+      originalFile: file,
+      compressed: true,
+      originalSize: file.size,
+      outputSize: compressedFile.size,
+    });
 
     fireEvent.change(input, { target: { files: [file] } });
 
@@ -74,6 +102,12 @@ describe("markdown editor", () => {
       expect(fetchMock).toHaveBeenCalledTimes(2);
     });
 
+    expect(compressImageForUploadMock).toHaveBeenCalledWith(file, "markdown");
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toMatchObject({
+      contentType: "image/png",
+      filename: "demo.png",
+    });
+    expect((fetchMock.mock.calls[1][1]?.body as FormData).get("file")).toBe(compressedFile);
     expect(screen.getByRole("textbox")).toHaveValue(
       "Hello\n\n![demo](http://project.roydust.top/posts/content/demo.png)"
     );

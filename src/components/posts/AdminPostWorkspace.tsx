@@ -26,6 +26,7 @@ import type { CoverAsset } from "@/components/admin/covers/types";
 import { StatusBadge } from "@/components/admin/primitives/StatusBadge";
 import { WorkspacePanel } from "@/components/admin/primitives/WorkspacePanel";
 import { Button, Input } from "@/components/admin/ui";
+import { compressImageForUpload } from "@/lib/client-image-compression";
 import { generatePostSlug } from "@/lib/slug";
 
 import { EditorWorkspace } from "./EditorWorkspace";
@@ -399,10 +400,12 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
     setCoverUploadError("");
 
     try {
+      const compressed = await compressImageForUpload(file, "cover");
+      const uploadFile = compressed.file;
       const tokenResponse = await fetch("/api/admin/uploads/qiniu-token", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ filename: file.name, contentType: file.type }),
+        body: JSON.stringify({ filename: uploadFile.name, contentType: uploadFile.type || file.type }),
       });
       const tokenData = await tokenResponse.json();
 
@@ -411,7 +414,7 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
       }
 
       const payload = new FormData();
-      payload.append("file", file);
+      payload.append("file", uploadFile);
       payload.append("token", tokenData.data.token);
       payload.append("key", tokenData.data.key);
 

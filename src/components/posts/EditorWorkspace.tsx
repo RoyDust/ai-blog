@@ -11,6 +11,7 @@
 
 import { useRef, useState } from "react";
 import { Button, Input } from "@/components/ui";
+import { compressImageForUpload } from "@/lib/client-image-compression";
 import { MarkdownEditor } from "./MarkdownEditor";
 
 interface EditorWorkspaceProps {
@@ -103,11 +104,13 @@ export function EditorWorkspace({
     setUploadError("");
 
     try {
+      const compressed = await compressImageForUpload(file, "cover");
+      const uploadFile = compressed.file;
       // 先向服务端申请上传凭证，再直传到对象存储，避免把密钥放到客户端。
       const tokenResponse = await fetch("/api/admin/uploads/qiniu-token", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ filename: file.name, contentType: file.type }),
+        body: JSON.stringify({ filename: uploadFile.name, contentType: uploadFile.type || file.type }),
       });
       const tokenData = await tokenResponse.json();
 
@@ -116,7 +119,7 @@ export function EditorWorkspace({
       }
 
       const formData = new FormData();
-      formData.append("file", file);
+      formData.append("file", uploadFile);
       formData.append("token", tokenData.data.token);
       formData.append("key", tokenData.data.key);
 

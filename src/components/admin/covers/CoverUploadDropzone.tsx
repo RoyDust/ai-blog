@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { UploadCloud } from "lucide-react";
 
 import { Button } from "@/components/admin/ui";
+import { compressImageForUpload } from "@/lib/client-image-compression";
 import type { CoverAsset } from "./types";
 
 type CoverUploadDropzoneProps = {
@@ -23,10 +24,12 @@ export function CoverUploadDropzone({ onCreated }: CoverUploadDropzoneProps) {
     setError("");
 
     try {
+      const compressed = await compressImageForUpload(file, "cover");
+      const uploadFile = compressed.file;
       const tokenResponse = await fetch("/api/admin/uploads/qiniu-token", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ filename: file.name, contentType: file.type }),
+        body: JSON.stringify({ filename: uploadFile.name, contentType: uploadFile.type || file.type }),
       });
       const tokenData = await tokenResponse.json();
 
@@ -35,7 +38,7 @@ export function CoverUploadDropzone({ onCreated }: CoverUploadDropzoneProps) {
       }
 
       const payload = new FormData();
-      payload.append("file", file);
+      payload.append("file", uploadFile);
       payload.append("token", tokenData.data.token);
       payload.append("key", tokenData.data.key);
 

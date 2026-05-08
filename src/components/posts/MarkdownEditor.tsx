@@ -15,6 +15,7 @@ import rehypeHighlight from "rehype-highlight";
 import remarkGfm from "remark-gfm";
 import { Bold, Code, Heading2, Italic, Link2, List, Quote, Upload } from "lucide-react";
 import { FallbackImage } from "@/components/ui";
+import { compressImageForUpload } from "@/lib/client-image-compression";
 
 interface MarkdownEditorProps {
   label?: string;
@@ -138,10 +139,12 @@ export function MarkdownEditor({
    * 返回最终可写入 Markdown 的图片 URL 与默认 alt 文本。
    */
   const uploadImageFile = async (file: File) => {
+    const compressed = await compressImageForUpload(file, "markdown");
+    const uploadFile = compressed.file;
     const tokenResponse = await fetch("/api/admin/uploads/qiniu-token", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ filename: file.name, contentType: file.type }),
+      body: JSON.stringify({ filename: uploadFile.name, contentType: uploadFile.type || file.type }),
     });
     const tokenData = await tokenResponse.json();
 
@@ -150,7 +153,7 @@ export function MarkdownEditor({
     }
 
     const formData = new FormData();
-    formData.append("file", file);
+    formData.append("file", uploadFile);
     formData.append("token", tokenData.data.token);
     formData.append("key", tokenData.data.key);
 
