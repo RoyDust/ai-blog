@@ -27,7 +27,7 @@ test('post card uses semantic classes for dark-mode text and media', () => {
 })
 
 test('auth entry points stop depending on hand-authored gray and blue theme pairs', () => {
-  const loginSource = readSource('src/app/(auth)/login/page.tsx')
+  const loginSource = readSource('src/components/auth/LoginForm.tsx')
   const registerSource = readSource('src/app/(auth)/register/page.tsx')
   const authLayoutSource = readSource('src/app/(auth)/layout.tsx')
   const combined = `${loginSource}\n${registerSource}\n${authLayoutSource}`

@@ -5,7 +5,7 @@ import { buildNoIndexMetadata } from "@/lib/seo";
 export const metadata: Metadata = buildNoIndexMetadata({
   title: "账号入口",
   description: "登录或注册账号以进入个人与后台功能。",
-  path: "/login",
+  path: "/register",
 });
 
 export default function AuthLayout({

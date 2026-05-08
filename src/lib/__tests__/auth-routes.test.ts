@@ -7,4 +7,8 @@ describe("auth route ownership", () => {
     expect(existsSync(path.join(process.cwd(), "src/app/api/auth/[...nextauth]/route.ts"))).toBe(true);
     expect(existsSync(path.join(process.cwd(), "src/app/api/auth/signout/route.ts"))).toBe(false);
   });
+
+  test("does not expose a standalone login page route", () => {
+    expect(existsSync(path.join(process.cwd(), "src/app/(auth)/login/page.tsx"))).toBe(false);
+  });
 });

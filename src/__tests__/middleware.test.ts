@@ -72,24 +72,24 @@ describe('admin middleware', () => {
     expect(getToken).not.toHaveBeenCalled()
   })
 
-  test('redirects unauthenticated users from /admin to /login with callbackUrl', async () => {
+  test('redirects unauthenticated users from /admin to the login dialog with callbackUrl', async () => {
     getToken.mockResolvedValueOnce(null)
 
     const request = new NextRequest('http://localhost/admin')
     const response = await middleware(request)
 
     expect(response.status).toBe(307)
-    expect(response.headers.get('location')).toBe('http://localhost/login?callbackUrl=%2Fadmin')
+    expect(response.headers.get('location')).toBe('http://localhost/?login=1&callbackUrl=%2Fadmin')
   })
 
-  test('redirects non-admin users from /admin to /login with error marker', async () => {
+  test('redirects non-admin users from /admin to the login dialog with error marker', async () => {
     getToken.mockResolvedValueOnce({ role: 'USER' })
 
     const request = new NextRequest('http://localhost/admin/posts')
     const response = await middleware(request)
 
     expect(response.status).toBe(307)
-    expect(response.headers.get('location')).toBe('http://localhost/login?error=not-admin&callbackUrl=%2Fadmin%2Fposts')
+    expect(response.headers.get('location')).toBe('http://localhost/?login=1&error=not-admin&callbackUrl=%2Fadmin%2Fposts')
   })
 
   test('allows admin users to access /admin', async () => {

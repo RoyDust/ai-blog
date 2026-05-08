@@ -6,6 +6,7 @@ import { PrismaAdapter } from "@auth/prisma-adapter"
 import { prisma } from "@/lib/prisma"
 import { requireAuthSecret, resolveAuthSecret } from "@/lib/auth-secret"
 import { authSessionCookieName, shouldUseSecureAuthCookies } from "@/lib/auth-cookies"
+import { buildLoginPromptPath } from "@/lib/login-redirect"
 import bcrypt from "bcryptjs"
 
 /**
@@ -75,8 +76,8 @@ export const authOptions: NextAuthOptions = {
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
   pages: {
-    signIn: "/login",
-    error: "/login"
+    signIn: buildLoginPromptPath(),
+    error: buildLoginPromptPath(),
   },
   cookies: {
     sessionToken: {
@@ -117,7 +118,7 @@ export const authOptions: NextAuthOptions = {
           }
         }
 
-        return "/login?error=GitHubEmailRequired"
+        return buildLoginPromptPath({ error: "GitHubEmailRequired" })
       }
 
       return true

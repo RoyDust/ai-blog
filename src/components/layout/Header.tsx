@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { buildLoginPromptPath } from "@/lib/login-redirect";
+
 export interface HeaderProps {
   siteName?: string;
 }
@@ -38,7 +40,7 @@ export function Header({ siteName = "My Blog" }: HeaderProps) {
 
         <div className="flex items-center gap-4">
           <Link
-            href="/login"
+            href={buildLoginPromptPath()}
             className="text-sm font-medium text-[var(--muted)] transition-colors hover:text-[var(--foreground)]"
           >
             登录

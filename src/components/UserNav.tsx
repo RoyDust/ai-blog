@@ -4,6 +4,7 @@ import { signOut, useSession } from 'next-auth/react'
 import Link from 'next/link'
 
 import { clearAllSessionData } from '@/lib/auth-client'
+import { buildLoginPromptPath } from '@/lib/login-redirect'
 
 const navLinkClass = 'text-75 transition-colors hover:text-[var(--brand-strong)]'
 
@@ -53,7 +54,7 @@ export function UserNav() {
 
   return (
     <nav className="flex items-center gap-4">
-      <Link href="/login" className={navLinkClass}>
+      <Link href={buildLoginPromptPath()} className={navLinkClass}>
         登录
       </Link>
       <Link

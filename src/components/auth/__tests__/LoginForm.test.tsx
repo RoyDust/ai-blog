@@ -35,6 +35,8 @@ describe("LoginForm", () => {
     expect(screen.getByRole("heading", { name: "登录账号" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^登录$/ })).toBeInTheDocument();
     expect(screen.getByText(/收藏文章/)).toBeInTheDocument();
+    expect(container.querySelector(".reader-panel")).toBeTruthy();
+    expect(screen.getByLabelText("邮箱")).toHaveClass("border-[var(--reader-border)]");
     expect(container).not.toHaveTextContent("后台登录");
     expect(container).not.toHaveTextContent("进入后台");
     expect(container).not.toHaveTextContent("分配后台权限");

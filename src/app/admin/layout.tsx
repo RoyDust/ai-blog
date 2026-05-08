@@ -2,17 +2,18 @@
 import { getServerSession } from "next-auth";
 import { AdminLayout } from "@/components/admin/shell/AdminLayout";
 import { authOptions } from "@/lib/auth";
+import { buildLoginPromptPath } from "@/lib/login-redirect";
 import { prisma } from "@/lib/prisma";
 
 export default async function AdminRouteLayout({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.id) {
-    redirect("/login?callbackUrl=%2Fadmin");
+    redirect(buildLoginPromptPath({ callbackUrl: "/admin" }));
   }
 
   if (session.user.role !== "ADMIN") {
-    redirect("/login?error=not-admin&callbackUrl=%2Fadmin");
+    redirect(buildLoginPromptPath({ callbackUrl: "/admin", error: "not-admin" }));
   }
 
   const currentUser = await prisma.user.findUnique({

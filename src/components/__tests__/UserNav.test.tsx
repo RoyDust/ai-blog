@@ -36,6 +36,6 @@ test('renders localized guest navigation', () => {
 
   render(<UserNav />)
 
-  expect(screen.getByRole('link', { name: '登录' })).toHaveAttribute('href', '/login')
+  expect(screen.getByRole('link', { name: '登录' })).toHaveAttribute('href', '/?login=1')
   expect(screen.getByRole('link', { name: '注册' })).toHaveAttribute('href', '/register')
 })

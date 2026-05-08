@@ -1,7 +1,6 @@
 export const VISIT_EXCLUDED_PATH_PREFIXES = [
   "/admin",
   "/api",
-  "/login",
   "/register",
   "/profile",
   "/write",

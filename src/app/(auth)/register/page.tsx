@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { signIn } from 'next-auth/react';
 import { Button, Input, Card, CardContent } from '@/components/ui';
+import { buildLoginPromptPath } from '@/lib/login-redirect';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -44,7 +45,7 @@ export default function RegisterPage() {
         throw new Error(data.error || 'Registration failed');
       }
 
-      router.push('/login?registered=true');
+      router.push(buildLoginPromptPath({ registered: true }));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
     } finally {
@@ -154,7 +155,7 @@ export default function RegisterPage() {
           <p className="text-75 text-sm">
             Already have an account?{' '}
             <Link
-              href="/login"
+              href={buildLoginPromptPath()}
               className="ui-link font-medium"
             >
               Sign in

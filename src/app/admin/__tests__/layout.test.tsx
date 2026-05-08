@@ -30,17 +30,17 @@ describe("admin route layout auth redirect", () => {
     adminLayout.mockClear();
   });
 
-  test("redirects anonymous users to login with admin callback", async () => {
+  test("redirects anonymous users to the login dialog with admin callback", async () => {
     getServerSession.mockResolvedValue(null);
 
     const { default: AdminRouteLayout } = await import("../layout");
 
     await expect(AdminRouteLayout({ children: null })).rejects.toThrow(redirectError);
 
-    expect(redirect).toHaveBeenCalledWith("/login?callbackUrl=%2Fadmin");
+    expect(redirect).toHaveBeenCalledWith("/?login=1&callbackUrl=%2Fadmin");
   });
 
-  test("redirects non-admin users to login with not-admin error", async () => {
+  test("redirects non-admin users to the login dialog with not-admin error", async () => {
     getServerSession.mockResolvedValue({
       user: { id: "user-1", role: "AUTHOR", name: "Author" },
     });
@@ -49,7 +49,7 @@ describe("admin route layout auth redirect", () => {
 
     await expect(AdminRouteLayout({ children: null })).rejects.toThrow(redirectError);
 
-    expect(redirect).toHaveBeenCalledWith("/login?error=not-admin&callbackUrl=%2Fadmin");
+    expect(redirect).toHaveBeenCalledWith("/?login=1&error=not-admin&callbackUrl=%2Fadmin");
   });
 
   test("passes the latest persisted admin profile to the shell", async () => {

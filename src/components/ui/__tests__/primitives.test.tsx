@@ -15,4 +15,11 @@ describe('ui primitives', () => {
     render(<Input label="Email" error="Required" />)
     expect(screen.getByText('Required')).toBeInTheDocument()
   })
+
+  test('input supports a leading adornment without replacing label semantics', () => {
+    render(<Input label="Email" leftSlot={<span data-testid="mail-icon" />} />)
+
+    expect(screen.getByLabelText('Email')).toHaveClass('pl-11')
+    expect(screen.getByTestId('mail-icon')).toBeInTheDocument()
+  })
 })

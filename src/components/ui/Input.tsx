@@ -5,6 +5,7 @@ export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> 
   label?: string;
   error?: string;
   helperText?: string;
+  leftSlot?: React.ReactNode;
   rightSlot?: React.ReactNode;
 }
 
@@ -12,6 +13,7 @@ export function Input({
   label,
   error,
   helperText,
+  leftSlot,
   rightSlot,
   className = '',
   id,
@@ -19,6 +21,7 @@ export function Input({
 }: InputProps) {
   const generatedId = useId();
   const inputId = id || generatedId;
+  const hasAdornment = Boolean(leftSlot || rightSlot);
 
   return (
     <div className="w-full">
@@ -30,11 +33,17 @@ export function Input({
           {label}
         </label>
       )}
-      <div className={rightSlot ? "relative" : undefined}>
+      <div className={hasAdornment ? "relative" : undefined}>
+        {leftSlot ? (
+          <div className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]">
+            {leftSlot}
+          </div>
+        ) : null}
         <input
           id={inputId}
           className={cn(
             "ui-ring w-full rounded-xl border bg-[var(--surface)] px-4 py-2 text-[var(--foreground)] transition-colors placeholder:text-[var(--muted)] focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-60",
+            leftSlot ? "pl-11" : "",
             rightSlot ? "pr-12" : "",
             error
               ? "border-rose-500 focus-visible:ring-rose-400"
