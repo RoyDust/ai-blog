@@ -14,6 +14,12 @@ import { CoverAssetGrid } from "./CoverAssetGrid";
 import { CoverUploadDropzone } from "./CoverUploadDropzone";
 import type { CoverAsset, CoverAssetListResponse } from "./types";
 
+/**
+ * 后台封面图库管理页。
+ *
+ * 负责列表筛选、上传/外链新增、编辑、归档，以及给无封面文章批量随机补图。
+ * 所有持久化写入都通过 /api/admin/covers 系列接口完成。
+ */
 export function CoverGalleryManager() {
   const [assets, setAssets] = useState<CoverAsset[]>([]);
   const [total, setTotal] = useState(0);
@@ -24,6 +30,11 @@ export function CoverGalleryManager() {
   const [editing, setEditing] = useState<CoverAsset | null>(null);
   const [randomizing, setRandomizing] = useState(false);
 
+  /**
+   * 将页面筛选状态转换成图库查询参数。
+   *
+   * loadAssets 依赖这个 memo，因此筛选变化会自然触发重新拉取。
+   */
   const params = useMemo(() => {
     const next = new URLSearchParams({ limit: "60" });
     if (query.trim()) next.set("q", query.trim());
@@ -32,6 +43,11 @@ export function CoverGalleryManager() {
     return next;
   }, [query, sourceFilter, statusFilter]);
 
+  /**
+   * 拉取当前筛选下的封面资产列表。
+   *
+   * 失败时清空本地列表，避免界面继续展示已经与筛选条件不匹配的旧数据。
+   */
   const loadAssets = useCallback(async () => {
     setLoading(true);
 
@@ -54,6 +70,11 @@ export function CoverGalleryManager() {
     void loadAssets();
   }, [loadAssets]);
 
+  /**
+   * 将新建或更新后的资产合并回当前列表。
+   *
+   * 上传、外链新增和编辑弹窗都走这一个入口，保持列表和总数更新策略一致。
+   */
   const upsertAsset = (asset: CoverAsset) => {
     setAssets((prev) => {
       const exists = prev.some((item) => item.id === asset.id);
@@ -62,6 +83,11 @@ export function CoverGalleryManager() {
     setTotal((prev) => (assets.some((item) => item.id === asset.id) ? prev : prev + 1));
   };
 
+  /**
+   * 归档图库资产。
+   *
+   * 后端只把资产标记为归档，不会清空已经使用该封面的文章引用。
+   */
   const archiveAsset = async (asset: CoverAsset) => {
     const confirmed = window.confirm(`归档封面“${asset.title || asset.url}”？已使用的文章不会被清空。`);
     if (!confirmed) return;
@@ -77,6 +103,11 @@ export function CoverGalleryManager() {
     }
   };
 
+  /**
+   * 批量给已发布且缺少封面的文章随机补齐封面。
+   *
+   * 该动作会修改文章数据，所以只由管理页显式按钮触发，并在完成后刷新图库状态。
+   */
   const randomizeMissingPosts = async () => {
     setRandomizing(true);
 

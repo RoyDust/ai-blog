@@ -84,6 +84,9 @@ const draftSelect = {
   tags: { select: { slug: true, deletedAt: true } },
 } as const
 
+/**
+ * Maps a Prisma post row back to the stable AI draft response contract.
+ */
 function buildAiDraftRecord(externalId: string, post: {
   id: string
   title: string
@@ -141,6 +144,9 @@ function isPrismaRecordNotFoundError(error: unknown) {
   return typeof error === "object" && error !== null && "code" in error && error.code === "P2025"
 }
 
+/**
+ * Converts low-level Prisma update misses into the draft-specific guard error.
+ */
 function throwDraftWriteGuardError(post: DraftWriteGuardPost | null): never {
   if (post && !post.deletedAt && post.published) {
     throw new ConflictError("Draft binding points to a published post")
@@ -149,6 +155,10 @@ function throwDraftWriteGuardError(post: DraftWriteGuardPost | null): never {
   throw new NotFoundError("Draft not found")
 }
 
+/**
+ * Resolves user-facing taxonomy slugs into ids before draft or post writes.
+ * Missing slugs fail fast so AI clients cannot create dangling taxonomy references.
+ */
 async function resolveAiTaxonomy(input: AiDraftInput) {
   const categorySlug = input.categorySlug?.trim()
   let category: { id: string; slug: string } | null = null
@@ -182,6 +192,9 @@ async function resolveAiTaxonomy(input: AiDraftInput) {
   return { category, tags }
 }
 
+/**
+ * Creates a new unpublished post and binds it to an AI external id in one transaction.
+ */
 async function createDraftWithBinding({
   clientId,
   externalId,
@@ -244,6 +257,10 @@ async function createDraftWithBinding({
   })
 }
 
+/**
+ * Updates the unpublished post behind an existing AI draft binding.
+ * If the post was deleted or published meanwhile, the write guard reports the safer domain error.
+ */
 async function updateDraftPost({
   binding,
   input,

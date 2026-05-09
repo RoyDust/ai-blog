@@ -12,6 +12,9 @@ type CoverAssetGridProps = {
   onDelete: (asset: CoverAsset) => void;
 };
 
+/**
+ * 将后端保存的来源枚举转换成后台列表展示文案。
+ */
 function getSourceLabel(source: string) {
   if (source === "upload") return "上传";
   if (source === "manual") return "外链";
@@ -19,6 +22,11 @@ function getSourceLabel(source: string) {
   return source;
 }
 
+/**
+ * 封面资产卡片网格。
+ *
+ * 这是纯展示组件：编辑、归档和删除语义都通过回调交给 CoverGalleryManager 统一处理。
+ */
 export function CoverAssetGrid({ assets, loading = false, onEdit, onDelete }: CoverAssetGridProps) {
   if (loading) {
     return <p className="py-12 text-center text-sm text-[var(--muted)]">正在加载封面图库...</p>;

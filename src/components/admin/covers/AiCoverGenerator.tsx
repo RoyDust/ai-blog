@@ -16,6 +16,12 @@ type AiCoverGeneratorProps = {
   onGenerated: (asset: CoverAsset) => void;
 };
 
+/**
+ * 文章编辑器里的 AI 封面生成入口。
+ *
+ * 这个组件只负责弹窗交互、可用生图模型选择，以及把生成后的图库资产回传给父级；
+ * 生成接口会在服务端完成提示词组装、模型调用、图片上传和图库记录写入。
+ */
 export function AiCoverGenerator({ title, excerpt, content, models: initialModels, onGenerated }: AiCoverGeneratorProps) {
   const [models, setModels] = useState<PublicAiModelOption[]>(initialModels ?? []);
   const coverModels = useMemo(
@@ -31,6 +37,11 @@ export function AiCoverGenerator({ title, excerpt, content, models: initialModel
 
   const selectedModelId = modelId || coverModels[0]?.id || "";
 
+  /**
+   * 懒加载模型列表。
+   *
+   * 当父组件已经传入 models 时直接复用，避免在文章工作台每次打开弹窗都重复请求模型配置。
+   */
   const loadModels = async () => {
     if (initialModels) return;
     try {
@@ -46,6 +57,11 @@ export function AiCoverGenerator({ title, excerpt, content, models: initialModel
     }
   };
 
+  /**
+   * 调用封面生成接口并保留返回的 CoverAsset。
+   *
+   * 返回资产已经写入图库，用户点击“使用”时只需要把 url/id 回填到文章表单。
+   */
   const handleGenerate = async () => {
     setGenerating(true);
     setError("");

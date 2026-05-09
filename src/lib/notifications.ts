@@ -68,10 +68,16 @@ const CATEGORY_TYPES: Record<NotificationCategory, NotificationType[]> = {
   system: [NOTIFICATION_TYPES.systemWarning],
 };
 
+/**
+ * 将业务层 JSON 类型转换成 Prisma 可写入的 JSON 类型。
+ */
 function toJson(value: JsonValue | undefined) {
   return value === undefined ? undefined : (value as unknown as Prisma.InputJsonValue);
 }
 
+/**
+ * 限制通知列表分页大小，避免顶部铃铛或列表页一次拉取过多记录。
+ */
 function normalizeLimit(value: unknown, fallback = 8) {
   const limit = Number(value);
   if (!Number.isInteger(limit) || limit <= 0) {
@@ -81,6 +87,11 @@ function normalizeLimit(value: unknown, fallback = 8) {
   return Math.min(limit, 50);
 }
 
+/**
+ * 组装 Notification 表的可写入字段。
+ *
+ * recipient 记录由调用方按目标用户另外写入。
+ */
 function notificationCreateData(input: CreateNotificationInput) {
   return {
     type: input.type,
@@ -95,6 +106,9 @@ function notificationCreateData(input: CreateNotificationInput) {
   };
 }
 
+/**
+ * 获取当前所有管理员用户，供系统级后台通知广播使用。
+ */
 async function getAdminRecipientIds() {
   const admins = await prisma.user.findMany({
     where: { role: "ADMIN" },
@@ -104,6 +118,11 @@ async function getAdminRecipientIds() {
   return admins.map((admin) => admin.id);
 }
 
+/**
+ * 为通知补齐接收人记录。
+ *
+ * createMany + skipDuplicates 支持 dedupeKey upsert 后重复补发而不报错。
+ */
 async function ensureRecipients(notificationId: string, userIds: string[]) {
   if (userIds.length === 0) {
     return;
@@ -115,6 +134,9 @@ async function ensureRecipients(notificationId: string, userIds: string[]) {
   });
 }
 
+/**
+ * 创建或更新一条面向所有管理员的通知。
+ */
 export async function createAdminNotification(input: CreateNotificationInput) {
   const data = notificationCreateData(input);
   const notification = input.dedupeKey
@@ -138,6 +160,9 @@ export async function createAdminNotification(input: CreateNotificationInput) {
   return notification;
 }
 
+/**
+ * 创建或更新一条面向单个用户的通知。
+ */
 export async function createUserNotification(userId: string, input: CreateNotificationInput) {
   const data = notificationCreateData(input);
   const notification = input.dedupeKey
@@ -161,6 +186,11 @@ export async function createUserNotification(userId: string, input: CreateNotifi
   return notification;
 }
 
+/**
+ * 查询当前用户可见的通知列表。
+ *
+ * 支持游标分页、未读过滤和业务分类过滤；返回值同时包含全局未读数。
+ */
 export async function listAdminNotifications({
   userId,
   cursor,
@@ -220,12 +250,18 @@ export async function listAdminNotifications({
   };
 }
 
+/**
+ * 读取用户当前未读通知数量。
+ */
 export async function getUnreadNotificationCount(userId: string) {
   return prisma.notificationRecipient.count({
     where: { userId, readAt: null, dismissedAt: null },
   });
 }
 
+/**
+ * 标记指定通知为已读。
+ */
 export async function markNotificationsRead(userId: string, notificationIds: string[]) {
   if (notificationIds.length === 0) {
     throw new ValidationError("Notification IDs are required");
@@ -244,6 +280,9 @@ export async function markNotificationsRead(userId: string, notificationIds: str
   return { unreadCount: await getUnreadNotificationCount(userId) };
 }
 
+/**
+ * 标记当前用户所有未读通知为已读。
+ */
 export async function markAllNotificationsRead(userId: string) {
   await prisma.notificationRecipient.updateMany({
     where: { userId, readAt: null, dismissedAt: null },
@@ -253,6 +292,9 @@ export async function markAllNotificationsRead(userId: string) {
   return { unreadCount: 0 };
 }
 
+/**
+ * 软隐藏指定通知，保留原始通知记录和其他接收人的状态。
+ */
 export async function dismissNotifications(userId: string, notificationIds: string[]) {
   if (notificationIds.length === 0) {
     throw new ValidationError("Notification IDs are required");
@@ -270,6 +312,9 @@ export async function dismissNotifications(userId: string, notificationIds: stri
   return { unreadCount: await getUnreadNotificationCount(userId) };
 }
 
+/**
+ * 解析 API 查询参数里的通知分类。
+ */
 export function parseNotificationCategory(value: string | null): NotificationCategory | null {
   if (!value) return null;
   if (value === "comment" || value === "ai" || value === "system") return value;

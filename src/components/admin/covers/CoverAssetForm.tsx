@@ -12,6 +12,11 @@ type CoverAssetFormProps = {
   onCancel?: () => void;
 };
 
+/**
+ * 把用户输入的标签文本拆成后端期望的字符串数组。
+ *
+ * 同时支持英文逗号、中文逗号和空白分隔，方便从旧素材备注里直接粘贴。
+ */
 function splitTags(value: string) {
   return value
     .split(/[,，\s]+/)
@@ -19,6 +24,11 @@ function splitTags(value: string) {
     .filter(Boolean);
 }
 
+/**
+ * 封面资产新增/编辑表单。
+ *
+ * 新增模式写入外链封面；编辑模式只修改元信息和状态，避免误改已经被文章引用的 URL。
+ */
 export function CoverAssetForm({ asset, onSaved, onCancel }: CoverAssetFormProps) {
   const [url, setUrl] = useState("");
   const [title, setTitle] = useState("");
@@ -39,6 +49,11 @@ export function CoverAssetForm({ asset, onSaved, onCancel }: CoverAssetFormProps
     setError("");
   }, [asset]);
 
+  /**
+   * 根据是否传入 asset 决定调用新增或更新接口。
+   *
+   * 成功后把最新资产交给父级列表做本地合并，表单自身不负责重新拉取整页数据。
+   */
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setSubmitting(true);

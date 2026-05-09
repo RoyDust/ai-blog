@@ -40,6 +40,9 @@ function readPositiveIntegerEnv(key: string, fallback: number) {
 
 const MAX_CANDIDATES_FOR_AI = readPositiveIntegerEnv("AI_NEWS_MAX_SELECTED_CANDIDATES", 20)
 
+/**
+ * Normalizes OpenAI-compatible completion output into plain text.
+ */
 function extractCompletionText(payload: DashScopePayload) {
   const content = payload.choices?.[0]?.message?.content
 
@@ -55,6 +58,9 @@ function extractCompletionText(payload: DashScopePayload) {
   return ""
 }
 
+/**
+ * Accepts strict JSON, fenced JSON, or text with a JSON object embedded inside.
+ */
 function stripJsonFence(value: string) {
   const trimmed = value.trim()
   const fenced = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i)
@@ -71,6 +77,9 @@ function readString(value: unknown) {
   return typeof value === "string" ? value.trim() : ""
 }
 
+/**
+ * Parses the model's draft object and raises a validation error for malformed JSON.
+ */
 function parseDraftCandidate(text: string): DraftCandidate {
   try {
     const parsed = JSON.parse(stripJsonFence(text))
@@ -80,6 +89,9 @@ function parseDraftCandidate(text: string): DraftCandidate {
   }
 }
 
+/**
+ * Compresses selected news items into the factual digest sent to the model.
+ */
 function buildCandidateDigest(candidates: AiNewsItem[]) {
   return candidates
     .slice(0, MAX_CANDIDATES_FOR_AI)
@@ -98,6 +110,9 @@ function buildCandidateDigest(candidates: AiNewsItem[]) {
     .join("\n\n")
 }
 
+/**
+ * Ensures generated Markdown still carries direct source URLs for traceability.
+ */
 function appendSourceLinks(content: string, candidates: AiNewsItem[]) {
   const missingSources = candidates.filter((item) => !content.includes(item.url)).slice(0, MAX_CANDIDATES_FOR_AI)
   if (missingSources.length === 0) return content
@@ -128,6 +143,9 @@ function getGeneratorModelSnapshot(aiModel: AiModelOption): AiNewsGeneratorModel
   }
 }
 
+/**
+ * Resolves the model used for daily AI news and verifies that it has an API key.
+ */
 export async function resolveDailyAiNewsModel(modelId?: string | null) {
   const aiModel = await getAiModelForCapability("post-summary", modelId)
 

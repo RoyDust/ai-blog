@@ -42,6 +42,11 @@ const severityMeta = {
   INFO: { icon: Info, className: "bg-sky-50 text-sky-700", label: "信息" },
 } as const;
 
+/**
+ * 根据列表筛选项拼出通知查询 URL。
+ *
+ * 顶部筛选的“未读”和业务分类最终映射到不同的查询参数。
+ */
 function buildNotificationUrl(filter: NotificationFilter) {
   const params = new URLSearchParams();
   params.set("limit", "30");
@@ -57,6 +62,9 @@ function buildNotificationUrl(filter: NotificationFilter) {
   return `/api/admin/notifications?${params.toString()}`;
 }
 
+/**
+ * 后台通知列表使用的绝对时间格式。
+ */
 function formatDate(value: string) {
   return new Date(value).toLocaleString("zh-CN", {
     month: "short",
@@ -66,6 +74,9 @@ function formatDate(value: string) {
   });
 }
 
+/**
+ * 读取通知列表响应，并把缺少 data 的响应统一转成加载错误。
+ */
 async function readPayload(response: Response) {
   const payload = await readApiJson<{ success?: boolean; data?: NotificationPayload }>(response, "通知加载失败");
   if (!payload.data) {
@@ -75,6 +86,11 @@ async function readPayload(response: Response) {
   return payload.data;
 }
 
+/**
+ * 通知中心完整列表页客户端。
+ *
+ * 相比顶部铃铛，这里负责筛选、批量已读当前页、全部已读和按通知跳转。
+ */
 export function NotificationCenterClient() {
   const router = useRouter();
   const [activeFilter, setActiveFilter] = useState<NotificationFilter>("all");
@@ -85,6 +101,11 @@ export function NotificationCenterClient() {
 
   const unreadIds = useMemo(() => items.filter((item) => !item.readAt).map((item) => item.id), [items]);
 
+  /**
+   * 按当前筛选条件加载通知列表。
+   *
+   * 每次切换筛选都会重置 loading，避免用户把上一筛选条件的数据误认为当前结果。
+   */
   const loadNotifications = useCallback(async () => {
     try {
       setLoading(true);
@@ -103,6 +124,9 @@ export function NotificationCenterClient() {
     void loadNotifications();
   }, [loadNotifications]);
 
+  /**
+   * 标记一组通知为已读，并用后端返回的 unreadCount 同步全局未读数。
+   */
   const markRead = useCallback(async (ids: string[]) => {
     if (ids.length === 0) {
       return;
@@ -122,6 +146,9 @@ export function NotificationCenterClient() {
     setItems((current) => current.map((item) => (ids.includes(item.id) ? { ...item, readAt: item.readAt ?? new Date().toISOString() } : item)));
   }, []);
 
+  /**
+   * 将当前账号的所有通知标记为已读。
+   */
   const markAllRead = useCallback(async () => {
     const response = await fetch("/api/admin/notifications/read-all", { method: "POST" });
     const payload = await readApiJson<{ success?: boolean; data?: { unreadCount: number } }>(response, "通知状态更新失败").catch(() => null);
@@ -134,6 +161,9 @@ export function NotificationCenterClient() {
     setItems((current) => current.map((item) => ({ ...item, readAt: item.readAt ?? new Date().toISOString() })));
   }, []);
 
+  /**
+   * 进入通知关联页面前先补齐已读状态，保证返回列表时角标已经收敛。
+   */
   const openNotification = useCallback(
     async (item: NotificationItem) => {
       try {

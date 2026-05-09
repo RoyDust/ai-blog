@@ -11,11 +11,21 @@ type CoverUploadDropzoneProps = {
   onCreated: (asset: CoverAsset) => void;
 };
 
+/**
+ * 封面上传入口。
+ *
+ * 客户端先压缩图片，再申请七牛上传凭证，直传完成后把公开 URL 写入封面图库。
+ */
 export function CoverUploadDropzone({ onCreated }: CoverUploadDropzoneProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
 
+  /**
+   * 处理单张封面上传的完整链路。
+   *
+   * input value 会在 finally 清空，确保用户可以连续选择同一个文件重试。
+   */
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;

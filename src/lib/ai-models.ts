@@ -129,6 +129,9 @@ function getOptionalAiModelDelegate(client: AiModelClient = prisma as unknown as
   return client.aiModel;
 }
 
+/**
+ * Reads the Prisma AI model delegate and turns missing generated client support into a domain error.
+ */
 function getAiModelDelegate(client?: AiModelClient) {
   const delegate = getOptionalAiModelDelegate(client);
 
@@ -198,6 +201,9 @@ function normalizeRequestPath(value?: string | null) {
   return `/${trimmed.replace(/^\/+/, "")}`.replace(/\/+$/, "") || DEFAULT_REQUEST_PATH;
 }
 
+/**
+ * Keeps model capabilities constrained to the small set the app actually routes today.
+ */
 function normalizeCapabilities(capabilities?: string[] | null): AiModelCapability[] {
   const normalized = (capabilities ?? [])
     .filter((capability): capability is AiModelCapability => capability === "post-summary" || capability === "cover-image");
@@ -213,6 +219,10 @@ function getStatus({ enabled, hasApiKey }: { enabled: boolean; hasApiKey: boolea
   return hasApiKey ? "ready" : "missing-api-key";
 }
 
+/**
+ * Builds the read-only fallback summary model from environment variables.
+ * It becomes default only when no ready database model owns the summary capability.
+ */
 function getEnvironmentSummaryModel(hasDatabaseDefault: boolean): AiModelOption {
   const apiKey = resolveEnv("AI_OPENAI_COMPAT_API_KEY", "DASHSCOPE_API_KEY");
   const baseUrl = resolveEnv("AI_OPENAI_COMPAT_BASE_URL", "DASHSCOPE_BASE_URL");
@@ -242,6 +252,10 @@ function getEnvironmentSummaryModel(hasDatabaseDefault: boolean): AiModelOption 
   };
 }
 
+/**
+ * Builds the read-only fallback cover image model from environment variables.
+ * It mirrors the summary fallback but points at image-generation endpoints.
+ */
 function getEnvironmentCoverImageModel(hasDatabaseDefault = false): AiModelOption {
   const apiKey = resolveEnv("AI_IMAGE_DASHSCOPE_API_KEY", "DASHSCOPE_API_KEY");
   const baseUrl = resolveEnv("AI_IMAGE_DASHSCOPE_BASE_URL", "DASHSCOPE_IMAGE_BASE_URL");
@@ -271,6 +285,10 @@ function getEnvironmentCoverImageModel(hasDatabaseDefault = false): AiModelOptio
   };
 }
 
+/**
+ * Converts a database row into the runtime model option used by AI callers.
+ * This is where encrypted API keys are decrypted and readiness status is derived.
+ */
 function dbModelToOption(
   model: AiModelRecord,
 ): AiModelOption {
@@ -331,6 +349,9 @@ function extractAssistantText(payload: OpenAICompatibleChatPayload) {
   return "";
 }
 
+/**
+ * Blocks mutations against missing models and read-only environment models.
+ */
 function ensureMutableModel(model: AiModelOption | null): asserts model is AiModelOption {
   if (!model) {
     throw new ValidationError("AI model not found");
@@ -341,6 +362,10 @@ function ensureMutableModel(model: AiModelOption | null): asserts model is AiMod
   }
 }
 
+/**
+ * Normalizes create/update payloads into the storage contract.
+ * It also enforces the supported endpoint/capability combinations before writes.
+ */
 function normalizeMutationInput(input: AiModelMutationInput, existing?: AiModelOption | null) {
   const name = input.name?.trim() ?? existing?.name ?? "";
   const baseUrl = normalizeBaseUrl(input.baseUrl ?? existing?.baseUrl ?? "");
@@ -717,6 +742,10 @@ export async function deleteAiModel(modelId: string) {
   }
 }
 
+/**
+ * Persists the last test result for editable database models.
+ * Built-in environment models are intentionally skipped because they are not writable.
+ */
 export async function recordAiModelTestResult(modelId: string, status: AiModelTestStatus, message: string) {
   const model = await getAiModelOption(modelId);
   if (!model?.editable) {

@@ -59,6 +59,9 @@ function formatRelativeTime(value: string) {
   return date.toLocaleDateString("zh-CN", { month: "short", day: "numeric" });
 }
 
+/**
+ * 解析通知接口响应，并把缺少 data 的成功响应也视作异常。
+ */
 async function parseNotificationResponse(response: Response) {
   const payload = await readApiJson<{ success?: boolean; data?: NotificationPayload }>(response, "通知加载失败");
   if (!payload.data) {
@@ -68,6 +71,11 @@ async function parseNotificationResponse(response: Response) {
   return payload.data;
 }
 
+/**
+ * 后台顶部栏通知入口。
+ *
+ * 负责轮询最近通知、展示未读数、标记已读，以及按通知 actionUrl 跳转。
+ */
 export function NotificationBell() {
   const router = useRouter();
   const [items, setItems] = useState<NotificationItem[]>([]);
@@ -77,6 +85,11 @@ export function NotificationBell() {
 
   const label = useMemo(() => (unreadCount > 0 ? `通知，${unreadCount} 条未读` : "通知"), [unreadCount]);
 
+  /**
+   * 拉取顶部铃铛只需要的最近通知。
+   *
+   * 使用 no-store 保证管理后台看到的是最新未读状态，而不是 Next/browser 缓存。
+   */
   const loadNotifications = useCallback(async () => {
     try {
       setError(null);
@@ -106,6 +119,9 @@ export function NotificationBell() {
     };
   }, [loadNotifications]);
 
+  /**
+   * 标记指定通知为已读，并用接口返回的 unreadCount 校准本地角标。
+   */
   const markRead = useCallback(async (ids: string[]) => {
     if (ids.length === 0) {
       return;
@@ -125,6 +141,11 @@ export function NotificationBell() {
     setItems((current) => current.map((item) => (ids.includes(item.id) ? { ...item, readAt: item.readAt ?? new Date().toISOString() } : item)));
   }, []);
 
+  /**
+   * 批量标记所有通知已读。
+   *
+   * 失败时保留当前列表状态并显示错误，避免误导用户以为远端状态已更新。
+   */
   const markAllRead = useCallback(async () => {
     const response = await fetch("/api/admin/notifications/read-all", { method: "POST" });
     const payload = await readApiJson<{ success?: boolean; data?: { unreadCount: number } }>(response, "通知状态更新失败").catch(() => null);
@@ -137,6 +158,11 @@ export function NotificationBell() {
     setItems((current) => current.map((item) => ({ ...item, readAt: item.readAt ?? new Date().toISOString() })));
   }, []);
 
+  /**
+   * 打开单条通知。
+   *
+   * 未读通知会先提交已读状态，再按 actionUrl 进入对应管理页面。
+   */
   const openNotification = useCallback(
     async (item: NotificationItem) => {
       try {

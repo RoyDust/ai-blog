@@ -78,6 +78,9 @@ const statusLabels: Record<string, string> = {
   SKIPPED: "已跳过",
 };
 
+/**
+ * 将任务和任务项状态映射到后台统一的状态徽标色调。
+ */
 function statusTone(status: string) {
   if (status === "SUCCEEDED") return "success";
   if (status === "FAILED" || status === "PARTIAL_FAILED") return "danger";
@@ -85,6 +88,9 @@ function statusTone(status: string) {
   return "neutral";
 }
 
+/**
+ * 任务详情页使用的紧凑时间格式。
+ */
 function formatDate(value: string | null) {
   if (!value) return "-";
 
@@ -96,6 +102,9 @@ function formatDate(value: string | null) {
   });
 }
 
+/**
+ * 根据任务开始/结束时间计算耗时；运行中的任务按当前时间估算。
+ */
 function formatDuration(task: TaskDetail) {
   if (!task.startedAt) return "-";
   const end = task.finishedAt ? new Date(task.finishedAt).getTime() : Date.now();
@@ -105,14 +114,23 @@ function formatDuration(task: TaskDetail) {
   return `${Math.floor(duration / 60)}m ${duration % 60}s`;
 }
 
+/**
+ * 将未知 AI 输出收敛成普通对象，方便后续按动作读取字段。
+ */
 function readOutput(output: unknown) {
   return output && typeof output === "object" && !Array.isArray(output) ? (output as Record<string, unknown>) : {};
 }
 
+/**
+ * 从 AI 输出里安全读取字符串数组。
+ */
 function toStringList(value: unknown) {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string" && item.trim().length > 0) : [];
 }
 
+/**
+ * 把任务项输出转换成表格中适合扫描的短预览。
+ */
 function renderOutput(item: TaskItem) {
   const output = readOutput(item.output);
 
@@ -147,10 +165,18 @@ function renderOutput(item: TaskItem) {
   return JSON.stringify(output);
 }
 
+/**
+ * 只有成功、绑定文章且尚未应用的任务项可以直接应用。
+ */
 function canApply(item: TaskItem) {
   return item.status === "SUCCEEDED" && Boolean(item.postId) && !item.applied;
 }
 
+/**
+ * AI 任务详情页。
+ *
+ * 负责展示任务聚合信息、逐条输出、失败原因，并提供失败项重试和单项应用入口。
+ */
 export function AiTaskDetail({ task }: { task: TaskDetail }) {
   const router = useRouter();
   const [items, setItems] = useState(task.items);
@@ -158,6 +184,9 @@ export function AiTaskDetail({ task }: { task: TaskDetail }) {
   const [applyingItemId, setApplyingItemId] = useState<string | null>(null);
   const failedCount = useMemo(() => items.filter((item) => item.status === "FAILED").length, [items]);
 
+  /**
+   * 为失败任务项创建新的重试任务，并跳转到新任务详情页。
+   */
   async function retryFailedItems() {
     if (retrying || failedCount === 0) {
       return;
@@ -181,6 +210,11 @@ export function AiTaskDetail({ task }: { task: TaskDetail }) {
     }
   }
 
+  /**
+   * 应用单条 AI 建议。
+   *
+   * 成功后只更新当前行 applied 状态，同时刷新路由以同步文章侧数据。
+   */
   async function applyItem(itemId: string) {
     setApplyingItemId(itemId);
     try {

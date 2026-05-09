@@ -27,6 +27,9 @@ const runningBatchTasks = new Set<string>();
 
 export type AiBatchMode = "missing-only" | "overwrite" | "suggest-only";
 
+/**
+ * 规范化批量任务的文章 id，并去重空值。
+ */
 function normalizePostIds(ids: unknown) {
   if (!Array.isArray(ids)) {
     return [];
@@ -35,6 +38,9 @@ function normalizePostIds(ids: unknown) {
   return Array.from(new Set(ids.map((id) => (typeof id === "string" ? id.trim() : "")).filter(Boolean)));
 }
 
+/**
+ * 规范化批量任务动作，只保留系统支持的文章 AI 动作。
+ */
 function normalizeActions(actions: unknown): PostAiAction[] {
   if (!Array.isArray(actions)) {
     return [];
@@ -43,10 +49,18 @@ function normalizeActions(actions: unknown): PostAiAction[] {
   return Array.from(new Set(actions.map((action) => (typeof action === "string" ? normalizePostAiAction(action) : null)).filter(Boolean))) as PostAiAction[];
 }
 
+/**
+ * 解析批量任务模式，非法输入回退到“只补缺失”。
+ */
 function normalizeMode(mode: unknown): AiBatchMode {
   return mode === "overwrite" || mode === "suggest-only" || mode === "missing-only" ? mode : "missing-only";
 }
 
+/**
+ * 判断某篇文章是否需要为指定动作创建任务项。
+ *
+ * missing-only 模式会跳过已经有对应字段的文章，避免重复消耗模型额度。
+ */
 function shouldCreateItemForAction({
   action,
   mode,
@@ -68,10 +82,16 @@ function shouldCreateItemForAction({
   return false;
 }
 
+/**
+ * 只有低风险字段允许批量自动应用。
+ */
 function canAutoApply(action: PostAiAction, apply: boolean) {
   return apply && (action === POST_AI_ACTIONS.summary || action === POST_AI_ACTIONS.seoDescription || action === POST_AI_ACTIONS.coverImage);
 }
 
+/**
+ * 把批量任务放到当前 Node 进程的异步执行队列。
+ */
 function scheduleBatchTask(taskId: string, modelId?: string | null, apply = false) {
   setTimeout(() => {
     void runAiBatchTask({ taskId, modelId, apply }).catch((error) => {
@@ -80,6 +100,11 @@ function scheduleBatchTask(taskId: string, modelId?: string | null, apply = fals
   }, 0);
 }
 
+/**
+ * 创建 AI 批量补全任务。
+ *
+ * 这里只生成任务和任务项；如果有可执行项，再异步调度 runAiBatchTask。
+ */
 export async function createAiBatchTask({
   postIds,
   actions,
@@ -146,6 +171,11 @@ export async function createAiBatchTask({
   return task;
 }
 
+/**
+ * 执行一个 AI 批量任务。
+ *
+ * runningBatchTasks 防止同一进程内重复恢复同一个任务；逐项失败会记录到任务项，不中断后续项。
+ */
 export async function runAiBatchTask({
   taskId,
   modelId,
@@ -206,6 +236,11 @@ export async function runAiBatchTask({
   }
 }
 
+/**
+ * 恢复仍处于活跃状态的批量任务。
+ *
+ * 页面轮询和 API resume 参数都会走这里，用于补偿进程重启或请求中断后的任务。
+ */
 export async function resumeAiBatchTasks(taskId?: string | null) {
   const tasks = await prisma.aiTask.findMany({
     where: {

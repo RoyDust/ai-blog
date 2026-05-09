@@ -58,10 +58,18 @@ const viewportSize = 288;
 const cropFrameInset = 24;
 const cropFrameSize = viewportSize - cropFrameInset * 2;
 
+/**
+ * 限制数值落在滑块或图片可移动范围内。
+ */
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
 }
 
+/**
+ * 把预览区中的位移和缩放转换成原图上的正方形裁切区域。
+ *
+ * 这里返回的是 canvas drawImage 需要的原图坐标，而不是屏幕像素。
+ */
 export function calculateSquareCrop({
   frameSize,
   naturalWidth,
@@ -85,6 +93,11 @@ export function calculateSquareCrop({
   };
 }
 
+/**
+ * 根据当前缩放比例计算图片在裁切框内最多可拖动的距离。
+ *
+ * 当渲染后的图片边长小于裁切框时，对应方向不能拖动。
+ */
 export function calculateOffsetBounds({ frameSize, naturalWidth, naturalHeight, viewportSize, zoom }: OffsetBoundsInput) {
   const activeFrameSize = frameSize ?? viewportSize;
   const baseScale = Math.max(viewportSize / naturalWidth, viewportSize / naturalHeight);
@@ -97,6 +110,9 @@ export function calculateOffsetBounds({ frameSize, naturalWidth, naturalHeight, 
   };
 }
 
+/**
+ * 每次拖动或缩放后把裁切状态夹回合法范围，避免最终裁出图片外的空白区域。
+ */
 function clampCropToImage(crop: CropState, imageSize: { width: number; height: number } | null) {
   if (!imageSize) return crop;
 
@@ -115,6 +131,9 @@ function clampCropToImage(crop: CropState, imageSize: { width: number; height: n
   };
 }
 
+/**
+ * 加载本地 object URL，拿到浏览器解析后的真实图片尺寸。
+ */
 function loadImage(src: string) {
   return new Promise<HTMLImageElement>((resolve, reject) => {
     const image = new Image();
@@ -124,6 +143,9 @@ function loadImage(src: string) {
   });
 }
 
+/**
+ * 在浏览器端用 canvas 生成固定尺寸的 WebP 裁切结果。
+ */
 async function createCroppedBlob(sourceUrl: string, crop: CropState, outputSize: number) {
   const image = await loadImage(sourceUrl);
   const { sx, sy, size } = calculateSquareCrop({
@@ -162,6 +184,9 @@ async function createCroppedBlob(sourceUrl: string, crop: CropState, outputSize:
   });
 }
 
+/**
+ * 先向本站 API 申请七牛上传凭证，再把裁切后的 Blob 直传到七牛。
+ */
 async function uploadBlob(blob: Blob, filename: string, purpose: UploadPurpose) {
   const tokenResponse = await fetch("/api/admin/uploads/qiniu-token", {
     method: "POST",
@@ -192,6 +217,12 @@ async function uploadBlob(blob: Blob, filename: string, purpose: UploadPurpose) 
   return `${normalizedDomain}/${tokenData.data.key}`;
 }
 
+/**
+ * 图片裁切上传弹窗。
+ *
+ * 外层按钮负责选择本地图片；弹窗负责裁切预览、生成 WebP、上传到图床，
+ * 最后通过 onUploaded 把公开访问 URL 交还给调用方。
+ */
 export function ImageCropUploadDialog({
   currentImage,
   fallbackText = "A",

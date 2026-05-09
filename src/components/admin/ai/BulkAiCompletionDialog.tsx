@@ -24,6 +24,11 @@ const modeOptions: Array<{ value: AiBatchMode; label: string; hint: string }> = 
   { value: "overwrite", label: "重新生成", hint: "为所选文章重新生成建议" },
 ];
 
+/**
+ * 文章列表中的 AI 批量补全弹窗。
+ *
+ * 只负责收集批量任务参数并启动任务；实际执行、自动应用和失败记录都由后端任务流处理。
+ */
 export function BulkAiCompletionDialog({
   open,
   selectedIds,
@@ -42,10 +47,18 @@ export function BulkAiCompletionDialog({
   const [taskId, setTaskId] = useState<string | null>(null);
   const safeApplyDisabled = useMemo(() => !actions.some((action) => action === "summary" || action === "seo-description" || action === "cover-image"), [actions]);
 
+  /**
+   * 切换本次批量任务需要执行的 AI 动作。
+   */
   function toggleAction(action: AiBatchAction) {
     setActions((current) => (current.includes(action) ? current.filter((item) => item !== action) : [...current, action]));
   }
 
+  /**
+   * 创建批量 AI 任务。
+   *
+   * 返回 taskId 后只更新弹窗状态和通知父组件，任务进度由 AI 任务页跟踪。
+   */
   async function startBatch() {
     if (selectedIds.length === 0 || actions.length === 0 || submitting) {
       return;

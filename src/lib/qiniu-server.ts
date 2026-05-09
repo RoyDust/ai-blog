@@ -4,6 +4,9 @@ import { ValidationError } from "@/lib/api-errors";
 
 const defaultUploadUrl = "https://upload.qiniup.com";
 
+/**
+ * 七牛上传凭证要求使用 URL-safe base64。
+ */
 function encodeBase64Url(value: string | Buffer) {
   return Buffer.from(value)
     .toString("base64")
@@ -11,6 +14,9 @@ function encodeBase64Url(value: string | Buffer) {
     .replace(/\//g, "_");
 }
 
+/**
+ * 按七牛直传协议生成单文件上传 token。
+ */
 function createUploadToken(bucket: string, key: string, accessKey: string, secretKey: string) {
   const deadline = Math.floor(Date.now() / 1000) + 3600;
   const putPolicy = {
@@ -26,16 +32,27 @@ function createUploadToken(bucket: string, key: string, accessKey: string, secre
   return `${accessKey}:${encodedDigest}:${encodedPolicy}`;
 }
 
+/**
+ * 统一去掉配置域名末尾斜杠，避免拼接 URL 时出现双斜杠。
+ */
 function normalizeDomain(domain: string) {
   return domain.replace(/\/+$/, "");
 }
 
+/**
+ * 根据图片 MIME 类型推导对象存储 key 的扩展名。
+ */
 function extensionFromContentType(contentType: string) {
   if (contentType.includes("png")) return "png";
   if (contentType.includes("webp")) return "webp";
   return "jpg";
 }
 
+/**
+ * 服务端上传图片 Buffer 到七牛。
+ *
+ * 主要供 AI 生图结果使用；浏览器端本地上传仍走 token 直传，避免图片数据经过应用服务器。
+ */
 export async function uploadBufferToQiniu(input: {
   buffer: Buffer;
   contentType: string;

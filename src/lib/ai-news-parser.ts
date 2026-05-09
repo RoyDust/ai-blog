@@ -54,6 +54,9 @@ function parseDate(value: string) {
   return Number.isNaN(date.getTime()) ? null : date
 }
 
+/**
+ * Removes tracking noise so feeds that link to the same article dedupe correctly.
+ */
 function canonicalizeUrl(value: string) {
   try {
     const url = new URL(value)
@@ -78,6 +81,9 @@ function normalizeExcerpt(value: string) {
   return stripTags(value).slice(0, 360)
 }
 
+/**
+ * Formats dates for stable daily-news identifiers.
+ */
 export function formatDateId(date: Date) {
   return date.toISOString().slice(0, 10)
 }

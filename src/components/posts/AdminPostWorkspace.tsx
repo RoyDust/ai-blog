@@ -59,6 +59,11 @@ type AdminPostWorkspaceProps = {
   postId?: string;
 };
 
+/**
+ * 字段级 AI 动作按钮。
+ *
+ * 用统一的图标、loading 和禁用态包装标题、slug、分类、标签、摘要等小型 AI 补全入口。
+ */
 function AiFieldButton({
   disabled,
   label,
@@ -235,6 +240,11 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
     };
   }, [isEditMode, postId, setFormData, syncSlugManualState]);
 
+  /**
+   * 统一处理“保存草稿”和“发布文章”两个提交意图。
+   *
+   * 通过 submitter.name/value 判断用户点击的按钮，再把最终 published 状态写入文章接口。
+   */
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!canSubmit) return;
@@ -274,6 +284,11 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
     }
   };
 
+  /**
+   * 右侧发布元数据编辑区。
+   *
+   * 这里集中维护分类、标签、封面、摘要和 SEO 描述；这些字段会随主表单一起提交。
+   */
   const metadataEditor = (
     <div className="space-y-4">
         {metadataError ? <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{metadataError}</p> : null}
@@ -411,6 +426,11 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
     </div>
   );
 
+  /**
+   * AI 辅助工作区的输入桥接。
+   *
+   * 编辑模式直接绑定 postId；新建模式传入尚未落库的草稿字段，便于 AI 先生成可回填结果。
+   */
   const aiWorkspace = canUseAiWorkspace ? (
     <PostAiWorkspace
       postId={isEditMode ? postId : undefined}

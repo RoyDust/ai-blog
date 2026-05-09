@@ -64,10 +64,16 @@ const actionLabels: Record<PostAiAction, string> = {
   category: "分类",
 };
 
+/**
+ * 从 AI 输出里安全读取字符串数组。
+ */
 function toStringList(value: unknown) {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string" && item.trim().length > 0) : [];
 }
 
+/**
+ * 将不同 AI 动作的结构化输出转换成预览区可读文本。
+ */
 function renderOutput(result: AiResult | null) {
   if (!result) {
     return "选择一个 AI 动作后，结果会显示在这里。";
@@ -102,6 +108,11 @@ function renderOutput(result: AiResult | null) {
   return JSON.stringify(output, null, 2);
 }
 
+/**
+ * 草稿模式下把 AI 输出映射成外层表单能直接合并的文章片段。
+ *
+ * 已落库文章不走这里，而是由服务端 apply 接口更新数据库后返回最新文章数据。
+ */
 function buildDraftAppliedPost(result: AiResult): AppliedPost {
   const output = result.output;
   const applied: AppliedPost = { id: "draft" };

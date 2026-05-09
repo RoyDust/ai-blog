@@ -45,6 +45,9 @@ const statusLabels: Record<string, string> = {
   FAILED: "失败",
 };
 
+/**
+ * 将任务状态映射到后台统一的状态徽标色调。
+ */
 function statusTone(status: string) {
   if (status === "SUCCEEDED") return "success";
   if (status === "FAILED" || status === "PARTIAL_FAILED") return "danger";
@@ -52,6 +55,9 @@ function statusTone(status: string) {
   return "neutral";
 }
 
+/**
+ * AI 任务列表使用的紧凑时间格式。
+ */
 function formatDate(value: Date | string | null) {
   if (!value) return "-";
 
@@ -63,6 +69,9 @@ function formatDate(value: Date | string | null) {
   });
 }
 
+/**
+ * 根据开始/结束时间计算任务耗时；未结束任务按当前时间持续滚动。
+ */
 function formatDuration(task: Task) {
   if (!task.startedAt) return "-";
   const end = task.finishedAt ? new Date(task.finishedAt).getTime() : Date.now();
@@ -72,6 +81,11 @@ function formatDuration(task: Task) {
   return `${Math.floor(duration / 60)}m ${duration % 60}s`;
 }
 
+/**
+ * AI 任务记录表。
+ *
+ * 这里只展示聚合进度和最近错误，单项输出与重试入口在任务详情页处理。
+ */
 export function AiTaskList({ tasks, pagination }: { tasks: Task[]; pagination: Pagination }) {
   return (
     <section className="ui-surface overflow-hidden rounded-3xl shadow-[var(--shadow-card)]">
