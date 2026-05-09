@@ -10,11 +10,11 @@
  *
  * 阅读建议：
  * - 先看 AdminPostWorkspace 入口，理解主要状态与模式切换
- * - 再看 normalizeDraft / resolvePostRoute 这两个辅助函数
+ * - 再看 usePostForm / resolvePostRoute 这两个辅助边界
  * - 最后进入 EditorWorkspace、PublishChecklist、PostAiWorkspace 等子面板
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { LoaderCircle, Sparkles } from "lucide-react";
@@ -26,10 +26,12 @@ import type { CoverAsset } from "@/components/admin/covers/types";
 import { StatusBadge } from "@/components/admin/primitives/StatusBadge";
 import { WorkspacePanel } from "@/components/admin/primitives/WorkspacePanel";
 import { Button, Input } from "@/components/admin/ui";
-import { compressImageForUpload } from "@/lib/client-image-compression";
-import { generatePostSlug } from "@/lib/slug";
 
 import { EditorWorkspace } from "./EditorWorkspace";
+import { useAiActions } from "./hooks/useAiActions";
+import { useCoverUpload } from "./hooks/useCoverUpload";
+import { usePostForm } from "./hooks/usePostForm";
+import { useSlugDerive } from "./hooks/useSlugDerive";
 import { PublishChecklist } from "./PublishChecklist";
 
 type CategoryOption = {
@@ -50,49 +52,11 @@ type PostTag = {
   slug: string;
 };
 
-type AiMetadataSuggestion = {
-  title?: string;
-  slug?: string;
-  excerpt?: string;
-  categorySlug?: string | null;
-  tagSlugs?: string[];
-};
-
-type AiMetadataField = "title" | "slug" | "category" | "tags";
-
-type PostFormData = {
-  title: string;
-  slug: string;
-  content: string;
-  excerpt: string;
-  seoDescription: string;
-  coverImage: string;
-  coverAssetId: string;
-  categoryId: string;
-  tagIds: string[];
-  published: boolean;
-  featured: boolean;
-};
-
 type WorkspaceMode = "create" | "edit";
 
 type AdminPostWorkspaceProps = {
   mode: WorkspaceMode;
   postId?: string;
-};
-
-const emptyFormData: PostFormData = {
-  title: "",
-  slug: "",
-  content: "",
-  excerpt: "",
-  seoDescription: "",
-  coverImage: "",
-  coverAssetId: "",
-  categoryId: "",
-  tagIds: [],
-  published: false,
-  featured: false,
 };
 
 function AiFieldButton({
@@ -120,24 +84,6 @@ function AiFieldButton({
       <Icon className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
     </button>
   );
-}
-
-/**
- * 把 localStorage 中恢复出的草稿规范化为完整表单结构。
- * 目标是屏蔽旧草稿、缺字段草稿或被污染草稿带来的 UI 异常。
- */
-function normalizeDraft(payload: unknown): PostFormData {
-  const data = (payload ?? {}) as Partial<PostFormData>;
-
-  return {
-    ...emptyFormData,
-    ...data,
-    categoryId: typeof data.categoryId === "string" ? data.categoryId : "",
-    tagIds: Array.isArray(data.tagIds) ? data.tagIds.filter((tagId): tagId is string => typeof tagId === "string") : [],
-    coverAssetId: typeof data.coverAssetId === "string" ? data.coverAssetId : "",
-    published: data.published === true,
-    featured: data.featured === true,
-  };
 }
 
 /**
@@ -183,24 +129,37 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
   const [loading, setLoading] = useState(isEditMode);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
-  const [formData, setFormData] = useState<PostFormData>(emptyFormData);
-  const [isSlugManuallyEdited, setIsSlugManuallyEdited] = useState(false);
+  const {
+    applySlugChange,
+    applyTitleChange,
+    isSlugManuallyEdited,
+    setIsSlugManuallyEdited,
+    syncSlugManualState,
+  } = useSlugDerive();
+  const { canSubmit, formData, saveStatus, setFormData } = usePostForm(mode, draftKey, {
+    onDraftLoaded: syncSlugManualState,
+  });
   const [categories, setCategories] = useState<CategoryOption[]>([]);
   const [tags, setTags] = useState<TagOption[]>([]);
-  const coverFileInputRef = useRef<HTMLInputElement | null>(null);
-  const [isCoverUploading, setIsCoverUploading] = useState(false);
-  const [coverUploadError, setCoverUploadError] = useState("");
-  const [isSummarizing, setIsSummarizing] = useState(false);
-  const [summaryError, setSummaryError] = useState("");
-  const [metadataPendingField, setMetadataPendingField] = useState<AiMetadataField | null>(null);
-  const [metadataError, setMetadataError] = useState("");
-  const isCompletingMetadata = metadataPendingField !== null;
-
-  const canSubmit = useMemo(
-    () => formData.title.trim().length > 0 && formData.slug.trim().length > 0 && formData.content.trim().length > 0,
-    [formData],
+  const { coverFileInputRef, coverUploadError, handleCoverUpload, isCoverUploading } = useCoverUpload(({ coverAssetId, coverImage }) =>
+    setFormData((prev) => ({ ...prev, coverImage, coverAssetId })),
   );
+  const {
+    handleGenerateMetadata,
+    handleGenerateSummary,
+    isCompletingMetadata,
+    isSummarizing,
+    metadataError,
+    metadataPendingField,
+    summaryError,
+  } = useAiActions({
+    categories,
+    formData,
+    isSlugManuallyEdited,
+    setFormData,
+    setIsSlugManuallyEdited,
+    tags,
+  });
 
   useEffect(() => {
     let active = true;
@@ -257,7 +216,10 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
           published: Boolean(data.data.published),
           featured: Boolean(data.data.featured),
         });
-        setIsSlugManuallyEdited(Boolean(data.data.slug) && data.data.slug !== generatePostSlug(data.data.title ?? ""));
+        syncSlugManualState({
+          title: data.data.title ?? "",
+          slug: data.data.slug ?? "",
+        });
       } catch (loadError) {
         if (!active) return;
         setError(loadError instanceof Error ? loadError.message : "加载失败");
@@ -271,191 +233,7 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
     return () => {
       active = false;
     };
-  }, [isEditMode, postId]);
-
-  useEffect(() => {
-    if (mode !== "create" || !draftKey) return;
-
-    const raw = localStorage.getItem(draftKey);
-    if (!raw) return;
-
-    try {
-      const parsed = normalizeDraft(JSON.parse(raw));
-      setFormData(parsed);
-      setIsSlugManuallyEdited(Boolean(parsed.slug) && parsed.slug !== generatePostSlug(parsed.title));
-    } catch {
-      localStorage.removeItem(draftKey);
-    }
-  }, [draftKey, mode]);
-
-  useEffect(() => {
-    if (mode !== "create" || !draftKey) return;
-
-    setSaveStatus("saving");
-    const timer = window.setTimeout(() => {
-      localStorage.setItem(draftKey, JSON.stringify(formData));
-      setSaveStatus("saved");
-    }, 450);
-
-    return () => window.clearTimeout(timer);
-  }, [draftKey, formData, mode]);
-
-  const handleGenerateSummary = async () => {
-    if (!formData.content.trim()) return;
-
-    setIsSummarizing(true);
-    setSummaryError("");
-
-    try {
-      const response = await fetch("/api/admin/posts/summarize", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: formData.title, content: formData.content }),
-      });
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        throw new Error(data.error || "生成摘要失败");
-      }
-
-      setFormData((prev) => ({ ...prev, excerpt: String(data.data?.summary ?? "") }));
-    } catch (summaryErrorValue) {
-      setSummaryError(summaryErrorValue instanceof Error ? summaryErrorValue.message : "生成摘要失败");
-    } finally {
-      setIsSummarizing(false);
-    }
-  };
-
-  const handleGenerateMetadata = async (field: AiMetadataField) => {
-    if (!formData.content.trim() && !(field === "slug" && formData.title.trim())) return;
-
-    setMetadataPendingField(field);
-    setMetadataError("");
-
-    try {
-      const response = await fetch("/api/admin/posts/metadata", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ field, title: formData.title, content: formData.content }),
-      });
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        throw new Error(data.error || "元信息补全失败");
-      }
-
-      const suggestion = (data.data ?? {}) as AiMetadataSuggestion;
-      const nextCategoryId =
-        typeof suggestion.categorySlug === "string"
-          ? categories.find((category) => category.slug === suggestion.categorySlug)?.id
-          : undefined;
-      const nextTagIds = Array.isArray(suggestion.tagSlugs)
-        ? suggestion.tagSlugs
-            .map((slug) => tags.find((tag) => tag.slug === slug)?.id)
-            .filter((id): id is string => Boolean(id))
-        : undefined;
-
-      setFormData((prev) => {
-        const next = { ...prev };
-        const suggestedTitle = suggestion.title?.trim();
-        const suggestedSlug = suggestion.slug?.trim();
-
-        if (field === "title" && suggestedTitle) {
-          next.title = suggestedTitle;
-          if (!isSlugManuallyEdited) {
-            next.slug = suggestedSlug || generatePostSlug(suggestedTitle);
-          }
-        }
-
-        if (field === "slug" && suggestedSlug) {
-          next.slug = suggestedSlug;
-        }
-
-        if (field === "category" && nextCategoryId) {
-          next.categoryId = nextCategoryId;
-        }
-
-        if (field === "tags" && nextTagIds && nextTagIds.length > 0) {
-          next.tagIds = nextTagIds;
-        }
-
-        return next;
-      });
-
-      if (field === "slug" && suggestion.slug?.trim()) {
-        setIsSlugManuallyEdited(true);
-      }
-    } catch (error) {
-      setMetadataError(error instanceof Error ? error.message : "元信息补全失败");
-    } finally {
-      setMetadataPendingField(null);
-    }
-  };
-
-  const handleCoverUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    setIsCoverUploading(true);
-    setCoverUploadError("");
-
-    try {
-      const compressed = await compressImageForUpload(file, "cover");
-      const uploadFile = compressed.file;
-      const tokenResponse = await fetch("/api/admin/uploads/qiniu-token", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ filename: uploadFile.name, contentType: uploadFile.type || file.type }),
-      });
-      const tokenData = await tokenResponse.json();
-
-      if (!tokenResponse.ok || !tokenData.success) {
-        throw new Error(tokenData.error || "获取上传凭证失败");
-      }
-
-      const payload = new FormData();
-      payload.append("file", uploadFile);
-      payload.append("token", tokenData.data.token);
-      payload.append("key", tokenData.data.key);
-
-      const uploadResponse = await fetch(tokenData.data.uploadUrl, {
-        method: "POST",
-        body: payload,
-      });
-
-      if (!uploadResponse.ok) {
-        throw new Error("上传到七牛失败");
-      }
-
-      const normalizedDomain = String(tokenData.data.domain).replace(/\/$/, "");
-      const coverUrl = `${normalizedDomain}/${tokenData.data.key}`;
-      const assetResponse = await fetch("/api/admin/covers", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          url: coverUrl,
-          key: tokenData.data.key,
-          provider: "qiniu",
-          source: "upload",
-          title: file.name.replace(/\.[^.]+$/, ""),
-        }),
-      });
-      const assetData = await assetResponse.json();
-
-      if (!assetResponse.ok || !assetData.success) {
-        throw new Error(assetData.error || "保存到封面图库失败");
-      }
-
-      setFormData((prev) => ({ ...prev, coverImage: coverUrl, coverAssetId: String(assetData.data.id ?? "") }));
-    } catch (uploadErrorValue) {
-      setCoverUploadError(uploadErrorValue instanceof Error ? uploadErrorValue.message : "上传失败");
-    } finally {
-      setIsCoverUploading(false);
-      if (coverFileInputRef.current) {
-        coverFileInputRef.current.value = "";
-      }
-    }
-  };
+  }, [isEditMode, postId, setFormData, syncSlugManualState]);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -755,17 +533,8 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
           onContentChange={(value) => setFormData((prev) => ({ ...prev, content: value }))}
           onCoverImageChange={(value) => setFormData((prev) => ({ ...prev, coverImage: value, coverAssetId: "" }))}
           onExcerptChange={(value) => setFormData((prev) => ({ ...prev, excerpt: value }))}
-          onSlugChange={(value) => {
-            setIsSlugManuallyEdited(true);
-            setFormData((prev) => ({ ...prev, slug: value }));
-          }}
-          onTitleChange={(value) =>
-            setFormData((prev) => ({
-              ...prev,
-              title: value,
-              slug: isSlugManuallyEdited ? prev.slug : generatePostSlug(value),
-            }))
-          }
+          onSlugChange={(value) => applySlugChange(value, setFormData)}
+          onTitleChange={(value) => applyTitleChange(value, setFormData)}
         />
 
         <aside className="flex min-h-0 flex-col gap-3 overflow-y-auto pr-1">
