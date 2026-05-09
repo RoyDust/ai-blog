@@ -29,6 +29,10 @@ type UseAiActionsOptions = {
   tags: TaxonomyOption[];
 };
 
+/**
+ * Coordinates editor-side AI actions that mutate draft metadata.
+ * Server routes still own model selection and validation; this hook only applies safe UI state updates.
+ */
 export function useAiActions({
   categories,
   formData,

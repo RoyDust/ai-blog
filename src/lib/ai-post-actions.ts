@@ -437,6 +437,9 @@ export async function runPostAiAction({
   };
 }
 
+/**
+ * Narrows persisted task output before it is applied back to a post.
+ */
 function readOutputObject(output: unknown) {
   if (!output || typeof output !== "object" || Array.isArray(output)) {
     throw new ValidationError("AI task output is invalid");

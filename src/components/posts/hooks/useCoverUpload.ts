@@ -9,6 +9,10 @@ type CoverUploadResult = {
   coverImage: string;
 };
 
+/**
+ * Runs the full cover upload pipeline: browser compression, Qiniu token request,
+ * direct object upload, then cover asset registration in the admin library.
+ */
 export function useCoverUpload(onUploadSuccess: (result: CoverUploadResult) => void) {
   const coverFileInputRef = useRef<HTMLInputElement | null>(null);
   const [isCoverUploading, setIsCoverUploading] = useState(false);

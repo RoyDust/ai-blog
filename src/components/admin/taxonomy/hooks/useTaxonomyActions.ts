@@ -27,6 +27,10 @@ type UseTaxonomyActionsOptions<Row extends { id: string }, Form extends Taxonomy
   setRows: Dispatch<SetStateAction<Row[]>>;
 };
 
+/**
+ * Shared create/update action for category/tag forms.
+ * The caller provides payload mapping and row construction so endpoint-specific shape stays local.
+ */
 export function useTaxonomyActions<Row extends { id: string }, Form extends TaxonomyForm, Payload extends object>({
   buildCreatedRow,
   buildPayload,

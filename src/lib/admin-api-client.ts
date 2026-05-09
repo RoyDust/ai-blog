@@ -1,3 +1,6 @@
+/**
+ * Reads the public error field used by admin API routes while preserving caller-specific fallback text.
+ */
 export function getApiErrorMessage(data: unknown, fallback: string) {
   if (data && typeof data === "object") {
     const candidate = (data as { error?: string; detail?: string }).error ?? (data as { detail?: string }).detail;
@@ -10,6 +13,10 @@ export function getApiErrorMessage(data: unknown, fallback: string) {
   return fallback;
 }
 
+/**
+ * Parses an admin JSON response and throws on either HTTP failure or `{ success: false }`.
+ * This keeps client components from repeating response.ok / data.error branching.
+ */
 export async function readApiJson<T = { success?: boolean; error?: string; data?: unknown }>(
   response: Response,
   fallback = "请求失败",
@@ -23,6 +30,9 @@ export async function readApiJson<T = { success?: boolean; error?: string; data?
   return data as T;
 }
 
+/**
+ * Thin fetch wrapper kept as the future extension point for admin request defaults.
+ */
 export function requestApi(path: string, init?: RequestInit) {
   return fetch(path, init);
 }

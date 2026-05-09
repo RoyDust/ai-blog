@@ -8,6 +8,10 @@ import type { PostFormData } from "./usePostForm";
 
 type SetPostFormData = Dispatch<SetStateAction<PostFormData>>;
 
+/**
+ * Tracks whether the user has taken manual control of the slug.
+ * Title changes only regenerate the slug while that manual flag is false.
+ */
 export function useSlugDerive() {
   const [isSlugManuallyEdited, setIsSlugManuallyEdited] = useState(false);
 

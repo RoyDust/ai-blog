@@ -36,6 +36,10 @@ type UseTaxonomyRowsOptions<Row extends { id: string }> = {
   previewRetryError: string;
 };
 
+/**
+ * Shared list lifecycle for category/tag managers.
+ * Handles loading, local filtering, delete preview, and optimistic row removal after delete.
+ */
 export function useTaxonomyRows<Row extends { id: string }>({
   deleteError,
   deleteRetryError,

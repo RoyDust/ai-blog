@@ -16,6 +16,10 @@ type UseModelActionsOptions = {
   onSaveSuccess: () => void;
 };
 
+/**
+ * Converts UI form state into the API write contract.
+ * Default flags are only sent when the model advertises the matching capability.
+ */
 function buildModelPayload(form: ModelFormState) {
   return {
     name: form.name,
@@ -31,6 +35,10 @@ function buildModelPayload(form: ModelFormState) {
   };
 }
 
+/**
+ * Owns the persisted AI model list and all server mutations for it.
+ * The caller supplies form reset behavior so form lifecycle stays outside this hook.
+ */
 export function useModelActions(
   initialModels: PublicAiModelOption[],
   { onSaveSuccess }: UseModelActionsOptions,

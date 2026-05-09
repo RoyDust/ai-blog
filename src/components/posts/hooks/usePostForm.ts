@@ -30,6 +30,10 @@ export const emptyFormData: PostFormData = {
   featured: false,
 };
 
+/**
+ * Restores persisted editor drafts into the current form schema.
+ * Older or malformed localStorage values are normalized instead of trusted.
+ */
 function normalizeDraft(payload: unknown): PostFormData {
   const data = (payload ?? {}) as Partial<PostFormData>;
 
@@ -48,6 +52,10 @@ type UsePostFormOptions = {
   onDraftLoaded?: (draft: PostFormData) => void;
 };
 
+/**
+ * Owns article form state plus create-mode local draft persistence.
+ * Edit-mode loading stays in AdminPostWorkspace because it depends on the route post id.
+ */
 export function usePostForm(mode: "create" | "edit", draftKey: string | null, options: UsePostFormOptions = {}) {
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [formData, setFormData] = useState<PostFormData>(emptyFormData);

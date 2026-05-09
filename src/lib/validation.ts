@@ -572,6 +572,10 @@ export function parsePublishInput(payload: unknown) {
   }
 }
 
+/**
+ * Parses bulk action ids from either `?ids=a,b` or repeated `?id=a&id=b` query params.
+ * `ids` wins when both forms are present to preserve the previous route behavior.
+ */
 export function parseIdList(searchParams: URLSearchParams) {
   return (searchParams.get('ids') ?? searchParams.getAll('id').join(','))
     .split(',')

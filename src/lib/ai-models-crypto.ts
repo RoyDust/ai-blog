@@ -23,6 +23,10 @@ function getApiKeyEncryptionKey() {
   return createHash("sha256").update(secret).digest();
 }
 
+/**
+ * Encrypts plaintext API keys before database storage.
+ * Existing encrypted values pass through unchanged so updates can omit key rotation.
+ */
 export function encryptApiKeyForStorage(apiKey: string | null | undefined) {
   if (apiKey === undefined || apiKey === null || apiKey.startsWith(ENCRYPTED_API_KEY_PREFIX)) {
     return apiKey;
@@ -41,6 +45,10 @@ export function encryptApiKeyForStorage(apiKey: string | null | undefined) {
   return `${ENCRYPTED_API_KEY_PREFIX}${iv.toString("base64url")}.${authTag.toString("base64url")}.${encrypted.toString("base64url")}`;
 }
 
+/**
+ * Decrypts stored API keys for runtime model calls.
+ * Invalid or undecryptable ciphertext returns null so callers can surface "key missing" safely.
+ */
 export function decryptApiKeyFromStorage(apiKey: string | null) {
   if (!apiKey || !apiKey.startsWith(ENCRYPTED_API_KEY_PREFIX)) {
     return apiKey;

@@ -160,6 +160,10 @@ function sortRawItemsByDate(items: AiNewsRawItem[]) {
   return [...items].sort((a, b) => (b.publishedAt?.getTime() ?? 0) - (a.publishedAt?.getTime() ?? 0))
 }
 
+/**
+ * Runs AI-heavy candidate work with bounded concurrency.
+ * This protects local/serverless runtimes from starting one model request per candidate.
+ */
 async function mapWithConcurrency<T, R>(
   values: T[],
   concurrency: number,
@@ -182,6 +186,9 @@ async function mapWithConcurrency<T, R>(
   return results
 }
 
+/**
+ * Loads source configuration, fetches raw items, then keeps only the recent window.
+ */
 async function collectDailyAiNewsRawItems({
   date,
   sources,
@@ -207,6 +214,10 @@ async function collectDailyAiNewsRawItems({
   }
 }
 
+/**
+ * Persists candidate rows when the migration-backed repository is available.
+ * Test and legacy environments can still run with the in-memory candidate inputs.
+ */
 async function persistDailyAiNewsCandidates({
   runId,
   candidates,
@@ -227,6 +238,10 @@ async function persistDailyAiNewsCandidates({
   }
 }
 
+/**
+ * Scores, semantically dedupes, and selects the candidate set used for generation.
+ * Falls back to newest candidates when score thresholds reject everything.
+ */
 async function scoreAndSelectDailyAiNewsCandidates({
   candidates,
   aiModel,
@@ -338,6 +353,10 @@ async function scoreAndSelectDailyAiNewsCandidates({
   }
 }
 
+/**
+ * Builds the final draft from selected candidates.
+ * Candidate-pipeline mode replaces the legacy model draft body with deterministic rendered Markdown.
+ */
 async function buildDailyAiNewsDraftFromSelectedCandidates({
   date,
   candidates,
@@ -388,6 +407,9 @@ function factCardToEnrichment(card: AiNewsEnrichedFactCard): AiNewsJsonObject {
   return JSON.parse(JSON.stringify(card)) as AiNewsJsonObject
 }
 
+/**
+ * Encodes the quality gates that prevent automatic publishing after generation.
+ */
 function getDailyAiNewsAutoPublishBlockers({
   generationMode,
   selectedCandidateCount,
@@ -433,6 +455,9 @@ function toRunQualityScore(score: number | undefined) {
   return Math.round((score ?? 0) * 10)
 }
 
+/**
+ * Finalizes a run record with status, metrics, and elapsed time.
+ */
 async function finishAiNewsRun({
   runId,
   startedAtMs,

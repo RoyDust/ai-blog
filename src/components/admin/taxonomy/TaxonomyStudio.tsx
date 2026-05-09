@@ -17,10 +17,17 @@ function resolveActiveTab(value: string | null): TabId {
   return value === "tags" ? "tags" : "categories";
 }
 
+/**
+ * Generates a lightweight taxonomy slug while the user types a name.
+ * This is UI convenience only; API validation still owns the final contract.
+ */
 function generateSlug(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fa5]+/g, "-").replace(/^-|-$/g, "");
 }
 
+/**
+ * Preserves unrelated query params while switching between category and tag tabs.
+ */
 function buildNextHref(pathname: string, current: URLSearchParams, tab: TabId) {
   const params = new URLSearchParams(current.toString());
   params.set("tab", tab);
@@ -50,6 +57,10 @@ function TabButton({
   );
 }
 
+/**
+ * Shared admin workspace for categories and tags.
+ * Tab routing lives here; row lifecycle and create/update actions live in dedicated hooks.
+ */
 export function TaxonomyStudio() {
   const router = useRouter();
   const pathname = usePathname();

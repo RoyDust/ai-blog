@@ -33,10 +33,17 @@ const emptyForm: ModelFormState = {
   isDefaultForCoverImage: false,
 };
 
+/**
+ * Returns a fresh form object so capability arrays cannot be shared across openings.
+ */
 function createEmptyForm(): ModelFormState {
   return { ...emptyForm, capabilities: [...emptyForm.capabilities] };
 }
 
+/**
+ * Maps the public model shape back into the editable form shape.
+ * API keys are intentionally blank so editing a model does not leak stored secrets.
+ */
 function formFromModel(model: PublicAiModelOption): ModelFormState {
   const capabilities = model.capabilities.filter(
     (capability): capability is Capability => capability === "post-summary" || capability === "cover-image",
@@ -57,6 +64,10 @@ function formFromModel(model: PublicAiModelOption): ModelFormState {
   };
 }
 
+/**
+ * Owns transient model form state and capability toggling rules.
+ * Persistent list mutations are kept in useModelActions.
+ */
 export function useModelForm() {
   const [form, setForm] = useState<ModelFormState | null>(null);
 

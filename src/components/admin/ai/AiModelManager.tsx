@@ -32,6 +32,10 @@ function statusLabel(status: string) {
   return "待配置密钥";
 }
 
+/**
+ * Renders one capability-specific default selector.
+ * The model list is shared, but each capability keeps its own default choice.
+ */
 function CapabilityDefaultCard({
   capability,
   icon,
@@ -109,6 +113,10 @@ function CapabilityDefaultCard({
   );
 }
 
+/**
+ * Admin surface for model CRUD, testing, and default model selection.
+ * Form state and server mutations are split into hooks so this component stays focused on layout.
+ */
 export function AiModelManager({ initialModels }: { initialModels: PublicAiModelOption[] }) {
   const { form, startCreate, startEdit, resetForm, updateFormField, toggleCapability } = useModelForm();
   const {

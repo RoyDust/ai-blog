@@ -23,6 +23,10 @@ export type CategoryForAi = {
   slug: string;
 };
 
+/**
+ * Normalizes OpenAI-compatible message content into plain text.
+ * Some providers return content as a string, others as typed text parts.
+ */
 export function extractChatText(payload: ChatPayload) {
   const content = payload.choices?.[0]?.message?.content;
 
@@ -41,6 +45,10 @@ export function extractChatText(payload: ChatPayload) {
   return "";
 }
 
+/**
+ * Pulls a JSON object out of model output, including fenced Markdown responses.
+ * Invalid JSON returns null so callers can fall back to text heuristics.
+ */
 export function parseJsonObject(text: string) {
   const trimmed = text.trim();
   const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i)?.[1]?.trim();
@@ -59,6 +67,9 @@ export function parseJsonObject(text: string) {
   }
 }
 
+/**
+ * Accepts either model-produced arrays or delimiter-separated text lists.
+ */
 export function toStringArray(value: unknown) {
   if (Array.isArray(value)) {
     return value.map((item) => (typeof item === "string" ? item.trim() : "")).filter(Boolean);
@@ -102,6 +113,10 @@ function normalizeTagCandidate(value: string) {
     .toLowerCase();
 }
 
+/**
+ * Resolves model tag suggestions against existing tags only.
+ * This deliberately rejects invented tags so AI output cannot silently expand taxonomy.
+ */
 export function resolveExistingTagsFromAiOutput({
   parsed,
   fallbackText,
@@ -158,6 +173,9 @@ export function resolveExistingTagsFromAiOutput({
   return selected;
 }
 
+/**
+ * Builds the shared prompt context used by every post metadata action.
+ */
 export function buildPostAiBaseContext(post: PostForAi, content: string) {
   return [
     `标题：${post.title}`,
