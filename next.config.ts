@@ -9,7 +9,7 @@ const nextConfig: NextConfig = {
     root: __dirname,
   },
   images: {
-    dangerouslyAllowLocalIP: true,
+    dangerouslyAllowLocalIP: process.env.NODE_ENV !== "production",
     qualities: [70, 75],
     remotePatterns: [
       {
