@@ -10,34 +10,7 @@ import { Input } from "@/components/admin/ui";
 import { readApiJson } from "@/lib/admin-api-client";
 import type { PublicAiModelOption } from "@/lib/ai-models";
 
-type Capability = "post-summary" | "cover-image";
-
-type FormState = {
-  id?: string;
-  name: string;
-  description: string;
-  baseUrl: string;
-  requestPath: string;
-  model: string;
-  apiKey: string;
-  enabled: boolean;
-  capabilities: Capability[];
-  isDefaultForSummary: boolean;
-  isDefaultForCoverImage: boolean;
-};
-
-const emptyForm: FormState = {
-  name: "",
-  description: "",
-  baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1",
-  requestPath: "/chat/completions",
-  model: "",
-  apiKey: "",
-  enabled: true,
-  capabilities: ["post-summary"],
-  isDefaultForSummary: false,
-  isDefaultForCoverImage: false,
-};
+import { useModelForm, type Capability } from "./hooks/useModelForm";
 
 const capabilityLabels: Record<Capability, string> = {
   "post-summary": "文章摘要",
@@ -57,26 +30,6 @@ function statusLabel(status: string) {
   if (status === "ready") return "可用";
   if (status === "disabled") return "已停用";
   return "待配置密钥";
-}
-
-function formFromModel(model: PublicAiModelOption): FormState {
-  const capabilities = model.capabilities.filter(
-    (capability): capability is Capability => capability === "post-summary" || capability === "cover-image",
-  );
-
-  return {
-    id: model.id,
-    name: model.name,
-    description: model.description,
-    baseUrl: model.baseUrl,
-    requestPath: model.requestPath,
-    model: model.model,
-    apiKey: "",
-    enabled: model.enabled,
-    capabilities,
-    isDefaultForSummary: model.defaultFor.includes("post-summary"),
-    isDefaultForCoverImage: model.defaultFor.includes("cover-image"),
-  };
 }
 
 function CapabilityDefaultCard({
@@ -158,7 +111,7 @@ function CapabilityDefaultCard({
 
 export function AiModelManager({ initialModels }: { initialModels: PublicAiModelOption[] }) {
   const [models, setModels] = useState(initialModels);
-  const [form, setForm] = useState<FormState | null>(null);
+  const { form, startCreate, startEdit, resetForm, updateFormField, toggleCapability } = useModelForm();
   const [saving, setSaving] = useState(false);
   const [testingId, setTestingId] = useState<string | null>(null);
   const [switchingId, setSwitchingId] = useState<string | null>(null);
@@ -215,7 +168,7 @@ export function AiModelManager({ initialModels }: { initialModels: PublicAiModel
 
       await readApiJson(response);
       await refreshModels();
-      setForm(null);
+      resetForm();
       setMessage(form.id ? "模型已更新。" : "模型已创建。");
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "保存失败");
@@ -297,7 +250,7 @@ export function AiModelManager({ initialModels }: { initialModels: PublicAiModel
         title="按能力选择默认模型"
         description={`文章摘要：${defaultSummaryModel?.name ?? "未配置"}；封面生图：${defaultCoverModel?.name ?? "未配置"}。每种能力独立单选，互不影响。`}
         actions={
-          <Button size="sm" type="button" onClick={() => setForm(emptyForm)} className="rounded-lg">
+          <Button size="sm" type="button" onClick={startCreate} className="rounded-lg">
             <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
             新增模型
           </Button>
@@ -364,7 +317,7 @@ export function AiModelManager({ initialModels }: { initialModels: PublicAiModel
                   </Button>
                   <Button
                     disabled={!model.editable}
-                    onClick={() => setForm(formFromModel(model))}
+                    onClick={() => startEdit(model)}
                     size="sm"
                     type="button"
                     variant="secondary"
@@ -445,35 +398,35 @@ export function AiModelManager({ initialModels }: { initialModels: PublicAiModel
               <Input
                 label="模型名称"
                 value={form.name}
-                onChange={(event) => setForm((prev) => prev ? { ...prev, name: event.target.value } : prev)}
+                onChange={(event) => updateFormField("name", event.target.value)}
                 required
               />
               <Input
                 label="模型 ID"
                 placeholder="qwen3.5-flash / wan2.6-t2i"
                 value={form.model}
-                onChange={(event) => setForm((prev) => prev ? { ...prev, model: event.target.value } : prev)}
+                onChange={(event) => updateFormField("model", event.target.value)}
                 required
               />
               <Input
                 label="Base URL"
                 placeholder="https://api.openai.com/v1"
                 value={form.baseUrl}
-                onChange={(event) => setForm((prev) => prev ? { ...prev, baseUrl: event.target.value } : prev)}
+                onChange={(event) => updateFormField("baseUrl", event.target.value)}
                 required
               />
               <Input
                 label="Request Path"
                 placeholder="/chat/completions / /images/generations"
                 value={form.requestPath}
-                onChange={(event) => setForm((prev) => prev ? { ...prev, requestPath: event.target.value } : prev)}
+                onChange={(event) => updateFormField("requestPath", event.target.value)}
                 required
               />
               <Input
                 label={form.id ? "API Key（留空保持不变）" : "API Key"}
                 type="password"
                 value={form.apiKey}
-                onChange={(event) => setForm((prev) => prev ? { ...prev, apiKey: event.target.value } : prev)}
+                onChange={(event) => updateFormField("apiKey", event.target.value)}
               />
             </div>
 
@@ -484,7 +437,7 @@ export function AiModelManager({ initialModels }: { initialModels: PublicAiModel
               id="ai-model-description"
               className="ui-ring min-h-24 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-sm text-[var(--foreground)] placeholder:text-[var(--muted)] focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
               value={form.description}
-              onChange={(event) => setForm((prev) => prev ? { ...prev, description: event.target.value } : prev)}
+              onChange={(event) => updateFormField("description", event.target.value)}
             />
 
             <div className="grid gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-alt)] p-4 lg:grid-cols-3">
@@ -493,7 +446,7 @@ export function AiModelManager({ initialModels }: { initialModels: PublicAiModel
                   checked={form.enabled}
                   className="ui-checkbox h-4 w-4"
                   type="checkbox"
-                  onChange={(event) => setForm((prev) => prev ? { ...prev, enabled: event.target.checked } : prev)}
+                  onChange={(event) => updateFormField("enabled", event.target.checked)}
                 />
                 启用模型
               </label>
@@ -502,19 +455,7 @@ export function AiModelManager({ initialModels }: { initialModels: PublicAiModel
                   checked={form.capabilities.includes("post-summary")}
                   className="ui-checkbox h-4 w-4"
                   type="checkbox"
-                  onChange={(event) =>
-                    setForm((prev) => {
-                      if (!prev) return prev;
-                      const next = event.target.checked
-                        ? Array.from(new Set([...prev.capabilities, "post-summary" as const]))
-                        : prev.capabilities.filter((capability) => capability !== "post-summary");
-                      return {
-                        ...prev,
-                        capabilities: next.length ? next : ["cover-image"],
-                        isDefaultForSummary: event.target.checked ? prev.isDefaultForSummary : false,
-                      };
-                    })
-                  }
+                  onChange={(event) => toggleCapability("post-summary", event.target.checked)}
                 />
                 文章摘要能力
               </label>
@@ -523,19 +464,7 @@ export function AiModelManager({ initialModels }: { initialModels: PublicAiModel
                   checked={form.capabilities.includes("cover-image")}
                   className="ui-checkbox h-4 w-4"
                   type="checkbox"
-                  onChange={(event) =>
-                    setForm((prev) => {
-                      if (!prev) return prev;
-                      const next = event.target.checked
-                        ? Array.from(new Set([...prev.capabilities, "cover-image" as const]))
-                        : prev.capabilities.filter((capability) => capability !== "cover-image");
-                      return {
-                        ...prev,
-                        capabilities: next.length ? next : ["post-summary"],
-                        isDefaultForCoverImage: event.target.checked ? prev.isDefaultForCoverImage : false,
-                      };
-                    })
-                  }
+                  onChange={(event) => toggleCapability("cover-image", event.target.checked)}
                 />
                 封面生图能力
               </label>
@@ -545,7 +474,7 @@ export function AiModelManager({ initialModels }: { initialModels: PublicAiModel
                   className="ui-checkbox h-4 w-4"
                   disabled={!form.capabilities.includes("post-summary")}
                   type="checkbox"
-                  onChange={(event) => setForm((prev) => prev ? { ...prev, isDefaultForSummary: event.target.checked } : prev)}
+                  onChange={(event) => updateFormField("isDefaultForSummary", event.target.checked)}
                 />
                 设为文章摘要默认
               </label>
@@ -555,14 +484,14 @@ export function AiModelManager({ initialModels }: { initialModels: PublicAiModel
                   className="ui-checkbox h-4 w-4"
                   disabled={!form.capabilities.includes("cover-image")}
                   type="checkbox"
-                  onChange={(event) => setForm((prev) => prev ? { ...prev, isDefaultForCoverImage: event.target.checked } : prev)}
+                  onChange={(event) => updateFormField("isDefaultForCoverImage", event.target.checked)}
                 />
                 设为封面生图默认
               </label>
             </div>
 
             <div className="flex flex-wrap justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => setForm(null)} className="rounded-lg">
+              <Button type="button" variant="outline" onClick={resetForm} className="rounded-lg">
                 取消
               </Button>
               <Button disabled={saving} type="submit" className="rounded-lg">
