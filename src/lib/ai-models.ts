@@ -11,10 +11,9 @@
  * - 当前主要面向 OpenAI Chat Completions 兼容接口
  * - 环境变量模型是内建只读模型，数据库模型才允许后台修改
  */
-import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
-
 import { prisma } from "@/lib/prisma";
 import { ValidationError } from "@/lib/api-errors";
+import { decryptApiKeyFromStorage, encryptApiKeyForStorage } from "@/lib/ai-models-crypto";
 
 export type AiModelCapability = "post-summary" | "cover-image";
 
@@ -125,7 +124,6 @@ const DASH_SCOPE_COMPAT_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mo
 const DASH_SCOPE_SUMMARY_MODEL = "qwen3.5-flash";
 const DEFAULT_REQUEST_PATH = "/chat/completions";
 const DEFAULT_IMAGE_REQUEST_PATH = "/images/generations";
-const ENCRYPTED_API_KEY_PREFIX = "enc:v1:";
 
 function getOptionalAiModelDelegate(client: AiModelClient = prisma as unknown as AiModelClient) {
   return client.aiModel;
@@ -152,73 +150,6 @@ function isAiModelStorageUnavailable(error: unknown) {
 
 function aiModelStorageNotReadyError() {
   return new ValidationError("AI model storage is not ready. Apply the AI model database migration first.");
-}
-
-/**
- * AI_MODEL_SECRET_KEY is the intended stable key source for stored model API keys.
- * AUTH_SECRET/NEXTAUTH_SECRET remain legacy fallbacks; rotating either auth secret
- * without first migrating AI_MODEL_SECRET_KEY will make existing encrypted keys
- * undecryptable.
- */
-function getApiKeyEncryptionKey() {
-  const secret =
-    process.env.AI_MODEL_SECRET_KEY?.trim() ||
-    process.env.AUTH_SECRET?.trim() ||
-    process.env.NEXTAUTH_SECRET?.trim();
-
-  if (!secret) {
-    return null;
-  }
-
-  return createHash("sha256").update(secret).digest();
-}
-
-function encryptApiKeyForStorage(apiKey: string | null | undefined) {
-  if (apiKey === undefined || apiKey === null || apiKey.startsWith(ENCRYPTED_API_KEY_PREFIX)) {
-    return apiKey;
-  }
-
-  const key = getApiKeyEncryptionKey();
-  if (!key) {
-    throw new ValidationError("AUTH_SECRET or AI_MODEL_SECRET_KEY is required before storing AI model API keys");
-  }
-
-  const iv = randomBytes(12);
-  const cipher = createCipheriv("aes-256-gcm", key, iv);
-  const encrypted = Buffer.concat([cipher.update(apiKey, "utf8"), cipher.final()]);
-  const authTag = cipher.getAuthTag();
-
-  return `${ENCRYPTED_API_KEY_PREFIX}${iv.toString("base64url")}.${authTag.toString("base64url")}.${encrypted.toString("base64url")}`;
-}
-
-function decryptApiKeyFromStorage(apiKey: string | null) {
-  if (!apiKey || !apiKey.startsWith(ENCRYPTED_API_KEY_PREFIX)) {
-    return apiKey;
-  }
-
-  const key = getApiKeyEncryptionKey();
-  if (!key) {
-    return null;
-  }
-
-  const encoded = apiKey.slice(ENCRYPTED_API_KEY_PREFIX.length);
-  const [iv, authTag, encrypted] = encoded.split(".");
-
-  if (!iv || !authTag || !encrypted) {
-    return null;
-  }
-
-  try {
-    const decipher = createDecipheriv("aes-256-gcm", key, Buffer.from(iv, "base64url"));
-    decipher.setAuthTag(Buffer.from(authTag, "base64url"));
-
-    return Buffer.concat([
-      decipher.update(Buffer.from(encrypted, "base64url")),
-      decipher.final(),
-    ]).toString("utf8");
-  } catch {
-    return null;
-  }
 }
 
 function resolveEnv(primary: string, fallback: string) {
