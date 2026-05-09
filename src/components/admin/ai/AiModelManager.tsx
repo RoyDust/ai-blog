@@ -1,15 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import type { FormEvent, ReactNode } from "react";
 import { CheckCircle2, ImageIcon, KeyRound, Network, Pencil, Plus, RadioTower, Sparkles, TestTube2, Trash2 } from "lucide-react";
 
 import { WorkspacePanel } from "@/components/admin/primitives/WorkspacePanel";
 import { StatusBadge } from "@/components/admin/primitives/StatusBadge";
 import { Button } from "@/components/admin/ui";
 import { Input } from "@/components/admin/ui";
-import { readApiJson } from "@/lib/admin-api-client";
 import type { PublicAiModelOption } from "@/lib/ai-models";
 
+import { useModelActions } from "./hooks/useModelActions";
 import { useModelForm, type Capability } from "./hooks/useModelForm";
 
 const capabilityLabels: Record<Capability, string> = {
@@ -41,7 +41,7 @@ function CapabilityDefaultCard({
   onSwitch,
 }: {
   capability: Capability;
-  icon: React.ReactNode;
+  icon: ReactNode;
   models: PublicAiModelOption[];
   defaultModel?: PublicAiModelOption;
   switchingId: string | null;
@@ -110,129 +110,28 @@ function CapabilityDefaultCard({
 }
 
 export function AiModelManager({ initialModels }: { initialModels: PublicAiModelOption[] }) {
-  const [models, setModels] = useState(initialModels);
   const { form, startCreate, startEdit, resetForm, updateFormField, toggleCapability } = useModelForm();
-  const [saving, setSaving] = useState(false);
-  const [testingId, setTestingId] = useState<string | null>(null);
-  const [switchingId, setSwitchingId] = useState<string | null>(null);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
+  const {
+    models,
+    defaultSummaryModel,
+    defaultCoverModel,
+    saving,
+    testingId,
+    switchingId,
+    deletingId,
+    message,
+    error,
+    saveModel,
+    deleteModel,
+    testModel,
+    setDefaultModel,
+  } = useModelActions(initialModels, { onSaveSuccess: resetForm });
 
-  const defaultSummaryModel = useMemo(
-    () => models.find((model) => model.defaultFor.includes("post-summary")),
-    [models],
-  );
-  const defaultCoverModel = useMemo(
-    () => models.find((model) => model.defaultFor.includes("cover-image")),
-    [models],
-  );
-
-  const refreshModels = async () => {
-    const data = await readApiJson<{ data?: unknown }>(await fetch("/api/admin/ai/models"));
-    setModels(Array.isArray(data.data) ? data.data : []);
-  };
-
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!form) return;
 
-    setSaving(true);
-    setError("");
-    setMessage("");
-
-    try {
-      const payload = {
-        name: form.name,
-        description: form.description,
-        baseUrl: form.baseUrl,
-        requestPath: form.requestPath,
-        model: form.model,
-        apiKey: form.apiKey || undefined,
-        capabilities: form.capabilities,
-        isDefaultForSummary: form.capabilities.includes("post-summary") && form.isDefaultForSummary,
-        isDefaultForCoverImage: form.capabilities.includes("cover-image") && form.isDefaultForCoverImage,
-        enabled: form.enabled,
-      };
-      const response = form.id
-        ? await fetch(`/api/admin/ai/models/${form.id}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-          })
-        : await fetch("/api/admin/ai/models", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-          });
-
-      await readApiJson(response);
-      await refreshModels();
-      resetForm();
-      setMessage(form.id ? "模型已更新。" : "模型已创建。");
-    } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "保存失败");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleDelete = async (model: PublicAiModelOption) => {
-    if (!model.deletable) return;
-    if (!window.confirm(`删除模型「${model.name}」？`)) return;
-
-    setDeletingId(model.id);
-    setError("");
-    setMessage("");
-
-    try {
-      await readApiJson(await fetch(`/api/admin/ai/models/${model.id}`, { method: "DELETE" }));
-      await refreshModels();
-      setMessage("模型已删除。");
-    } catch (deleteError) {
-      setError(deleteError instanceof Error ? deleteError.message : "删除失败");
-    } finally {
-      setDeletingId(null);
-    }
-  };
-
-  const handleTest = async (model: PublicAiModelOption) => {
-    setTestingId(model.id);
-    setError("");
-    setMessage("");
-
-    try {
-      const data = await readApiJson<{ data?: { message?: string } }>(await fetch(`/api/admin/ai/models/${model.id}/test`, { method: "POST" }));
-      await refreshModels();
-      setMessage(data.data?.message || "模型测试通过。");
-    } catch (testError) {
-      await refreshModels().catch(() => undefined);
-      setError(testError instanceof Error ? testError.message : "模型测试失败");
-    } finally {
-      setTestingId(null);
-    }
-  };
-
-  const handleSetDefault = async (model: PublicAiModelOption, capability: Capability) => {
-    if (model.defaultFor.includes(capability) || switchingId) return;
-
-    setSwitchingId(`${capability}:${model.id}`);
-    setError("");
-    setMessage("");
-
-    try {
-      await readApiJson(await fetch("/api/admin/ai/models/default", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ modelId: model.id, capability }),
-      }));
-      await refreshModels();
-      setMessage(`已将${capabilityLabels[capability]}切换为「${model.name}」。`);
-    } catch (switchError) {
-      setError(switchError instanceof Error ? switchError.message : "切换模型失败");
-    } finally {
-      setSwitchingId(null);
-    }
+    await saveModel(form);
   };
 
   return (
@@ -264,7 +163,7 @@ export function AiModelManager({ initialModels }: { initialModels: PublicAiModel
             models={models}
             defaultModel={defaultSummaryModel}
             switchingId={switchingId}
-            onSwitch={handleSetDefault}
+            onSwitch={(model, capability) => void setDefaultModel(model, capability)}
           />
           <CapabilityDefaultCard
             capability="cover-image"
@@ -272,7 +171,7 @@ export function AiModelManager({ initialModels }: { initialModels: PublicAiModel
             models={models}
             defaultModel={defaultCoverModel}
             switchingId={switchingId}
-            onSwitch={handleSetDefault}
+            onSwitch={(model, capability) => void setDefaultModel(model, capability)}
           />
         </div>
       </WorkspacePanel>
@@ -306,7 +205,7 @@ export function AiModelManager({ initialModels }: { initialModels: PublicAiModel
                 <div className="flex flex-wrap gap-2 xl:justify-end">
                   <Button
                     disabled={testingId === model.id}
-                    onClick={() => void handleTest(model)}
+                    onClick={() => void testModel(model)}
                     size="sm"
                     type="button"
                     variant="outline"
@@ -328,7 +227,7 @@ export function AiModelManager({ initialModels }: { initialModels: PublicAiModel
                   </Button>
                   <Button
                     disabled={!model.deletable || deletingId === model.id}
-                    onClick={() => void handleDelete(model)}
+                    onClick={() => void deleteModel(model)}
                     size="sm"
                     type="button"
                     variant="danger"
