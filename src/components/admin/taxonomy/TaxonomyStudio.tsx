@@ -2,15 +2,14 @@
 
 import { useCallback, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { toast } from "sonner";
 import { DataTable, type DataColumn } from "@/components/admin/DataTable";
 import { DeleteImpactDialog } from "@/components/admin/DeleteImpactDialog";
 import { EntityFormShell } from "@/components/admin/forms/EntityFormShell";
 import { FilterBar } from "@/components/admin/FilterBar";
 import { PageHeader } from "@/components/admin/primitives/PageHeader";
 import { Button, Input } from "@/components/admin/ui";
+import { useTaxonomyActions } from "@/components/admin/taxonomy/hooks/useTaxonomyActions";
 import { useTaxonomyRows } from "@/components/admin/taxonomy/hooks/useTaxonomyRows";
-import { getApiErrorMessage } from "@/lib/admin-api-client";
 
 type TabId = "categories" | "tags";
 
@@ -112,6 +111,21 @@ function CategoriesManager() {
       previewError: "删除影响预览加载失败",
       previewRetryError: "删除影响预览加载失败，请稍后重试",
     });
+  const { save } = useTaxonomyActions({
+    buildCreatedRow: (data) => ({ ...(data as CategoryRow), _count: { posts: 0 } }),
+    buildPayload: (value: typeof form) => ({ name: value.name, slug: value.slug, description: value.description }),
+    endpoint: "/api/admin/categories",
+    messages: {
+      createError: "创建分类失败",
+      createRetryError: "创建分类失败，请稍后重试",
+      createSuccess: "分类已创建",
+      updateError: "保存分类失败",
+      updateRetryError: "保存分类失败，请稍后重试",
+      updateSuccess: "分类已保存",
+    },
+    resetForm: () => setForm({ id: "", name: "", slug: "", description: "" }),
+    setRows,
+  });
 
   const columns: DataColumn<CategoryRow>[] = [
     { key: "name", label: "名称", render: (row) => row.name },
@@ -141,31 +155,7 @@ function CategoriesManager() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    try {
-      const payload = { name: form.name, slug: form.slug, description: form.description };
-      const isEditing = Boolean(form.id);
-      const res = await fetch("/api/admin/categories", {
-        method: isEditing ? "PATCH" : "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(isEditing ? { id: form.id, ...payload } : payload),
-      });
-      const data = await res.json();
-      if (!data.success) {
-        toast.error(getApiErrorMessage(data, isEditing ? "保存分类失败" : "创建分类失败"));
-        return;
-      }
-
-      if (isEditing) {
-        setRows((prev) => prev.map((item) => (item.id === form.id ? { ...item, ...payload } : item)));
-      } else {
-        setRows((prev) => [...prev, { ...data.data, _count: { posts: 0 } }]);
-      }
-
-      setForm({ id: "", name: "", slug: "", description: "" });
-      toast.success(isEditing ? "分类已保存" : "分类已创建");
-    } catch {
-      toast.error(form.id ? "保存分类失败，请稍后重试" : "创建分类失败，请稍后重试");
-    }
+    await save(form);
   }
 
   return (
@@ -247,6 +237,21 @@ function TagsManager() {
       previewError: "删除影响预览加载失败",
       previewRetryError: "删除影响预览加载失败，请稍后重试",
     });
+  const { save } = useTaxonomyActions({
+    buildCreatedRow: (data) => ({ ...(data as TagRow), _count: { posts: 0 } }),
+    buildPayload: (value: typeof form) => ({ name: value.name, slug: value.slug, color: value.color }),
+    endpoint: "/api/admin/tags",
+    messages: {
+      createError: "创建标签失败",
+      createRetryError: "创建标签失败，请稍后重试",
+      createSuccess: "标签已创建",
+      updateError: "保存标签失败",
+      updateRetryError: "保存标签失败，请稍后重试",
+      updateSuccess: "标签已保存",
+    },
+    resetForm: () => setForm({ id: "", name: "", slug: "", color: defaultColors[0] }),
+    setRows,
+  });
 
   const columns: DataColumn<TagRow>[] = [
     {
@@ -284,31 +289,7 @@ function TagsManager() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    try {
-      const payload = { name: form.name, slug: form.slug, color: form.color };
-      const isEditing = Boolean(form.id);
-      const res = await fetch("/api/admin/tags", {
-        method: isEditing ? "PATCH" : "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(isEditing ? { id: form.id, ...payload } : payload),
-      });
-      const data = await res.json();
-      if (!data.success) {
-        toast.error(getApiErrorMessage(data, isEditing ? "保存标签失败" : "创建标签失败"));
-        return;
-      }
-
-      if (isEditing) {
-        setRows((prev) => prev.map((item) => (item.id === form.id ? { ...item, ...payload } : item)));
-      } else {
-        setRows((prev) => [...prev, { ...data.data, _count: { posts: 0 } }]);
-      }
-
-      setForm({ id: "", name: "", slug: "", color: defaultColors[0] });
-      toast.success(isEditing ? "标签已保存" : "标签已创建");
-    } catch {
-      toast.error(form.id ? "保存标签失败，请稍后重试" : "创建标签失败，请稍后重试");
-    }
+    await save(form);
   }
 
   return (
