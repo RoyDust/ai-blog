@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 
 import { extractPostSlugFromPath, normalizeAnalyticsPath, shouldTrackVisitPath } from "@/lib/analytics";
+import { toErrorResponse } from "@/lib/api-errors";
 import { prisma } from "@/lib/prisma";
 import { createVisitLogOperation } from "@/lib/visit-log-repository";
 
@@ -50,24 +51,28 @@ export async function POST(request: Request) {
   const ipHash = hashIp(getClientIp(request));
   const postSlug = extractPostSlugFromPath(path);
 
-  const post = postSlug
-    ? await prisma.post.findFirst({
-        where: { slug: postSlug, deletedAt: null, published: true },
-        select: { id: true },
-      })
-    : null;
+  try {
+    const post = postSlug
+      ? await prisma.post.findFirst({
+          where: { slug: postSlug, deletedAt: null, published: true },
+          select: { id: true },
+        })
+      : null;
 
-  await prisma.$transaction([
-    createVisitLogOperation({
-      path,
-      postId: post?.id ?? null,
-      referrer,
-      visitorId,
-      userAgent,
-      ipHash,
-    }),
-    ...(post ? [prisma.post.update({ where: { id: post.id }, data: { viewCount: { increment: 1 } } })] : []),
-  ]);
+    await prisma.$transaction([
+      createVisitLogOperation({
+        path,
+        postId: post?.id ?? null,
+        referrer,
+        visitorId,
+        userAgent,
+        ipHash,
+      }),
+      ...(post ? [prisma.post.update({ where: { id: post.id }, data: { viewCount: { increment: 1 } } })] : []),
+    ]);
 
-  return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    return toErrorResponse(error);
+  }
 }

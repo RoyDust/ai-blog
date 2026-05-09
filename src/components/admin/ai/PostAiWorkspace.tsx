@@ -14,6 +14,7 @@ import { toast } from "sonner";
 
 import { StatusBadge } from "@/components/admin/primitives/StatusBadge";
 import { Button } from "@/components/admin/ui";
+import { getApiErrorMessage } from "@/lib/admin-api-client";
 
 type AppliedPost = {
   id: string;
@@ -62,17 +63,6 @@ const actionLabels: Record<PostAiAction, string> = {
   tags: "标签",
   category: "分类",
 };
-
-function getErrorMessage(data: unknown, fallback: string) {
-  if (data && typeof data === "object") {
-    const candidate = (data as { error?: string; detail?: string }).error ?? (data as { detail?: string }).detail;
-    if (typeof candidate === "string" && candidate.trim()) {
-      return candidate;
-    }
-  }
-
-  return fallback;
-}
 
 function toStringList(value: unknown) {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string" && item.trim().length > 0) : [];
@@ -184,7 +174,7 @@ export function PostAiWorkspace({
       const data = await response.json();
 
       if (!response.ok || !data.success) {
-        throw new Error(getErrorMessage(data, "AI 生成失败"));
+        throw new Error(getApiErrorMessage(data, "AI 生成失败"));
       }
 
       setResult({
@@ -240,7 +230,7 @@ export function PostAiWorkspace({
       const data = await response.json();
 
       if (!response.ok || !data.success) {
-        throw new Error(getErrorMessage(data, "应用 AI 建议失败"));
+        throw new Error(getApiErrorMessage(data, "应用 AI 建议失败"));
       }
 
       onApplied(data.data as AppliedPost);

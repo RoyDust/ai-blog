@@ -9,22 +9,12 @@ import { EntityFormShell } from "@/components/admin/forms/EntityFormShell";
 import { FilterBar } from "@/components/admin/FilterBar";
 import { PageHeader } from "@/components/admin/primitives/PageHeader";
 import { Button, Input } from "@/components/admin/ui";
+import { getApiErrorMessage } from "@/lib/admin-api-client";
 
 type TabId = "categories" | "tags";
 
 function resolveActiveTab(value: string | null): TabId {
   return value === "tags" ? "tags" : "categories";
-}
-
-function getErrorMessage(data: unknown, fallback: string) {
-  if (data && typeof data === "object") {
-    const candidate = (data as { error?: string; detail?: string }).error ?? (data as { detail?: string }).detail;
-    if (typeof candidate === "string" && candidate.trim()) {
-      return candidate;
-    }
-  }
-
-  return fallback;
 }
 
 function generateSlug(value: string) {
@@ -141,7 +131,7 @@ function CategoriesManager() {
         return;
       }
 
-      toast.error(getErrorMessage(data, "分类列表加载失败"));
+      toast.error(getApiErrorMessage(data, "分类列表加载失败"));
       setRows([]);
     } catch {
       toast.error("分类列表加载失败，请稍后重试");
@@ -167,7 +157,7 @@ function CategoriesManager() {
       const res = await fetch(`/api/admin/categories?${params.toString()}`);
       const data = await res.json();
       if (!data.success) {
-        toast.error(getErrorMessage(data, "删除影响预览加载失败"));
+        toast.error(getApiErrorMessage(data, "删除影响预览加载失败"));
         return;
       }
 
@@ -198,7 +188,7 @@ function CategoriesManager() {
         return;
       }
 
-      toast.error(getErrorMessage(data, "隐藏分类失败"));
+      toast.error(getApiErrorMessage(data, "隐藏分类失败"));
     } catch {
       toast.error("隐藏分类失败，请稍后重试");
     }
@@ -244,7 +234,7 @@ function CategoriesManager() {
       });
       const data = await res.json();
       if (!data.success) {
-        toast.error(getErrorMessage(data, isEditing ? "保存分类失败" : "创建分类失败"));
+        toast.error(getApiErrorMessage(data, isEditing ? "保存分类失败" : "创建分类失败"));
         return;
       }
 
@@ -340,7 +330,7 @@ function TagsManager() {
         return;
       }
 
-      toast.error(getErrorMessage(data, "标签列表加载失败"));
+      toast.error(getApiErrorMessage(data, "标签列表加载失败"));
       setRows([]);
     } catch {
       toast.error("标签列表加载失败，请稍后重试");
@@ -366,7 +356,7 @@ function TagsManager() {
       const res = await fetch(`/api/admin/tags?${params.toString()}`);
       const data = await res.json();
       if (!data.success) {
-        toast.error(getErrorMessage(data, "删除影响预览加载失败"));
+        toast.error(getApiErrorMessage(data, "删除影响预览加载失败"));
         return;
       }
 
@@ -397,7 +387,7 @@ function TagsManager() {
         return;
       }
 
-      toast.error(getErrorMessage(data, "隐藏标签失败"));
+      toast.error(getApiErrorMessage(data, "隐藏标签失败"));
     } catch {
       toast.error("隐藏标签失败，请稍后重试");
     }
@@ -451,7 +441,7 @@ function TagsManager() {
       });
       const data = await res.json();
       if (!data.success) {
-        toast.error(getErrorMessage(data, isEditing ? "保存标签失败" : "创建标签失败"));
+        toast.error(getApiErrorMessage(data, isEditing ? "保存标签失败" : "创建标签失败"));
         return;
       }
 

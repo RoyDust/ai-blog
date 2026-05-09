@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { AlertCircle, Bell, CheckCheck, CircleCheck, Info, XCircle } from "lucide-react";
 
 import { Button } from "@/components/admin/ui";
+import { readApiJson } from "@/lib/admin-api-client";
 
 type NotificationFilter = "all" | "unread" | "comment" | "ai" | "system";
 
@@ -66,8 +67,8 @@ function formatDate(value: string) {
 }
 
 async function readPayload(response: Response) {
-  const payload = (await response.json().catch(() => null)) as { success?: boolean; data?: NotificationPayload } | null;
-  if (!response.ok || !payload?.success || !payload.data) {
+  const payload = await readApiJson<{ success?: boolean; data?: NotificationPayload }>(response, "通知加载失败");
+  if (!payload.data) {
     throw new Error("通知加载失败");
   }
 
@@ -112,8 +113,8 @@ export function NotificationCenterClient() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "read", ids }),
     });
-    const payload = (await response.json().catch(() => null)) as { success?: boolean; data?: { unreadCount: number } } | null;
-    if (!response.ok || !payload?.success || !payload.data) {
+    const payload = await readApiJson<{ success?: boolean; data?: { unreadCount: number } }>(response, "通知状态更新失败");
+    if (!payload.data) {
       throw new Error("通知状态更新失败");
     }
 
@@ -123,8 +124,8 @@ export function NotificationCenterClient() {
 
   const markAllRead = useCallback(async () => {
     const response = await fetch("/api/admin/notifications/read-all", { method: "POST" });
-    const payload = (await response.json().catch(() => null)) as { success?: boolean; data?: { unreadCount: number } } | null;
-    if (!response.ok || !payload?.success || !payload.data) {
+    const payload = await readApiJson<{ success?: boolean; data?: { unreadCount: number } }>(response, "通知状态更新失败").catch(() => null);
+    if (!payload?.data) {
       setError("通知状态更新失败");
       return;
     }

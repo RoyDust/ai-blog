@@ -71,7 +71,7 @@ describe('qiniu token route', () => {
     const data = await response.json()
 
     expect(response.status).toBe(400)
-    expect(data.success).toBe(false)
+    expect(data.error).toEqual(expect.any(String))
   })
 
   test('uses region-specific upload url from env when provided', async () => {

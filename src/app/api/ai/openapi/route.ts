@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { toErrorResponse } from "@/lib/api-errors";
 
 import {
   AI_AUTHORING_ENDPOINTS,
@@ -8,9 +9,10 @@ import {
 } from "@/lib/ai-contract";
 
 export async function GET() {
-  return NextResponse.json({
-    openapi: "3.1.0",
-    info: {
+  try {
+    return NextResponse.json({
+      openapi: "3.1.0",
+      info: {
       title: "My Blog AI Authoring API",
       version: AI_AUTHORING_VERSION,
       description: "Machine-facing endpoints for AI clients to read taxonomy and upsert Markdown drafts that can auto-publish after AI review.",
@@ -351,5 +353,8 @@ export async function GET() {
         },
       },
     },
-  });
+    });
+  } catch (error) {
+    return toErrorResponse(error);
+  }
 }

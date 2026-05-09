@@ -48,4 +48,10 @@ describe("Dockerfile proxy guard", () => {
     expect(npmRegistryIndex).toBeGreaterThan(-1);
     expect(installPnpmIndex).toBeGreaterThan(npmRegistryIndex);
   });
+
+  test("does not accept sensitive runtime secrets as build args", () => {
+    expect(dockerfile).not.toMatch(/^ARG DATABASE_URL$/m);
+    expect(dockerfile).not.toMatch(/^ARG AUTH_SECRET$/m);
+    expect(dockerfile).not.toMatch(/^ARG NEXTAUTH_SECRET$/m);
+  });
 });

@@ -1,5 +1,4 @@
 import { NextAuthOptions } from "next-auth"
-import type { Adapter } from "next-auth/adapters"
 import CredentialsProvider from "next-auth/providers/credentials"
 import GitHubProvider from "next-auth/providers/github"
 import { PrismaAdapter } from "@auth/prisma-adapter"
@@ -22,7 +21,7 @@ import bcrypt from "bcryptjs"
  * - 角色字段最终会进入 session.user.role，供 API 权限判断复用
  */
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma) as Adapter,
+  adapter: PrismaAdapter(prisma) as import("next-auth/adapters").Adapter,
   secret: resolveAuthSecret(),
   providers: [
     GitHubProvider({

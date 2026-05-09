@@ -5,14 +5,7 @@ import { NotFoundError, toErrorResponse } from "@/lib/api-errors"
 import { createAdminPost } from "@/lib/ai-authoring"
 import { revalidatePublicContent } from "@/lib/cache"
 import { prisma } from "@/lib/prisma"
-import { parsePostInput } from "@/lib/validation"
-
-function parseIds(searchParams: URLSearchParams) {
-  return (searchParams.get("ids") ?? searchParams.getAll("id").join(","))
-    .split(",")
-    .map((id) => id.trim())
-    .filter(Boolean)
-}
+import { parseIdList, parsePostInput } from "@/lib/validation"
 
 export async function GET(request: Request) {
   try {
@@ -21,7 +14,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
 
     if (searchParams.get("preview") === "delete") {
-      const ids = parseIds(searchParams)
+      const ids = parseIdList(searchParams)
 
       if (ids.length === 0) {
         return NextResponse.json({ error: "Post IDs are required" }, { status: 400 })
@@ -83,7 +76,7 @@ export async function DELETE(request: Request) {
     await requireAdminSession()
 
     const { searchParams } = new URL(request.url)
-    const ids = parseIds(searchParams)
+    const ids = parseIdList(searchParams)
 
     if (ids.length === 0) {
       return NextResponse.json({ error: "Post ID is required" }, { status: 400 })

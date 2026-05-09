@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 import { StatusBadge } from "@/components/admin/primitives/StatusBadge";
 import { Button } from "@/components/admin/ui";
+import { getApiErrorMessage } from "@/lib/admin-api-client";
 
 type TaskItem = {
   id: string;
@@ -168,7 +169,7 @@ export function AiTaskDetail({ task }: { task: TaskDetail }) {
       const data = await response.json();
 
       if (!response.ok || !data.success) {
-        throw new Error(data.error || "重试任务失败");
+        throw new Error(getApiErrorMessage(data, "重试任务失败"));
       }
 
       toast.success("已创建失败项重试任务");
@@ -191,7 +192,7 @@ export function AiTaskDetail({ task }: { task: TaskDetail }) {
       const data = await response.json();
 
       if (!response.ok || !data.success) {
-        throw new Error(data.error || "应用建议失败");
+        throw new Error(getApiErrorMessage(data, "应用建议失败"));
       }
 
       setItems((current) => current.map((item) => (item.id === itemId ? { ...item, applied: true } : item)));

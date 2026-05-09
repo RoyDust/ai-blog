@@ -571,3 +571,10 @@ export function parsePublishInput(payload: unknown) {
     published: readBoolean(data.published, 'published'),
   }
 }
+
+export function parseIdList(searchParams: URLSearchParams) {
+  return (searchParams.get('ids') ?? searchParams.getAll('id').join(','))
+    .split(',')
+    .map((id) => id.trim())
+    .filter(Boolean)
+}

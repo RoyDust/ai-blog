@@ -24,6 +24,7 @@ import {
   isActiveSummaryStatus,
   type PostSummaryStatus,
 } from "@/lib/post-summary-status";
+import { getApiErrorMessage } from "@/lib/admin-api-client";
 
 interface PostRow {
   id: string;
@@ -60,17 +61,6 @@ const initialDeleteDialog: DeleteDialogState = {
   submitting: false,
 };
 
-function getErrorMessage(data: unknown, fallback: string) {
-  if (data && typeof data === "object") {
-    const candidate = (data as { error?: string; detail?: string }).error ?? (data as { detail?: string }).detail;
-    if (typeof candidate === "string" && candidate.trim()) {
-      return candidate;
-    }
-  }
-
-  return fallback;
-}
-
 function getSummaryStatus(post: PostRow): PostSummaryStatus {
   if (post.summaryStatus) {
     return post.summaryStatus;
@@ -105,7 +95,7 @@ export default function AdminPostsPage() {
         return;
       }
 
-      toast.error(getErrorMessage(data, "文章列表加载失败"));
+      toast.error(getApiErrorMessage(data, "文章列表加载失败"));
       setPosts([]);
     } catch {
       toast.error("文章列表加载失败，请稍后重试");
@@ -184,7 +174,7 @@ export default function AdminPostsPage() {
       const data = await res.json();
 
       if (!data.success) {
-        toast.error(getErrorMessage(data, "删除影响预览加载失败"));
+        toast.error(getApiErrorMessage(data, "删除影响预览加载失败"));
         return;
       }
 
@@ -219,7 +209,7 @@ export default function AdminPostsPage() {
         return;
       }
 
-      toast.error(getErrorMessage(data, "隐藏文章失败"));
+      toast.error(getApiErrorMessage(data, "隐藏文章失败"));
     } catch {
       toast.error("隐藏文章失败，请稍后重试");
     }
@@ -249,7 +239,7 @@ export default function AdminPostsPage() {
       const data = await res.json();
 
       if (!data.success) {
-        throw new Error(data.error || "更新发布状态失败");
+        throw new Error(getApiErrorMessage(data, "更新发布状态失败"));
       }
 
       toast.success(nextPublished ? "文章已发布" : "已转为草稿");

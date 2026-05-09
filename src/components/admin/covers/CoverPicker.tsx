@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Images, Search } from "lucide-react";
 
 import { Button, FallbackImage, Modal } from "@/components/admin/ui";
+import { readApiJson } from "@/lib/admin-api-client";
 import type { CoverAsset, CoverAssetListResponse } from "./types";
 
 type CoverPickerProps = {
@@ -32,12 +33,7 @@ export function CoverPicker({ selectedAssetId, onSelect, buttonLabel = "从图�
         if (query.trim()) {
           params.set("q", query.trim());
         }
-        const response = await fetch(`/api/admin/covers?${params.toString()}`);
-        const data = await response.json();
-
-        if (!response.ok || !data.success) {
-          throw new Error(data.error || "封面图库加载失败");
-        }
+        const data = await readApiJson(await fetch(`/api/admin/covers?${params.toString()}`), "封面图库加载失败");
 
         if (!active) return;
         const payload = data.data as CoverAssetListResponse;

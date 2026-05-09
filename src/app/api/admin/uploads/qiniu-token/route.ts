@@ -2,7 +2,7 @@ import crypto from 'node:crypto'
 import { NextResponse } from 'next/server'
 
 import { requireAdminSession } from '@/lib/api-auth'
-import { ApiError } from '@/lib/api-errors'
+import { toErrorResponse } from '@/lib/api-errors'
 import { checkUploadRateLimit } from '@/lib/rate-limit'
 import { parseUploadRequest } from '@/lib/validation'
 
@@ -88,10 +88,6 @@ export async function POST(request: Request) {
       },
     })
   } catch (error) {
-    if (error instanceof ApiError) {
-      return NextResponse.json({ success: false, error: error.message }, { status: error.status })
-    }
-
-    return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 })
+    return toErrorResponse(error)
   }
 }

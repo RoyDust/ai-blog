@@ -8,18 +8,11 @@ import { PageHeader } from "@/components/admin/primitives/PageHeader";
 import { Toolbar } from "@/components/admin/primitives/Toolbar";
 import { WorkspacePanel } from "@/components/admin/primitives/WorkspacePanel";
 import { Button, Modal } from "@/components/admin/ui";
+import { readApiJson } from "@/lib/admin-api-client";
 import { CoverAssetForm } from "./CoverAssetForm";
 import { CoverAssetGrid } from "./CoverAssetGrid";
 import { CoverUploadDropzone } from "./CoverUploadDropzone";
 import type { CoverAsset, CoverAssetListResponse } from "./types";
-
-function getErrorMessage(data: unknown, fallback: string) {
-  if (data && typeof data === "object" && "error" in data && typeof data.error === "string") {
-    return data.error;
-  }
-
-  return fallback;
-}
 
 export function CoverGalleryManager() {
   const [assets, setAssets] = useState<CoverAsset[]>([]);
@@ -43,12 +36,7 @@ export function CoverGalleryManager() {
     setLoading(true);
 
     try {
-      const response = await fetch(`/api/admin/covers?${params.toString()}`);
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        throw new Error(getErrorMessage(data, "封面图库加载失败"));
-      }
+      const data = await readApiJson<{ data?: CoverAssetListResponse }>(await fetch(`/api/admin/covers?${params.toString()}`), "封面图库加载失败");
 
       const payload = data.data as CoverAssetListResponse;
       setAssets(Array.isArray(payload.items) ? payload.items : []);
@@ -79,12 +67,7 @@ export function CoverGalleryManager() {
     if (!confirmed) return;
 
     try {
-      const response = await fetch(`/api/admin/covers/${asset.id}`, { method: "DELETE" });
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        throw new Error(getErrorMessage(data, "归档失败"));
-      }
+      await readApiJson(await fetch(`/api/admin/covers/${asset.id}`, { method: "DELETE" }), "归档失败");
 
       setAssets((prev) => prev.filter((item) => item.id !== asset.id));
       setTotal((prev) => Math.max(0, prev - 1));
@@ -98,16 +81,11 @@ export function CoverGalleryManager() {
     setRandomizing(true);
 
     try {
-      const response = await fetch("/api/admin/covers/randomize-posts", {
+      const data = await readApiJson<{ data?: { updated?: number; skippedReason?: string } }>(await fetch("/api/admin/covers/randomize-posts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ publishedOnly: true }),
-      });
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        throw new Error(getErrorMessage(data, "随机补齐失败"));
-      }
+      }), "随机补齐失败");
 
       const updated = Number(data.data?.updated ?? 0);
       const skippedReason = data.data?.skippedReason;

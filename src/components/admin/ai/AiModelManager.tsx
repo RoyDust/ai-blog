@@ -7,6 +7,7 @@ import { WorkspacePanel } from "@/components/admin/primitives/WorkspacePanel";
 import { StatusBadge } from "@/components/admin/primitives/StatusBadge";
 import { Button } from "@/components/admin/ui";
 import { Input } from "@/components/admin/ui";
+import { readApiJson } from "@/lib/admin-api-client";
 import type { PublicAiModelOption } from "@/lib/ai-models";
 
 type Capability = "post-summary" | "cover-image";
@@ -76,16 +77,6 @@ function formFromModel(model: PublicAiModelOption): FormState {
     isDefaultForSummary: model.defaultFor.includes("post-summary"),
     isDefaultForCoverImage: model.defaultFor.includes("cover-image"),
   };
-}
-
-async function readJson(response: Response) {
-  const data = await response.json().catch(() => ({}));
-
-  if (!response.ok || data.success === false) {
-    throw new Error(data.error || "请求失败");
-  }
-
-  return data;
 }
 
 function CapabilityDefaultCard({
@@ -185,7 +176,7 @@ export function AiModelManager({ initialModels }: { initialModels: PublicAiModel
   );
 
   const refreshModels = async () => {
-    const data = await readJson(await fetch("/api/admin/ai/models"));
+    const data = await readApiJson<{ data?: unknown }>(await fetch("/api/admin/ai/models"));
     setModels(Array.isArray(data.data) ? data.data : []);
   };
 
@@ -222,7 +213,7 @@ export function AiModelManager({ initialModels }: { initialModels: PublicAiModel
             body: JSON.stringify(payload),
           });
 
-      await readJson(response);
+      await readApiJson(response);
       await refreshModels();
       setForm(null);
       setMessage(form.id ? "模型已更新。" : "模型已创建。");
@@ -242,7 +233,7 @@ export function AiModelManager({ initialModels }: { initialModels: PublicAiModel
     setMessage("");
 
     try {
-      await readJson(await fetch(`/api/admin/ai/models/${model.id}`, { method: "DELETE" }));
+      await readApiJson(await fetch(`/api/admin/ai/models/${model.id}`, { method: "DELETE" }));
       await refreshModels();
       setMessage("模型已删除。");
     } catch (deleteError) {
@@ -258,7 +249,7 @@ export function AiModelManager({ initialModels }: { initialModels: PublicAiModel
     setMessage("");
 
     try {
-      const data = await readJson(await fetch(`/api/admin/ai/models/${model.id}/test`, { method: "POST" }));
+      const data = await readApiJson<{ data?: { message?: string } }>(await fetch(`/api/admin/ai/models/${model.id}/test`, { method: "POST" }));
       await refreshModels();
       setMessage(data.data?.message || "模型测试通过。");
     } catch (testError) {
@@ -277,7 +268,7 @@ export function AiModelManager({ initialModels }: { initialModels: PublicAiModel
     setMessage("");
 
     try {
-      await readJson(await fetch("/api/admin/ai/models/default", {
+      await readApiJson(await fetch("/api/admin/ai/models/default", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ modelId: model.id, capability }),

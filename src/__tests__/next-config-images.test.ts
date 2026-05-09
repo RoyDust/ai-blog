@@ -35,4 +35,8 @@ describe('next image config', () => {
   test('allows trusted image hosts that resolve to local or reserved ips', () => {
     expect(nextConfig.images?.dangerouslyAllowLocalIP).toBe(true)
   })
+
+  test('keeps component image quality values within the configured allowlist', () => {
+    expect(nextConfig.images?.qualities).toEqual([70, 75])
+  })
 })

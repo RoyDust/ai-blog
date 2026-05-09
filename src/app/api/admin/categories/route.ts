@@ -1,20 +1,9 @@
 import { NextResponse } from "next/server"
 
 import { requireAdminSession } from "@/lib/api-auth"
-import { NotFoundError, toErrorResponse } from "@/lib/api-errors"
+import { isPrismaConflictError, NotFoundError, toErrorResponse } from "@/lib/api-errors"
 import { prisma } from "@/lib/prisma"
-import { parseTaxonomyInput } from "@/lib/validation"
-
-function parseIds(searchParams: URLSearchParams) {
-  return (searchParams.get("ids") ?? searchParams.getAll("id").join(","))
-    .split(",")
-    .map((id) => id.trim())
-    .filter(Boolean)
-}
-
-function isConflict(error: unknown) {
-  return typeof error === "object" && error !== null && "code" in error && error.code === "P2002"
-}
+import { parseIdList, parseTaxonomyInput } from "@/lib/validation"
 
 export async function GET(request: Request) {
   try {
@@ -22,7 +11,7 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url)
     if (searchParams.get("preview") === "delete") {
-      const ids = parseIds(searchParams)
+      const ids = parseIdList(searchParams)
       if (ids.length === 0) {
         return NextResponse.json({ error: "Category IDs are required" }, { status: 400 })
       }
@@ -65,7 +54,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, data: category })
   } catch (error) {
-    if (isConflict(error)) {
+    if (isPrismaConflictError(error)) {
       return NextResponse.json({ error: "Category name or slug already exists" }, { status: 409 })
     }
     return toErrorResponse(error)
@@ -88,7 +77,7 @@ export async function PATCH(request: Request) {
 
     return NextResponse.json({ success: true, data: category })
   } catch (error) {
-    if (isConflict(error)) {
+    if (isPrismaConflictError(error)) {
       return NextResponse.json({ error: "Category name or slug already exists" }, { status: 409 })
     }
     return toErrorResponse(error, "Failed to update category")
@@ -100,7 +89,7 @@ export async function DELETE(request: Request) {
     await requireAdminSession()
 
     const { searchParams } = new URL(request.url)
-    const ids = parseIds(searchParams)
+    const ids = parseIdList(searchParams)
     if (ids.length === 0) {
       return NextResponse.json({ error: "Category ID is required" }, { status: 400 })
     }

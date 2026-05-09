@@ -71,7 +71,7 @@ export function HomeLatestPosts({ posts }: HomeLatestPostsProps) {
                     className="theme-media-image object-cover"
                     fill
                     loading="lazy"
-                    quality={72}
+                    quality={70}
                     sizes="(max-width: 640px) 100vw, 10rem"
                     src={post.coverImage}
                   />

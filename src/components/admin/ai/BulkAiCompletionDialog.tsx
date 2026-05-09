@@ -5,6 +5,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 
 import { Button, Modal } from "@/components/admin/ui";
+import { getApiErrorMessage } from "@/lib/admin-api-client";
 
 type AiBatchAction = "summary" | "seo-description" | "tags" | "category" | "cover-image";
 type AiBatchMode = "missing-only" | "overwrite" | "suggest-only";
@@ -22,17 +23,6 @@ const modeOptions: Array<{ value: AiBatchMode; label: string; hint: string }> = 
   { value: "suggest-only", label: "仅生成建议", hint: "不覆盖当前字段" },
   { value: "overwrite", label: "重新生成", hint: "为所选文章重新生成建议" },
 ];
-
-function getErrorMessage(data: unknown, fallback: string) {
-  if (data && typeof data === "object") {
-    const candidate = (data as { error?: string; detail?: string }).error ?? (data as { detail?: string }).detail;
-    if (typeof candidate === "string" && candidate.trim()) {
-      return candidate;
-    }
-  }
-
-  return fallback;
-}
 
 export function BulkAiCompletionDialog({
   open,
@@ -78,7 +68,7 @@ export function BulkAiCompletionDialog({
       const data = await response.json();
 
       if (!response.ok || !data.success) {
-        throw new Error(getErrorMessage(data, "AI 批量补全启动失败"));
+        throw new Error(getApiErrorMessage(data, "AI 批量补全启动失败"));
       }
 
       const nextTaskId = String(data.data.id);

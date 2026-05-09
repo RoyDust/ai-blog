@@ -5,6 +5,7 @@ import {
   parseCoverAssetInput,
   parseCoverAssetPatchInput,
   parseCoverRandomizeInput,
+  parseIdList,
   parseLoginInput,
   parsePostInput,
   parsePostPatchInput,
@@ -140,5 +141,25 @@ describe('validation helpers', () => {
         coverAssetId: 'cover-1',
       }),
     ).toMatchObject({ coverAssetId: 'cover-1' })
+  })
+
+  test('parses comma-separated id lists', () => {
+    expect(parseIdList(new URLSearchParams('ids=a,b,c'))).toEqual(['a', 'b', 'c'])
+  })
+
+  test('parses repeated id parameters', () => {
+    expect(parseIdList(new URLSearchParams('id=a&id=b'))).toEqual(['a', 'b'])
+  })
+
+  test('prefers ids over repeated id parameters', () => {
+    expect(parseIdList(new URLSearchParams('ids=a,b&id=c'))).toEqual(['a', 'b'])
+  })
+
+  test('trims and removes empty id values', () => {
+    expect(parseIdList(new URLSearchParams('ids= a, ,b ,, c '))).toEqual(['a', 'b', 'c'])
+  })
+
+  test('returns an empty list when no ids are provided', () => {
+    expect(parseIdList(new URLSearchParams())).toEqual([])
   })
 })

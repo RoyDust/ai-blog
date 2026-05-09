@@ -9,6 +9,7 @@ import { PageHeader } from "@/components/admin/primitives/PageHeader";
 import { StatusBadge } from "@/components/admin/primitives/StatusBadge";
 import { Toolbar } from "@/components/admin/primitives/Toolbar";
 import { WorkspacePanel } from "@/components/admin/primitives/WorkspacePanel";
+import { getApiErrorMessage } from "@/lib/admin-api-client";
 
 type CommentStatus = "APPROVED" | "PENDING" | "REJECTED" | "SPAM";
 
@@ -71,17 +72,6 @@ const moderationBuckets: ModerationBucket[] = [
   },
 ];
 
-function getErrorMessage(data: unknown, fallback: string) {
-  if (data && typeof data === "object") {
-    const candidate = (data as { error?: string; detail?: string }).error ?? (data as { detail?: string }).detail;
-    if (typeof candidate === "string" && candidate.trim()) {
-      return candidate;
-    }
-  }
-
-  return fallback;
-}
-
 export default function AdminCommentsPage() {
   const [comments, setComments] = useState<CommentRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -98,7 +88,7 @@ export default function AdminCommentsPage() {
         return;
       }
 
-      toast.error(getErrorMessage(data, "评论列表加载失败"));
+      toast.error(getApiErrorMessage(data, "评论列表加载失败"));
       setComments([]);
     } catch {
       toast.error("评论列表加载失败，请稍后重试");
@@ -127,7 +117,7 @@ export default function AdminCommentsPage() {
         return;
       }
 
-      toast.error(getErrorMessage(data, "评论状态更新失败"));
+      toast.error(getApiErrorMessage(data, "评论状态更新失败"));
     } catch {
       toast.error("评论状态更新失败，请稍后重试");
     }
@@ -140,7 +130,7 @@ export default function AdminCommentsPage() {
       const data = await res.json();
 
       if (!data.success) {
-        toast.error(getErrorMessage(data, "删除影响预览加载失败"));
+        toast.error(getApiErrorMessage(data, "删除影响预览加载失败"));
         return;
       }
 
@@ -171,7 +161,7 @@ export default function AdminCommentsPage() {
         return;
       }
 
-      toast.error(getErrorMessage(data, "隐藏评论失败"));
+      toast.error(getApiErrorMessage(data, "隐藏评论失败"));
     } catch {
       toast.error("隐藏评论失败，请稍后重试");
     }

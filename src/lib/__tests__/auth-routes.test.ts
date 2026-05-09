@@ -11,4 +11,8 @@ describe("auth route ownership", () => {
   test("does not expose a standalone login page route", () => {
     expect(existsSync(path.join(process.cwd(), "src/app/(auth)/login/page.tsx"))).toBe(false);
   });
+
+  test("does not expose a standalone login API route", () => {
+    expect(existsSync(path.join(process.cwd(), "src/app/api/auth/login/route.ts"))).toBe(false);
+  });
 });

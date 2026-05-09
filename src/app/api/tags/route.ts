@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server"
+import { UnauthorizedError, toErrorResponse } from "@/lib/api-errors"
 import { prisma } from "@/lib/prisma"
+import { parseTaxonomyInput } from "@/lib/validation"
 
 /**
  * 仅在写操作时按需加载鉴权配置，避免公共 GET 因 auth 配置问题被连带打崩。
@@ -36,11 +38,7 @@ export async function GET() {
       data: tags
     })
   } catch (error) {
-    console.error("Get tags error:", error)
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    )
+    return toErrorResponse(error)
   }
 }
 
@@ -51,20 +49,10 @@ export async function POST(request: Request) {
   try {
     const session = await requireAdmin()
     if (!session) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      )
+      throw new UnauthorizedError()
     }
 
-    const { name, slug, color } = await request.json()
-
-    if (!name || !slug) {
-      return NextResponse.json(
-        { error: "Name and slug are required" },
-        { status: 400 }
-      )
-    }
+    const { name, slug, color } = parseTaxonomyInput(await request.json())
 
     const tag = await prisma.tag.create({
       data: { name, slug, color }
@@ -75,10 +63,6 @@ export async function POST(request: Request) {
       data: tag
     })
   } catch (error) {
-    console.error("Create tag error:", error)
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    )
+    return toErrorResponse(error)
   }
 }

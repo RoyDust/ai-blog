@@ -154,6 +154,12 @@ function aiModelStorageNotReadyError() {
   return new ValidationError("AI model storage is not ready. Apply the AI model database migration first.");
 }
 
+/**
+ * AI_MODEL_SECRET_KEY is the intended stable key source for stored model API keys.
+ * AUTH_SECRET/NEXTAUTH_SECRET remain legacy fallbacks; rotating either auth secret
+ * without first migrating AI_MODEL_SECRET_KEY will make existing encrypted keys
+ * undecryptable.
+ */
 function getApiKeyEncryptionKey() {
   const secret =
     process.env.AI_MODEL_SECRET_KEY?.trim() ||

@@ -3,18 +3,11 @@ import { NextResponse } from "next/server"
 import { requireAdminSession } from "@/lib/api-auth"
 import { NotFoundError, ValidationError, toErrorResponse } from "@/lib/api-errors"
 import { prisma } from "@/lib/prisma"
-import { parseCommentStatusInput } from "@/lib/validation"
+import { parseCommentStatusInput, parseIdList } from "@/lib/validation"
 
 type CommentStatus = "APPROVED" | "PENDING" | "REJECTED" | "SPAM"
 
 const allowedStatuses = new Set<CommentStatus>(["APPROVED", "PENDING", "REJECTED", "SPAM"])
-
-function parseIds(searchParams: URLSearchParams) {
-  return (searchParams.get("ids") ?? searchParams.getAll("id").join(","))
-    .split(",")
-    .map((id) => id.trim())
-    .filter(Boolean)
-}
 
 export async function GET(request: Request) {
   try {
@@ -23,7 +16,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
 
     if (searchParams.get("preview") === "delete") {
-      const ids = parseIds(searchParams)
+      const ids = parseIdList(searchParams)
 
       if (ids.length === 0) {
         return NextResponse.json({ error: "Comment IDs are required" }, { status: 400 })
@@ -106,7 +99,7 @@ export async function DELETE(request: Request) {
     await requireAdminSession()
 
     const { searchParams } = new URL(request.url)
-    const ids = parseIds(searchParams)
+    const ids = parseIdList(searchParams)
 
     if (ids.length === 0) {
       return NextResponse.json({ error: "Comment ID is required" }, { status: 400 })

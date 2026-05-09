@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/admin/primitives/PageHeader";
 import { WorkspacePanel } from "@/components/admin/primitives/WorkspacePanel";
 import { Button, ImageCropUploadDialog, Input, Textarea } from "@/components/admin/ui";
 import { GitHubBinding } from "@/components/admin/settings/GitHubBinding";
+import { getApiErrorMessage } from "@/lib/admin-api-client";
 
 type SettingsUser = {
   id: string;
@@ -27,14 +28,6 @@ type BlogSettingsDraft = {
 interface AdminSettingsClientProps {
   user: SettingsUser;
   blogSettings: BlogSettingsDraft;
-}
-
-function getErrorMessage(data: unknown, fallback: string) {
-  if (data && typeof data === "object" && "error" in data && typeof data.error === "string") {
-    return data.error;
-  }
-
-  return fallback;
 }
 
 export function AdminSettingsClient({ user, blogSettings }: AdminSettingsClientProps) {
@@ -65,7 +58,7 @@ export function AdminSettingsClient({ user, blogSettings }: AdminSettingsClientP
       const data = await response.json();
 
       if (!response.ok) {
-        toast.error(getErrorMessage(data, "个人信息保存失败"));
+        toast.error(getApiErrorMessage(data, "个人信息保存失败"));
         return;
       }
 

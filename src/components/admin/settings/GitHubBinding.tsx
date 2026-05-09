@@ -4,6 +4,7 @@ import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { toast } from "sonner";
 import { Button } from "@/components/admin/ui";
+import { getApiErrorMessage } from "@/lib/admin-api-client";
 
 type GitHubBindingProps = {
   initialLinked: boolean;
@@ -39,10 +40,10 @@ export function GitHubBinding({ initialLinked }: GitHubBindingProps) {
         },
       });
 
-      const data = (await response.json().catch(() => ({}))) as { error?: string };
+      const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        toast.error(data.error || "解除绑定失败");
+        toast.error(getApiErrorMessage(data, "解除绑定失败"));
         return;
       }
 

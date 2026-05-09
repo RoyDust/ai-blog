@@ -17,6 +17,7 @@ import { PageHeader } from "@/components/admin/primitives/PageHeader"
 import { StatusBadge } from "@/components/admin/primitives/StatusBadge"
 import { WorkspacePanel } from "@/components/admin/primitives/WorkspacePanel"
 import { Button } from "@/components/admin/ui"
+import { getApiErrorMessage } from "@/lib/admin-api-client"
 import type { PublicAiModelOption } from "@/lib/ai-models"
 
 type RunHistoryItem = {
@@ -86,14 +87,6 @@ type RunResult = {
 
 function todayInputValue() {
   return new Date().toISOString().slice(0, 10)
-}
-
-function readError(data: unknown) {
-  if (data && typeof data === "object" && typeof (data as { error?: unknown }).error === "string") {
-    return (data as { error: string }).error
-  }
-
-  return "AI 日报生成失败"
 }
 
 function runStatusMeta(status: RunHistoryItem["status"]): { label: string; tone: "neutral" | "success" | "warning" | "danger" } {
@@ -173,7 +166,7 @@ export default function AdminAiNewsPage() {
       const data = await response.json()
 
       if (!response.ok || !data.success) {
-        throw new Error(readError(data))
+        throw new Error(getApiErrorMessage(data, "AI 日报生成失败"))
       }
 
       setRuns(Array.isArray(data.data) ? data.data : [])
@@ -195,7 +188,7 @@ export default function AdminAiNewsPage() {
       const data = await response.json()
 
       if (!response.ok || !data.success) {
-        throw new Error(readError(data))
+        throw new Error(getApiErrorMessage(data, "AI 日报生成失败"))
       }
 
       const nextModels = Array.isArray(data.data) ? data.data : []
@@ -241,7 +234,7 @@ export default function AdminAiNewsPage() {
       const data = await response.json()
 
       if (!response.ok || !data.success) {
-        throw new Error(readError(data))
+        throw new Error(getApiErrorMessage(data, "AI 日报生成失败"))
       }
 
       setCandidateStates((states) => ({
@@ -291,7 +284,7 @@ export default function AdminAiNewsPage() {
       const data = await response.json()
 
       if (!response.ok || !data.success) {
-        throw new Error(readError(data))
+        throw new Error(getApiErrorMessage(data, "AI 日报生成失败"))
       }
 
       setResult(data.data)

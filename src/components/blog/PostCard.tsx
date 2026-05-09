@@ -57,7 +57,7 @@ export function PostCard({ post }: PostCardProps) {
             className="theme-media-image object-cover"
             fill
             loading="lazy"
-            quality={72}
+            quality={70}
             sizes="(max-width: 768px) 100vw, 11rem"
             src={post.coverImage!}
           />

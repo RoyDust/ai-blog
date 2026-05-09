@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { toErrorResponse } from "@/lib/api-errors"
 import { prisma } from "@/lib/prisma"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
@@ -67,11 +68,7 @@ export async function POST(
       })
     }
   } catch (error) {
-    console.error("Bookmark error:", error)
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    )
+    return toErrorResponse(error)
   }
 }
 
@@ -119,10 +116,6 @@ export async function GET(
       }
     })
   } catch (error) {
-    console.error("Get bookmark status error:", error)
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    )
+    return toErrorResponse(error)
   }
 }

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { Button, Input } from "@/components/admin/ui";
+import { readApiJson } from "@/lib/admin-api-client";
 import type { CoverAsset } from "./types";
 
 type CoverAssetFormProps = {
@@ -48,16 +49,11 @@ export function CoverAssetForm({ asset, onSaved, onCancel }: CoverAssetFormProps
       const payload = asset
         ? { title, alt, description, tags: splitTags(tags), status }
         : { url, provider: "manual", source: "manual", title, alt, description, tags: splitTags(tags) };
-      const response = await fetch(endpoint, {
+      const data = await readApiJson<{ data: CoverAsset }>(await fetch(endpoint, {
         method: asset ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
-      });
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        throw new Error(data.error || "保存封面失败");
-      }
+      }), "保存封面失败");
 
       onSaved(data.data);
 

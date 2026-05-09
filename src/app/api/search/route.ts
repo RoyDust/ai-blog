@@ -8,6 +8,7 @@
  * - 处理搜索与 AI 搜索的独立限流
  */
 import { NextResponse } from "next/server"
+import { toErrorResponse } from "@/lib/api-errors"
 import { prisma } from "@/lib/prisma"
 import { checkAiSearchRateLimit, checkSearchRateLimit } from "@/lib/rate-limit"
 import { clampPagination } from "@/lib/validation"
@@ -359,7 +360,6 @@ export async function GET(request: Request) {
       ai: ai ? { summary: ai.summary } : undefined,
     })
   } catch (error) {
-    console.error('Search posts error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return toErrorResponse(error)
   }
 }

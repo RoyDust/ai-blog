@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { Sparkles } from "lucide-react";
 
 import { Button, FallbackImage, Modal } from "@/components/admin/ui";
+import { readApiJson } from "@/lib/admin-api-client";
 import type { PublicAiModelOption } from "@/lib/ai-models";
 import type { CoverAsset } from "./types";
 
@@ -14,14 +15,6 @@ type AiCoverGeneratorProps = {
   models?: PublicAiModelOption[];
   onGenerated: (asset: CoverAsset) => void;
 };
-
-async function readJson(response: Response) {
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok || data.success === false) {
-    throw new Error(data.error || "AI 封面生成失败");
-  }
-  return data;
-}
 
 export function AiCoverGenerator({ title, excerpt, content, models: initialModels, onGenerated }: AiCoverGeneratorProps) {
   const [models, setModels] = useState<PublicAiModelOption[]>(initialModels ?? []);
@@ -41,7 +34,7 @@ export function AiCoverGenerator({ title, excerpt, content, models: initialModel
   const loadModels = async () => {
     if (initialModels) return;
     try {
-      const data = await readJson(await fetch("/api/admin/ai/models"));
+      const data = await readApiJson(await fetch("/api/admin/ai/models"), "AI 封面生成失败");
       const nextModels = Array.isArray(data.data) ? data.data as PublicAiModelOption[] : [];
       setModels(nextModels);
       if (!modelId) {
@@ -59,7 +52,7 @@ export function AiCoverGenerator({ title, excerpt, content, models: initialModel
     setGenerated(null);
 
     try {
-      const data = await readJson(await fetch("/api/admin/covers/generate", {
+      const data = await readApiJson(await fetch("/api/admin/covers/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -70,7 +63,7 @@ export function AiCoverGenerator({ title, excerpt, content, models: initialModel
           modelId: selectedModelId || undefined,
           size: "16:9",
         }),
-      }));
+      }), "AI 封面生成失败");
       setGenerated(data.data as CoverAsset);
     } catch (generateError) {
       setError(generateError instanceof Error ? generateError.message : "AI 封面生成失败");
