@@ -11,6 +11,9 @@ type PrismaWithOptionalAiNewsRun = typeof prisma & {
   aiNewsRun?: AiNewsRunDelegate
 }
 
+/**
+ * 解析每日 AI 新闻运行日期。
+ */
 function parseRunDate(value: unknown) {
   if (value == null || value === "") return new Date()
   if (typeof value !== "string") throw new ValidationError("Invalid date")
@@ -23,6 +26,9 @@ function parseRunDate(value: unknown) {
   return date
 }
 
+/**
+ * 解析可选模型 id。
+ */
 function parseModelId(value: unknown) {
   if (value == null || value === "") return null
   if (typeof value !== "string") throw new ValidationError("Invalid model")
@@ -30,6 +36,9 @@ function parseModelId(value: unknown) {
   return value.trim() || null
 }
 
+/**
+ * 解析是否强制重新生成。
+ */
 function parseRegenerate(value: unknown) {
   if (value == null) return false
   if (typeof value !== "boolean") throw new ValidationError("Invalid regenerate flag")
@@ -37,6 +46,11 @@ function parseRegenerate(value: unknown) {
   return value
 }
 
+/**
+ * 手动触发每日 AI 新闻生成。
+ *
+ * 成功或失败都会写入后台通知，便于管理员从通知中心回看任务结果。
+ */
 export async function POST(request: Request) {
   let runDate: Date | null = null
   let notifyFailure = false
@@ -64,6 +78,11 @@ export async function POST(request: Request) {
   }
 }
 
+/**
+ * 查询最近的每日 AI 新闻运行记录。
+ *
+ * 兼容 aiNewsRun delegate 尚未生成的环境，临时回退到原始 SQL。
+ */
 export async function GET() {
   try {
     await requireAdminSession()

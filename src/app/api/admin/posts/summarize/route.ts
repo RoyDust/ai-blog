@@ -5,6 +5,11 @@ import { getAiModelForCapability } from "@/lib/ai-models"
 import { toErrorResponse, ValidationError } from "@/lib/api-errors"
 import { generatePostSummary } from "@/lib/post-summary"
 
+/**
+ * 生成单篇文章摘要。
+ *
+ * 这是编辑器里的轻量即时接口，不创建 AI 任务记录；批量摘要使用 summarize/bulk。
+ */
 export async function POST(request: Request) {
   try {
     await requireAdminSession()

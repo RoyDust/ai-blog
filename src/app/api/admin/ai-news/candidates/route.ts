@@ -12,6 +12,9 @@ type PrismaWithOptionalAiNewsCandidate = typeof prisma & {
 
 type JsonRecord = Record<string, unknown>
 
+/**
+ * 读取候选列表所属的 AI 新闻运行 id。
+ */
 function parseRunId(request: Request) {
   const runId = new URL(request.url).searchParams.get("runId")?.trim()
   if (!runId) {
@@ -21,15 +24,24 @@ function parseRunId(request: Request) {
   return runId
 }
 
+/**
+ * 解析是否只返回最终入选候选。
+ */
 function parseSelectedOnly(request: Request) {
   const value = new URL(request.url).searchParams.get("selectedOnly")
   return value === "1" || value === "true"
 }
 
+/**
+ * 判断未知 JSON 是否是普通对象。
+ */
 function isRecord(value: unknown): value is JsonRecord {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value)
 }
 
+/**
+ * 从候选元数据中读取讨论链接。
+ */
 function readDiscussionUrl(value: unknown) {
   if (!isRecord(value) || typeof value.discussionUrl !== "string") {
     return null
@@ -38,6 +50,11 @@ function readDiscussionUrl(value: unknown) {
   return value.discussionUrl.trim() || null
 }
 
+/**
+ * 统计候选项可展示的引用数量。
+ *
+ * 同时合并 enrichment citations 和社区讨论链接，避免重复计算同一 URL。
+ */
 function citationCountFromCandidate(candidate: { enrichment?: unknown; metadata?: unknown; community?: unknown }) {
   const citationUrls = new Set<string>()
   let anonymousCitationCount = 0
@@ -61,6 +78,11 @@ function citationCountFromCandidate(candidate: { enrichment?: unknown; metadata?
   return citationUrls.size + anonymousCitationCount
 }
 
+/**
+ * 查询一次 AI 新闻运行下的候选项。
+ *
+ * 返回值会压缩成前端表格需要的字段，并额外计算 citationCount。
+ */
 export async function GET(request: Request) {
   try {
     await requireAdminSession()

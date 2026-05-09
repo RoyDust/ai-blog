@@ -6,6 +6,9 @@ import { updateAdminPost } from "@/lib/ai-authoring"
 import { prisma } from "@/lib/prisma"
 import { parsePostPatchInput } from "@/lib/validation"
 
+/**
+ * 读取文章编辑页需要的完整表单数据。
+ */
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     await requireAdminSession()
@@ -43,6 +46,11 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
   }
 }
 
+/**
+ * 更新后台文章。
+ *
+ * 具体字段校验、slug 冲突、封面解析、精选限制和缓存刷新都交给 updateAdminPost。
+ */
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     await requireAdminSession()

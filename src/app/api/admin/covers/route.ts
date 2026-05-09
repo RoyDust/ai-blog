@@ -5,6 +5,11 @@ import { toErrorResponse } from "@/lib/api-errors"
 import { createCoverAsset, listCoverAssets } from "@/lib/cover-assets"
 import { clampPagination, parseCoverAssetInput } from "@/lib/validation"
 
+/**
+ * 查询封面图库列表。
+ *
+ * 支持分页、关键词、来源和状态过滤，供图库管理页和选择器复用。
+ */
 export async function GET(request: Request) {
   try {
     await requireAdminSession()
@@ -28,6 +33,11 @@ export async function GET(request: Request) {
   }
 }
 
+/**
+ * 创建一条封面素材记录。
+ *
+ * 上传直传和手填外链最终都会落到这里，由 cover-assets 服务处理去重和恢复软删除记录。
+ */
 export async function POST(request: Request) {
   try {
     const session = await requireAdminSession()

@@ -8,6 +8,11 @@ type RouteContext = {
   params: Promise<{ id: string }>;
 };
 
+/**
+ * 更新 AI 模型配置。
+ *
+ * 允许局部更新展示名、模型参数、能力、状态和密钥字段。
+ */
 export async function PATCH(request: Request, context: RouteContext) {
   try {
     await requireAdminSession();
@@ -21,6 +26,11 @@ export async function PATCH(request: Request, context: RouteContext) {
   }
 }
 
+/**
+ * 删除 AI 模型配置。
+ *
+ * 服务层会阻止删除当前默认模型，避免运行时能力缺少可用模型。
+ */
 export async function DELETE(_request: Request, context: RouteContext) {
   try {
     await requireAdminSession();

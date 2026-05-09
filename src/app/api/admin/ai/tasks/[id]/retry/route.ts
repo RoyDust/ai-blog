@@ -7,6 +7,12 @@ import { resumePostSummaryJobs } from "@/lib/post-summary-jobs";
 import { toErrorResponse } from "@/lib/api-errors";
 import { prisma } from "@/lib/prisma";
 
+/**
+ * 为指定 AI 任务的失败项创建重试任务。
+ *
+ * 旧摘要任务、批量补全任务和单项 AI 动作的恢复路径不同，
+ * 这里按任务类型分发到对应的执行器。
+ */
 export async function POST(_: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await requireAdminSession();

@@ -4,6 +4,9 @@ import { requireAdminSession } from "@/lib/api-auth";
 import { toErrorResponse } from "@/lib/api-errors";
 import { markAllNotificationsRead } from "@/lib/notifications";
 
+/**
+ * 将当前管理员的所有通知标记为已读。
+ */
 export async function POST() {
   try {
     const session = await requireAdminSession();

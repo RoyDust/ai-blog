@@ -9,6 +9,9 @@ import {
   parseNotificationCategory,
 } from "@/lib/notifications";
 
+/**
+ * 解析 PATCH 请求中的通知 id 列表。
+ */
 function parseNotificationIds(value: unknown) {
   if (!Array.isArray(value)) {
     throw new ValidationError("Notification IDs are required");
@@ -17,6 +20,11 @@ function parseNotificationIds(value: unknown) {
   return value.filter((id): id is string => typeof id === "string" && id.trim().length > 0).map((id) => id.trim());
 }
 
+/**
+ * 查询当前管理员的通知列表。
+ *
+ * 支持未读过滤、业务分类过滤和游标分页，同时返回全局未读数。
+ */
 export async function GET(request: Request) {
   try {
     const session = await requireAdminSession();
@@ -35,6 +43,11 @@ export async function GET(request: Request) {
   }
 }
 
+/**
+ * 更新当前管理员的通知收件状态。
+ *
+ * action=read 标记已读；action=dismiss 软隐藏通知，不删除原始通知记录。
+ */
 export async function PATCH(request: Request) {
   try {
     const session = await requireAdminSession();

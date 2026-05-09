@@ -8,6 +8,9 @@ import { parseUploadRequest } from '@/lib/validation'
 
 const defaultUploadUrl = 'https://upload.qiniup.com'
 
+/**
+ * 七牛上传凭证要求使用 URL-safe base64。
+ */
 function encodeBase64Url(value: string | Buffer) {
   return Buffer.from(value)
     .toString('base64')
@@ -15,6 +18,9 @@ function encodeBase64Url(value: string | Buffer) {
     .replace(/\//g, '_')
 }
 
+/**
+ * 清理用户上传文件名，避免对象存储 key 中出现不可控字符。
+ */
 function sanitizeFilename(filename: string, fallbackBase = 'cover') {
   const extIndex = filename.lastIndexOf('.')
   const ext = extIndex > -1 ? filename.slice(extIndex).toLowerCase() : ''
@@ -32,6 +38,11 @@ function sanitizeFilename(filename: string, fallbackBase = 'cover') {
   }
 }
 
+/**
+ * 根据上传用途生成对象存储 key。
+ *
+ * avatar 和 cover 分目录存放，后缀保留原始文件扩展名。
+ */
 function buildUploadKey(filename: string, purpose: 'cover' | 'avatar') {
   const folder = purpose === 'avatar' ? 'avatars' : 'covers'
   const { base, ext } = sanitizeFilename(filename, purpose)
@@ -40,6 +51,9 @@ function buildUploadKey(filename: string, purpose: 'cover' | 'avatar') {
   return `${folder}/${timestamp}-${random}-${base}${ext}`
 }
 
+/**
+ * 按七牛直传协议生成单文件上传 token。
+ */
 function createUploadToken(bucket: string, key: string, accessKey: string, secretKey: string) {
   const deadline = Math.floor(Date.now() / 1000) + 3600
   const putPolicy = {
@@ -55,6 +69,11 @@ function createUploadToken(bucket: string, key: string, accessKey: string, secre
   return `${accessKey}:${encodedDigest}:${encodedPolicy}`
 }
 
+/**
+ * 返回浏览器直传七牛所需的 token、key、domain 和 uploadUrl。
+ *
+ * 文件内容不经过应用服务器；这里只负责鉴权、限流和生成短期上传凭证。
+ */
 export async function POST(request: Request) {
   try {
     const rateLimit = await checkUploadRateLimit(request)

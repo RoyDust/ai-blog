@@ -7,6 +7,9 @@ import { checkAiCoverRateLimit } from "@/lib/rate-limit";
 
 const allowedSizes = new Set<AiCoverSize>(["16:9", "1:1", "4:3"]);
 
+/**
+ * 读取可选字符串字段，并限制进入生图提示词的长度。
+ */
 function optionalString(value: unknown, maxLength: number) {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
@@ -14,6 +17,11 @@ function optionalString(value: unknown, maxLength: number) {
   return trimmed.length > maxLength ? trimmed.slice(0, maxLength) : trimmed;
 }
 
+/**
+ * 生成 AI 封面并保存到图库。
+ *
+ * 该入口会先做限流，再由 generateAiCoverImage 完成模型调用、图片上传和 CoverAsset 创建。
+ */
 export async function POST(request: Request) {
   try {
     const rateLimit = await checkAiCoverRateLimit(request);

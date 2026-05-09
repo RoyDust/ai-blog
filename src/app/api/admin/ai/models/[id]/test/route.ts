@@ -8,6 +8,11 @@ type RouteContext = {
   params: Promise<{ id: string }>;
 };
 
+/**
+ * 测试 AI 模型连接。
+ *
+ * 测试结果会写回模型记录，供配置页展示最近一次连通性状态。
+ */
 export async function POST(_request: Request, context: RouteContext) {
   try {
     await requireAdminSession();
