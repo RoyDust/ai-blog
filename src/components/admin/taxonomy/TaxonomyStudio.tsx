@@ -1,14 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { DataTable, type DataColumn } from "@/components/admin/DataTable";
-import { DeleteImpactDialog, type DeleteImpactItem } from "@/components/admin/DeleteImpactDialog";
+import { DeleteImpactDialog } from "@/components/admin/DeleteImpactDialog";
 import { EntityFormShell } from "@/components/admin/forms/EntityFormShell";
 import { FilterBar } from "@/components/admin/FilterBar";
 import { PageHeader } from "@/components/admin/primitives/PageHeader";
 import { Button, Input } from "@/components/admin/ui";
+import { useTaxonomyRows } from "@/components/admin/taxonomy/hooks/useTaxonomyRows";
 import { getApiErrorMessage } from "@/lib/admin-api-client";
 
 type TabId = "categories" | "tags";
@@ -97,104 +98,20 @@ interface TagRow {
   _count: { posts: number };
 }
 
-interface DeleteDialogState {
-  open: boolean;
-  ids: string[];
-  title: string;
-  description: string;
-  impacts: DeleteImpactItem[];
-  submitting: boolean;
-}
-
-const initialDeleteDialog: DeleteDialogState = {
-  open: false,
-  ids: [],
-  title: "",
-  description: "",
-  impacts: [],
-  submitting: false,
-};
-
 function CategoriesManager() {
-  const [rows, setRows] = useState<CategoryRow[]>([]);
-  const [query, setQuery] = useState("");
-  const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({ id: "", name: "", slug: "", description: "" });
-  const [deleteDialog, setDeleteDialog] = useState<DeleteDialogState>(initialDeleteDialog);
-
-  const load = useCallback(async () => {
-    try {
-      const res = await fetch("/api/admin/categories");
-      const data = await res.json();
-      if (data.success) {
-        setRows(data.data);
-        return;
-      }
-
-      toast.error(getApiErrorMessage(data, "分类列表加载失败"));
-      setRows([]);
-    } catch {
-      toast.error("分类列表加载失败，请稍后重试");
-      setRows([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  const filtered = useMemo(() => {
-    const keyword = query.trim().toLowerCase();
-    if (!keyword) return rows;
-    return rows.filter((row) => row.name.toLowerCase().includes(keyword) || row.slug.toLowerCase().includes(keyword));
-  }, [query, rows]);
-
-  async function openDeleteDialog(ids: string[]) {
-    try {
-      const params = new URLSearchParams({ preview: "delete", ids: ids.join(",") });
-      const res = await fetch(`/api/admin/categories?${params.toString()}`);
-      const data = await res.json();
-      if (!data.success) {
-        toast.error(getApiErrorMessage(data, "删除影响预览加载失败"));
-        return;
-      }
-
-      setDeleteDialog({
-        open: true,
-        ids,
-        title: data.data.title,
-        description: data.data.description,
-        impacts: data.data.impacts,
-        submitting: false,
-      });
-    } catch {
-      toast.error("删除影响预览加载失败，请稍后重试");
-    }
-  }
-
-  async function confirmDelete() {
-    try {
-      setDeleteDialog((prev) => ({ ...prev, submitting: true }));
-      const params = new URLSearchParams({ ids: deleteDialog.ids.join(",") });
-      const res = await fetch(`/api/admin/categories?${params.toString()}`, { method: "DELETE" });
-      const data = await res.json();
-
-      if (data.success) {
-        setRows((prev) => prev.filter((item) => !deleteDialog.ids.includes(item.id)));
-        setDeleteDialog(initialDeleteDialog);
-        toast.success(deleteDialog.ids.length > 1 ? `已隐藏 ${deleteDialog.ids.length} 个分类` : "分类已隐藏");
-        return;
-      }
-
-      toast.error(getApiErrorMessage(data, "隐藏分类失败"));
-    } catch {
-      toast.error("隐藏分类失败，请稍后重试");
-    }
-
-    setDeleteDialog((prev) => ({ ...prev, submitting: false }));
-  }
+  const { closeDeleteDialog, confirmDelete, deleteDialog, filtered, loading, openDeleteDialog, query, setQuery, setRows } =
+    useTaxonomyRows<CategoryRow>({
+      deleteError: "隐藏分类失败",
+      deleteRetryError: "隐藏分类失败，请稍后重试",
+      deleteSuccess: (count) => (count > 1 ? `已隐藏 ${count} 个分类` : "分类已隐藏"),
+      endpoint: "/api/admin/categories",
+      filterRow: (row, keyword) => row.name.toLowerCase().includes(keyword) || row.slug.toLowerCase().includes(keyword),
+      listError: "分类列表加载失败",
+      listRetryError: "分类列表加载失败，请稍后重试",
+      previewError: "删除影响预览加载失败",
+      previewRetryError: "删除影响预览加载失败，请稍后重试",
+    });
 
   const columns: DataColumn<CategoryRow>[] = [
     { key: "name", label: "名称", render: (row) => row.name },
@@ -303,7 +220,9 @@ function CategoriesManager() {
         description={deleteDialog.description}
         impacts={deleteDialog.impacts}
         onConfirm={confirmDelete}
-        onOpenChange={(open) => setDeleteDialog((prev) => (open ? prev : initialDeleteDialog))}
+        onOpenChange={(open) => {
+          if (!open) closeDeleteDialog();
+        }}
         open={deleteDialog.open}
         submitting={deleteDialog.submitting}
         title={deleteDialog.title}
@@ -315,85 +234,19 @@ function CategoriesManager() {
 const defaultColors = ["#0f766e", "#2563eb", "#7c3aed", "#db2777", "#ea580c", "#16a34a"];
 
 function TagsManager() {
-  const [rows, setRows] = useState<TagRow[]>([]);
-  const [query, setQuery] = useState("");
-  const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({ id: "", name: "", slug: "", color: defaultColors[0] });
-  const [deleteDialog, setDeleteDialog] = useState<DeleteDialogState>(initialDeleteDialog);
-
-  const load = useCallback(async () => {
-    try {
-      const res = await fetch("/api/admin/tags");
-      const data = await res.json();
-      if (data.success) {
-        setRows(data.data);
-        return;
-      }
-
-      toast.error(getApiErrorMessage(data, "标签列表加载失败"));
-      setRows([]);
-    } catch {
-      toast.error("标签列表加载失败，请稍后重试");
-      setRows([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  const filtered = useMemo(() => {
-    const keyword = query.trim().toLowerCase();
-    if (!keyword) return rows;
-    return rows.filter((row) => row.name.toLowerCase().includes(keyword) || row.slug.toLowerCase().includes(keyword));
-  }, [query, rows]);
-
-  async function openDeleteDialog(ids: string[]) {
-    try {
-      const params = new URLSearchParams({ preview: "delete", ids: ids.join(",") });
-      const res = await fetch(`/api/admin/tags?${params.toString()}`);
-      const data = await res.json();
-      if (!data.success) {
-        toast.error(getApiErrorMessage(data, "删除影响预览加载失败"));
-        return;
-      }
-
-      setDeleteDialog({
-        open: true,
-        ids,
-        title: data.data.title,
-        description: data.data.description,
-        impacts: data.data.impacts,
-        submitting: false,
-      });
-    } catch {
-      toast.error("删除影响预览加载失败，请稍后重试");
-    }
-  }
-
-  async function confirmDelete() {
-    try {
-      setDeleteDialog((prev) => ({ ...prev, submitting: true }));
-      const params = new URLSearchParams({ ids: deleteDialog.ids.join(",") });
-      const res = await fetch(`/api/admin/tags?${params.toString()}`, { method: "DELETE" });
-      const data = await res.json();
-
-      if (data.success) {
-        setRows((prev) => prev.filter((item) => !deleteDialog.ids.includes(item.id)));
-        setDeleteDialog(initialDeleteDialog);
-        toast.success(deleteDialog.ids.length > 1 ? `已隐藏 ${deleteDialog.ids.length} 个标签` : "标签已隐藏");
-        return;
-      }
-
-      toast.error(getApiErrorMessage(data, "隐藏标签失败"));
-    } catch {
-      toast.error("隐藏标签失败，请稍后重试");
-    }
-
-    setDeleteDialog((prev) => ({ ...prev, submitting: false }));
-  }
+  const { closeDeleteDialog, confirmDelete, deleteDialog, filtered, loading, openDeleteDialog, query, setQuery, setRows } =
+    useTaxonomyRows<TagRow>({
+      deleteError: "隐藏标签失败",
+      deleteRetryError: "隐藏标签失败，请稍后重试",
+      deleteSuccess: (count) => (count > 1 ? `已隐藏 ${count} 个标签` : "标签已隐藏"),
+      endpoint: "/api/admin/tags",
+      filterRow: (row, keyword) => row.name.toLowerCase().includes(keyword) || row.slug.toLowerCase().includes(keyword),
+      listError: "标签列表加载失败",
+      listRetryError: "标签列表加载失败，请稍后重试",
+      previewError: "删除影响预览加载失败",
+      previewRetryError: "删除影响预览加载失败，请稍后重试",
+    });
 
   const columns: DataColumn<TagRow>[] = [
     {
@@ -525,7 +378,9 @@ function TagsManager() {
         description={deleteDialog.description}
         impacts={deleteDialog.impacts}
         onConfirm={confirmDelete}
-        onOpenChange={(open) => setDeleteDialog((prev) => (open ? prev : initialDeleteDialog))}
+        onOpenChange={(open) => {
+          if (!open) closeDeleteDialog();
+        }}
         open={deleteDialog.open}
         submitting={deleteDialog.submitting}
         title={deleteDialog.title}
