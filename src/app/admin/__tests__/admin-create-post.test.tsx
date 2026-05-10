@@ -23,6 +23,11 @@ describe('admin create post', () => {
     await screen.findByRole('heading', { name: '分类、标签与封面图' })
   }
 
+  async function selectCategory(name: string) {
+    fireEvent.click(await screen.findByLabelText('分类'))
+    fireEvent.click(await screen.findByRole('option', { name }))
+  }
+
   test('renders new post workspace in admin style', () => {
     render(<AdminCreatePostPage />)
 
@@ -112,9 +117,7 @@ describe('admin create post', () => {
 
     await openMetadataDialog()
 
-    await screen.findByRole('option', { name: '前端' })
-    const categorySelect = screen.getByLabelText('分类')
-    fireEvent.change(categorySelect, { target: { value: 'cat-1' } })
+    await selectCategory('前端')
     fireEvent.click(screen.getByRole('checkbox', { name: 'React' }))
     fireEvent.click(screen.getByRole('checkbox', { name: 'Next.js' }))
     fireEvent.click(screen.getByRole('button', { name: '保存草稿' }))
@@ -186,7 +189,7 @@ describe('admin create post', () => {
     })
 
     await openMetadataDialog()
-    await screen.findByRole('option', { name: '前端' })
+    await screen.findByRole('checkbox', { name: 'React' })
 
     fireEvent.click(screen.getByRole('button', { name: 'AI 补全标题' }))
     expect(await screen.findByDisplayValue('Next.js AI 元信息补全实践')).toBeInTheDocument()
@@ -198,7 +201,7 @@ describe('admin create post', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'AI 选择分类' }))
     await waitFor(() => {
-      expect(screen.getByLabelText('分类')).toHaveValue('cat-1')
+      expect(screen.getByLabelText('分类')).toHaveTextContent('前端')
     })
 
     fireEvent.click(screen.getByRole('button', { name: 'AI 选择标签' }))
@@ -229,7 +232,7 @@ describe('admin create post', () => {
     expect(screen.getByDisplayValue('Next.js AI 元信息补全实践')).toBeInTheDocument()
     expect(screen.getByLabelText('Slug')).toHaveValue('nextjs-ai-metadata')
     expect(screen.getByDisplayValue('用 AI 一次性补齐博客文章标题、摘要、分类和标签。')).toBeInTheDocument()
-    expect(screen.getByLabelText('分类')).toHaveValue('cat-1')
+    expect(screen.getByLabelText('分类')).toHaveTextContent('前端')
     expect(screen.getByRole('checkbox', { name: 'React' })).toBeChecked()
     expect(screen.getByRole('checkbox', { name: 'Next.js' })).toBeChecked()
   })

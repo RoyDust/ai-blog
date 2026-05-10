@@ -182,7 +182,7 @@ describe('editor publish flow', () => {
     render(<AdminPostEditPage />)
 
     expect(await screen.findByDisplayValue('旧标题')).toBeInTheDocument()
-    await screen.findByRole('option', { name: '前端' })
+    await screen.findByRole('checkbox', { name: 'React' })
     fireEvent.click(screen.getByRole('button', { name: 'AI 补全标题' }))
     expect(await screen.findByDisplayValue('AI 编辑后的标题')).toBeInTheDocument()
 
@@ -193,7 +193,7 @@ describe('editor publish flow', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'AI 选择分类' }))
     await waitFor(() => {
-      expect(screen.getByLabelText('分类')).toHaveValue('cat-1')
+      expect(screen.getByLabelText('分类')).toHaveTextContent('前端')
     })
 
     fireEvent.click(screen.getByRole('button', { name: 'AI 选择标签' }))
@@ -217,7 +217,7 @@ describe('editor publish flow', () => {
     expect(screen.getByDisplayValue('AI 编辑后的标题')).toBeInTheDocument()
     expect(screen.getByLabelText('Slug')).toHaveValue('ai-edited-title')
     expect(screen.getByDisplayValue('AI 生成的摘要。')).toBeInTheDocument()
-    expect(screen.getByLabelText('分类')).toHaveValue('cat-1')
+    expect(screen.getByLabelText('分类')).toHaveTextContent('前端')
     expect(screen.getByRole('checkbox', { name: 'React' })).toBeChecked()
   })
 

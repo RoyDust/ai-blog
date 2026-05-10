@@ -25,6 +25,11 @@ beforeAll(() => {
     value: vi.fn(),
   })
 
+  Object.defineProperty(Element.prototype, 'scrollIntoView', {
+    writable: true,
+    value: vi.fn(),
+  })
+
   Object.defineProperty(window, 'requestAnimationFrame', {
     writable: true,
     value: (callback: FrameRequestCallback) => window.setTimeout(() => callback(performance.now()), 16),
