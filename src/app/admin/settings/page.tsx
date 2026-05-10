@@ -1,5 +1,6 @@
 import { getServerSession } from "next-auth";
 import { AdminSettingsClient } from "@/components/admin/settings/AdminSettingsClient";
+import { getApiOperationLogSettingsSummary } from "@/lib/api-operation-log-settings";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getSiteUrl } from "@/lib/seo";
@@ -15,6 +16,7 @@ const fallbackUser = {
 
 export default async function AdminSettingsPage() {
   const session = await getServerSession(authOptions);
+  const operationLogSettings = await getApiOperationLogSettingsSummary();
   const user = session?.user?.id
     ? await prisma.user.findUnique({
         where: { id: session.user.id },
@@ -51,6 +53,7 @@ export default async function AdminSettingsPage() {
         siteUrl: getSiteUrl(),
         locale: "zh-CN",
       }}
+      operationLogSettings={operationLogSettings}
       user={settingsUser}
     />
   );

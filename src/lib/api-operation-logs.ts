@@ -2,6 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import type { Prisma } from "@prisma/client";
 
 import { ValidationError } from "@/lib/api-errors";
+import { enforceApiOperationLogStorageLimit } from "@/lib/api-operation-log-settings";
 import { prisma } from "@/lib/prisma";
 
 export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
@@ -330,7 +331,7 @@ export async function createApiOperationLog(input: ApiOperationLogCreateInput) {
   }
 
   try {
-    return await model.create({
+    const createdLog = await model.create({
       data: {
         requestId: input.requestId ?? randomUUID(),
         method: input.method,
@@ -354,6 +355,11 @@ export async function createApiOperationLog(input: ApiOperationLogCreateInput) {
         metadata: toJson(input.metadata),
       },
     });
+    await enforceApiOperationLogStorageLimit().catch((error) => {
+      console.error("Enforce API operation log size limit error:", error);
+    });
+
+    return createdLog;
   } catch (error) {
     console.error("Create API operation log error:", error);
     return null;

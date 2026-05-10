@@ -33,6 +33,7 @@ export function AdminSider({ pathname, user }: AdminSiderProps) {
   const userLabel = user.label;
   const mainItems = adminNavItems.filter((item) => item.group === "主导航");
   const aiItems = adminNavItems.filter((item) => item.group === "AI 辅助");
+  const systemItems = adminNavItems.filter((item) => item.group === "系统");
   const isAiActive = aiItems.some((item) => isAdminNavItemActive(pathname, item.href));
   const isSettingsActive = pathname === "/admin/settings";
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(isSettingsActive);
@@ -46,7 +47,7 @@ export function AdminSider({ pathname, user }: AdminSiderProps) {
     await signOut({ callbackUrl: "/" });
   };
 
-  const renderMainNavItem = (item: AdminNavItem) => {
+  const renderNavItem = (item: AdminNavItem) => {
     const Icon = item.icon;
     const isActive = isAdminNavItemActive(pathname, item.href);
     const itemClassName = `flex w-full items-center gap-3 rounded-lg px-3 py-3 text-base font-medium transition-colors ${
@@ -100,7 +101,7 @@ export function AdminSider({ pathname, user }: AdminSiderProps) {
       <nav aria-label="Admin navigation" className="flex-1 overflow-y-auto border-t border-[var(--border)] px-3 py-6">
         <p className="px-2 pb-4 font-display text-lg font-semibold text-[var(--foreground)]">博客后台</p>
         <div className="space-y-2">
-          {mainItems.map(renderMainNavItem)}
+          {mainItems.map(renderNavItem)}
 
           <details className="group/ai" open={isAiActive}>
             <summary
@@ -132,6 +133,10 @@ export function AdminSider({ pathname, user }: AdminSiderProps) {
               })}
             </div>
           </details>
+
+          {systemItems.length ? (
+            <div className="space-y-2 border-t border-[var(--border)] pt-2">{systemItems.map(renderNavItem)}</div>
+          ) : null}
         </div>
       </nav>
 

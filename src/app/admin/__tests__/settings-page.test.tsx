@@ -61,7 +61,12 @@ describe("admin settings page", () => {
     expect(screen.getByText("可手动填写远程图片 URL，也可以点击头像裁切上传。留空会移除头像。")).toBeInTheDocument();
     expect(screen.getByLabelText("博客名称")).toHaveValue("roydust.top");
     expect(screen.getByLabelText("站点地址")).toHaveValue("https://roydust.top");
+    expect(screen.getByRole("heading", { name: "日志设置" })).toBeInTheDocument();
+    expect(screen.getByLabelText("日志大小限制")).toHaveValue(10);
+    expect(screen.getByText("默认 10 MB。保存后会立即按新上限裁剪旧日志，保留最新记录。")).toBeInTheDocument();
+    expect(screen.getByText("当前保留 0 条接口日志。")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "保存个人信息" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "保存日志设置" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "保存博客配置（待接入）" })).toBeDisabled();
   });
 });

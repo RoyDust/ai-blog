@@ -44,6 +44,7 @@ describe("admin layout", () => {
     expect(within(nav).getByRole("link", { name: /评论/ })).toHaveAttribute("href", "/admin/comments");
     expect(within(nav).getByRole("link", { name: "分类" })).toHaveAttribute("href", "/admin/taxonomy");
     expect(within(nav).getByRole("link", { name: "媒体库" })).toHaveAttribute("href", "/admin/covers");
+    expect(within(nav).getByRole("link", { name: "接口日志" })).toHaveAttribute("href", "/admin/logs");
     const aiAssistant = within(nav).getByText("AI 助手").closest("details");
     expect(aiAssistant).not.toBeNull();
     expect(aiAssistant).not.toHaveAttribute("open");
