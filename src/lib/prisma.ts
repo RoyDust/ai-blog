@@ -4,25 +4,32 @@ import { PrismaPg } from '@prisma/adapter-pg'
 import { findDatabaseUrl } from './database-url'
 
 /**
- * Prisma 客户端单例模块。
+ * Prisma client singleton module.
  *
- * 职责：
- * - 统一创建 Prisma + pg Pool 适配器
- * - 在开发环境复用全局单例，避免热更新反复建连
- * - 当 Prisma model 结构或连接池签名变化时，主动丢弃过期实例
+ * Responsibilities:
+ * - Create the Prisma + pg Pool adapter in one place.
+ * - Reuse the global singleton during development to avoid reconnecting on hot reload.
+ * - Drop stale clients when the model shape or pool signature changes.
+ * - Keep module import safe during Docker/Next.js build-time route collection, where
+ *   runtime-only secrets such as DATABASE_URL are intentionally unavailable.
  */
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
   prismaPoolSignature: string | undefined
 }
 
+const MISSING_DATABASE_URL_MESSAGE = 'DATABASE_URL is not configured'
+let localPrisma: PrismaClient | undefined
+let localPrismaPoolSignature: string | undefined
+
 function toDelegateName(modelName: string) {
   return `${modelName.charAt(0).toLowerCase()}${modelName.slice(1)}`
 }
 
 /**
- * 校验当前 Prisma Client 是否仍然覆盖最新 schema 里的全部 model delegate。
- * 这可以减少热更新或 schema 变化后继续复用旧 client 导致的奇怪运行时错误。
+ * Checks whether the current Prisma Client still exposes every model delegate in
+ * the latest schema. This avoids reusing an outdated client after hot reloads or
+ * schema changes.
  */
 function hasCurrentModelDelegates(client: PrismaClient | undefined) {
   return Boolean(
@@ -38,27 +45,21 @@ function readPoolMax() {
 }
 
 /**
- * 连接池签名用于判断“当前全局单例是否还能安全复用”。
+ * Pool signature used to decide whether the global singleton can still be reused.
  */
 function getPoolSignature() {
   return `max=${readPoolMax()};connectionTimeout=10000;idleTimeout=30000;keepAlive=1`
 }
 
 /**
- * 创建新的 PrismaClient。
+ * Creates a new PrismaClient.
  *
- * 副作用：
- * - 读取 DATABASE_URL
- * - 建立 pg 连接池
- * - 返回绑定 PrismaPg adapter 的 PrismaClient
+ * Side effects:
+ * - Reads DATABASE_URL.
+ * - Opens the pg connection pool.
+ * - Returns a PrismaClient bound to the PrismaPg adapter.
  */
-function createPrismaClient() {
-  const connectionString = findDatabaseUrl()
-
-  if (!connectionString) {
-    throw new Error('DATABASE_URL is not configured')
-  }
-
+function createPrismaClient(connectionString: string) {
   const pool = new Pool({
     connectionString,
     max: readPoolMax(),
@@ -71,24 +72,111 @@ function createPrismaClient() {
   return new PrismaClient({ adapter })
 }
 
-const poolSignature = getPoolSignature()
+function createUnavailablePrismaOperation(path: string): unknown {
+  return new Proxy(function unavailablePrismaOperation() {}, {
+    get(_target, property) {
+      if (property === 'then' || property === 'catch' || property === 'finally') {
+        return undefined
+      }
 
-if (
-  globalForPrisma.prisma &&
-  (!hasCurrentModelDelegates(globalForPrisma.prisma) || globalForPrisma.prismaPoolSignature !== poolSignature)
-) {
-  void globalForPrisma.prisma.$disconnect().catch(() => undefined)
-  globalForPrisma.prisma = undefined
-  globalForPrisma.prismaPoolSignature = undefined
+      if (property === 'toString') {
+        return () => `[Unavailable Prisma operation: ${path}]`
+      }
+
+      return createUnavailablePrismaOperation(`${path}.${String(property)}`)
+    },
+    apply() {
+      return Promise.reject(new Error(MISSING_DATABASE_URL_MESSAGE))
+    },
+  })
+}
+
+function createUnavailablePrismaClient() {
+  const delegates = new Map<PropertyKey, unknown>()
+
+  return new Proxy({} as PrismaClient, {
+    get(_target, property) {
+      if (property === Symbol.toStringTag) {
+        return 'PrismaClient'
+      }
+
+      if (property === '$disconnect') {
+        return async () => undefined
+      }
+
+      if (property === '$connect' || property === '$transaction' || property === '$executeRaw' || property === '$queryRaw') {
+        return () => Promise.reject(new Error(MISSING_DATABASE_URL_MESSAGE))
+      }
+
+      if (property === '$on' || property === '$use') {
+        return () => undefined
+      }
+
+      if (property === '$extends') {
+        return () => createUnavailablePrismaClient()
+      }
+
+      if (!delegates.has(property)) {
+        delegates.set(property, createUnavailablePrismaOperation(String(property)))
+      }
+
+      return delegates.get(property)
+    },
+  })
+}
+
+const unavailablePrisma = createUnavailablePrismaClient()
+
+function resolvePrismaClient() {
+  const connectionString = findDatabaseUrl()
+
+  if (!connectionString) {
+    return unavailablePrisma
+  }
+
+  const poolSignature = getPoolSignature()
+  const currentClient = process.env.NODE_ENV === 'production' ? localPrisma : globalForPrisma.prisma
+  const currentPoolSignature =
+    process.env.NODE_ENV === 'production' ? localPrismaPoolSignature : globalForPrisma.prismaPoolSignature
+
+  if (
+    currentClient &&
+    (!hasCurrentModelDelegates(currentClient) || currentPoolSignature !== poolSignature)
+  ) {
+    void currentClient.$disconnect().catch(() => undefined)
+
+    if (process.env.NODE_ENV === 'production') {
+      localPrisma = undefined
+      localPrismaPoolSignature = undefined
+    } else {
+      globalForPrisma.prisma = undefined
+      globalForPrisma.prismaPoolSignature = undefined
+    }
+  }
+
+  const reusableClient = process.env.NODE_ENV === 'production' ? localPrisma : globalForPrisma.prisma
+  const client = reusableClient ?? createPrismaClient(connectionString)
+
+  if (process.env.NODE_ENV === 'production') {
+    localPrisma = client
+    localPrismaPoolSignature = poolSignature
+  } else {
+    globalForPrisma.prisma = client
+    globalForPrisma.prismaPoolSignature = poolSignature
+  }
+
+  return client
 }
 
 /**
- * 全局共享的 Prisma 访问入口。
- * 业务层统一从这里拿 client，不要在其他模块自行 new PrismaClient。
+ * Shared Prisma access point. Business code should import this client instead of
+ * constructing PrismaClient directly.
  */
-export const prisma = globalForPrisma.prisma ?? createPrismaClient()
+export const prisma = new Proxy({} as PrismaClient, {
+  get(_target, property) {
+    const client = resolvePrismaClient()
+    const value = Reflect.get(client, property)
 
-if (process.env.NODE_ENV !== 'production') {
-  globalForPrisma.prisma = prisma
-  globalForPrisma.prismaPoolSignature = poolSignature
-}
+    return client !== unavailablePrisma && typeof value === 'function' ? value.bind(client) : value
+  },
+})
