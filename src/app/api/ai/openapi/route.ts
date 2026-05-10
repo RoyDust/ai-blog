@@ -1,6 +1,7 @@
 import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 import { NextResponse } from "next/server";
 import { toErrorResponse } from "@/lib/api-errors";
+import { getBlogSettings } from "@/lib/blog-settings";
 
 import {
   AI_AUTHORING_ENDPOINTS,
@@ -11,14 +12,16 @@ import {
 
 async function GETHandler() {
   try {
+    const settings = await getBlogSettings();
+
     return NextResponse.json({
       openapi: "3.1.0",
       info: {
-      title: "My Blog AI Authoring API",
+      title: `${settings.siteName} AI Authoring API`,
       version: AI_AUTHORING_VERSION,
       description: "Machine-facing endpoints for AI clients to read taxonomy and upsert Markdown drafts that can auto-publish after AI review.",
     },
-    servers: [{ url: process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000" }],
+    servers: [{ url: settings.siteUrl }],
     components: {
       securitySchemes: {
         bearerAuth: {

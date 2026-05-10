@@ -25,4 +25,55 @@ describe("public profile data", () => {
       email: null,
     });
   });
+
+  test("applies configurable public profile copy and links", () => {
+    const content = {
+      subtitle: "后台配置副标题",
+      tagline: "后台配置标语",
+      bio: "后台配置简介",
+      intro: "后台配置介绍",
+      githubUrl: "https://github.com/example",
+      twitterUrl: "",
+    };
+
+    expect(
+      mergePublicProfileUser(
+        {
+          name: "RoyDust",
+          email: "roy@example.com",
+          image: "https://example.com/avatar.png",
+        },
+        content,
+      ),
+    ).toMatchObject({
+      subtitle: "后台配置副标题",
+      tagline: "后台配置标语",
+      bio: "后台配置简介",
+      intro: "后台配置介绍",
+      links: [
+        { kind: "github", name: "GitHub", url: "https://github.com/example" },
+        { kind: "email", name: "Email", url: "mailto:roy@example.com" },
+      ],
+    });
+  });
+
+  test("uses configurable copy even when no admin user is available", () => {
+    expect(
+      mergePublicProfileUser(null, {
+        subtitle: "后台配置副标题",
+        tagline: "后台配置标语",
+        bio: "后台配置简介",
+        intro: "后台配置介绍",
+        githubUrl: "",
+        twitterUrl: "",
+      }),
+    ).toMatchObject({
+      name: "Zhang Wei",
+      subtitle: "后台配置副标题",
+      tagline: "后台配置标语",
+      bio: "后台配置简介",
+      intro: "后台配置介绍",
+      links: [{ kind: "email", name: "Email", url: "mailto:roydust@foxmail.com" }],
+    });
+  });
 });

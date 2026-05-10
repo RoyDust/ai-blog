@@ -1,7 +1,9 @@
 import type { MetadataRoute } from 'next'
-import { getSiteUrl } from '@/lib/seo'
+import { getBlogSettings } from '@/lib/blog-settings'
 
-export default function robots(): MetadataRoute.Robots {
+export default async function robots(): Promise<MetadataRoute.Robots> {
+  const { siteUrl } = await getBlogSettings()
+
   return {
     rules: {
       userAgent: '*',
@@ -13,6 +15,6 @@ export default function robots(): MetadataRoute.Robots {
         '/write',
       ],
     },
-    sitemap: `${getSiteUrl()}/sitemap.xml`,
+    sitemap: `${siteUrl}/sitemap.xml`,
   }
 }

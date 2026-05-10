@@ -4,14 +4,20 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Clock3 } from "lucide-react";
 import { TaxonomyHero } from "@/components/taxonomy";
+import { getBlogSettings } from "@/lib/blog-settings";
 import { prisma } from "@/lib/prisma";
 import { buildPageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = buildPageMetadata({
-  title: "文章归档",
-  description: "按发布时间倒序浏览全部已发布文章。",
-  path: "/archives",
-});
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getBlogSettings();
+
+  return buildPageMetadata({
+    title: "文章归档",
+    description: "按发布时间倒序浏览全部已发布文章。",
+    path: "/archives",
+    siteUrl: settings.siteUrl,
+  });
+}
 
 async function getArchivePosts() {
   try {

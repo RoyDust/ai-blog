@@ -6,6 +6,24 @@ const prismaMocks = vi.hoisted(() => ({
   tagFindMany: vi.fn(),
 }))
 
+vi.mock('@/lib/prisma', () => ({
+  prisma: {
+    post: { findMany: prismaMocks.postFindMany },
+    category: { findMany: prismaMocks.categoryFindMany },
+    tag: { findMany: prismaMocks.tagFindMany },
+  },
+}))
+
+vi.mock('@/lib/blog-settings', () => ({
+  getBlogSettings: () =>
+    Promise.resolve({
+      siteName: 'Configured Blog',
+      siteDescription: 'Configured description',
+      siteUrl: 'https://blog.example',
+      locale: 'zh-CN',
+    }),
+}))
+
 describe('sitemap', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -42,7 +60,7 @@ describe('sitemap', () => {
       post: { findMany: prismaMocks.postFindMany },
       category: { findMany: prismaMocks.categoryFindMany },
       tag: { findMany: prismaMocks.tagFindMany },
-    } as Parameters<typeof buildSitemap>[0])
+    } as unknown as Parameters<typeof buildSitemap>[0])
     const urls = entries.map((entry) => entry.url)
 
     expect(prismaMocks.postFindMany).toHaveBeenCalledWith(
@@ -66,5 +84,14 @@ describe('sitemap', () => {
     expect(entries.find((entry) => entry.url === 'http://roydust.top/tags/nextjs')?.lastModified).toEqual(
       new Date('2026-04-11T00:00:00Z'),
     )
+  })
+
+  test('uses configured site url for the default sitemap route', async () => {
+    const { default: sitemap } = await import('../sitemap')
+    const entries = await sitemap()
+    const urls = entries.map((entry) => entry.url)
+
+    expect(urls).toContain('https://blog.example/')
+    expect(urls).toContain('https://blog.example/posts/featured-post')
   })
 })

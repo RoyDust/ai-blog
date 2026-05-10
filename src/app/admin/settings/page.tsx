@@ -2,8 +2,8 @@ import { getServerSession } from "next-auth";
 import { AdminSettingsClient } from "@/components/admin/settings/AdminSettingsClient";
 import { getApiOperationLogSettingsSummary } from "@/lib/api-operation-log-settings";
 import { authOptions } from "@/lib/auth";
+import { getBlogSettings } from "@/lib/blog-settings";
 import { prisma } from "@/lib/prisma";
-import { getSiteUrl } from "@/lib/seo";
 
 const fallbackUser = {
   id: "unknown",
@@ -16,7 +16,10 @@ const fallbackUser = {
 
 export default async function AdminSettingsPage() {
   const session = await getServerSession(authOptions);
-  const operationLogSettings = await getApiOperationLogSettingsSummary();
+  const [operationLogSettings, blogSettings] = await Promise.all([
+    getApiOperationLogSettingsSummary(),
+    getBlogSettings(),
+  ]);
   const user = session?.user?.id
     ? await prisma.user.findUnique({
         where: { id: session.user.id },
@@ -47,12 +50,7 @@ export default async function AdminSettingsPage() {
 
   return (
     <AdminSettingsClient
-      blogSettings={{
-        siteName: "roydust.top",
-        siteDescription: "一个基于 Next.js 构建的现代化博客系统。",
-        siteUrl: getSiteUrl(),
-        locale: "zh-CN",
-      }}
+      blogSettings={blogSettings}
       operationLogSettings={operationLogSettings}
       user={settingsUser}
     />

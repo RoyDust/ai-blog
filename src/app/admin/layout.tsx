@@ -2,6 +2,7 @@
 import { getServerSession } from "next-auth";
 import { AdminLayout } from "@/components/admin/shell/AdminLayout";
 import { authOptions } from "@/lib/auth";
+import { getBlogSettings } from "@/lib/blog-settings";
 import { buildLoginPromptPath } from "@/lib/login-redirect";
 import { prisma } from "@/lib/prisma";
 
@@ -16,15 +17,18 @@ export default async function AdminRouteLayout({ children }: { children: React.R
     redirect(buildLoginPromptPath({ callbackUrl: "/admin", error: "not-admin" }));
   }
 
-  const currentUser = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: {
-      email: true,
-      image: true,
-      name: true,
-      role: true,
-    },
-  });
+  const [currentUser, blogSettings] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: {
+        email: true,
+        image: true,
+        name: true,
+        role: true,
+      },
+    }),
+    getBlogSettings(),
+  ]);
 
   const user = {
     email: currentUser?.email ?? session.user.email,
@@ -33,5 +37,9 @@ export default async function AdminRouteLayout({ children }: { children: React.R
     role: currentUser?.role ?? session.user.role,
   };
 
-  return <AdminLayout user={user}>{children}</AdminLayout>;
+  return (
+    <AdminLayout siteName={blogSettings.siteName} user={user}>
+      {children}
+    </AdminLayout>
+  );
 }

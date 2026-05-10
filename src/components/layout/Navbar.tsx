@@ -22,7 +22,12 @@ const navLinks = [
 const navItemClass =
   "reader-link inline-flex h-10 items-center gap-2 rounded-full px-3.5 text-sm font-semibold text-[var(--text-body)] transition-colors hover:bg-[color:color-mix(in_oklab,var(--accent-sky)_12%,transparent)] hover:text-[var(--foreground)] focus-visible:bg-[color:color-mix(in_oklab,var(--accent-sky)_14%,transparent)]";
 
-export function Navbar() {
+interface NavbarProps {
+  siteName?: string;
+}
+
+// Keep this fallback aligned with DEFAULT_BLOG_SETTINGS without importing server-only settings code.
+export function Navbar({ siteName = "My Blog" }: NavbarProps) {
   const [showHuePicker, setShowHuePicker] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const isHidden = useScrollHide({ threshold: 100, delta: 5 });
@@ -60,9 +65,7 @@ export function Navbar() {
           <span className="flex h-8 w-8 items-center justify-center rounded-full border border-[color:color-mix(in_oklab,var(--accent-warm)_30%,var(--reader-border))] bg-[color:color-mix(in_oklab,var(--accent-warm)_16%,transparent)] text-[var(--accent-warm)]">
             <Sparkles className="h-4 w-4" />
           </span>
-          <span className="min-w-0 truncate text-base tracking-normal">
-            My Blog
-          </span>
+          <span className="min-w-0 truncate text-base tracking-normal">{siteName}</span>
         </Link>
 
         <nav className="hidden min-w-0 items-center justify-center md:flex" aria-label="Primary">

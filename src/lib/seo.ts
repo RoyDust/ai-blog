@@ -14,6 +14,11 @@ export const SITE_NAME = 'My Blog'
 
 const defaultSiteUrl = 'http://roydust.top'
 
+type SiteMetadataOptions = {
+  siteName?: string
+  siteUrl?: string
+}
+
 function normalizeSiteUrl(value: string | undefined) {
   return value?.trim().replace(/\/$/, '')
 }
@@ -34,9 +39,9 @@ export function getSiteUrl() {
 /**
  * 把相对路径转换成完整 canonical URL。
  */
-export function buildCanonicalUrl(path: string) {
+export function buildCanonicalUrl(path: string, siteUrl = getSiteUrl()) {
   const normalizedPath = path.startsWith('/') ? path : `/${path}`
-  return `${getSiteUrl()}${normalizedPath}`
+  return `${siteUrl}${normalizedPath}`
 }
 
 /**
@@ -48,13 +53,14 @@ export function buildPageMetadata({
   description,
   path,
   image,
+  siteUrl,
 }: {
   title: string
   description: string
   path: string
   image?: string | null
-}): Metadata {
-  const canonical = buildCanonicalUrl(path)
+} & SiteMetadataOptions): Metadata {
+  const canonical = buildCanonicalUrl(path, siteUrl)
 
   return {
     title,
@@ -86,13 +92,14 @@ export function buildNoIndexMetadata({
   title,
   description,
   path,
+  siteUrl,
 }: {
   title: string
   description: string
   path: string
-}): Metadata {
+} & SiteMetadataOptions): Metadata {
   return {
-    ...buildPageMetadata({ title, description, path }),
+    ...buildPageMetadata({ title, description, path, siteUrl }),
     robots: {
       index: false,
       follow: true,
@@ -111,6 +118,7 @@ export function buildArticleMetadata({
   image,
   publishedTime,
   modifiedTime,
+  siteUrl,
 }: {
   title: string
   description: string
@@ -118,8 +126,8 @@ export function buildArticleMetadata({
   image?: string | null
   publishedTime?: string
   modifiedTime?: string
-}): Metadata {
-  const metadata = buildPageMetadata({ title, description, path, image })
+} & SiteMetadataOptions): Metadata {
+  const metadata = buildPageMetadata({ title, description, path, image, siteUrl })
 
   return {
     ...metadata,
@@ -145,6 +153,8 @@ export function buildArticleJsonLd({
   image,
   categoryName,
   tags,
+  siteName = SITE_NAME,
+  siteUrl = getSiteUrl(),
 }: {
   title: string
   description: string
@@ -155,8 +165,8 @@ export function buildArticleJsonLd({
   image?: string | null
   categoryName?: string | null
   tags?: string[]
-}) {
-  const url = buildCanonicalUrl(path)
+} & SiteMetadataOptions) {
+  const url = buildCanonicalUrl(path, siteUrl)
 
   return {
     '@context': 'https://schema.org',
@@ -173,8 +183,8 @@ export function buildArticleJsonLd({
     },
     publisher: {
       '@type': 'Organization',
-      name: SITE_NAME,
-      url: getSiteUrl(),
+      name: siteName,
+      url: siteUrl,
     },
     image: image || undefined,
     articleSection: categoryName || undefined,
@@ -186,7 +196,7 @@ export function buildArticleJsonLd({
  * 生成面包屑 JSON-LD。
  * 适合分类页、文章页等有层级导航关系的页面。
  */
-export function buildBreadcrumbJsonLd(items: Array<{ name: string; path: string }>) {
+export function buildBreadcrumbJsonLd(items: Array<{ name: string; path: string }>, options: SiteMetadataOptions = {}) {
   return {
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
@@ -194,7 +204,7 @@ export function buildBreadcrumbJsonLd(items: Array<{ name: string; path: string 
       '@type': 'ListItem',
       position: index + 1,
       name: item.name,
-      item: buildCanonicalUrl(item.path),
+      item: buildCanonicalUrl(item.path, options.siteUrl),
     })),
   }
 }

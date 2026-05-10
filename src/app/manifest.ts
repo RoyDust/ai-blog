@@ -1,10 +1,13 @@
 import type { MetadataRoute } from 'next'
+import { getBlogSettings } from '@/lib/blog-settings'
 
-export default function manifest(): MetadataRoute.Manifest {
+export default async function manifest(): Promise<MetadataRoute.Manifest> {
+  const settings = await getBlogSettings()
+
   return {
-    name: 'My Blog',
-    short_name: 'My Blog',
-    description: '一个基于 Next.js 构建的现代化博客系统。',
+    name: settings.siteName,
+    short_name: settings.siteName,
+    description: settings.siteDescription,
     start_url: '/',
     display: 'standalone',
     background_color: '#ffffff',

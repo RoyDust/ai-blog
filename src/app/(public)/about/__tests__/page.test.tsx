@@ -20,7 +20,35 @@ vi.mock("@/lib/public-profile", () => ({
   })),
 }));
 
-test("about page renders editorial personal homepage content", async () => {
+vi.mock("@/lib/blog-settings", () => ({
+  getBlogSettings: vi.fn(async () => ({
+    siteName: "Configured Blog",
+    siteDescription: "Configured description",
+    siteUrl: "https://blog.example",
+    locale: "zh-CN",
+    profile: {
+      subtitle: "Configured subtitle",
+      tagline: "Configured tagline",
+      bio: "Configured bio",
+      intro: "Configured intro",
+      githubUrl: "https://github.com/example",
+      twitterUrl: "https://x.com/example",
+    },
+    about: {
+      aboutTitle: "后台配置的关于",
+      aboutParagraphs: ["后台配置的第一段", "后台配置的第二段"],
+      nowTitle: "后台配置的动态",
+      nowItems: ["后台配置的事项"],
+      highlights: [{ title: "后台配置的亮点", description: "后台配置的亮点描述" }],
+      stackTitle: "后台配置的技术栈",
+      stack: [{ title: "后台配置的技术", description: "后台配置的技术描述" }],
+      contactTitle: "后台配置的联系",
+      contactDescription: "后台配置的联系描述",
+    },
+  })),
+}));
+
+test("about page renders configured personal homepage content", async () => {
   const { default: AboutPage } = await import("../page");
   const ui = await AboutPage();
 
@@ -29,10 +57,16 @@ test("about page renders editorial personal homepage content", async () => {
   expect(screen.getByRole("heading", { name: "RoyDust" })).toBeInTheDocument();
   expect(screen.getByText("后台个人信息驱动的作者资料。")).toBeInTheDocument();
   expect(screen.getByText("内容创作 / 前端体验 / 开源实践")).toBeInTheDocument();
-  expect(screen.getByRole("heading", { name: "关于我" })).toBeInTheDocument();
-  expect(screen.getByRole("heading", { name: "我在做什么" })).toBeInTheDocument();
-  expect(screen.getByRole("heading", { name: "技术栈" })).toBeInTheDocument();
-  expect(screen.getByRole("heading", { name: "联系我" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "后台配置的关于" })).toBeInTheDocument();
+  expect(screen.getByText("后台配置的第一段")).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "后台配置的动态" })).toBeInTheDocument();
+  expect(screen.getByText("后台配置的事项")).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "后台配置的亮点" })).toBeInTheDocument();
+  expect(screen.getByText("后台配置的亮点描述")).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "后台配置的技术栈" })).toBeInTheDocument();
+  expect(screen.getByText("后台配置的技术描述")).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "后台配置的联系" })).toBeInTheDocument();
+  expect(screen.getByText("后台配置的联系描述")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "GitHub" })).toHaveAttribute("href", "https://github.com/RoyDust");
   expect(screen.getByRole("link", { name: "Email" })).toHaveAttribute("href", "mailto:roy@example.com");
   expect(screen.getByRole("link", { name: "发送邮件" })).toHaveAttribute("href", "mailto:roy@example.com");

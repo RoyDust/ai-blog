@@ -25,6 +25,7 @@ import { StatusBadge } from "@/components/admin/primitives/StatusBadge";
 import { FallbackImage } from "@/components/admin/ui";
 import { getPublicAiModelOptions, type PublicAiModelOption } from "@/lib/ai-models";
 import { addUtcDays, formatVisitTrendDate, formatVisitTrendLabel, parseVisitTrendRange, startOfUtcDay, type VisitTrendRange } from "@/lib/analytics";
+import { getBlogSettings } from "@/lib/blog-settings";
 import { prisma } from "@/lib/prisma";
 import { findVisitLogsInRange } from "@/lib/visit-log-repository";
 
@@ -539,13 +540,14 @@ function AiModelChecklistPanel({ models }: { models: AiModelListItem[] }) {
 export default async function AdminPage({ searchParams }: { searchParams?: Promise<{ range?: string }> } = {}) {
   const resolvedSearchParams = await searchParams;
   const range = parseVisitTrendRange(resolvedSearchParams?.range);
-  const [pendingCommentCount, draftQueue, pendingQueue, popularPosts, aiModels, visitTrend] = await Promise.all([
+  const [pendingCommentCount, draftQueue, pendingQueue, popularPosts, aiModels, visitTrend, blogSettings] = await Promise.all([
     prisma.comment.count({ where: { deletedAt: null, status: PENDING_COMMENT_STATUS } }),
     getDraftQueue(),
     getPendingCommentQueue(),
     getPopularPosts(),
     getPublicAiModelOptions(),
     getVisitTrend(range),
+    getBlogSettings(),
   ]);
 
   return (
@@ -562,7 +564,7 @@ export default async function AdminPage({ searchParams }: { searchParams?: Promi
       </section>
 
       <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border)] pt-5 text-sm text-[var(--muted)]">
-        <p>© 2024 roydust.top · 记录与分享技术、生活与思考。</p>
+        <p>© 2024 {blogSettings.siteName} · 记录与分享技术、生活与思考。</p>
         <p>版本 1.0.0 · 帮助文档 ↗</p>
       </footer>
     </div>

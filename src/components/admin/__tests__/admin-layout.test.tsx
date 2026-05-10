@@ -28,7 +28,7 @@ describe("admin layout", () => {
     const { AdminLayout } = await import("@/components/admin/shell/AdminLayout");
 
     const { container } = render(
-      <AdminLayout user={{ email: "roy@example.com", image: "https://example.com/avatar.png", label: "RoyDust", role: "ADMIN" }}>
+      <AdminLayout siteName="Configured Blog" user={{ email: "roy@example.com", image: "https://example.com/avatar.png", label: "RoyDust", role: "ADMIN" }}>
         <div>Taxonomy content</div>
       </AdminLayout>,
     );
@@ -64,7 +64,7 @@ describe("admin layout", () => {
     expect(screen.getByRole("menuitem", { name: "设置" })).toHaveAttribute("href", "/admin/settings");
     expect(screen.getByRole("menuitem", { name: "退出账号" })).toBeInTheDocument();
     expect(screen.getByText("Taxonomy content")).toBeInTheDocument();
-    expect(screen.getByText("roydust.top")).toBeInTheDocument();
+    expect(screen.getByText("Configured Blog")).toBeInTheDocument();
     expect(screen.getByText("博客后台")).toBeInTheDocument();
     expect(screen.getByPlaceholderText("搜索文章、页面、评论...")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "新建文章" })).toHaveAttribute("href", "/admin/posts/new");

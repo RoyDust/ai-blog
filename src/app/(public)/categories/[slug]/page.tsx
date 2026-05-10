@@ -5,19 +5,21 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
 import { TaxonomyHero, TaxonomyPostGrid } from '@/components/taxonomy'
+import { getBlogSettings } from '@/lib/blog-settings'
 import { buildPageMetadata } from '@/lib/seo'
 import { getCategoryDetail, TAXONOMY_PAGE_SIZE } from '@/lib/taxonomy'
 import { clampPagination } from '@/lib/validation'
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params
-  const category = await getCategoryDetail(slug)
+  const [category, settings] = await Promise.all([getCategoryDetail(slug), getBlogSettings()])
 
   if (!category) {
     return buildPageMetadata({
       title: '分类不存在',
       description: '未找到对应分类专题。',
       path: `/categories/${slug}`,
+      siteUrl: settings.siteUrl,
     })
   }
 
@@ -25,6 +27,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     title: `${category.name} · 分类专题`,
     description: category.description || `浏览 ${category.name} 分类下的最新已发布文章与相关内容。`,
     path: `/categories/${category.slug}`,
+    siteUrl: settings.siteUrl,
   })
 }
 

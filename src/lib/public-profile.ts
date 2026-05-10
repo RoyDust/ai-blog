@@ -1,8 +1,11 @@
 import { unstable_noStore as noStore } from "next/cache";
+import { getBlogSettings } from "@/lib/blog-settings";
 import { mergePublicProfileUser } from "@/lib/public-profile-data";
 
 export async function getPublicProfile() {
   noStore();
+
+  const settings = await getBlogSettings();
 
   try {
     const { prisma } = await import("@/lib/prisma");
@@ -16,8 +19,8 @@ export async function getPublicProfile() {
       },
     });
 
-    return mergePublicProfileUser(user);
+    return mergePublicProfileUser(user, settings.profile);
   } catch {
-    return mergePublicProfileUser(null);
+    return mergePublicProfileUser(null, settings.profile);
   }
 }

@@ -15,6 +15,7 @@ const primaryLinks = [
   { href: "/admin", label: "管理" },
 ];
 
+// Keep this fallback aligned with DEFAULT_BLOG_SETTINGS without importing server-only settings code.
 export function Header({ siteName = "My Blog" }: HeaderProps) {
   return (
     <header className="sticky top-0 z-40 w-full border-b border-[var(--border)] bg-[color-mix(in_oklab,var(--background)_88%,white_12%)]/90 backdrop-blur">

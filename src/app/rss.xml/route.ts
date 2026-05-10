@@ -1,4 +1,4 @@
-import { getSiteUrl } from '@/lib/seo'
+import { getBlogSettings } from '@/lib/blog-settings'
 
 export const dynamic = 'force-dynamic'
 
@@ -32,7 +32,8 @@ function buildPostUrl(siteUrl: string, slug: string) {
 }
 
 export async function GET() {
-  const siteUrl = getSiteUrl()
+  const settings = await getBlogSettings()
+  const siteUrl = settings.siteUrl
   let items = ''
   let lastBuildDate = new Date()
 
@@ -70,9 +71,9 @@ export async function GET() {
   const xml = `<?xml version="1.0" encoding="UTF-8" ?>
     <rss version="2.0">
       <channel>
-        <title>My Blog</title>
+        <title>${toCdata(settings.siteName)}</title>
         <link>${siteUrl}</link>
-        <description>一个基于 Next.js 构建的现代化博客系统。</description>
+        <description>${toCdata(settings.siteDescription)}</description>
         <lastBuildDate>${lastBuildDate.toUTCString()}</lastBuildDate>
         ${items}
       </channel>

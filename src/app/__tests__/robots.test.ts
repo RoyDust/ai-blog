@@ -1,4 +1,14 @@
-import { beforeEach, describe, expect, test } from 'vitest'
+import { beforeEach, describe, expect, test, vi } from 'vitest'
+
+vi.mock('@/lib/blog-settings', () => ({
+  getBlogSettings: () =>
+    Promise.resolve({
+      siteName: 'Configured Blog',
+      siteDescription: 'Configured description',
+      siteUrl: 'https://blog.example',
+      locale: 'zh-CN',
+    }),
+}))
 
 describe('robots', () => {
   beforeEach(() => {
@@ -8,9 +18,9 @@ describe('robots', () => {
 
   test('points crawlers to the public sitemap and disallows private surfaces', async () => {
     const { default: robots } = await import('../robots')
-    const output = robots()
+    const output = await robots()
 
-    expect(output.sitemap).toBe('http://roydust.top/sitemap.xml')
+    expect(output.sitemap).toBe('https://blog.example/sitemap.xml')
     expect(output.rules).toEqual({
       userAgent: '*',
       allow: '/',

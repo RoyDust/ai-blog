@@ -89,6 +89,25 @@ describe('seo helpers', () => {
     expect(payload.keywords).toBe('Next.js, Prisma')
   })
 
+  test('builds article json-ld with configured site identity', () => {
+    const payload = buildArticleJsonLd({
+      title: 'Hello World',
+      description: 'Summary',
+      path: '/posts/hello-world',
+      publishedTime: '2026-01-01T00:00:00.000Z',
+      authorName: 'Author',
+      siteName: 'Configured Blog',
+      siteUrl: 'https://blog.example',
+    })
+
+    expect(payload.url).toBe('https://blog.example/posts/hello-world')
+    expect(payload.publisher).toEqual({
+      '@type': 'Organization',
+      name: 'Configured Blog',
+      url: 'https://blog.example',
+    })
+  })
+
   test('builds breadcrumb json-ld payload', () => {
     clearSiteUrlEnv()
 

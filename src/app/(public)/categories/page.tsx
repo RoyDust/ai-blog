@@ -3,14 +3,20 @@ export const revalidate = 300
 import type { Metadata } from 'next'
 
 import { TaxonomyDirectoryCard, TaxonomyHero } from '@/components/taxonomy'
+import { getBlogSettings } from '@/lib/blog-settings'
 import { buildPageMetadata } from '@/lib/seo'
 import { getCategoryDirectory } from '@/lib/taxonomy'
 
-export const metadata: Metadata = buildPageMetadata({
-  title: '分类专题',
-  description: '围绕内容主题浏览全部分类，快速进入每个专题页并继续阅读相关文章。',
-  path: '/categories',
-})
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getBlogSettings()
+
+  return buildPageMetadata({
+    title: '分类专题',
+    description: '围绕内容主题浏览全部分类，快速进入每个专题页并继续阅读相关文章。',
+    path: '/categories',
+    siteUrl: settings.siteUrl,
+  })
+}
 
 type CategoryDirectoryEntry = Awaited<ReturnType<typeof getCategoryDirectory>>[number]
 

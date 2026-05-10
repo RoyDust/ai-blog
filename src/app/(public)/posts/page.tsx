@@ -4,15 +4,21 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { PostCardSkeleton } from "@/components/blog/PostCardSkeleton";
 import { PostsListingClient } from "@/components/blog/PostsListingClient";
+import { getBlogSettings } from "@/lib/blog-settings";
 import { POSTS_PAGE_SIZE } from "@/lib/pagination";
 import { getPublishedPostsPage } from "@/lib/posts";
 import { buildPageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = buildPageMetadata({
-  title: "全部文章",
-  description: "浏览全部已发布文章，按发布时间和精选状态发现最新内容。",
-  path: "/posts",
-});
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getBlogSettings();
+
+  return buildPageMetadata({
+    title: "全部文章",
+    description: "浏览全部已发布文章，按发布时间和精选状态发现最新内容。",
+    path: "/posts",
+    siteUrl: settings.siteUrl,
+  });
+}
 
 export default async function PostsPage() {
   let postsPage = {

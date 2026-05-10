@@ -1,4 +1,5 @@
 import type { MetadataRoute } from 'next'
+import { getBlogSettings } from '@/lib/blog-settings'
 import { getSiteUrl } from '@/lib/seo'
 
 export const dynamic = 'force-dynamic'
@@ -111,7 +112,7 @@ export async function buildSitemap(prisma: SitemapPrisma, siteUrl = getSiteUrl()
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const siteUrl = getSiteUrl()
+  const { siteUrl } = await getBlogSettings()
 
   try {
     return await buildSitemap(await getPrisma(), siteUrl)

@@ -4,10 +4,18 @@ const prismaMocks = vi.hoisted(() => ({
   postFindMany: vi.fn(),
 }))
 
+const blogSettingsMocks = vi.hoisted(() => ({
+  getBlogSettings: vi.fn(),
+}))
+
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     post: { findMany: prismaMocks.postFindMany },
   },
+}))
+
+vi.mock('@/lib/blog-settings', () => ({
+  getBlogSettings: blogSettingsMocks.getBlogSettings,
 }))
 
 describe('GET /rss.xml', () => {
@@ -15,6 +23,11 @@ describe('GET /rss.xml', () => {
     vi.clearAllMocks()
     process.env.NEXT_PUBLIC_SITE_URL = 'http://roydust.top'
     process.env.NEXTAUTH_URL = 'http://127.0.0.1:3000'
+    blogSettingsMocks.getBlogSettings.mockResolvedValue({
+      siteName: 'RSS Blog',
+      siteDescription: 'RSS Description',
+      siteUrl: 'https://rss.example',
+    })
   })
 
   test('emits published non-deleted posts with canonical links', async () => {
@@ -43,8 +56,10 @@ describe('GET /rss.xml', () => {
       }),
     )
     expect(body).toContain('<rss version="2.0">')
+    expect(body).toContain('<title><![CDATA[RSS Blog]]></title>')
+    expect(body).toContain('<description><![CDATA[RSS Description]]></description>')
     expect(body).toContain('<lastBuildDate>Tue, 03 Mar 2026 00:00:00 GMT</lastBuildDate>')
-    expect(body).toContain('<link>http://roydust.top/posts/hello-rss</link>')
+    expect(body).toContain('<link>https://rss.example/posts/hello-rss</link>')
     expect(body).toContain('<description><![CDATA[SEO Description]]></description>')
     expect(body).toContain('<pubDate>Mon, 02 Mar 2026 00:00:00 GMT</pubDate>')
   })

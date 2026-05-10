@@ -1,9 +1,11 @@
 import { AI_AUTHORING_ENDPOINTS, AI_AUTHORING_LIMITS } from "@/lib/ai-contract";
+import { getBlogSettings } from "@/lib/blog-settings";
 
 export async function GET() {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  const settings = await getBlogSettings();
+  const baseUrl = settings.siteUrl;
   const body = [
-    "# My Blog AI Authoring",
+    `# ${settings.siteName} AI Authoring`,
     "",
     "- Purpose: Create or update unpublished Markdown blog drafts for this site.",
     "- Authentication: Authorization: Bearer <token>",

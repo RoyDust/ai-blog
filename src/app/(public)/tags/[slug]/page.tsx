@@ -5,19 +5,21 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
 import { TaxonomyHero, TaxonomyPostGrid } from '@/components/taxonomy'
+import { getBlogSettings } from '@/lib/blog-settings'
 import { buildPageMetadata } from '@/lib/seo'
 import { getTagDetail, TAXONOMY_PAGE_SIZE } from '@/lib/taxonomy'
 import { clampPagination } from '@/lib/validation'
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params
-  const tag = await getTagDetail(slug)
+  const [tag, settings] = await Promise.all([getTagDetail(slug), getBlogSettings()])
 
   if (!tag) {
     return buildPageMetadata({
       title: '标签不存在',
       description: '未找到对应标签专题。',
       path: `/tags/${slug}`,
+      siteUrl: settings.siteUrl,
     })
   }
 
@@ -25,6 +27,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     title: `${tag.name} · 标签专题`,
     description: `浏览与 ${tag.name} 相关的文章、案例和连续阅读入口。`,
     path: `/tags/${tag.slug}`,
+    siteUrl: settings.siteUrl,
   })
 }
 

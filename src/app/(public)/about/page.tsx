@@ -15,6 +15,7 @@ import {
   Twitter,
   Zap,
 } from "lucide-react";
+import { getBlogSettings } from "@/lib/blog-settings";
 import { buildPageMetadata } from "@/lib/seo";
 import { getPublicProfile } from "@/lib/public-profile";
 import type { PublicProfileLinkKind } from "@/lib/public-profile-data";
@@ -27,66 +28,24 @@ const linkIcons: Record<PublicProfileLinkKind, typeof Github> = {
   twitter: Twitter,
 };
 
-const highlights = [
-  {
-    title: "内容创作",
-    description: "持续记录前端工程、交互体验与实际项目中的取舍，希望把复杂问题写得更容易理解。",
-    icon: NotebookPen,
-  },
-  {
-    title: "产品感知",
-    description: "关注界面层次、信息密度和阅读节奏，让页面既实用又不失性格。",
-    icon: Palette,
-  },
-  {
-    title: "工程实践",
-    description: "偏爱清晰的结构、稳定的抽象和可持续迭代的实现方式，而不是短期堆砌功能。",
-    icon: Briefcase,
-  },
-];
-
-const nowWorkingOn = [
-  "把博客打磨成更完整的个人表达空间，而不仅是文章列表。",
-  "持续优化阅读体验、匿名互动与内容归档结构。",
-  "在 Next.js、Prisma 和 TypeScript 体系里积累可复用的内容站模式。",
-];
-
-const stack = [
-  {
-    title: "Next.js",
-    description: "用 App Router 组织内容结构、页面元数据和渐进式交互。",
-    icon: Zap,
-  },
-  {
-    title: "TypeScript",
-    description: "让内容站里的组件、状态和交互迭代更稳，也更适合长期维护。",
-    icon: Code2,
-  },
-  {
-    title: "Prisma",
-    description: "为文章、评论、点赞与资料页这些内容模型提供可靠的数据访问层。",
-    icon: Database,
-  },
-  {
-    title: "设计系统",
-    description: "围绕主题变量、组件一致性和阅读型排版建立更统一的界面语言。",
-    icon: Monitor,
-  },
-];
+const highlightIcons = [NotebookPen, Palette, Briefcase];
+const stackIcons = [Zap, Code2, Database, Monitor];
 
 export async function generateMetadata(): Promise<Metadata> {
-  const profile = await getPublicProfile();
+  const [profile, settings] = await Promise.all([getPublicProfile(), getBlogSettings()]);
 
   return buildPageMetadata({
     title: "关于",
     description: profile.bio,
     image: profile.avatar,
     path: "/about",
+    siteUrl: settings.siteUrl,
   });
 }
 
 export default async function AboutPage() {
-  const profile = await getPublicProfile();
+  const [profile, settings] = await Promise.all([getPublicProfile(), getBlogSettings()]);
+  const about = settings.about;
   const emailLink = profile.links.find((link) => link.kind === "email");
   const githubLink = profile.links.find((link) => link.kind === "github");
 
@@ -146,25 +105,22 @@ export default async function AboutPage() {
         <div className="card-base p-6 md:p-8">
           <div className="mb-5 flex items-center gap-2">
             <BookOpen className="h-5 w-5 text-[var(--primary)]" />
-            <h2 className="text-90 text-2xl font-bold">关于我</h2>
+            <h2 className="text-90 text-2xl font-bold">{about.aboutTitle}</h2>
           </div>
           <div className="space-y-4 text-[15px] leading-8 text-[var(--muted)]">
-            <p>
-              我希望内容型个人主页首先是“可读”的：信息不拥挤，叙述有顺序，访问者能很快理解我是谁、在关注什么、以及这个站点为什么存在。
-            </p>
-            <p>
-              比起炫技式展示，我更在意长期写作、界面表达和工程实现之间的平衡。文章、交互、主题与页面结构，都会服务于同一个目标：把内容传递得更自然。
-            </p>
+            {about.aboutParagraphs.map((paragraph) => (
+              <p key={paragraph}>{paragraph}</p>
+            ))}
           </div>
         </div>
 
         <div className="card-base p-6 md:p-8">
           <div className="mb-5 flex items-center gap-2">
             <Radio className="h-5 w-5 text-[var(--primary)]" />
-            <h2 className="text-90 text-2xl font-bold">我在做什么</h2>
+            <h2 className="text-90 text-2xl font-bold">{about.nowTitle}</h2>
           </div>
           <div className="space-y-3">
-            {nowWorkingOn.map((item) => (
+            {about.nowItems.map((item) => (
               <div key={item} className="rounded-2xl bg-black/[0.03] px-4 py-4 text-sm leading-7 text-[var(--muted)] dark:bg-white/[0.04]">
                 {item}
               </div>
@@ -174,8 +130,8 @@ export default async function AboutPage() {
       </section>
 
       <section className="stagger-children grid gap-4 md:grid-cols-3">
-        {highlights.map((item) => {
-          const Icon = item.icon;
+        {about.highlights.map((item, index) => {
+          const Icon = highlightIcons[index % highlightIcons.length];
           return (
             <article
               key={item.title}
@@ -196,11 +152,11 @@ export default async function AboutPage() {
       <section className="card-base onload-animation p-6 md:p-8" style={{ animationDelay: "140ms" }}>
         <div className="mb-6 flex items-center gap-2">
           <Monitor className="h-5 w-5 text-[var(--primary)]" />
-          <h2 className="text-90 text-2xl font-bold">技术栈</h2>
+          <h2 className="text-90 text-2xl font-bold">{about.stackTitle}</h2>
         </div>
         <div className="stagger-children grid gap-4 md:grid-cols-2">
-          {stack.map((item) => {
-            const Icon = item.icon;
+          {about.stack.map((item, index) => {
+            const Icon = stackIcons[index % stackIcons.length];
             return (
               <div
                 key={item.title}
@@ -222,9 +178,9 @@ export default async function AboutPage() {
         style={{ animationDelay: "180ms" }}
       >
         <div className="space-y-2">
-          <h2 className="text-90 text-2xl font-bold">联系我</h2>
+          <h2 className="text-90 text-2xl font-bold">{about.contactTitle}</h2>
           <p className="text-75 max-w-2xl text-sm leading-7">
-            如果你想聊内容创作、前端体验、个人站点设计，或者只是想打个招呼，都欢迎通过这些方式找到我。
+            {about.contactDescription}
           </p>
         </div>
         <div className="flex flex-wrap gap-3">

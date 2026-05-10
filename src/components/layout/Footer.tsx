@@ -8,16 +8,25 @@ const footerLinks = [
   { href: "/rss.xml", label: "RSS 订阅", icon: Rss, external: true },
 ];
 
-export function Footer() {
+interface FooterProps {
+  siteDescription?: string;
+  siteName?: string;
+}
+
+// Keep these fallbacks aligned with DEFAULT_BLOG_SETTINGS without importing server-only settings code.
+export function Footer({
+  siteDescription = "夜读模式下整理前端、工程实践和部署笔记，让长期积累有清晰入口。",
+  siteName = "My Blog",
+}: FooterProps) {
   return (
     <footer id="footer" className="onload-animation mt-auto">
       <div className="mx-auto max-w-[var(--page-width)] py-8">
         <div className="reader-panel p-5 md:p-6">
           <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
             <div className="max-w-xl space-y-2">
-              <p className="ui-kicker text-[var(--accent-warm)]">My Blog</p>
+              <p className="ui-kicker text-[var(--accent-warm)]">{siteName}</p>
               <p className="text-75 text-sm leading-7">
-                夜读模式下整理前端、工程实践和部署笔记，让长期积累有清晰入口。
+                {siteDescription}
               </p>
             </div>
             <nav aria-label="Footer" className="flex flex-wrap items-center gap-2">

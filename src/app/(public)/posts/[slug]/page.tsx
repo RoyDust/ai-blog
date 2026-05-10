@@ -24,6 +24,7 @@ import { notFound } from "next/navigation";
 import { ArticleContinuation, ArticleHero, ArticleToc, BackToTopButton, BookmarkButton, LikeButton, ReadingProgress, SectionHeader, ShareButton } from "@/components/blog";
 import { CommentAuthGate } from "@/components/CommentAuthGate";
 import { FallbackImage } from "@/components/ui";
+import { getBlogSettings } from "@/lib/blog-settings";
 import { prisma } from "@/lib/prisma";
 import { buildArticleJsonLd, buildArticleMetadata, buildBreadcrumbJsonLd } from "@/lib/seo";
 
@@ -132,22 +133,23 @@ export async function generateStaticParams() {
  */
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params
-  const post = await getPost(slug)
+  const [post, settings] = await Promise.all([getPost(slug), getBlogSettings()])
   if (!post) {
     return {
-      title: '文章不存在 | My Blog',
+      title: `文章不存在 | ${settings.siteName}`,
       description: '未找到对应文章。',
     }
   }
-  const description = post.seoDescription || post.excerpt || `${post.title} - My Blog`
+  const description = post.seoDescription || post.excerpt || `${post.title} - ${settings.siteName}`
 
   return buildArticleMetadata({
-    title: `${post.title} | My Blog`,
+    title: `${post.title} | ${settings.siteName}`,
     description,
     path: `/posts/${post.slug}`,
     image: post.coverImage,
     publishedTime: (post.publishedAt || post.createdAt).toISOString(),
     modifiedTime: post.updatedAt?.toISOString(),
+    siteUrl: settings.siteUrl,
   })
 }
 
@@ -224,7 +226,8 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
   const headings = extractHeadings(post.content);
   const renderedHeadingCounters = new Map<string, number>()
   const getRenderedHeadingId = (children: ReactNode) => getUniqueHeadingId(nodeText(children), renderedHeadingCounters)
-  const description = post.seoDescription || post.excerpt || `${post.title} - My Blog`
+  const settings = await getBlogSettings()
+  const description = post.seoDescription || post.excerpt || `${post.title} - ${settings.siteName}`
   const articleJsonLd = buildArticleJsonLd({
     title: post.title,
     description,
@@ -235,12 +238,14 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
     image: post.coverImage,
     categoryName: post.category?.name,
     tags: post.tags.map((tag) => tag.name),
+    siteName: settings.siteName,
+    siteUrl: settings.siteUrl,
   })
   const breadcrumbJsonLd = buildBreadcrumbJsonLd([
     { name: '首页', path: '/' },
     { name: '文章', path: '/posts' },
     { name: post.title, path: `/posts/${post.slug}` },
-  ])
+  ], { siteUrl: settings.siteUrl })
 
   return (
     <div className="article-detail-page relative overflow-x-clip pb-16">

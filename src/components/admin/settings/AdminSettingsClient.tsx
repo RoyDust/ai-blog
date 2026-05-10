@@ -2,7 +2,7 @@
 
 import { type FormEvent, useState } from "react";
 import { toast } from "sonner";
-import { Globe2, HardDrive, Image as ImageIcon, ShieldCheck, UserRound } from "lucide-react";
+import { FileText, Globe2, HardDrive, ShieldCheck, UserRound } from "lucide-react";
 import { PageHeader } from "@/components/admin/primitives/PageHeader";
 import { WorkspacePanel } from "@/components/admin/primitives/WorkspacePanel";
 import { Button, ImageCropUploadDialog, Input, Textarea } from "@/components/admin/ui";
@@ -23,6 +23,25 @@ type BlogSettingsDraft = {
   siteDescription: string;
   siteUrl: string;
   locale: string;
+  profile: {
+    subtitle: string;
+    tagline: string;
+    bio: string;
+    intro: string;
+    githubUrl: string;
+    twitterUrl: string;
+  };
+  about: {
+    aboutTitle: string;
+    aboutParagraphs: string[];
+    nowTitle: string;
+    nowItems: string[];
+    highlights: Array<{ title: string; description: string }>;
+    stackTitle: string;
+    stack: Array<{ title: string; description: string }>;
+    contactTitle: string;
+    contactDescription: string;
+  };
 };
 
 type OperationLogSettings = {
@@ -39,6 +58,27 @@ interface AdminSettingsClientProps {
   operationLogSettings: OperationLogSettings;
 }
 
+type SettingsTabId = "account" | "site" | "publicProfile" | "about" | "logs";
+
+const settingsTabs = [
+  { id: "account", label: "账号资料", description: "登录身份", icon: UserRound },
+  { id: "site", label: "站点基础", description: "头部与页脚", icon: Globe2 },
+  { id: "publicProfile", label: "公开个人信息栏", description: "侧栏资料", icon: ShieldCheck },
+  { id: "about", label: "关于页面", description: "页面文案", icon: FileText },
+  { id: "logs", label: "日志策略", description: "后台运维", icon: HardDrive },
+] satisfies Array<{ id: SettingsTabId; label: string; description: string; icon: typeof UserRound }>;
+
+function toMultiline(items: string[]) {
+  return items.join("\n");
+}
+
+function fromMultiline(value: string) {
+  return value
+    .split(/\r?\n/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
 export function AdminSettingsClient({ user, blogSettings, operationLogSettings }: AdminSettingsClientProps) {
   const [profile, setProfile] = useState({
     name: user.name ?? "",
@@ -48,7 +88,9 @@ export function AdminSettingsClient({ user, blogSettings, operationLogSettings }
   const [blogDraft, setBlogDraft] = useState(blogSettings);
   const [logSettings, setLogSettings] = useState(operationLogSettings);
   const [logDraft, setLogDraft] = useState({ maxStorageMb: String(operationLogSettings.maxStorageMb) });
+  const [activeTab, setActiveTab] = useState<SettingsTabId>("account");
   const [savingProfile, setSavingProfile] = useState(false);
+  const [savingBlogSettings, setSavingBlogSettings] = useState(false);
   const [savingLogSettings, setSavingLogSettings] = useState(false);
 
   const initial = (profile.name || profile.email || "A").slice(0, 1).toUpperCase();
@@ -125,6 +167,75 @@ export function AdminSettingsClient({ user, blogSettings, operationLogSettings }
     }
   };
 
+  const saveBlogSettings = async (event: FormEvent<HTMLFormElement>, payload: Partial<BlogSettingsDraft>) => {
+    event.preventDefault();
+    setSavingBlogSettings(true);
+
+    try {
+      const response = await fetch("/api/admin/settings/blog", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok || data?.success === false) {
+        toast.error(getApiErrorMessage(data, "博客配置保存失败"));
+        return;
+      }
+
+      setBlogDraft(data.data);
+      toast.success("博客配置已保存");
+    } catch {
+      toast.error("博客配置保存失败，请稍后重试");
+    } finally {
+      setSavingBlogSettings(false);
+    }
+  };
+
+  const updatePublicProfileDraft = (nextProfile: Partial<BlogSettingsDraft["profile"]>) => {
+    setBlogDraft((value) => ({
+      ...value,
+      profile: { ...value.profile, ...nextProfile },
+    }));
+  };
+
+  const saveSiteSettings = (event: FormEvent<HTMLFormElement>) =>
+    saveBlogSettings(event, {
+      siteName: blogDraft.siteName,
+      siteDescription: blogDraft.siteDescription,
+      siteUrl: blogDraft.siteUrl,
+      locale: blogDraft.locale,
+    });
+
+  const savePublicProfileSettings = (event: FormEvent<HTMLFormElement>) =>
+    saveBlogSettings(event, { profile: blogDraft.profile });
+
+  const saveAboutSettings = (event: FormEvent<HTMLFormElement>) =>
+    saveBlogSettings(event, { about: blogDraft.about });
+
+  const updateAboutDraft = (nextAbout: Partial<BlogSettingsDraft["about"]>) => {
+    setBlogDraft((value) => ({
+      ...value,
+      about: { ...value.about, ...nextAbout },
+    }));
+  };
+
+  const updateAboutCard = (
+    group: "highlights" | "stack",
+    index: number,
+    field: "title" | "description",
+    nextValue: string,
+  ) => {
+    setBlogDraft((value) => ({
+      ...value,
+      about: {
+        ...value.about,
+        [group]: value.about[group].map((item, itemIndex) => (itemIndex === index ? { ...item, [field]: nextValue } : item)),
+      },
+    }));
+  };
+
   return (
     <div className="space-y-5">
       <PageHeader
@@ -133,95 +244,277 @@ export function AdminSettingsClient({ user, blogSettings, operationLogSettings }
         description="集中管理管理员资料、博客展示信息和后台运行策略。"
       />
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.08fr)_minmax(360px,0.92fr)]">
-        <WorkspacePanel title="个人信息" description="用于后台账号展示，也会影响作者署名的默认显示。">
-          <form className="space-y-5" onSubmit={saveProfile}>
-            <div className="flex items-center gap-4 rounded-xl border border-[var(--border)] bg-[var(--surface-alt)] p-4">
-              <ImageCropUploadDialog
-                currentImage={profile.image}
-                fallbackText={initial}
-                outputFileName={`avatar-${user.id}.webp`}
-                onUploaded={(url) => {
-                  setProfile((value) => ({ ...value, image: url }));
-                  toast.success("头像已裁切上传，保存个人信息后生效");
-                }}
-              />
-              <div className="min-w-0">
-                <p className="font-semibold text-[var(--foreground)]">{profile.name || "未命名管理员"}</p>
-                <p className="mt-1 truncate text-sm text-[var(--muted)]">{profile.email}</p>
-                <p className="mt-1 text-xs text-[var(--muted)]">点击头像裁切并上传新图片</p>
+      <div className="space-y-5">
+        <div className="overflow-x-auto pb-1">
+          <div
+            aria-label="设置分类"
+            className="inline-flex min-w-full gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-1"
+            role="tablist"
+          >
+            {settingsTabs.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
+
+              return (
+                <button
+                  aria-controls="settings-panel"
+                  aria-selected={isActive}
+                  className={`flex min-w-[150px] flex-1 items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] ${
+                    isActive
+                      ? "bg-[var(--surface-alt)] text-[var(--foreground)] shadow-sm"
+                      : "text-[var(--muted)] hover:bg-[var(--surface-alt)] hover:text-[var(--foreground)]"
+                  }`}
+                  id={`settings-tab-${tab.id}`}
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  role="tab"
+                  type="button"
+                >
+                  <Icon className="h-4 w-4 shrink-0" />
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-semibold">{tab.label}</span>
+                    <span className="mt-0.5 block truncate text-xs opacity-75">{tab.description}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div
+          aria-labelledby={`settings-tab-${activeTab}`}
+          id="settings-panel"
+          role="tabpanel"
+        >
+          {activeTab === "account" ? (
+            <WorkspacePanel title="个人信息" description="用于后台账号展示，也会影响作者署名的默认显示。">
+              <form className="space-y-5" onSubmit={saveProfile}>
+                <div className="flex items-center gap-4 rounded-xl border border-[var(--border)] bg-[var(--surface-alt)] p-4">
+                  <ImageCropUploadDialog
+                    currentImage={profile.image}
+                    fallbackText={initial}
+                    outputFileName={`avatar-${user.id}.webp`}
+                    onUploaded={(url) => {
+                      setProfile((value) => ({ ...value, image: url }));
+                      toast.success("头像已裁切上传，保存个人信息后生效");
+                    }}
+                  />
+                  <div className="min-w-0">
+                    <p className="font-semibold text-[var(--foreground)]">{profile.name || "未命名管理员"}</p>
+                    <p className="mt-1 truncate text-sm text-[var(--muted)]">{profile.email}</p>
+                    <p className="mt-1 text-xs text-[var(--muted)]">点击头像裁切并上传新图片</p>
+                  </div>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Input
+                    label="显示名称"
+                    onChange={(event) => setProfile((value) => ({ ...value, name: event.target.value }))}
+                    placeholder="例如 RoyDust"
+                    value={profile.name}
+                  />
+                  <Input
+                    label="邮箱"
+                    onChange={(event) => setProfile((value) => ({ ...value, email: event.target.value }))}
+                    placeholder="admin@example.com"
+                    type="email"
+                    value={profile.email}
+                  />
+                </div>
+
+                <Input
+                  helperText="可手动填写远程图片 URL，也可以点击头像裁切上传。留空会移除头像。"
+                  label="头像 URL"
+                  onChange={(event) => setProfile((value) => ({ ...value, image: event.target.value }))}
+                  placeholder="https://example.com/avatar.png"
+                  value={profile.image}
+                />
+
+                <GitHubBinding initialLinked={user.githubLinked} />
+
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm text-[var(--muted)]">角色：{user.role === "ADMIN" ? "管理员" : user.role}</p>
+                  <Button disabled={savingProfile} type="submit">
+                    {savingProfile ? "保存中..." : "保存个人信息"}
+                  </Button>
+                </div>
+              </form>
+            </WorkspacePanel>
+          ) : null}
+
+          {activeTab === "site" ? (
+          <form className="space-y-5" onSubmit={saveSiteSettings}>
+            <WorkspacePanel title="博客配置" description="同步控制前台头部品牌、底部说明、SEO 信息和机器可读入口。">
+              <div className="space-y-4">
+                <Input
+                  label="博客名称"
+                  onChange={(event) => setBlogDraft((value) => ({ ...value, siteName: event.target.value }))}
+                  value={blogDraft.siteName}
+                />
+                <Textarea
+                  label="站点描述"
+                  onChange={(event) => setBlogDraft((value) => ({ ...value, siteDescription: event.target.value }))}
+                  value={blogDraft.siteDescription}
+                />
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Input
+                    label="站点地址"
+                    onChange={(event) => setBlogDraft((value) => ({ ...value, siteUrl: event.target.value }))}
+                    value={blogDraft.siteUrl}
+                  />
+                  <Input
+                    label="默认语言"
+                    onChange={(event) => setBlogDraft((value) => ({ ...value, locale: event.target.value }))}
+                    value={blogDraft.locale}
+                  />
+                </div>
+                <div className="rounded-xl border border-dashed border-[var(--border)] bg-[var(--surface-alt)] p-4 text-sm text-[var(--muted)]">
+                  这些字段会同步到前台导航左侧品牌、页脚说明、站点标题、SEO 描述、RSS、站点地图和默认语言。
+                </div>
+                <div className="flex justify-end">
+                  <Button disabled={savingBlogSettings} type="submit" variant="outline">
+                    {savingBlogSettings ? "保存中..." : "保存博客配置"}
+                  </Button>
+                </div>
               </div>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <Input
-                label="显示名称"
-                onChange={(event) => setProfile((value) => ({ ...value, name: event.target.value }))}
-                placeholder="例如 RoyDust"
-                value={profile.name}
-              />
-              <Input
-                label="邮箱"
-                onChange={(event) => setProfile((value) => ({ ...value, email: event.target.value }))}
-                placeholder="admin@example.com"
-                type="email"
-                value={profile.email}
-              />
-            </div>
-
-            <Input
-              helperText="可手动填写远程图片 URL，也可以点击头像裁切上传。留空会移除头像。"
-              label="头像 URL"
-              onChange={(event) => setProfile((value) => ({ ...value, image: event.target.value }))}
-              placeholder="https://example.com/avatar.png"
-              value={profile.image}
-            />
-
-            <GitHubBinding initialLinked={user.githubLinked} />
-
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-sm text-[var(--muted)]">角色：{user.role === "ADMIN" ? "管理员" : user.role}</p>
-              <Button disabled={savingProfile} type="submit">
-                {savingProfile ? "保存中..." : "保存个人信息"}
-              </Button>
-            </div>
+            </WorkspacePanel>
           </form>
-        </WorkspacePanel>
+          ) : null}
 
-        <div className="space-y-5">
-          <WorkspacePanel title="博客配置" description="当前后端还没有站点配置表，这里先按原型保留静态编辑样式。">
-            <form className="space-y-4">
-              <Input
-                label="博客名称"
-                onChange={(event) => setBlogDraft((value) => ({ ...value, siteName: event.target.value }))}
-                value={blogDraft.siteName}
-              />
-              <Textarea
-                label="站点描述"
-                onChange={(event) => setBlogDraft((value) => ({ ...value, siteDescription: event.target.value }))}
-                value={blogDraft.siteDescription}
-              />
-              <div className="grid gap-4 md:grid-cols-2">
+          {activeTab === "publicProfile" ? (
+          <form className="space-y-5" onSubmit={savePublicProfileSettings}>
+            <WorkspacePanel title="公开个人信息栏" description="同步控制前台左侧作者资料卡和关于页头部介绍。">
+              <div className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Input
+                    label="作者副标题"
+                    onChange={(event) => updatePublicProfileDraft({ subtitle: event.target.value })}
+                    value={blogDraft.profile.subtitle}
+                  />
+                  <Input
+                    label="作者标语"
+                    onChange={(event) => updatePublicProfileDraft({ tagline: event.target.value })}
+                    value={blogDraft.profile.tagline}
+                  />
+                </div>
+                <Textarea
+                  label="作者简介"
+                  onChange={(event) => updatePublicProfileDraft({ bio: event.target.value })}
+                  value={blogDraft.profile.bio}
+                />
+                <Textarea
+                  label="作者介绍"
+                  onChange={(event) => updatePublicProfileDraft({ intro: event.target.value })}
+                  value={blogDraft.profile.intro}
+                />
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Input
+                    label="GitHub 链接"
+                    onChange={(event) => updatePublicProfileDraft({ githubUrl: event.target.value })}
+                    value={blogDraft.profile.githubUrl}
+                  />
+                  <Input
+                    label="Twitter / X 链接"
+                    onChange={(event) => updatePublicProfileDraft({ twitterUrl: event.target.value })}
+                    value={blogDraft.profile.twitterUrl}
+                  />
+                </div>
+                <div className="flex justify-end">
+                  <Button disabled={savingBlogSettings} type="submit" variant="outline">
+                    {savingBlogSettings ? "保存中..." : "保存博客配置"}
+                  </Button>
+                </div>
+              </div>
+            </WorkspacePanel>
+          </form>
+          ) : null}
+
+          {activeTab === "about" ? (
+          <form className="space-y-5" onSubmit={saveAboutSettings}>
+            <WorkspacePanel title="关于页面内容" description="同步控制 /about 页面中的介绍、动态、亮点、技术栈和联系文案。">
+              <div className="space-y-5">
                 <Input
-                  label="站点地址"
-                  onChange={(event) => setBlogDraft((value) => ({ ...value, siteUrl: event.target.value }))}
-                  value={blogDraft.siteUrl}
+                  label="关于模块标题"
+                  onChange={(event) => updateAboutDraft({ aboutTitle: event.target.value })}
+                  value={blogDraft.about.aboutTitle}
+                />
+                <Textarea
+                  helperText="每行一段，最多保存 4 段。"
+                  label="关于模块段落"
+                  onChange={(event) => updateAboutDraft({ aboutParagraphs: fromMultiline(event.target.value) })}
+                  value={toMultiline(blogDraft.about.aboutParagraphs)}
                 />
                 <Input
-                  label="默认语言"
-                  onChange={(event) => setBlogDraft((value) => ({ ...value, locale: event.target.value }))}
-                  value={blogDraft.locale}
+                  label="动态模块标题"
+                  onChange={(event) => updateAboutDraft({ nowTitle: event.target.value })}
+                  value={blogDraft.about.nowTitle}
                 />
+                <Textarea
+                  helperText="每行一条，最多保存 6 条。"
+                  label="动态条目"
+                  onChange={(event) => updateAboutDraft({ nowItems: fromMultiline(event.target.value) })}
+                  value={toMultiline(blogDraft.about.nowItems)}
+                />
+                <div className="space-y-4 rounded-xl border border-[var(--border)] p-4">
+                  <p className="text-sm font-semibold text-[var(--foreground)]">亮点卡片</p>
+                  {blogDraft.about.highlights.map((item, index) => (
+                    <div className="grid gap-3 md:grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)]" key={`highlight-${index}`}>
+                      <Input
+                        label={`亮点 ${index + 1} 标题`}
+                        onChange={(event) => updateAboutCard("highlights", index, "title", event.target.value)}
+                        value={item.title}
+                      />
+                      <Input
+                        label={`亮点 ${index + 1} 描述`}
+                        onChange={(event) => updateAboutCard("highlights", index, "description", event.target.value)}
+                        value={item.description}
+                      />
+                    </div>
+                  ))}
+                </div>
+                <Input
+                  label="技术栈标题"
+                  onChange={(event) => updateAboutDraft({ stackTitle: event.target.value })}
+                  value={blogDraft.about.stackTitle}
+                />
+                <div className="space-y-4 rounded-xl border border-[var(--border)] p-4">
+                  <p className="text-sm font-semibold text-[var(--foreground)]">技术栈卡片</p>
+                  {blogDraft.about.stack.map((item, index) => (
+                    <div className="grid gap-3 md:grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)]" key={`stack-${index}`}>
+                      <Input
+                        label={`技术栈 ${index + 1} 标题`}
+                        onChange={(event) => updateAboutCard("stack", index, "title", event.target.value)}
+                        value={item.title}
+                      />
+                      <Input
+                        label={`技术栈 ${index + 1} 描述`}
+                        onChange={(event) => updateAboutCard("stack", index, "description", event.target.value)}
+                        value={item.description}
+                      />
+                    </div>
+                  ))}
+                </div>
+                <Input
+                  label="联系模块标题"
+                  onChange={(event) => updateAboutDraft({ contactTitle: event.target.value })}
+                  value={blogDraft.about.contactTitle}
+                />
+                <Textarea
+                  label="联系模块描述"
+                  onChange={(event) => updateAboutDraft({ contactDescription: event.target.value })}
+                  value={blogDraft.about.contactDescription}
+                />
+                <div className="flex justify-end">
+                  <Button disabled={savingBlogSettings} type="submit" variant="outline">
+                    {savingBlogSettings ? "保存中..." : "保存博客配置"}
+                  </Button>
+                </div>
               </div>
-              <div className="rounded-xl border border-dashed border-[var(--border)] bg-[var(--surface-alt)] p-4 text-sm text-[var(--muted)]">
-                这些字段对应站点标题、SEO 描述和默认语言。接入持久化后会写入博客配置表并同步到 metadata。
-              </div>
-              <Button disabled type="button" variant="outline">
-                保存博客配置（待接入）
-              </Button>
-            </form>
-          </WorkspacePanel>
+            </WorkspacePanel>
+          </form>
+          ) : null}
 
+          {activeTab === "logs" ? (
           <WorkspacePanel title="日志设置" description="控制后台接口日志表的总占用，超过上限后优先清理最旧日志。">
             <form className="space-y-4" onSubmit={saveLogSettings}>
               <Input
@@ -256,27 +549,8 @@ export function AdminSettingsClient({ user, blogSettings, operationLogSettings }
               </div>
             </form>
           </WorkspacePanel>
+          ) : null}
         </div>
-      </div>
-
-      <div className="grid gap-5 lg:grid-cols-3">
-        {[
-          { icon: UserRound, title: "账号入口", text: "左下角头像菜单现在承载设置和退出账号。" },
-          { icon: Globe2, title: "站点信息", text: "博客配置保持静态编辑态，等待后端配置表。" },
-          { icon: ShieldCheck, title: "权限范围", text: "当前页面仅后台管理员可访问。" },
-          { icon: ImageIcon, title: "头像展示", text: "个人头像 URL 保存后会进入用户资料。" },
-          { icon: HardDrive, title: "日志上限", text: "接口日志超过配置大小后自动清理旧记录。" },
-        ].map((item) => {
-          const Icon = item.icon;
-
-          return (
-            <section className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4" key={item.title}>
-              <Icon className="h-5 w-5 text-[var(--brand)]" />
-              <h3 className="mt-3 font-semibold text-[var(--foreground)]">{item.title}</h3>
-              <p className="mt-2 text-sm leading-6 text-[var(--muted)]">{item.text}</p>
-            </section>
-          );
-        })}
       </div>
     </div>
   );

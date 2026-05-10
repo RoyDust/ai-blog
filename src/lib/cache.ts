@@ -7,6 +7,23 @@ import { revalidatePath } from 'next/cache'
 export const PUBLIC_REVALIDATE_SECONDS = 300
 
 const PUBLIC_LIST_PATHS = ['/', '/posts', '/archives'] as const
+const BLOG_SETTINGS_PATHS = [
+  '/',
+  '/about',
+  '/posts',
+  '/archives',
+  '/categories',
+  '/tags',
+  '/search',
+  '/bookmarks',
+  '/admin',
+  '/rss.xml',
+  '/sitemap.xml',
+  '/robots.txt',
+  '/manifest.webmanifest',
+  '/llms.txt',
+  '/api/ai/openapi',
+] as const
 
 function normalizePathSlug(value: string | null | undefined) {
   const normalized = value?.trim()
@@ -78,6 +95,17 @@ export function revalidatePublicContent(options: {
   ])
 
   for (const path of paths) {
+    revalidatePath(path)
+  }
+}
+
+/**
+ * 站点级配置会影响根布局、公共 metadata 和机器可读入口。
+ */
+export function revalidateBlogSettings() {
+  revalidatePath('/', 'layout')
+
+  for (const path of BLOG_SETTINGS_PATHS) {
     revalidatePath(path)
   }
 }

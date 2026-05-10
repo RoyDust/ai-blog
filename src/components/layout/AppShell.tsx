@@ -7,9 +7,11 @@ import type { PublicProfile } from "@/lib/public-profile-data";
 interface AppShellProps {
   children: ReactNode;
   profile?: PublicProfile;
+  siteDescription?: string;
+  siteName?: string;
 }
 
-export function AppShell({ children, profile }: AppShellProps) {
+export function AppShell({ children, profile, siteDescription, siteName }: AppShellProps) {
   return (
     <div className="reader-shell flex min-h-screen flex-col bg-[var(--page-bg)] text-[var(--foreground)] transition-colors">
       <a
@@ -18,7 +20,7 @@ export function AppShell({ children, profile }: AppShellProps) {
       >
         跳到主要内容
       </a>
-      <Navbar />
+      <Navbar siteName={siteName} />
       <div className="flex flex-1 flex-col">
         <div className="relative z-10 mx-auto flex w-full max-w-[var(--page-width)] flex-1 flex-col gap-6 px-4 pb-8 pt-[clamp(2.5rem,4vw,4.25rem)] xl:flex-row xl:gap-[var(--layout-rail-gap)]">
           <div data-testid="sidebar-rail" className="reader-side-rail hidden xl:block xl:w-[var(--rail-width)] xl:shrink-0">
@@ -31,7 +33,7 @@ export function AppShell({ children, profile }: AppShellProps) {
           </main>
         </div>
         <div className="relative z-10 mx-auto w-full max-w-[var(--page-width)] px-4 pb-8">
-          <Footer />
+          <Footer siteDescription={siteDescription} siteName={siteName} />
         </div>
       </div>
     </div>

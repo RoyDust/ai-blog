@@ -9,6 +9,7 @@ import { type AdminNavItem, adminNavItems, isAdminNavItemActive } from "./config
 
 interface AdminSiderProps {
   pathname: string;
+  siteName: string;
   user: {
     email?: string | null;
     image?: string | null;
@@ -29,7 +30,7 @@ function getInitials(value: string) {
   return [...value.trim()].slice(0, 2).join("").toUpperCase() || "A";
 }
 
-export function AdminSider({ pathname, user }: AdminSiderProps) {
+export function AdminSider({ pathname, siteName, user }: AdminSiderProps) {
   const userLabel = user.label;
   const mainItems = adminNavItems.filter((item) => item.group === "主导航");
   const aiItems = adminNavItems.filter((item) => item.group === "AI 辅助");
@@ -94,7 +95,9 @@ export function AdminSider({ pathname, user }: AdminSiderProps) {
           <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-[var(--brand)]">
             <Leaf className="h-5 w-5" />
           </span>
-          <span className="font-display text-2xl font-semibold tracking-tight text-[var(--foreground)]">roydust.top</span>
+          <span className="min-w-0 truncate font-display text-2xl font-semibold tracking-tight text-[var(--foreground)]">
+            {siteName}
+          </span>
         </Link>
       </div>
 

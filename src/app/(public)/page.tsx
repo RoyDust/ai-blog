@@ -12,16 +12,22 @@ export const revalidate = 300
 import type { Metadata } from 'next'
 import { HomeDiscoveryGrid, HomeLatestPosts } from '@/components/blog'
 import { HomeReaderBanner } from '@/components/blog/HomeReaderBanner'
+import { getBlogSettings } from '@/lib/blog-settings'
 import { POSTS_PAGE_SIZE } from '@/lib/pagination'
 import { getFeaturedPosts, getPublishedPostsPage } from '@/lib/posts'
 import { prisma } from '@/lib/prisma'
 import { buildPageMetadata } from '@/lib/seo'
 
-export const metadata: Metadata = buildPageMetadata({
-  title: 'My Blog',
-  description: 'A modern blog system built with Next.js and Prisma.',
-  path: '/',
-})
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getBlogSettings()
+
+  return buildPageMetadata({
+    title: settings.siteName,
+    description: settings.siteDescription,
+    path: '/',
+    siteUrl: settings.siteUrl,
+  })
+}
 
 /**
  * 并发加载首页数据。
