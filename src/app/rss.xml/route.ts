@@ -1,7 +1,10 @@
-import { prisma } from '@/lib/prisma'
 import { getSiteUrl } from '@/lib/seo'
 
+export const dynamic = 'force-dynamic'
+
 async function getRssPosts() {
+  const { prisma } = await import('@/lib/prisma')
+
   return prisma.post.findMany({
     where: { published: true, deletedAt: null },
     select: {

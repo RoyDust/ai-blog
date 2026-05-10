@@ -6,14 +6,6 @@ const prismaMocks = vi.hoisted(() => ({
   tagFindMany: vi.fn(),
 }))
 
-vi.mock('@/lib/prisma', () => ({
-  prisma: {
-    post: { findMany: prismaMocks.postFindMany },
-    category: { findMany: prismaMocks.categoryFindMany },
-    tag: { findMany: prismaMocks.tagFindMany },
-  },
-}))
-
 describe('sitemap', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -45,8 +37,12 @@ describe('sitemap', () => {
   })
 
   test('builds public canonical routes and omits utility pages', async () => {
-    const { default: sitemap } = await import('../sitemap')
-    const entries = await sitemap()
+    const { buildSitemap } = await import('../sitemap')
+    const entries = await buildSitemap({
+      post: { findMany: prismaMocks.postFindMany },
+      category: { findMany: prismaMocks.categoryFindMany },
+      tag: { findMany: prismaMocks.tagFindMany },
+    } as Parameters<typeof buildSitemap>[0])
     const urls = entries.map((entry) => entry.url)
 
     expect(prismaMocks.postFindMany).toHaveBeenCalledWith(
