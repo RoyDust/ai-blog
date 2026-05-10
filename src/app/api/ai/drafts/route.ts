@@ -1,3 +1,4 @@
+import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 import { NextResponse } from "next/server";
 
 import { requireAiClient } from "@/lib/ai-auth";
@@ -6,7 +7,7 @@ import { generatePostReview, isAutoPublishableReview } from "@/lib/ai-review";
 import { toErrorResponse, ValidationError } from "@/lib/api-errors";
 import { parseAiDraftInput } from "@/lib/validation";
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
   try {
     const client = await requireAiClient(request, "drafts:write");
     let payload: unknown;
@@ -85,3 +86,5 @@ export async function POST(request: Request) {
     return toErrorResponse(error);
   }
 }
+
+export const POST = withApiOperationLogging(POSTHandler, { scope: 'ai', operation: 'ai.drafts.create', route: '/api/ai/drafts' });

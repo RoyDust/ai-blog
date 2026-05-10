@@ -1,3 +1,4 @@
+import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 import { NextResponse } from "next/server";
 
 import { requireAdminSession } from "@/lib/api-auth";
@@ -9,12 +10,7 @@ type Body = {
   capability?: AiModelCapability;
 };
 
-/**
- * 切换指定能力的默认 AI 模型。
- *
- * 当前只支持 post-summary 和 cover-image 两类能力，避免前端传入未定义能力导致默认模型状态不一致。
- */
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
   try {
     await requireAdminSession();
 
@@ -35,3 +31,5 @@ export async function POST(request: Request) {
     return toErrorResponse(error, "AI model default switch failed");
   }
 }
+
+export const POST = withApiOperationLogging(POSTHandler, { scope: 'admin', operation: 'admin.ai.models.default.create', route: '/api/admin/ai/models/default' });

@@ -1,3 +1,4 @@
+import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 import { NextResponse } from "next/server"
 
 import { requireAdminSession } from "@/lib/api-auth"
@@ -5,12 +6,7 @@ import { toErrorResponse } from "@/lib/api-errors"
 import { backfillMissingPostCovers } from "@/lib/cover-assets"
 import { parseCoverRandomizeInput } from "@/lib/validation"
 
-/**
- * 批量给缺少封面的文章随机补齐图库素材。
- *
- * 这是会修改文章数据的显式管理动作，默认由服务层限制到已发布文章。
- */
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
   try {
     await requireAdminSession()
 
@@ -22,3 +18,5 @@ export async function POST(request: Request) {
     return toErrorResponse(error)
   }
 }
+
+export const POST = withApiOperationLogging(POSTHandler, { scope: 'admin', operation: 'admin.covers.randomizeposts.create', route: '/api/admin/covers/randomize-posts' });

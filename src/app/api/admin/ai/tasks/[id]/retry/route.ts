@@ -1,3 +1,4 @@
+import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 import { NextResponse } from "next/server";
 
 import { requireAdminSession } from "@/lib/api-auth";
@@ -7,13 +8,7 @@ import { resumePostSummaryJobs } from "@/lib/post-summary-jobs";
 import { toErrorResponse } from "@/lib/api-errors";
 import { prisma } from "@/lib/prisma";
 
-/**
- * 为指定 AI 任务的失败项创建重试任务。
- *
- * 旧摘要任务、批量补全任务和单项 AI 动作的恢复路径不同，
- * 这里按任务类型分发到对应的执行器。
- */
-export async function POST(_: Request, { params }: { params: Promise<{ id: string }> }) {
+async function POSTHandler(_: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await requireAdminSession();
     const { id } = await params;
@@ -49,3 +44,5 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
     return toErrorResponse(error, "AI task retry failed");
   }
 }
+
+export const POST = withApiOperationLogging(POSTHandler, { scope: 'admin', operation: 'admin.ai.tasks.byId.retry.create', route: '/api/admin/ai/tasks/[id]/retry' });

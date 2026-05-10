@@ -1,3 +1,4 @@
+import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 import { NextResponse } from "next/server";
 
 import { requireAiClient } from "@/lib/ai-auth";
@@ -5,7 +6,7 @@ import { getAiDraft } from "@/lib/ai-authoring";
 import { NotFoundError, toErrorResponse } from "@/lib/api-errors";
 import { parseAiDraftExternalId } from "@/lib/validation";
 
-export async function GET(
+async function GETHandler(
   request: Request,
   { params }: { params: Promise<{ externalId: string }> },
 ) {
@@ -23,3 +24,5 @@ export async function GET(
     return toErrorResponse(error);
   }
 }
+
+export const GET = withApiOperationLogging(GETHandler, { scope: 'ai', operation: 'ai.drafts.byExternalId.read', route: '/api/ai/drafts/[externalId]' });

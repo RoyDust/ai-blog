@@ -1,3 +1,4 @@
+import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 import { NextResponse } from "next/server";
 
 import { requireAdminSession } from "@/lib/api-auth";
@@ -8,12 +9,7 @@ type RouteContext = {
   params: Promise<{ id: string }>;
 };
 
-/**
- * 测试 AI 模型连接。
- *
- * 测试结果会写回模型记录，供配置页展示最近一次连通性状态。
- */
-export async function POST(_request: Request, context: RouteContext) {
+async function POSTHandler(_request: Request, context: RouteContext) {
   try {
     await requireAdminSession();
 
@@ -38,3 +34,5 @@ export async function POST(_request: Request, context: RouteContext) {
     return toErrorResponse(error, "AI model test failed");
   }
 }
+
+export const POST = withApiOperationLogging(POSTHandler, { scope: 'admin', operation: 'admin.ai.models.byId.test.create', route: '/api/admin/ai/models/[id]/test' });

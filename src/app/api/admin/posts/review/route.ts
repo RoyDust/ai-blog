@@ -1,3 +1,4 @@
+import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 /**
  * 后台文章 AI 审稿 API。
  *
@@ -16,7 +17,7 @@ import { generatePostReview } from "@/lib/ai-review"
  * 对当前文章执行一次 AI 审稿。
  * 该接口只返回审稿结果，不直接改变文章发布状态。
  */
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
   try {
     await requireAdminSession()
 
@@ -40,3 +41,5 @@ export async function POST(request: Request) {
     return toErrorResponse(error, error instanceof Error ? error.message : "Review generation failed")
   }
 }
+
+export const POST = withApiOperationLogging(POSTHandler, { scope: 'admin', operation: 'admin.posts.review.create', route: '/api/admin/posts/review' });

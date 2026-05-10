@@ -1,3 +1,4 @@
+import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { revalidatePublicContent } from "@/lib/cache"
@@ -7,7 +8,7 @@ import { canPublish, requireSession } from "@/lib/api-auth"
 import { toErrorResponse } from "@/lib/api-errors"
 import { getSummaryFieldsForExcerpt } from "@/lib/post-summary-status"
 
-export async function GET(request: Request) {
+async function GETHandler(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const { page, limit } = clampPagination({
@@ -34,7 +35,7 @@ export async function GET(request: Request) {
   }
 }
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
   try {
     const session = await requireSession()
 
@@ -83,3 +84,6 @@ export async function POST(request: Request) {
     return toErrorResponse(error)
   }
 }
+
+export const GET = withApiOperationLogging(GETHandler, { scope: 'public', operation: 'public.posts.read', route: '/api/posts' });
+export const POST = withApiOperationLogging(POSTHandler, { scope: 'public', operation: 'public.posts.create', route: '/api/posts' });

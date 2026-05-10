@@ -1,3 +1,4 @@
+import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 /**
  * 前台搜索 API。
  *
@@ -255,7 +256,7 @@ async function generateAiSearchResult({ query, items }: { query: string; items: 
  * - page / limit: 分页
  * - ai=1: 显式请求 AI 搜索增强
  */
-export async function GET(request: Request) {
+async function GETHandler(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const query = searchParams.get('q')?.trim() ?? ''
@@ -363,3 +364,5 @@ export async function GET(request: Request) {
     return toErrorResponse(error)
   }
 }
+
+export const GET = withApiOperationLogging(GETHandler, { scope: 'public', operation: 'public.search.read', route: '/api/search' });

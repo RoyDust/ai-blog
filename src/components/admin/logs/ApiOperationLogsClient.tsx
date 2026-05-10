@@ -1,0 +1,422 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import { CheckCircle2, Eye, RefreshCw, Search, Trash2, XCircle } from "lucide-react";
+
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/admin/ui";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/shadcn/ui/select";
+import { readApiJson } from "@/lib/admin-api-client";
+
+type LogItem = {
+  id: string;
+  requestId: string;
+  method: string;
+  path: string;
+  route: string | null;
+  scope: string;
+  operation: string | null;
+  statusCode: number | null;
+  success: boolean;
+  durationMs: number | null;
+  actorType: string | null;
+  actorUserId: string | null;
+  actorClientId: string | null;
+  actorLabel: string | null;
+  ipHash: string | null;
+  userAgent: string | null;
+  query: unknown;
+  requestBody: unknown;
+  errorName: string | null;
+  errorMessage: string | null;
+  metadata: unknown;
+  createdAt: string;
+};
+
+type LogPayload = {
+  items: LogItem[];
+  nextCursor: string | null;
+  summary: {
+    totalCount: number;
+    failedCount: number;
+    successCount: number;
+  };
+};
+
+const rangeOptions = [
+  { value: "1", label: "24 小时" },
+  { value: "7", label: "7 天" },
+  { value: "30", label: "30 天" },
+  { value: "90", label: "90 天" },
+];
+
+const methodOptions = ["", "GET", "POST", "PATCH", "DELETE"];
+const statusOptions = [
+  { value: "", label: "全部状态" },
+  { value: "2xx", label: "2xx" },
+  { value: "3xx", label: "3xx" },
+  { value: "4xx", label: "4xx" },
+  { value: "5xx", label: "5xx" },
+];
+
+const scopeOptions = ["", "admin", "public", "auth", "ai", "cron", "analytics", "account"];
+const allFilterValue = "__all__";
+const selectTriggerClassName = "h-10 w-full rounded-xl border-[var(--border)] bg-[var(--surface)] px-3 text-sm font-medium text-[var(--foreground)] shadow-none";
+
+function filterValue(value: string) {
+  return value || allFilterValue;
+}
+
+function normalizeFilterValue(value: string) {
+  return value === allFilterValue ? "" : value;
+}
+
+function formatDate(value: string) {
+  return new Date(value).toLocaleString("zh-CN", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+}
+
+function formatActor(item: LogItem) {
+  if (item.actorLabel) return item.actorLabel;
+  if (item.actorClientId) return item.actorClientId;
+  if (item.actorUserId) return item.actorUserId;
+  return item.actorType ?? "unknown";
+}
+
+function statusClassName(success: boolean) {
+  return success ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700";
+}
+
+function methodClassName(method: string) {
+  if (method === "GET") return "bg-sky-50 text-sky-700";
+  if (method === "POST") return "bg-emerald-50 text-emerald-700";
+  if (method === "PATCH") return "bg-amber-50 text-amber-700";
+  if (method === "DELETE") return "bg-rose-50 text-rose-700";
+  return "bg-[var(--surface-alt)] text-[var(--muted)]";
+}
+
+function JsonBlock({ value }: { value: unknown }) {
+  if (value === null || value === undefined) {
+    return <p className="text-sm text-[var(--muted)]">无</p>;
+  }
+
+  return (
+    <pre className="max-h-52 overflow-auto rounded-xl bg-[var(--surface-alt)] p-3 text-xs leading-5 text-[var(--foreground)]">
+      {JSON.stringify(value, null, 2)}
+    </pre>
+  );
+}
+
+export function ApiOperationLogsClient() {
+  const [range, setRange] = useState("7");
+  const [method, setMethod] = useState("");
+  const [status, setStatus] = useState("");
+  const [scope, setScope] = useState("");
+  const [query, setQuery] = useState("");
+  const [includeSelf, setIncludeSelf] = useState(false);
+  const [payload, setPayload] = useState<LogPayload>({ items: [], nextCursor: null, summary: { totalCount: 0, failedCount: 0, successCount: 0 } });
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedLog, setSelectedLog] = useState<LogItem | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [purging, setPurging] = useState(false);
+
+  const buildLogsUrl = useCallback((cursor?: string | null) => {
+    const params = new URLSearchParams({ range, limit: "40" });
+    if (method) params.set("method", method);
+    if (status) params.set("status", status);
+    if (scope) params.set("scope", scope);
+    if (query.trim()) params.set("path", query.trim());
+    if (includeSelf) params.set("includeSelf", "1");
+    if (cursor) params.set("cursor", cursor);
+    return `/api/admin/logs?${params.toString()}`;
+  }, [includeSelf, method, query, range, scope, status]);
+
+  const loadLogs = useCallback(async (cursor?: string | null) => {
+    const append = Boolean(cursor);
+    try {
+      if (append) {
+        setLoadingMore(true);
+      } else {
+        setLoading(true);
+      }
+      setError(null);
+      const response = await fetch(buildLogsUrl(cursor), { cache: "no-store" });
+      const data = await readApiJson<{ success?: boolean; data?: LogPayload }>(response, "接口日志加载失败");
+      const nextPayload = data.data;
+      if (!nextPayload) {
+        throw new Error("接口日志加载失败");
+      }
+      setPayload((current) => append ? {
+        ...nextPayload,
+        items: [...current.items, ...nextPayload.items],
+      } : nextPayload);
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "接口日志加载失败");
+    } finally {
+      if (append) {
+        setLoadingMore(false);
+      } else {
+        setLoading(false);
+      }
+    }
+  }, [buildLogsUrl]);
+
+  useEffect(() => {
+    void loadLogs();
+  }, [loadLogs]);
+
+  const openDetail = useCallback(async (item: LogItem) => {
+    setSelectedLog(item);
+    setDetailLoading(true);
+    try {
+      const response = await fetch(`/api/admin/logs/${item.id}`, { cache: "no-store" });
+      const data = await readApiJson<{ success?: boolean; data?: LogItem }>(response, "接口日志详情加载失败");
+      if (data.data) {
+        setSelectedLog(data.data);
+      }
+    } catch (detailError) {
+      setError(detailError instanceof Error ? detailError.message : "接口日志详情加载失败");
+    } finally {
+      setDetailLoading(false);
+    }
+  }, []);
+
+  const purgeOldLogs = useCallback(async () => {
+    try {
+      setPurging(true);
+      setError(null);
+      await readApiJson(await fetch("/api/admin/logs/purge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ retentionDays: 30 }),
+      }), "接口日志清理失败");
+      await loadLogs();
+    } catch (purgeError) {
+      setError(purgeError instanceof Error ? purgeError.message : "接口日志清理失败");
+    } finally {
+      setPurging(false);
+    }
+  }, [loadLogs]);
+
+  return (
+    <div className="space-y-4">
+      <section className="grid gap-3 md:grid-cols-3">
+        <div className="ui-surface rounded-2xl px-4 py-3">
+          <p className="text-xs font-medium uppercase text-[var(--muted)]">总请求</p>
+          <p className="mt-2 text-2xl font-semibold text-[var(--foreground)]">{payload.summary.totalCount}</p>
+        </div>
+        <div className="ui-surface rounded-2xl px-4 py-3">
+          <p className="text-xs font-medium uppercase text-[var(--muted)]">成功</p>
+          <p className="mt-2 text-2xl font-semibold text-emerald-700">{payload.summary.successCount}</p>
+        </div>
+        <div className="ui-surface rounded-2xl px-4 py-3">
+          <p className="text-xs font-medium uppercase text-[var(--muted)]">失败</p>
+          <p className="mt-2 text-2xl font-semibold text-rose-700">{payload.summary.failedCount}</p>
+        </div>
+      </section>
+
+      <section className="ui-surface rounded-2xl p-3">
+        <div className="grid gap-3 lg:grid-cols-[repeat(4,minmax(0,1fr))_minmax(240px,1.4fr)_auto]">
+          <Select value={range} onValueChange={setRange}>
+            <SelectTrigger className={selectTriggerClassName}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="rounded-xl border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)]">
+              {rangeOptions.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={filterValue(method)} onValueChange={(value) => setMethod(normalizeFilterValue(value))}>
+            <SelectTrigger className={selectTriggerClassName}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="rounded-xl border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)]">
+              {methodOptions.map((option) => (
+                <SelectItem key={option || allFilterValue} value={option || allFilterValue}>
+                  {option || "全部方法"}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={filterValue(status)} onValueChange={(value) => setStatus(normalizeFilterValue(value))}>
+            <SelectTrigger className={selectTriggerClassName}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="rounded-xl border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)]">
+              {statusOptions.map((option) => (
+                <SelectItem key={option.value || allFilterValue} value={option.value || allFilterValue}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={filterValue(scope)} onValueChange={(value) => setScope(normalizeFilterValue(value))}>
+            <SelectTrigger className={selectTriggerClassName}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="rounded-xl border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)]">
+              {scopeOptions.map((option) => (
+                <SelectItem key={option || allFilterValue} value={option || allFilterValue}>
+                  {option || "全部范围"}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <label className="relative block">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--muted)]" />
+            <input
+              className="ui-ring w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] py-2 pl-9 pr-3 text-sm"
+              placeholder="搜索 path / operation / requestId"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+            />
+          </label>
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="inline-flex items-center gap-2 whitespace-nowrap rounded-xl border border-[var(--border)] px-3 py-2 text-sm text-[var(--foreground)]">
+              <input checked={includeSelf} onChange={(event) => setIncludeSelf(event.target.checked)} type="checkbox" />
+              显示自身
+            </label>
+            <Button aria-label="刷新接口日志" onClick={() => void loadLogs()} size="icon" type="button" variant="outline">
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+            <Button aria-label="清理旧日志" disabled={purging} onClick={() => void purgeOldLogs()} size="icon" type="button" variant="outline">
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </section>
+
+      <section className="ui-surface overflow-hidden rounded-3xl">
+        <div className="flex items-center justify-between gap-3 border-b border-[var(--border)] px-5 py-4">
+          <div>
+            <h2 className="text-base font-semibold text-[var(--foreground)]">请求记录</h2>
+            <p className="mt-1 text-sm text-[var(--muted)]">{payload.summary.totalCount} 条匹配记录</p>
+          </div>
+        </div>
+
+        {loading ? <p className="px-5 py-10 text-center text-sm text-[var(--muted)]">正在加载接口日志...</p> : null}
+        {!loading && error ? <p className="px-5 py-10 text-center text-sm text-rose-600">{error}</p> : null}
+        {!loading && !error && payload.items.length === 0 ? <p className="px-5 py-10 text-center text-sm text-[var(--muted)]">暂无匹配日志。</p> : null}
+
+        {!loading && !error && payload.items.length > 0 ? (
+          <>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>时间</TableHead>
+                  <TableHead>状态</TableHead>
+                  <TableHead>方法</TableHead>
+                  <TableHead>路径</TableHead>
+                  <TableHead>调用方</TableHead>
+                  <TableHead>耗时</TableHead>
+                  <TableHead>Request ID</TableHead>
+                  <TableHead>详情</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {payload.items.map((item) => (
+                  <TableRow key={item.id}>
+                    <TableCell className="whitespace-nowrap text-xs text-[var(--muted)]">{formatDate(item.createdAt)}</TableCell>
+                    <TableCell>
+                      <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${statusClassName(item.success)}`}>
+                        {item.success ? <CheckCircle2 className="h-3.5 w-3.5" /> : <XCircle className="h-3.5 w-3.5" />}
+                        {item.statusCode ?? "NA"}
+                      </span>
+                    </TableCell>
+                    <TableCell><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${methodClassName(item.method)}`}>{item.method}</span></TableCell>
+                    <TableCell className="max-w-[340px]">
+                      <p className="truncate font-medium">{item.path}</p>
+                      <p className="mt-1 truncate text-xs text-[var(--muted)]">{item.operation ?? item.route ?? item.scope}</p>
+                    </TableCell>
+                    <TableCell className="max-w-[180px] truncate">{formatActor(item)}</TableCell>
+                    <TableCell className="whitespace-nowrap">{item.durationMs ?? 0} ms</TableCell>
+                    <TableCell className="max-w-[190px] truncate text-xs text-[var(--muted)]">{item.requestId}</TableCell>
+                    <TableCell>
+                      <Button aria-label="查看接口日志详情" onClick={() => void openDetail(item)} size="sm" type="button" variant="outline">
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            {payload.nextCursor ? (
+              <div className="border-t border-[var(--border)] px-5 py-4 text-center">
+                <Button disabled={loadingMore} onClick={() => void loadLogs(payload.nextCursor)} type="button" variant="outline">
+                  {loadingMore ? "正在加载..." : "加载更多"}
+                </Button>
+              </div>
+            ) : null}
+          </>
+        ) : null}
+      </section>
+
+      <Dialog open={Boolean(selectedLog)} onOpenChange={(open) => !open && setSelectedLog(null)}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>接口日志详情</DialogTitle>
+            <DialogDescription>{selectedLog ? `${selectedLog.method} ${selectedLog.path}` : ""}</DialogDescription>
+          </DialogHeader>
+          {selectedLog ? (
+            <div className="max-h-[70dvh] space-y-4 overflow-y-auto px-6 py-5">
+              {detailLoading ? <p className="text-sm text-[var(--muted)]">正在加载详情...</p> : null}
+              <div className="grid gap-3 md:grid-cols-3">
+                <div><p className="text-xs text-[var(--muted)]">Request ID</p><p className="mt-1 break-all text-sm">{selectedLog.requestId}</p></div>
+                <div><p className="text-xs text-[var(--muted)]">Operation</p><p className="mt-1 text-sm">{selectedLog.operation ?? "未标记"}</p></div>
+                <div><p className="text-xs text-[var(--muted)]">Actor</p><p className="mt-1 text-sm">{formatActor(selectedLog)}</p></div>
+              </div>
+              {selectedLog.errorMessage ? (
+                <div className="rounded-xl bg-rose-50 p-3 text-sm text-rose-700">
+                  <p className="font-medium">{selectedLog.errorName ?? "Error"}</p>
+                  <p className="mt-1">{selectedLog.errorMessage}</p>
+                </div>
+              ) : null}
+              <div className="grid gap-4 lg:grid-cols-2">
+                <section>
+                  <h3 className="mb-2 text-sm font-semibold">Query</h3>
+                  <JsonBlock value={selectedLog.query} />
+                </section>
+                <section>
+                  <h3 className="mb-2 text-sm font-semibold">Request Body</h3>
+                  <JsonBlock value={selectedLog.requestBody} />
+                </section>
+                <section>
+                  <h3 className="mb-2 text-sm font-semibold">Metadata</h3>
+                  <JsonBlock value={selectedLog.metadata} />
+                </section>
+                <section>
+                  <h3 className="mb-2 text-sm font-semibold">User Agent</h3>
+                  <p className="rounded-xl bg-[var(--surface-alt)] p-3 text-xs leading-5 text-[var(--foreground)]">{selectedLog.userAgent ?? "无"}</p>
+                </section>
+              </div>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

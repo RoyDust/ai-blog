@@ -1,3 +1,4 @@
+import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 import { NextResponse } from "next/server"
 
 import { requireAdminSession } from "@/lib/api-auth"
@@ -34,9 +35,6 @@ type TaxonomyItem = {
   slug: string
 }
 
-/**
- * 从 DashScope 兼容接口响应中提取文本内容。
- */
 function extractCompletionText(payload: DashScopePayload) {
   const content = payload.choices?.[0]?.message?.content
 
@@ -55,9 +53,6 @@ function extractCompletionText(payload: DashScopePayload) {
   return ""
 }
 
-/**
- * 去掉模型可能包裹在 JSON 外层的 Markdown fence 或解释文本。
- */
 function stripJsonFence(value: string) {
   const trimmed = value.trim()
   const fenced = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i)
@@ -76,9 +71,6 @@ function stripJsonFence(value: string) {
   return trimmed
 }
 
-/**
- * 解析 AI 返回的元数据候选 JSON。
- */
 function parseCandidate(text: string): MetadataCandidate {
   try {
     const parsed = JSON.parse(stripJsonFence(text))
@@ -88,23 +80,14 @@ function parseCandidate(text: string): MetadataCandidate {
   }
 }
 
-/**
- * 安全读取可选字符串字段。
- */
 function readOptionalString(value: unknown) {
   return typeof value === "string" ? value.trim() : ""
 }
 
-/**
- * 截断 AI 返回字段，避免超过文章字段长度约束。
- */
 function truncate(value: string, maxLength: number) {
   return value.length > maxLength ? value.slice(0, maxLength).trim() : value
 }
 
-/**
- * 只保留当前系统已有标签 slug，并去重。
- */
 function normalizeTagSlugs(value: unknown, allowedSlugs: Set<string>) {
   if (!Array.isArray(value)) {
     return []
@@ -126,32 +109,20 @@ function normalizeTagSlugs(value: unknown, allowedSlugs: Set<string>) {
   return normalized
 }
 
-/**
- * 解析前端请求的单字段生成模式。
- */
 function normalizeMetadataField(value: unknown): MetadataField {
   return typeof value === "string" && metadataFields.has(value as MetadataField) ? (value as MetadataField) : "all"
 }
 
-/**
- * 把可选分类/标签目录格式化进提示词。
- */
 function formatTaxonomyOptions(items: TaxonomyItem[]) {
   return items.map((item) => `${item.name}(${item.slug})`).join(", ") || "无"
 }
 
-/**
- * 按字段类型限制发送给模型的正文长度。
- */
 function getContentLimit(field: MetadataField) {
   if (field === "slug") return 4_000
   if (field === "title" || field === "category" || field === "tags") return 8_000
   return 12_000
 }
 
-/**
- * 按字段类型限制模型输出 token。
- */
 function getMaxTokens(field: MetadataField) {
   if (field === "slug" || field === "category") return 80
   if (field === "title") return 120
@@ -159,11 +130,6 @@ function getMaxTokens(field: MetadataField) {
   return 500
 }
 
-/**
- * 构造元数据补全提示词。
- *
- * 单字段模式只要求返回目标字段，降低模型输出偏移和 JSON 解析失败概率。
- */
 function buildPrompt({
   categories,
   content,
@@ -249,12 +215,7 @@ function buildPrompt({
     .join("\n\n")
 }
 
-/**
- * 旧版文章元数据补全入口。
- *
- * 该接口直接调用 DashScope 兼容接口，返回可回填到编辑器的标题、slug、分类和标签建议。
- */
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
   try {
     await requireAdminSession()
 
@@ -356,3 +317,5 @@ export async function POST(request: Request) {
     return toErrorResponse(error, "Metadata generation failed")
   }
 }
+
+export const POST = withApiOperationLogging(POSTHandler, { scope: 'admin', operation: 'admin.posts.metadata.create', route: '/api/admin/posts/metadata' });

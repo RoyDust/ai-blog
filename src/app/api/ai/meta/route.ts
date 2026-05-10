@@ -1,3 +1,4 @@
+import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 import { NextResponse } from "next/server";
 
 import { requireAiClient } from "@/lib/ai-auth";
@@ -5,7 +6,7 @@ import { AI_AUTHORING_LIMITS, AI_AUTHORING_VERSION } from "@/lib/ai-contract";
 import { toErrorResponse } from "@/lib/api-errors";
 import { getCategoryDirectory, getTagDirectory } from "@/lib/taxonomy";
 
-export async function GET(request: Request) {
+async function GETHandler(request: Request) {
   try {
     await requireAiClient(request, "taxonomy:read");
 
@@ -35,3 +36,5 @@ export async function GET(request: Request) {
     return toErrorResponse(error);
   }
 }
+
+export const GET = withApiOperationLogging(GETHandler, { scope: 'ai', operation: 'ai.meta.read', route: '/api/ai/meta' });

@@ -1,3 +1,4 @@
+import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 import { NextResponse } from "next/server"
 
 import { requireAdminSession } from "@/lib/api-auth"
@@ -5,12 +6,7 @@ import { getAiModelForCapability } from "@/lib/ai-models"
 import { toErrorResponse, ValidationError } from "@/lib/api-errors"
 import { generatePostSummary } from "@/lib/post-summary"
 
-/**
- * 生成单篇文章摘要。
- *
- * 这是编辑器里的轻量即时接口，不创建 AI 任务记录；批量摘要使用 summarize/bulk。
- */
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
   try {
     await requireAdminSession()
 
@@ -45,3 +41,5 @@ export async function POST(request: Request) {
     return toErrorResponse(error, "Summary generation failed")
   }
 }
+
+export const POST = withApiOperationLogging(POSTHandler, { scope: 'admin', operation: 'admin.posts.summarize.create', route: '/api/admin/posts/summarize' });

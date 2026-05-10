@@ -60,7 +60,17 @@ describe("admin shell config", () => {
       { label: "AI 日报", group: "AI 辅助", disabled: false },
       { label: "模型配置", group: "AI 辅助", disabled: false },
       { label: "AI 任务", group: "AI 辅助", disabled: false },
+      { label: "接口日志", group: "系统", disabled: false },
     ]);
+  });
+
+  test("maps API operation logs into system navigation", () => {
+    expect(adminNavItems.some((item) => item.href === "/admin/logs")).toBe(true);
+    expect(getAdminPathMeta("/admin/logs")).toEqual({
+      currentLabel: "接口日志",
+      currentGroup: "系统",
+      crumbs: ["后台", "系统", "接口日志"],
+    });
   });
 
   test("keeps account settings out of the main navigation list", () => {
@@ -89,6 +99,7 @@ describe("admin shell config", () => {
     expect(isAdminNavItemActive("/admin/taxonomy", "/admin/taxonomy")).toBe(true);
     expect(isAdminNavItemActive("/admin/ai/models", "/admin/ai/models")).toBe(true);
     expect(isAdminNavItemActive("/admin/ai/tasks/task-1", "/admin/ai/tasks")).toBe(true);
+    expect(isAdminNavItemActive("/admin/logs", "/admin/logs")).toBe(true);
   });
 
   test("maps only true post edit routes into edit breadcrumbs", () => {

@@ -1,3 +1,4 @@
+import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 import { NextResponse } from "next/server"
 
 import { runDailyAiNews } from "@/lib/ai-news"
@@ -72,7 +73,7 @@ function queueDailyAiNewsRun({ authorId, date, regenerate }: { authorId: string;
   return { operation: "queued" as const, date: dateId }
 }
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
   try {
     requireCronSecret(request)
 
@@ -92,3 +93,5 @@ export async function POST(request: Request) {
     return toErrorResponse(error, error instanceof Error ? error.message : "Daily AI news cron failed")
   }
 }
+
+export const POST = withApiOperationLogging(POSTHandler, { scope: 'cron', operation: 'cron.ainews.create', route: '/api/cron/ai-news' });

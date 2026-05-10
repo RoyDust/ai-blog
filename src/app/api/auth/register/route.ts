@@ -1,3 +1,4 @@
+import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
@@ -5,7 +6,7 @@ import { parseRegisterInput } from "@/lib/validation"
 import { checkAuthRateLimit } from "@/lib/rate-limit"
 import { ConflictError, toErrorResponse } from "@/lib/api-errors"
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
   try {
     const rateLimit = await checkAuthRateLimit(request)
     if (!rateLimit.allowed) {
@@ -48,3 +49,5 @@ export async function POST(request: Request) {
     return toErrorResponse(error)
   }
 }
+
+export const POST = withApiOperationLogging(POSTHandler, { scope: 'auth', operation: 'auth.register.create', route: '/api/auth/register' });

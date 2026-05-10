@@ -1,3 +1,4 @@
+import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 import { NextResponse } from "next/server";
 
 import { requireAdminSession } from "@/lib/api-auth";
@@ -8,12 +9,7 @@ type RouteContext = {
   params: Promise<{ id: string }>;
 };
 
-/**
- * 更新 AI 模型配置。
- *
- * 允许局部更新展示名、模型参数、能力、状态和密钥字段。
- */
-export async function PATCH(request: Request, context: RouteContext) {
+async function PATCHHandler(request: Request, context: RouteContext) {
   try {
     await requireAdminSession();
 
@@ -26,12 +22,7 @@ export async function PATCH(request: Request, context: RouteContext) {
   }
 }
 
-/**
- * 删除 AI 模型配置。
- *
- * 服务层会阻止删除当前默认模型，避免运行时能力缺少可用模型。
- */
-export async function DELETE(_request: Request, context: RouteContext) {
+async function DELETEHandler(_request: Request, context: RouteContext) {
   try {
     await requireAdminSession();
 
@@ -43,3 +34,6 @@ export async function DELETE(_request: Request, context: RouteContext) {
     return toErrorResponse(error, "AI model deletion failed");
   }
 }
+
+export const PATCH = withApiOperationLogging(PATCHHandler, { scope: 'admin', operation: 'admin.ai.models.byId.update', route: '/api/admin/ai/models/[id]' });
+export const DELETE = withApiOperationLogging(DELETEHandler, { scope: 'admin', operation: 'admin.ai.models.byId.delete', route: '/api/admin/ai/models/[id]' });

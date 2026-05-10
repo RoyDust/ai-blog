@@ -1,15 +1,11 @@
+import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 import { NextResponse } from "next/server";
 
 import { requireAdminSession } from "@/lib/api-auth";
 import { createAiModel, getPublicAiModelOptions, toPublicAiModelOption } from "@/lib/ai-models";
 import { toErrorResponse } from "@/lib/api-errors";
 
-/**
- * 查询后台可展示的 AI 模型配置。
- *
- * 返回值会隐藏密钥明文，只暴露前端配置页需要的状态和能力字段。
- */
-export async function GET() {
+async function GETHandler() {
   try {
     await requireAdminSession();
 
@@ -22,12 +18,7 @@ export async function GET() {
   }
 }
 
-/**
- * 创建 AI 模型配置。
- *
- * 输入归一化、密钥加密和默认模型约束由 ai-models 服务处理。
- */
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
   try {
     await requireAdminSession();
 
@@ -37,3 +28,6 @@ export async function POST(request: Request) {
     return toErrorResponse(error, "AI model creation failed");
   }
 }
+
+export const GET = withApiOperationLogging(GETHandler, { scope: 'admin', operation: 'admin.ai.models.read', route: '/api/admin/ai/models' });
+export const POST = withApiOperationLogging(POSTHandler, { scope: 'admin', operation: 'admin.ai.models.create', route: '/api/admin/ai/models' });

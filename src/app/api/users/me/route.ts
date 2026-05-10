@@ -1,10 +1,11 @@
+import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { ConflictError, toErrorResponse } from "@/lib/api-errors"
 import { requireSession } from "@/lib/api-auth"
 import { parseProfileUpdateInput } from "@/lib/validation"
 
-export async function GET() {
+async function GETHandler() {
   try {
     const session = await requireSession()
 
@@ -30,7 +31,7 @@ export async function GET() {
   }
 }
 
-export async function PATCH(request: Request) {
+async function PATCHHandler(request: Request) {
   try {
     const session = await requireSession()
     const { name, email, image } = parseProfileUpdateInput(await request.json())
@@ -69,3 +70,6 @@ export async function PATCH(request: Request) {
     return toErrorResponse(error)
   }
 }
+
+export const GET = withApiOperationLogging(GETHandler, { scope: 'public', operation: 'public.users.me.read', route: '/api/users/me' });
+export const PATCH = withApiOperationLogging(PATCHHandler, { scope: 'public', operation: 'public.users.me.update', route: '/api/users/me' });

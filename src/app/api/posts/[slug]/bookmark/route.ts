@@ -1,3 +1,4 @@
+import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 import { NextResponse } from "next/server"
 import { toErrorResponse } from "@/lib/api-errors"
 import { prisma } from "@/lib/prisma"
@@ -5,7 +6,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { checkInteractionRateLimit } from "@/lib/rate-limit"
 
-export async function POST(
+async function POSTHandler(
   request: Request,
   { params }: { params: Promise<{ slug: string }> }
 ) {
@@ -72,7 +73,7 @@ export async function POST(
   }
 }
 
-export async function GET(
+async function GETHandler(
   request: Request,
   { params }: { params: Promise<{ slug: string }> }
 ) {
@@ -119,3 +120,6 @@ export async function GET(
     return toErrorResponse(error)
   }
 }
+
+export const POST = withApiOperationLogging(POSTHandler, { scope: 'public', operation: 'public.posts.bySlug.bookmark.create', route: '/api/posts/[slug]/bookmark' });
+export const GET = withApiOperationLogging(GETHandler, { scope: 'public', operation: 'public.posts.bySlug.bookmark.read', route: '/api/posts/[slug]/bookmark' });

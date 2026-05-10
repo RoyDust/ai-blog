@@ -123,6 +123,7 @@ model User {
   aiApiClients AiApiClient[]
   aiTasks      AiTask[]
   notificationReceipts NotificationRecipient[]
+  apiOperationLogs ApiOperationLog[]
 
   @@map("users")
 }
@@ -194,6 +195,41 @@ model VisitLog {
   @@index([postId])
   @@index([visitorId])
   @@map("visit_logs")
+}
+
+model ApiOperationLog {
+  id            String   @id @default(cuid())
+  requestId     String
+  method        String
+  path          String
+  route         String?
+  scope         String
+  operation     String?
+  statusCode    Int?
+  success       Boolean
+  durationMs    Int?
+  actorType     String?
+  actorUserId   String?
+  actorUser     User?    @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+  actorClientId String?
+  actorLabel    String?
+  ipHash        String?
+  userAgent     String?  @db.Text
+  query         Json?
+  requestBody   Json?
+  errorName     String?
+  errorMessage  String?  @db.Text
+  metadata      Json?
+  createdAt     DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([requestId])
+  @@index([method, createdAt])
+  @@index([statusCode, createdAt])
+  @@index([success, createdAt])
+  @@index([path, createdAt])
+  @@index([actorUserId, createdAt])
+  @@map("api_operation_logs")
 }
 
 model CoverAsset {

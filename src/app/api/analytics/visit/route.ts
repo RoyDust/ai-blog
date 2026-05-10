@@ -1,3 +1,4 @@
+import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 
@@ -25,7 +26,7 @@ function hashIp(ip: string | null) {
   return createHash("sha256").update(ip).digest("hex");
 }
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
   let payload: unknown;
 
   try {
@@ -76,3 +77,5 @@ export async function POST(request: Request) {
     return toErrorResponse(error);
   }
 }
+
+export const POST = withApiOperationLogging(POSTHandler, { scope: 'analytics', operation: 'analytics.visit.create', route: '/api/analytics/visit' });

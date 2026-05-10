@@ -1,3 +1,4 @@
+import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 import { getServerSession } from "next-auth";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
@@ -33,7 +34,7 @@ function isAllowedOrigin(origin: string | null, requestUrl: string) {
  * - 必须来自同源 Origin
  * - 解绑后必须仍保留至少一种登录方式，避免用户把自己锁死
  */
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
   try {
     const headerStore = await headers();
     const requestOrigin = headerStore.get("origin");
@@ -87,3 +88,5 @@ export async function POST(request: Request) {
     return toErrorResponse(error);
   }
 }
+
+export const POST = withApiOperationLogging(POSTHandler, { scope: 'account', operation: 'account.github.unlink.create', route: '/api/account/github/unlink' });

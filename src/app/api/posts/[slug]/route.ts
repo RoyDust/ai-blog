@@ -1,3 +1,4 @@
+import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { revalidatePublicContent } from "@/lib/cache"
@@ -26,7 +27,7 @@ import { getOptionalSummaryFieldsForExcerpt } from "@/lib/post-summary-status"
  * - 读取文章、作者、分类、标签、评论与点赞数量
  * - 成功返回后会把 viewCount +1
  */
-export async function GET(
+async function GETHandler(
   request: Request,
   { params }: { params: Promise<{ slug: string }> }
 ) {
@@ -101,7 +102,7 @@ export async function GET(
  * - 更新文章主体、摘要、封面、分类、标签
  * - 当 slug / 分类 / 标签 / 发布状态变化时，刷新前台缓存路径
  */
-export async function PATCH(
+async function PATCHHandler(
   request: Request,
   { params }: { params: Promise<{ slug: string }> }
 ) {
@@ -185,7 +186,7 @@ export async function PATCH(
  * - 不直接删除数据库记录，而是写入 deletedAt 并取消发布
  * - 删除后同步清理前台依赖该文章的路径缓存
  */
-export async function DELETE(
+async function DELETEHandler(
   request: Request,
   { params }: { params: Promise<{ slug: string }> }
 ) {
@@ -233,3 +234,7 @@ export async function DELETE(
     return toErrorResponse(error)
   }
 }
+
+export const GET = withApiOperationLogging(GETHandler, { scope: 'public', operation: 'public.posts.bySlug.read', route: '/api/posts/[slug]' });
+export const PATCH = withApiOperationLogging(PATCHHandler, { scope: 'public', operation: 'public.posts.bySlug.update', route: '/api/posts/[slug]' });
+export const DELETE = withApiOperationLogging(DELETEHandler, { scope: 'public', operation: 'public.posts.bySlug.delete', route: '/api/posts/[slug]' });

@@ -1,3 +1,4 @@
+import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 import { NextResponse } from "next/server"
 
 import { requireAdminSession } from "@/lib/api-auth"
@@ -5,7 +6,7 @@ import { isPrismaConflictError, NotFoundError, toErrorResponse } from "@/lib/api
 import { prisma } from "@/lib/prisma"
 import { parseIdList, parseTaxonomyInput } from "@/lib/validation"
 
-export async function GET(request: Request) {
+async function GETHandler(request: Request) {
   try {
     await requireAdminSession()
 
@@ -46,7 +47,7 @@ export async function GET(request: Request) {
   }
 }
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
   try {
     await requireAdminSession()
     const { name, slug, description } = parseTaxonomyInput(await request.json())
@@ -61,7 +62,7 @@ export async function POST(request: Request) {
   }
 }
 
-export async function PATCH(request: Request) {
+async function PATCHHandler(request: Request) {
   try {
     await requireAdminSession()
     const { id, name, slug, description } = parseTaxonomyInput(await request.json())
@@ -84,7 +85,7 @@ export async function PATCH(request: Request) {
   }
 }
 
-export async function DELETE(request: Request) {
+async function DELETEHandler(request: Request) {
   try {
     await requireAdminSession()
 
@@ -112,3 +113,8 @@ export async function DELETE(request: Request) {
     return toErrorResponse(error, "Failed to delete category")
   }
 }
+
+export const GET = withApiOperationLogging(GETHandler, { scope: 'admin', operation: 'admin.categories.read', route: '/api/admin/categories' });
+export const POST = withApiOperationLogging(POSTHandler, { scope: 'admin', operation: 'admin.categories.create', route: '/api/admin/categories' });
+export const PATCH = withApiOperationLogging(PATCHHandler, { scope: 'admin', operation: 'admin.categories.update', route: '/api/admin/categories' });
+export const DELETE = withApiOperationLogging(DELETEHandler, { scope: 'admin', operation: 'admin.categories.delete', route: '/api/admin/categories' });

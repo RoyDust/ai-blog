@@ -1,3 +1,4 @@
+import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 import { NextResponse } from "next/server";
 
 import { requireAdminSession } from "@/lib/api-auth";
@@ -13,12 +14,7 @@ type BulkSummaryBody = {
   modelId?: string;
 };
 
-/**
- * 查询或恢复批量摘要任务状态。
- *
- * resume=1 会尝试继续执行仍未完成的摘要任务。
- */
-export async function GET(request: Request) {
+async function GETHandler(request: Request) {
   try {
     await requireAdminSession();
 
@@ -38,12 +34,7 @@ export async function GET(request: Request) {
   }
 }
 
-/**
- * 创建批量文章摘要任务。
- *
- * 任务创建后异步执行，调用方通过 GET 轮询快照。
- */
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
   try {
     await requireAdminSession();
 
@@ -64,3 +55,6 @@ export async function POST(request: Request) {
     return toErrorResponse(error, "Bulk summary generation failed");
   }
 }
+
+export const GET = withApiOperationLogging(GETHandler, { scope: 'admin', operation: 'admin.posts.summarize.bulk.read', route: '/api/admin/posts/summarize/bulk' });
+export const POST = withApiOperationLogging(POSTHandler, { scope: 'admin', operation: 'admin.posts.summarize.bulk.create', route: '/api/admin/posts/summarize/bulk' });

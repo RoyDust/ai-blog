@@ -1,3 +1,4 @@
+import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 import { NextResponse } from "next/server"
 
 import { requireAdminSession } from "@/lib/api-auth"
@@ -7,12 +8,7 @@ import { revalidatePublicContent } from "@/lib/cache"
 import { prisma } from "@/lib/prisma"
 import { parseIdList, parsePostInput } from "@/lib/validation"
 
-/**
- * 查询后台文章列表，或返回隐藏文章前的影响预览。
- *
- * preview=delete 时不读取完整列表，只统计将被隐藏的文章和评论数量。
- */
-export async function GET(request: Request) {
+async function GETHandler(request: Request) {
   try {
     await requireAdminSession()
 
@@ -63,12 +59,7 @@ export async function GET(request: Request) {
   }
 }
 
-/**
- * 创建后台文章。
- *
- * 文章封面、分类标签、阅读时间和缓存刷新等写入细节由 ai-authoring 服务统一处理。
- */
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
   try {
     const session = await requireAdminSession()
     const input = parsePostInput(await request.json())
@@ -81,12 +72,7 @@ export async function POST(request: Request) {
   }
 }
 
-/**
- * 批量软删除文章。
- *
- * 删除动作会同时隐藏关联评论，并刷新受影响的前台文章、分类和标签缓存。
- */
-export async function DELETE(request: Request) {
+async function DELETEHandler(request: Request) {
   try {
     await requireAdminSession()
 
@@ -138,3 +124,7 @@ export async function DELETE(request: Request) {
     return toErrorResponse(error, "Failed to delete post")
   }
 }
+
+export const GET = withApiOperationLogging(GETHandler, { scope: 'admin', operation: 'admin.posts.read', route: '/api/admin/posts' });
+export const POST = withApiOperationLogging(POSTHandler, { scope: 'admin', operation: 'admin.posts.create', route: '/api/admin/posts' });
+export const DELETE = withApiOperationLogging(DELETEHandler, { scope: 'admin', operation: 'admin.posts.delete', route: '/api/admin/posts' });

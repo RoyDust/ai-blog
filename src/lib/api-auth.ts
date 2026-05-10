@@ -3,6 +3,7 @@ import type { DefaultSession } from "next-auth"
 
 import { authOptions } from "@/lib/auth"
 import { ForbiddenError, UnauthorizedError } from "@/lib/api-errors"
+import { setApiOperationActor } from "@/lib/api-operation-log-context"
 
 type RouteSessionUser = NonNullable<DefaultSession["user"]> & {
   id: string
@@ -32,7 +33,14 @@ export async function requireSession(): Promise<RouteSession> {
     throw new UnauthorizedError()
   }
 
-  return session as RouteSession
+  const routeSession = session as RouteSession
+  setApiOperationActor({
+    actorType: routeSession.user.role === "ADMIN" ? "admin" : "user",
+    actorUserId: routeSession.user.id,
+    actorLabel: routeSession.user.email ?? routeSession.user.name ?? null,
+  })
+
+  return routeSession
 }
 
 /**

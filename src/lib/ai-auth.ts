@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 
 import { prisma } from "@/lib/prisma";
 import { ForbiddenError, UnauthorizedError } from "@/lib/api-errors";
+import { setApiOperationActor } from "@/lib/api-operation-log-context";
 
 export const AI_SCOPES = ["drafts:read", "drafts:write", "taxonomy:read"] as const;
 export type AiScope = (typeof AI_SCOPES)[number];
@@ -90,6 +91,13 @@ export async function requireAiClient(request: Request, requiredScope: AiScope):
   await prisma.aiApiClient.update({
     where: { id: client.id },
     data: { lastUsedAt: new Date() },
+  });
+
+  setApiOperationActor({
+    actorType: "ai_client",
+    actorUserId: client.ownerId,
+    actorClientId: client.id,
+    actorLabel: client.name,
   });
 
   return {

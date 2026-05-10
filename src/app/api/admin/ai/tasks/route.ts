@@ -1,10 +1,11 @@
+import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 import { NextResponse } from "next/server";
 
 import { requireAdminSession } from "@/lib/api-auth";
 import { listAiTasks } from "@/lib/ai-tasks";
 import { toErrorResponse } from "@/lib/api-errors";
 
-export async function GET(request: Request) {
+async function GETHandler(request: Request) {
   try {
     await requireAdminSession();
 
@@ -21,3 +22,5 @@ export async function GET(request: Request) {
     return toErrorResponse(error, "AI task list failed");
   }
 }
+
+export const GET = withApiOperationLogging(GETHandler, { scope: 'admin', operation: 'admin.ai.tasks.read', route: '/api/admin/ai/tasks' });

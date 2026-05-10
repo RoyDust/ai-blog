@@ -1,3 +1,4 @@
+import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 import { NextResponse } from "next/server";
 import { toErrorResponse } from "@/lib/api-errors";
 
@@ -8,7 +9,7 @@ import {
   AI_AUTHORING_VERSION,
 } from "@/lib/ai-contract";
 
-export async function GET() {
+async function GETHandler() {
   try {
     return NextResponse.json({
       openapi: "3.1.0",
@@ -358,3 +359,5 @@ export async function GET() {
     return toErrorResponse(error);
   }
 }
+
+export const GET = withApiOperationLogging(GETHandler, { scope: 'ai', operation: 'ai.openapi.read', route: '/api/ai/openapi' });

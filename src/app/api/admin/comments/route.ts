@@ -1,3 +1,4 @@
+import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 import { NextResponse } from "next/server"
 
 import { requireAdminSession } from "@/lib/api-auth"
@@ -9,7 +10,7 @@ type CommentStatus = "APPROVED" | "PENDING" | "REJECTED" | "SPAM"
 
 const allowedStatuses = new Set<CommentStatus>(["APPROVED", "PENDING", "REJECTED", "SPAM"])
 
-export async function GET(request: Request) {
+async function GETHandler(request: Request) {
   try {
     await requireAdminSession()
 
@@ -69,7 +70,7 @@ export async function GET(request: Request) {
   }
 }
 
-export async function PATCH(request: Request) {
+async function PATCHHandler(request: Request) {
   try {
     await requireAdminSession()
 
@@ -94,7 +95,7 @@ export async function PATCH(request: Request) {
   }
 }
 
-export async function DELETE(request: Request) {
+async function DELETEHandler(request: Request) {
   try {
     await requireAdminSession()
 
@@ -132,3 +133,7 @@ export async function DELETE(request: Request) {
     return toErrorResponse(error, "Failed to delete comment")
   }
 }
+
+export const GET = withApiOperationLogging(GETHandler, { scope: 'admin', operation: 'admin.comments.read', route: '/api/admin/comments' });
+export const PATCH = withApiOperationLogging(PATCHHandler, { scope: 'admin', operation: 'admin.comments.update', route: '/api/admin/comments' });
+export const DELETE = withApiOperationLogging(DELETEHandler, { scope: 'admin', operation: 'admin.comments.delete', route: '/api/admin/comments' });

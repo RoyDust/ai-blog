@@ -1,3 +1,4 @@
+import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 import { NextResponse } from "next/server"
 import { UnauthorizedError, toErrorResponse } from "@/lib/api-errors"
 import { prisma } from "@/lib/prisma"
@@ -21,7 +22,7 @@ async function requireAdmin() {
 /**
  * 获取分类列表。
  */
-export async function GET() {
+async function GETHandler() {
   try {
     const categories = await prisma.category.findMany({
       where: { deletedAt: null },
@@ -45,7 +46,7 @@ export async function GET() {
 /**
  * 创建分类。
  */
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
   try {
     const session = await requireAdmin()
     if (!session) {
@@ -66,3 +67,6 @@ export async function POST(request: Request) {
     return toErrorResponse(error)
   }
 }
+
+export const GET = withApiOperationLogging(GETHandler, { scope: 'public', operation: 'public.categories.read', route: '/api/categories' });
+export const POST = withApiOperationLogging(POSTHandler, { scope: 'public', operation: 'public.categories.create', route: '/api/categories' });

@@ -1,3 +1,4 @@
+import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 import { NextResponse } from "next/server";
 
 import { requireAdminSession } from "@/lib/api-auth";
@@ -12,12 +13,7 @@ type Body = {
   modelId?: string;
 };
 
-/**
- * 创建文章 AI 批量补全任务。
- *
- * 返回 202 表示已经创建并调度了异步任务；返回 200 表示没有可执行任务项。
- */
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
   try {
     const session = await requireAdminSession();
     const body = (await request.json()) as Body;
@@ -36,12 +32,7 @@ export async function POST(request: Request) {
   }
 }
 
-/**
- * 恢复仍处于活动态的批量补全任务。
- *
- * 前端轮询同步器使用 resume=1 触发，避免进程中断后任务长时间停在 queued/running。
- */
-export async function GET(request: Request) {
+async function GETHandler(request: Request) {
   try {
     await requireAdminSession();
     const { searchParams } = new URL(request.url);
@@ -55,3 +46,6 @@ export async function GET(request: Request) {
     return toErrorResponse(error, "AI batch resume failed");
   }
 }
+
+export const POST = withApiOperationLogging(POSTHandler, { scope: 'admin', operation: 'admin.ai.batch.create', route: '/api/admin/ai/batch' });
+export const GET = withApiOperationLogging(GETHandler, { scope: 'admin', operation: 'admin.ai.batch.read', route: '/api/admin/ai/batch' });

@@ -1,3 +1,4 @@
+import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 import { NextResponse } from "next/server"
 
 import { requireAdminSession } from "@/lib/api-auth"
@@ -6,10 +7,7 @@ import { updateAdminPost } from "@/lib/ai-authoring"
 import { prisma } from "@/lib/prisma"
 import { parsePostPatchInput } from "@/lib/validation"
 
-/**
- * 读取文章编辑页需要的完整表单数据。
- */
-export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
+async function GETHandler(_: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     await requireAdminSession()
 
@@ -46,12 +44,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
   }
 }
 
-/**
- * 更新后台文章。
- *
- * 具体字段校验、slug 冲突、封面解析、精选限制和缓存刷新都交给 updateAdminPost。
- */
-export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+async function PATCHHandler(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     await requireAdminSession()
 
@@ -64,3 +57,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return toErrorResponse(error)
   }
 }
+
+export const GET = withApiOperationLogging(GETHandler, { scope: 'admin', operation: 'admin.posts.byId.read', route: '/api/admin/posts/[id]' });
+export const PATCH = withApiOperationLogging(PATCHHandler, { scope: 'admin', operation: 'admin.posts.byId.update', route: '/api/admin/posts/[id]' });

@@ -1,3 +1,4 @@
+import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 import { NextResponse } from "next/server";
 
 import { requireAdminSession } from "@/lib/api-auth";
@@ -8,12 +9,7 @@ type Body = {
   itemId?: string;
 };
 
-/**
- * 应用一条已经生成成功的 AI 建议。
- *
- * 该入口只接收任务项 id；具体能否应用、写哪些文章字段由 applyPostAiTaskItem 统一判断。
- */
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
   try {
     await requireAdminSession();
 
@@ -29,3 +25,5 @@ export async function POST(request: Request) {
     return toErrorResponse(error, "AI suggestion apply failed");
   }
 }
+
+export const POST = withApiOperationLogging(POSTHandler, { scope: 'admin', operation: 'admin.ai.actions.apply.create', route: '/api/admin/ai/actions/apply' });

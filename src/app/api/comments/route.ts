@@ -1,3 +1,4 @@
+import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { createAnonymousActorId } from '@/lib/anonymous-actor'
@@ -7,7 +8,7 @@ import { ForbiddenError, NotFoundError, toErrorResponse } from '@/lib/api-errors
 import { requireSession } from '@/lib/api-auth'
 import { createAdminNotification, NOTIFICATION_SEVERITIES, NOTIFICATION_TYPES } from '@/lib/notifications'
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
   try {
     const rateLimit = await checkInteractionRateLimit(request)
     if (!rateLimit.allowed) {
@@ -62,7 +63,7 @@ export async function POST(request: Request) {
   }
 }
 
-export async function PATCH(request: Request) {
+async function PATCHHandler(request: Request) {
   try {
     const session = await requireSession()
 
@@ -94,7 +95,7 @@ export async function PATCH(request: Request) {
   }
 }
 
-export async function DELETE(request: Request) {
+async function DELETEHandler(request: Request) {
   try {
     const session = await requireSession()
 
@@ -122,3 +123,7 @@ export async function DELETE(request: Request) {
     return toErrorResponse(error)
   }
 }
+
+export const POST = withApiOperationLogging(POSTHandler, { scope: 'public', operation: 'public.comments.create', route: '/api/comments' });
+export const PATCH = withApiOperationLogging(PATCHHandler, { scope: 'public', operation: 'public.comments.update', route: '/api/comments' });
+export const DELETE = withApiOperationLogging(DELETEHandler, { scope: 'public', operation: 'public.comments.delete', route: '/api/comments' });

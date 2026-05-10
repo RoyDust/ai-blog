@@ -1,4 +1,4 @@
-﻿import { beforeEach, describe, expect, test, vi } from 'vitest'
+import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { NextRequest } from 'next/server'
 
 import { getRateLimitKey } from '@/lib/rate-limit'
@@ -19,6 +19,7 @@ describe('admin middleware', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.unstubAllGlobals()
     vi.unstubAllEnvs()
     process.env.NEXTAUTH_SECRET = originalNextAuthSecret
     process.env.AUTH_SECRET = originalAuthSecret
@@ -110,6 +111,41 @@ describe('admin middleware', () => {
 
     expect(response.status).toBe(401)
     expect(payload).toEqual({ error: 'Unauthorized' })
+  })
+
+  test('records denied admin api requests through waitUntil', async () => {
+    process.env.NEXTAUTH_SECRET = 'auth-secret'
+    getToken.mockResolvedValueOnce(null)
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ success: true })))
+    vi.stubGlobal('fetch', fetchMock)
+    const waitUntil = vi.fn((promise: Promise<unknown>) => promise)
+
+    const request = new NextRequest('http://localhost/api/admin/posts?preview=delete', {
+      headers: { 'x-forwarded-for': '203.0.113.10' },
+    })
+    const response = await middleware(request, { waitUntil } as never)
+    const pendingLog = waitUntil.mock.calls[0]?.[0] as Promise<unknown>
+    await pendingLog
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body)
+
+    expect(response.status).toBe(401)
+    expect(response.headers.get('x-request-id')).toBe(body.requestId)
+    expect(fetchMock).toHaveBeenCalledWith(new URL('/api/internal/operation-logs', request.url), expect.objectContaining({
+      method: 'POST',
+      headers: expect.objectContaining({
+        'x-operation-log-ingest-secret': 'auth-secret',
+      }),
+    }))
+    expect(body).toEqual(expect.objectContaining({
+      method: 'GET',
+      path: '/api/admin/posts',
+      query: '?preview=delete',
+      scope: 'admin',
+      operation: 'middleware.adminApiDenied',
+      statusCode: 401,
+      errorMessage: 'Unauthorized',
+      ip: '203.0.113.10',
+    }))
   })
 
   test('returns json 403 for non-admin admin api requests', async () => {

@@ -8,6 +8,7 @@ import {
   ListChecks,
   MessageSquare,
   Newspaper,
+  ScrollText,
 } from "lucide-react";
 
 export type AdminNavItem = {
@@ -33,6 +34,7 @@ export const adminNavItems: AdminNavItem[] = [
   { href: "/admin/ai-news", label: "AI 日报", group: "AI 辅助", icon: Newspaper },
   { href: "/admin/ai/models", label: "模型配置", group: "AI 辅助", icon: BrainCircuit },
   { href: "/admin/ai/tasks", label: "AI 任务", group: "AI 辅助", icon: ListChecks },
+  { href: "/admin/logs", label: "接口日志", group: "系统", icon: ScrollText },
 ];
 
 export function isAdminNavItemActive(pathname: string, href: string) {

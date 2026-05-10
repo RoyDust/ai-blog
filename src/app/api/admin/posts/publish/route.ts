@@ -1,3 +1,4 @@
+import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 import { NextResponse } from "next/server"
 
 import { requireAdminSession } from "@/lib/api-auth"
@@ -7,7 +8,7 @@ import { resolvePostCoverInput, touchCoverAssetUsage } from "@/lib/cover-assets"
 import { prisma } from "@/lib/prisma"
 import { parsePublishInput } from "@/lib/validation"
 
-export async function PATCH(request: Request) {
+async function PATCHHandler(request: Request) {
   try {
     await requireAdminSession()
     const { id, published } = parsePublishInput(await request.json())
@@ -70,3 +71,5 @@ export async function PATCH(request: Request) {
     return toErrorResponse(error, "Failed to update post")
   }
 }
+
+export const PATCH = withApiOperationLogging(PATCHHandler, { scope: 'admin', operation: 'admin.posts.publish.update', route: '/api/admin/posts/publish' });

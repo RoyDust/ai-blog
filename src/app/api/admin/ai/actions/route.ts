@@ -1,3 +1,4 @@
+import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 /**
  * 后台单篇文章 AI 动作执行入口。
  *
@@ -53,7 +54,7 @@ type Body = {
  * - 更新任务状态
  * - 在失败时写入任务错误信息
  */
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
   try {
     const session = await requireAdminSession();
     const body = (await request.json()) as Body;
@@ -117,3 +118,5 @@ export async function POST(request: Request) {
     return toErrorResponse(error, "AI action failed");
   }
 }
+
+export const POST = withApiOperationLogging(POSTHandler, { scope: 'admin', operation: 'admin.ai.actions.create', route: '/api/admin/ai/actions' });

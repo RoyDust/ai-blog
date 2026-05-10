@@ -1,10 +1,11 @@
+import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { createAnonymousActorId } from '@/lib/anonymous-actor'
 import { checkInteractionRateLimit } from '@/lib/rate-limit'
 import { NotFoundError, toErrorResponse } from '@/lib/api-errors'
 
-export async function POST(
+async function POSTHandler(
   request: Request,
   { params }: { params: Promise<{ slug: string }> }
 ) {
@@ -49,7 +50,7 @@ export async function POST(
   }
 }
 
-export async function GET(
+async function GETHandler(
   request: Request,
   { params }: { params: Promise<{ slug: string }> }
 ) {
@@ -93,3 +94,6 @@ export async function GET(
     return toErrorResponse(error)
   }
 }
+
+export const POST = withApiOperationLogging(POSTHandler, { scope: 'public', operation: 'public.posts.bySlug.like.create', route: '/api/posts/[slug]/like' });
+export const GET = withApiOperationLogging(GETHandler, { scope: 'public', operation: 'public.posts.bySlug.like.read', route: '/api/posts/[slug]/like' });
