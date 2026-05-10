@@ -17,6 +17,13 @@ import { PageHeader } from "@/components/admin/primitives/PageHeader"
 import { StatusBadge } from "@/components/admin/primitives/StatusBadge"
 import { WorkspacePanel } from "@/components/admin/primitives/WorkspacePanel"
 import { Button } from "@/components/admin/ui"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/shadcn/ui/select"
 import { getApiErrorMessage } from "@/lib/admin-api-client"
 import type { PublicAiModelOption } from "@/lib/ai-models"
 
@@ -88,6 +95,10 @@ type RunResult = {
 function todayInputValue() {
   return new Date().toISOString().slice(0, 10)
 }
+
+const unavailableModelValue = "__unavailable_model__"
+const adminSelectTriggerClassName = "w-full rounded-2xl border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--foreground)] shadow-none focus:border-[var(--brand)] disabled:cursor-not-allowed disabled:opacity-60"
+const adminSelectContentClassName = "rounded-xl border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)]"
 
 function runStatusMeta(status: RunHistoryItem["status"]): { label: string; tone: "neutral" | "success" | "warning" | "danger" } {
   switch (status) {
@@ -338,20 +349,24 @@ export default function AdminAiNewsPage() {
           </label>
           <label className="space-y-2 text-sm font-medium text-[var(--foreground)]">
             生成模型
-            <select
-              value={selectedModelId}
-              onChange={(event) => setSelectedModelId(event.target.value)}
+            <Select
+              value={selectedModelId || unavailableModelValue}
+              onValueChange={(value) => value !== unavailableModelValue && setSelectedModelId(value)}
               disabled={modelsLoading || readyModels.length === 0}
-              className="w-full rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--brand)] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {modelsLoading ? <option value="">模型加载中</option> : null}
-              {!modelsLoading && readyModels.length === 0 ? <option value="">暂无可用模型</option> : null}
-              {models.map((model) => (
-                <option key={model.id} value={model.id} disabled={model.status !== "ready" || !model.capabilities.includes("post-summary")}>
-                  {model.name} · {model.model} · {modelStatusLabel(model)}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger className={adminSelectTriggerClassName}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className={adminSelectContentClassName}>
+                {modelsLoading ? <SelectItem value={unavailableModelValue} disabled>模型加载中</SelectItem> : null}
+                {!modelsLoading && readyModels.length === 0 ? <SelectItem value={unavailableModelValue} disabled>暂无可用模型</SelectItem> : null}
+                {models.map((model) => (
+                  <SelectItem key={model.id} value={model.id} disabled={model.status !== "ready" || !model.capabilities.includes("post-summary")}>
+                    {model.name} · {model.model} · {modelStatusLabel(model)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </label>
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-muted)] p-4 text-sm text-[var(--muted)]">
             <p>流程：抓取 RSS/Atom/HN/GitHub → URL 去重 → AI 评分筛选 → 生成 Markdown 日报 → AI 审稿 → 达标自动发布。</p>

@@ -8,11 +8,21 @@ import { PageHeader } from "@/components/admin/primitives/PageHeader";
 import { Toolbar } from "@/components/admin/primitives/Toolbar";
 import { WorkspacePanel } from "@/components/admin/primitives/WorkspacePanel";
 import { Button, Modal } from "@/components/admin/ui";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/shadcn/ui/select";
 import { readApiJson } from "@/lib/admin-api-client";
 import { CoverAssetForm } from "./CoverAssetForm";
 import { CoverAssetGrid } from "./CoverAssetGrid";
 import { CoverUploadDropzone } from "./CoverUploadDropzone";
 import type { CoverAsset, CoverAssetListResponse } from "./types";
+
+const adminSelectTriggerClassName = "w-[140px] rounded-xl border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--foreground)] shadow-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]";
+const adminSelectContentClassName = "rounded-xl border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)]";
 
 /**
  * 后台封面图库管理页。
@@ -155,27 +165,27 @@ export function CoverGalleryManager() {
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                 />
-                <select
-                  aria-label="封面状态"
-                  className="ui-ring rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--foreground)] focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
-                  value={statusFilter}
-                  onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}
-                >
-                  <option value="all">全部状态</option>
-                  <option value="active">可用</option>
-                  <option value="archived">归档</option>
-                </select>
-                <select
-                  aria-label="封面来源"
-                  className="ui-ring rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--foreground)] focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
-                  value={sourceFilter}
-                  onChange={(event) => setSourceFilter(event.target.value as typeof sourceFilter)}
-                >
-                  <option value="all">全部来源</option>
-                  <option value="upload">上传</option>
-                  <option value="manual">外链</option>
-                  <option value="ai">AI</option>
-                </select>
+                <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as typeof statusFilter)}>
+                  <SelectTrigger aria-label="封面状态" className={adminSelectTriggerClassName}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className={adminSelectContentClassName}>
+                    <SelectItem value="all">全部状态</SelectItem>
+                    <SelectItem value="active">可用</SelectItem>
+                    <SelectItem value="archived">归档</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={sourceFilter} onValueChange={(value) => setSourceFilter(value as typeof sourceFilter)}>
+                  <SelectTrigger aria-label="封面来源" className={adminSelectTriggerClassName}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className={adminSelectContentClassName}>
+                    <SelectItem value="all">全部来源</SelectItem>
+                    <SelectItem value="upload">上传</SelectItem>
+                    <SelectItem value="manual">外链</SelectItem>
+                    <SelectItem value="ai">AI</SelectItem>
+                  </SelectContent>
+                </Select>
               </>
             }
             trailing={<span className="text-sm text-[var(--muted)]">共 {total} 张</span>}

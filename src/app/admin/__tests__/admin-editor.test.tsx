@@ -1,5 +1,5 @@
 ﻿import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { afterEach, describe, expect, test, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import AdminPostEditPage from '../posts/[id]/edit/page'
 
 vi.mock('next/navigation', () => ({
@@ -8,6 +8,10 @@ vi.mock('next/navigation', () => ({
   usePathname: () => '/admin/posts/1/edit',
   useSearchParams: () => new URLSearchParams(''),
 }))
+
+beforeEach(() => {
+  Element.prototype.scrollIntoView = vi.fn()
+})
 
 afterEach(() => {
   cleanup()
@@ -194,7 +198,7 @@ describe('admin editor', () => {
 
     await waitForMetadataInspector()
 
-    expect(await screen.findByLabelText('分类')).toHaveValue('cat-1')
+    expect(await screen.findByLabelText('分类')).toHaveTextContent('前端')
     expect(await screen.findByRole('checkbox', { name: 'React' })).toBeChecked()
     expect(screen.getByRole('checkbox', { name: 'Next.js' })).not.toBeChecked()
   })
@@ -228,8 +232,8 @@ describe('admin editor', () => {
 
     await waitForMetadataInspector()
 
-    const categorySelect = await screen.findByLabelText('分类')
-    fireEvent.change(categorySelect, { target: { value: 'cat-2' } })
+    fireEvent.click(await screen.findByLabelText('分类'))
+    fireEvent.click(await screen.findByRole('option', { name: '后端' }))
     fireEvent.click(screen.getByRole('checkbox', { name: 'Next.js' }))
     fireEvent.click(screen.getByRole('button', { name: '保存草稿' }))
 

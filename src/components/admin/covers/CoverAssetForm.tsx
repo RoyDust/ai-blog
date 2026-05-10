@@ -3,6 +3,13 @@
 import { useEffect, useState } from "react";
 
 import { Button, Input } from "@/components/admin/ui";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/shadcn/ui/select";
 import { readApiJson } from "@/lib/admin-api-client";
 import type { CoverAsset } from "./types";
 
@@ -11,6 +18,9 @@ type CoverAssetFormProps = {
   onSaved: (asset: CoverAsset) => void;
   onCancel?: () => void;
 };
+
+const adminSelectTriggerClassName = "w-full rounded-xl border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm text-[var(--foreground)] shadow-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]";
+const adminSelectContentClassName = "rounded-xl border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)]";
 
 /**
  * 把用户输入的标签文本拆成后端期望的字符串数组。
@@ -123,15 +133,15 @@ export function CoverAssetForm({ asset, onSaved, onCancel }: CoverAssetFormProps
             <label className="block text-sm font-medium text-[var(--foreground)]" htmlFor="cover-status">
               状态
             </label>
-            <select
-              id="cover-status"
-              className="ui-ring w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm text-[var(--foreground)] focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
-              value={status}
-              onChange={(event) => setStatus(event.target.value)}
-            >
-              <option value="active">可用</option>
-              <option value="archived">归档</option>
-            </select>
+            <Select value={status} onValueChange={setStatus}>
+              <SelectTrigger id="cover-status" className={adminSelectTriggerClassName}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className={adminSelectContentClassName}>
+                <SelectItem value="active">可用</SelectItem>
+                <SelectItem value="archived">归档</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         ) : null}
       </div>

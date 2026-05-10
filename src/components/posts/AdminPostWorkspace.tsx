@@ -26,6 +26,13 @@ import type { CoverAsset } from "@/components/admin/covers/types";
 import { StatusBadge } from "@/components/admin/primitives/StatusBadge";
 import { WorkspacePanel } from "@/components/admin/primitives/WorkspacePanel";
 import { Button, Input } from "@/components/admin/ui";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/shadcn/ui/select";
 
 import { EditorWorkspace } from "./EditorWorkspace";
 import { useAiActions } from "./hooks/useAiActions";
@@ -58,6 +65,10 @@ type AdminPostWorkspaceProps = {
   mode: WorkspaceMode;
   postId?: string;
 };
+
+const uncategorizedValue = "__uncategorized__";
+const adminSelectTriggerClassName = "w-full rounded-xl border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm text-[var(--foreground)] shadow-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]";
+const adminSelectContentClassName = "rounded-xl border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)]";
 
 /**
  * 字段级 AI 动作按钮。
@@ -305,19 +316,22 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
               onClick={() => handleGenerateMetadata("category")}
             />
           </div>
-          <select
-            id={`${mode}-post-category`}
-            className="ui-ring w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm text-[var(--foreground)] focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
-            value={formData.categoryId}
-            onChange={(event) => setFormData((prev) => ({ ...prev, categoryId: event.target.value }))}
+          <Select
+            value={formData.categoryId || uncategorizedValue}
+            onValueChange={(value) => setFormData((prev) => ({ ...prev, categoryId: value === uncategorizedValue ? "" : value }))}
           >
-            <option value="">未分类</option>
-            {categories.map((category) => (
-              <option key={category.id} value={category.id}>
-                {category.name}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger id={`${mode}-post-category`} className={adminSelectTriggerClassName}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className={adminSelectContentClassName}>
+              <SelectItem value={uncategorizedValue}>未分类</SelectItem>
+              {categories.map((category) => (
+                <SelectItem key={category.id} value={category.id}>
+                  {category.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="space-y-2" role="group" aria-labelledby={`${mode}-post-tags-label`}>

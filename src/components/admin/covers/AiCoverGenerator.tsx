@@ -4,6 +4,13 @@ import { useMemo, useState } from "react";
 import { Sparkles } from "lucide-react";
 
 import { Button, FallbackImage, Modal } from "@/components/admin/ui";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/shadcn/ui/select";
 import { readApiJson } from "@/lib/admin-api-client";
 import type { PublicAiModelOption } from "@/lib/ai-models";
 import type { CoverAsset } from "./types";
@@ -15,6 +22,9 @@ type AiCoverGeneratorProps = {
   models?: PublicAiModelOption[];
   onGenerated: (asset: CoverAsset) => void;
 };
+
+const adminSelectTriggerClassName = "w-full rounded-xl border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--foreground)] shadow-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]";
+const adminSelectContentClassName = "rounded-xl border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)]";
 
 /**
  * 文章编辑器里的 AI 封面生成入口。
@@ -109,15 +119,16 @@ export function AiCoverGenerator({ title, excerpt, content, models: initialModel
         {coverModels.length > 0 ? (
           <label className="block space-y-2 text-sm font-medium text-[var(--foreground)]">
             <span>生图模型</span>
-            <select
-              className="ui-ring w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--foreground)] focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
-              value={selectedModelId}
-              onChange={(event) => setModelId(event.target.value)}
-            >
-              {coverModels.map((model) => (
-                <option key={model.id} value={model.id}>{model.name} · {model.model}</option>
-              ))}
-            </select>
+            <Select value={selectedModelId} onValueChange={setModelId}>
+              <SelectTrigger className={adminSelectTriggerClassName}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className={adminSelectContentClassName}>
+                {coverModels.map((model) => (
+                  <SelectItem key={model.id} value={model.id}>{model.name} · {model.model}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </label>
         ) : (
           <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">

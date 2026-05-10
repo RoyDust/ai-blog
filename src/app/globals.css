@@ -1,9 +1,11 @@
-﻿@import "../styles/theme-variables.css";
+@import "../styles/theme-variables.css";
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 @import "../styles/components.css";
 @import "../styles/animations.css";
 @import "../styles/code-highlight.css";
+
+@custom-variant dark (&:is(.dark *));
 
 html {
   --app-root-background:
@@ -77,15 +79,55 @@ html.dark {
   --color-surface-contrast: var(--surface-contrast);
   --color-border: var(--border);
   --color-border-strong: var(--border-strong);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
   --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
   --color-brand: var(--brand);
   --color-brand-strong: var(--brand-strong);
   --color-danger: var(--danger-foreground);
   --color-danger-surface: var(--danger-surface);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
   --font-sans: var(--font-alibaba-puhuiti);
   --font-display: var(--font-alibaba-puhuiti);
   --font-mono: "SFMono-Regular", "Cascadia Code", "JetBrains Mono", "Fira Code", Consolas, monospace;
   --font-code: "SFMono-Regular", "Cascadia Code", "JetBrains Mono", "Fira Code", Consolas, monospace;
+  --color-sidebar-ring:
+    var(--sidebar-ring);
+  --color-sidebar-border:
+    var(--sidebar-border);
+  --color-sidebar-accent-foreground:
+    var(--sidebar-accent-foreground);
+  --color-sidebar-accent:
+    var(--sidebar-accent);
+  --color-sidebar-primary-foreground:
+    var(--sidebar-primary-foreground);
+  --color-sidebar-primary:
+    var(--sidebar-primary);
+  --color-sidebar-foreground:
+    var(--sidebar-foreground);
+  --color-sidebar:
+    var(--sidebar);
 }
 
 body {
@@ -93,6 +135,11 @@ body {
   color: var(--foreground);
   font-family: var(--font-alibaba-puhuiti), "Alibaba PuHuiTi", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
   min-height: 100vh;
+}
+
+html body[data-radix-select-open][data-scroll-locked] {
+  --removed-body-scroll-bar-size: 0px !important;
+  margin-right: 0 !important;
 }
 
 ::selection {
@@ -166,3 +213,59 @@ body {
   }
 }
 
+:root {
+  --radius: 0.75rem;
+  --card: var(--surface);
+  --card-foreground: var(--foreground);
+  --popover: var(--surface);
+  --popover-foreground: var(--foreground);
+  --primary-foreground: #ffffff;
+  --secondary: var(--surface-alt);
+  --secondary-foreground: var(--foreground);
+  --accent: var(--surface-alt);
+  --accent-foreground: var(--foreground);
+  --muted-foreground: var(--text-muted);
+  --destructive: var(--danger-foreground);
+  --destructive-foreground: #ffffff;
+  --input: var(--border);
+  --chart-1: var(--brand);
+  --chart-2: var(--accent-cyan);
+  --chart-3: var(--accent-warm);
+  --chart-4: var(--success-foreground);
+  --chart-5: var(--warning-foreground);
+  --sidebar:
+    hsl(0 0% 98%);
+  --sidebar-foreground:
+    hsl(240 5.3% 26.1%);
+  --sidebar-primary:
+    hsl(240 5.9% 10%);
+  --sidebar-primary-foreground:
+    hsl(0 0% 98%);
+  --sidebar-accent:
+    hsl(240 4.8% 95.9%);
+  --sidebar-accent-foreground:
+    hsl(240 5.9% 10%);
+  --sidebar-border:
+    hsl(220 13% 91%);
+  --sidebar-ring:
+    hsl(217.2 91.2% 59.8%);
+}
+
+.dark {
+  --sidebar:
+    hsl(240 5.9% 10%);
+  --sidebar-foreground:
+    hsl(240 4.8% 95.9%);
+  --sidebar-primary:
+    hsl(224.3 76.3% 48%);
+  --sidebar-primary-foreground:
+    hsl(0 0% 100%);
+  --sidebar-accent:
+    hsl(240 3.7% 15.9%);
+  --sidebar-accent-foreground:
+    hsl(240 4.8% 95.9%);
+  --sidebar-border:
+    hsl(240 3.7% 15.9%);
+  --sidebar-ring:
+    hsl(217.2 91.2% 59.8%);
+}
