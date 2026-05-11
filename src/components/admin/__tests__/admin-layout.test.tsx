@@ -68,9 +68,14 @@ describe("admin layout", () => {
     expect(screen.getByText("Taxonomy content")).toBeInTheDocument();
     expect(screen.getByText("Configured Blog")).toBeInTheDocument();
     expect(screen.getByText("博客后台")).toBeInTheDocument();
-    expect(screen.getByPlaceholderText("搜索文章、页面、评论...")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "新建文章" })).toHaveAttribute("href", "/admin/posts/new");
     expect(screen.getByRole("button", { name: "通知" })).toBeEnabled();
+    const globalSearchTrigger = screen.getByRole("button", { name: "打开后台全局搜索" });
+    expect(globalSearchTrigger).toHaveTextContent("搜索文章、评论、功能...");
+    fireEvent.click(globalSearchTrigger);
+    expect(screen.getByRole("dialog", { name: "后台全局搜索" })).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("搜索文章、评论、功能...")).toBeInTheDocument();
+    expect(screen.getByText("常用入口")).toBeInTheDocument();
 
     expect(container.firstElementChild).toHaveClass("admin-theme");
     expect(container.firstElementChild).toHaveClass("h-screen", "overflow-hidden");

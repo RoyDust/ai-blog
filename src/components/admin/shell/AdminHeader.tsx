@@ -1,23 +1,13 @@
 import Link from "next/link";
-import { PenLine, Search } from "lucide-react";
+import { PenLine } from "lucide-react";
 import { NotificationBell } from "@/components/admin/notifications/NotificationBell";
+import { AdminGlobalSearch } from "@/components/admin/shell/AdminGlobalSearch";
 
 export function AdminHeader() {
   return (
     <header className="border-b border-[var(--border)] bg-[var(--surface)] px-4 py-4 lg:px-7">
       <div className="flex min-h-11 w-full flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <label className="relative min-w-0 flex-1 lg:max-w-[420px]">
-          <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[var(--muted)]" />
-          <input
-            aria-label="后台静态搜索"
-            className="h-11 w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] pl-12 pr-14 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-[var(--muted)] focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--ring)]"
-            placeholder="搜索文章、页面、评论..."
-            type="search"
-          />
-          <kbd className="pointer-events-none absolute right-3 top-1/2 hidden -translate-y-1/2 rounded-md border border-[var(--border)] px-2 py-1 text-xs font-medium text-[var(--muted)] sm:block">
-            ⌘K
-          </kbd>
-        </label>
+        <AdminGlobalSearch />
 
         <div className="flex shrink-0 items-center gap-3">
           <Link
