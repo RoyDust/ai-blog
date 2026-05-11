@@ -5,6 +5,8 @@ const updateAdminPost = vi.fn()
 const generatePostReview = vi.fn()
 const isAutoPublishableReview = vi.fn()
 const publishAiDraftPost = vi.fn()
+const applyAiNewsPostEnhancements = vi.fn()
+const formatAiNewsPostEnhancementWarning = vi.fn()
 const findFirst = vi.fn()
 const createAiNewsRun = vi.fn()
 const updateAiNewsRun = vi.fn()
@@ -19,6 +21,11 @@ vi.mock("@/lib/ai-authoring", () => ({
 vi.mock("@/lib/ai-review", () => ({
   generatePostReview,
   isAutoPublishableReview,
+}))
+
+vi.mock("@/lib/ai-news-post-processing", () => ({
+  applyAiNewsPostEnhancements,
+  formatAiNewsPostEnhancementWarning,
 }))
 
 vi.mock("@/lib/prisma", () => ({
@@ -49,6 +56,10 @@ describe("ai news aggregation", () => {
       DASHSCOPE_MODEL: "qwen3.5-flash",
     }
     delete process.env.GITHUB_TOKEN
+    applyAiNewsPostEnhancements.mockResolvedValue({ post: null, applied: [], skipped: [], failed: [] })
+    formatAiNewsPostEnhancementWarning.mockImplementation((result: { failed?: unknown[] }) =>
+      result.failed?.length ? "AI 辅助处理失败：mock" : null,
+    )
   })
 
   afterEach(() => {
@@ -109,7 +120,7 @@ describe("ai news aggregation", () => {
         headers: expect.objectContaining({ Authorization: "Bearer test-key" }),
       }),
     )
-    expect(JSON.parse(String(upstreamFetch.mock.calls[0]?.[1]?.body))).toMatchObject({ model: "qwen3.5-flash" })
+    expect(JSON.parse(String(upstreamFetch.mock.calls[0]?.[1]?.body))).toMatchObject({ model: "qwen3.5-flash", max_tokens: 6000 })
     expect(draft).toMatchObject({
       title: "2026-04-29 AI 日报：模型与产品更新",
       slug: "ai-daily-2026-04-29",
@@ -120,6 +131,65 @@ describe("ai news aggregation", () => {
     expect(draft.content.match(/^## 来源链接/gm)).toHaveLength(1)
     expect(draft.content).toContain("生成标注：本文由 AI 模型")
     expect(draft.content).toContain("qwen3.5-flash")
+  })
+
+  test("generates markdown content from structured daily AI news draft JSON", async () => {
+    const upstreamFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                title: "2026-04-29 AI 日报：实时语音与开发者工具",
+                excerpt: "今日 AI 新闻聚焦实时语音模型、开发者工具更新和产品化趋势。",
+                intro: "实时语音和开发者工具成为今天的两条主线。模型能力继续向更低延迟和更易集成的方向演进。",
+                items: [
+                  {
+                    title: "OpenAI 发布实时语音模型",
+                    description: "OpenAI 推出面向实时对话和转录场景的新模型。",
+                    keyPoints: ["支持低延迟语音交互。", "适合客服、会议和翻译场景。"],
+                    sourceName: "OpenAI Blog",
+                    url: "https://example.com/openai",
+                  },
+                ],
+                trends: [
+                  { title: "语音交互加速落地", desc: "实时语音能力正在从演示能力进入应用基础设施。" },
+                ],
+              }),
+            },
+          },
+        ],
+      }),
+    })
+    vi.stubGlobal("fetch", upstreamFetch)
+
+    const { generateDailyAiNewsDraft } = await import("@/lib/ai-news")
+    const draft = await generateDailyAiNewsDraft({
+      date: new Date("2026-04-29T08:00:00Z"),
+      candidates: [
+        {
+          id: "item-1",
+          title: "OpenAI 发布实时语音模型",
+          url: "https://example.com/openai",
+          summary: "新实时语音模型发布",
+          sourceId: "openai",
+          sourceName: "OpenAI Blog",
+          publishedAt: new Date("2026-04-29T02:00:00Z"),
+        },
+      ],
+    })
+
+    const requestBody = JSON.parse(String(upstreamFetch.mock.calls[0]?.[1]?.body))
+    expect(String(requestBody.messages[1].content)).toContain("items 是数组")
+    expect(draft.content).toContain("## 今日摘要")
+    expect(draft.content).toContain("## 今日重点")
+    expect(draft.content).toContain("### 1、OpenAI 发布实时语音模型")
+    expect(draft.content).toContain("🔊 支持低延迟语音交互。")
+    expect(draft.content).toContain("## 今日趋势总结")
+    expect(draft.content).toContain("语音交互加速落地")
+    expect(draft.content).toContain("> 来源：[OpenAI Blog](https://example.com/openai)")
+    expect(draft.content.match(/^## 来源链接/gm)).toHaveLength(1)
   })
 
   test("creates a draft and auto-publishes when AI review passes", async () => {
@@ -139,6 +209,29 @@ describe("ai news aggregation", () => {
     }) as typeof fetch
     findFirst.mockResolvedValueOnce(null)
     createAdminPost.mockResolvedValueOnce({ id: "post-1", title: "2026-04-29 AI 日报", slug: "ai-daily-2026-04-29", published: false })
+    applyAiNewsPostEnhancements.mockResolvedValueOnce({
+      post: {
+        id: "post-1",
+        title: "2026-04-29 AI 日报",
+        slug: "ai-daily-2026-04-29",
+        content: "# 今日摘要\n\n内容",
+        excerpt: "AI 摘要",
+        seoDescription: "SEO 描述",
+        published: false,
+        coverImage: "https://cdn.example.com/ai-daily-cover.png",
+        category: { id: "cat-engineering", name: "工程实践", slug: "engineering" },
+        tags: [{ id: "tag-engineering", name: "工程化", slug: "engineering" }],
+      },
+      applied: [
+        { action: "summary", source: "ai" },
+        { action: "seo-description", source: "ai" },
+        { action: "category", source: "ai" },
+        { action: "tags", source: "ai" },
+        { action: "cover-image", source: "ai" },
+      ],
+      skipped: [],
+      failed: [],
+    })
     generatePostReview.mockResolvedValueOnce({ verdict: "ready", score: 92, summary: "可以发布", checks: [], suggestions: [] })
     isAutoPublishableReview.mockReturnValueOnce(true)
     publishAiDraftPost.mockResolvedValueOnce({ id: "post-1", published: true })
@@ -159,7 +252,11 @@ describe("ai news aggregation", () => {
         content: expect.stringContaining("生成标注：本文由 AI 模型"),
       }),
     })
-    expect(generatePostReview).toHaveBeenCalledWith(expect.objectContaining({ slug: "ai-daily-2026-04-29" }))
+    expect(applyAiNewsPostEnhancements).toHaveBeenCalledWith({ postId: "post-1", modelId: undefined })
+    expect(generatePostReview).toHaveBeenCalledWith(expect.objectContaining({
+      slug: "ai-daily-2026-04-29",
+      coverImage: "https://cdn.example.com/ai-daily-cover.png",
+    }))
     expect(publishAiDraftPost).toHaveBeenCalledWith({ postId: "post-1" })
     expect(createAiNewsRun).toHaveBeenCalledWith({
       data: expect.objectContaining({

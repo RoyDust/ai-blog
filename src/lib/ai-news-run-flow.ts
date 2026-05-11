@@ -28,6 +28,7 @@ import { generateDailyAiNewsDraft, resolveDailyAiNewsModel } from "@/lib/ai-news
 import { calculateCitationCoverage, generateFactCardForCandidate, type AiNewsEnrichedFactCard } from "@/lib/ai-news-enrichment"
 import { fetchAiNewsRawItems } from "@/lib/ai-news-fetchers"
 import { buildDailyAiNewsSlug, dedupeNewsItems, parseNewsFeed, type AiNewsItem, type AiNewsSource } from "@/lib/ai-news-parser"
+import { applyAiNewsPostEnhancements, formatAiNewsPostEnhancementWarning } from "@/lib/ai-news-post-processing"
 import { renderDailyAiNewsMarkdown } from "@/lib/ai-news-renderer"
 import { loadDailyAiNewsSources } from "@/lib/ai-news-sources"
 import { scoreAiNewsCandidate, selectScoredCandidates } from "@/lib/ai-news-scoring"
@@ -739,12 +740,28 @@ export async function runDailyAiNews({
       | { verdict: "ready" | "needs-work"; score: number; summary: string; published: boolean; error?: never }
       | { published: false; error: string; verdict?: never; score?: never; summary?: never }
       | null = null
+    const enhancementResult = await applyAiNewsPostEnhancements({ postId: post.id, modelId })
+    const enhancementWarning = formatAiNewsPostEnhancementWarning(enhancementResult)
+    const reviewPost = enhancementResult.post ?? {
+      id: post.id,
+      title: draft.title,
+      slug: draft.slug,
+      content: draft.content,
+      excerpt: draft.excerpt,
+      seoDescription: null,
+      category: null,
+      tags: [],
+      published: post.published,
+      coverImage: null,
+    }
+    const finalPost = { ...post, ...reviewPost }
 
     try {
       const review = await generatePostReview({
-        title: draft.title,
-        slug: draft.slug,
-        content: draft.content,
+        title: reviewPost.title,
+        slug: reviewPost.slug,
+        content: reviewPost.content,
+        coverImage: reviewPost.coverImage ?? undefined,
       })
 
       if (review) {
@@ -764,9 +781,11 @@ export async function runDailyAiNews({
         autoReview = {
           verdict: review.verdict,
           score: review.score,
-          summary: autoPublishBlockers.length > 0
-            ? `${review.summary}；未自动发布：${autoPublishBlockers.join("；")}`
-            : review.summary,
+          summary: [
+            review.summary,
+            autoPublishBlockers.length > 0 ? `未自动发布：${autoPublishBlockers.join("；")}` : null,
+            enhancementWarning,
+          ].filter(Boolean).join("；"),
           published,
         }
       }
@@ -804,8 +823,8 @@ export async function runDailyAiNews({
         citationCoverage,
         generationMode,
         postId: post.id,
-        postTitle: post.title,
-        postSlug: post.slug,
+        postTitle: finalPost.title,
+        postSlug: finalPost.slug,
         published,
         ...reviewRunData,
       },
@@ -814,7 +833,7 @@ export async function runDailyAiNews({
     return {
       operation: existing ? "regenerated" as const : "created" as const,
       published,
-      post: { ...post, published },
+      post: { ...finalPost, published },
       autoReview,
       sourceCount,
       failures,

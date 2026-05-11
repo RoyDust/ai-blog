@@ -1,7 +1,14 @@
 import { describe, expect, test } from "vitest"
 
 import { renderDailyAiNewsMarkdown } from "@/lib/ai-news-renderer"
-import type { AiNewsFactCard, AiNewsScoredCandidate, AiNewsSourceType } from "@/lib/ai-news-types"
+import type { AiNewsFactCard, AiNewsScoredCandidate } from "@/lib/ai-news-types"
+
+type RichTestFactCard = AiNewsFactCard & Partial<{
+  whatHappened: string
+  whyItMatters: string
+  keyDetails: string[]
+  communityDiscussion: string
+}>
 
 function candidate(overrides: Partial<AiNewsScoredCandidate> = {}): AiNewsScoredCandidate {
   return {
@@ -32,12 +39,18 @@ function candidate(overrides: Partial<AiNewsScoredCandidate> = {}): AiNewsScored
   }
 }
 
-function card(title: string, urls: string[], summary = "事实卡摘要"): AiNewsFactCard {
+function card(
+  title: string,
+  urls: string[],
+  summary = "事实卡摘要",
+  overrides: Partial<RichTestFactCard> = {},
+): RichTestFactCard {
   return {
     title,
     summary,
     citations: urls.map((url) => ({ url, title })),
     confidence: "high",
+    ...overrides,
   }
 }
 
@@ -63,18 +76,15 @@ describe("renderDailyAiNewsMarkdown", () => {
         candidate({ title: "开发者工具发布 SDK", sourceType: "GITHUB_RELEASES", aiTags: ["developer"] }),
         candidate({ id: "candidate-2", title: "新模型研究论文", sourceType: "RSS", url: "https://example.com/research", aiTags: ["research"] }),
         candidate({ id: "candidate-3", title: "AI 产品商业化", sourceType: "RSS", url: "https://example.com/product", aiTags: ["product"] }),
-        candidate({ id: "candidate-4", title: "第二个开发者工具", sourceType: "GITHUB_RELEASES", url: "https://example.com/developer-2", aiTags: ["developer"] }),
-        candidate({ id: "candidate-5", title: "第二篇模型论文", sourceType: "RSS", url: "https://example.com/research-2", aiTags: ["research"] }),
-        candidate({ id: "candidate-6", title: "第二个商业产品", sourceType: "RSS", url: "https://example.com/product-2", aiTags: ["product"] }),
       ],
       [],
     )
 
+    expect(markdown).toContain("欢迎来到【AI日报】栏目")
     expect(markdown).toContain("## 今日摘要")
-    expect(markdown).toContain("## 最重要的 3 件事")
-    expect(markdown).toContain("## 开源与开发者动态")
-    expect(markdown).toContain("## 模型与研究进展")
-    expect(markdown).toContain("## 产品与商业动态")
+    expect(markdown).toContain("## 今日重点")
+    expect(markdown).toContain("【AiBase提要:】")
+    expect(markdown).toContain("## 今日趋势总结")
     expect(markdown).toContain("## 来源链接")
     expect(markdown).toContain("生成标注：本文由 AI 模型")
     expect(markdown).toContain("文章摘要生成")
@@ -113,10 +123,10 @@ describe("renderDailyAiNewsMarkdown", () => {
     ], [card("English upstream title", ["https://example.com/citation"], "English fact-card summary.")])
 
     expect(markdown).toContain("这是中文编辑摘要")
-    expect(markdown).not.toContain("English fact\\-card summary")
+    expect(markdown).not.toContain("English fact-card summary")
   })
 
-  test("renders each selected story once in editorial sections", () => {
+  test("renders each selected story once in the detailed focus section", () => {
     const markdown = render([
       candidate({ id: "candidate-1", title: "开发者工具发布 SDK", sourceType: "GITHUB_RELEASES", aiTags: ["developer"] }),
       candidate({ id: "candidate-2", title: "新模型研究论文", sourceType: "RSS", url: "https://example.com/research", aiTags: ["research"] }),
@@ -125,15 +135,16 @@ describe("renderDailyAiNewsMarkdown", () => {
     ], [])
 
     expect(markdown).toContain("今日共筛选出 4 条值得跟进的 AI 动态")
-    expect(markdown.match(/^- \*\*/gm)).toHaveLength(4)
+    expect(markdown.match(/^### \d+、/gm)).toHaveLength(4)
   })
 
-  test("omits empty category sections after top-story dedupe", () => {
+  test("does not render legacy category sections", () => {
     const markdown = render([
       candidate({ title: "单条开发者工具", sourceType: "GITHUB_RELEASES", aiTags: ["developer"] }),
     ], [])
 
-    expect(markdown).toContain("## 最重要的 3 件事")
+    expect(markdown).toContain("## 今日重点")
+    expect(markdown).not.toContain("## 最重要的 3 件事")
     expect(markdown).not.toContain("## 开源与开发者动态")
     expect(markdown).not.toContain("暂无")
   })
@@ -149,8 +160,9 @@ describe("renderDailyAiNewsMarkdown", () => {
       }),
     ], [])
 
-    expect(markdown).toContain("**Hacker News 社区讨论**：开发者正在讨论 AI 编码代理的实用性。")
-    expect(markdown).not.toContain("**Useful AI coding agent**")
+    expect(markdown).toContain("### 1、Hacker News 社区讨论")
+    expect(markdown).toContain("开发者正在讨论 AI 编码代理的实用性。")
+    expect(markdown).not.toContain("### 1、Useful AI coding agent")
     expect(markdown).not.toContain("Original English summary")
   })
 
@@ -173,8 +185,8 @@ describe("renderDailyAiNewsMarkdown", () => {
       }),
     ], [])
 
-    expect(markdown).toContain("**Hacker News 社区讨论（1）**")
-    expect(markdown).toContain("**Hacker News 社区讨论（2）**")
+    expect(markdown).toContain("### 1、Hacker News 社区讨论（1）")
+    expect(markdown).toContain("### 2、Hacker News 社区讨论（2）")
   })
 
   test("uses varied Chinese descriptors for RSS business stories", () => {
@@ -197,18 +209,19 @@ describe("renderDailyAiNewsMarkdown", () => {
       }),
     ], [])
 
-    expect(markdown).toContain("**Deepseek 资本动态**")
-    expect(markdown).toContain("**ChatGPT 商业化动态**")
-    expect(markdown).toContain("**Anthropic 基础设施动态**")
+    expect(markdown).toContain("Deepseek 资本动态")
+    expect(markdown).toContain("ChatGPT 商业化动态")
+    expect(markdown).toContain("Anthropic 基础设施动态")
   })
 
-  test("deduplicates repeated citation links", () => {
+  test("deduplicates repeated citation links in the source section", () => {
     const markdown = render(
       [candidate({ title: "重复引用新闻", url: "https://example.com/fallback" })],
       [card("重复引用新闻", ["https://example.com/shared", "https://example.com/shared"])],
     )
+    const sourceSection = markdown.slice(markdown.indexOf("## 来源链接"))
 
-    expect(markdown.match(/https:\/\/example\.com\/shared/g)).toHaveLength(1)
+    expect(sourceSection.match(/https:\/\/example\.com\/shared/g)).toHaveLength(1)
   })
 
   test("does not add noisy escapes for ordinary punctuation", () => {
@@ -220,27 +233,60 @@ describe("renderDailyAiNewsMarkdown", () => {
     expect(markdown).not.toContain("ggml\\-org/llama\\.cpp")
   })
 
-  test.each([
-    ["GITHUB_RELEASES" as AiNewsSourceType, "## 开源与开发者动态", "开发者工具"],
-    ["RSS" as AiNewsSourceType, "## 模型与研究进展", "模型研究"],
-    ["RSS" as AiNewsSourceType, "## 产品与商业动态", "商业产品"],
-  ])("classifies %s candidates into expected section", (sourceType, section, title) => {
+  test("renders news item with fact card key details as emoji bullets", () => {
     const markdown = render([
-      candidate({ id: "top-1", title: "顶部新闻一", sourceType: "RSS", url: "https://example.com/top-1", aiTags: ["product"] }),
-      candidate({ id: "top-2", title: "顶部新闻二", sourceType: "RSS", url: "https://example.com/top-2", aiTags: ["product"] }),
-      candidate({ id: "top-3", title: "顶部新闻三", sourceType: "RSS", url: "https://example.com/top-3", aiTags: ["product"] }),
+      candidate({ title: "OpenAI 发布实时语音模型", sourceName: "OpenAI Blog" }),
+    ], [
+      card("OpenAI 发布实时语音模型", ["https://example.com/openai"], "事实卡摘要", {
+        whatHappened: "OpenAI 推出了新的实时语音模型，面向低延迟对话和转录场景。",
+        keyDetails: [
+          "模型支持更自然的实时语音对话。",
+          "开发者可以把转录和翻译能力接入现有应用。",
+        ],
+        citations: [{ url: "https://example.com/openai", title: "OpenAI Blog", sourceName: "OpenAI Blog" }],
+      }),
+    ])
+
+    expect(markdown).toContain("OpenAI 推出了新的实时语音模型")
+    expect(markdown).toContain("🔊 模型支持更自然的实时语音对话。")
+    expect(markdown).toContain("🌐 开发者可以把转录和翻译能力接入现有应用。")
+    expect(markdown).toContain("> 来源：[OpenAI Blog](https://example.com/openai)")
+  })
+
+  test("renders trend summary section when fact cards are available", () => {
+    const markdown = render([
+      candidate({ title: "OpenAI 发布实时语音模型", aiTags: ["voice"] }),
+      candidate({ id: "candidate-2", title: "AI SDK 发布新版本", sourceType: "GITHUB_RELEASES", url: "https://example.com/sdk", aiTags: ["sdk"] }),
+      candidate({ id: "candidate-3", title: "AI 安全规范更新", url: "https://example.com/safety", aiTags: ["safety"] }),
+    ], [
+      card("OpenAI 发布实时语音模型", ["https://example.com/voice"], "语音模型摘要", {
+        whyItMatters: "实时语音模型让多模态交互更容易进入客服、会议和翻译场景。",
+      }),
+      card("AI SDK 发布新版本", ["https://example.com/sdk"], "SDK 摘要", {
+        whyItMatters: "开发者工具更新降低了把模型能力接入产品的门槛。",
+      }),
+      card("AI 安全规范更新", ["https://example.com/safety"], "安全摘要", {
+        whyItMatters: "安全规范更新说明合规要求正在成为 AI 产品发布的基础环节。",
+      }),
+    ])
+
+    expect(markdown).toContain("## 今日趋势总结")
+    expect(markdown).toContain("多模态交互加速落地")
+    expect(markdown).toContain("开发者工具链继续成熟")
+    expect(markdown).toContain("安全与合规成为基础能力")
+  })
+
+  test("falls back to summary when fact card is missing", () => {
+    const markdown = render([
       candidate({
-        id: "target",
-        sourceType,
-        title,
-        url: `https://example.com/${title}`,
-        aiTags: title.includes("模型") ? ["research"] : title.includes("商业") ? ["product"] : [],
+        title: "缺少事实卡的新闻",
+        url: "https://example.com/fallback",
+        aiSummary: "这是缺少事实卡时的中文摘要。",
       }),
     ], [])
-    const sectionIndex = markdown.indexOf(section)
-    const titleIndex = markdown.indexOf(title, sectionIndex)
 
-    expect(sectionIndex).toBeGreaterThanOrEqual(0)
-    expect(titleIndex).toBeGreaterThan(sectionIndex)
+    expect(markdown).toContain("这是缺少事实卡时的中文摘要。")
+    expect(markdown).toContain("🔊 这是缺少事实卡时的中文摘要。")
+    expect(markdown).toContain("> 来源：[Source](https://example.com/fallback)")
   })
 })

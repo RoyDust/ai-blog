@@ -3,7 +3,7 @@
  *
  * 职责：
  * - 把已筛选候选与事实卡转成最终可发布的 Markdown 正文
- * - 按开发者 / 研究 / 商业主题组织板块
+ * - 使用事实卡的 whatHappened / whyItMatters / keyDetails 输出详细条目
  * - 统一来源链接、标题展示与生成模型标注格式
  */
 import type { AiModelOption } from "@/lib/ai-models"
@@ -16,14 +16,31 @@ export type DailyAiNewsRendererInput = {
   aiModel: Pick<AiModelOption, "name" | "model">
 }
 
+type RichFactCard = AiNewsFactCard & Partial<{
+  whatHappened: string
+  whyItMatters: string
+  keyDetails: string[]
+  communityDiscussion: string
+  limitations: string[]
+  warnings: string[]
+}>
+
 type CandidateFact = {
   candidate: AiNewsScoredCandidate
-  factCard?: AiNewsFactCard
+  factCard?: RichFactCard
 }
 
 type CandidateDisplayLabels = Map<string, string>
 
 type CategoryKey = "developer" | "research" | "business"
+
+type TrendKey = "multimodal" | "developer" | "model" | "infrastructure" | "safety" | "business" | "community" | "general"
+
+type NewsItemRendererInput = {
+  fact: CandidateFact
+  displayLabels: CandidateDisplayLabels
+  index: number
+}
 
 const CATEGORY_TITLES: Record<CategoryKey, string> = {
   developer: "开源与开发者动态",
@@ -46,6 +63,55 @@ const CATEGORY_KEYWORDS: Record<CategoryKey, string[]> = {
   research: ["model", "模型", "research", "研究", "paper", "论文", "benchmark", "eval", "训练", "推理"],
   business: ["product", "产品", "business", "商业", "startup", "融资", "enterprise", "pricing", "market", "客户"],
 }
+
+const TREND_DEFINITIONS: Array<{
+  key: TrendKey
+  title: string
+  keywords: string[]
+}> = [
+  {
+    key: "multimodal",
+    title: "多模态交互加速落地",
+    keywords: ["audio", "image", "video", "voice", "realtime", "speech", "translate", "translation", "语音", "图像", "视频", "多模态", "实时", "翻译"],
+  },
+  {
+    key: "developer",
+    title: "开发者工具链继续成熟",
+    keywords: ["github", "sdk", "api", "developer", "release", "open source", "opensource", "开源", "开发者", "工具", "框架", "版本"],
+  },
+  {
+    key: "model",
+    title: "模型能力迭代保持高频",
+    keywords: ["model", "llm", "gpt", "reasoning", "benchmark", "eval", "paper", "research", "模型", "推理", "论文", "研究", "评测", "基准"],
+  },
+  {
+    key: "infrastructure",
+    title: "算力与基础设施走向工程化",
+    keywords: ["gpu", "chip", "cloud", "inference", "datacenter", "infrastructure", "芯片", "算力", "云", "推理服务", "基础设施", "数据中心"],
+  },
+  {
+    key: "safety",
+    title: "安全与合规成为基础能力",
+    keywords: ["security", "safety", "privacy", "policy", "regulation", "compliance", "lawsuit", "安全", "隐私", "监管", "合规", "诉讼", "治理"],
+  },
+  {
+    key: "business",
+    title: "AI 产品化与商业化扩张",
+    keywords: ["product", "business", "enterprise", "pricing", "funding", "startup", "hardware", "market", "产品", "商业", "企业", "定价", "融资", "硬件", "市场"],
+  },
+  {
+    key: "community",
+    title: "社区反馈影响技术路线",
+    keywords: ["hacker news", "reddit", "community", "discussion", "comments", "社区", "讨论", "反馈"],
+  },
+]
+
+const TREND_FALLBACK: { key: TrendKey; title: string } = {
+  key: "general",
+  title: "AI 生态热点持续分化",
+}
+
+const DETAIL_EMOJIS = ["🔊", "🌐", "📝", "🧠", "🛡️", "🤖", "🔧", "🏗️", "📈", "🚀"]
 
 function formatDate(date: Date) {
   return date.toISOString().slice(0, 10)
@@ -70,6 +136,10 @@ function preferChineseText(values: Array<string | null | undefined>, fallback: s
 
 function compactText(value: string) {
   return value.replace(/\s+/g, " ").trim()
+}
+
+function readText(value: string | null | undefined) {
+  return compactText(value ?? "")
 }
 
 function trimTrailingSentencePunctuation(value: string) {
@@ -109,11 +179,11 @@ function uniqueByUrl(values: Array<{ label: string; url: string; sourceName: str
 }
 
 function mapCandidateFacts(selectedCandidates: AiNewsScoredCandidate[], factCards: AiNewsFactCard[]): CandidateFact[] {
-  const cardsByTitle = new Map<string, AiNewsFactCard>()
+  const cardsByTitle = new Map<string, RichFactCard>()
   for (const card of factCards) {
     const key = normalizeTitle(card.title)
     if (key && !cardsByTitle.has(key)) {
-      cardsByTitle.set(key, card)
+      cardsByTitle.set(key, card as RichFactCard)
     }
   }
 
@@ -201,13 +271,26 @@ function classifyCandidate(candidate: AiNewsScoredCandidate): CategoryKey {
 }
 
 function candidateSummary({ candidate, factCard }: CandidateFact) {
-  const preferred = compactText(preferChineseText([factCard?.summary, candidate.aiSummary, candidate.summary], ""))
+  const preferred = compactText(preferChineseText([factCard?.summary, candidate.aiSummary, candidate.summary, candidate.content], ""))
 
   if (preferred && hasCjk(preferred)) {
     return preferred
   }
 
   return `来自 ${candidate.sourceName} 的 AI 动态，具体细节以来源链接为准。`
+}
+
+function candidateDescription({ candidate, factCard }: CandidateFact) {
+  const preferred = compactText(preferChineseText(
+    [factCard?.whatHappened, factCard?.summary, candidate.aiSummary, candidate.summary, candidate.content],
+    "",
+  ))
+
+  if (preferred && hasCjk(preferred)) {
+    return preferred
+  }
+
+  return candidateSummary({ candidate, factCard })
 }
 
 function extractEnglishTopic(value: string) {
@@ -273,20 +356,143 @@ function candidateSourceUrls({ candidate, factCard }: CandidateFact) {
   return uniqueStrings(citationUrls.length > 0 ? citationUrls : [candidate.url])
 }
 
-function renderBullet(fact: CandidateFact, displayLabels: CandidateDisplayLabels) {
-  return `- **${escapeMarkdownInline(displayLabels.get(fact.candidate.id) ?? candidateDisplayTitle(fact))}**：${escapeMarkdownInline(candidateSummary(fact))}`
+function renderWelcomeIntro(date: Date) {
+  return `欢迎来到【AI日报】栏目！今天是 ${formatDate(date)}，这里是你每天探索人工智能世界的指南。每天我们为你呈现 AI 领域的热点内容，聚焦开发者，助你洞悉技术趋势、了解创新 AI 产品应用。`
 }
 
 function renderOverview(candidateFacts: CandidateFact[], categorized: Record<CategoryKey, CandidateFact[]>) {
+  if (candidateFacts.length === 0) {
+    return [
+      "今日暂未筛选出足够可靠的 AI 新闻候选。",
+      "请稍后重新运行日报任务，或检查信息源和模型配置是否正常。",
+    ]
+  }
+
   const categoryLabels = (Object.keys(CATEGORY_TITLES) as CategoryKey[])
     .filter((key) => categorized[key].length > 0)
     .map((key) => CATEGORY_TITLES[key].replace("动态", ""))
   const coverage = categoryLabels.length > 0 ? categoryLabels.join("、") : "模型、产品与开发者生态"
+  const topTitles = candidateFacts
+    .slice(0, 3)
+    .map((fact) => candidateDisplayTitle(fact))
+    .join("、")
 
   return [
     `今日共筛选出 ${candidateFacts.length} 条值得跟进的 AI 动态，覆盖${coverage}。`,
-    "下文按重要性与主题拆分，避免同一条新闻在多个板块重复展开；所有判断均以来源链接和候选摘要为边界。",
+    topTitles ? `最值得先读的线索包括：${topTitles}。` : "重点线索集中在模型能力、产品落地和开发者工具链。",
+    "下文按重要性展开每条新闻，并保留来源链接以便继续追踪原始信息。",
   ]
+}
+
+function keyDetailsForFact(fact: CandidateFact) {
+  const details = uniqueStrings(
+    (fact.factCard?.keyDetails ?? [])
+      .map(readText)
+      .filter((detail) => detail.length > 0),
+  )
+
+  if (details.length > 0) {
+    return details.slice(0, 5)
+  }
+
+  return [candidateSummary(fact)]
+}
+
+function renderNewsItem({ fact, displayLabels, index }: NewsItemRendererInput) {
+  const { candidate, factCard } = fact
+  const title = displayLabels.get(candidate.id) ?? candidateDisplayTitle(fact)
+  const description = candidateDescription(fact)
+  const detailLines = keyDetailsForFact(fact).map((detail, detailIndex) => `${DETAIL_EMOJIS[detailIndex % DETAIL_EMOJIS.length]} ${detail}`)
+  const firstCitation = factCard?.citations[0]
+  const sourceName = firstCitation?.sourceName || candidate.sourceName
+  const sourceUrl = firstCitation?.url || candidate.url
+
+  return [
+    `### ${index}、${escapeMarkdownInline(title)}`,
+    "",
+    description,
+    "",
+    "【AiBase提要:】",
+    "",
+    ...detailLines,
+    "",
+    `> 来源：[${escapeMarkdownInline(sourceName)}](${sourceUrl})`,
+  ].join("\n")
+}
+
+function inferTrend(fact: CandidateFact) {
+  const text = [
+    candidateEditorialText(fact.candidate),
+    fact.factCard?.whyItMatters,
+    fact.factCard?.keyDetails?.join(" "),
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase()
+
+  return TREND_DEFINITIONS.find((definition) => definition.keywords.some((keyword) => text.includes(keyword.toLowerCase()))) ?? TREND_FALLBACK
+}
+
+function trendSignalText(fact: CandidateFact) {
+  return compactText(preferChineseText(
+    [fact.factCard?.whyItMatters, fact.factCard?.summary, fact.candidate.aiSummary, fact.candidate.summary],
+    candidateSummary(fact),
+  ))
+}
+
+function renderTrendDescription(facts: CandidateFact[]) {
+  const signals = uniqueStrings(facts.map(trendSignalText).filter(Boolean))
+  const primary = signals[0] ?? "相关动态仍需结合来源继续观察。"
+  const prefix = facts.length > 1 ? "多条动态显示，" : ""
+  return truncateText(`${prefix}${trimTrailingSentencePunctuation(primary)}。`, 110)
+}
+
+function renderTrendSummary(candidateFacts: CandidateFact[], displayLabels: CandidateDisplayLabels) {
+  if (candidateFacts.length === 0) {
+    return [
+      "## 今日趋势总结",
+      "",
+      "综合今日动态，AI 领域暂未形成足够清晰的趋势信号。",
+    ].join("\n")
+  }
+
+  const grouped = new Map<TrendKey, { title: string; facts: CandidateFact[]; firstIndex: number }>()
+  candidateFacts.forEach((fact, index) => {
+    const trend = inferTrend(fact)
+    const existing = grouped.get(trend.key)
+    if (existing) {
+      existing.facts.push(fact)
+      return
+    }
+    grouped.set(trend.key, { title: trend.title, facts: [fact], firstIndex: index })
+  })
+
+  const trends = [...grouped.values()]
+    .sort((a, b) => b.facts.length - a.facts.length || a.firstIndex - b.firstIndex)
+    .slice(0, 5)
+    .map((trend) => ({
+      title: trend.title,
+      desc: renderTrendDescription(trend.facts),
+    }))
+
+  const usedTitles = new Set(trends.map((trend) => trend.title))
+  for (const fact of candidateFacts) {
+    if (trends.length >= Math.min(3, candidateFacts.length)) break
+    const title = `${displayLabels.get(fact.candidate.id) ?? candidateDisplayTitle(fact)} 释放单点信号`
+    if (usedTitles.has(title)) continue
+    usedTitles.add(title)
+    trends.push({
+      title,
+      desc: renderTrendDescription([fact]),
+    })
+  }
+
+  return [
+    "## 今日趋势总结",
+    "",
+    "综合今日动态，AI 领域呈现以下趋势：",
+    ...trends.map((trend, index) => `${index + 1}. **${escapeMarkdownInline(trend.title)}** — ${trend.desc}`),
+  ].join("\n")
 }
 
 /**
@@ -302,18 +508,9 @@ export function renderDailyAiNewsMarkdown({
   const candidateFacts = mapCandidateFacts(selectedCandidates, factCards)
   const displayLabels = buildDisplayLabels(candidateFacts)
   const dateLabel = formatDate(date)
-  const topFacts = candidateFacts.slice(0, 3)
-  const topFactIds = new Set(topFacts.map((fact) => fact.candidate.id))
   const categorized = candidateFacts.reduce<Record<CategoryKey, CandidateFact[]>>(
     (groups, fact) => {
       groups[classifyCandidate(fact.candidate)].push(fact)
-      return groups
-    },
-    { developer: [], research: [], business: [] },
-  )
-  const categorizedRemainder = (Object.keys(categorized) as CategoryKey[]).reduce<Record<CategoryKey, CandidateFact[]>>(
-    (groups, key) => {
-      groups[key] = categorized[key].filter((fact) => !topFactIds.has(fact.candidate.id))
       return groups
     },
     { developer: [], research: [], business: [] },
@@ -334,21 +531,18 @@ export function renderDailyAiNewsMarkdown({
   return [
     `# ${dateLabel} AI 日报`,
     "",
+    renderWelcomeIntro(date),
+    "",
     "## 今日摘要",
     ...renderOverview(candidateFacts, categorized),
     "",
-    "## 最重要的 3 件事",
-    ...(topFacts.length > 0 ? topFacts.map((fact) => renderBullet(fact, displayLabels)) : ["- 暂无入选新闻。"]),
+    "## 今日重点",
+    ...(candidateFacts.length > 0
+      ? candidateFacts.map((fact, index) => renderNewsItem({ fact, displayLabels, index: index + 1 }))
+      : ["暂无入选新闻。"]),
     "",
-    ...(["developer", "research", "business"] as CategoryKey[]).flatMap((key) =>
-      categorizedRemainder[key].length > 0
-        ? [
-            `## ${CATEGORY_TITLES[key]}`,
-            ...categorizedRemainder[key].map((fact) => renderBullet(fact, displayLabels)),
-            "",
-          ]
-        : [],
-    ),
+    renderTrendSummary(candidateFacts, displayLabels),
+    "",
     "## 来源链接",
     ...(sourceLines.length > 0 ? sourceLines : ["- 暂无来源链接。"]),
     "",
