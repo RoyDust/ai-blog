@@ -32,6 +32,15 @@ describe('admin create post', () => {
     render(<AdminCreatePostPage />)
 
     expect(screen.getByRole('heading', { name: '新建文章' })).toBeInTheDocument()
+    const workspace = screen.getByRole('heading', { name: '新建文章' }).closest('form')
+    expect(workspace).toHaveClass('h-full', 'min-h-0', 'overflow-hidden')
+    const contentGrid = workspace?.querySelector('.grid.min-h-0.flex-1')
+    expect(contentGrid).toHaveClass('overflow-y-auto', 'xl:overflow-hidden', 'xl:grid-rows-[minmax(0,1fr)]')
+    expect(screen.getByRole('heading', { name: '发布设置' }).closest('aside')).toHaveClass(
+      'overflow-y-auto',
+      'xl:h-full',
+      'xl:max-h-full',
+    )
     expect(screen.getByRole('heading', { name: '发布设置' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '保存草稿' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '发布文章' })).toBeInTheDocument()

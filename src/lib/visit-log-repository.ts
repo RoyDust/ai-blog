@@ -9,6 +9,15 @@ export type VisitLogRecord = {
   userAgent: string | null;
 };
 
+export type PopularPostVisitRecord = {
+  id: string;
+  title: string;
+  slug: string;
+  coverImage: string | null;
+  publishedAt: Date | null;
+  visitCount: number;
+};
+
 export type VisitLogCreateInput = {
   path: string;
   postId: string | null;
@@ -43,6 +52,30 @@ export async function findVisitLogsInRange(start: Date, end: Date) {
     FROM "visit_logs"
     WHERE "createdAt" >= ${start} AND "createdAt" < ${end}
     ORDER BY "createdAt" ASC
+  `;
+}
+
+export async function findPopularPostVisitsInRange(start: Date, end: Date, take = 5) {
+  const limit = Math.max(1, Math.min(20, Math.trunc(take)));
+
+  return prisma.$queryRaw<PopularPostVisitRecord[]>`
+    SELECT
+      p."id",
+      p."title",
+      p."slug",
+      p."coverImage",
+      p."publishedAt",
+      COUNT(v."id")::int AS "visitCount"
+    FROM "visit_logs" v
+    INNER JOIN "posts" p ON p."id" = v."postId"
+    WHERE v."createdAt" >= ${start}
+      AND v."createdAt" < ${end}
+      AND v."postId" IS NOT NULL
+      AND p."deletedAt" IS NULL
+      AND p."published" = true
+    GROUP BY p."id", p."title", p."slug", p."coverImage", p."publishedAt"
+    ORDER BY "visitCount" DESC, p."publishedAt" DESC NULLS LAST, p."id" ASC
+    LIMIT ${limit}
   `;
 }
 

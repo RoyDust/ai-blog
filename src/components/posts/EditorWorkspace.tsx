@@ -10,7 +10,7 @@
  */
 
 import { useRef, useState } from "react";
-import { Button, Input } from "@/components/ui";
+import { Button, Input } from "@/components/admin/ui";
 import { compressImageForUpload } from "@/lib/client-image-compression";
 import { MarkdownEditor } from "./MarkdownEditor";
 

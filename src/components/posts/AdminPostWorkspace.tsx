@@ -491,7 +491,7 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
         : "本地草稿待保存";
 
   return (
-    <form className="flex min-h-0 flex-col gap-4 lg:h-[calc(100dvh-8.75rem)] lg:overflow-hidden" onSubmit={handleSubmit}>
+    <form className="flex h-full min-h-0 flex-col gap-4 overflow-hidden" onSubmit={handleSubmit}>
       <header className="ui-surface rounded-2xl px-4 py-3">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
           <div className="min-w-0">
@@ -537,7 +537,7 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
 
       {error ? <p className="rounded-xl border border-rose-300 bg-rose-50 p-3 text-sm text-rose-700">{error}</p> : null}
 
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-y-auto xl:grid-cols-[minmax(0,1fr)_320px] xl:grid-rows-[minmax(0,1fr)] xl:overflow-hidden">
         <EditorWorkspace
           className="h-full"
           fillHeight
@@ -571,7 +571,7 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
           onTitleChange={(value) => applyTitleChange(value, setFormData)}
         />
 
-        <aside className="flex min-h-0 flex-col gap-3 overflow-y-auto pr-1">
+        <aside className="flex min-h-0 flex-col gap-3 overflow-y-auto pr-1 xl:h-full xl:max-h-full">
           <WorkspacePanel title="发布设置" description="保存、发布和前台展示相关设置。" className="rounded-2xl">
             <div className="space-y-4">
               <div className="flex items-center justify-between gap-3">

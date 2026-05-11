@@ -10,7 +10,7 @@ interface PageHeaderProps {
 
 export function PageHeader({ title, description, action, eyebrow }: PageHeaderProps) {
   return (
-    <Card asChild className="rounded-3xl p-5 shadow-[0_18px_40px_-32px_rgba(15,118,110,0.6)]">
+    <Card className="gap-0 rounded-3xl p-5 shadow-[0_18px_40px_-32px_rgba(15,118,110,0.6)]">
       <section>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>

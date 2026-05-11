@@ -1,5 +1,12 @@
 import * as React from "react";
-import { cn } from "@/lib/cn";
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldLabel,
+} from "@/components/shadcn/ui/field";
+import { Input as ShadcnInput } from "@/components/shadcn/ui/input";
+import { cn } from "@/lib/utils";
 
 export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
@@ -8,27 +15,20 @@ export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> 
   rightSlot?: React.ReactNode;
 }
 
-const inputClassName =
-  "ui-ring w-full rounded-xl border bg-[var(--surface)] px-4 py-2 text-[var(--foreground)] transition-colors placeholder:text-[var(--muted)] focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-60";
+const inputClassName = "";
 
 function Input({ className, label, error, helperText, rightSlot, id, ...props }: InputProps) {
   const generatedId = React.useId();
   const inputId = id || generatedId;
 
   return (
-    <div className="w-full">
-      {label ? (
-        <label className="mb-1 block text-sm font-medium text-[var(--foreground)]" htmlFor={inputId}>
-          {label}
-        </label>
-      ) : null}
+    <Field data-invalid={Boolean(error)}>
+      {label ? <FieldLabel htmlFor={inputId}>{label}</FieldLabel> : null}
       <div className={rightSlot ? "relative" : undefined}>
-        <input
+        <ShadcnInput
           aria-invalid={Boolean(error)}
           className={cn(
-            inputClassName,
             rightSlot ? "pr-12" : "",
-            error ? "border-rose-500 focus-visible:ring-rose-400" : "border-[var(--border)] focus-visible:ring-[var(--ring)]",
             className,
           )}
           id={inputId}
@@ -36,9 +36,9 @@ function Input({ className, label, error, helperText, rightSlot, id, ...props }:
         />
         {rightSlot ? <div className="absolute right-2 top-1/2 -translate-y-1/2">{rightSlot}</div> : null}
       </div>
-      {error ? <p className="mt-1 text-sm text-rose-500">{error}</p> : null}
-      {helperText && !error ? <p className="mt-1 text-sm text-[var(--muted)]">{helperText}</p> : null}
-    </div>
+      {error ? <FieldError>{error}</FieldError> : null}
+      {helperText && !error ? <FieldDescription>{helperText}</FieldDescription> : null}
+    </Field>
   );
 }
 

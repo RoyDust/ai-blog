@@ -65,7 +65,7 @@ export function DataTable<T extends { id: string }>({
   };
 
   return (
-    <Card asChild className="overflow-hidden rounded-3xl">
+    <Card className="gap-0 overflow-hidden rounded-3xl py-0">
       <section>
         <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] px-4 py-3">
           <div>

@@ -3,9 +3,10 @@ import { within } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 const signOut = vi.fn();
+const pathnameState = vi.hoisted(() => ({ value: "/admin/taxonomy" }));
 
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/admin/taxonomy",
+  usePathname: () => pathnameState.value,
   useRouter: () => ({ push: vi.fn() }),
 }));
 
@@ -15,6 +16,7 @@ vi.mock("next-auth/react", () => ({
 
 describe("admin layout", () => {
   beforeEach(() => {
+    pathnameState.value = "/admin/taxonomy";
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({
@@ -78,5 +80,28 @@ describe("admin layout", () => {
     expect(screen.getByTestId("admin-layout-content")).toHaveClass("h-screen", "overflow-hidden");
     expect(screen.getByTestId("admin-layout-main")).toHaveClass("flex-1", "overflow-y-auto");
     expect(screen.getByTestId("admin-layout-main").firstElementChild).toHaveClass("max-w-[1840px]");
+  });
+
+  test.each([
+    ["/admin/posts/new"],
+    ["/admin/posts/1/edit"],
+  ])("locks page scrolling for post editor route %s", async (pathname) => {
+    pathnameState.value = pathname;
+    const { AdminLayout } = await import("@/components/admin/shell/AdminLayout");
+
+    const { container } = render(
+      <AdminLayout siteName="Configured Blog" user={{ label: "RoyDust", role: "ADMIN" }}>
+        <div>Editor content</div>
+      </AdminLayout>,
+    );
+
+    const main = screen.getByTestId("admin-layout-main");
+    expect(screen.getByText("Editor content")).toBeInTheDocument();
+    expect(container.firstElementChild).toHaveClass("fixed", "inset-0", "h-dvh", "overflow-hidden");
+    expect(screen.getByTestId("admin-layout-grid")).toHaveClass("h-full", "min-h-0", "overflow-hidden");
+    expect(screen.getByTestId("admin-layout-content")).toHaveClass("h-full", "min-h-0", "overflow-hidden");
+    expect(main).toHaveClass("flex-1", "min-h-0", "overflow-hidden");
+    expect(main).not.toHaveClass("overflow-y-auto");
+    expect(main.firstElementChild).toHaveClass("h-full", "min-h-0", "max-w-[1840px]");
   });
 });

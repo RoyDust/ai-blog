@@ -27,7 +27,7 @@ import { getPublicAiModelOptions, type PublicAiModelOption } from "@/lib/ai-mode
 import { addUtcDays, formatVisitTrendDate, formatVisitTrendLabel, parseVisitTrendRange, startOfUtcDay, type VisitTrendRange } from "@/lib/analytics";
 import { getBlogSettings } from "@/lib/blog-settings";
 import { prisma } from "@/lib/prisma";
-import { findVisitLogsInRange } from "@/lib/visit-log-repository";
+import { findPopularPostVisitsInRange, findVisitLogsInRange } from "@/lib/visit-log-repository";
 
 export const dynamic = "force-dynamic";
 
@@ -81,15 +81,22 @@ async function getPendingCommentQueue() {
 }
 
 /**
- * 读取热门已发布文章，按浏览量倒序展示。
+ * 读取指定访问窗口内的热门文章，按真实访问日志 PV 倒序展示。
  */
-async function getPopularPosts() {
-  return prisma.post.findMany({
-    where: { deletedAt: null, published: true },
-    select: { id: true, title: true, slug: true, coverImage: true, viewCount: true, publishedAt: true },
-    orderBy: { viewCount: "desc" },
-    take: 5,
-  });
+async function getPopularPosts(range: VisitTrendRange) {
+  const { start, end } = getVisitRangeWindow(range);
+  return findPopularPostVisitsInRange(start, end, 5);
+}
+
+function getVisitRangeWindow(range: VisitTrendRange) {
+  const today = startOfUtcDay(new Date());
+
+  return {
+    today,
+    yesterday: addUtcDays(today, -1),
+    start: addUtcDays(today, -(range - 1)),
+    end: addUtcDays(today, 1),
+  };
 }
 
 /**
@@ -101,10 +108,7 @@ async function getPopularPosts() {
  * - 今日与昨日 PV 对比
  */
 async function getVisitTrend(range: VisitTrendRange): Promise<{ trend: VisitTrendItem[]; summary: VisitTrendSummary }> {
-  const today = startOfUtcDay(new Date());
-  const start = addUtcDays(today, -(range - 1));
-  const end = addUtcDays(today, 1);
-  const yesterday = addUtcDays(today, -1);
+  const { today, yesterday, start, end } = getVisitRangeWindow(range);
 
   const logs = await findVisitLogsInRange(start, end);
 
@@ -430,11 +434,15 @@ function PendingCommentsPanel({ comments, count }: { comments: PendingCommentLis
   );
 }
 
-function PopularPostsPanel({ posts }: { posts: PopularPostListItem[] }) {
+function PopularPostsPanel({ posts, range }: { posts: PopularPostListItem[]; range: VisitTrendRange }) {
   const rankTone = ["bg-amber-400 text-white", "bg-slate-200 text-slate-700", "bg-orange-400 text-white", "bg-emerald-50 text-[var(--brand)]", "bg-emerald-50 text-[var(--brand)]"];
 
   return (
-    <WorkspacePanel title="热门文章" className="min-h-[460px]">
+    <WorkspacePanel
+      title="热门文章"
+      actions={<span className="rounded-full bg-emerald-50 px-3 py-1 text-sm font-medium text-[var(--brand)]">近 {range} 天</span>}
+      className="min-h-[460px]"
+    >
       <div className="divide-y divide-[var(--border)]">
         {posts.length > 0 ? (
           posts.map((post, index) => (
@@ -448,14 +456,14 @@ function PopularPostsPanel({ posts }: { posts: PopularPostListItem[] }) {
                 </Link>
                 <p className="mt-1 inline-flex items-center gap-1 text-sm text-[var(--muted)]">
                   <Eye className="h-4 w-4" />
-                  {post.viewCount.toLocaleString("zh-CN")} 浏览
+                  {post.visitCount.toLocaleString("zh-CN")} 浏览
                 </p>
               </div>
               <Thumbnail src={post.coverImage} label={`${post.title} 封面`} className="h-16 w-24" />
             </article>
           ))
         ) : (
-          <EmptyPanelMessage>暂无已发布文章浏览数据。</EmptyPanelMessage>
+          <EmptyPanelMessage>近 {range} 天暂无文章浏览数据。</EmptyPanelMessage>
         )}
       </div>
       <Link href="/admin/posts" className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-blue-600">
@@ -544,7 +552,7 @@ export default async function AdminPage({ searchParams }: { searchParams?: Promi
     prisma.comment.count({ where: { deletedAt: null, status: PENDING_COMMENT_STATUS } }),
     getDraftQueue(),
     getPendingCommentQueue(),
-    getPopularPosts(),
+    getPopularPosts(range),
     getPublicAiModelOptions(),
     getVisitTrend(range),
     getBlogSettings(),
@@ -559,7 +567,7 @@ export default async function AdminPage({ searchParams }: { searchParams?: Promi
 
       <section className="grid grid-cols-1 gap-5 2xl:gap-6 xl:grid-cols-[minmax(360px,1.05fr)_minmax(380px,1.05fr)_minmax(440px,1.15fr)]">
         <PendingCommentsPanel comments={pendingQueue} count={pendingCommentCount} />
-        <PopularPostsPanel posts={popularPosts} />
+        <PopularPostsPanel posts={popularPosts} range={range} />
         <AiModelChecklistPanel models={aiModels} />
       </section>
 

@@ -1,25 +1,34 @@
-import * as React from "react";
-import { cva, type VariantProps } from "class-variance-authority";
-import { cn } from "@/lib/cn";
+import type * as React from "react";
+import {
+  Badge as ShadcnBadge,
+  badgeVariants,
+} from "@/components/shadcn/ui/badge";
+import { cn } from "@/lib/utils";
 
-const badgeVariants = cva("inline-flex rounded-full border px-2.5 py-1 text-xs font-medium", {
-  variants: {
-    tone: {
-      neutral: "border-[var(--border)] bg-[var(--surface-alt)] text-[var(--foreground)]",
-      success: "ui-status-success",
-      warning: "ui-status-warning",
-      danger: "ui-status-danger",
-    },
-  },
-  defaultVariants: {
-    tone: "neutral",
-  },
-});
+type Tone = "neutral" | "success" | "warning" | "danger";
 
-export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement>, VariantProps<typeof badgeVariants> {}
+const toneClassNames: Record<Tone, string> = {
+  neutral: "border-border bg-secondary text-secondary-foreground",
+  success: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  warning: "border-amber-200 bg-amber-50 text-amber-700",
+  danger: "border-rose-200 bg-rose-50 text-rose-700",
+};
 
-function Badge({ className, tone, ...props }: BadgeProps) {
-  return <span className={cn(badgeVariants({ tone, className }))} {...props} />;
+export type BadgeProps = Omit<
+  React.ComponentProps<typeof ShadcnBadge>,
+  "variant"
+> & {
+  tone?: Tone;
+};
+
+function Badge({ className, tone = "neutral", ...props }: BadgeProps) {
+  return (
+    <ShadcnBadge
+      variant="outline"
+      className={cn(toneClassNames[tone], className)}
+      {...props}
+    />
+  );
 }
 
 export { Badge, badgeVariants };

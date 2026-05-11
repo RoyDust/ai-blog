@@ -1,5 +1,12 @@
 import * as React from "react";
-import { cn } from "@/lib/cn";
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldLabel,
+} from "@/components/shadcn/ui/field";
+import { Textarea as ShadcnTextarea } from "@/components/shadcn/ui/textarea";
+import { cn } from "@/lib/utils";
 
 export interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
   label?: string;
@@ -12,25 +19,20 @@ function Textarea({ className, label, error, helperText, id, ...props }: Textare
   const textareaId = id || generatedId;
 
   return (
-    <div className="w-full">
-      {label ? (
-        <label className="mb-1 block text-sm font-medium text-[var(--foreground)]" htmlFor={textareaId}>
-          {label}
-        </label>
-      ) : null}
-      <textarea
+    <Field data-invalid={Boolean(error)}>
+      {label ? <FieldLabel htmlFor={textareaId}>{label}</FieldLabel> : null}
+      <ShadcnTextarea
         aria-invalid={Boolean(error)}
         className={cn(
-          "ui-ring min-h-28 w-full resize-y rounded-xl border bg-[var(--surface)] px-4 py-3 text-[var(--foreground)] outline-none transition-colors placeholder:text-[var(--muted)] focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-60",
-          error ? "border-rose-500 focus-visible:ring-rose-400" : "border-[var(--border)] focus-visible:ring-[var(--ring)]",
+          "min-h-28 resize-y",
           className,
         )}
         id={textareaId}
         {...props}
       />
-      {error ? <p className="mt-1 text-sm text-rose-500">{error}</p> : null}
-      {helperText && !error ? <p className="mt-1 text-sm text-[var(--muted)]">{helperText}</p> : null}
-    </div>
+      {error ? <FieldError>{error}</FieldError> : null}
+      {helperText && !error ? <FieldDescription>{helperText}</FieldDescription> : null}
+    </Field>
   );
 }
 

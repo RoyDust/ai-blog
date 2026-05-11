@@ -2,7 +2,12 @@
 
 import type { ReactNode } from "react";
 import { cn } from "@/lib/cn";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/shadcn/ui/dialog";
 
 export interface ModalProps {
   isOpen: boolean;

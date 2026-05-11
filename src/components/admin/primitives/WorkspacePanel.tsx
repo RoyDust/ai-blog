@@ -21,7 +21,7 @@ export function WorkspacePanel({
   const shouldShowEmptyState = Boolean(emptyState) && Children.toArray(children).length === 0;
 
   return (
-    <Card asChild className={className}>
+    <Card className={className}>
       <section>
         {title || description || actions ? (
           <header className="flex flex-wrap items-start justify-between gap-3 px-5 pb-2 pt-5">

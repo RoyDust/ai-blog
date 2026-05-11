@@ -2,7 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import React from "react";
 import { describe, expect, test, vi } from "vitest";
 
-const { postFindManyMock, commentCountMock, commentFindManyMock, findVisitLogsInRangeMock, getPublicAiModelOptionsMock } = vi.hoisted(() => {
+const { postFindManyMock, commentCountMock, commentFindManyMock, findVisitLogsInRangeMock, findPopularPostVisitsInRangeMock, getPublicAiModelOptionsMock } = vi.hoisted(() => {
   const draftQueuePosts = [
     {
       id: "post-draft-1",
@@ -39,7 +39,7 @@ const { postFindManyMock, commentCountMock, commentFindManyMock, findVisitLogsIn
       title: "Most Viewed Post",
       slug: "most-viewed-post",
       coverImage: "https://example.com/popular-1.jpg",
-      viewCount: 120,
+      visitCount: 120,
       publishedAt: new Date("2026-04-05T00:00:00Z"),
     },
     {
@@ -47,7 +47,7 @@ const { postFindManyMock, commentCountMock, commentFindManyMock, findVisitLogsIn
       title: "Second Viewed Post",
       slug: "second-viewed-post",
       coverImage: "https://example.com/popular-2.jpg",
-      viewCount: 42,
+      visitCount: 42,
       publishedAt: new Date("2026-04-04T00:00:00Z"),
     },
   ];
@@ -113,13 +113,9 @@ const { postFindManyMock, commentCountMock, commentFindManyMock, findVisitLogsIn
   ];
 
   return {
-    postFindManyMock: vi.fn(({ where, orderBy }) => {
+    postFindManyMock: vi.fn(({ where }) => {
       if (where?.published === false) {
         return Promise.resolve(draftQueuePosts);
-      }
-
-      if (where?.published === true && orderBy?.viewCount === "desc") {
-        return Promise.resolve(popularPosts);
       }
 
       return Promise.resolve([]);
@@ -130,6 +126,7 @@ const { postFindManyMock, commentCountMock, commentFindManyMock, findVisitLogsIn
       { createdAt: new Date(), visitorId: "visitor-1", ipHash: "ip-1", userAgent: "agent-1" },
       { createdAt: new Date(), visitorId: "visitor-1", ipHash: "ip-1", userAgent: "agent-1" },
     ]),
+    findPopularPostVisitsInRangeMock: vi.fn().mockResolvedValue(popularPosts),
     getPublicAiModelOptionsMock: vi.fn().mockResolvedValue(aiModels),
   };
 });
@@ -153,6 +150,7 @@ vi.mock("@/lib/ai-models", () => ({
 
 vi.mock("@/lib/visit-log-repository", () => ({
   findVisitLogsInRange: findVisitLogsInRangeMock,
+  findPopularPostVisitsInRange: findPopularPostVisitsInRangeMock,
 }));
 
 describe("admin overview", () => {
@@ -192,6 +190,7 @@ describe("admin overview", () => {
     expect(popularPanel).not.toBeNull();
     expect(within(popularPanel as HTMLElement).getByText("Most Viewed Post")).toBeInTheDocument();
     expect(within(popularPanel as HTMLElement).getByText("Second Viewed Post")).toBeInTheDocument();
+    expect(within(popularPanel as HTMLElement).getByText("近 7 天")).toBeInTheDocument();
     expect(within(popularPanel as HTMLElement).getByText("120 浏览")).toBeInTheDocument();
 
     const aiModelPanel = screen.getByRole("heading", { name: "AI 模型清单" }).closest("section");
@@ -228,13 +227,8 @@ describe("admin overview", () => {
       orderBy: { createdAt: "desc" },
       take: 3,
     });
-    expect(postFindManyMock).toHaveBeenCalledWith({
-      where: { deletedAt: null, published: true },
-      select: { id: true, title: true, slug: true, coverImage: true, viewCount: true, publishedAt: true },
-      orderBy: { viewCount: "desc" },
-      take: 5,
-    });
     expect(findVisitLogsInRangeMock).toHaveBeenCalledWith(expect.any(Date), expect.any(Date));
+    expect(findPopularPostVisitsInRangeMock).toHaveBeenCalledWith(expect.any(Date), expect.any(Date), 5);
     expect(getPublicAiModelOptionsMock).toHaveBeenCalledTimes(1);
   });
 });
