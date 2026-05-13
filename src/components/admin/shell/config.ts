@@ -8,6 +8,7 @@ import {
   ListChecks,
   MessageSquare,
   Newspaper,
+  Route,
   ScrollText,
 } from "lucide-react";
 
@@ -20,6 +21,8 @@ export type AdminNavItem = {
   badge?: string;
 };
 
+export const ADMIN_AI_GROUP_LABEL = "AI 助手";
+
 function hasPathSegment(pathname: string, href: string) {
   const normalizedPathname = pathname !== "/" ? pathname.replace(/\/+$/, "") : pathname;
   return normalizedPathname === href || normalizedPathname.startsWith(`${href}/`);
@@ -31,9 +34,10 @@ export const adminNavItems: AdminNavItem[] = [
   { href: "/admin/comments", label: "评论", group: "主导航", icon: MessageSquare },
   { href: "/admin/taxonomy", label: "分类", group: "主导航", icon: FolderTree },
   { href: "/admin/covers", label: "媒体库", group: "主导航", icon: Images },
-  { href: "/admin/ai-news", label: "AI 日报", group: "AI 辅助", icon: Newspaper },
-  { href: "/admin/ai/models", label: "模型配置", group: "AI 辅助", icon: BrainCircuit },
-  { href: "/admin/ai/tasks", label: "AI 任务", group: "AI 辅助", icon: ListChecks },
+  { href: "/admin/ai-news", label: "AI 日报", group: ADMIN_AI_GROUP_LABEL, icon: Newspaper },
+  { href: "/admin/ai/interfaces", label: "AI 接口", group: ADMIN_AI_GROUP_LABEL, icon: Route },
+  { href: "/admin/ai/models", label: "模型配置", group: ADMIN_AI_GROUP_LABEL, icon: BrainCircuit },
+  { href: "/admin/ai/tasks", label: "AI 任务", group: ADMIN_AI_GROUP_LABEL, icon: ListChecks },
   { href: "/admin/logs", label: "接口日志", group: "系统", icon: ScrollText },
 ];
 

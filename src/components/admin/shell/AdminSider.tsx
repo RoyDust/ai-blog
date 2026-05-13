@@ -5,7 +5,7 @@ import { useState } from "react";
 import { signOut } from "next-auth/react";
 import { ChevronDown, Leaf, LogOut, Settings, Sparkles } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/admin/ui";
-import { type AdminNavItem, adminNavItems, isAdminNavItemActive } from "./config";
+import { ADMIN_AI_GROUP_LABEL, type AdminNavItem, adminNavItems, isAdminNavItemActive } from "./config";
 
 interface AdminSiderProps {
   pathname: string;
@@ -33,7 +33,7 @@ function getInitials(value: string) {
 export function AdminSider({ pathname, siteName, user }: AdminSiderProps) {
   const userLabel = user.label;
   const mainItems = adminNavItems.filter((item) => item.group === "主导航");
-  const aiItems = adminNavItems.filter((item) => item.group === "AI 辅助");
+  const aiItems = adminNavItems.filter((item) => item.group === ADMIN_AI_GROUP_LABEL);
   const systemItems = adminNavItems.filter((item) => item.group === "系统");
   const isAiActive = aiItems.some((item) => isAdminNavItemActive(pathname, item.href));
   const isSettingsActive = pathname === "/admin/settings";

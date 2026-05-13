@@ -21,8 +21,16 @@ describe("admin shell config", () => {
   test("maps AI model management route into grouped workspace labels", () => {
     expect(getAdminPathMeta("/admin/ai/models")).toEqual({
       currentLabel: "模型配置",
-      currentGroup: "AI 辅助",
-      crumbs: ["后台", "AI 辅助", "模型配置"],
+      currentGroup: "AI 助手",
+      crumbs: ["后台", "AI 助手", "模型配置"],
+    });
+  });
+
+  test("maps AI interface catalog route into grouped workspace labels", () => {
+    expect(getAdminPathMeta("/admin/ai/interfaces")).toEqual({
+      currentLabel: "AI 接口",
+      currentGroup: "AI 助手",
+      crumbs: ["后台", "AI 助手", "AI 接口"],
     });
   });
 
@@ -37,16 +45,16 @@ describe("admin shell config", () => {
   test("maps AI task route into grouped workspace labels", () => {
     expect(getAdminPathMeta("/admin/ai/tasks")).toEqual({
       currentLabel: "AI 任务",
-      currentGroup: "AI 辅助",
-      crumbs: ["后台", "AI 辅助", "AI 任务"],
+      currentGroup: "AI 助手",
+      crumbs: ["后台", "AI 助手", "AI 任务"],
     });
   });
 
   test("maps AI news route into content breadcrumbs", () => {
     expect(getAdminPathMeta("/admin/ai-news")).toEqual({
       currentLabel: "AI 日报",
-      currentGroup: "AI 辅助",
-      crumbs: ["后台", "AI 辅助", "AI 日报"],
+      currentGroup: "AI 助手",
+      crumbs: ["后台", "AI 助手", "AI 日报"],
     });
   });
 
@@ -57,9 +65,10 @@ describe("admin shell config", () => {
       { label: "评论", group: "主导航", disabled: false },
       { label: "分类", group: "主导航", disabled: false },
       { label: "媒体库", group: "主导航", disabled: false },
-      { label: "AI 日报", group: "AI 辅助", disabled: false },
-      { label: "模型配置", group: "AI 辅助", disabled: false },
-      { label: "AI 任务", group: "AI 辅助", disabled: false },
+      { label: "AI 日报", group: "AI 助手", disabled: false },
+      { label: "AI 接口", group: "AI 助手", disabled: false },
+      { label: "模型配置", group: "AI 助手", disabled: false },
+      { label: "AI 任务", group: "AI 助手", disabled: false },
       { label: "接口日志", group: "系统", disabled: false },
     ]);
   });
@@ -97,6 +106,7 @@ describe("admin shell config", () => {
     expect(isAdminNavItemActive("/admin/posts-archive", "/admin/posts")).toBe(false);
     expect(isAdminNavItemActive("/admin/covers", "/admin/covers")).toBe(true);
     expect(isAdminNavItemActive("/admin/taxonomy", "/admin/taxonomy")).toBe(true);
+    expect(isAdminNavItemActive("/admin/ai/interfaces", "/admin/ai/interfaces")).toBe(true);
     expect(isAdminNavItemActive("/admin/ai/models", "/admin/ai/models")).toBe(true);
     expect(isAdminNavItemActive("/admin/ai/tasks/task-1", "/admin/ai/tasks")).toBe(true);
     expect(isAdminNavItemActive("/admin/logs", "/admin/logs")).toBe(true);

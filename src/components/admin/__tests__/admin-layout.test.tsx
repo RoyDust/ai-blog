@@ -53,6 +53,7 @@ describe("admin layout", () => {
     fireEvent.click(within(aiAssistant as HTMLElement).getByText("AI 助手"));
     expect(aiAssistant).toHaveAttribute("open");
     expect(within(aiAssistant as HTMLElement).getByRole("link", { name: "AI 日报" })).toHaveAttribute("href", "/admin/ai-news");
+    expect(within(aiAssistant as HTMLElement).getByRole("link", { name: "AI 接口" })).toHaveAttribute("href", "/admin/ai/interfaces");
     expect(within(aiAssistant as HTMLElement).getByRole("link", { name: "模型配置" })).toHaveAttribute("href", "/admin/ai/models");
     expect(within(aiAssistant as HTMLElement).getByRole("link", { name: "AI 任务" })).toHaveAttribute("href", "/admin/ai/tasks");
     expect(within(nav).queryByRole("button", { name: "设置稍后开放" })).not.toBeInTheDocument();
