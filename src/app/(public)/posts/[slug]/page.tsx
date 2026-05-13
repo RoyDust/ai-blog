@@ -1,4 +1,4 @@
-export const revalidate = 300;
+export const dynamic = "force-dynamic";
 
 /**
  * 前台文章详情页。
@@ -107,24 +107,6 @@ async function getContinuationData(post: ArticlePost) {
   return {
     previousPost,
     nextPost,
-  }
-}
-
-/**
- * 预生成一批高频文章路径，提升常见文章首访性能。
- */
-export async function generateStaticParams() {
-  try {
-    const posts = await prisma.post.findMany({
-      where: { published: true, deletedAt: null },
-      select: { slug: true },
-      take: 100,
-    })
-
-    return posts.map((post: { slug: string }) => ({ slug: post.slug }))
-  } catch (error) {
-    console.error("Generate post static params error:", error)
-    return []
   }
 }
 

@@ -19,6 +19,14 @@ test('article markdown prose uses semantic dark-mode tokens', () => {
   expect(source).toContain('prose-li:marker:text-[var(--text-faint)]')
 })
 
+test('article details stay runtime-rendered in deployments without build-time database access', () => {
+  const source = readSource('src/app/(public)/posts/[slug]/page.tsx')
+
+  expect(source).toContain('export const dynamic = "force-dynamic"')
+  expect(source).not.toContain('generateStaticParams')
+  expect(source).not.toContain('export const revalidate')
+})
+
 test('article markdown headings h1 through h5 use semantic heading colors', () => {
   const source = readSource('src/app/(public)/posts/[slug]/page.tsx')
 
