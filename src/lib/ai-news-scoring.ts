@@ -202,7 +202,7 @@ function buildScoringPrompt(candidate: AiNewsCandidateInput) {
   return [
     "Evaluate this AI/news candidate for a Chinese AI daily briefing.",
     "Return strict JSON only with fields: score/reason/summary/tags/riskFlags.",
-    "Write reason and summary in Simplified Chinese. The summary must be one concise Chinese sentence.",
+    "Write reason and summary in Simplified Chinese. The summary should be a factual 50-90 Chinese character editor note, not a slogan or a copy of the title.",
     "If the candidate text is English, translate the editorial reason and summary into natural Simplified Chinese while preserving product, company, model, and repository names.",
     "score must be 0-10. riskFlags may include hallucination, duplicate, low-signal when applicable.",
     "",

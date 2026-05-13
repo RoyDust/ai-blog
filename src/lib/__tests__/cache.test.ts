@@ -13,6 +13,7 @@ import {
   buildCategoryPath,
   buildPostPath,
   buildTagPath,
+  revalidateBlogSettings,
   revalidatePublicContent,
 } from '../cache'
 
@@ -72,5 +73,14 @@ describe('cache helpers', () => {
       [buildTagPath('react')],
       [buildTagPath('legacy')],
     ])
+  })
+
+  test('ignores revalidate calls outside a Next request context', () => {
+    revalidatePath.mockImplementation(() => {
+      throw new Error('Invariant: static generation store missing in revalidatePath /')
+    })
+
+    expect(() => revalidatePublicContent({ slug: 'ai-daily-2026-05-13' })).not.toThrow()
+    expect(() => revalidateBlogSettings()).not.toThrow()
   })
 })

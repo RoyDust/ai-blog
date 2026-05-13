@@ -7,12 +7,14 @@
  * - 统一来源链接、标题展示与生成模型标注格式
  */
 import type { AiModelOption } from "@/lib/ai-models"
+import type { DailyAiNewsEditorialBrief, DailyAiNewsEditorialItem } from "@/lib/ai-news-editorial-compose"
 import type { AiNewsFactCard, AiNewsScoredCandidate, AiNewsSourceType } from "@/lib/ai-news-types"
 
 export type DailyAiNewsRendererInput = {
   date: Date
   selectedCandidates: AiNewsScoredCandidate[]
   factCards: AiNewsFactCard[]
+  editorialBrief?: DailyAiNewsEditorialBrief | null
   aiModel: Pick<AiModelOption, "name" | "model">
 }
 
@@ -112,6 +114,13 @@ const TREND_FALLBACK: { key: TrendKey; title: string } = {
 }
 
 const DETAIL_EMOJIS = ["🔊", "🌐", "📝", "🧠", "🛡️", "🤖", "🔧", "🏗️", "📈", "🚀"]
+const LOW_VALUE_TEXT_PATTERNS = [
+  /详情以来源链接为准/,
+  /该条目入选今日 AI 日报/,
+  /^来源[:：]/,
+  /^链接[:：]/,
+  /事实卡未能由模型可靠生成/,
+]
 
 function formatDate(date: Date) {
   return date.toISOString().slice(0, 10)
@@ -119,6 +128,10 @@ function formatDate(date: Date) {
 
 function normalizeTitle(value: string) {
   return value.trim().toLowerCase()
+}
+
+function normalizeUrl(value: string | null | undefined) {
+  return (value ?? "").trim().replace(/#.*$/, "").replace(/\/$/, "")
 }
 
 function escapeMarkdownInline(value: string) {
@@ -140,6 +153,11 @@ function compactText(value: string) {
 
 function readText(value: string | null | undefined) {
   return compactText(value ?? "")
+}
+
+function isLowValueText(value: string | null | undefined) {
+  const text = readText(value)
+  return !text || LOW_VALUE_TEXT_PATTERNS.some((pattern) => pattern.test(text))
 }
 
 function trimTrailingSentencePunctuation(value: string) {
@@ -164,6 +182,29 @@ function uniqueStrings(values: string[]) {
   return result
 }
 
+function normalizeForComparison(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\u3400-\u9fff]+/gu, "")
+}
+
+function hasSimilarCore(a: string, b: string) {
+  const left = normalizeForComparison(a)
+  const right = normalizeForComparison(b)
+
+  if (!left || !right) {
+    return false
+  }
+  if (left === right) {
+    return true
+  }
+
+  const shorter = left.length < right.length ? left : right
+  const longer = left.length < right.length ? right : left
+
+  return shorter.length >= 24 && longer.includes(shorter)
+}
+
 function uniqueByUrl(values: Array<{ label: string; url: string; sourceName: string }>) {
   const seen = new Set<string>()
   const result: Array<{ label: string; url: string; sourceName: string }> = []
@@ -180,16 +221,25 @@ function uniqueByUrl(values: Array<{ label: string; url: string; sourceName: str
 
 function mapCandidateFacts(selectedCandidates: AiNewsScoredCandidate[], factCards: AiNewsFactCard[]): CandidateFact[] {
   const cardsByTitle = new Map<string, RichFactCard>()
+  const cardsByUrl = new Map<string, RichFactCard>()
   for (const card of factCards) {
     const key = normalizeTitle(card.title)
     if (key && !cardsByTitle.has(key)) {
       cardsByTitle.set(key, card as RichFactCard)
     }
+    for (const citation of card.citations) {
+      const urlKey = normalizeUrl(citation.url)
+      if (urlKey && !cardsByUrl.has(urlKey)) {
+        cardsByUrl.set(urlKey, card as RichFactCard)
+      }
+    }
   }
 
   return selectedCandidates.map((candidate) => ({
     candidate,
-    factCard: cardsByTitle.get(normalizeTitle(candidate.title)),
+    factCard: cardsByTitle.get(normalizeTitle(candidate.title)) ??
+      cardsByUrl.get(normalizeUrl(candidate.canonicalUrl)) ??
+      cardsByUrl.get(normalizeUrl(candidate.url)),
   }))
 }
 
@@ -271,7 +321,12 @@ function classifyCandidate(candidate: AiNewsScoredCandidate): CategoryKey {
 }
 
 function candidateSummary({ candidate, factCard }: CandidateFact) {
-  const preferred = compactText(preferChineseText([factCard?.summary, candidate.aiSummary, candidate.summary, candidate.content], ""))
+  const preferred = compactText(preferChineseText([
+    isLowValueText(factCard?.summary) ? null : factCard?.summary,
+    candidate.aiSummary,
+    candidate.summary,
+    candidate.content,
+  ], ""))
 
   if (preferred && hasCjk(preferred)) {
     return preferred
@@ -282,7 +337,21 @@ function candidateSummary({ candidate, factCard }: CandidateFact) {
 
 function candidateDescription({ candidate, factCard }: CandidateFact) {
   const preferred = compactText(preferChineseText(
-    [factCard?.whatHappened, factCard?.summary, candidate.aiSummary, candidate.summary, candidate.content],
+    candidate.sourceType === "RSS"
+      ? [
+          candidate.aiSummary,
+          candidate.summary,
+          isLowValueText(factCard?.whatHappened) ? null : factCard?.whatHappened,
+          isLowValueText(factCard?.summary) ? null : factCard?.summary,
+          candidate.content,
+        ]
+      : [
+          isLowValueText(factCard?.whatHappened) ? null : factCard?.whatHappened,
+          isLowValueText(factCard?.summary) ? null : factCard?.summary,
+          candidate.aiSummary,
+          candidate.summary,
+          candidate.content,
+        ],
     "",
   ))
 
@@ -310,6 +379,15 @@ function extractEnglishTopic(value: string) {
   return ""
 }
 
+function candidateSummaryTitle(candidate: AiNewsScoredCandidate) {
+  const summary = compactText(candidate.aiSummary ?? candidate.summary ?? "")
+    .replace(/^据[^，,。]{2,24}[，,]\s*/, "")
+    .replace(/^根据[^，,。]{2,24}[，,]\s*/, "")
+  const title = summary.split(/[。；;.!?！？]/)[0]?.trim() ?? ""
+
+  return hasCjk(title) ? truncateText(trimTrailingSentencePunctuation(title), 72) : ""
+}
+
 function candidateDisplayTitle(fact: CandidateFact) {
   const { candidate, factCard } = fact
   const chineseTitle = [factCard?.title, candidate.title]
@@ -317,7 +395,14 @@ function candidateDisplayTitle(fact: CandidateFact) {
     .find((value): value is string => Boolean(value && hasCjk(value)))
 
   if (chineseTitle) {
-    return truncateText(trimTrailingSentencePunctuation(compactText(chineseTitle)), 42)
+    return truncateText(trimTrailingSentencePunctuation(compactText(chineseTitle)), 72)
+  }
+
+  if (candidate.sourceType === "RSS") {
+    const summaryTitle = candidateSummaryTitle(candidate)
+    if (summaryTitle) {
+      return summaryTitle
+    }
   }
 
   const topic = extractEnglishTopic(candidate.title)
@@ -384,39 +469,74 @@ function renderOverview(candidateFacts: CandidateFact[], categorized: Record<Cat
   ]
 }
 
-function keyDetailsForFact(fact: CandidateFact) {
+function keyDetailsForFact(fact: CandidateFact, comparisonTexts: string[] = []) {
   const details = uniqueStrings(
     (fact.factCard?.keyDetails ?? [])
       .map(readText)
-      .filter((detail) => detail.length > 0),
-  )
+      .filter((detail) => !isLowValueText(detail)),
+  ).filter((detail) => !comparisonTexts.some((text) => hasSimilarCore(text, detail)))
 
   if (details.length > 0) {
     return details.slice(0, 5)
   }
 
-  return [candidateSummary(fact)]
+  const whyItMatters = readText(fact.factCard?.whyItMatters)
+  if (!isLowValueText(whyItMatters) && !comparisonTexts.some((text) => hasSimilarCore(text, whyItMatters))) {
+    return [whyItMatters]
+  }
+
+  return []
 }
 
 function renderNewsItem({ fact, displayLabels, index }: NewsItemRendererInput) {
   const { candidate, factCard } = fact
   const title = displayLabels.get(candidate.id) ?? candidateDisplayTitle(fact)
   const description = candidateDescription(fact)
-  const detailLines = keyDetailsForFact(fact).map((detail, detailIndex) => `${DETAIL_EMOJIS[detailIndex % DETAIL_EMOJIS.length]} ${detail}`)
+  const detailLines = candidate.sourceType === "RSS"
+    ? []
+    : keyDetailsForFact(fact, [description]).map((detail, detailIndex) => `${DETAIL_EMOJIS[detailIndex % DETAIL_EMOJIS.length]} ${detail}`)
   const firstCitation = factCard?.citations[0]
   const sourceName = firstCitation?.sourceName || candidate.sourceName
   const sourceUrl = firstCitation?.url || candidate.url
+  const detailBlock = detailLines.length > 0
+    ? [
+        "",
+        "【AiBase提要:】",
+        "",
+        ...detailLines,
+      ]
+    : []
 
   return [
     `### ${index}、${escapeMarkdownInline(title)}`,
     "",
     description,
+    ...detailBlock,
+    "",
+    `> 来源：[${escapeMarkdownInline(sourceName)}](${sourceUrl})`,
+  ].join("\n")
+}
+
+function renderEditorialNewsItem(item: DailyAiNewsEditorialItem, index: number) {
+  const detailLines = item.keyPoints.map((detail, detailIndex) => `${DETAIL_EMOJIS[detailIndex % DETAIL_EMOJIS.length]} ${detail}`)
+  const impactBlock = item.impact
+    ? [
+        "",
+        `**为什么重要：** ${item.impact}`,
+      ]
+    : []
+
+  return [
+    `### ${index}、${escapeMarkdownInline(item.editorialTitle)}`,
+    "",
+    item.description,
+    ...impactBlock,
     "",
     "【AiBase提要:】",
     "",
     ...detailLines,
     "",
-    `> 来源：[${escapeMarkdownInline(sourceName)}](${sourceUrl})`,
+    `> 来源：[${escapeMarkdownInline(item.sourceName)}](${item.url})`,
   ].join("\n")
 }
 
@@ -433,21 +553,27 @@ function inferTrend(fact: CandidateFact) {
   return TREND_DEFINITIONS.find((definition) => definition.keywords.some((keyword) => text.includes(keyword.toLowerCase()))) ?? TREND_FALLBACK
 }
 
-function trendSignalText(fact: CandidateFact) {
-  return compactText(preferChineseText(
-    [fact.factCard?.whyItMatters, fact.factCard?.summary, fact.candidate.aiSummary, fact.candidate.summary],
-    candidateSummary(fact),
-  ))
+function renderTrendDescription(
+  key: TrendKey,
+  facts: CandidateFact[],
+) {
+  const multiple = facts.length > 1 ? "多条动态显示，" : ""
+
+  const descriptions: Record<TrendKey, string> = {
+    multimodal: `${multiple}AI 交互入口继续从单一文本对话扩展到语音、购物、消息和主动提醒等具体场景。`,
+    developer: `${multiple}开发者工具链仍在围绕模型适配、推理稳定性和工程接入效率迭代。`,
+    model: `${multiple}模型能力竞争正在从单次发布转向训练、微调、推理和自我改进流程的持续优化。`,
+    infrastructure: `${multiple}算力与供应链约束仍会影响大模型训练和推理部署节奏，基础设施稳定性成为落地前提。`,
+    safety: `${multiple}隐私、安全和可控性继续成为 AI 产品进入真实用户场景前必须回答的问题。`,
+    business: `${multiple}AI 产品化正在向企业采购、消费者助手和垂直工作流深入，商业竞争从模型能力转向场景占位。`,
+    community: `${multiple}社区讨论仍在影响开发者对 AI 工具实用性、风险和采用节奏的判断。`,
+    general: `${multiple}今日 AI 动态分散在产品、工具和基础设施多个方向，仍需结合来源继续跟踪。`,
+  }
+
+  return truncateText(descriptions[key], 150)
 }
 
-function renderTrendDescription(facts: CandidateFact[]) {
-  const signals = uniqueStrings(facts.map(trendSignalText).filter(Boolean))
-  const primary = signals[0] ?? "相关动态仍需结合来源继续观察。"
-  const prefix = facts.length > 1 ? "多条动态显示，" : ""
-  return truncateText(`${prefix}${trimTrailingSentencePunctuation(primary)}。`, 110)
-}
-
-function renderTrendSummary(candidateFacts: CandidateFact[], displayLabels: CandidateDisplayLabels) {
+function renderTrendSummary(candidateFacts: CandidateFact[]) {
   if (candidateFacts.length === 0) {
     return [
       "## 今日趋势总结",
@@ -456,7 +582,7 @@ function renderTrendSummary(candidateFacts: CandidateFact[], displayLabels: Cand
     ].join("\n")
   }
 
-  const grouped = new Map<TrendKey, { title: string; facts: CandidateFact[]; firstIndex: number }>()
+  const grouped = new Map<TrendKey, { key: TrendKey; title: string; facts: CandidateFact[]; firstIndex: number }>()
   candidateFacts.forEach((fact, index) => {
     const trend = inferTrend(fact)
     const existing = grouped.get(trend.key)
@@ -464,7 +590,7 @@ function renderTrendSummary(candidateFacts: CandidateFact[], displayLabels: Cand
       existing.facts.push(fact)
       return
     }
-    grouped.set(trend.key, { title: trend.title, facts: [fact], firstIndex: index })
+    grouped.set(trend.key, { key: trend.key, title: trend.title, facts: [fact], firstIndex: index })
   })
 
   const trends = [...grouped.values()]
@@ -472,26 +598,34 @@ function renderTrendSummary(candidateFacts: CandidateFact[], displayLabels: Cand
     .slice(0, 5)
     .map((trend) => ({
       title: trend.title,
-      desc: renderTrendDescription(trend.facts),
+      desc: renderTrendDescription(trend.key, trend.facts),
     }))
-
-  const usedTitles = new Set(trends.map((trend) => trend.title))
-  for (const fact of candidateFacts) {
-    if (trends.length >= Math.min(3, candidateFacts.length)) break
-    const title = `${displayLabels.get(fact.candidate.id) ?? candidateDisplayTitle(fact)} 释放单点信号`
-    if (usedTitles.has(title)) continue
-    usedTitles.add(title)
-    trends.push({
-      title,
-      desc: renderTrendDescription([fact]),
-    })
-  }
 
   return [
     "## 今日趋势总结",
     "",
     "综合今日动态，AI 领域呈现以下趋势：",
     ...trends.map((trend, index) => `${index + 1}. **${escapeMarkdownInline(trend.title)}** — ${trend.desc}`),
+  ].join("\n")
+}
+
+function renderEditorialTrendSummary(editorialBrief: DailyAiNewsEditorialBrief) {
+  if (editorialBrief.trends.length === 0) {
+    return [
+      "## 今日趋势总结",
+      "",
+      "综合今日动态，AI 领域暂未形成足够清晰的趋势信号。",
+    ].join("\n")
+  }
+
+  return [
+    "## 今日趋势总结",
+    "",
+    "综合今日动态，AI 领域呈现以下趋势：",
+    ...editorialBrief.trends.map((trend, index) => {
+      const evidence = trend.evidenceTitles.length > 0 ? `（依据：${trend.evidenceTitles.join("、")}）` : ""
+      return `${index + 1}. **${escapeMarkdownInline(trend.title)}** — ${trend.desc}${evidence}`
+    }),
   ].join("\n")
 }
 
@@ -503,6 +637,7 @@ export function renderDailyAiNewsMarkdown({
   date,
   selectedCandidates,
   factCards,
+  editorialBrief,
   aiModel,
 }: DailyAiNewsRendererInput) {
   const candidateFacts = mapCandidateFacts(selectedCandidates, factCards)
@@ -515,18 +650,26 @@ export function renderDailyAiNewsMarkdown({
     },
     { developer: [], research: [], business: [] },
   )
-  const sourceReferences = uniqueByUrl(candidateFacts.flatMap((fact) =>
-    candidateSourceUrls(fact).map(
-      (url) => ({
-        label: displayLabels.get(fact.candidate.id) ?? candidateDisplayTitle(fact),
-        url,
-        sourceName: fact.candidate.sourceName,
-      }),
+  const sourceReferences = uniqueByUrl([
+    ...candidateFacts.flatMap((fact) =>
+      candidateSourceUrls(fact).map(
+        (url) => ({
+          label: displayLabels.get(fact.candidate.id) ?? candidateDisplayTitle(fact),
+          url,
+          sourceName: fact.candidate.sourceName,
+        }),
+      ),
     ),
-  ))
+    ...(editorialBrief?.items ?? []).map((item) => ({
+      label: item.editorialTitle || item.sourceTitle,
+      url: item.url,
+      sourceName: item.sourceName,
+    })),
+  ])
   const sourceLines = sourceReferences.map(
     (reference) => `- [${escapeMarkdownInline(reference.label)}](${reference.url}) — ${escapeMarkdownInline(reference.sourceName)}`,
   )
+  const hasEditorialBrief = Boolean(editorialBrief?.items.length)
 
   return [
     `# ${dateLabel} AI 日报`,
@@ -534,14 +677,18 @@ export function renderDailyAiNewsMarkdown({
     renderWelcomeIntro(date),
     "",
     "## 今日摘要",
-    ...renderOverview(candidateFacts, categorized),
+    ...(hasEditorialBrief ? [editorialBrief?.intro ?? ""] : renderOverview(candidateFacts, categorized)),
     "",
     "## 今日重点",
-    ...(candidateFacts.length > 0
-      ? candidateFacts.map((fact, index) => renderNewsItem({ fact, displayLabels, index: index + 1 }))
-      : ["暂无入选新闻。"]),
+    ...(hasEditorialBrief
+      ? (editorialBrief?.items ?? []).map((item, index) => renderEditorialNewsItem(item, index + 1))
+      : candidateFacts.length > 0
+        ? candidateFacts.map((fact, index) => renderNewsItem({ fact, displayLabels, index: index + 1 }))
+        : ["暂无入选新闻。"]),
     "",
-    renderTrendSummary(candidateFacts, displayLabels),
+    hasEditorialBrief && editorialBrief
+      ? renderEditorialTrendSummary(editorialBrief)
+      : renderTrendSummary(candidateFacts),
     "",
     "## 来源链接",
     ...(sourceLines.length > 0 ? sourceLines : ["- 暂无来源链接。"]),

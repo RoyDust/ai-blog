@@ -10,6 +10,7 @@ import type {
   AiNewsCandidateInput,
   AiNewsFactCard,
   AiNewsJsonObject,
+  AiNewsScoredCandidate,
 } from "@/lib/ai-news-types"
 
 type OpenAICompatibleModel = {
@@ -20,7 +21,7 @@ type OpenAICompatibleModel = {
 }
 
 type GenerateFactCardForCandidateInput = {
-  candidate: AiNewsCandidateInput
+  candidate: AiNewsCandidateInput & Partial<Pick<AiNewsScoredCandidate, "aiSummary">>
   aiModel: OpenAICompatibleModel
   fetchImpl?: typeof fetch
 }
@@ -48,6 +49,13 @@ export type AiNewsEnrichedFactCard = AiNewsFactCard & {
 }
 
 const VALID_CONFIDENCE = new Set(["low", "medium", "high"])
+
+function readPositiveIntegerEnv(key: string, fallback: number) {
+  const value = Number(process.env[key])
+  return Number.isInteger(value) && value > 0 ? value : fallback
+}
+
+const FACT_CARD_MAX_TOKENS = readPositiveIntegerEnv("AI_NEWS_FACT_CARD_MAX_TOKENS", 2200)
 
 function getString(value: unknown) {
   return typeof value === "string" ? value.trim() : ""
@@ -118,9 +126,9 @@ function appendWarning(card: AiNewsEnrichedFactCard, warning: string): AiNewsEnr
   }
 }
 
-function fallbackFactCard(candidate: AiNewsCandidateInput, warning: string): AiNewsEnrichedFactCard {
+function fallbackFactCard(candidate: AiNewsCandidateInput & Partial<Pick<AiNewsScoredCandidate, "aiSummary">>, warning: string): AiNewsEnrichedFactCard {
   const summary = firstChineseText(
-    [candidate.summary, candidate.content],
+    [candidate.aiSummary, candidate.summary, candidate.content],
     `来自 ${candidate.sourceName} 的 AI 动态，详情以来源链接为准。`,
   )
   const community = getOptionalObject(candidate.community)
@@ -143,11 +151,8 @@ function fallbackFactCard(candidate: AiNewsCandidateInput, warning: string): AiN
     title: candidate.title,
     summary,
     whatHappened: summary,
-    whyItMatters: "该条目入选今日 AI 日报，但事实卡未能由模型可靠生成，需以来源链接为准。",
-    keyDetails: [
-      `来源：${candidate.sourceName}`,
-      `链接：${candidate.canonicalUrl || candidate.url}`,
-    ],
+    whyItMatters: "",
+    keyDetails: [],
     limitations: ["因事实卡生成失败，本条仅使用候选元数据生成保守摘要。"],
     communityDiscussion: discussionUrl ? "候选元数据中包含社区讨论链接。" : "候选元数据中未提供社区讨论信息。",
     citations,
@@ -291,6 +296,14 @@ function buildFactCardPrompt(candidate: AiNewsCandidateInput) {
     "Return strict JSON only with fields: title/summary/whatHappened/whyItMatters/keyDetails/limitations/communityDiscussion/citations/confidence/warnings.",
     "Only cite URLs present in the candidate data. Do not invent citations. Use warnings for uncertainty or missing evidence.",
     "",
+    "Content quality rules:",
+    "- summary: 35-60 Chinese characters, one factual sentence that states the news angle.",
+    "- whatHappened: 120-180 Chinese characters. Include who changed what, the concrete capability/product/model/repository detail, likely usage context, and any important constraint from the source.",
+    "- whyItMatters: 80-140 Chinese characters. Explain the practical impact for developers, product teams, researchers, enterprises, or the AI ecosystem.",
+    "- keyDetails: 3-5 bullets, each 35-80 Chinese characters. Each bullet must add a different fact, implication, limitation, or follow-up signal.",
+    "- Do not repeat the same sentence or idea across summary, whatHappened, whyItMatters, and keyDetails.",
+    "- Avoid empty template language such as 值得关注, 详情以来源链接为准, 入选今日 AI 日报, 持续观察 unless the source lacks detail; if detail is missing, put that limitation in limitations.",
+    "",
     `Title: ${candidate.title}`,
     `URL: ${candidate.url}`,
     `Canonical URL: ${candidate.canonicalUrl}`,
@@ -415,6 +428,7 @@ export async function generateFactCardForCandidate({
           },
         ],
         temperature: 0.2,
+        max_tokens: FACT_CARD_MAX_TOKENS,
       }),
     })
 

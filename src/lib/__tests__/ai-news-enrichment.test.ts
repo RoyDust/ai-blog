@@ -184,9 +184,12 @@ describe("generateFactCardForCandidate", () => {
     expect(JSON.parse(String(fetchImpl.mock.calls[0]?.[1]?.body))).toMatchObject({
       model: "fact-carder",
       temperature: 0.2,
+      max_tokens: 2200,
       messages: expect.arrayContaining([
         expect.objectContaining({ role: "user", content: expect.stringContaining("title/summary/whatHappened/whyItMatters") }),
         expect.objectContaining({ role: "user", content: expect.stringContaining("Simplified Chinese") }),
+        expect.objectContaining({ role: "user", content: expect.stringContaining("whatHappened: 120-180 Chinese characters") }),
+        expect.objectContaining({ role: "user", content: expect.stringContaining("Do not repeat the same sentence or idea") }),
       ]),
     })
     expect(result).toMatchObject({
@@ -211,7 +214,8 @@ describe("generateFactCardForCandidate", () => {
     expect(result).toMatchObject({
       title: "OpenAI ships a model update",
       summary: "来自 RSS 的 AI 动态，详情以来源链接为准。",
-      whyItMatters: "该条目入选今日 AI 日报，但事实卡未能由模型可靠生成，需以来源链接为准。",
+      whyItMatters: "",
+      keyDetails: [],
       confidence: "low",
       warnings: ["temporary outage"],
       citations: expect.arrayContaining([

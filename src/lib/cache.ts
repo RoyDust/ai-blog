@@ -55,6 +55,23 @@ function dedupePaths(paths: Array<string | null | undefined>) {
   return [...new Set(paths.filter((path): path is string => Boolean(path)))]
 }
 
+function safeRevalidatePath(path: string, type?: 'layout' | 'page') {
+  try {
+    if (type) {
+      revalidatePath(path, type)
+      return
+    }
+
+    revalidatePath(path)
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('static generation store missing')) {
+      return
+    }
+
+    throw error
+  }
+}
+
 /**
  * 在公共内容发生变化后，统一刷新受影响的前台页面缓存。
  *
@@ -95,7 +112,7 @@ export function revalidatePublicContent(options: {
   ])
 
   for (const path of paths) {
-    revalidatePath(path)
+    safeRevalidatePath(path)
   }
 }
 
@@ -103,9 +120,9 @@ export function revalidatePublicContent(options: {
  * 站点级配置会影响根布局、公共 metadata 和机器可读入口。
  */
 export function revalidateBlogSettings() {
-  revalidatePath('/', 'layout')
+  safeRevalidatePath('/', 'layout')
 
   for (const path of BLOG_SETTINGS_PATHS) {
-    revalidatePath(path)
+    safeRevalidatePath(path)
   }
 }

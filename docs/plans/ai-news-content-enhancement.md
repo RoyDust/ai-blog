@@ -1,7 +1,16 @@
 # AI 日报内容增强 — 实施计划
 
 > 创建日期：2026-05-12
-> 状态：待执行
+> 状态：已执行（2026-05-13）
+
+## 0. 执行结果补充
+
+本次执行不只调整渲染层，还把内容质量约束前移到生成阶段：
+
+- 增强 `FactCard` 生成提示词，要求 `whatHappened`、`whyItMatters`、`keyDetails` 具备明确长度、信息层级和非重复约束。
+- 新增日级主编稿合成模块：基于候选与事实卡生成 `intro/items/trends` 结构，合格时优先渲染，失败时回退到确定性 FactCard 渲染。
+- 渲染层新增低质重复过滤：当提要与正文描述重复时，不再把同一句话同时渲染为描述和 `【AiBase提要】`。
+- 已补充 prompt、主编稿解析、主编稿渲染、重复过滤相关回归测试。
 
 ## 1. 背景与问题
 
@@ -205,8 +214,9 @@ export function renderDailyAiNewsMarkdown(input: DailyAiNewsRendererInput): stri
 | `src/lib/ai-news-renderer.ts` | 重写 | 核心渲染逻辑，~150 行改动 |
 | `src/lib/ai-news-draft-flow.ts` | 修改 | Prompt + max_tokens + 解析，~30 行 |
 | `src/lib/__tests__/ai-news-renderer.test.ts` | 适配 | 更新已有断言，新增 3 个测试用例 |
-| `src/lib/ai-news-enrichment.ts` | **不改** | FactCard 结构已满足需求 |
-| `src/lib/ai-news-run-flow.ts` | **不改** | 编排层逻辑不变 |
+| `src/lib/ai-news-editorial-compose.ts` | 新增 | 日级主编稿生成、解析和质量校验 |
+| `src/lib/ai-news-enrichment.ts` | 修改 | 强化 FactCard prompt 与 token 预算 |
+| `src/lib/ai-news-run-flow.ts` | 修改 | 在 FactCard 后尝试生成日级主编稿，失败时保持原兜底 |
 | `src/lib/ai-news-types.ts` | **不改** | 类型定义充分 |
 
 ## 6. 风险评估

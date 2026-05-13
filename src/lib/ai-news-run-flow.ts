@@ -25,6 +25,7 @@ import {
 } from "@/lib/ai-news-candidates"
 import { dedupeByCanonicalUrl, semanticDedupeCandidates, type AiNewsDuplicateMap } from "@/lib/ai-news-dedupe"
 import { generateDailyAiNewsDraft, resolveDailyAiNewsModel } from "@/lib/ai-news-draft-flow"
+import { generateDailyAiNewsEditorialBrief } from "@/lib/ai-news-editorial-compose"
 import { calculateCitationCoverage, generateFactCardForCandidate, type AiNewsEnrichedFactCard } from "@/lib/ai-news-enrichment"
 import { fetchAiNewsRawItems } from "@/lib/ai-news-fetchers"
 import { buildDailyAiNewsSlug, dedupeNewsItems, parseNewsFeed, type AiNewsItem, type AiNewsSource } from "@/lib/ai-news-parser"
@@ -387,10 +388,18 @@ async function buildDailyAiNewsDraftFromSelectedCandidates({
     AI_NEWS_AI_CONCURRENCY,
     (candidate) => generateFactCardForCandidate({ candidate, aiModel, fetchImpl }),
   )
+  const editorialBrief = await generateDailyAiNewsEditorialBrief({
+    date,
+    candidates,
+    factCards,
+    aiModel,
+    fetchImpl,
+  })
   const renderedContent = renderDailyAiNewsMarkdown({
     date,
     selectedCandidates: candidates,
     factCards,
+    editorialBrief,
     aiModel,
   })
 
@@ -406,6 +415,45 @@ async function buildDailyAiNewsDraftFromSelectedCandidates({
 
 function factCardToEnrichment(card: AiNewsEnrichedFactCard): AiNewsJsonObject {
   return JSON.parse(JSON.stringify(card)) as AiNewsJsonObject
+}
+
+function normalizeFactCardLookupTitle(value: string) {
+  return value.trim().toLowerCase()
+}
+
+function normalizeFactCardLookupUrl(value: string | null | undefined) {
+  return (value ?? "").trim().replace(/#.*$/, "").replace(/\/$/, "")
+}
+
+function buildFactCardLookup(cards: AiNewsEnrichedFactCard[]) {
+  const byTitle = new Map<string, AiNewsEnrichedFactCard>()
+  const byUrl = new Map<string, AiNewsEnrichedFactCard>()
+
+  for (const card of cards) {
+    const titleKey = normalizeFactCardLookupTitle(card.title)
+    if (titleKey && !byTitle.has(titleKey)) {
+      byTitle.set(titleKey, card)
+    }
+
+    for (const citation of card.citations) {
+      const urlKey = normalizeFactCardLookupUrl(citation.url)
+      if (urlKey && !byUrl.has(urlKey)) {
+        byUrl.set(urlKey, card)
+      }
+    }
+  }
+
+  return { byTitle, byUrl }
+}
+
+function findFactCardForCandidate(
+  lookup: ReturnType<typeof buildFactCardLookup>,
+  candidate: AiNewsScoredCandidate,
+) {
+  return lookup.byTitle.get(normalizeFactCardLookupTitle(candidate.title)) ??
+    lookup.byUrl.get(normalizeFactCardLookupUrl(candidate.canonicalUrl)) ??
+    lookup.byUrl.get(normalizeFactCardLookupUrl(candidate.url)) ??
+    null
 }
 
 /**
@@ -686,14 +734,14 @@ export async function runDailyAiNews({
       generationMode,
     })
     citationCoverage = renderedCitationCoverage ?? citationCoverage
-    const factCardByTitle = new Map(factCards.map((card) => [card.title.trim().toLowerCase(), card]))
+    const factCardLookup = buildFactCardLookup(factCards)
 
     if (persistedCandidates.repository && factCards.length > 0) {
       const enrichmentUpdateResult = await updateAiNewsCandidateEnrichments({
         prisma: persistedCandidates.repository,
         enrichments: selectedCandidates
           .map((candidate) => {
-            const card = factCardByTitle.get(candidate.title.trim().toLowerCase())
+            const card = findFactCardForCandidate(factCardLookup, candidate)
             return card ? { id: candidate.id, enrichment: factCardToEnrichment(card) } : null
           })
           .filter((item): item is { id: string; enrichment: AiNewsJsonObject } => Boolean(item)),
