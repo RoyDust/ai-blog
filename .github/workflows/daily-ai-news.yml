@@ -32,7 +32,8 @@ jobs:
             exit 1
           fi
 
-          url="${PRODUCTION_BASE_URL%/}/api/cron/ai-news"
+          status_after="$(date -u -d '5 minutes ago' +"%Y-%m-%dT%H:%M:%SZ")"
+          endpoint="${PRODUCTION_BASE_URL%/}/api/cron/ai-news"
           query=()
           if [ -n "${INPUT_DATE}" ]; then
             query+=("date=${INPUT_DATE}")
@@ -40,17 +41,50 @@ jobs:
           if [ "${INPUT_REGENERATE}" = "true" ]; then
             query+=("regenerate=true")
           fi
+          trigger_url="${endpoint}"
           if [ "${#query[@]}" -gt 0 ]; then
             joined="$(IFS='&'; echo "${query[*]}")"
-            url="${url}?${joined}"
+            trigger_url="${trigger_url}?${joined}"
           fi
 
-          echo "Triggering daily AI news endpoint: ${url}"
+          echo "Triggering daily AI news endpoint: ${trigger_url}"
           curl --fail-with-body --show-error --silent \
             --request POST \
             --header "Authorization: Bearer ${AI_NEWS_CRON_SECRET}" \
             --header "Content-Type: application/json" \
-            "$url"
+            "$trigger_url"
+          echo
+
+          status_query=("${query[@]}" "after=${status_after}")
+          status_joined="$(IFS='&'; echo "${status_query[*]}")"
+          status_url="${endpoint}?${status_joined}"
+          echo "Polling daily AI news status: ${status_url}"
+
+          for attempt in $(seq 1 45); do
+            response_file="$(mktemp)"
+            http_status="$(curl --show-error --silent \
+              --output "$response_file" \
+              --write-out "%{http_code}" \
+              --header "Authorization: Bearer ${AI_NEWS_CRON_SECRET}" \
+              "$status_url")"
+            body="$(cat "$response_file")"
+            rm -f "$response_file"
+
+            echo "Daily AI news status attempt ${attempt}: HTTP ${http_status}"
+            echo "$body"
+
+            if [ "$http_status" = "200" ]; then
+              exit 0
+            fi
+            if [ "$http_status" != "202" ]; then
+              exit 1
+            fi
+
+            sleep 10
+          done
+
+          echo "Timed out waiting for daily AI news generation to finish" >&2
+          exit 1
         env:
           AI_NEWS_CRON_SECRET: ${{ secrets.AI_NEWS_CRON_SECRET }}
           INPUT_DATE: ${{ github.event.inputs.date || '' }}

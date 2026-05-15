@@ -246,13 +246,13 @@ export const aiInterfaceCatalog: AiInterfaceCatalogItem[] = [
   },
   {
     name: "AI 日报定时入口",
-    methods: ["POST"],
+    methods: ["GET", "POST"],
     path: "/api/cron/ai-news",
     audience: "cron",
     auth: "Bearer AI_NEWS_CRON_SECRET",
-    feature: "给定时任务同步触发 AI 日报生成或重生成。",
-    requestHint: "Query: date、regenerate 可选。",
-    responseHint: "200 success/data 返回生成结果；同日运行中时返回 202 already-queued。",
+    feature: "给定时任务触发 AI 日报后台队列，并查询队列运行状态。",
+    requestHint: "POST Query: date、regenerate 可选；GET Query: date、after 可选。",
+    responseHint: "POST 返回 202 queued；GET 返回 202 pending/running、200 finished，失败运行返回 500。",
   },
 ];
 

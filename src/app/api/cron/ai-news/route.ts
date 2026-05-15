@@ -39,37 +39,58 @@ function parseRegenerate(request: Request) {
   return value === "1" || value.toLowerCase() === "true"
 }
 
+function parseAfter(request: Request) {
+  const value = new URL(request.url).searchParams.get("after")
+  if (!value) return null
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    throw new ValidationError("Invalid after")
+  }
+
+  return date
+}
+
 function formatDateId(date: Date) {
   return date.toISOString().slice(0, 10)
 }
 
-async function runCronDailyAiNews({ authorId, date, regenerate }: { authorId: string; date: Date; regenerate: boolean }) {
+function getDateWindow(date: Date) {
+  const start = new Date(`${formatDateId(date)}T00:00:00.000Z`)
+  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000)
+
+  return { start, end }
+}
+
+function queueDailyAiNewsRun({ authorId, date, regenerate }: { authorId: string; date: Date; regenerate: boolean }) {
   const dateId = formatDateId(date)
   if (activeRuns.has(dateId)) {
     return { operation: "already-queued" as const, date: dateId }
   }
 
   activeRuns.add(dateId)
-  try {
-    const result = await runDailyAiNews({ authorId, date, regenerate, trigger: "cron" })
+  void (async () => {
     try {
-      await notifyDailyAiNewsSuccess(result, date)
+      const result = await runDailyAiNews({ authorId, date, regenerate, trigger: "cron" })
+      try {
+        await notifyDailyAiNewsSuccess(result, date)
+      } catch (error) {
+        console.error("Daily AI news success notification failed:", error)
+      }
     } catch (error) {
-      console.error("Daily AI news success notification failed:", error)
-    }
+      try {
+        await notifyDailyAiNewsFailure(date, error)
+      } catch (notificationError) {
+        console.error("Daily AI news failure notification failed:", notificationError)
+      }
 
-    return result
-  } catch (error) {
-    try {
-      await notifyDailyAiNewsFailure(date, error)
-    } catch (notificationError) {
-      console.error("Daily AI news failure notification failed:", notificationError)
+      console.error("Daily AI news cron failed:", error)
+    } finally {
+      activeRuns.delete(dateId)
     }
+  })()
 
-    throw error
-  } finally {
-    activeRuns.delete(dateId)
-  }
+  return { operation: "queued" as const, date: dateId }
 }
 
 async function POSTHandler(request: Request) {
@@ -86,13 +107,67 @@ async function POSTHandler(request: Request) {
       throw new Error("No admin author available for daily AI news")
     }
 
-    const result = await runCronDailyAiNews({ authorId: author.id, date: parseRunDate(request), regenerate: parseRegenerate(request) })
-    const status = result.operation === "already-queued" ? 202 : 200
+    const result = queueDailyAiNewsRun({ authorId: author.id, date: parseRunDate(request), regenerate: parseRegenerate(request) })
+    return NextResponse.json({ success: true, data: result }, { status: 202 })
+  } catch (error) {
+    return toErrorResponse(error, error instanceof Error ? error.message : "Daily AI news cron failed")
+  }
+}
 
-    return NextResponse.json({ success: true, data: result }, { status })
+async function GETHandler(request: Request) {
+  try {
+    requireCronSecret(request)
+
+    const date = parseRunDate(request)
+    const after = parseAfter(request)
+    const { start, end } = getDateWindow(date)
+    const run = await prisma.aiNewsRun.findFirst({
+      where: {
+        trigger: "CRON",
+        runDate: { gte: start, lt: end },
+        ...(after ? { createdAt: { gte: after } } : {}),
+      },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        runDate: true,
+        createdAt: true,
+        finishedAt: true,
+        status: true,
+        postId: true,
+        postTitle: true,
+        postSlug: true,
+        published: true,
+        sourceCount: true,
+        selectedCandidateCount: true,
+        qualityScore: true,
+        citationCoverage: true,
+        generationMode: true,
+        reviewVerdict: true,
+        reviewScore: true,
+        reviewSummary: true,
+        error: true,
+      },
+    })
+    const dateId = formatDateId(date)
+
+    if (!run) {
+      return NextResponse.json({ success: true, data: { operation: "pending", date: dateId, status: "PENDING" } }, { status: 202 })
+    }
+
+    if (run.status === "RUNNING") {
+      return NextResponse.json({ success: true, data: { operation: "running", date: dateId, run } }, { status: 202 })
+    }
+
+    if (run.status === "FAILED") {
+      return NextResponse.json({ success: false, error: run.error ?? "Daily AI news generation failed", data: { operation: "failed", date: dateId, run } }, { status: 500 })
+    }
+
+    return NextResponse.json({ success: true, data: { operation: "finished", date: dateId, run } })
   } catch (error) {
     return toErrorResponse(error, error instanceof Error ? error.message : "Daily AI news cron failed")
   }
 }
 
 export const POST = withApiOperationLogging(POSTHandler, { scope: 'cron', operation: 'cron.ainews.create', route: '/api/cron/ai-news' });
+export const GET = withApiOperationLogging(GETHandler, { scope: 'cron', operation: 'cron.ainews.read', route: '/api/cron/ai-news' });
