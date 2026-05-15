@@ -22,10 +22,6 @@ vi.mock("@/lib/ai-news-notifications", () => ({
   notifyDailyAiNewsFailure,
 }))
 
-async function flushAsyncJob() {
-  await new Promise((resolve) => setTimeout(resolve, 0))
-}
-
 describe("POST /api/cron/ai-news", () => {
   const originalEnv = { ...process.env }
 
@@ -50,9 +46,9 @@ describe("POST /api/cron/ai-news", () => {
     expect(runDailyAiNews).not.toHaveBeenCalled()
   })
 
-  test("queues daily AI news as the oldest admin user and returns quickly", async () => {
+  test("runs daily AI news as the oldest admin user and returns the generation result", async () => {
     findFirstUser.mockResolvedValueOnce({ id: "admin-1" })
-    runDailyAiNews.mockResolvedValueOnce({
+    const runResult = {
       operation: "created",
       published: true,
       post: { id: "post-1", title: "AI 日报", slug: "ai-daily-2026-04-29", published: true },
@@ -69,7 +65,8 @@ describe("POST /api/cron/ai-news", () => {
         generationMode: "candidate-pipeline",
       },
       run: { id: "run-1", status: "SUCCEEDED" },
-    })
+    }
+    runDailyAiNews.mockResolvedValueOnce(runResult)
 
     const { POST } = await import("../route")
     const response = await POST(
@@ -80,35 +77,28 @@ describe("POST /api/cron/ai-news", () => {
     )
     const payload = await response.json()
 
-    expect(response.status).toBe(202)
+    expect(response.status).toBe(200)
     expect(findFirstUser).toHaveBeenCalledWith({
       where: { role: "ADMIN" },
       select: { id: true },
       orderBy: { createdAt: "asc" },
     })
     expect(runDailyAiNews).toHaveBeenCalledWith({ authorId: "admin-1", date: new Date("2026-04-29T00:00:00.000Z"), regenerate: false, trigger: "cron" })
-    expect(payload).toEqual({
-      success: true,
-      data: {
-        operation: "queued",
-        date: "2026-04-29",
-      },
-    })
-
-    await flushAsyncJob()
-    expect(notifyDailyAiNewsSuccess).toHaveBeenCalledWith(expect.objectContaining({ run: { id: "run-1", status: "SUCCEEDED" } }), new Date("2026-04-29T00:00:00.000Z"))
+    expect(payload).toEqual({ success: true, data: runResult })
+    expect(notifyDailyAiNewsSuccess).toHaveBeenCalledWith(runResult, new Date("2026-04-29T00:00:00.000Z"))
   })
 
   test("passes regenerate=true for protected cron reruns", async () => {
     findFirstUser.mockResolvedValueOnce({ id: "admin-1" })
-    runDailyAiNews.mockResolvedValueOnce({
+    const runResult = {
       operation: "regenerated",
       published: false,
       post: { id: "post-1", title: "AI 日报", slug: "ai-daily-2026-04-29", published: false },
       sourceCount: 8,
       failures: [],
       run: { id: "run-1", status: "SUCCEEDED" },
-    })
+    }
+    runDailyAiNews.mockResolvedValueOnce(runResult)
 
     const { POST } = await import("../route")
     const response = await POST(
@@ -118,15 +108,17 @@ describe("POST /api/cron/ai-news", () => {
       }),
     )
 
-    expect(response.status).toBe(202)
+    const payload = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(payload).toEqual({ success: true, data: runResult })
     expect(runDailyAiNews).toHaveBeenCalledWith({
       authorId: "admin-1",
       date: new Date("2026-04-29T00:00:00.000Z"),
       regenerate: true,
       trigger: "cron",
     })
-    await flushAsyncJob()
-    expect(notifyDailyAiNewsSuccess).toHaveBeenCalledWith(expect.objectContaining({ run: { id: "run-1", status: "SUCCEEDED" } }), new Date("2026-04-29T00:00:00.000Z"))
+    expect(notifyDailyAiNewsSuccess).toHaveBeenCalledWith(runResult, new Date("2026-04-29T00:00:00.000Z"))
   })
 
   test("returns already-queued for duplicate runs on the same date", async () => {
@@ -134,12 +126,14 @@ describe("POST /api/cron/ai-news", () => {
     runDailyAiNews.mockReturnValueOnce(new Promise(() => {}))
 
     const { POST } = await import("../route")
-    const firstResponse = await POST(
+    const firstResponse = POST(
       new Request("http://localhost/api/cron/ai-news?date=2026-04-29", {
         method: "POST",
         headers: { Authorization: "Bearer cron-secret" },
       }),
     )
+    await Promise.resolve()
+    await Promise.resolve()
     const secondResponse = await POST(
       new Request("http://localhost/api/cron/ai-news?date=2026-04-29", {
         method: "POST",
@@ -147,14 +141,13 @@ describe("POST /api/cron/ai-news", () => {
       }),
     )
 
-    await expect(firstResponse.json()).resolves.toEqual({ success: true, data: { operation: "queued", date: "2026-04-29" } })
     await expect(secondResponse.json()).resolves.toEqual({ success: true, data: { operation: "already-queued", date: "2026-04-29" } })
-    expect(firstResponse.status).toBe(202)
     expect(secondResponse.status).toBe(202)
     expect(runDailyAiNews).toHaveBeenCalledTimes(1)
+    void firstResponse
   })
 
-  test("records async failure notifications when the daily AI news run rejects", async () => {
+  test("records failure notifications when the daily AI news run rejects", async () => {
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined)
     findFirstUser.mockResolvedValueOnce({ id: "admin-1" })
     runDailyAiNews.mockRejectedValueOnce(new Error("feed fetch failed"))
@@ -168,9 +161,8 @@ describe("POST /api/cron/ai-news", () => {
     )
     const payload = await response.json()
 
-    expect(response.status).toBe(202)
-    expect(payload).toEqual({ success: true, data: { operation: "queued", date: "2026-04-29" } })
-    await flushAsyncJob()
+    expect(response.status).toBe(500)
+    expect(payload).toEqual({ error: "feed fetch failed" })
     expect(notifyDailyAiNewsFailure).toHaveBeenCalledWith(new Date("2026-04-29T00:00:00.000Z"), expect.any(Error))
     consoleError.mockRestore()
   })

@@ -250,9 +250,9 @@ export const aiInterfaceCatalog: AiInterfaceCatalogItem[] = [
     path: "/api/cron/ai-news",
     audience: "cron",
     auth: "Bearer AI_NEWS_CRON_SECRET",
-    feature: "给定时任务触发 AI 日报后台队列。",
+    feature: "给定时任务同步触发 AI 日报生成或重生成。",
     requestHint: "Query: date、regenerate 可选。",
-    responseHint: "202 success/data.operation，返回 queued 或 already-queued。",
+    responseHint: "200 success/data 返回生成结果；同日运行中时返回 202 already-queued。",
   },
 ];
 
