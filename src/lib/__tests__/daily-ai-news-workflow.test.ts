@@ -7,6 +7,9 @@ describe("daily AI news workflow", () => {
 
     expect(workflow).toContain("cron:")
     expect(workflow).toContain("api/cron/ai-news")
+    expect(workflow).toContain("regenerate:")
+    expect(workflow).toContain("regenerate=true")
+    expect(workflow).toContain("INPUT_REGENERATE")
     expect(workflow).toContain("secrets.PRODUCTION_BASE_URL")
     expect(workflow).toContain("secrets.AI_NEWS_CRON_SECRET")
     expect(workflow).toContain("Authorization: Bearer")

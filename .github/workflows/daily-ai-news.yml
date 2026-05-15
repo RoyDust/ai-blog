@@ -10,6 +10,11 @@ on:
         description: Optional YYYY-MM-DD date override
         required: false
         default: ''
+      regenerate:
+        description: Force regenerate an existing daily AI news post
+        required: false
+        type: boolean
+        default: false
 
 env:
   PRODUCTION_BASE_URL: ${{ secrets.PRODUCTION_BASE_URL || 'http://47.98.167.32' }}
@@ -28,10 +33,19 @@ jobs:
           fi
 
           url="${PRODUCTION_BASE_URL%/}/api/cron/ai-news"
+          query=()
           if [ -n "${INPUT_DATE}" ]; then
-            url="${url}?date=${INPUT_DATE}"
+            query+=("date=${INPUT_DATE}")
+          fi
+          if [ "${INPUT_REGENERATE}" = "true" ]; then
+            query+=("regenerate=true")
+          fi
+          if [ "${#query[@]}" -gt 0 ]; then
+            joined="$(IFS='&'; echo "${query[*]}")"
+            url="${url}?${joined}"
           fi
 
+          echo "Triggering daily AI news endpoint: ${url}"
           curl --fail-with-body --show-error --silent \
             --request POST \
             --header "Authorization: Bearer ${AI_NEWS_CRON_SECRET}" \
@@ -40,3 +54,4 @@ jobs:
         env:
           AI_NEWS_CRON_SECRET: ${{ secrets.AI_NEWS_CRON_SECRET }}
           INPUT_DATE: ${{ github.event.inputs.date || '' }}
+          INPUT_REGENERATE: ${{ github.event.inputs.regenerate || 'false' }}
