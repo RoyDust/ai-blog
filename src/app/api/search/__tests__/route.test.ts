@@ -109,6 +109,17 @@ describe('GET /api/search', () => {
     expect(count).not.toHaveBeenCalled()
   })
 
+  test('returns 400 when q exceeds the public search maximum', async () => {
+    const { GET } = await import('../route')
+    const response = await GET(new Request(`http://localhost/api/search?q=${'a'.repeat(201)}`))
+    const payload = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(payload).toEqual({ error: 'Query must be at most 200 characters' })
+    expect(findMany).not.toHaveBeenCalled()
+    expect(count).not.toHaveBeenCalled()
+  })
+
   test('normalizes invalid page and limit values through shared pagination validation', async () => {
     findMany.mockResolvedValue([])
     count.mockResolvedValue(0)

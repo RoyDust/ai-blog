@@ -2,6 +2,7 @@
 
 import {
   type ChangeEvent,
+  type KeyboardEvent,
   type PointerEvent,
   type SyntheticEvent,
   type WheelEvent,
@@ -57,6 +58,9 @@ const defaultCrop: CropState = {
 const viewportSize = 288;
 const cropFrameInset = 24;
 const cropFrameSize = viewportSize - cropFrameInset * 2;
+const keyboardCropStep = 8;
+const keyboardCropLargeStep = 24;
+const keyboardZoomStep = 0.05;
 
 /**
  * 限制数值落在滑块或图片可移动范围内。
@@ -359,6 +363,47 @@ export function ImageCropUploadDialog({
     });
   };
 
+  const handleCropKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (!imageSize) return;
+
+    const step = event.shiftKey ? keyboardCropLargeStep : keyboardCropStep;
+
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      updateCrop({ ...crop, offsetX: crop.offsetX - step });
+      return;
+    }
+
+    if (event.key === "ArrowRight") {
+      event.preventDefault();
+      updateCrop({ ...crop, offsetX: crop.offsetX + step });
+      return;
+    }
+
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      updateCrop({ ...crop, offsetY: crop.offsetY - step });
+      return;
+    }
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      updateCrop({ ...crop, offsetY: crop.offsetY + step });
+      return;
+    }
+
+    if (event.key === "+" || event.key === "=") {
+      event.preventDefault();
+      updateCrop({ ...crop, zoom: clamp(Number((crop.zoom + keyboardZoomStep).toFixed(2)), 1, 3) });
+      return;
+    }
+
+    if (event.key === "-" || event.key === "_") {
+      event.preventDefault();
+      updateCrop({ ...crop, zoom: clamp(Number((crop.zoom - keyboardZoomStep).toFixed(2)), 1, 3) });
+    }
+  };
+
   const stopDragging = (event: PointerEvent<HTMLDivElement>) => {
     if (dragStartRef.current?.pointerId === event.pointerId) {
       dragStartRef.current = null;
@@ -410,10 +455,10 @@ export function ImageCropUploadDialog({
       </button>
 
       <Dialog open={Boolean(sourceUrl)} onOpenChange={(open) => !open && resetEditor()}>
-        <DialogContent aria-describedby={undefined} className="max-w-2xl">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>裁切头像</DialogTitle>
-            <DialogDescription>拖动图片或滚动触控板调整位置，也可以用滑块精调，生成 1:1 头像后上传到图床。</DialogDescription>
+            <DialogDescription>拖动图片、滚动触控板或使用方向键调整位置，也可以用滑块精调，生成 1:1 头像后上传到图床。</DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-5 px-6 py-5 lg:grid-cols-[minmax(0,1fr)_220px]">
@@ -429,8 +474,10 @@ export function ImageCropUploadDialog({
                 onPointerDown={handlePointerDown}
                 onPointerMove={handlePointerMove}
                 onPointerUp={stopDragging}
+                onKeyDown={handleCropKeyDown}
                 onWheel={handleWheel}
-                role="img"
+                role="group"
+                tabIndex={0}
               >
                 {sourceUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element

@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 
 import { requireAdminSession } from "@/lib/api-auth";
 import { retryAiTaskFailedItems } from "@/lib/ai-tasks";
-import { resumeAiBatchTasks, runAiBatchTask } from "@/lib/ai-batch-jobs";
+import { resumeAiBatchTasks } from "@/lib/ai-batch-jobs";
 import { resumePostSummaryJobs } from "@/lib/post-summary-jobs";
 import { toErrorResponse } from "@/lib/api-errors";
 import { prisma } from "@/lib/prisma";
@@ -31,12 +31,7 @@ async function POSTHandler(_: Request, { params }: { params: Promise<{ id: strin
     } else if (retryTask.type === "post-bulk-completion") {
       await resumeAiBatchTasks(retryTask.id);
     } else {
-      const metadata = retryTask.metadata && typeof retryTask.metadata === "object" ? (retryTask.metadata as { apply?: unknown }) : {};
-      setTimeout(() => {
-        void runAiBatchTask({ taskId: retryTask.id, modelId: retryTask.modelId, apply: metadata.apply === true }).catch((error) => {
-          console.error("Run AI retry task error:", error);
-        });
-      }, 0);
+      await resumeAiBatchTasks(retryTask.id);
     }
 
     return NextResponse.json({ success: true, data: retryTask }, { status: 202 });

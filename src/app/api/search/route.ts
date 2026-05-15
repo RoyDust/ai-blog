@@ -15,6 +15,7 @@ import { checkAiSearchRateLimit, checkSearchRateLimit } from "@/lib/rate-limit"
 import { clampPagination } from "@/lib/validation"
 
 const SEARCH_MIN_QUERY_LENGTH = 2
+const SEARCH_MAX_QUERY_LENGTH = 200
 const AI_SEARCH_CACHE_TTL_MS = 5 * 60_000
 
 type DashScopePayload = {
@@ -269,6 +270,10 @@ async function GETHandler(request: Request) {
 
     if (countQueryCharacters(query) < SEARCH_MIN_QUERY_LENGTH) {
       return NextResponse.json({ error: `Query must be at least ${SEARCH_MIN_QUERY_LENGTH} characters` }, { status: 400 })
+    }
+
+    if (countQueryCharacters(query) > SEARCH_MAX_QUERY_LENGTH) {
+      return NextResponse.json({ error: `Query must be at most ${SEARCH_MAX_QUERY_LENGTH} characters` }, { status: 400 })
     }
 
     const searchRateLimit = await checkSearchRateLimit(request)

@@ -66,6 +66,11 @@ export default async function RootLayout({
   return (
     <html lang={settings.locale} suppressHydrationWarning>
       <body className={`${alibabaPuHuiTi.variable} antialiased`}>
+        <noscript>
+          <div className="mx-auto max-w-2xl px-4 py-6 text-sm leading-6 text-slate-700">
+            此站点需要启用 JavaScript 才能完整浏览和登录后台。请启用 JavaScript 后刷新页面。
+          </div>
+        </noscript>
         <AppProviders>{children}</AppProviders>
       </body>
     </html>

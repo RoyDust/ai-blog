@@ -8,6 +8,7 @@ import {
   markAiTaskItemSucceeded,
   markAiTaskRunning,
   refreshAiTaskCounts,
+  type AiTaskType,
   type JsonValue,
 } from "@/lib/ai-tasks";
 import {
@@ -24,6 +25,15 @@ import { prisma } from "@/lib/prisma";
 
 const MAX_AI_BATCH_POSTS = 20;
 const runningBatchTasks = new Set<string>();
+const targetedResumeTaskTypes = [
+  "post-bulk-completion",
+  "post-seo-description",
+  "post-title-suggestion",
+  "post-slug-suggestion",
+  "post-tag-suggestion",
+  "post-category-suggestion",
+  "post-cover-image",
+] satisfies AiTaskType[];
 
 export type AiBatchMode = "missing-only" | "overwrite" | "suggest-only";
 
@@ -244,8 +254,8 @@ export async function runAiBatchTask({
 export async function resumeAiBatchTasks(taskId?: string | null) {
   const tasks = await prisma.aiTask.findMany({
     where: {
-      type: "post-bulk-completion",
       ...(taskId ? { id: taskId } : {}),
+      type: taskId ? { in: targetedResumeTaskTypes } : "post-bulk-completion",
     },
     select: { id: true, modelId: true, metadata: true, status: true },
     orderBy: { createdAt: "desc" },

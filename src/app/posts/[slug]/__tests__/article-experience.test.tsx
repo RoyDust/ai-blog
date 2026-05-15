@@ -1,9 +1,10 @@
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import React from 'react'
 import { describe, expect, test, vi } from 'vitest'
 
 const findFirst = vi.fn()
 const findMany = vi.fn()
+const commentFindMany = vi.fn()
 
 vi.mock('@/components/CommentAuthGate', () => ({
   CommentAuthGate: ({ postId }: { postId: string }) => <div data-testid="comment-auth-gate">Comment gate for {postId}</div>,
@@ -14,6 +15,9 @@ vi.mock('@/lib/prisma', () => ({
     post: {
       findFirst,
       findMany,
+    },
+    comment: {
+      findMany: commentFindMany,
     },
   },
 }))
@@ -38,6 +42,7 @@ findFirst.mockResolvedValue({
 })
 
 findMany.mockResolvedValue([])
+commentFindMany.mockResolvedValue([])
 
 vi.mock('next-auth', () => ({
   getServerSession: vi.fn().mockResolvedValue(null),
@@ -63,6 +68,16 @@ vi.mock('@/lib/auth', () => ({
 
 describe('article experience', () => {
   test('article page includes progress and anonymous interaction rail', async () => {
+    commentFindMany.mockResolvedValueOnce([
+      {
+        id: 'comment-1',
+        content: 'Great article',
+        createdAt: new Date('2026-01-04T00:00:00Z'),
+        authorLabel: '203.0.*.*',
+        author: null,
+        replies: [],
+      },
+    ])
     findFirst
       .mockResolvedValueOnce({
         id: 'p1',
@@ -79,16 +94,6 @@ describe('article experience', () => {
         author: { id: 'u1', name: 'Author', image: null },
         category: { name: 'Category', slug: 'category' },
         tags: [{ name: 'Tag', slug: 'tag' }],
-        comments: [
-          {
-            id: 'comment-1',
-            content: 'Great article',
-            createdAt: new Date('2026-01-04T00:00:00Z'),
-            authorLabel: '203.0.*.*',
-            author: null,
-            replies: [],
-          },
-        ],
         _count: { comments: 1, likes: 2 },
       })
       .mockResolvedValueOnce({ slug: 'older-post', title: 'Older Post', createdAt: new Date('2025-12-31T00:00:00Z') })
@@ -96,7 +101,11 @@ describe('article experience', () => {
 
     const { default: PostPage } = await import('@/app/(public)/posts/[slug]/page')
     const ui = await PostPage({ params: Promise.resolve({ slug: 'test-post' }) })
-    const { container } = render(ui as React.ReactElement)
+    let container!: HTMLElement
+    await act(async () => {
+      const result = render(ui as React.ReactElement)
+      container = result.container
+    })
 
     expect(screen.getByRole('heading', { name: '目录' })).toBeInTheDocument()
     expect(screen.getByRole('progressbar')).toBeInTheDocument()
@@ -115,11 +124,14 @@ describe('article experience', () => {
     expect(screen.getByRole('link', { name: '发表评论' })).toHaveAttribute('href', '#comments')
     expect(screen.getByRole('heading', { level: 2, name: '评论 (1)' })).toBeInTheDocument()
     expect(screen.getByTestId('comment-auth-gate')).toHaveTextContent('Comment gate for p1')
-    expect(screen.getByText('Great article')).toBeInTheDocument()
+    expect(await screen.findByText('Great article')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '收藏文章' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: '上一篇 Older Post' })).toHaveAttribute('href', '/posts/older-post')
     expect(screen.getByRole('link', { name: '下一篇 Newer Post' })).toHaveAttribute('href', '/posts/newer-post')
     expect(findMany).not.toHaveBeenCalled()
+    expect(commentFindMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { postId: 'p1', parentId: null, deletedAt: null },
+    }))
     expect(container.querySelector('.reader-banner')).toBeInTheDocument()
     expect(container.querySelector('.reader-card')).toBeInTheDocument()
     expect(container.querySelector('.article-shell')).toBeInTheDocument()
@@ -154,7 +166,9 @@ describe('article experience', () => {
 
     const { default: PostPage } = await import('@/app/(public)/posts/[slug]/page')
     const ui = await PostPage({ params: Promise.resolve({ slug: 'test-post' }) })
-    render(ui as React.ReactElement)
+    await act(async () => {
+      render(ui as React.ReactElement)
+    })
 
     const tocRail = screen.getByTestId('toc-rail')
     expect(tocRail.className).toContain('xl:sticky')
@@ -196,7 +210,9 @@ describe('article experience', () => {
 
     const { default: PostPage } = await import('@/app/(public)/posts/[slug]/page')
     const ui = await PostPage({ params: Promise.resolve({ slug: 'test-post' }) })
-    render(ui as React.ReactElement)
+    await act(async () => {
+      render(ui as React.ReactElement)
+    })
 
     const tocLinks = Array.from(screen.getByTestId('toc-rail').querySelectorAll('a')).map((link) => link.getAttribute('href'))
     expect(tocLinks).toEqual(['#来源链接', '#来源链接-2'])

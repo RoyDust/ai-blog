@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
  */
 
 import type { Metadata } from "next";
-import type { ReactNode } from "react";
+import { Suspense, use, type ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
@@ -53,31 +53,6 @@ async function getPost(slug: string) {
       },
       category: { select: { name: true, slug: true } },
       tags: { where: { deletedAt: null }, select: { name: true, slug: true } },
-      comments: {
-        where: { parentId: null, deletedAt: null },
-        select: {
-          id: true,
-          content: true,
-          authorLabel: true,
-          createdAt: true,
-          author: {
-            select: { id: true, name: true, image: true },
-          },
-          replies: {
-            where: { deletedAt: null },
-            select: {
-              id: true,
-              content: true,
-              authorLabel: true,
-              createdAt: true,
-              author: {
-                select: { id: true, name: true, image: true },
-              },
-            },
-          },
-        },
-        orderBy: { createdAt: "desc" },
-      },
       _count: {
         select: { comments: { where: { deletedAt: null } }, likes: true },
       },
@@ -86,6 +61,38 @@ async function getPost(slug: string) {
 }
 
 type ArticlePost = NonNullable<Awaited<ReturnType<typeof getPost>>>
+
+async function getPostComments(postId: string) {
+  return prisma.comment.findMany({
+    where: { postId, parentId: null, deletedAt: null },
+    select: {
+      id: true,
+      content: true,
+      authorLabel: true,
+      createdAt: true,
+      author: {
+        select: { id: true, name: true, image: true },
+      },
+      replies: {
+        where: { deletedAt: null },
+        select: {
+          id: true,
+          content: true,
+          authorLabel: true,
+          createdAt: true,
+          author: {
+            select: { id: true, name: true, image: true },
+          },
+        },
+        orderBy: { createdAt: "asc" },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  })
+}
+
+type ArticleComment = Awaited<ReturnType<typeof getPostComments>>[number]
+type ArticleReply = ArticleComment['replies'][number]
 
 /**
  * 查找当前文章的上一篇 / 下一篇，用于文章末尾继续阅读模块。
@@ -191,6 +198,67 @@ function getCommentLabel(comment: { author?: { name?: string | null } | null; au
   return comment.author?.name || comment.authorLabel || '匿名读者'
 }
 
+function CommentListSkeleton() {
+  return (
+    <div className="mt-8 space-y-6" aria-label="评论加载中">
+      {[0, 1, 2].map((item) => (
+        <div className="border-b border-[var(--reader-border)] pb-6 last:border-b-0 last:pb-0" key={item}>
+          <div className="mb-3 flex items-center gap-3">
+            <div className="reader-skeleton h-8 w-8 rounded-full" />
+            <div className="reader-skeleton h-4 w-24 rounded-full" />
+            <div className="reader-skeleton h-3 w-16 rounded-full" />
+          </div>
+          <div className="ml-11 space-y-2">
+            <div className="reader-skeleton h-4 w-full rounded-full" />
+            <div className="reader-skeleton h-4 w-2/3 rounded-full" />
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function CommentList({ commentsPromise }: { commentsPromise: Promise<Awaited<ReturnType<typeof getPostComments>>> }) {
+  const comments = use(commentsPromise)
+
+  return (
+    <div className="mt-8 space-y-6">
+      {comments.map((comment: ArticleComment) => (
+        <div className="border-b border-[var(--reader-border)] pb-6 last:border-b-0 last:pb-0" key={comment.id}>
+          <div className="mb-2 flex items-center gap-3">
+            {comment.author?.image ? (
+              <FallbackImage alt={getCommentLabel(comment)} className="theme-media-image rounded-full object-cover" height={32} src={comment.author.image} width={32} />
+            ) : (
+              <div className="h-8 w-8 rounded-full border border-[var(--reader-border)] bg-[var(--reader-panel-muted)]" />
+            )}
+            <span className="font-medium text-[var(--foreground)]">{getCommentLabel(comment)}</span>
+            <span className="text-xs text-[var(--text-muted)]">{new Date(comment.createdAt).toLocaleDateString("zh-CN")}</span>
+          </div>
+          <p className="ml-11 leading-7 text-[var(--text-body)]">{comment.content}</p>
+
+          {comment.replies.length > 0 && (
+            <div className="ml-11 mt-4 space-y-4">
+              {comment.replies.map((reply: ArticleReply) => (
+                <div className="border-l-2 border-[var(--reader-border)] pl-4" key={reply.id}>
+                  <div className="mb-1 flex items-center gap-2">
+                    <span className="font-medium text-[var(--foreground)]">{getCommentLabel(reply)}</span>
+                    <span className="text-xs text-[var(--text-muted)]">{new Date(reply.createdAt).toLocaleDateString("zh-CN")}</span>
+                  </div>
+                  <p className="leading-7 text-[var(--text-body)]">{reply.content}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ))}
+
+      {comments.length === 0 ? (
+        <p className="rounded-2xl border border-dashed border-[var(--reader-border)] py-8 text-center text-sm text-[var(--text-muted)]">暂无评论</p>
+      ) : null}
+    </div>
+  )
+}
+
 /**
  * 文章详情页入口。
  * 负责把正文、目录、互动按钮、上一篇/下一篇与评论区组合成完整阅读体验。
@@ -204,6 +272,7 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
   }
 
   const { previousPost, nextPost } = await getContinuationData(post)
+  const commentsPromise = getPostComments(post.id)
 
   const headings = extractHeadings(post.content);
   const renderedHeadingCounters = new Map<string, number>()
@@ -352,38 +421,9 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
 
             <CommentAuthGate postId={post.id} />
 
-            <div className="mt-8 space-y-6">
-              {post.comments.map((comment: ArticlePost['comments'][number]) => (
-                <div className="border-b border-[var(--reader-border)] pb-6 last:border-b-0 last:pb-0" key={comment.id}>
-                  <div className="mb-2 flex items-center gap-3">
-                    {comment.author?.image ? (
-                      <FallbackImage alt={getCommentLabel(comment)} className="theme-media-image rounded-full object-cover" height={32} src={comment.author.image} width={32} />
-                    ) : (
-                      <div className="h-8 w-8 rounded-full border border-[var(--reader-border)] bg-[var(--reader-panel-muted)]" />
-                    )}
-                    <span className="font-medium text-[var(--foreground)]">{getCommentLabel(comment)}</span>
-                    <span className="text-xs text-[var(--text-muted)]">{new Date(comment.createdAt).toLocaleDateString("zh-CN")}</span>
-                  </div>
-                  <p className="ml-11 leading-7 text-[var(--text-body)]">{comment.content}</p>
-
-                  {comment.replies.length > 0 && (
-                    <div className="ml-11 mt-4 space-y-4">
-                      {comment.replies.map((reply: ArticlePost['comments'][number]['replies'][number]) => (
-                        <div className="border-l-2 border-[var(--reader-border)] pl-4" key={reply.id}>
-                          <div className="mb-1 flex items-center gap-2">
-                            <span className="font-medium text-[var(--foreground)]">{getCommentLabel(reply)}</span>
-                            <span className="text-xs text-[var(--text-muted)]">{new Date(reply.createdAt).toLocaleDateString("zh-CN")}</span>
-                          </div>
-                          <p className="leading-7 text-[var(--text-body)]">{reply.content}</p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
-
-              {post.comments.length === 0 && <p className="rounded-2xl border border-dashed border-[var(--reader-border)] py-8 text-center text-sm text-[var(--text-muted)]">暂无评论</p>}
-            </div>
+            <Suspense fallback={<CommentListSkeleton />}>
+              <CommentList commentsPromise={commentsPromise} />
+            </Suspense>
           </section>
         </div>
 

@@ -39,6 +39,7 @@ export function createMemoryRateLimiter({ limit, windowMs }: { limit: number; wi
 const authLimiter = createMemoryRateLimiter({ limit: 5, windowMs: 60_000 })
 const searchLimiter = createMemoryRateLimiter({ limit: 60, windowMs: 60_000 })
 const aiSearchLimiter = createMemoryRateLimiter({ limit: 8, windowMs: 60_000 })
+const analyticsLimiter = createMemoryRateLimiter({ limit: 30, windowMs: 60_000 })
 const interactionLimiter = createMemoryRateLimiter({ limit: 20, windowMs: 60_000 })
 const uploadLimiter = createMemoryRateLimiter({ limit: 10, windowMs: 60_000 })
 const aiCoverLimiter = createMemoryRateLimiter({ limit: 5, windowMs: 60_000 })
@@ -126,6 +127,10 @@ async function checkRateLimit(request: Request, scope: string, options: { limit:
     return aiSearchLimiter.check(key)
   }
 
+  if (scope === "analytics") {
+    return analyticsLimiter.check(key)
+  }
+
   if (scope === "upload") {
     return uploadLimiter.check(key)
   }
@@ -167,6 +172,13 @@ export function checkSearchRateLimit(request: Request) {
  */
 export function checkAiSearchRateLimit(request: Request) {
   return checkRateLimit(request, 'ai-search', { limit: 8, windowMs: 60_000 })
+}
+
+/**
+ * 对公开访问统计写入应用限流，避免刷量和无界 visit log 写入。
+ */
+export function checkAnalyticsRateLimit(request: Request) {
+  return checkRateLimit(request, 'analytics', { limit: 30, windowMs: 60_000 })
 }
 
 /**

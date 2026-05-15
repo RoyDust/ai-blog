@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useState } from "react";
 import { signOut } from "next-auth/react";
 import { ChevronDown, Leaf, LogOut, Settings, Sparkles } from "lucide-react";
@@ -153,10 +154,9 @@ export function AdminSider({ pathname, siteName, user }: AdminSiderProps) {
               }`}
               type="button"
             >
-              <span className="inline-flex h-11 w-11 items-center justify-center overflow-hidden rounded-full bg-[var(--surface-alt)] text-base font-semibold text-[var(--foreground)]">
+              <span className="relative inline-flex h-11 w-11 items-center justify-center overflow-hidden rounded-full bg-[var(--surface-alt)] text-base font-semibold text-[var(--foreground)]">
                 {user.image ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img alt={`${userLabel} 头像`} className="h-full w-full object-cover" src={user.image} />
+                  <Image alt={`${userLabel} 头像`} className="h-full w-full object-cover" height={44} src={user.image} unoptimized width={44} />
                 ) : (
                   getInitials(userLabel)
                 )}

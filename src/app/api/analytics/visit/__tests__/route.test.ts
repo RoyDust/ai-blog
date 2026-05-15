@@ -93,4 +93,26 @@ describe("POST /api/analytics/visit", () => {
     expect(response.status).toBe(400);
     expect(createVisitLogOperation).not.toHaveBeenCalled();
   });
+
+  test("rate-limits repeated public visit writes by client ip", async () => {
+    const { POST } = await import("../route");
+    const responses = [];
+
+    for (let index = 0; index < 31; index += 1) {
+      responses.push(
+        await POST(new Request("http://localhost/api/analytics/visit", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-forwarded-for": "198.51.100.23",
+          },
+          body: JSON.stringify({ path: `/about?hit=${index}` }),
+        })),
+      );
+    }
+
+    expect(responses.slice(0, 30).map((response) => response.status)).toEqual(Array(30).fill(200));
+    expect(responses[30].status).toBe(429);
+    expect(await responses[30].json()).toEqual({ error: "Too many analytics requests" });
+  });
 });

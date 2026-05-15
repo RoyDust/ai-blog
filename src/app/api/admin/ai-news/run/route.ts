@@ -7,11 +7,6 @@ import { notifyDailyAiNewsFailure, notifyDailyAiNewsSuccess } from "@/lib/ai-new
 import { toErrorResponse, ValidationError } from "@/lib/api-errors"
 import { prisma } from "@/lib/prisma"
 
-type AiNewsRunDelegate = typeof prisma.aiNewsRun
-type PrismaWithOptionalAiNewsRun = typeof prisma & {
-  aiNewsRun?: AiNewsRunDelegate
-}
-
 function parseRunDate(value: unknown) {
   if (value == null || value === "") return new Date()
   if (typeof value !== "string") throw new ValidationError("Invalid date")
@@ -68,45 +63,10 @@ async function POSTHandler(request: Request) {
 async function GETHandler() {
   try {
     await requireAdminSession()
-    const aiNewsRun = (prisma as PrismaWithOptionalAiNewsRun).aiNewsRun
-    const runs = aiNewsRun
-      ? await aiNewsRun.findMany({
-          orderBy: { createdAt: "desc" },
-          take: 20,
-        })
-      : await prisma.$queryRawUnsafe(`
-          SELECT
-            "id",
-            "runDate",
-            "trigger",
-            "status",
-            "sourceCount",
-            "failureCount",
-            "rawCandidateCount",
-            "dedupedCandidateCount",
-            "scoredCandidateCount",
-            "selectedCandidateCount",
-            "sourceFailureJson",
-            "qualityScore",
-            "citationCoverage",
-            "generationMode",
-            "error",
-            "postId",
-            "postTitle",
-            "postSlug",
-            "published",
-            "reviewVerdict",
-            "reviewScore",
-            "reviewSummary",
-            "startedAt",
-            "finishedAt",
-            "durationMs",
-            "createdAt",
-            "updatedAt"
-          FROM "ai_news_runs"
-          ORDER BY "createdAt" DESC
-          LIMIT 20
-        `)
+    const runs = await prisma.aiNewsRun.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 20,
+    })
 
     return NextResponse.json({ success: true, data: runs })
   } catch (error) {

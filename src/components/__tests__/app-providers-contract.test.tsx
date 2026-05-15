@@ -22,7 +22,7 @@ describe("app providers contract", () => {
 
     expect(providersSource).toContain("<AuthProvider>");
     expect(providersSource).toContain("<ThemeProvider>");
-    expect(providersSource).toContain("<MotionProvider>");
+    expect(providersSource).not.toContain("<MotionProvider>");
     expect(providersSource).toContain("{children}");
     expect(providersSource).toContain("<Toaster />");
   });

@@ -15,12 +15,12 @@
  */
 
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { LoaderCircle, Sparkles } from "lucide-react";
 
 import { PostAiWorkspace } from "@/components/admin/ai/PostAiWorkspace";
-import { AiCoverGenerator } from "@/components/admin/covers/AiCoverGenerator";
 import { CoverPicker } from "@/components/admin/covers/CoverPicker";
 import type { CoverAsset } from "@/components/admin/covers/types";
 import { StatusBadge } from "@/components/admin/primitives/StatusBadge";
@@ -69,6 +69,17 @@ type AdminPostWorkspaceProps = {
 const uncategorizedValue = "__uncategorized__";
 const adminSelectTriggerClassName = "w-full rounded-xl border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm text-[var(--foreground)] shadow-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]";
 const adminSelectContentClassName = "rounded-xl border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)]";
+const AiCoverGenerator = dynamic(
+  () => import("@/components/admin/covers/AiCoverGenerator").then((mod) => mod.AiCoverGenerator),
+  {
+    ssr: false,
+    loading: () => (
+      <Button type="button" size="sm" variant="outline" disabled>
+        AI 封面加载中
+      </Button>
+    ),
+  },
+);
 
 /**
  * 字段级 AI 动作按钮。

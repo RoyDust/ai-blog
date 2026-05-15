@@ -15,12 +15,16 @@ afterAll(() => {
 
 const findFirst = vi.fn()
 const findMany = vi.fn()
+const commentFindMany = vi.fn()
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     post: {
       findFirst,
       findMany,
+    },
+    comment: {
+      findMany: commentFindMany,
     },
   },
 }))
@@ -45,6 +49,7 @@ findFirst.mockResolvedValue({
 })
 
 findMany.mockResolvedValue([])
+commentFindMany.mockResolvedValue([])
 
 describe('article metadata', () => {
   test('generates article metadata from post content', async () => {

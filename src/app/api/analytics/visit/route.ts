@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { extractPostSlugFromPath, normalizeAnalyticsPath, shouldTrackVisitPath } from "@/lib/analytics";
 import { toErrorResponse } from "@/lib/api-errors";
 import { prisma } from "@/lib/prisma";
+import { checkAnalyticsRateLimit } from "@/lib/rate-limit";
 import { createVisitLogOperation } from "@/lib/visit-log-repository";
 
 const MAX_REFERRER_LENGTH = 500;
@@ -44,6 +45,11 @@ async function POSTHandler(request: Request) {
 
   if (!shouldTrackVisitPath(path)) {
     return NextResponse.json({ ok: true, skipped: true });
+  }
+
+  const rateLimit = await checkAnalyticsRateLimit(request);
+  if (!rateLimit.allowed) {
+    return NextResponse.json({ error: "Too many analytics requests" }, { status: 429 });
   }
 
   const referrer = truncate(typeof body.referrer === "string" ? body.referrer : null, MAX_REFERRER_LENGTH);

@@ -60,7 +60,8 @@ describe("admin layout", () => {
     expect(within(nav).queryByRole("link", { name: "设置" })).not.toBeInTheDocument();
     const accountMenuButton = screen.getByRole("button", { name: "RoyDust 账号菜单" });
     expect(accountMenuButton).toHaveAttribute("aria-expanded", "false");
-    expect(screen.getByRole("img", { name: "RoyDust 头像" })).toHaveAttribute("src", "https://example.com/avatar.png");
+    const avatar = screen.getByRole("img", { name: "RoyDust 头像" });
+    expect(avatar).toHaveAttribute("src", "https://example.com/avatar.png");
     expect(screen.getByText("roy@example.com")).toBeInTheDocument();
     fireEvent.keyDown(accountMenuButton, { key: "ArrowDown" });
     await waitFor(() => expect(accountMenuButton).toHaveAttribute("aria-expanded", "true"));
