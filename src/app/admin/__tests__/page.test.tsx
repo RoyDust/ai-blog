@@ -2,7 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import React from "react";
 import { describe, expect, test, vi } from "vitest";
 
-const { postFindManyMock, commentCountMock, commentFindManyMock, findVisitLogsInRangeMock, findPopularPostVisitsInRangeMock, getPublicAiModelOptionsMock } = vi.hoisted(() => {
+const { postFindManyMock, commentCountMock, commentFindManyMock, findPopularPostVisitsInRangeMock, getDashboardStatsMock, getPublicAiModelOptionsMock } = vi.hoisted(() => {
   const draftQueuePosts = [
     {
       id: "post-draft-1",
@@ -122,11 +122,40 @@ const { postFindManyMock, commentCountMock, commentFindManyMock, findVisitLogsIn
     }),
     commentCountMock: vi.fn().mockResolvedValue(4),
     commentFindManyMock: vi.fn().mockResolvedValue(pendingQueueComments),
-    findVisitLogsInRangeMock: vi.fn().mockResolvedValue([
-      { createdAt: new Date(), visitorId: "visitor-1", ipHash: "ip-1", userAgent: "agent-1" },
-      { createdAt: new Date(), visitorId: "visitor-1", ipHash: "ip-1", userAgent: "agent-1" },
-    ]),
     findPopularPostVisitsInRangeMock: vi.fn().mockResolvedValue(popularPosts),
+    getDashboardStatsMock: vi.fn().mockResolvedValue({
+      range: 7,
+      visits: {
+        range: 7,
+        hasData: true,
+        trend: [
+          { date: "2026-05-10", label: "05-10", pv: 10, uv: 6 },
+          { date: "2026-05-11", label: "05-11", pv: 14, uv: 8 },
+        ],
+        summary: { totalPv: 24, totalUv: 10, todayPv: 14, yesterdayPv: 10 },
+      },
+      reading: {
+        range: 7,
+        hasData: true,
+        trend: [],
+        summary: {
+          totalEvents: 5,
+          qualifiedEvents: 4,
+          completedEvents: 3,
+          totalDurationSeconds: 780,
+          averageDurationSeconds: 156,
+        },
+      },
+      engagement: {
+        range: 7,
+        hasData: true,
+        trend: [
+          { date: "2026-05-10", label: "05-10", comments: 1, likes: 2 },
+          { date: "2026-05-11", label: "05-11", comments: 2, likes: 4 },
+        ],
+        summary: { comments: 3, likes: 6, total: 9 },
+      },
+    }),
     getPublicAiModelOptionsMock: vi.fn().mockResolvedValue(aiModels),
   };
 });
@@ -149,9 +178,16 @@ vi.mock("@/lib/ai-models", () => ({
 }));
 
 vi.mock("@/lib/visit-log-repository", () => ({
-  findVisitLogsInRange: findVisitLogsInRangeMock,
   findPopularPostVisitsInRange: findPopularPostVisitsInRangeMock,
 }));
+
+vi.mock("@/lib/admin-stats", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/admin-stats")>();
+  return {
+    ...actual,
+    getDashboardStats: getDashboardStatsMock,
+  };
+});
 
 describe("admin overview", () => {
   test("renders the lightweight blog dashboard with real queues and AI model panel", async () => {
@@ -161,6 +197,8 @@ describe("admin overview", () => {
     render(ui as React.ReactElement);
 
     expect(screen.getByRole("heading", { name: "访问趋势" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "阅读统计" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "互动统计" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "最近草稿" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "待审评论" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "热门文章" })).toBeInTheDocument();
@@ -173,6 +211,12 @@ describe("admin overview", () => {
     expect(screen.getByText("30 天")).toBeInTheDocument();
     expect(screen.getByText("区间 PV")).toBeInTheDocument();
     expect(screen.getByText("区间 UV")).toBeInTheDocument();
+    expect(screen.getByText("有效阅读")).toBeInTheDocument();
+    expect(screen.getByText("深度完成")).toBeInTheDocument();
+    expect(screen.getByText("13 分钟")).toBeInTheDocument();
+    expect(screen.getByText("总互动")).toBeInTheDocument();
+    expect(screen.getByText("评论")).toBeInTheDocument();
+    expect(screen.getByText("点赞")).toBeInTheDocument();
 
     expect(screen.getByText("Queued Draft")).toBeInTheDocument();
     const recentDraftsPanel = screen.getByRole("heading", { name: "最近草稿" }).closest("section");
@@ -227,8 +271,8 @@ describe("admin overview", () => {
       orderBy: { createdAt: "desc" },
       take: 3,
     });
-    expect(findVisitLogsInRangeMock).toHaveBeenCalledWith(expect.any(Date), expect.any(Date));
     expect(findPopularPostVisitsInRangeMock).toHaveBeenCalledWith(expect.any(Date), expect.any(Date), 5);
+    expect(getDashboardStatsMock).toHaveBeenCalledWith(7);
     expect(getPublicAiModelOptionsMock).toHaveBeenCalledTimes(1);
   });
 });

@@ -1,53 +1,38 @@
-/**
- * 后台总览页。
- *
- * 职责：
- * - 汇总访问趋势、最近草稿、待审评论、热门文章、AI 模型状态
- * - 作为编辑后台首页，提供“当前系统健康度与待办”的总入口
- *
- * 阅读建议：
- * - 先看底部 AdminPage 如何并发拉取数据
- * - 再看各个 get* 数据装配函数
- * - 最后看 VisitTrendPanel / RecentDraftsPanel 等展示面板
- */
 import Link from "next/link";
 import {
   BrainCircuit,
+  BookOpenCheck,
   CheckCircle2,
   CircleAlert,
   Eye,
   ImageIcon,
   KeyRound,
+  MessageCircle,
+  ThumbsUp,
+  Timer,
 } from "lucide-react";
 
+import { EngagementTrendChart, VisitTrendChart } from "@/app/admin/AdminAnalyticsCharts";
 import { WorkspacePanel } from "@/components/admin/primitives/WorkspacePanel";
 import { StatusBadge } from "@/components/admin/primitives/StatusBadge";
 import { FallbackImage } from "@/components/admin/ui";
+import {
+  getAdminStatsRangeWindow,
+  getDashboardStats,
+  parseAdminStatsRange,
+  type DashboardStats,
+} from "@/lib/admin-stats";
 import { getPublicAiModelOptions, type PublicAiModelOption } from "@/lib/ai-models";
-import { addUtcDays, formatVisitTrendDate, formatVisitTrendLabel, parseVisitTrendRange, startOfUtcDay, type VisitTrendRange } from "@/lib/analytics";
+import type { VisitTrendRange } from "@/lib/analytics";
 import { getBlogSettings } from "@/lib/blog-settings";
 import { prisma } from "@/lib/prisma";
-import { findPopularPostVisitsInRange, findVisitLogsInRange } from "@/lib/visit-log-repository";
+import { findPopularPostVisitsInRange } from "@/lib/visit-log-repository";
 
 export const dynamic = "force-dynamic";
 
 type CommentStatus = "APPROVED" | "PENDING" | "REJECTED" | "SPAM";
 
 const PENDING_COMMENT_STATUS: CommentStatus = "PENDING";
-
-type VisitTrendItem = {
-  date: string;
-  label: string;
-  pv: number;
-  uv: number;
-};
-
-type VisitTrendSummary = {
-  totalPv: number;
-  totalUv: number;
-  todayPv: number;
-  yesterdayPv: number;
-};
 
 /**
  * 读取最近更新的草稿队列，供首页快速继续编辑。
@@ -84,77 +69,8 @@ async function getPendingCommentQueue() {
  * 读取指定访问窗口内的热门文章，按真实访问日志 PV 倒序展示。
  */
 async function getPopularPosts(range: VisitTrendRange) {
-  const { start, end } = getVisitRangeWindow(range);
+  const { start, end } = getAdminStatsRangeWindow(range);
   return findPopularPostVisitsInRange(start, end, 5);
-}
-
-function getVisitRangeWindow(range: VisitTrendRange) {
-  const today = startOfUtcDay(new Date());
-
-  return {
-    today,
-    yesterday: addUtcDays(today, -1),
-    start: addUtcDays(today, -(range - 1)),
-    end: addUtcDays(today, 1),
-  };
-}
-
-/**
- * 聚合指定时间范围内的访问趋势。
- *
- * 这里会把原始 visit log 按 UTC 日维度归桶，计算：
- * - 每日 PV / UV
- * - 区间总 PV / UV
- * - 今日与昨日 PV 对比
- */
-async function getVisitTrend(range: VisitTrendRange): Promise<{ trend: VisitTrendItem[]; summary: VisitTrendSummary }> {
-  const { today, yesterday, start, end } = getVisitRangeWindow(range);
-
-  const logs = await findVisitLogsInRange(start, end);
-
-  const buckets = new Map<string, { pv: number; visitors: Set<string> }>();
-
-  for (let index = 0; index < range; index += 1) {
-    const date = addUtcDays(start, index);
-    buckets.set(formatVisitTrendDate(date), { pv: 0, visitors: new Set<string>() });
-  }
-
-  for (const log of logs) {
-    const dateKey = formatVisitTrendDate(startOfUtcDay(log.createdAt));
-    const bucket = buckets.get(dateKey);
-    if (!bucket) continue;
-
-    bucket.pv += 1;
-    bucket.visitors.add(log.visitorId || `${log.ipHash ?? "unknown-ip"}:${log.userAgent ?? "unknown-agent"}`);
-  }
-
-  const trend = Array.from(buckets.entries()).map(([date, bucket]) => {
-    const dateValue = new Date(`${date}T00:00:00.000Z`);
-    return {
-      date,
-      label: formatVisitTrendLabel(dateValue),
-      pv: bucket.pv,
-      uv: bucket.visitors.size,
-    };
-  });
-
-  const totalVisitors = new Set<string>();
-  for (const log of logs) {
-    totalVisitors.add(log.visitorId || `${log.ipHash ?? "unknown-ip"}:${log.userAgent ?? "unknown-agent"}`);
-  }
-
-  const todayKey = formatVisitTrendDate(today);
-  const yesterdayKey = formatVisitTrendDate(yesterday);
-
-  return {
-    trend,
-    summary: {
-      totalPv: logs.length,
-      totalUv: totalVisitors.size,
-      todayPv: buckets.get(todayKey)?.pv ?? 0,
-      yesterdayPv: buckets.get(yesterdayKey)?.pv ?? 0,
-    },
-  };
 }
 
 type DraftListItem = Awaited<ReturnType<typeof getDraftQueue>>[number];
@@ -174,32 +90,6 @@ const formatRelativeDate = (value: Date | string | null) => {
 
   return `更新于 ${date.toLocaleDateString("zh-CN", { month: "short", day: "numeric" })}`;
 };
-
-const getChartGeometry = (trend: VisitTrendItem[]) => {
-  const width = 760;
-  const height = 238;
-  const paddingX = 12;
-  const paddingTop = 20;
-  const paddingBottom = 30;
-  const max = Math.max(10, ...trend.map((item) => item.pv));
-  const divisor = Math.max(1, trend.length - 1);
-  const points = trend.map((item, index) => {
-    const x = paddingX + (index / divisor) * (width - paddingX * 2);
-    const y = paddingTop + (1 - item.pv / max) * (height - paddingTop - paddingBottom);
-    return { ...item, x, y };
-  });
-  const linePath = points.map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`).join(" ");
-  const areaPath = points.length > 0
-    ? `${linePath} L ${points[points.length - 1]?.x ?? width} ${height - paddingBottom} L ${points[0]?.x ?? 0} ${height - paddingBottom} Z`
-    : "";
-  const axisMax = Math.ceil(max / 10) * 10;
-
-  return { width, height, points, linePath, areaPath, axisMax };
-};
-
-function formatCompactNumber(value: number) {
-  return value >= 1000 ? `${Number((value / 1000).toFixed(1))}K` : value.toLocaleString("zh-CN");
-}
 
 function Thumbnail({
   src,
@@ -264,10 +154,32 @@ function aiModelSourceLabel(source: AiModelListItem["source"]) {
   return source === "environment" ? "环境变量" : "数据库";
 }
 
-function VisitTrendPanel({ trend, range, summary }: { trend: VisitTrendItem[]; range: VisitTrendRange; summary: VisitTrendSummary }) {
-  const chart = getChartGeometry(trend);
+function DashboardMetric({
+  label,
+  value,
+  icon: Icon,
+  hint,
+}: {
+  label: string;
+  value: string | number;
+  icon?: React.ComponentType<{ className?: string; "aria-hidden"?: boolean }>;
+  hint?: string;
+}) {
+  return (
+    <div className="rounded-lg bg-[var(--surface-alt)] px-4 py-3">
+      <dt className="flex items-center gap-2 text-xs text-[var(--muted)]">
+        {Icon ? <Icon className="h-4 w-4" aria-hidden /> : null}
+        {label}
+      </dt>
+      <dd className="mt-1 text-xl font-semibold text-[var(--foreground)]">{typeof value === "number" ? value.toLocaleString("zh-CN") : value}</dd>
+      {hint ? <p className="mt-1 text-xs text-[var(--muted)]">{hint}</p> : null}
+    </div>
+  );
+}
+
+function VisitTrendPanel({ stats }: { stats: DashboardStats["visits"] }) {
+  const { range, summary } = stats;
   const ranges: VisitTrendRange[] = [7, 30, 90];
-  const yAxisValues = [chart.axisMax, Math.round(chart.axisMax * 0.75), Math.round(chart.axisMax * 0.5), Math.round(chart.axisMax * 0.25), 0];
 
   return (
     <WorkspacePanel
@@ -293,57 +205,13 @@ function VisitTrendPanel({ trend, range, summary }: { trend: VisitTrendItem[]; r
       className="min-h-[430px]"
     >
       <dl className="grid grid-cols-2 gap-3 pt-2 sm:grid-cols-4">
-        <div className="rounded-lg bg-[var(--surface-alt)] px-4 py-3">
-          <dt className="text-xs text-[var(--muted)]">区间 PV</dt>
-          <dd className="mt-1 text-xl font-semibold text-[var(--foreground)]">{summary.totalPv.toLocaleString("zh-CN")}</dd>
-        </div>
-        <div className="rounded-lg bg-[var(--surface-alt)] px-4 py-3">
-          <dt className="text-xs text-[var(--muted)]">区间 UV</dt>
-          <dd className="mt-1 text-xl font-semibold text-[var(--foreground)]">{summary.totalUv.toLocaleString("zh-CN")}</dd>
-        </div>
-        <div className="rounded-lg bg-[var(--surface-alt)] px-4 py-3">
-          <dt className="text-xs text-[var(--muted)]">今日 PV</dt>
-          <dd className="mt-1 text-xl font-semibold text-[var(--foreground)]">{summary.todayPv.toLocaleString("zh-CN")}</dd>
-        </div>
-        <div className="rounded-lg bg-[var(--surface-alt)] px-4 py-3">
-          <dt className="text-xs text-[var(--muted)]">昨日 PV</dt>
-          <dd className="mt-1 text-xl font-semibold text-[var(--foreground)]">{summary.yesterdayPv.toLocaleString("zh-CN")}</dd>
-        </div>
+        <DashboardMetric label="区间 PV" value={summary.totalPv} />
+        <DashboardMetric label="区间 UV" value={summary.totalUv} />
+        <DashboardMetric label="今日 PV" value={summary.todayPv} />
+        <DashboardMetric label="昨日 PV" value={summary.yesterdayPv} />
       </dl>
-      <div className="flex h-[265px] gap-4 pt-5">
-        <div className="flex w-9 flex-col justify-between pb-9 pt-2 text-right text-xs text-[var(--muted)]">
-          {yAxisValues.map((value) => <span key={value}>{formatCompactNumber(value)}</span>)}
-        </div>
-        <svg className="h-full min-w-0 flex-1 overflow-visible" viewBox={`0 0 ${chart.width} ${chart.height}`} role="img" aria-label={`最近 ${range} 天访问趋势`}>
-          <defs>
-            <linearGradient id="visit-area" x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0%" stopColor="#23875f" stopOpacity="0.18" />
-              <stop offset="100%" stopColor="#23875f" stopOpacity="0" />
-            </linearGradient>
-          </defs>
-          {[0, 1, 2, 3, 4].map((line) => {
-            const y = 20 + line * 47;
-            return <line key={line} x1="12" x2="748" y1={y} y2={y} stroke="rgba(23,32,27,0.09)" strokeWidth="1" />;
-          })}
-          {chart.areaPath ? <path d={chart.areaPath} fill="url(#visit-area)" /> : null}
-          {chart.linePath ? <path d={chart.linePath} fill="none" stroke="#23875f" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" /> : null}
-          {chart.points.map((point) => (
-            <g key={point.date}>
-              <circle cx={point.x} cy={point.y} fill="#23875f" r="4.2" stroke="#fff" strokeWidth="2" />
-              <title>{`${point.date}: PV ${point.pv}, UV ${point.uv}`}</title>
-            </g>
-          ))}
-          {chart.points.map((point, index) => {
-            const interval = range > 30 ? 14 : range > 7 ? 5 : 1;
-            if (index !== 0 && index !== chart.points.length - 1 && index % interval !== 0) return null;
-            return (
-              <text key={`${point.date}-label`} x={point.x} y="232" fill="#778178" fontSize="12" textAnchor="middle">
-                {point.label}
-              </text>
-            );
-          })}
-        </svg>
-      </div>
+      {stats.hasData ? null : <p className="pt-4 text-sm text-[var(--muted)]">近 {range} 天暂无访问数据，图表将保持零值基线。</p>}
+      <VisitTrendChart stats={stats} />
     </WorkspacePanel>
   );
 }
@@ -351,6 +219,54 @@ function VisitTrendPanel({ trend, range, summary }: { trend: VisitTrendItem[]; r
 function getDraftPreview(post: DraftListItem) {
   const source = post.excerpt?.trim() || post.content.replace(/[#>*_`\-[\]()]/g, " ").replace(/\s+/g, " ").trim();
   return source.length > 120 ? `${source.slice(0, 120)}…` : source || "还没有正文内容。";
+}
+
+function formatDuration(seconds: number) {
+  if (seconds < 60) return `${seconds} 秒`;
+  return `${Math.round(seconds / 60).toLocaleString("zh-CN")} 分钟`;
+}
+
+function ReadingStatsPanel({ stats }: { stats: DashboardStats["reading"] }) {
+  return (
+    <WorkspacePanel
+      title="阅读统计"
+      actions={<span className="rounded-full bg-sky-50 px-3 py-1 text-sm font-medium text-sky-700">近 {stats.range} 天</span>}
+      className="min-h-[300px]"
+    >
+      <dl className="grid grid-cols-2 gap-3">
+        <DashboardMetric label="有效阅读" value={stats.summary.qualifiedEvents} icon={BookOpenCheck} />
+        <DashboardMetric label="深度完成" value={stats.summary.completedEvents} icon={CheckCircle2} hint="滚动深度 >= 85%" />
+        <DashboardMetric label="总阅读时长" value={formatDuration(stats.summary.totalDurationSeconds)} icon={Timer} />
+        <DashboardMetric label="平均停留" value={formatDuration(stats.summary.averageDurationSeconds)} icon={Timer} />
+      </dl>
+      {stats.hasData ? (
+        <p className="mt-4 text-sm text-[var(--muted)]">
+          共记录 {stats.summary.totalEvents.toLocaleString("zh-CN")} 次阅读事件，合格率{" "}
+          {stats.summary.totalEvents > 0 ? Math.round((stats.summary.qualifiedEvents / stats.summary.totalEvents) * 100) : 0}%。
+        </p>
+      ) : (
+        <EmptyPanelMessage>近 {stats.range} 天暂无阅读事件。</EmptyPanelMessage>
+      )}
+    </WorkspacePanel>
+  );
+}
+
+function EngagementStatsPanel({ stats }: { stats: DashboardStats["engagement"] }) {
+  return (
+    <WorkspacePanel
+      title="互动统计"
+      actions={<span className="rounded-full bg-emerald-50 px-3 py-1 text-sm font-medium text-[var(--brand)]">近 {stats.range} 天</span>}
+      className="min-h-[300px]"
+    >
+      <dl className="grid grid-cols-3 gap-3">
+        <DashboardMetric label="总互动" value={stats.summary.total} />
+        <DashboardMetric label="评论" value={stats.summary.comments} icon={MessageCircle} />
+        <DashboardMetric label="点赞" value={stats.summary.likes} icon={ThumbsUp} />
+      </dl>
+      {stats.hasData ? null : <p className="pt-4 text-sm text-[var(--muted)]">近 {stats.range} 天暂无评论或点赞数据。</p>}
+      <EngagementTrendChart stats={stats} />
+    </WorkspacePanel>
+  );
 }
 
 function RecentDraftsPanel({ drafts }: { drafts: DraftListItem[] }) {
@@ -547,22 +463,27 @@ function AiModelChecklistPanel({ models }: { models: AiModelListItem[] }) {
  */
 export default async function AdminPage({ searchParams }: { searchParams?: Promise<{ range?: string }> } = {}) {
   const resolvedSearchParams = await searchParams;
-  const range = parseVisitTrendRange(resolvedSearchParams?.range);
-  const [pendingCommentCount, draftQueue, pendingQueue, popularPosts, aiModels, visitTrend, blogSettings] = await Promise.all([
+  const range = parseAdminStatsRange(resolvedSearchParams?.range);
+  const [pendingCommentCount, draftQueue, pendingQueue, popularPosts, aiModels, dashboardStats, blogSettings] = await Promise.all([
     prisma.comment.count({ where: { deletedAt: null, status: PENDING_COMMENT_STATUS } }),
     getDraftQueue(),
     getPendingCommentQueue(),
     getPopularPosts(range),
     getPublicAiModelOptions(),
-    getVisitTrend(range),
+    getDashboardStats(range),
     getBlogSettings(),
   ]);
 
   return (
     <div className="space-y-5 2xl:space-y-6" data-testid="admin-dashboard">
       <section className="grid grid-cols-1 gap-5 2xl:gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(440px,0.75fr)]">
-        <VisitTrendPanel trend={visitTrend.trend} range={range} summary={visitTrend.summary} />
+        <VisitTrendPanel stats={dashboardStats.visits} />
         <RecentDraftsPanel drafts={draftQueue} />
+      </section>
+
+      <section className="grid grid-cols-1 gap-5 2xl:gap-6 lg:grid-cols-2">
+        <ReadingStatsPanel stats={dashboardStats.reading} />
+        <EngagementStatsPanel stats={dashboardStats.engagement} />
       </section>
 
       <section className="grid grid-cols-1 gap-5 2xl:gap-6 xl:grid-cols-[minmax(360px,1.05fr)_minmax(380px,1.05fr)_minmax(440px,1.15fr)]">
