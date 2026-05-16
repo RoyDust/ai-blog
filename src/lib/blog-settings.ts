@@ -14,6 +14,7 @@ export type BlogSettings = {
   profile: PublicProfileContent;
   about: AboutPageSettings;
   reading: ReadingSettings;
+  newsletter: NewsletterSettings;
 };
 
 export type AboutPageCard = {
@@ -35,6 +36,13 @@ export type AboutPageSettings = {
 
 export type ReadingSettings = {
   monthlyGoal: number;
+};
+
+export type NewsletterSettings = {
+  enabled: boolean;
+  provider: "none" | "log";
+  fromEmail: string;
+  replyTo: string;
 };
 
 export const DEFAULT_BLOG_SETTINGS: BlogSettings = {
@@ -94,6 +102,12 @@ export const DEFAULT_BLOG_SETTINGS: BlogSettings = {
   reading: {
     monthlyGoal: 30,
   },
+  newsletter: {
+    enabled: false,
+    provider: "none",
+    fromEmail: "",
+    replyTo: "",
+  },
 };
 
 const MAX_SITE_NAME_LENGTH = 80;
@@ -107,9 +121,12 @@ type StoredSetting = {
   value: unknown;
 };
 
-type RawPrisma = typeof prisma & {
-  $queryRawUnsafe?: <T = unknown>(query: string, ...values: unknown[]) => Promise<T>;
-  $executeRawUnsafe?: (query: string, ...values: unknown[]) => Promise<number>;
+type RawSettingsReader = {
+  $queryRawUnsafe: <T = unknown>(query: string, ...values: unknown[]) => Promise<T>;
+};
+
+type RawSettingsWriter = {
+  $executeRawUnsafe: (query: string, ...values: unknown[]) => Promise<number>;
 };
 
 function isMissingRelationError(error: unknown) {
@@ -260,6 +277,31 @@ function normalizeReadingSettings(value: unknown, fallback: ReadingSettings): Re
   };
 }
 
+function normalizeOptionalEmail(value: unknown, fallback: string, label: string) {
+  const email = typeof value === "string" ? value.trim().toLowerCase() : fallback;
+  if (!email) {
+    return "";
+  }
+
+  if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    throw new ValidationError(`${label}必须是有效邮箱`);
+  }
+
+  return email;
+}
+
+function normalizeNewsletterSettings(value: unknown, fallback: NewsletterSettings): NewsletterSettings {
+  const record = typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
+  const provider = record.provider === "log" ? "log" : "none";
+
+  return {
+    enabled: typeof record.enabled === "boolean" ? record.enabled : fallback.enabled,
+    provider,
+    fromEmail: normalizeOptionalEmail(record.fromEmail, fallback.fromEmail, "发件邮箱"),
+    replyTo: normalizeOptionalEmail(record.replyTo, fallback.replyTo, "回复邮箱"),
+  };
+}
+
 export function normalizeBlogSettingsInput(input: unknown, fallback = getDefaultBlogSettings()): BlogSettings {
   if (typeof input !== "object" || input === null) {
     throw new ValidationError("博客配置格式无效");
@@ -295,6 +337,7 @@ export function normalizeBlogSettingsInput(input: unknown, fallback = getDefault
     profile: normalizeProfileSettings(record.profile, fallback.profile),
     about: normalizeAboutSettings(record.about, fallback.about),
     reading: normalizeReadingSettings(record.reading, fallback.reading),
+    newsletter: normalizeNewsletterSettings(record.newsletter, fallback.newsletter),
   };
 }
 
@@ -314,13 +357,17 @@ function readStoredBlogSettings(value: unknown) {
   }
 }
 
-function rawPrisma() {
-  return prisma as RawPrisma;
+function hasRawSettingsReader(client: unknown): client is RawSettingsReader {
+  return typeof (client as { $queryRawUnsafe?: unknown }).$queryRawUnsafe === "function";
+}
+
+function hasRawSettingsWriter(client: unknown): client is RawSettingsWriter {
+  return typeof (client as { $executeRawUnsafe?: unknown }).$executeRawUnsafe === "function";
 }
 
 export async function getBlogSettings(): Promise<BlogSettings> {
-  const client = rawPrisma();
-  if (!client.$queryRawUnsafe) {
+  const client = prisma;
+  if (!hasRawSettingsReader(client)) {
     return getDefaultBlogSettings();
   }
 
@@ -344,9 +391,9 @@ export async function getBlogSettings(): Promise<BlogSettings> {
 export async function updateBlogSettings(input: unknown): Promise<BlogSettings> {
   const currentSettings = await getBlogSettings();
   const settings = normalizeBlogSettingsInput(input, currentSettings);
-  const client = rawPrisma();
+  const client = prisma;
 
-  if (!client.$executeRawUnsafe) {
+  if (!hasRawSettingsWriter(client)) {
     throw new ApiError(503, "博客配置持久化不可用，请检查数据库客户端配置");
   }
 

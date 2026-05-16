@@ -2,7 +2,7 @@
 
 import { type FormEvent, useState } from "react";
 import { toast } from "sonner";
-import { FileText, Globe2, HardDrive, ShieldCheck, Target, UserRound } from "lucide-react";
+import { FileText, Globe2, HardDrive, Mail, ShieldCheck, Target, UserRound } from "lucide-react";
 import { PageHeader } from "@/components/admin/primitives/PageHeader";
 import { WorkspacePanel } from "@/components/admin/primitives/WorkspacePanel";
 import { Button, ImageCropUploadDialog, Input, Textarea } from "@/components/admin/ui";
@@ -45,6 +45,12 @@ type BlogSettingsDraft = {
   reading: {
     monthlyGoal: number;
   };
+  newsletter: {
+    enabled: boolean;
+    provider: "none" | "log";
+    fromEmail: string;
+    replyTo: string;
+  };
 };
 
 type OperationLogSettings = {
@@ -61,13 +67,14 @@ interface AdminSettingsClientProps {
   operationLogSettings: OperationLogSettings;
 }
 
-type SettingsTabId = "account" | "site" | "publicProfile" | "reading" | "about" | "logs";
+type SettingsTabId = "account" | "site" | "publicProfile" | "reading" | "newsletter" | "about" | "logs";
 
 const settingsTabs = [
   { id: "account", label: "账号资料", description: "登录身份", icon: UserRound },
   { id: "site", label: "站点基础", description: "头部与页脚", icon: Globe2 },
   { id: "publicProfile", label: "公开个人信息栏", description: "侧栏资料", icon: ShieldCheck },
   { id: "reading", label: "阅读目标", description: "前台统计", icon: Target },
+  { id: "newsletter", label: "邮件订阅", description: "订阅基础", icon: Mail },
   { id: "about", label: "关于页面", description: "页面文案", icon: FileText },
   { id: "logs", label: "日志策略", description: "后台运维", icon: HardDrive },
 ] satisfies Array<{ id: SettingsTabId; label: string; description: string; icon: typeof UserRound }>;
@@ -217,6 +224,16 @@ export function AdminSettingsClient({ user, blogSettings, operationLogSettings }
 
   const saveReadingSettings = (event: FormEvent<HTMLFormElement>) =>
     saveBlogSettings(event, { reading: blogDraft.reading });
+
+  const saveNewsletterSettings = (event: FormEvent<HTMLFormElement>) =>
+    saveBlogSettings(event, { newsletter: blogDraft.newsletter });
+
+  const updateNewsletterDraft = (nextNewsletter: Partial<BlogSettingsDraft["newsletter"]>) => {
+    setBlogDraft((value) => ({
+      ...value,
+      newsletter: { ...value.newsletter, ...nextNewsletter },
+    }));
+  };
 
   const saveAboutSettings = (event: FormEvent<HTMLFormElement>) =>
     saveBlogSettings(event, { about: blogDraft.about });
@@ -465,6 +482,54 @@ export function AdminSettingsClient({ user, blogSettings, operationLogSettings }
                 <div className="flex justify-end">
                   <Button disabled={savingBlogSettings} type="submit" variant="outline">
                     {savingBlogSettings ? "保存中..." : "保存阅读目标"}
+                  </Button>
+                </div>
+              </div>
+            </WorkspacePanel>
+          </form>
+          ) : null}
+
+          {activeTab === "newsletter" ? (
+          <form className="space-y-5" onSubmit={saveNewsletterSettings}>
+            <WorkspacePanel title="邮件订阅" description="控制前台 Newsletter 订阅基础开关和本地日志发送器。">
+              <div className="space-y-4">
+                <label className="flex items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface-alt)] p-4">
+                  <input
+                    checked={blogDraft.newsletter.enabled}
+                    className="h-4 w-4"
+                    onChange={(event) => updateNewsletterDraft({ enabled: event.target.checked })}
+                    type="checkbox"
+                  />
+                  <span>
+                    <span className="block text-sm font-semibold text-[var(--foreground)]">启用订阅入口</span>
+                    <span className="mt-1 block text-sm text-[var(--muted)]">首页和文章页会读取此开关展示订阅入口。</span>
+                  </span>
+                </label>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Input
+                    helperText="当前只支持 none 和 log；真实邮件供应商会在后续批次接入。"
+                    label="发送器"
+                    onChange={(event) => updateNewsletterDraft({ provider: event.target.value === "log" ? "log" : "none" })}
+                    value={blogDraft.newsletter.provider}
+                  />
+                  <Input
+                    label="发件邮箱"
+                    onChange={(event) => updateNewsletterDraft({ fromEmail: event.target.value })}
+                    placeholder="news@example.com"
+                    type="email"
+                    value={blogDraft.newsletter.fromEmail}
+                  />
+                </div>
+                <Input
+                  label="回复邮箱"
+                  onChange={(event) => updateNewsletterDraft({ replyTo: event.target.value })}
+                  placeholder="reply@example.com"
+                  type="email"
+                  value={blogDraft.newsletter.replyTo}
+                />
+                <div className="flex justify-end">
+                  <Button disabled={savingBlogSettings} type="submit" variant="outline">
+                    {savingBlogSettings ? "保存中..." : "保存订阅设置"}
                   </Button>
                 </div>
               </div>

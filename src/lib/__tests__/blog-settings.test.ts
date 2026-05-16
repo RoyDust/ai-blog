@@ -55,6 +55,7 @@ describe("blog settings", () => {
       profile: DEFAULT_BLOG_SETTINGS.profile,
       about: DEFAULT_BLOG_SETTINGS.about,
       reading: DEFAULT_BLOG_SETTINGS.reading,
+      newsletter: DEFAULT_BLOG_SETTINGS.newsletter,
     });
   });
 
@@ -65,6 +66,22 @@ describe("blog settings", () => {
       siteName: DEFAULT_BLOG_SETTINGS.siteName,
       siteUrl: "https://configured.example",
     });
+  });
+
+  test("falls back to defaults when raw reads are unavailable", async () => {
+    const client = prisma as unknown as { $queryRawUnsafe?: typeof prismaMocks.queryRawUnsafe };
+    const originalQueryRawUnsafe = client.$queryRawUnsafe;
+    client.$queryRawUnsafe = undefined;
+
+    try {
+      await expect(getBlogSettings()).resolves.toMatchObject({
+        siteName: DEFAULT_BLOG_SETTINGS.siteName,
+        siteUrl: "https://configured.example",
+      });
+      expect(prismaMocks.queryRawUnsafe).not.toHaveBeenCalled();
+    } finally {
+      client.$queryRawUnsafe = originalQueryRawUnsafe;
+    }
   });
 
   test("validates editable fields", () => {
@@ -127,6 +144,7 @@ describe("blog settings", () => {
       profile: DEFAULT_BLOG_SETTINGS.profile,
       about: DEFAULT_BLOG_SETTINGS.about,
       reading: DEFAULT_BLOG_SETTINGS.reading,
+      newsletter: DEFAULT_BLOG_SETTINGS.newsletter,
     });
   });
 
@@ -197,6 +215,7 @@ describe("blog settings", () => {
       }),
       about: DEFAULT_BLOG_SETTINGS.about,
       reading: DEFAULT_BLOG_SETTINGS.reading,
+      newsletter: DEFAULT_BLOG_SETTINGS.newsletter,
     });
   });
 
@@ -257,5 +276,35 @@ describe("blog settings", () => {
         monthlyGoal: 1,
       },
     });
+  });
+
+  test("normalizes newsletter settings", () => {
+    expect(
+      normalizeBlogSettingsInput({
+        ...DEFAULT_BLOG_SETTINGS,
+        newsletter: {
+          enabled: true,
+          provider: "log",
+          fromEmail: " News@Example.com ",
+          replyTo: " Replies@Example.com ",
+        },
+      }),
+    ).toMatchObject({
+      newsletter: {
+        enabled: true,
+        provider: "log",
+        fromEmail: "news@example.com",
+        replyTo: "replies@example.com",
+      },
+    });
+
+    expect(() =>
+      normalizeBlogSettingsInput({
+        ...DEFAULT_BLOG_SETTINGS,
+        newsletter: {
+          fromEmail: "invalid",
+        },
+      }),
+    ).toThrow("发件邮箱必须是有效邮箱");
   });
 });
