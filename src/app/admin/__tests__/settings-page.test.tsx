@@ -63,6 +63,9 @@ const configuredBlogSettings = {
     contactTitle: "Configured contact",
     contactDescription: "Configured contact description",
   },
+  reading: {
+    monthlyGoal: 18,
+  },
 };
 
 describe("admin settings page", () => {
@@ -114,6 +117,13 @@ describe("admin settings page", () => {
     expect(screen.getByLabelText("GitHub 链接")).toHaveValue("https://github.com/example");
     expect(screen.getByLabelText("Twitter / X 链接")).toHaveValue("https://x.com/example");
     expect(screen.getByRole("button", { name: "保存博客配置" })).toBeEnabled();
+
+    fireEvent.click(screen.getByRole("tab", { name: /阅读目标/ }));
+    expect(screen.getByRole("tab", { name: /阅读目标/ })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("heading", { name: "阅读目标" })).toBeInTheDocument();
+    expect(screen.getByLabelText("每月目标篇数")).toHaveValue(18);
+    expect(screen.getByText("未登录访客不会看到前台阅读统计和本月阅读目标。")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "保存阅读目标" })).toBeEnabled();
 
     fireEvent.click(screen.getByRole("tab", { name: /关于页面/ }));
     expect(screen.getByRole("tab", { name: /关于页面/ })).toHaveAttribute("aria-selected", "true");

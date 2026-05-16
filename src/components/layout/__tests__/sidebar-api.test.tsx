@@ -18,6 +18,15 @@ const profile: PublicProfile = {
   ],
 };
 
+const readingStats = {
+  totalArticles: 8,
+  totalReadingMinutes: 125,
+  streakDays: 3,
+  monthlyRead: 4,
+  monthlyGoal: 10,
+  monthlyProgress: 40,
+};
+
 test("sidebar loads categories from the public api route", async () => {
   const fetchMock = vi.spyOn(global, "fetch").mockImplementation((input: RequestInfo | URL) => {
     const url = String(input);
@@ -32,7 +41,7 @@ test("sidebar loads categories from the public api route", async () => {
     return Promise.reject(new Error(`Unexpected URL: ${url}`));
   });
 
-  const { getByRole, getByText, container } = render(<Sidebar profile={profile} />);
+  const { getByRole, getByText, container } = render(<Sidebar profile={profile} readingStats={readingStats} />);
 
   await waitFor(() => {
     expect(fetchMock).toHaveBeenCalledWith("/api/categories");
@@ -46,6 +55,23 @@ test("sidebar loads categories from the public api route", async () => {
   expect(getByRole("link", { name: "Email" })).toHaveAttribute("href", "mailto:roy@example.com");
   expect(getByRole("heading", { name: "阅读统计" })).toBeInTheDocument();
   expect(getByRole("heading", { name: "本月阅读目标" })).toBeInTheDocument();
+  expect(getByText("8")).toBeInTheDocument();
+  expect(getByText("2h")).toBeInTheDocument();
+  expect(getByText("3天")).toBeInTheDocument();
+  expect(getByText("40%")).toBeInTheDocument();
+
+  fetchMock.mockRestore();
+});
+
+test("sidebar hides reading data panels when no user stats are provided", () => {
+  const fetchMock = vi.spyOn(global, "fetch").mockResolvedValue(
+    new Response(JSON.stringify({ success: true, data: [] }), { status: 200 }),
+  );
+
+  const { queryByRole } = render(<Sidebar profile={profile} />);
+
+  expect(queryByRole("heading", { name: "阅读统计" })).not.toBeInTheDocument();
+  expect(queryByRole("heading", { name: "本月阅读目标" })).not.toBeInTheDocument();
 
   fetchMock.mockRestore();
 });

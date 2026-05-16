@@ -2,7 +2,7 @@
 
 import { type FormEvent, useState } from "react";
 import { toast } from "sonner";
-import { FileText, Globe2, HardDrive, ShieldCheck, UserRound } from "lucide-react";
+import { FileText, Globe2, HardDrive, ShieldCheck, Target, UserRound } from "lucide-react";
 import { PageHeader } from "@/components/admin/primitives/PageHeader";
 import { WorkspacePanel } from "@/components/admin/primitives/WorkspacePanel";
 import { Button, ImageCropUploadDialog, Input, Textarea } from "@/components/admin/ui";
@@ -42,6 +42,9 @@ type BlogSettingsDraft = {
     contactTitle: string;
     contactDescription: string;
   };
+  reading: {
+    monthlyGoal: number;
+  };
 };
 
 type OperationLogSettings = {
@@ -58,12 +61,13 @@ interface AdminSettingsClientProps {
   operationLogSettings: OperationLogSettings;
 }
 
-type SettingsTabId = "account" | "site" | "publicProfile" | "about" | "logs";
+type SettingsTabId = "account" | "site" | "publicProfile" | "reading" | "about" | "logs";
 
 const settingsTabs = [
   { id: "account", label: "账号资料", description: "登录身份", icon: UserRound },
   { id: "site", label: "站点基础", description: "头部与页脚", icon: Globe2 },
   { id: "publicProfile", label: "公开个人信息栏", description: "侧栏资料", icon: ShieldCheck },
+  { id: "reading", label: "阅读目标", description: "前台统计", icon: Target },
   { id: "about", label: "关于页面", description: "页面文案", icon: FileText },
   { id: "logs", label: "日志策略", description: "后台运维", icon: HardDrive },
 ] satisfies Array<{ id: SettingsTabId; label: string; description: string; icon: typeof UserRound }>;
@@ -210,6 +214,9 @@ export function AdminSettingsClient({ user, blogSettings, operationLogSettings }
 
   const savePublicProfileSettings = (event: FormEvent<HTMLFormElement>) =>
     saveBlogSettings(event, { profile: blogDraft.profile });
+
+  const saveReadingSettings = (event: FormEvent<HTMLFormElement>) =>
+    saveBlogSettings(event, { reading: blogDraft.reading });
 
   const saveAboutSettings = (event: FormEvent<HTMLFormElement>) =>
     saveBlogSettings(event, { about: blogDraft.about });
@@ -422,6 +429,42 @@ export function AdminSettingsClient({ user, blogSettings, operationLogSettings }
                 <div className="flex justify-end">
                   <Button disabled={savingBlogSettings} type="submit" variant="outline">
                     {savingBlogSettings ? "保存中..." : "保存博客配置"}
+                  </Button>
+                </div>
+              </div>
+            </WorkspacePanel>
+          </form>
+          ) : null}
+
+          {activeTab === "reading" ? (
+          <form className="space-y-5" onSubmit={saveReadingSettings}>
+            <WorkspacePanel title="阅读目标" description="前台登录用户侧栏会使用真实阅读记录，并按这里配置的目标计算本月进度。">
+              <div className="space-y-4">
+                <Input
+                  helperText="只影响目标值；已读篇数、阅读时长和连续阅读天数来自真实访问记录。"
+                  label="每月目标篇数"
+                  min={1}
+                  max={999}
+                  onChange={(event) =>
+                    setBlogDraft((value) => ({
+                      ...value,
+                      reading: {
+                        ...value.reading,
+                        monthlyGoal: Number(event.target.value) || 1,
+                      },
+                    }))
+                  }
+                  rightSlot={<span className="px-2 text-sm font-medium text-[var(--muted)]">篇</span>}
+                  step="1"
+                  type="number"
+                  value={blogDraft.reading.monthlyGoal}
+                />
+                <div className="rounded-xl border border-dashed border-[var(--border)] bg-[var(--surface-alt)] p-4 text-sm text-[var(--muted)]">
+                  未登录访客不会看到前台阅读统计和本月阅读目标。
+                </div>
+                <div className="flex justify-end">
+                  <Button disabled={savingBlogSettings} type="submit" variant="outline">
+                    {savingBlogSettings ? "保存中..." : "保存阅读目标"}
                   </Button>
                 </div>
               </div>

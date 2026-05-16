@@ -21,6 +21,7 @@ export type PopularPostVisitRecord = {
 export type VisitLogCreateInput = {
   path: string;
   postId: string | null;
+  userId: string | null;
   referrer: string | null;
   visitorId: string | null;
   userAgent: string | null;
@@ -89,7 +90,7 @@ export function createVisitLogOperation(data: VisitLogCreateInput) {
   const id = `visit_${randomUUID()}`;
 
   return prisma.$executeRaw`
-    INSERT INTO "visit_logs" ("id", "path", "postId", "referrer", "visitorId", "userAgent", "ipHash", "createdAt")
-    VALUES (${id}, ${data.path}, ${data.postId}, ${data.referrer}, ${data.visitorId}, ${data.userAgent}, ${data.ipHash}, now())
+    INSERT INTO "visit_logs" ("id", "path", "postId", "userId", "referrer", "visitorId", "userAgent", "ipHash", "createdAt")
+    VALUES (${id}, ${data.path}, ${data.postId}, ${data.userId}, ${data.referrer}, ${data.visitorId}, ${data.userAgent}, ${data.ipHash}, now())
   `;
 }

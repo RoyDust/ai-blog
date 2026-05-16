@@ -5,6 +5,7 @@ import { BarChart3, Folder, Github, Link2, Mail, Target } from "lucide-react";
 import { useEffect, useState } from "react";
 import { FallbackImage } from "@/components/ui";
 import { PUBLIC_PROFILE_FALLBACK, type PublicProfile, type PublicProfileLinkKind } from "@/lib/public-profile-data";
+import type { UserReadingStats } from "@/lib/reading-stats";
 
 const linkIcons: Record<PublicProfileLinkKind, typeof Github> = {
   email: Mail,
@@ -22,7 +23,21 @@ type CategoryItem = {
 
 const categoryDotColors = ["var(--accent-warm)", "var(--accent-warm)", "var(--accent-warm)", "var(--text-faint)", "var(--text-faint)", "var(--accent-cyan)"];
 
-export function Sidebar({ profile = PUBLIC_PROFILE_FALLBACK }: { profile?: PublicProfile }) {
+function formatReadingTime(minutes: number) {
+  if (minutes < 60) {
+    return `${minutes}m`;
+  }
+
+  return `${Math.round(minutes / 60)}h`;
+}
+
+export function Sidebar({
+  profile = PUBLIC_PROFILE_FALLBACK,
+  readingStats,
+}: {
+  profile?: PublicProfile;
+  readingStats?: UserReadingStats | null;
+}) {
   const [categories, setCategories] = useState<CategoryItem[]>([]);
 
   useEffect(() => {
@@ -50,11 +65,6 @@ export function Sidebar({ profile = PUBLIC_PROFILE_FALLBACK }: { profile?: Publi
   }, []);
 
   const topCategories = categories.slice(0, 6);
-  const totalCategoryPosts = categories.reduce((sum, category) => sum + (category._count?.posts ?? 0), 0);
-  const estimatedHours = Math.max(1, Math.round(totalCategoryPosts * 0.5));
-  const monthlyGoal = 30;
-  const monthlyRead = Math.min(monthlyGoal, Math.max(18, Math.round(totalCategoryPosts * 0.28)));
-  const monthlyProgress = Math.round((monthlyRead / monthlyGoal) * 100);
 
   return (
     <aside id="sidebar" className="onload-animation h-full w-full">
@@ -137,52 +147,61 @@ export function Sidebar({ profile = PUBLIC_PROFILE_FALLBACK }: { profile?: Publi
           )}
         </section>
 
-        <section className="reader-panel p-5" aria-labelledby="sidebar-reading-stats-title">
-          <div className="mb-4 flex items-center gap-2">
-            <BarChart3 className="h-5 w-5 text-[var(--accent-cyan)]" aria-hidden="true" />
-            <h3 id="sidebar-reading-stats-title" className="font-bold text-[var(--foreground)]">
-              阅读统计
-            </h3>
-          </div>
+        {readingStats ? (
+          <>
+            <section className="reader-panel p-5" aria-labelledby="sidebar-reading-stats-title">
+              <div className="mb-4 flex items-center gap-2">
+                <BarChart3 className="h-5 w-5 text-[var(--accent-cyan)]" aria-hidden="true" />
+                <h3 id="sidebar-reading-stats-title" className="font-bold text-[var(--foreground)]">
+                  阅读统计
+                </h3>
+              </div>
 
-          <div className="grid grid-cols-3 divide-x divide-[var(--reader-border)] text-center">
-            <div>
-              <p className="text-xs text-[var(--text-muted)]">文章数</p>
-              <p className="mt-1 text-2xl font-bold text-[var(--foreground)]">{totalCategoryPosts}</p>
-            </div>
-            <div>
-              <p className="text-xs text-[var(--text-muted)]">阅读时长</p>
-              <p className="mt-1 text-2xl font-bold text-[var(--foreground)]">{estimatedHours}h</p>
-            </div>
-            <div>
-              <p className="text-xs text-[var(--text-muted)]">连续阅读</p>
-              <p className="mt-1 text-2xl font-bold text-[var(--foreground)]">12天</p>
-            </div>
-          </div>
-        </section>
+              <div className="grid grid-cols-3 divide-x divide-[var(--reader-border)] text-center">
+                <div>
+                  <p className="text-xs text-[var(--text-muted)]">文章数</p>
+                  <p className="mt-1 text-2xl font-bold text-[var(--foreground)]">{readingStats.totalArticles}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-[var(--text-muted)]">阅读时长</p>
+                  <p className="mt-1 text-2xl font-bold text-[var(--foreground)]">
+                    {formatReadingTime(readingStats.totalReadingMinutes)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-[var(--text-muted)]">连续阅读</p>
+                  <p className="mt-1 text-2xl font-bold text-[var(--foreground)]">{readingStats.streakDays}天</p>
+                </div>
+              </div>
+            </section>
 
-        <section className="reader-panel p-5" aria-labelledby="sidebar-monthly-goal-title">
-          <div className="mb-4 flex items-center gap-2">
-            <Target className="h-5 w-5 text-[var(--accent-warm)]" aria-hidden="true" />
-            <h3 id="sidebar-monthly-goal-title" className="text-sm font-medium text-[var(--text-body)]">
-              本月阅读目标
-            </h3>
-          </div>
+            <section className="reader-panel p-5" aria-labelledby="sidebar-monthly-goal-title">
+              <div className="mb-4 flex items-center gap-2">
+                <Target className="h-5 w-5 text-[var(--accent-warm)]" aria-hidden="true" />
+                <h3 id="sidebar-monthly-goal-title" className="text-sm font-medium text-[var(--text-body)]">
+                  本月阅读目标
+                </h3>
+              </div>
 
-          <div className="flex items-end justify-between gap-4">
-            <p className="text-2xl font-bold text-[var(--foreground)]">
-              {monthlyRead}
-              <span className="text-base font-medium text-[var(--text-muted)]"> / {monthlyGoal} 篇</span>
-            </p>
-            <span className="text-xs font-semibold text-[var(--text-muted)]">{monthlyProgress}%</span>
-          </div>
-          <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[color:color-mix(in_oklab,var(--foreground)_10%,transparent)]">
-            <div
-              className="h-full rounded-full bg-[color:color-mix(in_oklab,var(--accent-warm)_82%,var(--accent-sky)_18%)]"
-              style={{ width: `${monthlyProgress}%` }}
-            />
-          </div>
-        </section>
+              <div className="flex items-end justify-between gap-4">
+                <p className="text-2xl font-bold text-[var(--foreground)]">
+                  {readingStats.monthlyRead}
+                  <span className="text-base font-medium text-[var(--text-muted)]">
+                    {" "}
+                    / {readingStats.monthlyGoal} 篇
+                  </span>
+                </p>
+                <span className="text-xs font-semibold text-[var(--text-muted)]">{readingStats.monthlyProgress}%</span>
+              </div>
+              <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[color:color-mix(in_oklab,var(--foreground)_10%,transparent)]">
+                <div
+                  className="h-full rounded-full bg-[color:color-mix(in_oklab,var(--accent-warm)_82%,var(--accent-sky)_18%)]"
+                  style={{ width: `${readingStats.monthlyProgress}%` }}
+                />
+              </div>
+            </section>
+          </>
+        ) : null}
       </div>
     </aside>
   );

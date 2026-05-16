@@ -9,6 +9,7 @@ export { FilterBar } from "./FilterBar";
 export { HomeLatestPosts } from "./HomeLatestPosts";
 export { PostsListingClient } from "./PostsListingClient";
 export { ArticleHero } from "./ArticleHero";
+export { ArticleReadTracker } from "./ArticleReadTracker";
 export { ReadingProgress } from "./ReadingProgress";
 export { ArticleToc } from "./ArticleToc";
 export { LikeButton } from "./LikeButton";

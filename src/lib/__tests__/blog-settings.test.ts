@@ -54,6 +54,7 @@ describe("blog settings", () => {
       locale: "en-US",
       profile: DEFAULT_BLOG_SETTINGS.profile,
       about: DEFAULT_BLOG_SETTINGS.about,
+      reading: DEFAULT_BLOG_SETTINGS.reading,
     });
   });
 
@@ -125,6 +126,7 @@ describe("blog settings", () => {
       locale: "zh-CN",
       profile: DEFAULT_BLOG_SETTINGS.profile,
       about: DEFAULT_BLOG_SETTINGS.about,
+      reading: DEFAULT_BLOG_SETTINGS.reading,
     });
   });
 
@@ -194,6 +196,7 @@ describe("blog settings", () => {
         twitterUrl: "https://x.com/new",
       }),
       about: DEFAULT_BLOG_SETTINGS.about,
+      reading: DEFAULT_BLOG_SETTINGS.reading,
     });
   });
 
@@ -225,6 +228,34 @@ describe("blog settings", () => {
         nowItems: ["当前事项"],
         highlights: [{ title: "亮点", description: "描述" }],
       }),
+    });
+  });
+
+  test("normalizes monthly reading goal settings", () => {
+    expect(
+      normalizeBlogSettingsInput({
+        ...DEFAULT_BLOG_SETTINGS,
+        reading: {
+          monthlyGoal: 12.8,
+        },
+      }),
+    ).toMatchObject({
+      reading: {
+        monthlyGoal: 12,
+      },
+    });
+
+    expect(
+      normalizeBlogSettingsInput({
+        ...DEFAULT_BLOG_SETTINGS,
+        reading: {
+          monthlyGoal: -10,
+        },
+      }),
+    ).toMatchObject({
+      reading: {
+        monthlyGoal: 1,
+      },
     });
   });
 });

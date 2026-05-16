@@ -1,6 +1,7 @@
 import { ApiError, ValidationError } from "@/lib/api-errors";
 import { prisma } from "@/lib/prisma";
 import { PUBLIC_PROFILE_CONTENT_FALLBACK, type PublicProfileContent } from "@/lib/public-profile-data";
+import { normalizeMonthlyReadingGoal } from "@/lib/reading-stats";
 import { getSiteUrl } from "@/lib/seo";
 
 export const BLOG_SITE_SETTING_KEY = "blog.site";
@@ -12,6 +13,7 @@ export type BlogSettings = {
   locale: string;
   profile: PublicProfileContent;
   about: AboutPageSettings;
+  reading: ReadingSettings;
 };
 
 export type AboutPageCard = {
@@ -29,6 +31,10 @@ export type AboutPageSettings = {
   stack: AboutPageCard[];
   contactTitle: string;
   contactDescription: string;
+};
+
+export type ReadingSettings = {
+  monthlyGoal: number;
 };
 
 export const DEFAULT_BLOG_SETTINGS: BlogSettings = {
@@ -84,6 +90,9 @@ export const DEFAULT_BLOG_SETTINGS: BlogSettings = {
     ],
     contactTitle: "联系我",
     contactDescription: "如果你想聊内容创作、前端体验、个人站点设计，或者只是想打个招呼，都欢迎通过这些方式找到我。",
+  },
+  reading: {
+    monthlyGoal: 30,
   },
 };
 
@@ -243,6 +252,14 @@ function normalizeAboutSettings(value: unknown, fallback: AboutPageSettings): Ab
   };
 }
 
+function normalizeReadingSettings(value: unknown, fallback: ReadingSettings): ReadingSettings {
+  const record = typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
+
+  return {
+    monthlyGoal: normalizeMonthlyReadingGoal(record.monthlyGoal, fallback.monthlyGoal),
+  };
+}
+
 export function normalizeBlogSettingsInput(input: unknown, fallback = getDefaultBlogSettings()): BlogSettings {
   if (typeof input !== "object" || input === null) {
     throw new ValidationError("博客配置格式无效");
@@ -277,6 +294,7 @@ export function normalizeBlogSettingsInput(input: unknown, fallback = getDefault
     locale,
     profile: normalizeProfileSettings(record.profile, fallback.profile),
     about: normalizeAboutSettings(record.about, fallback.about),
+    reading: normalizeReadingSettings(record.reading, fallback.reading),
   };
 }
 

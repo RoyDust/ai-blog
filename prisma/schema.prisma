@@ -122,6 +122,8 @@ model User {
   sessions     Session[]
   aiApiClients AiApiClient[]
   aiTasks      AiTask[]
+  visitLogs    VisitLog[]
+  readingEvents ReadingEvent[]
   notificationReceipts NotificationRecipient[]
   apiOperationLogs ApiOperationLog[]
 
@@ -164,6 +166,7 @@ model Post {
   likes          Like[]
   bookmarks      Bookmark[]
   visitLogs      VisitLog[]
+  readingEvents  ReadingEvent[]
   aiDraftBinding AiDraftBinding?
   aiTaskItems    AiTaskItem[]
 
@@ -184,6 +187,8 @@ model VisitLog {
   path      String
   postId    String?
   post      Post?    @relation(fields: [postId], references: [id], onDelete: SetNull)
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   referrer  String?
   userAgent String?
   ipHash    String?
@@ -193,8 +198,30 @@ model VisitLog {
   @@index([createdAt])
   @@index([path])
   @@index([postId])
+  @@index([userId, createdAt])
+  @@index([userId, postId, createdAt])
   @@index([visitorId])
   @@map("visit_logs")
+}
+
+model ReadingEvent {
+  id              String   @id
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  postId          String
+  post            Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  readDate        DateTime @db.Date
+  durationSeconds Int      @default(0)
+  scrollDepth     Int      @default(0)
+  qualified       Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([userId, postId, readDate])
+  @@index([userId, readDate])
+  @@index([userId, postId])
+  @@index([postId, createdAt])
+  @@map("reading_events")
 }
 
 model ApiOperationLog {

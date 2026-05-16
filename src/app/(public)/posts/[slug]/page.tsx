@@ -21,7 +21,7 @@ import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArticleContinuation, ArticleHero, ArticleToc, BackToTopButton, BookmarkButton, LikeButton, ReadingProgress, SectionHeader, ShareButton } from "@/components/blog";
+import { ArticleContinuation, ArticleHero, ArticleReadTracker, ArticleToc, BackToTopButton, BookmarkButton, LikeButton, ReadingProgress, SectionHeader, ShareButton } from "@/components/blog";
 import { CommentAuthGate } from "@/components/CommentAuthGate";
 import { FallbackImage } from "@/components/ui";
 import { getBlogSettings } from "@/lib/blog-settings";
@@ -304,6 +304,7 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify([articleJsonLd, breadcrumbJsonLd]) }}
       />
+      <ArticleReadTracker postId={post.id} />
       <ReadingProgress />
       <BackToTopButton />
 

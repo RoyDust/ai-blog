@@ -1,9 +1,11 @@
 import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 import { createHash } from "node:crypto";
+import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 
 import { extractPostSlugFromPath, normalizeAnalyticsPath, shouldTrackVisitPath } from "@/lib/analytics";
 import { toErrorResponse } from "@/lib/api-errors";
+import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { checkAnalyticsRateLimit } from "@/lib/rate-limit";
 import { createVisitLogOperation } from "@/lib/visit-log-repository";
@@ -57,6 +59,8 @@ async function POSTHandler(request: Request) {
   const userAgent = truncate(request.headers.get("user-agent"), MAX_USER_AGENT_LENGTH);
   const ipHash = hashIp(getClientIp(request));
   const postSlug = extractPostSlugFromPath(path);
+  const session = await getServerSession(authOptions);
+  const userId = session?.user?.id ?? null;
 
   try {
     const post = postSlug
@@ -70,6 +74,7 @@ async function POSTHandler(request: Request) {
       createVisitLogOperation({
         path,
         postId: post?.id ?? null,
+        userId,
         referrer,
         visitorId,
         userAgent,
