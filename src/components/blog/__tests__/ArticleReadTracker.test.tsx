@@ -97,7 +97,7 @@ describe("ArticleReadTracker", () => {
       }),
       keepalive: true,
     }));
-    expect(routerMocks.refresh).toHaveBeenCalledOnce();
+    expect(routerMocks.refresh).not.toHaveBeenCalled();
   });
 
   test("records a qualified read when scroll depth reaches the threshold", async () => {
@@ -120,7 +120,7 @@ describe("ArticleReadTracker", () => {
       }),
       keepalive: true,
     }));
-    expect(routerMocks.refresh).toHaveBeenCalledOnce();
+    expect(routerMocks.refresh).not.toHaveBeenCalled();
   });
 
   test("does not record more than once in one page lifecycle", () => {
@@ -137,7 +137,7 @@ describe("ArticleReadTracker", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  test("does not refresh the route when the reading event request fails", async () => {
+  test("does not mark the article as recorded when the reading event request fails", async () => {
     const fetchMock = vi.fn(() => Promise.resolve(new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 })));
     vi.stubGlobal("fetch", fetchMock);
 
@@ -164,7 +164,7 @@ describe("ArticleReadTracker", () => {
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(routerMocks.refresh).toHaveBeenCalledOnce();
+    expect(routerMocks.refresh).not.toHaveBeenCalled();
 
     unmount();
     render(<ArticleReadTracker postId="post-1" />);
@@ -175,7 +175,7 @@ describe("ArticleReadTracker", () => {
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(routerMocks.refresh).toHaveBeenCalledOnce();
+    expect(routerMocks.refresh).not.toHaveBeenCalled();
   });
 
   test("does not start reading event tracking for anonymous users", () => {

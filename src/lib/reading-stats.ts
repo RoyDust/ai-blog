@@ -15,11 +15,16 @@ export type UserReadingStats = {
 };
 
 type RawPrisma = typeof prisma & {
-  $queryRawUnsafe?: <T = unknown>(query: string, ...values: unknown[]) => Promise<T>;
+  $queryRawUnsafe: <T = unknown>(query: string, ...values: unknown[]) => Promise<T>;
 };
 
 type NumberRow = {
   value: number | bigint | string | null;
+};
+
+type ReadingTotalsRow = {
+  totalArticles: number | bigint | string | null;
+  totalReadingMinutes: number | bigint | string | null;
 };
 
 type DayRow = {
@@ -83,7 +88,7 @@ export function normalizeMonthlyReadingGoal(value: unknown, fallback = DEFAULT_M
   return Math.min(MAX_MONTHLY_READING_GOAL, Math.max(MIN_MONTHLY_READING_GOAL, candidate));
 }
 
-export function calculateReadingStreak(days: Array<string | Date>) {
+export function calculateReadingStreak(days: Array<string | Date>, now = new Date()) {
   const uniqueDays = Array.from(new Set(days.map(normalizeDayKey).filter(Boolean))).sort().reverse();
   if (uniqueDays.length === 0) {
     return 0;
@@ -91,7 +96,12 @@ export function calculateReadingStreak(days: Array<string | Date>) {
 
   let streak = 1;
   let previous = parseDayKey(uniqueDays[0]);
+  const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
   if (previous === null) {
+    return 0;
+  }
+
+  if (previous !== today) {
     return 0;
   }
 
@@ -146,19 +156,14 @@ export async function getUserReadingStats(userId: string, monthlyGoalInput: unkn
   const monthlyGoal = normalizeMonthlyReadingGoal(monthlyGoalInput);
   const client = rawPrisma();
 
-  if (!client.$queryRawUnsafe) {
-    return emptyStats(monthlyGoal);
-  }
-
   const monthStart = startOfMonth(now);
   const monthEnd = startOfNextMonth(now);
 
   try {
-    const [totalArticlesRows, totalReadingMinutesRows, monthlyReadRows, streakRows] = await Promise.all([
-      client.$queryRawUnsafe<NumberRow[]>(
+    const [totalsRows, monthlyReadRows, streakRows] = await Promise.all([
+      client.$queryRawUnsafe<ReadingTotalsRow[]>(
         `
-          SELECT COUNT(*)::int AS "value"
-          FROM (
+          WITH read_posts AS (
             SELECT DISTINCT r."postId"
             FROM "reading_events" r
             INNER JOIN "posts" p ON p."id" = r."postId"
@@ -166,22 +171,11 @@ export async function getUserReadingStats(userId: string, monthlyGoalInput: unkn
               AND r."qualified" = true
               AND p."deletedAt" IS NULL
               AND p."published" = true
-          ) read_posts
-        `,
-        userId,
-      ),
-      client.$queryRawUnsafe<NumberRow[]>(
-        `
-          SELECT COALESCE(SUM(p."readingTimeMinutes"), 0)::int AS "value"
-          FROM (
-            SELECT DISTINCT r."postId"
-            FROM "reading_events" r
-            INNER JOIN "posts" p ON p."id" = r."postId"
-            WHERE r."userId" = $1
-              AND r."qualified" = true
-              AND p."deletedAt" IS NULL
-              AND p."published" = true
-          ) read_posts
+          )
+          SELECT
+            COUNT(*)::int AS "totalArticles",
+            COALESCE(SUM(p."readingTimeMinutes"), 0)::int AS "totalReadingMinutes"
+          FROM read_posts
           INNER JOIN "posts" p ON p."id" = read_posts."postId"
         `,
         userId,
@@ -221,11 +215,12 @@ export async function getUserReadingStats(userId: string, monthlyGoalInput: unkn
     ]);
 
     const monthlyRead = numberFromRows(monthlyReadRows);
+    const totals = totalsRows[0];
 
     return {
-      totalArticles: numberFromRows(totalArticlesRows),
-      totalReadingMinutes: numberFromRows(totalReadingMinutesRows),
-      streakDays: calculateReadingStreak(streakRows.map((row) => row.day)),
+      totalArticles: Math.max(0, toInteger(totals?.totalArticles)),
+      totalReadingMinutes: Math.max(0, toInteger(totals?.totalReadingMinutes)),
+      streakDays: calculateReadingStreak(streakRows.map((row) => row.day), now),
       monthlyRead,
       monthlyGoal,
       monthlyProgress: Math.min(100, Math.round((monthlyRead / monthlyGoal) * 100)),

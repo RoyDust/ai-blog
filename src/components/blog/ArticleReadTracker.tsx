@@ -1,7 +1,6 @@
 "use client";
 
 import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
 
 import {
@@ -45,7 +44,6 @@ function getCurrentScrollDepth() {
 }
 
 export function ArticleReadTracker({ postId }: { postId: string }) {
-  const router = useRouter();
   const { status } = useSession();
   const visibleSecondsRef = useRef(0);
   const maxScrollDepthRef = useRef(0);
@@ -85,7 +83,6 @@ export function ArticleReadTracker({ postId }: { postId: string }) {
         .then((response) => {
           if (response.ok && isMounted) {
             markRecordedInCurrentTab(postId);
-            router.refresh();
           }
         })
         .catch(() => undefined);
@@ -111,7 +108,7 @@ export function ArticleReadTracker({ postId }: { postId: string }) {
       window.clearInterval(timer);
       window.removeEventListener("scroll", updateScrollDepth);
     };
-  }, [postId, router, status]);
+  }, [postId, status]);
 
   return null;
 }

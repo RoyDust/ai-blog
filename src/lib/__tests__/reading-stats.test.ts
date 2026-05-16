@@ -25,15 +25,17 @@ describe("reading stats", () => {
   });
 
   test("calculates consecutive reading days from unique day keys", () => {
-    expect(calculateReadingStreak(["2026-05-16", "2026-05-15", "2026-05-14", "2026-05-12"])).toBe(3);
-    expect(calculateReadingStreak(["2026-05-16", "2026-05-16", "2026-05-15"])).toBe(2);
+    const now = new Date("2026-05-16T12:00:00Z");
+
+    expect(calculateReadingStreak(["2026-05-16", "2026-05-15", "2026-05-14", "2026-05-12"], now)).toBe(3);
+    expect(calculateReadingStreak(["2026-05-16", "2026-05-16", "2026-05-15"], now)).toBe(2);
+    expect(calculateReadingStreak(["2026-05-13", "2026-05-12"], now)).toBe(0);
     expect(calculateReadingStreak([])).toBe(0);
   });
 
   test("reads user stats from qualified reading events and published posts", async () => {
     prismaMocks.queryRawUnsafe
-      .mockResolvedValueOnce([{ value: 8 }])
-      .mockResolvedValueOnce([{ value: "125" }])
+      .mockResolvedValueOnce([{ totalArticles: 8, totalReadingMinutes: "125" }])
       .mockResolvedValueOnce([{ value: BigInt(4) }])
       .mockResolvedValueOnce([
         { day: "2026-05-16" },
@@ -51,7 +53,7 @@ describe("reading stats", () => {
       monthlyProgress: 40,
     });
 
-    expect(prismaMocks.queryRawUnsafe).toHaveBeenCalledTimes(4);
+    expect(prismaMocks.queryRawUnsafe).toHaveBeenCalledTimes(3);
     expect(prismaMocks.queryRawUnsafe.mock.calls[0][1]).toBe("user-1");
     expect(prismaMocks.queryRawUnsafe.mock.calls[0][0]).toContain('"reading_events"');
   });

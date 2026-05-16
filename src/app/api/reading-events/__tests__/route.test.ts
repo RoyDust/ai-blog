@@ -4,6 +4,7 @@ import { UnauthorizedError } from "@/lib/api-errors";
 const requireSession = vi.fn();
 const checkInteractionRateLimit = vi.fn();
 const recordQualifiedReadingEvent = vi.fn();
+const postId = "cmabc123def456ghi789jkl0";
 
 vi.mock("@/lib/api-operation-log-route", () => ({
   withApiOperationLogging: (handler: (request: Request) => Promise<Response>) => handler,
@@ -27,7 +28,7 @@ describe("POST /api/reading-events", () => {
     requireSession.mockResolvedValue({ user: { id: "user-1" } });
     checkInteractionRateLimit.mockResolvedValue({ allowed: true });
     recordQualifiedReadingEvent.mockResolvedValue({
-      postId: "post-1",
+      postId,
       durationSeconds: 20,
       scrollDepth: 35,
     });
@@ -40,7 +41,7 @@ describe("POST /api/reading-events", () => {
     const response = await POST(new Request("http://localhost/api/reading-events", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ postId: "post-1", durationSeconds: 20, scrollDepth: 0 }),
+      body: JSON.stringify({ postId, durationSeconds: 20, scrollDepth: 0 }),
     }));
 
     expect(response.status).toBe(401);
@@ -60,12 +61,38 @@ describe("POST /api/reading-events", () => {
     expect(recordQualifiedReadingEvent).not.toHaveBeenCalled();
   });
 
+  test("rejects malformed post ids before querying", async () => {
+    const { POST } = await import("../route");
+    const response = await POST(new Request("http://localhost/api/reading-events", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ postId: "../post-1", durationSeconds: 20, scrollDepth: 35 }),
+    }));
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "Valid postId is required" });
+    expect(recordQualifiedReadingEvent).not.toHaveBeenCalled();
+  });
+
+  test("rejects non-cuid-shaped post ids before querying", async () => {
+    const { POST } = await import("../route");
+    const response = await POST(new Request("http://localhost/api/reading-events", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ postId: "post12345678901234567890", durationSeconds: 20, scrollDepth: 35 }),
+    }));
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "Valid postId is required" });
+    expect(recordQualifiedReadingEvent).not.toHaveBeenCalled();
+  });
+
   test("records qualified reading events for the current user", async () => {
     const { POST } = await import("../route");
     const response = await POST(new Request("http://localhost/api/reading-events", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ postId: "post-1", durationSeconds: 20, scrollDepth: 35 }),
+      body: JSON.stringify({ postId, durationSeconds: 20, scrollDepth: 35 }),
     }));
 
     expect(response.status).toBe(200);
@@ -73,14 +100,14 @@ describe("POST /api/reading-events", () => {
       ok: true,
       recorded: true,
       data: {
-        postId: "post-1",
+        postId,
         durationSeconds: 20,
         scrollDepth: 35,
       },
     });
     expect(recordQualifiedReadingEvent).toHaveBeenCalledWith({
       userId: "user-1",
-      postId: "post-1",
+      postId,
       durationSeconds: 20,
       scrollDepth: 35,
     });
@@ -93,7 +120,7 @@ describe("POST /api/reading-events", () => {
     const response = await POST(new Request("http://localhost/api/reading-events", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ postId: "post-1", durationSeconds: 20, scrollDepth: 0 }),
+      body: JSON.stringify({ postId, durationSeconds: 20, scrollDepth: 0 }),
     }));
 
     expect(response.status).toBe(429);

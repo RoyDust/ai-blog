@@ -6,6 +6,8 @@ import { requireSession } from "@/lib/api-auth";
 import { checkInteractionRateLimit } from "@/lib/rate-limit";
 import { recordQualifiedReadingEvent } from "@/lib/reading-events";
 
+const POST_ID_PATTERN = /^c[a-z0-9]{23,24}$/i;
+
 async function POSTHandler(request: Request) {
   try {
     const rateLimit = await checkInteractionRateLimit(request);
@@ -18,7 +20,7 @@ async function POSTHandler(request: Request) {
     const payload = body && typeof body === "object" ? (body as Record<string, unknown>) : {};
     const postId = typeof payload.postId === "string" ? payload.postId.trim() : "";
 
-    if (!postId) {
+    if (!postId || !POST_ID_PATTERN.test(postId)) {
       return NextResponse.json({ error: "Valid postId is required" }, { status: 400 });
     }
 
