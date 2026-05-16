@@ -18,7 +18,7 @@ import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { LoaderCircle, Sparkles } from "lucide-react";
+import { CalendarClock, LoaderCircle, Sparkles } from "lucide-react";
 
 import { PostAiWorkspace } from "@/components/admin/ai/PostAiWorkspace";
 import { CoverPicker } from "@/components/admin/covers/CoverPicker";
@@ -53,6 +53,12 @@ type TagOption = {
   slug: string;
 };
 
+type SeriesOption = {
+  id: string;
+  title: string;
+  slug: string;
+};
+
 type PostTag = {
   id: string;
   name: string;
@@ -67,6 +73,7 @@ type AdminPostWorkspaceProps = {
 };
 
 const uncategorizedValue = "__uncategorized__";
+const noSeriesValue = "__no_series__";
 const adminSelectTriggerClassName = "w-full rounded-xl border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm text-[var(--foreground)] shadow-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]";
 const adminSelectContentClassName = "rounded-xl border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)]";
 const AiCoverGenerator = dynamic(
@@ -135,6 +142,16 @@ function resolvePostRoute(
   return "/admin/posts";
 }
 
+function toDateTimeLocalValue(value: string | Date | null | undefined) {
+  if (!value) return "";
+
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+
+  const offsetDate = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  return offsetDate.toISOString().slice(0, 16);
+}
+
 /**
  * 后台文章编辑工作台。
  *
@@ -168,6 +185,7 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
   });
   const [categories, setCategories] = useState<CategoryOption[]>([]);
   const [tags, setTags] = useState<TagOption[]>([]);
+  const [series, setSeries] = useState<SeriesOption[]>([]);
   const { coverFileInputRef, coverUploadError, handleCoverUpload, isCoverUploading } = useCoverUpload(({ coverAssetId, coverImage }) =>
     setFormData((prev) => ({ ...prev, coverImage, coverAssetId })),
   );
@@ -215,6 +233,29 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
   }, []);
 
   useEffect(() => {
+    let active = true;
+
+    async function loadSeries() {
+      try {
+        const response = await fetch("/api/admin/series");
+        const json = await response.json();
+
+        if (!active) return;
+        setSeries(Array.isArray(json?.data) ? json.data : []);
+      } catch {
+        if (!active) return;
+        setSeries([]);
+      }
+    }
+
+    void loadSeries();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
     if (!isEditMode || !postId) return;
 
     let active = true;
@@ -240,6 +281,9 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
           coverAssetId: data.data.coverAssetId ?? "",
           categoryId: data.data.categoryId ?? "",
           tagIds: Array.isArray(data.data.tags) ? data.data.tags.map((tag: PostTag) => tag.id) : [],
+          seriesId: data.data.seriesId ?? "",
+          seriesOrder: Number.isInteger(data.data.seriesOrder) ? data.data.seriesOrder : 0,
+          scheduledAt: toDateTimeLocalValue(data.data.scheduledAt),
           published: Boolean(data.data.published),
           featured: Boolean(data.data.featured),
         });
@@ -281,8 +325,18 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
         submitter instanceof HTMLButtonElement && submitter.getAttribute("name") === "intent"
           ? submitter.value
           : null;
-      const published = intent === "publish" ? true : intent === "draft" ? false : formData.published;
-      const payload = { ...formData, published };
+      const scheduledAt = formData.scheduledAt.trim();
+
+      if (intent === "schedule" && !scheduledAt) {
+        throw new Error("请选择定时发布时间");
+      }
+
+      const published = intent === "publish" ? true : intent === "draft" || intent === "schedule" ? false : formData.published;
+      const payload = {
+        ...formData,
+        published,
+        scheduledAt: intent === "publish" || intent === "draft" ? null : scheduledAt || null,
+      };
       const response = await fetch(isEditMode ? `/api/admin/posts/${postId}` : "/api/admin/posts", {
         method: isEditMode ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
@@ -380,6 +434,43 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
               );
             })}
           </div>
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_8rem] xl:grid-cols-1">
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-[var(--foreground)]" htmlFor={`${mode}-post-series`}>
+              所属系列
+            </label>
+            <Select
+              value={formData.seriesId || noSeriesValue}
+              onValueChange={(value) => setFormData((prev) => ({ ...prev, seriesId: value === noSeriesValue ? "" : value }))}
+            >
+              <SelectTrigger id={`${mode}-post-series`} className={adminSelectTriggerClassName}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className={adminSelectContentClassName}>
+                <SelectItem value={noSeriesValue}>不归入系列</SelectItem>
+                {series.map((item) => (
+                  <SelectItem key={item.id} value={item.id}>
+                    {item.title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <Input
+            label="系列排序"
+            min={0}
+            type="number"
+            value={String(formData.seriesOrder)}
+            onChange={(event) =>
+              setFormData((prev) => ({
+                ...prev,
+                seriesOrder: Math.max(0, Number.parseInt(event.target.value, 10) || 0),
+              }))
+            }
+          />
         </div>
 
         <Input
@@ -539,6 +630,9 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
             <Button type="submit" disabled={saving || !canSubmit} size="sm" name="intent" value="draft" variant="outline">
               保存草稿
             </Button>
+            <Button type="submit" disabled={saving || !canSubmit || !formData.scheduledAt.trim()} size="sm" name="intent" value="schedule" variant="outline">
+              定时发布
+            </Button>
             <Button type="submit" disabled={saving || !canSubmit} size="sm" name="intent" value="publish">
               {saving ? "提交中..." : "发布文章"}
             </Button>
@@ -599,7 +693,7 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
                   size="sm"
                   variant={formData.published ? "outline" : "primary"}
                   disabled={!formData.published}
-                  onClick={() => setFormData((prev) => ({ ...prev, published: false }))}
+                  onClick={() => setFormData((prev) => ({ ...prev, published: false, scheduledAt: "" }))}
                 >
                   保持草稿
                 </Button>
@@ -608,15 +702,23 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
                   size="sm"
                   variant={formData.published ? "primary" : "outline"}
                   disabled={formData.published}
-                  onClick={() => setFormData((prev) => ({ ...prev, published: true }))}
+                  onClick={() => setFormData((prev) => ({ ...prev, published: true, scheduledAt: "" }))}
                 >
                   切换为已发布
                 </Button>
               </div>
 
               <div className="space-y-2">
-                <Input label="发布时间" value={isEditMode && formData.published ? "随发布保存更新" : "立即发布"} disabled readOnly />
-                <p className="text-xs text-[var(--muted)]">静态字段，当前不会提交排程数据。</p>
+                <Input
+                  label="定时发布时间"
+                  type="datetime-local"
+                  value={formData.scheduledAt}
+                  onChange={(event) => setFormData((prev) => ({ ...prev, scheduledAt: event.target.value, published: false }))}
+                />
+                <p className="flex items-center gap-1 text-xs text-[var(--muted)]">
+                  <CalendarClock className="h-3.5 w-3.5" />
+                  留空则使用“发布文章”立即发布；填写未来时间后点击“定时发布”。
+                </p>
               </div>
 
               <label className="flex items-center justify-between gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface-alt)] px-3 py-2 text-sm">
@@ -629,6 +731,8 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
                 <p>永久链接：{formData.slug ? `/posts/${formData.slug}` : "未生成"}</p>
                 <p>分类：{categories.find((category) => category.id === formData.categoryId)?.name ?? "未选择"}</p>
                 <p>标签：{formData.tagIds.length > 0 ? `${formData.tagIds.length} 个` : "未选择"}</p>
+                <p>系列：{series.find((item) => item.id === formData.seriesId)?.title ?? "未选择"}</p>
+                <p>排程：{formData.scheduledAt ? formData.scheduledAt.replace("T", " ") : "未设置"}</p>
                 <p>封面图：{formData.coverImage ? "已设置" : "未设置"}</p>
               </div>
             </div>

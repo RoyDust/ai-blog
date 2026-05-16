@@ -1,6 +1,6 @@
-import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 import { NextResponse } from "next/server"
 
+import { withApiOperationLogging } from "@/lib/api-operation-log-route"
 import { requireAdminSession } from "@/lib/api-auth"
 import { NotFoundError, toErrorResponse } from "@/lib/api-errors"
 import { revalidatePublicContent } from "@/lib/cache"
@@ -11,7 +11,16 @@ import { parsePublishInput } from "@/lib/validation"
 async function PATCHHandler(request: Request) {
   try {
     await requireAdminSession()
-    const { id, published } = parsePublishInput(await request.json())
+    const { id, published, scheduledAt } = parsePublishInput(await request.json())
+    const now = new Date()
+
+    if (published && scheduledAt) {
+      return NextResponse.json({ error: "Use immediate publish without scheduledAt, or schedule with published=false" }, { status: 400 })
+    }
+
+    if (!published && scheduledAt && scheduledAt.getTime() <= now.getTime()) {
+      return NextResponse.json({ error: "scheduledAt must be in the future. Use immediate publish for current or past publish times." }, { status: 400 })
+    }
 
     const existing = await prisma.post.findFirst({
       where: { id, deletedAt: null },
@@ -20,6 +29,7 @@ async function PATCHHandler(request: Request) {
         coverImage: true,
         coverAssetId: true,
         category: { select: { slug: true } },
+        series: { select: { slug: true } },
         tags: { where: { deletedAt: null }, select: { slug: true } },
       },
     })
@@ -40,8 +50,9 @@ async function PATCHHandler(request: Request) {
     const post = await prisma.post.update({
       where: { id },
       data: {
-        published,
-        publishedAt: published ? new Date() : null,
+        published: scheduledAt ? false : published,
+        publishedAt: published ? now : null,
+        scheduledAt: scheduledAt ?? null,
         ...(cover?.coverImage !== undefined ? { coverImage: cover.coverImage } : {}),
         ...(cover?.coverAssetId !== undefined ? { coverAssetId: cover.coverAssetId } : {}),
       },
@@ -51,6 +62,7 @@ async function PATCHHandler(request: Request) {
         coverImage: true,
         coverAssetId: true,
         category: { select: { slug: true } },
+        series: { select: { slug: true } },
         tags: { where: { deletedAt: null }, select: { slug: true } },
       },
     })
@@ -62,6 +74,8 @@ async function PATCHHandler(request: Request) {
       previousSlug: existing.slug,
       categorySlug: post.published ? post.category?.slug : null,
       previousCategorySlug: existing.category?.slug,
+      seriesSlug: post.published ? post.series?.slug : null,
+      previousSeriesSlug: existing.series?.slug,
       tagSlugs: post.published ? post.tags.map((tag: { slug: string }) => tag.slug) : [],
       previousTagSlugs: existing.tags.map((tag: { slug: string }) => tag.slug) ?? [],
     })

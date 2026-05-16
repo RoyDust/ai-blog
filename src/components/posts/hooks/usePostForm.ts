@@ -12,6 +12,9 @@ export type PostFormData = {
   coverAssetId: string;
   categoryId: string;
   tagIds: string[];
+  seriesId: string;
+  seriesOrder: number;
+  scheduledAt: string;
   published: boolean;
   featured: boolean;
 };
@@ -26,6 +29,9 @@ export const emptyFormData: PostFormData = {
   coverAssetId: "",
   categoryId: "",
   tagIds: [],
+  seriesId: "",
+  seriesOrder: 0,
+  scheduledAt: "",
   published: false,
   featured: false,
 };
@@ -42,6 +48,9 @@ function normalizeDraft(payload: unknown): PostFormData {
     ...data,
     categoryId: typeof data.categoryId === "string" ? data.categoryId : "",
     tagIds: Array.isArray(data.tagIds) ? data.tagIds.filter((tagId): tagId is string => typeof tagId === "string") : [],
+    seriesId: typeof data.seriesId === "string" ? data.seriesId : "",
+    seriesOrder: typeof data.seriesOrder === "number" && Number.isInteger(data.seriesOrder) && data.seriesOrder >= 0 ? data.seriesOrder : 0,
+    scheduledAt: typeof data.scheduledAt === "string" ? data.scheduledAt : "",
     coverAssetId: typeof data.coverAssetId === "string" ? data.coverAssetId : "",
     published: data.published === true,
     featured: data.featured === true,

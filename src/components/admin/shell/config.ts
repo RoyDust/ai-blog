@@ -6,6 +6,7 @@ import {
   Images,
   LayoutDashboard,
   ListChecks,
+  ListTree,
   MessageSquare,
   Newspaper,
   Route,
@@ -31,6 +32,7 @@ function hasPathSegment(pathname: string, href: string) {
 export const adminNavItems: AdminNavItem[] = [
   { href: "/admin", label: "首页", group: "主导航", icon: LayoutDashboard },
   { href: "/admin/posts", label: "文章", group: "主导航", icon: FileText },
+  { href: "/admin/series", label: "系列", group: "主导航", icon: ListTree },
   { href: "/admin/comments", label: "评论", group: "主导航", icon: MessageSquare },
   { href: "/admin/taxonomy", label: "分类", group: "主导航", icon: FolderTree },
   { href: "/admin/covers", label: "媒体库", group: "主导航", icon: Images },

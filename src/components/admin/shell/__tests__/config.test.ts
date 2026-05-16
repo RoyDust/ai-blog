@@ -62,6 +62,7 @@ describe("admin shell config", () => {
     expect(adminNavItems.map((item) => ({ label: item.label, group: item.group, disabled: item.disabled ?? false }))).toEqual([
       { label: "首页", group: "主导航", disabled: false },
       { label: "文章", group: "主导航", disabled: false },
+      { label: "系列", group: "主导航", disabled: false },
       { label: "评论", group: "主导航", disabled: false },
       { label: "分类", group: "主导航", disabled: false },
       { label: "媒体库", group: "主导航", disabled: false },
@@ -104,6 +105,7 @@ describe("admin shell config", () => {
     expect(isAdminNavItemActive("/admin/posts", "/admin/posts")).toBe(true);
     expect(isAdminNavItemActive("/admin/posts/123/edit", "/admin/posts")).toBe(true);
     expect(isAdminNavItemActive("/admin/posts-archive", "/admin/posts")).toBe(false);
+    expect(isAdminNavItemActive("/admin/series", "/admin/series")).toBe(true);
     expect(isAdminNavItemActive("/admin/covers", "/admin/covers")).toBe(true);
     expect(isAdminNavItemActive("/admin/taxonomy", "/admin/taxonomy")).toBe(true);
     expect(isAdminNavItemActive("/admin/ai/interfaces", "/admin/ai/interfaces")).toBe(true);

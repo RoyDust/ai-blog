@@ -6,7 +6,7 @@ import { revalidatePath } from 'next/cache'
  */
 export const PUBLIC_REVALIDATE_SECONDS = 300
 
-const PUBLIC_LIST_PATHS = ['/', '/posts', '/archives'] as const
+const PUBLIC_LIST_PATHS = ['/', '/posts', '/archives', '/series'] as const
 const BLOG_SETTINGS_PATHS = [
   '/',
   '/about',
@@ -14,6 +14,7 @@ const BLOG_SETTINGS_PATHS = [
   '/archives',
   '/categories',
   '/tags',
+  '/series',
   '/search',
   '/bookmarks',
   '/admin',
@@ -49,6 +50,13 @@ export function buildCategoryPath(slug: string) {
  */
 export function buildTagPath(slug: string) {
   return `/tags/${slug}`
+}
+
+/**
+ * 构造系列详情页路径。
+ */
+export function buildSeriesPath(slug: string) {
+  return `/series/${slug}`
 }
 
 function dedupePaths(paths: Array<string | null | undefined>) {
@@ -91,6 +99,8 @@ export function revalidatePublicContent(options: {
   previousCategorySlug?: string | null
   tagSlugs?: string[]
   previousTagSlugs?: string[]
+  seriesSlug?: string | null
+  previousSeriesSlug?: string | null
 }) {
   const slug = normalizePathSlug(options.slug)
   const previousSlug = normalizePathSlug(options.previousSlug)
@@ -100,6 +110,8 @@ export function revalidatePublicContent(options: {
   const previousTagSlugs = (options.previousTagSlugs ?? [])
     .map(normalizePathSlug)
     .filter((value): value is string => Boolean(value))
+  const seriesSlug = normalizePathSlug(options.seriesSlug)
+  const previousSeriesSlug = normalizePathSlug(options.previousSeriesSlug)
 
   const paths = dedupePaths([
     ...PUBLIC_LIST_PATHS,
@@ -109,6 +121,8 @@ export function revalidatePublicContent(options: {
     previousCategorySlug ? buildCategoryPath(previousCategorySlug) : null,
     ...tagSlugs.map(buildTagPath),
     ...previousTagSlugs.map(buildTagPath),
+    seriesSlug ? buildSeriesPath(seriesSlug) : null,
+    previousSeriesSlug ? buildSeriesPath(previousSeriesSlug) : null,
   ])
 
   for (const path of paths) {

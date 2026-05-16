@@ -54,7 +54,10 @@ describe('PATCH /api/admin/posts/[id]', () => {
     findFirst.mockResolvedValueOnce({
       slug: 'old-slug',
       coverImage: 'https://cdn.example.com/old.jpg',
+      published: false,
+      publishedAt: null,
       category: { slug: 'old-category' },
+      series: null,
       tags: [{ slug: 'legacy-tag' }],
     })
     calculateReadingTimeMinutes.mockReturnValueOnce(6)
@@ -64,6 +67,7 @@ describe('PATCH /api/admin/posts/[id]', () => {
       published: true,
       readingTimeMinutes: 6,
       category: { slug: 'new-category' },
+      series: null,
       tags: [{ slug: 'fresh-tag' }],
     })
 
@@ -94,5 +98,59 @@ describe('PATCH /api/admin/posts/[id]', () => {
       }),
     }))
     expect(revalidatePublicContent).toHaveBeenCalled()
+  })
+
+  test('updates series assignment without refreshing the original publish timestamp', async () => {
+    const publishedAt = new Date('2026-01-01T00:00:00Z')
+    getServerSession.mockResolvedValueOnce({ user: { id: 'admin-1', role: 'ADMIN' } })
+    findFirst.mockResolvedValueOnce({
+      slug: 'existing-post',
+      coverImage: 'https://cdn.example.com/old.jpg',
+      published: true,
+      publishedAt,
+      category: null,
+      series: { slug: 'old-series' },
+      tags: [],
+    })
+    calculateReadingTimeMinutes.mockReturnValueOnce(7)
+    update.mockResolvedValueOnce({
+      id: 'post-1',
+      slug: 'existing-post',
+      published: true,
+      readingTimeMinutes: 7,
+      category: null,
+      series: { slug: 'new-series' },
+      tags: [],
+    })
+
+    const { PATCH } = await import('../route')
+    const response = await PATCH(
+      new Request('http://localhost/api/admin/posts/post-1', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: 'Existing post',
+          slug: 'existing-post',
+          content: '更新后的正文内容',
+          seriesId: 'series-2',
+          seriesOrder: 3,
+          published: true,
+        }),
+      }),
+      { params: Promise.resolve({ id: 'post-1' }) },
+    )
+
+    expect(response.status).toBe(200)
+    const updateArgs = update.mock.calls[0]?.[0]
+    expect(updateArgs.data).toMatchObject({
+      seriesId: 'series-2',
+      seriesOrder: 3,
+      published: true,
+    })
+    expect(updateArgs.data.publishedAt).toBeUndefined()
+    expect(revalidatePublicContent).toHaveBeenCalledWith(expect.objectContaining({
+      seriesSlug: 'new-series',
+      previousSeriesSlug: 'old-series',
+    }))
   })
 })

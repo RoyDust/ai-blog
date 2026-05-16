@@ -148,6 +148,37 @@ function optionalInteger(value: unknown, fieldName: string) {
   return number
 }
 
+function optionalDate(value: unknown, fieldName: string) {
+  if (value === undefined) {
+    return undefined
+  }
+
+  if (value === null || value === "") {
+    return null
+  }
+
+  if (typeof value !== "string" && !(value instanceof Date)) {
+    throw new ValidationError(`Invalid ${fieldName}`)
+  }
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    throw new ValidationError(`Invalid ${fieldName}`)
+  }
+
+  return date
+}
+
+function optionalFutureDate(value: unknown, fieldName: string) {
+  const date = optionalDate(value, fieldName)
+
+  if (date && date.getTime() <= Date.now()) {
+    throw new ValidationError(`${fieldName} must be in the future. Use immediate publish for current or past publish times.`)
+  }
+
+  return date
+}
+
 function optionalJsonObject(value: unknown, fieldName: string) {
   if (value == null) {
     return undefined
@@ -389,6 +420,9 @@ export function parsePostInput(payload: unknown) {
     coverAssetId?: unknown
     categoryId?: unknown
     tagIds?: unknown
+    seriesId?: unknown
+    seriesOrder?: unknown
+    scheduledAt?: unknown
     published?: unknown
     featured?: unknown
   }
@@ -411,6 +445,9 @@ export function parsePostInput(payload: unknown) {
     coverAssetId: optionalNullableString(data.coverAssetId, 'coverAssetId'),
     categoryId: optionalNullableString(data.categoryId, 'categoryId'),
     tagIds: normalizeStringArray(data.tagIds, 'tagIds'),
+    seriesId: optionalNullableString(data.seriesId, 'seriesId'),
+    seriesOrder: optionalInteger(data.seriesOrder, 'seriesOrder') ?? 0,
+    scheduledAt: optionalFutureDate(data.scheduledAt, 'scheduledAt'),
     published: data.published == null ? false : readBoolean(data.published, 'published'),
     featured: data.featured == null ? false : readBoolean(data.featured, 'featured'),
   }
@@ -469,6 +506,9 @@ export function parsePostPatchInput(payload: unknown) {
     coverAssetId?: unknown
     categoryId?: unknown
     tagIds?: unknown
+    seriesId?: unknown
+    seriesOrder?: unknown
+    scheduledAt?: unknown
     published?: unknown
     featured?: unknown
     slug?: unknown
@@ -495,6 +535,9 @@ export function parsePostPatchInput(payload: unknown) {
     coverAssetId: optionalNullableString(data.coverAssetId, 'coverAssetId'),
     categoryId: optionalNullableString(data.categoryId, 'categoryId'),
     tagIds: normalizeStringArray(data.tagIds, 'tagIds'),
+    seriesId: optionalNullableString(data.seriesId, 'seriesId'),
+    seriesOrder: optionalInteger(data.seriesOrder, 'seriesOrder'),
+    scheduledAt: optionalFutureDate(data.scheduledAt, 'scheduledAt'),
     published: data.published == null ? undefined : readBoolean(data.published, 'published'),
     featured: data.featured == null ? undefined : readBoolean(data.featured, 'featured'),
   }
@@ -564,11 +607,12 @@ export function parseCommentStatusInput(payload: unknown) {
  * 用于显式切换文章发布状态的轻量接口。
  */
 export function parsePublishInput(payload: unknown) {
-  const data = (payload ?? {}) as { id?: unknown; published?: unknown }
+  const data = (payload ?? {}) as { id?: unknown; published?: unknown; scheduledAt?: unknown }
 
   return {
     id: readString(data.id, 'id'),
     published: readBoolean(data.published, 'published'),
+    scheduledAt: optionalFutureDate(data.scheduledAt, 'scheduledAt'),
   }
 }
 

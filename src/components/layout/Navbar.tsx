@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
-import { Archive, BookOpenText, Home, Menu, Palette, Search, Sparkles, UserRound } from "lucide-react";
+import { Archive, BookOpenText, Home, ListTree, Menu, Palette, Search, Sparkles, UserRound } from "lucide-react";
 
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { AccountEntry } from "@/components/auth/AccountEntry";
@@ -15,6 +15,7 @@ import { cn } from "@/lib/cn";
 const navLinks = [
   { name: "首页", href: "/", icon: Home },
   { name: "文章", href: "/posts", icon: BookOpenText },
+  { name: "系列", href: "/series", icon: ListTree },
   { name: "归档", href: "/archives", icon: Archive },
   { name: "关于", href: "/about", icon: UserRound },
 ];

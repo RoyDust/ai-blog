@@ -175,6 +175,7 @@ describe('admin editor', () => {
       vi.fn()
         .mockResolvedValueOnce({ ok: true, json: async () => ({ data: [{ id: 'cat-1', name: '前端', slug: 'frontend' }] }) })
         .mockResolvedValueOnce({ ok: true, json: async () => ({ data: [{ id: 'tag-1', name: 'React', slug: 'react' }, { id: 'tag-2', name: 'Next.js', slug: 'nextjs' }] }) })
+        .mockResolvedValueOnce({ ok: true, json: async () => ({ success: true, data: [] }) })
         .mockResolvedValueOnce({
           ok: true,
           json: async () => ({
@@ -207,6 +208,7 @@ describe('admin editor', () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce({ ok: true, json: async () => ({ data: [{ id: 'cat-1', name: '前端', slug: 'frontend' }, { id: 'cat-2', name: '后端', slug: 'backend' }] }) })
       .mockResolvedValueOnce({ ok: true, json: async () => ({ data: [{ id: 'tag-1', name: 'React', slug: 'react' }, { id: 'tag-2', name: 'Next.js', slug: 'nextjs' }] }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ success: true, data: [] }) })
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({
@@ -238,18 +240,66 @@ describe('admin editor', () => {
     fireEvent.click(screen.getByRole('button', { name: '保存草稿' }))
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(4)
+      expect(fetchMock).toHaveBeenCalledTimes(5)
     })
 
-    const fourthCall = fetchMock.mock.calls[3]
-    expect(fourthCall[0]).toBe('/api/admin/posts/1')
-    expect(fourthCall[1]).toMatchObject({
+    const fifthCall = fetchMock.mock.calls[4]
+    expect(fifthCall[0]).toBe('/api/admin/posts/1')
+    expect(fifthCall[1]).toMatchObject({
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
     })
-    expect(JSON.parse(String(fourthCall[1]?.body))).toMatchObject({
+    expect(JSON.parse(String(fifthCall[1]?.body))).toMatchObject({
       categoryId: 'cat-2',
       tagIds: ['tag-1', 'tag-2'],
+    })
+  })
+
+  test('submits selected series assignment when saving', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ data: [] }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ data: [] }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ success: true, data: [{ id: 'series-1', title: 'Next.js 系列', slug: 'nextjs-series' }] }) })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: {
+            id: '1',
+            title: 'Post 1',
+            slug: 'post-1',
+            content: '# Hello',
+            excerpt: 'Excerpt',
+            coverImage: '',
+            categoryId: '',
+            tags: [],
+            seriesId: '',
+            seriesOrder: 0,
+            published: false,
+          },
+        }),
+      })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ success: true, data: { slug: 'post-1' } }) })
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<AdminPostEditPage />)
+
+    await waitForMetadataInspector()
+
+    fireEvent.click(await screen.findByLabelText('所属系列'))
+    fireEvent.click(await screen.findByRole('option', { name: 'Next.js 系列' }))
+    fireEvent.change(screen.getByLabelText('系列排序'), { target: { value: '2' } })
+    fireEvent.click(screen.getByRole('button', { name: '保存草稿' }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(5)
+    })
+
+    const payload = JSON.parse(String(fetchMock.mock.calls[4][1]?.body))
+    expect(payload).toMatchObject({
+      seriesId: 'series-1',
+      seriesOrder: 2,
     })
   })
 })

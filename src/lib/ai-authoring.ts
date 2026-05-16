@@ -52,6 +52,9 @@ type AdminPostInput = {
   coverAssetId?: string | null
   categoryId?: string | null
   tagIds?: string[] | null
+  seriesId?: string | null
+  seriesOrder?: number
+  scheduledAt?: Date | null
   published: boolean
   featured?: boolean
 }
@@ -66,6 +69,9 @@ type AdminPostPatchInput = {
   coverAssetId?: string | null
   categoryId?: string | null
   tagIds?: string[] | null
+  seriesId?: string | null
+  seriesOrder?: number
+  scheduledAt?: Date | null
   published?: boolean
   featured?: boolean
 }
@@ -493,6 +499,7 @@ export async function publishAiDraftPost({ postId }: { postId: string }) {
       slug: true,
       published: true,
       category: { select: { slug: true } },
+      series: { select: { slug: true } },
       tags: { where: { deletedAt: null }, select: { slug: true } },
     },
   })
@@ -500,6 +507,7 @@ export async function publishAiDraftPost({ postId }: { postId: string }) {
   revalidatePublicContent({
     slug: published.slug,
     categorySlug: published.category?.slug,
+    seriesSlug: published.series?.slug,
     tagSlugs: published.tags.map((tag: { slug: string }) => tag.slug),
   })
 
@@ -525,8 +533,9 @@ export async function createAdminPost({
   const cover = await resolvePostCoverInput({
     coverImage: input.coverImage,
     coverAssetId: input.coverAssetId,
-    allowRandom: input.published && !input.coverImage?.trim(),
+    allowRandom: input.published && !input.scheduledAt && !input.coverImage?.trim(),
   })
+  const published = input.scheduledAt ? false : input.published
   const post = await prisma.post.create({
     data: {
       title: input.title,
@@ -537,9 +546,12 @@ export async function createAdminPost({
       coverImage: cover.coverImage,
       coverAssetId: cover.coverAssetId,
       categoryId: input.categoryId,
-      published: input.published,
+      seriesId: input.seriesId,
+      seriesOrder: input.seriesOrder ?? 0,
+      published,
       featured: input.featured ?? false,
-      publishedAt: input.published ? new Date() : null,
+      publishedAt: published ? new Date() : null,
+      scheduledAt: input.scheduledAt ?? null,
       readingTimeMinutes,
       authorId,
       tags: input.tagIds ? { connect: input.tagIds.map((id) => ({ id })) } : undefined,
@@ -547,6 +559,7 @@ export async function createAdminPost({
     include: {
       author: { select: { id: true, name: true, image: true } },
       category: true,
+      series: { select: { slug: true } },
       tags: true,
     },
   })
@@ -557,6 +570,7 @@ export async function createAdminPost({
     revalidatePublicContent({
       slug: post.slug,
       categorySlug: post.category?.slug,
+      seriesSlug: post.series?.slug,
       tagSlugs: post.tags.map((tag: { slug: string }) => tag.slug),
     })
   }
@@ -584,8 +598,12 @@ export async function updateAdminPost({
     select: {
       slug: true,
       coverImage: true,
+      published: true,
+      publishedAt: true,
       category: { select: { slug: true } },
+      series: { select: { slug: true } },
       tags: { where: { deletedAt: null }, select: { slug: true } },
+      scheduledAt: true,
     },
   })
 
@@ -593,7 +611,7 @@ export async function updateAdminPost({
     throw new NotFoundError("Post not found")
   }
 
-  const shouldAutoAssignCover = input.published === true && !input.coverImage?.trim() && !existing.coverImage?.trim()
+  const shouldAutoAssignCover = input.published === true && !input.scheduledAt && !input.coverImage?.trim() && !existing.coverImage?.trim()
   const cover =
     input.coverAssetId !== undefined || input.coverImage !== undefined || shouldAutoAssignCover
       ? await resolvePostCoverInput({
@@ -602,6 +620,16 @@ export async function updateAdminPost({
           allowRandom: shouldAutoAssignCover,
         })
       : null
+  const nextPublished = input.scheduledAt ? false : input.published
+  const nextPublishedAt = input.scheduledAt
+    ? null
+    : input.published === undefined
+      ? undefined
+      : input.published
+        ? existing.published
+          ? undefined
+          : new Date()
+        : null
 
   const updated = await prisma.post.update({
     where: { id },
@@ -618,14 +646,17 @@ export async function updateAdminPost({
       coverAssetId: cover ? cover.coverAssetId : undefined,
       readingTimeMinutes,
       categoryId: input.categoryId,
+      seriesId: input.seriesId,
+      seriesOrder: input.seriesOrder,
+      published: nextPublished,
+      publishedAt: nextPublishedAt,
+      scheduledAt: input.scheduledAt,
       tags: input.tagIds
         ? {
             set: input.tagIds.map((tagId: string) => ({ id: tagId })),
           }
         : undefined,
-      published: input.published,
       featured: input.featured,
-      publishedAt: input.published ? new Date() : null,
     },
     select: {
       id: true,
@@ -634,6 +665,9 @@ export async function updateAdminPost({
       featured: true,
       readingTimeMinutes: true,
       category: { select: { slug: true } },
+      seriesId: true,
+      seriesOrder: true,
+      series: { select: { slug: true } },
       tags: { where: { deletedAt: null }, select: { slug: true } },
     },
   })
@@ -645,6 +679,8 @@ export async function updateAdminPost({
     previousSlug: existing.slug,
     categorySlug: updated.published ? updated.category?.slug : null,
     previousCategorySlug: existing.category?.slug,
+    seriesSlug: updated.published ? updated.series?.slug : null,
+    previousSeriesSlug: existing.series?.slug,
     tagSlugs: updated.published ? updated.tags.map((tag: { slug: string }) => tag.slug) : [],
     previousTagSlugs: existing.tags.map((tag: { slug: string }) => tag.slug),
   })

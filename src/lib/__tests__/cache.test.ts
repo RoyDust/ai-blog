@@ -12,6 +12,7 @@ import {
   PUBLIC_REVALIDATE_SECONDS,
   buildCategoryPath,
   buildPostPath,
+  buildSeriesPath,
   buildTagPath,
   revalidateBlogSettings,
   revalidatePublicContent,
@@ -30,6 +31,10 @@ describe('cache helpers', () => {
     expect(buildPostPath('hello')).toBe('/posts/hello')
   })
 
+  test('builds canonical series path', () => {
+    expect(buildSeriesPath('nextjs-series')).toBe('/series/nextjs-series')
+  })
+
   test('revalidates canonical public families plus old and new content paths', () => {
     revalidatePublicContent({
       slug: 'new-slug',
@@ -38,12 +43,15 @@ describe('cache helpers', () => {
       previousCategorySlug: 'old-category',
       tagSlugs: ['react', 'nextjs'],
       previousTagSlugs: ['legacy', 'react'],
+      seriesSlug: 'new-series',
+      previousSeriesSlug: 'old-series',
     })
 
     expect(revalidatePath.mock.calls).toEqual([
       ['/'],
       ['/posts'],
       ['/archives'],
+      ['/series'],
       [buildPostPath('new-slug')],
       [buildPostPath('old-slug')],
       [buildCategoryPath('new-category')],
@@ -51,6 +59,8 @@ describe('cache helpers', () => {
       [buildTagPath('react')],
       [buildTagPath('nextjs')],
       [buildTagPath('legacy')],
+      [buildSeriesPath('new-series')],
+      [buildSeriesPath('old-series')],
     ])
   })
 
@@ -62,16 +72,20 @@ describe('cache helpers', () => {
       previousCategorySlug: '',
       tagSlugs: [' react ', 'react', ''],
       previousTagSlugs: [' legacy ', 'react'],
+      seriesSlug: ' series-one ',
+      previousSeriesSlug: 'series-one',
     })
 
     expect(revalidatePath.mock.calls).toEqual([
       ['/'],
       ['/posts'],
       ['/archives'],
+      ['/series'],
       [buildPostPath('current-slug')],
       [buildCategoryPath('frontend')],
       [buildTagPath('react')],
       [buildTagPath('legacy')],
+      [buildSeriesPath('series-one')],
     ])
   })
 

@@ -46,6 +46,7 @@ async function GETHandler(request: Request) {
           select: { id: true, name: true, email: true },
         },
         category: true,
+        series: { select: { id: true, title: true, slug: true } },
         _count: {
           select: { comments: { where: { deletedAt: null } }, likes: true },
         },
@@ -89,6 +90,7 @@ async function DELETEHandler(request: Request) {
         id: true,
         slug: true,
         category: { select: { slug: true } },
+        series: { select: { slug: true } },
         tags: { select: { slug: true } },
       },
     })
@@ -115,6 +117,7 @@ async function DELETEHandler(request: Request) {
       revalidatePublicContent({
         previousSlug: post.slug,
         previousCategorySlug: post.category?.slug,
+        previousSeriesSlug: post.series?.slug,
         previousTagSlugs: post.tags.map((tag: { slug: string }) => tag.slug),
       })
     }

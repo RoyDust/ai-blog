@@ -25,11 +25,17 @@ async function GETHandler(_: Request, { params }: { params: Promise<{ id: string
         coverAssetId: true,
         readingTimeMinutes: true,
         categoryId: true,
+        seriesId: true,
+        seriesOrder: true,
+        series: {
+          select: { id: true, title: true, slug: true },
+        },
         tags: {
           where: { deletedAt: null },
           select: { id: true, name: true, slug: true },
         },
         published: true,
+        scheduledAt: true,
         featured: true,
       },
     })

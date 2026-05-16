@@ -82,11 +82,12 @@ describe('editor publish flow', () => {
     expect(router.replace).not.toHaveBeenCalled()
   })
 
-  test('submits published=true without static scheduling or comment fields when clicking publish action', async () => {
+  test('submits published=true and clears scheduling when clicking publish action', async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({ ok: true, json: async () => ({ data: [] }) })
       .mockResolvedValueOnce({ ok: true, json: async () => ({ data: [] }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ success: true, data: [] }) })
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({
@@ -113,18 +114,63 @@ describe('editor publish flow', () => {
     fireEvent.click(await screen.findByRole('button', { name: '发布文章' }))
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(4)
+      expect(fetchMock).toHaveBeenCalledTimes(5)
     })
 
-    const fourthCall = fetchMock.mock.calls[3]
-    expect(fourthCall[0]).toBe('/api/admin/posts/1')
-    expect(fourthCall[1]).toMatchObject({ method: 'PATCH' })
-    const payload = JSON.parse(String(fourthCall[1]?.body))
+    const fifthCall = fetchMock.mock.calls[4]
+    expect(fifthCall[0]).toBe('/api/admin/posts/1')
+    expect(fifthCall[1]).toMatchObject({ method: 'PATCH' })
+    const payload = JSON.parse(String(fifthCall[1]?.body))
     expect(payload).toMatchObject({ published: true })
     expect(payload).not.toHaveProperty('publishedAt')
-    expect(payload).not.toHaveProperty('scheduledAt')
+    expect(payload).toHaveProperty('scheduledAt', null)
     expect(payload).not.toHaveProperty('allowComments')
     expect(payload).not.toHaveProperty('commentsEnabled')
+  })
+
+  test('submits future scheduled time when clicking schedule action', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ data: [] }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ data: [] }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ success: true, data: [] }) })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: {
+            id: '1',
+            title: 'Post 1',
+            slug: 'post-1',
+            content: '# Hello',
+            excerpt: 'Excerpt',
+            coverImage: '',
+            categoryId: '',
+            tags: [],
+            published: false,
+          },
+        }),
+      })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ success: true, data: { slug: 'post-1' } }) })
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<AdminPostEditPage />)
+
+    fireEvent.change(await screen.findByLabelText('定时发布时间'), {
+      target: { value: '2099-01-01T10:30' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: '定时发布' }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(5)
+    })
+
+    const payload = JSON.parse(String(fetchMock.mock.calls[4][1]?.body))
+    expect(payload).toMatchObject({
+      published: false,
+      scheduledAt: '2099-01-01T10:30',
+    })
   })
 
   test('fills edit metadata from field-level AI actions', async () => {
@@ -139,6 +185,7 @@ describe('editor publish flow', () => {
       .fn()
       .mockResolvedValueOnce({ ok: true, json: async () => ({ data: [{ id: 'cat-1', name: '前端', slug: 'frontend' }] }) })
       .mockResolvedValueOnce({ ok: true, json: async () => ({ data: [{ id: 'tag-1', name: 'React', slug: 'react' }] }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ success: true, data: [] }) })
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({

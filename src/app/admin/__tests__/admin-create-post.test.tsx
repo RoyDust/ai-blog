@@ -87,6 +87,10 @@ describe('admin create post', () => {
           ok: true,
           json: async () => ({ data: [{ id: 'tag-1', name: 'React', slug: 'react' }, { id: 'tag-2', name: 'Next.js', slug: 'nextjs' }] }),
         })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ success: true, data: [] }),
+        })
     )
 
     render(<AdminCreatePostPage />)
@@ -107,6 +111,10 @@ describe('admin create post', () => {
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({ data: [{ id: 'tag-1', name: 'React', slug: 'react' }, { id: 'tag-2', name: 'Next.js', slug: 'nextjs' }] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true, data: [] }),
       })
       .mockResolvedValueOnce({
         ok: true,
@@ -132,16 +140,16 @@ describe('admin create post', () => {
     fireEvent.click(screen.getByRole('button', { name: '保存草稿' }))
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(3)
+      expect(fetchMock).toHaveBeenCalledTimes(4)
     })
 
-    const thirdCall = fetchMock.mock.calls[2]
-    expect(thirdCall[0]).toBe('/api/admin/posts')
-    expect(thirdCall[1]).toMatchObject({
+    const fourthCall = fetchMock.mock.calls[3]
+    expect(fourthCall[0]).toBe('/api/admin/posts')
+    expect(fourthCall[1]).toMatchObject({
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
     })
-    expect(JSON.parse(String(thirdCall[1]?.body))).toMatchObject({
+    expect(JSON.parse(String(fourthCall[1]?.body))).toMatchObject({
       categoryId: 'cat-1',
       tagIds: ['tag-1', 'tag-2'],
     })
@@ -164,6 +172,10 @@ describe('admin create post', () => {
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({ data: [{ id: 'tag-1', name: 'React', slug: 'react' }, { id: 'tag-2', name: 'Next.js', slug: 'nextjs' }] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true, data: [] }),
       })
       .mockResolvedValueOnce({
         ok: true,

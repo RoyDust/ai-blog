@@ -488,7 +488,10 @@ describe("ai authoring", () => {
     findFirstPost.mockResolvedValueOnce({
       slug: "old-slug",
       coverImage: "https://cdn.example.com/existing.jpg",
+      published: false,
+      publishedAt: null,
       category: { slug: "old-category" },
+      series: null,
       tags: [{ slug: "legacy-tag" }],
     });
     updatePost.mockResolvedValueOnce({
@@ -498,6 +501,7 @@ describe("ai authoring", () => {
       featured: true,
       readingTimeMinutes: 8,
       category: { slug: "new-category" },
+      series: null,
       tags: [{ slug: "fresh-tag" }],
     });
 
@@ -524,6 +528,99 @@ describe("ai authoring", () => {
       }),
     }));
     expect(result).toMatchObject({ featured: true });
+  });
+
+  test("updateAdminPost preserves the original publish timestamp and revalidates series changes", async () => {
+    const originalPublishedAt = new Date("2026-01-01T00:00:00Z");
+    findFirstPost.mockResolvedValueOnce({
+      slug: "live-post",
+      coverImage: "https://cdn.example.com/existing.jpg",
+      published: true,
+      publishedAt: originalPublishedAt,
+      category: { slug: "engineering" },
+      series: { slug: "old-series" },
+      tags: [{ slug: "legacy-tag" }],
+    });
+    calculateReadingTimeMinutes.mockReturnValueOnce(5);
+    updatePost.mockResolvedValueOnce({
+      id: "post-1",
+      slug: "live-post",
+      published: true,
+      featured: false,
+      readingTimeMinutes: 5,
+      category: { slug: "engineering" },
+      seriesId: "series-2",
+      seriesOrder: 2,
+      series: { slug: "new-series" },
+      tags: [{ slug: "legacy-tag" }],
+    });
+
+    const { updateAdminPost } = await import("../ai-authoring");
+    await updateAdminPost({
+      id: "post-1",
+      input: {
+        title: "Live Post",
+        slug: "live-post",
+        content: "updated content",
+        seriesId: "series-2",
+        seriesOrder: 2,
+        published: true,
+      },
+    });
+
+    const updateArgs = updatePost.mock.calls[0]?.[0];
+    expect(updateArgs.data).toMatchObject({
+      seriesId: "series-2",
+      seriesOrder: 2,
+      published: true,
+    });
+    expect(updateArgs.data.publishedAt).toBeUndefined();
+    expect(revalidatePublicContent).toHaveBeenCalledWith(expect.objectContaining({
+      slug: "live-post",
+      previousSlug: "live-post",
+      seriesSlug: "new-series",
+      previousSeriesSlug: "old-series",
+    }));
+  });
+
+  test("createAdminPost stores scheduled posts as unpublished with series metadata", async () => {
+    const scheduledAt = new Date(Date.now() + 60_000);
+    calculateReadingTimeMinutes.mockReturnValueOnce(3);
+    createPost.mockResolvedValueOnce({
+      id: "post-1",
+      slug: "scheduled-post",
+      published: false,
+      scheduledAt,
+      readingTimeMinutes: 3,
+      category: { slug: "engineering" },
+      series: { slug: "release-notes" },
+      tags: [{ slug: "nextjs" }],
+    });
+
+    const { createAdminPost } = await import("../ai-authoring");
+    await createAdminPost({
+      authorId: "admin-1",
+      input: {
+        title: "Scheduled Post",
+        slug: "scheduled-post",
+        content: "content",
+        seriesId: "series-1",
+        seriesOrder: 4,
+        scheduledAt,
+        published: true,
+      },
+    });
+
+    expect(createPost).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        seriesId: "series-1",
+        seriesOrder: 4,
+        published: false,
+        publishedAt: null,
+        scheduledAt,
+      }),
+    }));
+    expect(revalidatePublicContent).not.toHaveBeenCalled();
   });
 
   test("createAdminPost resolves cover assets before writing a post", async () => {
@@ -574,6 +671,7 @@ describe("ai authoring", () => {
       slug: "ai-writing",
       published: true,
       category: { slug: "engineering" },
+      series: { slug: "ai-series" },
       tags: [{ slug: "nextjs" }],
     });
 
@@ -594,6 +692,7 @@ describe("ai authoring", () => {
     expect(revalidatePublicContent).toHaveBeenCalledWith({
       slug: "ai-writing",
       categorySlug: "engineering",
+      seriesSlug: "ai-series",
       tagSlugs: ["nextjs"],
     });
     expect(result).toMatchObject({ published: true, slug: "ai-writing" });

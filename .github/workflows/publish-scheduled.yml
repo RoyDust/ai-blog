@@ -1,0 +1,34 @@
+name: Publish Scheduled Posts
+
+on:
+  schedule:
+    # Every 15 minutes, conservative enough for scheduled posts without hammering production.
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+env:
+  PRODUCTION_BASE_URL: ${{ secrets.PRODUCTION_BASE_URL || 'http://47.98.167.32' }}
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Trigger protected scheduled publish endpoint
+        run: |
+          set -euo pipefail
+          if [ -z "${PUBLISH_SCHEDULED_CRON_SECRET}" ]; then
+            echo "Missing CRON_SECRET or AI_NEWS_CRON_SECRET secret" >&2
+            exit 1
+          fi
+
+          endpoint="${PRODUCTION_BASE_URL%/}/api/cron/publish-scheduled"
+          echo "Triggering scheduled publish endpoint: ${endpoint}"
+          curl --fail-with-body --show-error --silent \
+            --request POST \
+            --header "Authorization: Bearer ${PUBLISH_SCHEDULED_CRON_SECRET}" \
+            --header "Content-Type: application/json" \
+            "$endpoint"
+          echo
+        env:
+          PUBLISH_SCHEDULED_CRON_SECRET: ${{ secrets.CRON_SECRET || secrets.AI_NEWS_CRON_SECRET }}

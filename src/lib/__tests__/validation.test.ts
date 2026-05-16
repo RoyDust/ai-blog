@@ -9,6 +9,7 @@ import {
   parseLoginInput,
   parsePostInput,
   parsePostPatchInput,
+  parsePublishInput,
   parseRegisterInput,
   parseUploadRequest,
 } from '../validation'
@@ -141,6 +142,21 @@ describe('validation helpers', () => {
         coverAssetId: 'cover-1',
       }),
     ).toMatchObject({ coverAssetId: 'cover-1' })
+  })
+
+  test('rejects past scheduled publish inputs at the parser boundary', () => {
+    const realNow = Date.now
+    Date.now = () => new Date('2026-05-17T01:00:00.000Z').getTime()
+
+    try {
+      expect(() => parsePublishInput({
+        id: 'post-1',
+        published: false,
+        scheduledAt: '2026-05-17T00:59:59.000Z',
+      })).toThrow('scheduledAt must be in the future')
+    } finally {
+      Date.now = realNow
+    }
   })
 
   test('parses comma-separated id lists', () => {
