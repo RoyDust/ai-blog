@@ -18,3 +18,60 @@ test("filter bar renders active chips and a reset entry when filters are present
   expect(screen.getByRole("link", { name: "标签: nextjs" })).toHaveAttribute("href", "/posts?q=react&category=frontend");
   expect(screen.getByRole("link", { name: "清空筛选" })).toHaveAttribute("href", "/posts");
 });
+
+test("filter bar resyncs selected values when filter props change", () => {
+  const { container, rerender } = render(
+    <FilterBar
+      search="react"
+      category="frontend"
+      tag="nextjs"
+      categories={[
+        { name: "Frontend", slug: "frontend" },
+        { name: "Backend", slug: "backend" },
+      ]}
+      tags={[
+        { name: "Next.js", slug: "nextjs" },
+        { name: "Prisma", slug: "prisma" },
+      ]}
+    />,
+  );
+
+  expect(container.querySelector<HTMLInputElement>('input[name="category"]')?.value).toBe("frontend");
+  expect(container.querySelector<HTMLInputElement>('input[name="tag"]')?.value).toBe("nextjs");
+
+  rerender(
+    <FilterBar
+      search="react"
+      category="backend"
+      tag="prisma"
+      categories={[
+        { name: "Frontend", slug: "frontend" },
+        { name: "Backend", slug: "backend" },
+      ]}
+      tags={[
+        { name: "Next.js", slug: "nextjs" },
+        { name: "Prisma", slug: "prisma" },
+      ]}
+    />,
+  );
+
+  expect(container.querySelector<HTMLInputElement>('input[name="category"]')?.value).toBe("backend");
+  expect(container.querySelector<HTMLInputElement>('input[name="tag"]')?.value).toBe("prisma");
+
+  rerender(
+    <FilterBar
+      search="react"
+      categories={[
+        { name: "Frontend", slug: "frontend" },
+        { name: "Backend", slug: "backend" },
+      ]}
+      tags={[
+        { name: "Next.js", slug: "nextjs" },
+        { name: "Prisma", slug: "prisma" },
+      ]}
+    />,
+  );
+
+  expect(container.querySelector<HTMLInputElement>('input[name="category"]')).not.toBeInTheDocument();
+  expect(container.querySelector<HTMLInputElement>('input[name="tag"]')).not.toBeInTheDocument();
+});

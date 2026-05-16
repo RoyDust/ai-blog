@@ -44,8 +44,37 @@ const filterSelectTriggerClassName = "w-full rounded-xl border-[var(--border)] b
 const filterSelectContentClassName = "rounded-xl border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)]";
 
 export function FilterBar({ search, category, tag, categories, tags }: FilterBarProps) {
-  const [selectedCategory, setSelectedCategory] = useState(category || allCategoryValue);
-  const [selectedTag, setSelectedTag] = useState(tag || allTagValue);
+  const initialCategory = category || allCategoryValue;
+  const initialTag = tag || allTagValue;
+
+  return (
+    <FilterBarForm
+      key={`${initialCategory}:${initialTag}`}
+      categories={categories}
+      initialCategory={initialCategory}
+      initialTag={initialTag}
+      search={search}
+      tags={tags}
+    />
+  );
+}
+
+function FilterBarForm({
+  search,
+  initialCategory,
+  initialTag,
+  categories,
+  tags,
+}: {
+  search?: string;
+  initialCategory: string;
+  initialTag: string;
+  categories: Array<{ name: string; slug: string }>;
+  tags: Array<{ name: string; slug: string }>;
+}) {
+  const [selectedCategory, setSelectedCategory] = useState(initialCategory);
+  const [selectedTag, setSelectedTag] = useState(initialTag);
+
   const categoryValue = selectedCategory === allCategoryValue ? "" : selectedCategory;
   const tagValue = selectedTag === allTagValue ? "" : selectedTag;
   const hasActiveFilters = Boolean(search || categoryValue || tagValue);

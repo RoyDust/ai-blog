@@ -238,4 +238,33 @@ describe('PostsListingClient', () => {
 
     expect(fetch).toHaveBeenLastCalledWith('/api/posts?page=1&limit=10')
   })
+
+  test('keeps category, tag, q, and limit in pagination requests', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          data: [createPost('2')],
+          pagination: { page: 2, limit: 12, total: 12, totalPages: 2 },
+        }),
+      }),
+    )
+
+    render(
+      <PostsListingClient
+        filters={{ category: 'frontend', tag: 'nextjs', search: 'react server' }}
+        initialPagination={{ page: 0, limit: 12, total: 0, totalPages: 0 }}
+        initialPosts={[]}
+      />,
+    )
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Post 2').length).toBeGreaterThan(0)
+    })
+
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/posts?page=1&limit=12&category=frontend&tag=nextjs&q=react+server&search=react+server',
+    )
+  })
 })

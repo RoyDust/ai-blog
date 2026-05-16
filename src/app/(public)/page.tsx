@@ -10,7 +10,7 @@ export const revalidate = 300
  */
 
 import type { Metadata } from 'next'
-import { HomeDiscoveryGrid, HomeLatestPosts } from '@/components/blog'
+import { HomeDiscoveryGrid, HomeLatestPosts, NewsletterForm, SectionHeader } from '@/components/blog'
 import { HomeReaderBanner } from '@/components/blog/HomeReaderBanner'
 import { getBlogSettings } from '@/lib/blog-settings'
 import { POSTS_PAGE_SIZE } from '@/lib/pagination'
@@ -101,6 +101,7 @@ type HomeTag = Awaited<ReturnType<typeof getData>>['tags'][number]
  */
 export default async function Home() {
   const { posts, featuredPosts, tags, hasLoadError } = await getData()
+  const settings = await getBlogSettings()
   const [featuredLead] = featuredPosts as HomePost[]
   const featuredIds = new Set(featuredPosts.map((post) => post.id))
   const latestPosts = posts.filter((post) => !featuredIds.has(post.id)).slice(0, 5)
@@ -124,6 +125,16 @@ export default async function Home() {
             leadPost={featuredLead ?? null}
             latestPost={latestPost}
           />
+          {settings.newsletter.enabled ? (
+            <section className="reader-panel space-y-4 p-6 sm:p-8">
+              <SectionHeader
+                eyebrow="Newsletter"
+                title="订阅最新文章"
+                description="通过邮件确认后接收新内容提醒，随时可以退订。"
+              />
+              <NewsletterForm />
+            </section>
+          ) : null}
           <HomeLatestPosts posts={latestPosts} />
         </div>
 

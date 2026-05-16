@@ -56,9 +56,32 @@ async function getSitemapTags(prisma: SitemapPrisma) {
   })
 }
 
+async function getSitemapSeries(prisma: SitemapPrisma) {
+  return prisma.series.findMany({
+    where: {
+      deletedAt: null,
+      posts: { some: { published: true, deletedAt: null } },
+    },
+    select: {
+      slug: true,
+      updatedAt: true,
+      createdAt: true,
+      posts: {
+        where: { published: true, deletedAt: null },
+        select: { updatedAt: true },
+        orderBy: { updatedAt: 'desc' },
+        take: 1,
+      },
+      _count: { select: { posts: { where: { published: true, deletedAt: null } } } },
+    },
+    orderBy: [{ order: 'asc' }, { createdAt: 'desc' }],
+  })
+}
+
 type SitemapPost = Awaited<ReturnType<typeof getSitemapPosts>>[number]
 type SitemapCategory = Awaited<ReturnType<typeof getSitemapCategories>>[number]
 type SitemapTag = Awaited<ReturnType<typeof getSitemapTags>>[number]
+type SitemapSeries = Awaited<ReturnType<typeof getSitemapSeries>>[number]
 
 function getStaticRoutes(siteUrl: string): MetadataRoute.Sitemap {
   return [
@@ -67,6 +90,7 @@ function getStaticRoutes(siteUrl: string): MetadataRoute.Sitemap {
     '/archives',
     '/categories',
     '/tags',
+    '/series',
   ].map((path: string) => ({
     url: `${siteUrl}${path || '/'}`,
     lastModified: new Date(),
@@ -77,10 +101,11 @@ function getStaticRoutes(siteUrl: string): MetadataRoute.Sitemap {
 
 export async function buildSitemap(prisma: SitemapPrisma, siteUrl = getSiteUrl()): Promise<MetadataRoute.Sitemap> {
   const staticRoutes = getStaticRoutes(siteUrl)
-  const [posts, categories, tags] = await Promise.all([
+  const [posts, categories, tags, series] = await Promise.all([
     getSitemapPosts(prisma),
     getSitemapCategories(prisma),
     getSitemapTags(prisma),
+    getSitemapSeries(prisma),
   ])
 
   const postRoutes: MetadataRoute.Sitemap = posts.map((post: SitemapPost) => ({
@@ -108,7 +133,16 @@ export async function buildSitemap(prisma: SitemapPrisma, siteUrl = getSiteUrl()
       priority: 0.5,
     }))
 
-  return [...staticRoutes, ...postRoutes, ...categoryRoutes, ...tagRoutes]
+  const seriesRoutes: MetadataRoute.Sitemap = series
+    .filter((item: SitemapSeries) => item._count.posts > 0)
+    .map((item: SitemapSeries) => ({
+      url: `${siteUrl}/series/${item.slug}`,
+      lastModified: item.posts[0]?.updatedAt || item.updatedAt || item.createdAt,
+      changeFrequency: 'weekly' as const,
+      priority: 0.6,
+    }))
+
+  return [...staticRoutes, ...postRoutes, ...categoryRoutes, ...tagRoutes, ...seriesRoutes]
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {

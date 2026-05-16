@@ -40,6 +40,9 @@ describe('GET /rss.xml', () => {
         createdAt: new Date('2026-03-01T00:00:00Z'),
         updatedAt: new Date('2026-03-03T00:00:00Z'),
         publishedAt: new Date('2026-03-02T00:00:00Z'),
+        author: { name: 'Roy Dust' },
+        category: { name: 'Engineering' },
+        tags: [{ name: 'Next.js' }, { name: 'Distribution' }],
       },
     ])
 
@@ -55,13 +58,46 @@ describe('GET /rss.xml', () => {
         orderBy: [{ publishedAt: { sort: 'desc', nulls: 'last' } }, { createdAt: 'desc' }],
       }),
     )
-    expect(body).toContain('<rss version="2.0">')
+    expect(body).toContain('<rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/">')
     expect(body).toContain('<title><![CDATA[RSS Blog]]></title>')
     expect(body).toContain('<description><![CDATA[RSS Description]]></description>')
     expect(body).toContain('<lastBuildDate>Tue, 03 Mar 2026 00:00:00 GMT</lastBuildDate>')
     expect(body).toContain('<link>https://rss.example/posts/hello-rss</link>')
     expect(body).toContain('<description><![CDATA[SEO Description]]></description>')
     expect(body).toContain('<pubDate>Mon, 02 Mar 2026 00:00:00 GMT</pubDate>')
+    expect(body).not.toContain('<author>')
+    expect(body).not.toContain('roy@example.com')
+    expect(body).toContain('<dc:creator><![CDATA[Roy Dust]]></dc:creator>')
+    expect(body).toContain('<category><![CDATA[Engineering]]></category>')
+    expect(body).toContain('<category><![CDATA[Next.js]]></category>')
+    expect(body).toContain('<category><![CDATA[Distribution]]></category>')
+    expect(body).toContain('<updated>2026-03-03T00:00:00.000Z</updated>')
+  })
+
+  test('uses the site name as RSS creator when no display name is available', async () => {
+    prismaMocks.postFindMany.mockResolvedValueOnce([
+      {
+        title: 'Email Author',
+        slug: 'email-author',
+        excerpt: 'Excerpt',
+        seoDescription: null,
+        createdAt: new Date('2026-03-01T00:00:00Z'),
+        updatedAt: new Date('2026-03-01T00:00:00Z'),
+        publishedAt: new Date('2026-03-01T00:00:00Z'),
+        author: { name: null },
+        category: null,
+        tags: [],
+      },
+    ])
+
+    const { GET } = await import('../route')
+    const response = await GET()
+    const body = await response.text()
+
+    expect(response.status).toBe(200)
+    expect(body).not.toContain('<author>')
+    expect(body).not.toContain('writer@example.com')
+    expect(body).toContain('<dc:creator><![CDATA[RSS Blog]]></dc:creator>')
   })
 
   test('returns an explicit error when feed generation fails', async () => {

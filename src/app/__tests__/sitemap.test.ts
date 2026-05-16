@@ -4,6 +4,7 @@ const prismaMocks = vi.hoisted(() => ({
   postFindMany: vi.fn(),
   categoryFindMany: vi.fn(),
   tagFindMany: vi.fn(),
+  seriesFindMany: vi.fn(),
 }))
 
 vi.mock('@/lib/prisma', () => ({
@@ -11,6 +12,7 @@ vi.mock('@/lib/prisma', () => ({
     post: { findMany: prismaMocks.postFindMany },
     category: { findMany: prismaMocks.categoryFindMany },
     tag: { findMany: prismaMocks.tagFindMany },
+    series: { findMany: prismaMocks.seriesFindMany },
   },
 }))
 
@@ -52,6 +54,22 @@ describe('sitemap', () => {
       },
       { slug: 'unused', createdAt: new Date('2026-01-02T00:00:00Z'), posts: [], _count: { posts: 0 } },
     ])
+    prismaMocks.seriesFindMany.mockResolvedValue([
+      {
+        slug: 'nextjs-series',
+        createdAt: new Date('2026-01-03T00:00:00Z'),
+        updatedAt: new Date('2026-01-04T00:00:00Z'),
+        posts: [{ updatedAt: new Date('2026-04-12T00:00:00Z') }],
+        _count: { posts: 3 },
+      },
+      {
+        slug: 'empty-series',
+        createdAt: new Date('2026-01-03T00:00:00Z'),
+        updatedAt: new Date('2026-01-04T00:00:00Z'),
+        posts: [],
+        _count: { posts: 0 },
+      },
+    ])
   })
 
   test('builds public canonical routes and omits utility pages', async () => {
@@ -60,6 +78,7 @@ describe('sitemap', () => {
       post: { findMany: prismaMocks.postFindMany },
       category: { findMany: prismaMocks.categoryFindMany },
       tag: { findMany: prismaMocks.tagFindMany },
+      series: { findMany: prismaMocks.seriesFindMany },
     } as unknown as Parameters<typeof buildSitemap>[0])
     const urls = entries.map((entry) => entry.url)
 
@@ -71,18 +90,24 @@ describe('sitemap', () => {
     expect(urls).toContain('http://roydust.top/')
     expect(urls).toContain('http://roydust.top/posts')
     expect(urls).toContain('http://roydust.top/archives')
+    expect(urls).toContain('http://roydust.top/series')
     expect(urls).toContain('http://roydust.top/posts/featured-post')
     expect(urls).toContain('http://roydust.top/categories/engineering')
     expect(urls).toContain('http://roydust.top/tags/nextjs')
+    expect(urls).toContain('http://roydust.top/series/nextjs-series')
     expect(urls).not.toContain('http://roydust.top/search')
     expect(urls).not.toContain('http://roydust.top/bookmarks')
     expect(urls).not.toContain('http://roydust.top/categories/empty')
     expect(urls).not.toContain('http://roydust.top/tags/unused')
+    expect(urls).not.toContain('http://roydust.top/series/empty-series')
     expect(entries.find((entry) => entry.url === 'http://roydust.top/categories/engineering')?.lastModified).toEqual(
       new Date('2026-04-10T00:00:00Z'),
     )
     expect(entries.find((entry) => entry.url === 'http://roydust.top/tags/nextjs')?.lastModified).toEqual(
       new Date('2026-04-11T00:00:00Z'),
+    )
+    expect(entries.find((entry) => entry.url === 'http://roydust.top/series/nextjs-series')?.lastModified).toEqual(
+      new Date('2026-04-12T00:00:00Z'),
     )
   })
 
@@ -93,5 +118,6 @@ describe('sitemap', () => {
 
     expect(urls).toContain('https://blog.example/')
     expect(urls).toContain('https://blog.example/posts/featured-post')
+    expect(urls).toContain('https://blog.example/series/nextjs-series')
   })
 })

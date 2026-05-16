@@ -137,6 +137,8 @@ describe('article experience', () => {
     expect(container.querySelector('.article-shell')).toBeInTheDocument()
     expect(container.querySelector('.reader-prose')?.className).toContain('prose-pre:rounded-2xl')
     expect(container.querySelector('pre code')?.className).toContain('hljs')
+    expect(screen.getByRole('button', { name: '复制代码' })).toBeInTheDocument()
+    expect(container.querySelector('pre')?.parentElement?.className).toContain('group')
     expect(screen.getByTestId('toc-rail').className).toContain('xl:sticky')
     expect(screen.getByTestId('toc-rail').className).toContain('hidden')
   })
@@ -183,6 +185,88 @@ describe('article experience', () => {
     const tocCard = tocRail.firstElementChild
     expect(tocCard?.className).toContain('reader-panel')
     expect(tocCard?.className).toContain('h-[var(--article-toc-card-height)]')
+  })
+
+  test('article page renders series navigation when the post belongs to a series', async () => {
+    findFirst
+      .mockResolvedValueOnce({
+        id: 'p1',
+        slug: 'test-post',
+        title: 'Article Title',
+        content: '# Intro\nBody text',
+        excerpt: 'Excerpt',
+        coverImage: null,
+        createdAt: new Date('2026-01-01T00:00:00Z'),
+        updatedAt: new Date('2026-01-02T00:00:00Z'),
+        publishedAt: new Date('2026-01-01T00:00:00Z'),
+        viewCount: 100,
+        readingTimeMinutes: 1,
+        author: { id: 'u1', name: 'Author', image: null },
+        category: { name: 'Category', slug: 'category' },
+        series: {
+          title: 'Next.js 系列',
+          slug: 'nextjs-series',
+          posts: [
+            { title: '第一篇', slug: 'first-post', seriesOrder: 1 },
+            { title: 'Article Title', slug: 'test-post', seriesOrder: 2 },
+            { title: '第三篇', slug: 'third-post', seriesOrder: 3 },
+          ],
+        },
+        tags: [],
+        comments: [],
+        _count: { comments: 0, likes: 2 },
+      })
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null)
+
+    const { default: PostPage } = await import('@/app/(public)/posts/[slug]/page')
+    const ui = await PostPage({ params: Promise.resolve({ slug: 'test-post' }) })
+    await act(async () => {
+      render(ui as React.ReactElement)
+    })
+
+    expect(screen.getByRole('navigation', { name: 'Next.js 系列 系列导航' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Next\.js 系列/ })).toHaveAttribute('href', '/series/nextjs-series')
+    expect(screen.getAllByRole('link', { name: /第一篇/ }).map((link) => link.getAttribute('href'))).toContain('/posts/first-post')
+    expect(screen.getAllByRole('link', { name: /第三篇/ }).map((link) => link.getAttribute('href'))).toContain('/posts/third-post')
+  })
+
+  test('article page hides navigation for soft-deleted series', async () => {
+    findFirst
+      .mockResolvedValueOnce({
+        id: 'p1',
+        slug: 'test-post',
+        title: 'Article Title',
+        content: '# Intro\nBody text',
+        excerpt: 'Excerpt',
+        coverImage: null,
+        createdAt: new Date('2026-01-01T00:00:00Z'),
+        updatedAt: new Date('2026-01-02T00:00:00Z'),
+        publishedAt: new Date('2026-01-01T00:00:00Z'),
+        viewCount: 100,
+        readingTimeMinutes: 1,
+        author: { id: 'u1', name: 'Author', image: null },
+        category: { name: 'Category', slug: 'category' },
+        series: {
+          title: 'Hidden Series',
+          slug: 'hidden-series',
+          deletedAt: new Date('2026-01-03T00:00:00Z'),
+          posts: [{ title: 'Article Title', slug: 'test-post', seriesOrder: 1 }],
+        },
+        tags: [],
+        comments: [],
+        _count: { comments: 0, likes: 2 },
+      })
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null)
+
+    const { default: PostPage } = await import('@/app/(public)/posts/[slug]/page')
+    const ui = await PostPage({ params: Promise.resolve({ slug: 'test-post' }) })
+    await act(async () => {
+      render(ui as React.ReactElement)
+    })
+
+    expect(screen.queryByRole('navigation', { name: 'Hidden Series 系列导航' })).not.toBeInTheDocument()
   })
 
   test('article heading anchors stay unique when headings repeat', async () => {

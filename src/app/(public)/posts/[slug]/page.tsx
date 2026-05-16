@@ -21,7 +21,7 @@ import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArticleContinuation, ArticleHero, ArticleReadTracker, ArticleToc, BackToTopButton, BookmarkButton, LikeButton, ReadingProgress, SectionHeader, ShareButton } from "@/components/blog";
+import { ArticleContinuation, ArticleHero, ArticleReadTracker, ArticleToc, BackToTopButton, BookmarkButton, CopyCodeButton, LikeButton, NewsletterForm, ReadingProgress, SectionHeader, SeriesNav, ShareButton } from "@/components/blog";
 import { CommentAuthGate } from "@/components/CommentAuthGate";
 import { FallbackImage } from "@/components/ui";
 import { getBlogSettings } from "@/lib/blog-settings";
@@ -52,6 +52,18 @@ async function getPost(slug: string) {
         select: { id: true, name: true, image: true },
       },
       category: { select: { name: true, slug: true } },
+      series: {
+        select: {
+          title: true,
+          slug: true,
+          deletedAt: true,
+          posts: {
+            where: { deletedAt: null, published: true },
+            select: { title: true, slug: true, seriesOrder: true },
+            orderBy: [{ seriesOrder: "asc" }, { publishedAt: "desc" }, { createdAt: "desc" }],
+          },
+        },
+      },
       tags: { where: { deletedAt: null }, select: { name: true, slug: true } },
       _count: {
         select: { comments: { where: { deletedAt: null } }, likes: true },
@@ -371,6 +383,16 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
                           </span>
                         )
                       },
+                      pre: ({ children, ...props }) => {
+                        const code = nodeText(children).replace(/\n$/, "")
+
+                        return (
+                          <div className="group relative my-6">
+                            <CopyCodeButton code={code} />
+                            <pre {...props}>{children}</pre>
+                          </div>
+                        )
+                      },
                     }}
                   >
                     {post.content}
@@ -394,6 +416,14 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
             </div>
           </article>
 
+          {post.series && !post.series.deletedAt ? (
+            <SeriesNav
+              currentSlug={post.slug}
+              posts={post.series.posts}
+              series={{ title: post.series.title, slug: post.series.slug }}
+            />
+          ) : null}
+
           <section className="reader-panel w-full space-y-6 p-6 sm:p-8">
             <SectionHeader
               eyebrow="读后"
@@ -415,6 +445,17 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
 
             <ArticleContinuation nextPost={nextPost} previousPost={previousPost} />
           </section>
+
+          {settings.newsletter.enabled ? (
+            <section className="reader-panel w-full space-y-4 p-6 sm:p-8">
+              <SectionHeader
+                eyebrow="Newsletter"
+                title="订阅后续文章"
+                description="新内容发布后发送确认邮件，不会把未验证或已退订地址加入发送列表。"
+              />
+              <NewsletterForm />
+            </section>
+          ) : null}
 
           <section className="reader-panel w-full p-6 sm:p-8" id="comments">
             <h2 className="mb-3 font-display text-2xl font-bold text-[var(--foreground)]">评论 ({post._count.comments})</h2>

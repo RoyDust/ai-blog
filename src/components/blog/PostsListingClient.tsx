@@ -40,22 +40,40 @@ interface PostsListingClientProps {
     total: number
     totalPages: number
   }
+  filters?: {
+    category?: string
+    tag?: string
+    search?: string
+  }
 }
 
 /**
  * 文章列表客户端容器。
  * buildUrl 定义了翻页 API 规则，具体的分页状态与观察器逻辑交给 useInfinitePosts。
  */
-export function PostsListingClient({ initialPosts, initialPagination }: PostsListingClientProps) {
+export function PostsListingClient({ initialPosts, initialPagination, filters }: PostsListingClientProps) {
+  const categoryFilter = filters?.category
+  const tagFilter = filters?.tag
+  const searchFilter = filters?.search
+  const resetKey = JSON.stringify(filters ?? {})
+
   const buildUrl = useCallback(
     (page: number) => {
       const params = new URLSearchParams({
         page: String(page),
         limit: String(initialPagination.limit),
       })
+
+      if (categoryFilter) params.set('category', categoryFilter)
+      if (tagFilter) params.set('tag', tagFilter)
+      if (searchFilter) {
+        params.set('q', searchFilter)
+        params.set('search', searchFilter)
+      }
+
       return `/api/posts?${params.toString()}`
     },
-    [initialPagination.limit],
+    [categoryFilter, initialPagination.limit, searchFilter, tagFilter],
   )
 
   const { posts, pagination, isLoading, error, hasNextPage, observerTargetRef } = useInfinitePosts({
@@ -63,7 +81,7 @@ export function PostsListingClient({ initialPosts, initialPagination }: PostsLis
     initialPagination,
     buildUrl,
     loadFirstPageOnMount: initialPagination.page === 0,
-    resetKey: 'all',
+    resetKey,
   })
 
   const isInitialLoading = isLoading && posts.length === 0

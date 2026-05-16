@@ -17,3 +17,7 @@ export { BookmarkButton } from "./BookmarkButton";
 export { ShareButton } from "./ShareButton";
 export { BackToTopButton } from "./BackToTopButton";
 export { ArticleContinuation } from "./ArticleContinuation";
+export { CopyCodeButton } from "./CopyCodeButton";
+export { SeriesCard } from "./SeriesCard";
+export { SeriesNav } from "./SeriesNav";
+export { NewsletterForm } from "./NewsletterForm";
