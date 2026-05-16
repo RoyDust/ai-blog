@@ -155,12 +155,16 @@ model Post {
   createdAt          DateTime          @default(now())
   updatedAt          DateTime          @updatedAt
   publishedAt        DateTime?
+  scheduledAt        DateTime?
 
   authorId       String
   author         User            @relation(fields: [authorId], references: [id], onDelete: Cascade)
   coverAsset     CoverAsset?     @relation(fields: [coverAssetId], references: [id], onDelete: SetNull)
   categoryId     String?
   category       Category?       @relation(fields: [categoryId], references: [id])
+  seriesId       String?
+  series         Series?         @relation(fields: [seriesId], references: [id], onDelete: SetNull)
+  seriesOrder    Int             @default(0)
   tags           Tag[]
   comments       Comment[]
   likes          Like[]
@@ -173,13 +177,46 @@ model Post {
   @@index([authorId])
   @@index([categoryId])
   @@index([published, createdAt])
+  @@index([published, scheduledAt])
   @@index([featured, createdAt])
   @@index([coverAssetId])
+  @@index([seriesId, seriesOrder])
   @@index([deletedAt])
   @@index([summaryStatus])
   @@index([summaryJobId])
   @@index([seoGeneratedAt])
   @@map("posts")
+}
+
+model Series {
+  id          String    @id @default(cuid())
+  title       String
+  slug        String    @unique
+  description String?   @db.Text
+  coverImage  String?
+  order       Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  posts Post[]
+
+  @@index([deletedAt, order])
+  @@map("series")
+}
+
+model NewsletterSubscriber {
+  id                String    @id @default(cuid())
+  email             String    @unique
+  status            String    @default("pending")
+  verificationToken String?   @unique
+  verifiedAt        DateTime?
+  unsubscribedAt    DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([status, createdAt])
+  @@map("newsletter_subscribers")
 }
 
 model VisitLog {
