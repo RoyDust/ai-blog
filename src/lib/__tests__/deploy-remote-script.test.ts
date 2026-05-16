@@ -45,4 +45,14 @@ describe("deploy-remote.sh", () => {
     expect(deployScript).toContain("Loading prebuilt Docker image from release bundle");
     expect(deployScript).toContain('docker compose -f "$COMPOSE_FILE" up -d --no-build --remove-orphans');
   });
+
+  test("applies database migrations before starting the replacement app", () => {
+    expect(deployScript).toContain('docker compose -f "$COMPOSE_FILE" run --rm --no-deps app pnpm prisma migrate deploy');
+    expect(deployScript).not.toContain('docker compose -f "$COMPOSE_FILE" exec -T app pnpm prisma migrate deploy');
+
+    const migrateIndex = deployScript.indexOf("\nrun_database_migrations\n");
+    const composeUpIndex = deployScript.indexOf('docker compose -f "$COMPOSE_FILE" up -d --no-build --remove-orphans');
+    expect(migrateIndex).toBeGreaterThan(-1);
+    expect(composeUpIndex).toBeGreaterThan(migrateIndex);
+  });
 });

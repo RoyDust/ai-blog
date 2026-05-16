@@ -81,6 +81,18 @@ else
   docker compose -f "$COMPOSE_FILE" build app
 fi
 
+run_database_migrations() {
+  if compgen -G "prisma/migrations/*" > /dev/null; then
+    docker compose -f "$COMPOSE_FILE" run --rm --no-deps app pnpm prisma migrate deploy
+  else
+    docker compose -f "$COMPOSE_FILE" run --rm --no-deps app pnpm prisma db push
+  fi
+}
+
+# Apply additive schema changes before starting the replacement app. New code
+# may read new tables/columns immediately, while the old app tolerates them.
+run_database_migrations
+
 docker compose -f "$COMPOSE_FILE" up -d --no-build --remove-orphans
 
 for attempt in {1..12}; do
@@ -90,9 +102,4 @@ for attempt in {1..12}; do
   sleep 5
 done
 
-if compgen -G "prisma/migrations/*" > /dev/null; then
-  docker compose -f "$COMPOSE_FILE" exec -T app pnpm prisma migrate deploy
-else
-  docker compose -f "$COMPOSE_FILE" exec -T app pnpm prisma db push
-fi
 docker image prune -f >/dev/null 2>&1 || true
