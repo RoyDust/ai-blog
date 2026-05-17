@@ -29,14 +29,14 @@ test("navbar renders a reader floating shell with a wide desktop search", () => 
   const { container } = render(<Navbar />);
 
   const desktopSearch = Array.from(container.querySelectorAll('input[type="search"][name="q"]')).find((node) =>
-    (node as HTMLInputElement).className.includes("lg:w-72")
+    (node as HTMLInputElement).className.includes("lg:w-36")
   ) as HTMLInputElement | undefined;
 
   expect(container.querySelector(".reader-nav")).toBeTruthy();
   expect(desktopSearch).toBeTruthy();
-  expect(desktopSearch?.className).toContain("lg:w-72");
-  expect(desktopSearch?.className).toContain("xl:w-80");
-  expect(desktopSearch?.className).toContain("var(--reader-panel-elevated)");
+  expect(desktopSearch?.className).toContain("lg:w-36");
+  expect(desktopSearch?.className).toContain("xl:w-40");
+  expect(desktopSearch?.className).toContain("var(--reader-panel-muted)");
   expect(desktopSearch?.closest("form")?.getAttribute("method")).toBe("get");
   expect(container.querySelector('a[href="/archives"]')).toBeTruthy();
   expect(container.querySelector('a[href="/about"]')).toBeTruthy();

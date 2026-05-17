@@ -21,7 +21,7 @@ const navLinks = [
 ];
 
 const navItemClass =
-  "reader-link inline-flex h-10 items-center gap-2 rounded-full px-3.5 text-sm font-semibold text-[var(--text-body)] transition-colors hover:bg-[color:color-mix(in_oklab,var(--accent-sky)_12%,transparent)] hover:text-[var(--foreground)] focus-visible:bg-[color:color-mix(in_oklab,var(--accent-sky)_14%,transparent)]";
+  "reader-link relative inline-flex h-10 items-center gap-1.5 rounded-lg px-3 text-[0.8rem] font-bold text-[var(--text-body)] transition-colors hover:bg-[color:color-mix(in_oklab,var(--accent-sky)_10%,transparent)] hover:text-[var(--foreground)] focus-visible:bg-[color:color-mix(in_oklab,var(--accent-sky)_14%,transparent)]";
 
 interface NavbarProps {
   siteName?: string;
@@ -58,19 +58,19 @@ export function Navbar({ siteName = "My Blog" }: NavbarProps) {
       id="navbar"
       className={`onload-animation sticky top-0 z-50 px-3 pt-[var(--reader-nav-offset)] pb-2 transition-transform duration-300 sm:px-4 ${isHidden ? "-translate-y-full" : "translate-y-0"}`}
     >
-      <div className="reader-nav relative mx-auto flex h-[var(--reader-nav-height)] max-w-[var(--page-width)] items-center justify-between gap-2 px-2.5 sm:gap-3 sm:px-4">
+      <div className="reader-nav relative mx-auto flex h-[var(--reader-nav-height)] w-full max-w-[var(--reader-nav-width)] items-center justify-between gap-2 px-3 sm:gap-3 sm:px-4">
         <Link
           href="/"
-          className="reader-link inline-flex h-11 shrink-0 items-center gap-2 rounded-full px-3 text-sm font-bold text-[var(--foreground)] transition-colors hover:bg-[color:color-mix(in_oklab,var(--accent-warm)_12%,transparent)] focus-visible:bg-[color:color-mix(in_oklab,var(--accent-warm)_14%,transparent)] sm:px-4"
+          className="reader-link inline-flex h-10 shrink-0 items-center gap-2 rounded-lg px-2 text-sm font-bold text-[var(--foreground)] transition-colors hover:bg-[color:color-mix(in_oklab,var(--accent-sky)_10%,transparent)] focus-visible:bg-[color:color-mix(in_oklab,var(--accent-sky)_14%,transparent)]"
         >
-          <span className="flex h-8 w-8 items-center justify-center rounded-full border border-[color:color-mix(in_oklab,var(--accent-warm)_30%,var(--reader-border))] bg-[color:color-mix(in_oklab,var(--accent-warm)_16%,transparent)] text-[var(--accent-warm)]">
+          <span className="flex h-7 w-7 items-center justify-center rounded-lg border border-[color:color-mix(in_oklab,var(--accent-sky)_34%,var(--reader-border))] bg-[color:color-mix(in_oklab,var(--accent-sky)_16%,transparent)] text-[var(--accent-sky)]">
             <Sparkles className="h-4 w-4" />
           </span>
-          <span className="min-w-0 truncate text-base tracking-normal">{siteName}</span>
+          <span className="min-w-0 truncate text-[0.92rem] tracking-normal">{siteName}</span>
         </Link>
 
         <nav className="hidden min-w-0 items-center justify-center md:flex" aria-label="Primary">
-          <div className="flex items-center gap-1 rounded-full bg-[color:color-mix(in_oklab,var(--reader-panel-muted)_54%,transparent)] p-1">
+          <div className="flex items-center gap-1">
             {navLinks.map((link) => {
               const Icon = link.icon;
               const isActive = link.href === "/" ? pathname === "/" : pathname?.startsWith(link.href);
@@ -80,10 +80,11 @@ export function Navbar({ siteName = "My Blog" }: NavbarProps) {
                   href={link.href}
                   className={cn(
                     navItemClass,
-                    isActive && "bg-[color:color-mix(in_oklab,var(--accent-sky)_18%,transparent)] text-[color:color-mix(in_oklab,var(--accent-sky)_72%,var(--foreground)_28%)]",
+                    isActive &&
+                      "bg-[color:color-mix(in_oklab,var(--accent-sky)_10%,transparent)] text-[color:color-mix(in_oklab,var(--accent-sky)_72%,var(--foreground)_28%)] after:absolute after:right-3 after:bottom-0 after:left-3 after:h-0.5 after:rounded-full after:bg-[var(--accent-sky)]",
                   )}
                 >
-                  <Icon className="h-4 w-4" />
+                  <Icon className="h-3.5 w-3.5" />
                   <span>{link.name}</span>
                 </Link>
               );
@@ -93,7 +94,7 @@ export function Navbar({ siteName = "My Blog" }: NavbarProps) {
 
         <div className="flex min-w-0 items-center justify-end gap-1 sm:gap-2">
           <div className="hidden min-w-0 flex-1 lg:flex lg:max-w-sm lg:justify-end">
-            <SearchForm appearance="navbar" compact placeholder="搜索文章、标签或分类" />
+            <SearchForm appearance="navbar" compact placeholder="搜索" />
           </div>
 
           <Link

@@ -34,10 +34,10 @@ export function SearchForm({
 
       {isNavbar ? (
         <div className="group relative w-full lg:w-auto">
-          <Search className="pointer-events-none absolute top-1/2 left-4 h-[18px] w-[18px] -translate-y-1/2 text-[var(--text-muted)] transition-colors duration-200 group-focus-within:text-[var(--accent-sky)]" />
+          <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)] transition-colors duration-200 group-focus-within:text-[var(--accent-sky)]" />
           <input
             aria-label={inputLabel}
-            className="ui-ring h-11 w-full rounded-full border border-[var(--reader-border)] bg-[color:color-mix(in_oklab,var(--reader-panel-elevated)_62%,transparent)] pr-4 pl-11 text-sm text-[var(--foreground)] placeholder:text-[var(--text-muted)] shadow-[inset_0_1px_0_color-mix(in_oklab,var(--foreground)_6%,transparent)] transition-[width,background-color,border-color,box-shadow] duration-200 ease-out focus-visible:border-[color:color-mix(in_oklab,var(--accent-sky)_38%,var(--reader-border))] focus-visible:bg-[var(--reader-panel-elevated)] focus-visible:ring-2 focus-visible:ring-[color:color-mix(in_oklab,var(--accent-sky)_22%,transparent)] lg:w-72 xl:w-80"
+            className="ui-ring h-9 w-full rounded-lg border border-[var(--reader-border)] bg-[color:color-mix(in_oklab,var(--reader-panel-muted)_62%,transparent)] pr-3 pl-9 text-[0.78rem] text-[var(--foreground)] placeholder:text-[var(--text-muted)] shadow-[inset_0_1px_0_color-mix(in_oklab,var(--foreground)_6%,transparent)] transition-[width,background-color,border-color,box-shadow] duration-200 ease-out focus-visible:border-[color:color-mix(in_oklab,var(--accent-sky)_38%,var(--reader-border))] focus-visible:bg-[var(--reader-panel-elevated)] focus-visible:ring-2 focus-visible:ring-[color:color-mix(in_oklab,var(--accent-sky)_22%,transparent)] lg:w-36 xl:w-40 2xl:w-44"
             defaultValue={defaultValue}
             id="site-search-input"
             name="q"

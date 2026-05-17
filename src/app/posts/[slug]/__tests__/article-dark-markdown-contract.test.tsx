@@ -27,6 +27,16 @@ test('article details stay runtime-rendered in deployments without build-time da
   expect(source).not.toContain('export const revalidate')
 })
 
+test('article table of contents rail matches the left sidebar width token', () => {
+  const themeSource = readSource('src/styles/theme-variables.css')
+  const componentSource = readSource('src/styles/components.css')
+
+  expect(themeSource).toContain('--rail-width: clamp(13.75rem, 12vw, 15rem);')
+  expect(themeSource).toContain('--article-toc-width: var(--rail-width);')
+  expect(componentSource).toContain('.reader-shell:has(.article-detail-page)')
+  expect(componentSource).toContain('--article-toc-width: var(--rail-width);')
+})
+
 test('article markdown headings h1 through h5 use semantic heading colors', () => {
   const source = readSource('src/app/(public)/posts/[slug]/page.tsx')
 

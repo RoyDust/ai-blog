@@ -173,6 +173,8 @@ describe('article experience', () => {
     })
 
     const tocRail = screen.getByTestId('toc-rail')
+    const detailGrid = tocRail.parentElement
+    expect(detailGrid?.className).toContain('xl:grid-cols-[minmax(0,1fr)_var(--article-toc-width)]')
     expect(tocRail.className).toContain('xl:sticky')
     expect(tocRail.className).not.toContain('xl:fixed')
     expect(tocRail.className).toContain('transition-[top,max-height,transform,box-shadow]')

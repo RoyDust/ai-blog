@@ -4,6 +4,8 @@ import { ChevronRight, Eye, Heart, MessageCircle } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { PostMeta } from "./PostMeta";
 
+const READER_CARD_FALLBACK_SRC = "/images/fuwari-post-cover-fallback.svg";
+
 interface PostCardProps {
   post: {
     id: string;
@@ -42,7 +44,7 @@ export function PostCard({ post }: PostCardProps) {
       className={cn(
         "reader-feed-card group min-w-0 p-4",
         hasCover
-          ? "grid gap-4 md:grid-cols-[10.75rem_minmax(0,1fr)_2.75rem] md:items-center md:p-4"
+          ? "grid gap-4 md:min-h-32 md:grid-cols-[10.75rem_minmax(0,1fr)_2.25rem] md:items-stretch md:p-3"
           : "post-card--text-only grid gap-3 p-5 md:p-6",
       )}
     >
@@ -50,7 +52,7 @@ export function PostCard({ post }: PostCardProps) {
         <Link
           href={`/posts/${post.slug}`}
           aria-label={`阅读 ${post.title}`}
-          className="theme-media relative aspect-[1.55] overflow-hidden rounded-[calc(var(--radius-large)-0.25rem)] md:h-28 md:aspect-auto"
+          className="theme-media relative aspect-[1.55] overflow-hidden rounded-lg md:h-full md:aspect-auto"
         >
           <FallbackImage
             alt={post.title}
@@ -58,8 +60,9 @@ export function PostCard({ post }: PostCardProps) {
             fill
             loading="lazy"
             quality={70}
-            sizes="(max-width: 768px) 100vw, 11rem"
+            sizes="(min-width: 1800px) 14rem, (max-width: 768px) 100vw, 11rem"
             src={post.coverImage!}
+            fallbackSrc={READER_CARD_FALLBACK_SRC}
           />
         </Link>
       ) : (
@@ -68,7 +71,7 @@ export function PostCard({ post }: PostCardProps) {
         </div>
       )}
 
-      <div className="min-w-0 space-y-3">
+      <div className="min-w-0 self-center space-y-2.5">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           {post.featured ? (
             <span className="reader-chip border-[color:color-mix(in_oklab,var(--accent-warm)_34%,var(--reader-border))] bg-[color:color-mix(in_oklab,var(--accent-warm)_14%,transparent)] text-[color:color-mix(in_oklab,var(--accent-warm)_78%,var(--foreground)_22%)]">
@@ -87,12 +90,12 @@ export function PostCard({ post }: PostCardProps) {
         </div>
 
         <Link href={`/posts/${post.slug}`} className="block min-w-0">
-          <h3 className="text-90 line-clamp-2 text-lg font-bold leading-snug transition-colors group-hover:text-[color:color-mix(in_oklab,var(--accent-sky)_82%,var(--foreground)_18%)] md:text-xl">
+                  <h3 className="text-90 line-clamp-2 text-lg font-extrabold leading-snug transition-colors group-hover:text-[color:color-mix(in_oklab,var(--accent-sky)_82%,var(--foreground)_18%)] md:text-xl">
             {post.title}
           </h3>
         </Link>
 
-        <p className="text-75 line-clamp-2 text-sm leading-6 md:line-clamp-3">{post.excerpt ?? "暂无摘要"}</p>
+        <p className="text-75 line-clamp-2 text-sm leading-6">{post.excerpt ?? "暂无摘要"}</p>
 
         <div className="flex flex-wrap items-center gap-3 text-xs text-[var(--text-faint)]">
           <span className="inline-flex items-center gap-1.5">
@@ -116,7 +119,7 @@ export function PostCard({ post }: PostCardProps) {
         <Link
           href={`/posts/${post.slug}`}
           aria-label={`继续阅读 ${post.title}`}
-          className="reader-icon-btn hidden self-center justify-self-end md:inline-flex"
+          className="reader-card-action hidden self-stretch justify-self-end md:inline-flex"
         >
           <ChevronRight aria-hidden="true" className="h-5 w-5" />
         </Link>

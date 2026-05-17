@@ -38,6 +38,14 @@ test("sidebar loads categories from the public api route", async () => {
         )
       );
     }
+    if (url.endsWith("/api/tags")) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({ success: true, data: [{ id: "t1", name: "React", slug: "react", color: null, _count: { posts: 2 } }] }),
+          { status: 200 }
+        )
+      );
+    }
     return Promise.reject(new Error(`Unexpected URL: ${url}`));
   });
 
@@ -45,9 +53,11 @@ test("sidebar loads categories from the public api route", async () => {
 
   await waitFor(() => {
     expect(fetchMock).toHaveBeenCalledWith("/api/categories");
+    expect(fetchMock).toHaveBeenCalledWith("/api/tags");
   });
 
   expect(getByText("前端")).toBeInTheDocument();
+  expect(getByText("React")).toBeInTheDocument();
   expect(container.querySelector(".reader-panel")).toBeInTheDocument();
   expect(container.querySelector('[data-testid="sidebar-taxonomy-rail"]')?.className).toContain("sticky");
   expect(getByRole("heading", { name: "RoyDust" })).toBeInTheDocument();

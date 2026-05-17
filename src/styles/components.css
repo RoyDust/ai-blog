@@ -75,11 +75,11 @@
       linear-gradient(
         180deg,
         transparent 0,
-        color-mix(in oklab, var(--page-bg) 12%, transparent) 18rem,
-        color-mix(in oklab, var(--page-bg) 62%, transparent) 40rem,
-        var(--page-bg) 62rem
+        color-mix(in oklab, var(--page-bg) 8%, transparent) 26vh,
+        color-mix(in oklab, var(--page-bg) 54%, transparent) 50vh,
+        var(--page-bg) 66vh
       ),
-      url("/images/night-reader-global-bg.svg") top center / max(100vw, 108rem) auto no-repeat,
+      var(--reader-background-image) top center / 100% 66vh no-repeat,
       var(--page-bg);
     background-color: var(--page-bg);
   }
@@ -94,7 +94,7 @@
       linear-gradient(180deg, rgb(255 255 255 / 0.028) 1px, transparent 1px);
     background-size: 72px 72px;
     mask-image: linear-gradient(180deg, black 0%, transparent 58%);
-    opacity: 0.18;
+    opacity: 0.08;
     z-index: -1;
   }
 
@@ -103,11 +103,11 @@
       linear-gradient(
         180deg,
         transparent 0,
-        color-mix(in oklab, var(--page-bg) 16%, transparent) 18rem,
-        color-mix(in oklab, var(--page-bg) 68%, transparent) 42rem,
-        var(--page-bg) 64rem
+        color-mix(in oklab, var(--page-bg) 6%, transparent) 24vh,
+        color-mix(in oklab, var(--page-bg) 58%, transparent) 50vh,
+        var(--page-bg) 66vh
       ),
-      url("/images/night-reader-global-bg.svg") top center / max(100vw, 108rem) auto no-repeat,
+      var(--reader-background-image) top center / 100% 66vh no-repeat,
       var(--page-bg);
     background-color: var(--page-bg);
   }
@@ -139,9 +139,9 @@
     overflow: visible;
     border: 1px solid var(--reader-border);
     border-radius: 999px;
-    background: color-mix(in oklab, var(--reader-panel) 78%, transparent);
-    box-shadow: var(--reader-shadow);
-    backdrop-filter: blur(18px) saturate(1.08);
+    background: rgb(13 20 28 / 0.92);
+    box-shadow: 0 18px 48px rgb(0 0 0 / 0.32), inset 0 1px 0 rgb(255 255 255 / 0.04);
+    backdrop-filter: blur(16px) saturate(1.04);
   }
 
   .reader-panel,
@@ -152,13 +152,13 @@
     isolation: isolate;
     border: 1px solid var(--reader-border);
     background: var(--reader-panel);
-    box-shadow: var(--reader-shadow);
-    backdrop-filter: blur(18px) saturate(1.08);
+    box-shadow: 0 18px 54px rgb(0 0 0 / 0.24), inset 0 1px 0 rgb(255 255 255 / 0.035);
+    backdrop-filter: blur(18px) saturate(1.02);
   }
 
   .reader-panel,
   .reader-card {
-    border-radius: calc(var(--radius-large) + 0.25rem);
+    border-radius: 0.875rem;
   }
 
   .reader-panel {
@@ -186,10 +186,42 @@
     border-radius: var(--article-radius);
   }
 
+  .reader-shell:has(.reader-home-stage) .reader-side-rail,
+  .reader-shell:has(.reader-home-stage) .reader-side-rail #sidebar,
+  .reader-shell:has(.reader-home-stage) .reader-side-rail [data-testid="sidebar-taxonomy-rail"] {
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+  }
+
+  .reader-shell:has(.reader-home-stage) .reader-side-rail {
+    margin-top: calc(var(--reader-page-top) * -0.08);
+  }
+
+  .reader-shell:has(.reader-home-stage) .reader-side-rail .reader-panel {
+    box-shadow: none;
+  }
+
+  .reader-shell:has(.article-detail-page) {
+    --page-width: clamp(76rem, 74vw, 110rem);
+    --article-reading-max-width: clamp(48rem, 46vw, 58rem);
+    --article-toc-width: var(--rail-width);
+  }
+
   .article-shell > .reader-banner {
     border-width: 0 0 1px;
     border-radius: var(--article-radius) var(--article-radius) 0 0;
     box-shadow: none;
+  }
+
+  .reader-prose {
+    overflow-wrap: anywhere;
+  }
+
+  .reader-prose pre,
+  .reader-prose pre * {
+    overflow-wrap: normal;
+    word-break: normal;
   }
 
   .reader-shell:has(.article-detail-page) .reader-side-rail,
@@ -209,8 +241,8 @@
 
   .reader-feed-card {
     overflow: hidden;
-    border-radius: calc(var(--radius-large) + 0.125rem);
-    background: color-mix(in oklab, var(--reader-panel) 92%, transparent);
+    border-radius: 0.875rem;
+    background: color-mix(in oklab, var(--reader-panel) 94%, transparent);
   }
 
   .reader-feed-card:hover {
@@ -219,7 +251,7 @@
 
   .reader-feature-card {
     overflow: hidden;
-    border-radius: calc(var(--radius-large) + 0.5rem);
+    border-radius: 1rem;
     background:
       radial-gradient(80% 120% at 90% 10%, color-mix(in oklab, var(--accent-sky) 13%, transparent), transparent 62%),
       var(--reader-panel-elevated);
@@ -231,7 +263,7 @@
     gap: 0.35rem;
     border: 1px solid color-mix(in oklab, var(--accent-sky) 24%, var(--reader-border));
     border-radius: 999px;
-    background: color-mix(in oklab, var(--accent-sky) 12%, transparent);
+    background: color-mix(in oklab, var(--accent-sky) 14%, transparent);
     color: color-mix(in oklab, var(--accent-sky) 76%, var(--foreground) 24%);
     font-size: 0.75rem;
     font-weight: 600;
@@ -268,7 +300,7 @@
     width: 2.75rem;
     height: 2.75rem;
     border: 1px solid transparent;
-    border-radius: 999px;
+    border-radius: 0.65rem;
     color: var(--text-body);
     transition:
       background-color 180ms ease,
@@ -282,6 +314,50 @@
     color: var(--foreground);
   }
 
+  .reader-home-stage {
+    margin-top: calc(var(--reader-page-top) * -0.08);
+  }
+
+  .reader-section-heading {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    font-size: 1.02rem;
+    font-weight: 800;
+    color: var(--foreground);
+  }
+
+  .reader-section-heading::before {
+    content: "";
+    width: 0.2rem;
+    height: 1.1rem;
+    border-radius: 999px;
+    background: var(--accent-sky);
+    box-shadow: 0 0 18px color-mix(in oklab, var(--accent-sky) 36%, transparent);
+  }
+
+  .reader-card-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100%;
+    width: 2.25rem;
+    border-radius: 0.625rem;
+    border: 1px solid color-mix(in oklab, var(--accent-sky) 10%, transparent);
+    background: color-mix(in oklab, var(--accent-sky) 20%, var(--reader-panel-muted));
+    color: var(--accent-sky);
+    transition:
+      background-color 180ms ease,
+      color 180ms ease,
+      transform 180ms ease;
+  }
+
+  .reader-feed-card:hover .reader-card-action {
+    background: color-mix(in oklab, var(--accent-sky) 30%, var(--reader-panel-muted));
+    color: var(--foreground);
+    transform: translateX(1px);
+  }
+
   .reader-icon-btn:focus-visible,
   .reader-link:focus-visible,
   .reader-chip:focus-visible {
@@ -292,6 +368,16 @@
   .reader-section {
     display: grid;
     gap: clamp(1rem, 2vw, 1.5rem);
+  }
+
+  @media (min-width: 1800px) {
+    .reader-feed-card:not(.post-card--text-only) {
+      grid-template-columns: 14rem minmax(0, 1fr) 2.75rem !important;
+    }
+
+    .reader-card-action {
+      width: 2.75rem;
+    }
   }
 
   .reader-skeleton {

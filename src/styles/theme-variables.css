@@ -1,11 +1,13 @@
 :root {
   --hue: 250;
   --radius-large: 1rem;
-  --page-width: 111rem;
+  --page-width: clamp(61.5rem, 62vw, 76rem);
   --content-max-width: 100%;
   --reading-max-width: 48rem;
-  --rail-width: 20.5rem;
-  --layout-rail-gap: clamp(1rem, 1.45vw, 1.5rem);
+  --article-reading-max-width: var(--reading-max-width);
+  --rail-width: clamp(13.75rem, 12vw, 15rem);
+  --article-toc-width: var(--rail-width);
+  --layout-rail-gap: clamp(0.75rem, 1.2vw, 1.25rem);
   --sidebar-profile-padding: 1.25rem;
   --sidebar-profile-card-height: 18.375rem;
   --article-toc-card-height: min(34rem, calc(100vh - var(--sidebar-sticky-top, 0px) - 1.75rem));
@@ -13,8 +15,10 @@
   --section-gap: clamp(1.25rem, 2vw, 2rem);
   --hero-media-ratio: 1.35;
   --content-delay: 150ms;
-  --reader-nav-height: 4rem;
-  --reader-nav-offset: clamp(0.75rem, 1.5vw, 1.25rem);
+  --reader-nav-height: 3.125rem;
+  --reader-nav-width: 52rem;
+  --reader-nav-offset: clamp(0.625rem, 1.2vw, 1rem);
+  --reader-page-top: clamp(17rem, 34vh, 22rem);
   --reader-banner-height: clamp(14rem, 28vw, 23rem);
   --reader-content-lift: clamp(1.25rem, 4vw, 3rem);
 
@@ -101,16 +105,16 @@
 }
 
 :root.dark {
-  --page-bg: oklch(0.12 0.024 255);
-  --card-bg: oklch(0.205 0.024 255);
-  --surface-elevated: oklch(0.255 0.026 255);
-  --surface-alt: oklch(0.275 0.024 255);
-  --surface-contrast: oklch(0.335 0.028 255);
+  --page-bg: oklch(0.085 0.022 252);
+  --card-bg: oklch(0.17 0.022 252);
+  --surface-elevated: oklch(0.215 0.024 252);
+  --surface-alt: oklch(0.245 0.024 252);
+  --surface-contrast: oklch(0.305 0.03 252);
   --float-panel-bg: color-mix(in oklab, var(--card-bg) 88%, black);
-  --reader-bg: oklch(0.105 0.028 255);
-  --reader-panel: rgb(9 20 35 / 0.68);
-  --reader-panel-elevated: rgb(10 23 40 / 0.76);
-  --reader-panel-muted: rgb(17 32 50 / 0.62);
+  --reader-bg: oklch(0.075 0.024 252);
+  --reader-panel: rgb(18 28 38 / 0.84);
+  --reader-panel-elevated: rgb(22 34 46 / 0.9);
+  --reader-panel-muted: rgb(34 49 66 / 0.76);
 
   --foreground: oklch(0.94 0.012 255);
   --text-body: oklch(0.78 0.018 255);
@@ -128,8 +132,8 @@
   --border: rgba(255, 255, 255, 0.08);
   --border-strong: rgba(255, 255, 255, 0.14);
   --line-color: rgba(255, 255, 255, 0.1);
-  --reader-border: rgb(163 184 216 / 0.22);
-  --reader-border-strong: rgb(174 199 236 / 0.34);
+  --reader-border: rgb(128 163 205 / 0.22);
+  --reader-border-strong: rgb(139 184 236 / 0.38);
 
   --btn-content: color-mix(in oklab, var(--brand) 64%, white 36%);
   --btn-regular-bg: color-mix(in oklab, var(--surface-alt) 82%, var(--brand) 18%);
@@ -181,6 +185,15 @@
   --background: var(--page-bg);
   --surface: var(--card-bg);
   --muted: var(--text-muted);
+}
+
+@media (min-width: 1800px) {
+  :root {
+    --reader-nav-height: 3.5rem;
+    --reader-nav-width: 60rem;
+    --reader-page-top: clamp(18rem, 29vh, 20rem);
+    --section-gap: clamp(1.25rem, 1.5vw, 1.75rem);
+  }
 }
 
 .admin-theme {

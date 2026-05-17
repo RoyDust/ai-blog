@@ -58,7 +58,7 @@ export function ArticleHero({
           <span className="min-w-0 truncate text-white/55">{title}</span>
         </nav>
 
-        <div className="grid max-w-[var(--reading-max-width)] gap-5">
+        <div className="grid max-w-[var(--article-reading-max-width)] gap-5">
           {category ? (
             <div>
               <Link className="reader-chip border-white/20 bg-white/10 text-white hover:bg-white/15" href={`/categories/${category.slug}`}>

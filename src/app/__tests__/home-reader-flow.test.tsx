@@ -58,26 +58,22 @@ describe('home reader flow', () => {
     cleanup()
   })
 
-  test('home shows reference-style feature card, latest feed, and right reader rail', async () => {
+  test('home shows Fuwari-style AI daily strip and latest feed', async () => {
     postFindMany
       .mockResolvedValueOnce([createPost(4), createPost(5), createPost(6), createPost(1)])
-      .mockResolvedValueOnce([
-        { ...createPost(1), featured: true },
-        { ...createPost(2), featured: true },
-        { ...createPost(3), featured: true },
-      ])
+      .mockResolvedValueOnce([createPost(1), createPost(2), createPost(3)])
 
     const { default: Home } = await import('../(public)/page')
     const ui = await Home()
     render(ui as React.ReactElement)
 
-    expect(screen.getAllByRole('heading', { name: 'Test Post 1' }).length).toBeGreaterThan(0)
-    expect(screen.getAllByRole('button', { name: /查看精选文章/ })).toHaveLength(3)
-    expect(postFindMany.mock.calls[1]?.[0]?.take).toBe(4)
+    expect(screen.getByRole('heading', { name: 'AI 日报' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '查看全部' })).toHaveAttribute('href', '/series/ai-daily')
+    expect(postFindMany.mock.calls[1]?.[0]?.take).toBe(5)
     expect(screen.getByRole('heading', { name: '最新文章' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: '目录预览' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: '最近更新' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: '热门标签' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: '目录预览' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: '最近更新' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: '热门标签' })).not.toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: '核心特性' })).not.toBeInTheDocument()
     const latestSection = screen.getByRole('heading', { name: '最新文章' }).closest('section')
 
@@ -88,22 +84,21 @@ describe('home reader flow', () => {
     expect(latest.getByRole('heading', { name: 'Test Post 4' })).toBeInTheDocument()
     expect(latest.getByRole('heading', { name: 'Test Post 5' })).toBeInTheDocument()
     expect(latest.getByRole('heading', { name: 'Test Post 6' })).toBeInTheDocument()
-    expect(latest.queryByRole('heading', { name: 'Test Post 1' })).not.toBeInTheDocument()
     expect(latest.queryByRole('heading', { name: 'Test Post 2' })).not.toBeInTheDocument()
     expect(latest.queryByRole('heading', { name: 'Test Post 3' })).not.toBeInTheDocument()
   }, 15_000)
 
-  test('home keeps featured banner and latest feed when only two curated posts exist', async () => {
+  test('home keeps latest feed when only two posts exist', async () => {
     postFindMany
       .mockResolvedValueOnce([createPost(3), createPost(4)])
-      .mockResolvedValueOnce([{ ...createPost(1), featured: true }, { ...createPost(2), featured: true }])
+      .mockResolvedValueOnce([{ ...createPost(1), slug: 'ai-daily-2026-01-01' }])
     postCount.mockResolvedValueOnce(2)
 
     const { default: Home } = await import('../(public)/page')
     const ui = await Home()
     render(ui as React.ReactElement)
 
-    expect(screen.getAllByRole('heading', { name: 'Test Post 1' }).length).toBeGreaterThan(0)
+    expect(screen.getByRole('link', { name: /Test Post 1/ })).toHaveAttribute('href', '/posts/ai-daily-2026-01-01')
     expect(screen.getByRole('heading', { name: '最新文章' })).toBeInTheDocument()
 
     const latestSection = screen.getByRole('heading', { name: '最新文章' }).closest('section')
@@ -114,7 +109,8 @@ describe('home reader flow', () => {
   })
 
   test('home surfaces load failures instead of silently pretending content is empty', async () => {
-    categoryFindMany.mockRejectedValueOnce(new Error('category query failed'))
+    postFindMany.mockResolvedValueOnce([createPost(1), createPost(2)])
+    postFindMany.mockRejectedValueOnce(new Error('ai daily query failed'))
 
     const { default: Home } = await import('../(public)/page')
     const ui = await Home()
@@ -123,7 +119,7 @@ describe('home reader flow', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('首页部分内容加载失败，请稍后重试。')
   })
 
-  test('home keeps a coherent featured fallback when there are no featured posts', async () => {
+  test('home keeps a coherent latest fallback when AI daily has no posts', async () => {
     postFindMany.mockResolvedValueOnce([createPost(1), createPost(2), createPost(3)])
     postFindMany.mockResolvedValueOnce([])
     postCount.mockResolvedValueOnce(3)
@@ -132,14 +128,15 @@ describe('home reader flow', () => {
     const ui = await Home()
     render(ui as React.ReactElement)
 
+    expect(screen.queryByRole('heading', { name: 'AI 日报' })).not.toBeInTheDocument()
     expect(screen.getAllByRole('heading', { name: 'Test Post 1' }).length).toBeGreaterThan(0)
     expect(screen.getByRole('heading', { name: '最新文章' })).toBeInTheDocument()
   })
 
   test('home latest feed keeps an empty reader panel when no latest posts remain', async () => {
-    postFindMany.mockResolvedValueOnce([createPost(1)])
-    postFindMany.mockResolvedValueOnce([{ ...createPost(1), featured: true }])
-    postCount.mockResolvedValueOnce(1)
+    postFindMany.mockResolvedValueOnce([])
+    postFindMany.mockResolvedValueOnce([])
+    postCount.mockResolvedValueOnce(0)
 
     const { default: Home } = await import('../(public)/page')
     const ui = await Home()

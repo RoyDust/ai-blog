@@ -5,10 +5,13 @@ import { useEffect, useState } from "react";
 
 const FALLBACK_IMAGE_SRC = "/imgs/Error.png";
 
-export type FallbackImageProps = ImageProps;
+export type FallbackImageProps = ImageProps & {
+  fallbackSrc?: ImageProps["src"];
+};
 
-export function FallbackImage({ alt, src, onError, ...props }: FallbackImageProps) {
+export function FallbackImage({ alt, src, fallbackSrc, onError, ...props }: FallbackImageProps) {
   const [currentSrc, setCurrentSrc] = useState<ImageProps["src"]>(src);
+  const resolvedFallbackSrc = fallbackSrc ?? FALLBACK_IMAGE_SRC;
 
   useEffect(() => {
     setCurrentSrc(src);
@@ -20,8 +23,8 @@ export function FallbackImage({ alt, src, onError, ...props }: FallbackImageProp
       {...props}
       src={currentSrc}
       onError={(event) => {
-        if (currentSrc !== FALLBACK_IMAGE_SRC) {
-          setCurrentSrc(FALLBACK_IMAGE_SRC);
+        if (currentSrc !== resolvedFallbackSrc) {
+          setCurrentSrc(resolvedFallbackSrc);
         }
 
         onError?.(event);

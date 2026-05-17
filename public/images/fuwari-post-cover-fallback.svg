@@ -1,0 +1,42 @@
+<svg width="800" height="520" viewBox="0 0 800 520" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="sky" x1="96" y1="40" x2="704" y2="472" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#223f5a"/>
+      <stop offset="0.55" stop-color="#16293d"/>
+      <stop offset="1" stop-color="#0b1421"/>
+    </linearGradient>
+    <radialGradient id="moonGlow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(596 142) rotate(90) scale(148)">
+      <stop stop-color="#8fc8ff" stop-opacity="0.4"/>
+      <stop offset="1" stop-color="#8fc8ff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="window" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#8fc8ff"/>
+      <stop offset="1" stop-color="#f5c66a"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="520" rx="36" fill="url(#sky)"/>
+  <rect width="800" height="520" rx="36" fill="url(#moonGlow)"/>
+  <path d="M0 246C100 220 167 220 270 247C368 273 463 283 563 251C651 223 727 216 800 236V520H0V246Z" fill="#102236" opacity="0.72"/>
+  <path d="M0 308C103 280 196 276 308 302C427 330 521 336 650 292C710 272 758 265 800 272V520H0V308Z" fill="#08111d"/>
+  <g opacity="0.95">
+    <rect x="50" y="232" width="58" height="288" fill="#050c14"/>
+    <rect x="140" y="184" width="92" height="336" fill="#050c14"/>
+    <rect x="278" y="250" width="64" height="270" fill="#050c14"/>
+    <rect x="388" y="206" width="112" height="314" fill="#050c14"/>
+    <rect x="560" y="238" width="82" height="282" fill="#050c14"/>
+    <rect x="690" y="170" width="78" height="350" fill="#050c14"/>
+  </g>
+  <g opacity="0.72">
+    <rect x="84" y="304" width="8" height="8" rx="1.5" fill="url(#window)"/>
+    <rect x="176" y="252" width="8" height="8" rx="1.5" fill="url(#window)"/>
+    <rect x="318" y="318" width="8" height="8" rx="1.5" fill="url(#window)"/>
+    <rect x="430" y="274" width="8" height="8" rx="1.5" fill="url(#window)"/>
+    <rect x="604" y="308" width="8" height="8" rx="1.5" fill="url(#window)"/>
+    <rect x="724" y="248" width="8" height="8" rx="1.5" fill="url(#window)"/>
+  </g>
+  <g opacity="0.38" stroke="#9ccfff" stroke-width="1">
+    <path d="M136 -40L88 520"/>
+    <path d="M356 -40L302 520"/>
+    <path d="M612 -40L552 520"/>
+  </g>
+</svg>

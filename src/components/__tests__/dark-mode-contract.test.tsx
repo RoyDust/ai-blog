@@ -80,6 +80,7 @@ test('night reader theme exposes reusable tokens and semantic classes', () => {
   expect(componentSource).toContain('.reader-feature-card')
   expect(componentSource).toContain('.reader-chip')
   expect(componentSource).toContain('.reader-icon-btn')
+  expect(componentSource).toContain('var(--reader-background-image)')
 })
 
 test('global scrollbars stay thin and transparent across surfaces', () => {

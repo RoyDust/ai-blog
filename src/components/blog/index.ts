@@ -7,6 +7,7 @@ export { HomeFeaturedGrid } from "./HomeFeaturedGrid";
 export { HomeDiscoveryGrid } from "./HomeDiscoveryGrid";
 export { FilterBar } from "./FilterBar";
 export { HomeLatestPosts } from "./HomeLatestPosts";
+export { HomeAiDailyStrip } from "./HomeAiDailyStrip";
 export { PostsListingClient } from "./PostsListingClient";
 export { ArticleHero } from "./ArticleHero";
 export { ArticleReadTracker } from "./ArticleReadTracker";

@@ -1,4 +1,6 @@
 import { render, screen } from "@testing-library/react";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, test, vi } from "vitest";
 import { AppShell } from "@/components/layout/AppShell";
 
@@ -45,5 +47,17 @@ describe("app shell", () => {
     expect(shellColumns?.className).toContain("flex-col");
     expect(shellColumns?.className).toContain("xl:flex-row");
     expect(sidebarRail.compareDocumentPosition(mainContent) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  test("home sidebar rail does not add a gray backing layer", () => {
+    const source = readFileSync(join(process.cwd(), "src/styles/components.css"), "utf8");
+
+    expect(source).toContain(".reader-shell:has(.reader-home-stage) .reader-side-rail");
+    expect(source).toContain('.reader-shell:has(.reader-home-stage) .reader-side-rail [data-testid="sidebar-taxonomy-rail"]');
+    expect(source).toContain(".reader-shell:has(.reader-home-stage) .reader-side-rail .reader-panel");
+    expect(source).toContain("background: transparent;");
+    expect(source).toContain("box-shadow: none;");
+    expect(source).toContain("backdrop-filter: none;");
+    expect(source).toContain("margin-top: calc(var(--reader-page-top) * -0.08);");
   });
 });

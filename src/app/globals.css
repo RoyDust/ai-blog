@@ -8,15 +8,16 @@
 @custom-variant dark (&:is(.dark *));
 
 html {
+  --reader-background-image: url("/images/fuwari-night-city-bg.svg");
   --app-root-background:
     linear-gradient(
       180deg,
       transparent 0,
-      color-mix(in oklab, var(--page-bg) 12%, transparent) 18rem,
-      color-mix(in oklab, var(--page-bg) 62%, transparent) 40rem,
-      var(--page-bg) 62rem
+      color-mix(in oklab, var(--page-bg) 8%, transparent) 26vh,
+      color-mix(in oklab, var(--page-bg) 54%, transparent) 50vh,
+      var(--page-bg) 66vh
     ),
-    url("/images/night-reader-global-bg.svg") top center / max(100vw, 108rem) auto no-repeat,
+    var(--reader-background-image) top center / 100% 66vh no-repeat,
     var(--page-bg);
   background: var(--app-root-background);
   background-attachment: fixed;
@@ -29,11 +30,11 @@ html.dark {
     linear-gradient(
       180deg,
       transparent 0,
-      color-mix(in oklab, var(--page-bg) 16%, transparent) 18rem,
-      color-mix(in oklab, var(--page-bg) 68%, transparent) 42rem,
-      var(--page-bg) 64rem
+      color-mix(in oklab, var(--page-bg) 6%, transparent) 24vh,
+      color-mix(in oklab, var(--page-bg) 58%, transparent) 50vh,
+      var(--page-bg) 66vh
     ),
-    url("/images/night-reader-global-bg.svg") top center / max(100vw, 108rem) auto no-repeat,
+    var(--reader-background-image) top center / 100% 66vh no-repeat,
     var(--page-bg);
   color-scheme: dark;
 }

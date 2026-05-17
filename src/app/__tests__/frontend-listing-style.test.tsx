@@ -37,8 +37,8 @@ test("post card renders cover media, compact CTA, and clamps copy", () => {
   const coverLink = container.querySelector('a[aria-label="阅读 Test title"]');
   const ctaLink = container.querySelector('a[aria-label="继续阅读 Test title"]');
 
-  expect(article?.className).toContain("md:grid-cols-[10.75rem_minmax(0,1fr)_2.75rem]");
-  expect(excerpt?.className).toContain("line-clamp-3");
+  expect(article?.className).toContain("md:grid-cols-[10.75rem_minmax(0,1fr)_2.25rem]");
+  expect(excerpt?.className).toContain("line-clamp-2");
   expect(coverLink?.className).toContain("theme-media");
-  expect(ctaLink?.className).toContain("reader-icon-btn");
+  expect(ctaLink?.className).toContain("reader-card-action");
 });

@@ -23,4 +23,14 @@ describe("FallbackImage", () => {
 
     expect(image).toHaveAttribute("src", "/imgs/Error.png");
   });
+
+  test("uses a custom fallback image when one is provided", () => {
+    render(<FallbackImage alt="reader cover" fallbackSrc="/images/reader-fallback.svg" height={400} src="https://example.com/broken.png" width={800} />);
+
+    const image = screen.getByRole("img", { name: "reader cover" });
+
+    fireEvent.error(image);
+
+    expect(image).toHaveAttribute("src", "/images/reader-fallback.svg");
+  });
 });

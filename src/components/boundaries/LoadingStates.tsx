@@ -60,7 +60,7 @@ export function PublicLoadingState() {
 export function ArticleLoadingState() {
   return (
     <div aria-label="文章加载中" className="article-detail-page relative overflow-x-clip pb-16" data-testid="article-loading">
-      <div className="grid gap-[var(--layout-rail-gap)] xl:grid-cols-[minmax(0,1fr)_minmax(22rem,24rem)] xl:items-start">
+      <div className="grid gap-[var(--layout-rail-gap)] xl:grid-cols-[minmax(0,1fr)_var(--article-toc-width)] xl:items-start">
         <div className="min-w-0 space-y-8">
           <article className="article-shell reader-card overflow-hidden">
             <div className="reader-banner min-h-[22rem] px-6 py-10 md:px-10">
@@ -75,7 +75,7 @@ export function ArticleLoadingState() {
             </div>
 
             <div className="px-5 py-8 sm:px-8 lg:px-10 lg:py-10">
-              <div className="mx-auto max-w-[var(--reading-max-width)] space-y-5">
+              <div className="mx-auto max-w-[var(--article-reading-max-width)] space-y-5">
                 {skeletonItems.concat([3, 4]).map((item) => (
                   <div className="space-y-3" key={item}>
                     <SkeletonLine className="h-4 w-full" />

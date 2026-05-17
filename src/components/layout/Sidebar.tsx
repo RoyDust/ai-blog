@@ -1,7 +1,7 @@
 "use client";
 
 import NextLink from "next/link";
-import { BarChart3, Folder, Github, Link2, Mail, Target } from "lucide-react";
+import { BarChart3, Folder, Github, Link2, Mail, Tags, Target } from "lucide-react";
 import { useEffect, useState } from "react";
 import { FallbackImage } from "@/components/ui";
 import { PUBLIC_PROFILE_FALLBACK, type PublicProfile, type PublicProfileLinkKind } from "@/lib/public-profile-data";
@@ -18,6 +18,14 @@ type CategoryItem = {
   id: string;
   name: string;
   slug: string;
+  _count?: { posts?: number };
+};
+
+type TagItem = {
+  id: string;
+  name: string;
+  slug: string;
+  color?: string | null;
   _count?: { posts?: number };
 };
 
@@ -39,21 +47,24 @@ export function Sidebar({
   readingStats?: UserReadingStats | null;
 }) {
   const [categories, setCategories] = useState<CategoryItem[]>([]);
+  const [tags, setTags] = useState<TagItem[]>([]);
 
   useEffect(() => {
     let isMounted = true;
 
     const loadTaxonomy = async () => {
       try {
-        const categoriesRes = await fetch("/api/categories");
-        const categoriesJson = await categoriesRes.json();
+        const [categoriesRes, tagsRes] = await Promise.all([fetch("/api/categories"), fetch("/api/tags")]);
+        const [categoriesJson, tagsJson] = await Promise.all([categoriesRes.json(), tagsRes.json()]);
 
         if (!isMounted) return;
 
         setCategories(Array.isArray(categoriesJson?.data) ? categoriesJson.data : []);
+        setTags(Array.isArray(tagsJson?.data) ? tagsJson.data : []);
       } catch {
         if (!isMounted) return;
         setCategories([]);
+        setTags([]);
       }
     };
 
@@ -65,6 +76,7 @@ export function Sidebar({
   }, []);
 
   const topCategories = categories.slice(0, 6);
+  const topTags = tags.slice(0, 10);
 
   return (
     <aside id="sidebar" className="onload-animation h-full w-full">
@@ -76,31 +88,31 @@ export function Sidebar({
           maxHeight: "calc(100vh - var(--sidebar-sticky-top, 0px) - 1.75rem)",
         }}
       >
-        <section aria-label="作者资料" className="reader-panel min-h-[var(--sidebar-profile-card-height)] p-5">
-          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full border border-[var(--reader-border-strong)] bg-[color:color-mix(in_oklab,var(--accent-sky)_18%,var(--reader-panel-elevated))] text-xl font-bold text-[var(--foreground)] shadow-[var(--reader-shadow)]">
+        <section aria-label="作者资料" className="reader-panel p-4 text-center">
+          <div className="mx-auto mb-3 flex h-20 w-20 items-center justify-center rounded-full border border-[var(--reader-border-strong)] bg-[color:color-mix(in_oklab,var(--accent-sky)_18%,var(--reader-panel-elevated))] text-xl font-bold text-[var(--foreground)] shadow-[var(--reader-shadow)]">
             {profile.avatar ? (
-              <FallbackImage alt={profile.name} className="rounded-full object-cover" height={64} src={profile.avatar} width={64} />
+              <FallbackImage alt={profile.name} className="rounded-full object-cover" height={80} src={profile.avatar} width={80} />
             ) : (
               profile.initials
             )}
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             <div>
-              <h2 className="text-xl font-bold text-[var(--foreground)]">{profile.name}</h2>
-              <p className="mt-1 text-sm font-medium text-[var(--text-body)]">{profile.subtitle}</p>
+              <h2 className="text-xl font-extrabold text-[var(--foreground)]">{profile.name}</h2>
+              <p className="mt-1 text-xs font-medium leading-5 text-[var(--text-body)]">{profile.subtitle}</p>
             </div>
 
-            <p className="text-sm leading-7 text-[var(--text-muted)]">{profile.bio}</p>
+            <p className="mx-auto max-w-[11rem] text-xs leading-6 text-[var(--text-muted)]">{profile.bio}</p>
 
-            <div className="flex gap-2 pt-1">
+            <div className="flex justify-center gap-2 pt-1">
               {profile.links.map((link) => {
                 const Icon = linkIcons[link.kind];
                 return (
                   <a
                     key={link.name}
                     aria-label={link.name}
-                    className="reader-icon-btn h-9 w-9"
+                    className="reader-icon-btn h-8 w-8"
                     href={link.url}
                     rel="noopener noreferrer"
                     target="_blank"
@@ -113,9 +125,10 @@ export function Sidebar({
           </div>
         </section>
 
-        <section className="reader-panel p-5" aria-labelledby="sidebar-categories-title">
+        <section className="reader-panel p-4" aria-labelledby="sidebar-categories-title">
           <div className="mb-3 flex items-center gap-2">
-            <Folder className="h-5 w-5 text-[var(--text-body)]" aria-hidden="true" />
+            <span className="h-4 w-1 rounded-full bg-[var(--accent-sky)]" aria-hidden="true" />
+            <Folder className="h-4 w-4 text-[var(--text-body)]" aria-hidden="true" />
             <h3 id="sidebar-categories-title" className="font-bold text-[var(--foreground)]">
               分类
             </h3>
@@ -126,7 +139,7 @@ export function Sidebar({
               {topCategories.map((category, index) => (
                 <NextLink
                   key={category.id}
-                  className="group flex items-center justify-between gap-3 rounded-xl px-1.5 py-1.5 text-sm transition hover:bg-[color:color-mix(in_oklab,var(--reader-panel-elevated)_68%,transparent)]"
+                  className="group flex items-center justify-between gap-3 rounded-lg px-1.5 py-1.5 text-sm transition hover:bg-[color:color-mix(in_oklab,var(--reader-panel-elevated)_68%,transparent)]"
                   href={`/categories/${category.slug}`}
                 >
                   <span className="flex min-w-0 items-center gap-2">
@@ -136,13 +149,42 @@ export function Sidebar({
                     />
                     <span className="truncate text-[var(--text-body)] transition group-hover:text-[var(--foreground)]">{category.name}</span>
                   </span>
-                  <span className="shrink-0 text-xs font-semibold text-[var(--text-muted)]">{category._count?.posts ?? 0}</span>
+                  <span className="shrink-0 rounded-md bg-[color:color-mix(in_oklab,var(--accent-sky)_72%,white_8%)] px-2 py-0.5 text-xs font-bold text-[#06101a]">{category._count?.posts ?? 0}</span>
                 </NextLink>
               ))}
             </div>
           ) : (
             <p className="rounded-xl border border-dashed border-[var(--reader-border)] p-3 text-sm leading-6 text-[var(--text-body)]">
               分类还在整理中。
+            </p>
+          )}
+        </section>
+
+        <section className="reader-panel p-4" aria-labelledby="sidebar-tags-title">
+          <div className="mb-3 flex items-center gap-2">
+            <span className="h-4 w-1 rounded-full bg-[var(--accent-sky)]" aria-hidden="true" />
+            <Tags className="h-4 w-4 text-[var(--text-body)]" aria-hidden="true" />
+            <h3 id="sidebar-tags-title" className="font-bold text-[var(--foreground)]">
+              标签
+            </h3>
+          </div>
+
+          {topTags.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {topTags.map((tag) => (
+                <NextLink
+                  key={tag.id}
+                  className="reader-chip rounded-md px-2 py-1 text-[0.7rem]"
+                  href={`/tags/${tag.slug}`}
+                  style={tag.color ? { borderColor: tag.color } : undefined}
+                >
+                  {tag.name}
+                </NextLink>
+              ))}
+            </div>
+          ) : (
+            <p className="rounded-xl border border-dashed border-[var(--reader-border)] p-3 text-sm leading-6 text-[var(--text-body)]">
+              标签还在整理中。
             </p>
           )}
         </section>
