@@ -139,9 +139,9 @@
     overflow: visible;
     border: 1px solid var(--reader-border);
     border-radius: 999px;
-    background: rgb(13 20 28 / 0.92);
-    box-shadow: 0 18px 48px rgb(0 0 0 / 0.32), inset 0 1px 0 rgb(255 255 255 / 0.04);
-    backdrop-filter: blur(16px) saturate(1.04);
+    background: var(--reader-nav-surface);
+    box-shadow: var(--reader-nav-shadow);
+    backdrop-filter: var(--reader-nav-backdrop);
   }
 
   .reader-panel,

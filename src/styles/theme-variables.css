@@ -32,6 +32,15 @@
   --reader-panel: color-mix(in oklab, var(--card-bg) 92%, var(--surface-alt) 8%);
   --reader-panel-elevated: color-mix(in oklab, var(--card-bg) 96%, white 4%);
   --reader-panel-muted: color-mix(in oklab, var(--surface-alt) 88%, var(--card-bg) 12%);
+  --reader-nav-surface:
+    linear-gradient(180deg, rgb(255 255 255 / 0.94) 0%, rgb(249 251 255 / 0.88) 52%, rgb(243 247 252 / 0.82) 100%),
+    radial-gradient(88% 140% at 8% 0%, color-mix(in oklab, var(--accent-warm) 16%, transparent), transparent 58%),
+    radial-gradient(80% 120% at 94% 18%, color-mix(in oklab, var(--accent-sky) 13%, transparent), transparent 62%);
+  --reader-nav-shadow:
+    0 1px 0 rgb(255 255 255 / 0.86) inset,
+    0 1px 2px rgb(15 23 42 / 0.04),
+    0 18px 46px rgb(82 104 130 / 0.14);
+  --reader-nav-backdrop: blur(18px) saturate(1.18);
 
   --foreground: oklch(0.22 0.018 248);
   --text-body: oklch(0.37 0.018 248);
@@ -115,6 +124,9 @@
   --reader-panel: rgb(18 28 38 / 0.84);
   --reader-panel-elevated: rgb(22 34 46 / 0.9);
   --reader-panel-muted: rgb(34 49 66 / 0.76);
+  --reader-nav-surface: rgb(13 20 28 / 0.92);
+  --reader-nav-shadow: 0 18px 48px rgb(0 0 0 / 0.32), inset 0 1px 0 rgb(255 255 255 / 0.04);
+  --reader-nav-backdrop: blur(16px) saturate(1.04);
 
   --foreground: oklch(0.94 0.012 255);
   --text-body: oklch(0.78 0.018 255);

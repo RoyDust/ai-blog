@@ -66,6 +66,8 @@ test('night reader theme exposes reusable tokens and semantic classes', () => {
 
   expect(themeSource).toContain('--reader-nav-height')
   expect(themeSource).toContain('--reader-banner-height')
+  expect(themeSource).toContain('--reader-nav-surface')
+  expect(themeSource).toContain('--reader-nav-shadow')
   expect(themeSource).toContain('--reader-panel')
   expect(themeSource).toContain('--accent-warm')
   expect(themeSource).toContain('--accent-cyan')
@@ -75,6 +77,8 @@ test('night reader theme exposes reusable tokens and semantic classes', () => {
   expect(componentSource).toContain('.reader-shell')
   expect(componentSource).toContain('.reader-banner')
   expect(componentSource).toContain('.reader-nav')
+  expect(componentSource).toContain('background: var(--reader-nav-surface)')
+  expect(componentSource).not.toContain('background: rgb(13 20 28 / 0.92)')
   expect(componentSource).toContain('.reader-panel')
   expect(componentSource).toContain('.reader-feed-card')
   expect(componentSource).toContain('.reader-feature-card')
