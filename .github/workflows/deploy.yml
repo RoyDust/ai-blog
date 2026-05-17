@@ -52,20 +52,20 @@ jobs:
       SSH_KEEPALIVE_OPTS: -o ServerAliveInterval=30 -o ServerAliveCountMax=20 -o TCPKeepAlive=yes
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: ${{ inputs.ref }}
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10
-
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 20
           cache: pnpm
+
+      - name: Setup pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.18.2 --activate
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -120,7 +120,7 @@ jobs:
           chmod +x release/scripts/deploy/deploy-remote.sh
 
       - name: Start SSH agent
-        uses: webfactory/ssh-agent@v0.9.0
+        uses: webfactory/ssh-agent@v0.10.0
         with:
           ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
 
