@@ -1,8 +1,13 @@
 import type { Metadata } from "next";
+import type { CSSProperties } from "react";
 import "./globals.css";
 import { AppProviders } from "@/components/AppProviders";
 import { getBlogSettings, toOpenGraphLocale } from "@/lib/blog-settings";
 import { alibabaPuHuiTi } from "./fonts";
+
+function toCssImageUrl(url: string) {
+  return `url("${url.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}")`;
+}
 
 /**
  * 应用根布局。
@@ -62,9 +67,12 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const settings = await getBlogSettings();
+  const backgroundStyle = {
+    "--reader-background-image": toCssImageUrl(settings.appearance.backgroundImageUrl),
+  } as CSSProperties;
 
   return (
-    <html lang={settings.locale} suppressHydrationWarning>
+    <html lang={settings.locale} className="dark" style={backgroundStyle} suppressHydrationWarning>
       <body className={`${alibabaPuHuiTi.variable} antialiased`}>
         <noscript>
           <div className="mx-auto max-w-2xl px-4 py-6 text-sm leading-6 text-slate-700">

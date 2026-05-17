@@ -11,6 +11,9 @@ const settings = {
   siteDescription: "Description",
   siteUrl: "https://blog.example",
   locale: "zh-CN",
+  appearance: {
+    backgroundImageUrl: "/images/configured-bg.webp",
+  },
   profile: {
     subtitle: "Subtitle",
     tagline: "Tagline",
@@ -29,6 +32,15 @@ const settings = {
     stack: [{ title: "Tech", description: "Tech description" }],
     contactTitle: "Contact",
     contactDescription: "Contact description",
+  },
+  reading: {
+    monthlyGoal: 18,
+  },
+  newsletter: {
+    enabled: false,
+    provider: "none",
+    fromEmail: "",
+    replyTo: "",
   },
 };
 

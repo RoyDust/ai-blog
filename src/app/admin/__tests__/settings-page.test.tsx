@@ -44,6 +44,9 @@ const configuredBlogSettings = {
   siteDescription: "Configured description",
   siteUrl: "https://blog.example",
   locale: "zh-CN",
+  appearance: {
+    backgroundImageUrl: "/images/configured-bg.webp",
+  },
   profile: {
     subtitle: "Configured subtitle",
     tagline: "Configured tagline",
@@ -65,6 +68,12 @@ const configuredBlogSettings = {
   },
   reading: {
     monthlyGoal: 18,
+  },
+  newsletter: {
+    enabled: false,
+    provider: "none" as const,
+    fromEmail: "",
+    replyTo: "",
   },
 };
 
@@ -103,6 +112,8 @@ describe("admin settings page", () => {
     expect(screen.getByLabelText("博客名称")).toHaveValue("Configured Blog");
     expect(screen.getByLabelText("站点描述")).toHaveValue("Configured description");
     expect(screen.getByLabelText("站点地址")).toHaveValue("https://blog.example");
+    expect(screen.getByLabelText("前台背景图 URL")).toHaveValue("/images/configured-bg.webp");
+    expect(screen.getByText("前台顶部背景预览")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "保存博客配置" })).toBeEnabled();
 
     fireEvent.click(screen.getByRole("tab", { name: /公开个人信息栏/ }));
@@ -192,6 +203,57 @@ describe("admin settings page", () => {
       const requestInit = (fetchMock.mock.calls[0] as unknown as [RequestInfo | URL, RequestInit])[1];
       const requestBody = JSON.parse(requestInit.body as string);
       expect(requestBody.siteName).toBeUndefined();
+      expect(requestBody.appearance).toBeUndefined();
+      expect(requestBody.about).toBeUndefined();
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  test("submits the configurable frontend background with site settings", async () => {
+    getServerSessionMock.mockResolvedValueOnce({ user: { id: "user-1", role: "ADMIN" } });
+    getBlogSettingsMock.mockResolvedValueOnce(configuredBlogSettings);
+    userFindUniqueMock.mockResolvedValueOnce({
+      id: "user-1",
+      name: "RoyDust",
+      email: "roy@example.com",
+      image: "https://example.com/avatar.png",
+      role: "ADMIN",
+    });
+
+    const fetchMock = vi.fn(async () =>
+      Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ success: true, data: configuredBlogSettings }),
+      } as Response),
+    );
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = fetchMock as typeof fetch;
+
+    try {
+      const { default: AdminSettingsPage } = await import("../settings/page");
+      const ui = await AdminSettingsPage();
+
+      render(ui as React.ReactElement);
+
+      fireEvent.click(screen.getByRole("tab", { name: /站点基础/ }));
+      fireEvent.change(screen.getByLabelText("前台背景图 URL"), { target: { value: "/images/custom-bg.webp" } });
+      fireEvent.click(screen.getByRole("button", { name: "保存博客配置" }));
+
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
+
+      const requestInit = (fetchMock.mock.calls[0] as unknown as [RequestInfo | URL, RequestInit])[1];
+      const requestBody = JSON.parse(requestInit.body as string);
+      expect(requestBody).toMatchObject({
+        siteName: "Configured Blog",
+        siteDescription: "Configured description",
+        siteUrl: "https://blog.example",
+        locale: "zh-CN",
+        appearance: {
+          backgroundImageUrl: "/images/custom-bg.webp",
+        },
+      });
+      expect(requestBody.profile).toBeUndefined();
       expect(requestBody.about).toBeUndefined();
     } finally {
       globalThis.fetch = originalFetch;

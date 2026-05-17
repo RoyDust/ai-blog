@@ -15,6 +15,7 @@ vi.mock("@/lib/prisma", () => ({
 import {
   BLOG_SITE_SETTING_KEY,
   DEFAULT_BLOG_SETTINGS,
+  DEFAULT_READER_BACKGROUND_IMAGE_URL,
   getBlogSettings,
   normalizeBlogSettingsInput,
   updateBlogSettings,
@@ -52,6 +53,7 @@ describe("blog settings", () => {
       siteDescription: "A configured site.",
       siteUrl: "https://blog.example",
       locale: "en-US",
+      appearance: DEFAULT_BLOG_SETTINGS.appearance,
       profile: DEFAULT_BLOG_SETTINGS.profile,
       about: DEFAULT_BLOG_SETTINGS.about,
       reading: DEFAULT_BLOG_SETTINGS.reading,
@@ -141,6 +143,7 @@ describe("blog settings", () => {
       siteDescription: "Description",
       siteUrl: "https://blog.example",
       locale: "zh-CN",
+      appearance: DEFAULT_BLOG_SETTINGS.appearance,
       profile: DEFAULT_BLOG_SETTINGS.profile,
       about: DEFAULT_BLOG_SETTINGS.about,
       reading: DEFAULT_BLOG_SETTINGS.reading,
@@ -195,6 +198,7 @@ describe("blog settings", () => {
       siteName: "Existing Blog",
       siteDescription: "Existing description",
       siteUrl: "https://existing.example",
+      appearance: DEFAULT_BLOG_SETTINGS.appearance,
       profile: expect.objectContaining({
         subtitle: "Existing subtitle",
         tagline: "New tagline",
@@ -207,6 +211,7 @@ describe("blog settings", () => {
       siteName: "Existing Blog",
       siteDescription: "Existing description",
       siteUrl: "https://existing.example",
+      appearance: DEFAULT_BLOG_SETTINGS.appearance,
       profile: expect.objectContaining({
         subtitle: "Existing subtitle",
         tagline: "New tagline",
@@ -248,6 +253,56 @@ describe("blog settings", () => {
         highlights: [{ title: "亮点", description: "描述" }],
       }),
     });
+  });
+
+  test("normalizes configurable appearance background image", () => {
+    expect(
+      normalizeBlogSettingsInput({
+        ...DEFAULT_BLOG_SETTINGS,
+        appearance: {
+          backgroundImageUrl: " /images/custom-bg.webp ",
+        },
+      }),
+    ).toMatchObject({
+      appearance: {
+        backgroundImageUrl: "/images/custom-bg.webp",
+      },
+    });
+
+    expect(
+      normalizeBlogSettingsInput({
+        ...DEFAULT_BLOG_SETTINGS,
+        appearance: {
+          backgroundImageUrl: "https://cdn.example.com/background.png?size=large",
+        },
+      }),
+    ).toMatchObject({
+      appearance: {
+        backgroundImageUrl: "https://cdn.example.com/background.png?size=large",
+      },
+    });
+
+    expect(
+      normalizeBlogSettingsInput({
+        ...DEFAULT_BLOG_SETTINGS,
+        appearance: {
+          backgroundImageUrl: "",
+        },
+      }),
+    ).toMatchObject({
+      appearance: {
+        backgroundImageUrl: DEFAULT_READER_BACKGROUND_IMAGE_URL,
+      },
+    });
+
+    expect(() =>
+      normalizeBlogSettingsInput({
+        ...DEFAULT_BLOG_SETTINGS,
+        appearance: {
+          backgroundImageUrl: "javascript:alert(1)",
+        },
+      }),
+    ).toThrow("背景图地址必须使用 http 或 https");
   });
 
   test("normalizes monthly reading goal settings", () => {

@@ -12,6 +12,8 @@ describe("app providers contract", () => {
 
     expect(layoutSource).toContain('import { AppProviders } from "@/components/AppProviders"');
     expect(layoutSource).toContain("<AppProviders>");
+    expect(layoutSource).toContain('"--reader-background-image"');
+    expect(layoutSource).toContain("settings.appearance.backgroundImageUrl");
     expect(layoutSource).not.toContain("<AuthProvider>");
     expect(layoutSource).not.toContain("<ThemeProvider>");
     expect(layoutSource).not.toContain("<MotionProvider>");

@@ -2,7 +2,7 @@
 
 import { type FormEvent, useState } from "react";
 import { toast } from "sonner";
-import { FileText, Globe2, HardDrive, Mail, ShieldCheck, Target, UserRound } from "lucide-react";
+import { FileText, Globe2, HardDrive, ImageIcon, Mail, ShieldCheck, Target, UserRound } from "lucide-react";
 import { PageHeader } from "@/components/admin/primitives/PageHeader";
 import { WorkspacePanel } from "@/components/admin/primitives/WorkspacePanel";
 import { Button, ImageCropUploadDialog, Input, Textarea } from "@/components/admin/ui";
@@ -23,6 +23,9 @@ type BlogSettingsDraft = {
   siteDescription: string;
   siteUrl: string;
   locale: string;
+  appearance: {
+    backgroundImageUrl: string;
+  };
   profile: {
     subtitle: string;
     tagline: string;
@@ -88,6 +91,11 @@ function fromMultiline(value: string) {
     .split(/\r?\n/)
     .map((item) => item.trim())
     .filter(Boolean);
+}
+
+function toCssImageUrl(value: string) {
+  const url = value.trim() || "/images/fuwari-night-city-bg.svg";
+  return `url("${url.replaceAll("\\", "\\\\").replaceAll('"', '\\"').replaceAll("\n", "").replaceAll("\r", "")}")`;
 }
 
 export function AdminSettingsClient({ user, blogSettings, operationLogSettings }: AdminSettingsClientProps) {
@@ -217,6 +225,7 @@ export function AdminSettingsClient({ user, blogSettings, operationLogSettings }
       siteDescription: blogDraft.siteDescription,
       siteUrl: blogDraft.siteUrl,
       locale: blogDraft.locale,
+      appearance: blogDraft.appearance,
     });
 
   const savePublicProfileSettings = (event: FormEvent<HTMLFormElement>) =>
@@ -392,8 +401,36 @@ export function AdminSettingsClient({ user, blogSettings, operationLogSettings }
                     value={blogDraft.locale}
                   />
                 </div>
+                <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_18rem]">
+                  <Input
+                    helperText="支持站内路径或 http(s) 图片 URL；留空会恢复默认夜景背景。"
+                    label="前台背景图 URL"
+                    onChange={(event) =>
+                      setBlogDraft((value) => ({
+                        ...value,
+                        appearance: {
+                          ...value.appearance,
+                          backgroundImageUrl: event.target.value,
+                        },
+                      }))
+                    }
+                    placeholder="/images/fuwari-night-city-bg.svg"
+                    value={blogDraft.appearance.backgroundImageUrl}
+                  />
+                  <div className="overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface-alt)]">
+                    <div
+                      aria-hidden="true"
+                      className="h-28 bg-cover bg-center"
+                      style={{ backgroundImage: toCssImageUrl(blogDraft.appearance.backgroundImageUrl) }}
+                    />
+                    <div className="flex items-center gap-2 border-t border-[var(--border)] px-3 py-2 text-xs text-[var(--muted)]">
+                      <ImageIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                      <span>前台顶部背景预览</span>
+                    </div>
+                  </div>
+                </div>
                 <div className="rounded-xl border border-dashed border-[var(--border)] bg-[var(--surface-alt)] p-4 text-sm text-[var(--muted)]">
-                  这些字段会同步到前台导航左侧品牌、页脚说明、站点标题、SEO 描述、RSS、站点地图和默认语言。
+                  这些字段会同步到前台导航左侧品牌、页脚说明、站点标题、SEO 描述、RSS、站点地图、默认语言和前台顶部背景。
                 </div>
                 <div className="flex justify-end">
                   <Button disabled={savingBlogSettings} type="submit" variant="outline">

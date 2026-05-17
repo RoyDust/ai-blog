@@ -11,10 +11,15 @@ export type BlogSettings = {
   siteDescription: string;
   siteUrl: string;
   locale: string;
+  appearance: AppearanceSettings;
   profile: PublicProfileContent;
   about: AboutPageSettings;
   reading: ReadingSettings;
   newsletter: NewsletterSettings;
+};
+
+export type AppearanceSettings = {
+  backgroundImageUrl: string;
 };
 
 export type AboutPageCard = {
@@ -45,11 +50,16 @@ export type NewsletterSettings = {
   replyTo: string;
 };
 
+export const DEFAULT_READER_BACKGROUND_IMAGE_URL = "/images/fuwari-night-city-bg.svg";
+
 export const DEFAULT_BLOG_SETTINGS: BlogSettings = {
   siteName: "My Blog",
   siteDescription: "夜读模式下整理前端、工程实践和部署笔记，让长期积累有清晰入口。",
   siteUrl: getSiteUrl(),
   locale: "zh-CN",
+  appearance: {
+    backgroundImageUrl: DEFAULT_READER_BACKGROUND_IMAGE_URL,
+  },
   profile: PUBLIC_PROFILE_CONTENT_FALLBACK,
   about: {
     aboutTitle: "关于我",
@@ -196,6 +206,35 @@ function normalizeOptionalUrl(value: unknown, fallback: string) {
   return parsed.toString().replace(/\/+$/, "");
 }
 
+function normalizeBackgroundImageUrl(value: unknown, fallback: string) {
+  const raw = typeof value === "string" ? value.trim() : fallback;
+
+  if (!raw) {
+    return DEFAULT_READER_BACKGROUND_IMAGE_URL;
+  }
+
+  if (raw.startsWith("/")) {
+    if (raw.startsWith("//") || raw.includes("\\") || /[\r\n"'()]/.test(raw)) {
+      throw new ValidationError("背景图地址必须是有效的站内路径或 http(s) URL");
+    }
+
+    return raw;
+  }
+
+  let parsed: URL;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    throw new ValidationError("背景图地址必须是有效的站内路径或 http(s) URL");
+  }
+
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    throw new ValidationError("背景图地址必须使用 http 或 https");
+  }
+
+  return parsed.toString();
+}
+
 function normalizeText(value: unknown, fallback: string, label: string, maxLength = MAX_LONG_TEXT_LENGTH) {
   const text = typeof value === "string" ? value.trim() : fallback;
   if (!text) {
@@ -250,6 +289,14 @@ function normalizeProfileSettings(value: unknown, fallback: PublicProfileContent
     intro: normalizeText(record.intro, fallback.intro, "作者介绍"),
     githubUrl: normalizeOptionalUrl(record.githubUrl, fallback.githubUrl),
     twitterUrl: normalizeOptionalUrl(record.twitterUrl, fallback.twitterUrl),
+  };
+}
+
+function normalizeAppearanceSettings(value: unknown, fallback: AppearanceSettings): AppearanceSettings {
+  const record = typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
+
+  return {
+    backgroundImageUrl: normalizeBackgroundImageUrl(record.backgroundImageUrl, fallback.backgroundImageUrl),
   };
 }
 
@@ -334,6 +381,7 @@ export function normalizeBlogSettingsInput(input: unknown, fallback = getDefault
     siteDescription,
     siteUrl: normalizeSiteUrl(record.siteUrl, fallback.siteUrl),
     locale,
+    appearance: normalizeAppearanceSettings(record.appearance, fallback.appearance),
     profile: normalizeProfileSettings(record.profile, fallback.profile),
     about: normalizeAboutSettings(record.about, fallback.about),
     reading: normalizeReadingSettings(record.reading, fallback.reading),
