@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { MotionPanel } from "@/components/motion/MotionPanel";
 
 interface HuePickerProps {
   isOpen: boolean;
@@ -25,10 +26,9 @@ export function HuePicker({ isOpen }: HuePickerProps) {
   };
 
   return (
-    <div
-      className={`float-panel absolute top-[5.25rem] right-4 p-3 transition-all ${
-        isOpen ? "opacity-100" : "pointer-events-none opacity-0"
-      }`}
+    <MotionPanel
+      open={isOpen}
+      className="float-panel absolute top-[5.25rem] right-4 p-3"
     >
       <label className="mb-2 block text-xs text-[var(--muted)]" htmlFor="hue-slider">
         主题色相
@@ -43,6 +43,6 @@ export function HuePicker({ isOpen }: HuePickerProps) {
         onChange={(event) => handleChange(event.target.value)}
         className="w-44"
       />
-    </div>
+    </MotionPanel>
   );
 }
