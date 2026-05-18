@@ -14,6 +14,17 @@ test('theme toggle uses semantic token-driven icon styling', () => {
   expect(source).not.toMatch(/dark:text-/)
 })
 
+test('root layout initializes saved theme before hydration', () => {
+  const source = readSource('src/app/layout.tsx')
+
+  expect(source).toContain('id="theme-init"')
+  expect(source).toContain('<head>')
+  expect(source).toContain('<script id="theme-init"')
+  expect(source).toContain('window.localStorage.getItem("theme")')
+  expect(source).toContain('classList.toggle("dark", theme === "dark")')
+  expect(source).not.toContain('className="dark"')
+})
+
 test('post card uses semantic classes for dark-mode text and media', () => {
   const source = readSource('src/components/posts/PostCard.tsx')
 

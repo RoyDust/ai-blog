@@ -9,6 +9,23 @@ function toCssImageUrl(url: string) {
   return `url("${url.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}")`;
 }
 
+const themeInitScript = `
+(function () {
+  try {
+    var theme = window.localStorage.getItem("theme");
+    if (theme !== "light" && theme !== "dark") {
+      theme = "dark";
+    }
+
+    document.documentElement.classList.toggle("dark", theme === "dark");
+    document.documentElement.style.colorScheme = theme;
+  } catch (_) {
+    document.documentElement.classList.add("dark");
+    document.documentElement.style.colorScheme = "dark";
+  }
+})();
+`;
+
 /**
  * 应用根布局。
  *
@@ -72,7 +89,10 @@ export default async function RootLayout({
   } as CSSProperties;
 
   return (
-    <html lang={settings.locale} className="dark" style={backgroundStyle} suppressHydrationWarning>
+    <html lang={settings.locale} style={backgroundStyle} suppressHydrationWarning>
+      <head>
+        <script id="theme-init" dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+      </head>
       <body className={`${alibabaPuHuiTi.variable} antialiased`}>
         <noscript>
           <div className="mx-auto max-w-2xl px-4 py-6 text-sm leading-6 text-slate-700">
