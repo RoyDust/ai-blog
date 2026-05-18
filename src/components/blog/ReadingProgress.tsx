@@ -1,35 +1,23 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { motion, useScroll, useSpring } from "motion/react";
+import { springScroll } from "@/components/motion/transitions";
 
 export function ReadingProgress() {
-  const [progress, setProgress] = useState(0);
-
-  useEffect(() => {
-    const handleScroll = () => {
-      const total = document.documentElement.scrollHeight - window.innerHeight;
-      const current = window.scrollY;
-      const percent = total > 0 ? Math.min(100, Math.max(0, (current / total) * 100)) : 0;
-      setProgress(percent);
-    };
-
-    handleScroll();
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
+  const { scrollYProgress } = useScroll();
+  const scaleX = useSpring(scrollYProgress, springScroll);
 
   return (
     <div
       aria-label="阅读进度"
       aria-valuemax={100}
       aria-valuemin={0}
-      aria-valuenow={Math.round(progress)}
-      className="fixed left-0 top-0 z-50 h-1 w-full bg-transparent"
+      className="fixed left-0 top-0 z-50 h-0.5 w-full bg-transparent"
       role="progressbar"
     >
-      <div
-        className="h-full bg-[var(--accent-warm)] shadow-[0_0_18px_color-mix(in_oklab,var(--accent-warm)_60%,transparent)] transition-[width] duration-150 ease-out"
-        style={{ width: `${progress}%` }}
+      <motion.div
+        className="h-full origin-left bg-(--accent-warm) shadow-[0_0_12px_color-mix(in_oklab,var(--accent-warm)_50%,transparent)]"
+        style={{ scaleX }}
       />
     </div>
   );

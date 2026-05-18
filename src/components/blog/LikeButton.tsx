@@ -3,6 +3,9 @@
 import { useEffect, useState } from 'react'
 import { Heart } from 'lucide-react'
 import { getOrCreateBrowserId } from '@/lib/browser-id'
+import { motion } from "motion/react";
+import { springSnappy } from "@/components/motion/transitions";
+import { iconPopVariants } from "@/components/motion/variants";
 
 interface LikeButtonProps {
   slug: string
@@ -71,18 +74,28 @@ export function LikeButton({ slug, initialLiked, initialCount }: LikeButtonProps
   }
 
   return (
-    <button
+    <motion.button
       onClick={handleLike}
       disabled={loading}
       aria-label={liked ? '取消点赞' : '点赞'}
+      whileTap={{ scale: 0.92 }}
+      whileFocus={{ scale: 0.96 }}
+      transition={springSnappy}
       className={`inline-flex h-11 items-center gap-2 rounded-full border px-4 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-60 ${
         liked
           ? 'border-[color:color-mix(in_oklab,var(--accent-warm)_60%,var(--reader-border))] bg-[color-mix(in_oklab,var(--accent-warm)_24%,var(--reader-panel))] text-[var(--foreground)]'
           : 'border-[var(--reader-border)] bg-[color-mix(in_oklab,var(--reader-panel-elevated)_82%,transparent)] text-[var(--text-body)] hover:border-[var(--reader-border-strong)] hover:bg-[var(--reader-panel-elevated)] hover:text-[var(--foreground)]'
       }`}
     >
-      <Heart className="h-5 w-5" fill={liked ? 'currentColor' : 'none'} />
+      <motion.span
+        key={liked ? 'liked' : 'idle'}
+        variants={iconPopVariants}
+        initial="hidden"
+        animate="visible"
+      >
+        <Heart className="h-5 w-5" fill={liked ? 'currentColor' : 'none'} />
+      </motion.span>
       <span>{count}</span>
-    </button>
+    </motion.button>
   )
 }
