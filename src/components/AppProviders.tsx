@@ -6,6 +6,7 @@ import { AuthProvider } from "@/components/AuthProvider";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { GlobalLoginDialog } from "@/components/auth/GlobalLoginDialog";
 import { Toaster } from "@/components/ui/Toaster";
+import { BlogMotionProvider } from "@/components/motion/BlogMotionProvider";
 
 /**
  * 客户端全局 Provider 装配入口。
@@ -21,11 +22,13 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
   return (
     <AuthProvider>
       <ThemeProvider>
-        {children}
-        <Suspense fallback={null}>
-          <GlobalLoginDialog />
-        </Suspense>
-        <Toaster />
+        <BlogMotionProvider>
+          {children}
+          <Suspense fallback={null}>
+            <GlobalLoginDialog />
+          </Suspense>
+          <Toaster />
+        </BlogMotionProvider>
       </ThemeProvider>
     </AuthProvider>
   );
