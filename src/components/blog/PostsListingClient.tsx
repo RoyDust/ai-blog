@@ -11,7 +11,8 @@
 
 import { useCallback } from 'react'
 
-import { getListRevealAnimationProps } from './listAnimation'
+import { AnimatePresence, motion } from "motion/react";
+import { listContainerVariants, revealVariants } from "@/components/motion/variants";
 import { PostCard } from './PostCard'
 import { PostCardFeatured } from './PostCardFeatured'
 import { PostCardSkeleton } from './PostCardSkeleton'
@@ -95,13 +96,23 @@ export function PostsListingClient({ initialPosts, initialPagination, filters }:
           </div>
         ))
       ) : posts.length > 0 ? (
-        <>
-          {posts.map((post, index) => (
-            <div key={post.id} {...getListRevealAnimationProps(index)}>
-              {post.featured ? <PostCardFeatured post={post} /> : <PostCard post={post} />}
-            </div>
-          ))}
-        </>
+        <motion.div
+          variants={listContainerVariants}
+          initial="hidden"
+          animate="visible"
+        >
+          <AnimatePresence mode="popLayout" initial={false}>
+            {posts.map((post) => (
+              <motion.div
+                key={post.id}
+                layout
+                variants={revealVariants}
+              >
+                {post.featured ? <PostCardFeatured post={post} /> : <PostCard post={post} />}
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </motion.div>
       ) : (
         <div className="reader-panel p-8 text-sm text-[var(--text-muted)]">暂无文章。</div>
       )}

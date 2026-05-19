@@ -3,7 +3,10 @@
 import Link from "next/link";
 import { ArrowRight, CalendarDays, Clock3, Tag } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import { FallbackImage } from "@/components/ui";
+import { crossFadeVariants } from "@/components/motion/variants";
+import { panelTransition } from "@/components/motion/transitions";
 
 interface HomeReaderBannerPost {
   title: string;
@@ -68,7 +71,16 @@ export function HomeReaderBanner({ posts = [], leadPost, latestPost }: HomeReade
       aria-roledescription="carousel"
     >
       {displayPost ? (
-        <div className="grid h-full min-h-0 gap-0 overflow-hidden rounded-[calc(var(--radius-large)+0.125rem)] lg:grid-cols-[minmax(14rem,0.38fr)_minmax(0,0.62fr)] lg:grid-rows-[minmax(0,1fr)_auto]">
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={safeActiveIndex}
+            className="grid h-full min-h-0 gap-0 overflow-hidden rounded-[calc(var(--radius-large)+0.125rem)] lg:grid-cols-[minmax(14rem,0.38fr)_minmax(0,0.62fr)] lg:grid-rows-[minmax(0,1fr)_auto]"
+            variants={crossFadeVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            transition={panelTransition}
+          >
           <Link
             href={`/posts/${displayPost.slug}`}
             aria-label={`阅读精选文章：${displayPost.title}`}
@@ -161,7 +173,8 @@ export function HomeReaderBanner({ posts = [], leadPost, latestPost }: HomeReade
               );
             })}
           </div>
-        </div>
+          </motion.div>
+        </AnimatePresence>
       ) : (
         <div className="min-h-[16rem] p-6 md:p-8">
           <div className="max-w-2xl space-y-4">

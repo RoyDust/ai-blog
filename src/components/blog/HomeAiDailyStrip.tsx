@@ -1,5 +1,9 @@
+"use client";
+
 import Link from "next/link";
 import { ArrowRight, Sparkles } from "lucide-react";
+import { motion } from "motion/react";
+import { listContainerVariants, revealVariants } from "@/components/motion/variants";
 
 interface AiDailyItem {
   id: string;
@@ -48,23 +52,29 @@ export function HomeAiDailyStrip({ posts }: HomeAiDailyStripProps) {
         </Link>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-5">
+      <motion.div
+        className="grid gap-3 md:grid-cols-5"
+        variants={listContainerVariants}
+        initial="hidden"
+        animate="visible"
+      >
         {posts.slice(0, 5).map((post, index) => (
-          <Link
-            key={post.id}
-            href={`/posts/${post.slug}`}
-            className="group min-w-0 border-t border-[var(--reader-border)] pt-3 md:border-t-0 md:border-l md:pt-0 md:pl-3 first:md:border-l-0 first:md:pl-0"
-          >
-            <span className="mb-2 flex items-center gap-2 text-[0.72rem] font-semibold text-[var(--text-muted)]">
-              <span className="h-2 w-2 rounded-full bg-[var(--accent-sky)] shadow-[0_0_0_4px_color-mix(in_oklab,var(--accent-sky)_12%,transparent)]" />
-              {formatTime(post.publishedAt ?? post.createdAt, index)}
-            </span>
-            <span className="line-clamp-2 text-xs font-semibold leading-5 text-[var(--text-body)] transition group-hover:text-[var(--foreground)]">
-              {trimDailyTitle(post.title)}
-            </span>
-          </Link>
+          <motion.div key={post.id} variants={revealVariants}>
+            <Link
+              href={`/posts/${post.slug}`}
+              className="group min-w-0 border-t border-[var(--reader-border)] pt-3 md:border-t-0 md:border-l md:pt-0 md:pl-3 first:md:border-l-0 first:md:pl-0"
+            >
+              <span className="mb-2 flex items-center gap-2 text-[0.72rem] font-semibold text-[var(--text-muted)]">
+                <span className="h-2 w-2 rounded-full bg-[var(--accent-sky)] shadow-[0_0_0_4px_color-mix(in_oklab,var(--accent-sky)_12%,transparent)]" />
+                {formatTime(post.publishedAt ?? post.createdAt, index)}
+              </span>
+              <span className="line-clamp-2 text-xs font-semibold leading-5 text-[var(--text-body)] transition group-hover:text-[var(--foreground)]">
+                {trimDailyTitle(post.title)}
+              </span>
+            </Link>
+          </motion.div>
         ))}
-      </div>
+      </motion.div>
     </section>
   );
 }

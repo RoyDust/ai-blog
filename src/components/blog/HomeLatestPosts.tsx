@@ -3,7 +3,8 @@
 import Link from 'next/link'
 import { ArrowRight, BookOpen, CalendarDays, ChevronRight, Clock3, Eye } from 'lucide-react'
 import { FallbackImage } from '@/components/ui'
-import { getListRevealAnimationProps } from './listAnimation'
+import { motion } from "motion/react";
+import { listContainerVariants, revealVariants } from "@/components/motion/variants";
 
 const READER_CARD_FALLBACK_SRC = '/images/fuwari-post-cover-fallback.svg'
 
@@ -59,15 +60,18 @@ export function HomeLatestPosts({ posts }: HomeLatestPostsProps) {
         </Link>
       </div>
 
-      <div className="space-y-3">
-        {posts.slice(0, 4).map((post, index) => {
-          const revealProps = getListRevealAnimationProps(index)
-
+      <motion.div
+        className="space-y-3"
+        variants={listContainerVariants}
+        initial="hidden"
+        animate="visible"
+      >
+        {posts.slice(0, 4).map((post) => {
           return (
-            <article
+            <motion.article
               key={post.id}
-              className={`reader-feed-card group grid min-w-0 gap-4 p-3 sm:min-h-32 sm:grid-cols-[10.75rem_minmax(0,1fr)_2.25rem] sm:grid-rows-[minmax(0,1fr)] sm:p-3 ${revealProps.className ?? ''}`}
-              style={revealProps.style}
+              className="reader-feed-card group grid min-w-0 gap-4 p-3 sm:min-h-32 sm:grid-cols-[10.75rem_minmax(0,1fr)_2.25rem] sm:grid-rows-[minmax(0,1fr)] sm:p-3"
+              variants={revealVariants}
             >
               <Link
                 href={`/posts/${post.slug}`}
@@ -132,10 +136,10 @@ export function HomeLatestPosts({ posts }: HomeLatestPostsProps) {
               >
                 <ChevronRight aria-hidden="true" className="h-5 w-5" />
               </Link>
-            </article>
+            </motion.article>
           )
         })}
-      </div>
+      </motion.div>
 
     </section>
   )
