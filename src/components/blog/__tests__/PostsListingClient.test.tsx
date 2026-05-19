@@ -140,20 +140,10 @@ describe('PostsListingClient', () => {
     expect(screen.getAllByText('精选文章')).toHaveLength(2)
     expect(screen.getByTestId('posts-listing')).toHaveClass('reader-section')
 
-    const animatedCards = ['1', '2', '3', '4'].map((id) =>
-      screen.getByRole('heading', { name: `Post ${id}` }).closest('.onload-animation'),
-    )
-
-    expect(animatedCards).toHaveLength(4)
-    expect(animatedCards).toEqual(expect.not.arrayContaining([null]))
-    expect(animatedCards.map((element) => element?.getAttribute('style'))).toEqual([
-      'animation-delay: 100ms;',
-      'animation-delay: 150ms;',
-      'animation-delay: 200ms;',
-      'animation-delay: 250ms;',
-    ])
-    expect(screen.getByRole('heading', { name: 'Post 5' }).closest('.onload-animation')).toBeNull()
-    expect(screen.getByRole('heading', { name: 'Post 6' }).closest('.onload-animation')).toBeNull()
+    // 所有 6 篇文章均已渲染（Motion variants 不限制渲染数量）
+    for (const id of ['1', '2', '3', '4', '5', '6']) {
+      expect(screen.getByRole('heading', { name: `Post ${id}` })).toBeInTheDocument()
+    }
   })
 
   test('shows skeleton cards again when search params change', async () => {

@@ -111,3 +111,16 @@
 ### Background Config Review
 
 已将前台背景图接入后台“站点基础”配置，字段为 `appearance.backgroundImageUrl`，通过原有 `system_settings` 的 `blog.site` JSON 持久化，不新增迁移。前台根布局会把配置写入 `--reader-background-image`，全局与 `.reader-shell` 背景继续复用原来的 66vh 渐隐层；留空会恢复默认 `/images/fuwari-night-city-bg.svg`。验证已覆盖针对性测试、`lint`、生产构建、全量测试，以及 `1440x900` / `390x844` 生产页面 CSS 变量和横向滚动检查。
+
+## 博客 Motion-first Phase 4-6
+
+- [x] 改造首页 AI 日报、最新文章、精选网格和首页轮播为 Motion-first 编排
+- [x] 改造文章列表为 `AnimatePresence mode="popLayout"` 与稳定 wrapper
+- [x] 新增 PostCard 外层 motion wrapper，保持卡片业务组件为 RSC
+- [x] 改造文章详情 Hero、TOC、继续阅读和订阅表单的辅助动效
+- [ ] 清理业务代码里的旧 `.onload-animation`、`stagger-children`、`listAnimation.ts` 和非 shadcn `transition-all`
+- [x] 运行针对性测试、lint、旧入口搜索和 build 验证
+
+### Motion-first Phase 4-6 Review
+
+已完成首页、文章列表、PostCard 外层 wrapper 和文章详情辅助动效的 Motion-first 改造，并补充文章列表测试以断言 Motion variants 下 6 篇文章均正常渲染。验证已运行 `pnpm test src/components/blog/__tests__/PostsListingClient.test.tsx`、`pnpm lint`、`pnpm test`、旧入口搜索和 `pnpm build`。旧入口搜索仍命中 `src/styles/animations.css`、layout chrome、taxonomy/about/archives 等页面以及 shadcn 内部 `transition-all`，因此全站旧 `.onload-animation` / `stagger-children` 清理尚未完成。
