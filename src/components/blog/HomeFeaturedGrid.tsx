@@ -1,7 +1,10 @@
+"use client";
+
+import { motion } from "motion/react";
 import { PostCardFeatured } from "./PostCardFeatured";
 import { PostCardSecondary } from "./PostCardSecondary";
 import { SectionHeader } from "./SectionHeader";
-import { getListRevealAnimationProps } from "./listAnimation";
+import { listContainerVariants, revealVariants } from "@/components/motion/variants";
 
 interface HomeFeaturedPost {
   id: string;
@@ -56,21 +59,26 @@ export function HomeFeaturedGrid({ leadPost, secondaryPosts }: HomeFeaturedGridP
         variant="reader"
       />
 
-      <div className="space-y-4">
-        <div {...getListRevealAnimationProps(0)}>
+      <motion.div
+        className="space-y-4"
+        variants={listContainerVariants}
+        initial="hidden"
+        animate="visible"
+      >
+        <motion.div variants={revealVariants}>
           <PostCardFeatured post={leadPost} />
-        </div>
+        </motion.div>
 
         {secondaryPosts.length > 0 ? (
           <div className="grid gap-4 md:grid-cols-2" data-testid="home-featured-secondary-grid">
-            {secondaryPosts.map((post, index) => (
-              <div key={post.id} data-testid="home-featured-secondary-item" {...getListRevealAnimationProps(index + 1)}>
+            {secondaryPosts.map((post) => (
+              <motion.div key={post.id} data-testid="home-featured-secondary-item" variants={revealVariants}>
                 <PostCardSecondary post={post} />
-              </div>
+              </motion.div>
             ))}
           </div>
         ) : null}
-      </div>
+      </motion.div>
     </section>
   );
 }
