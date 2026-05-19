@@ -482,7 +482,7 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
             top: "calc(var(--sidebar-sticky-top, 0px) + 0.75rem)",
           }}
         >
-          <div className="reader-panel h-[var(--article-toc-card-height)] overflow-auto p-5">
+          <div className="reader-panel max-h-[var(--article-toc-card-max-height)] overflow-auto p-5">
             <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">On this page</p>
             <h3 className="mb-4 font-display text-lg font-semibold text-[var(--foreground)]">目录</h3>
             <ArticleToc headings={headings} />

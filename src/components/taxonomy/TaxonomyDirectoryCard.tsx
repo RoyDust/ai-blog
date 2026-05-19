@@ -15,7 +15,7 @@ export function TaxonomyDirectoryCard({ href, name, description, count, badge, a
   const Icon = isTag ? Hash : BookOpenText;
 
   return (
-    <article className="group reader-card overflow-hidden p-5 transition hover:-translate-y-0.5 md:p-6">
+    <article className="group reader-card overflow-hidden p-5 transition-colors md:p-6">
       <span
         aria-hidden="true"
         className="absolute inset-x-0 top-0 h-1 opacity-85"

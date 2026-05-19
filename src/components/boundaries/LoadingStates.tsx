@@ -99,7 +99,7 @@ export function ArticleLoadingState() {
         </div>
 
         <aside className="hidden xl:block">
-          <div className="reader-panel h-[var(--article-toc-card-height)] space-y-4 p-5">
+          <div className="reader-panel max-h-[var(--article-toc-card-max-height)] space-y-4 overflow-hidden p-5">
             <SkeletonLine className="h-4 w-24" />
             <SkeletonLine className="h-6 w-20" />
             <div className="space-y-3 pt-2">

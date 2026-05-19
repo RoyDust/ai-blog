@@ -1,9 +1,5 @@
-"use client";
-
 import Link from 'next/link'
 import { ArrowLeft, ArrowRight } from 'lucide-react'
-import { motion } from "motion/react";
-import { springSnappy } from "@/components/motion/transitions";
 
 interface AdjacentPost {
   slug: string
@@ -18,11 +14,7 @@ interface ArticleContinuationProps {
 
 function AdjacentLink({ label, href, title, align = 'left' }: { label: string; href: string; title: string; align?: 'left' | 'right' }) {
   return (
-    <motion.div
-      whileHover={{ y: -2 }}
-      whileTap={{ scale: 0.98 }}
-      transition={springSnappy}
-    >
+    <div>
       <Link
         href={href}
         className={`reader-feed-card group flex min-h-32 flex-col justify-between gap-5 p-5 ${align === 'right' ? 'items-end text-right' : ''}`}
@@ -34,7 +26,7 @@ function AdjacentLink({ label, href, title, align = 'left' }: { label: string; h
         </p>
         <h3 className="text-lg font-bold leading-snug text-[var(--foreground)] transition-colors group-hover:text-[var(--accent-warm)]">{title}</h3>
       </Link>
-    </motion.div>
+    </div>
   )
 }
 

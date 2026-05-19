@@ -10,7 +10,7 @@
   --layout-rail-gap: clamp(0.75rem, 1.2vw, 1.25rem);
   --sidebar-profile-padding: 1.25rem;
   --sidebar-profile-card-height: 18.375rem;
-  --article-toc-card-height: min(34rem, calc(100vh - var(--sidebar-sticky-top, 0px) - 1.75rem));
+  --article-toc-card-max-height: min(51rem, calc(100vh - var(--sidebar-sticky-top, 0px) - 1.75rem));
   --article-radius: calc(var(--radius-large) + 0.75rem);
   --section-gap: clamp(1.25rem, 2vw, 2rem);
   --hero-media-ratio: 1.35;
@@ -89,9 +89,6 @@
   --reader-shadow:
     0 1px 1px rgb(15 23 42 / 0.04),
     0 18px 46px rgb(15 23 42 / 0.08);
-  --reader-shadow-hover:
-    0 1px 1px rgb(15 23 42 / 0.05),
-    0 24px 62px rgb(15 23 42 / 0.12);
 
   --image-filter: saturate(0.98) contrast(1.02);
   --image-filter-hover: saturate(1.02) contrast(1.04);
@@ -175,9 +172,6 @@
   --reader-shadow:
     0 1px 0 rgb(255 255 255 / 0.04),
     0 22px 54px rgb(2 8 23 / 0.38);
-  --reader-shadow-hover:
-    0 1px 0 rgb(255 255 255 / 0.06),
-    0 28px 70px rgb(2 8 23 / 0.48);
 
   --image-filter: brightness(0.82) saturate(0.86) contrast(1.08);
   --image-filter-hover: brightness(0.9) saturate(0.94) contrast(1.05);

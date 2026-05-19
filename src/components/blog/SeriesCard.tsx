@@ -18,7 +18,7 @@ interface SeriesCardProps {
 
 export function SeriesCard({ series }: SeriesCardProps) {
   return (
-    <article className="reader-card group overflow-hidden p-0 transition hover:-translate-y-0.5">
+    <article className="reader-card group overflow-hidden p-0 transition-colors">
       {series.coverImage ? (
         <Link href={`/series/${series.slug}`} aria-label={`查看系列 ${series.title}`} className="theme-media relative block aspect-[2.4] overflow-hidden">
           <FallbackImage

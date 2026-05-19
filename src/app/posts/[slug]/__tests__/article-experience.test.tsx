@@ -186,7 +186,7 @@ describe('article experience', () => {
 
     const tocCard = tocRail.firstElementChild
     expect(tocCard?.className).toContain('reader-panel')
-    expect(tocCard?.className).toContain('h-[var(--article-toc-card-height)]')
+    expect(tocCard?.className).toContain('max-h-[var(--article-toc-card-max-height)]')
   })
 
   test('article page renders series navigation when the post belongs to a series', async () => {
