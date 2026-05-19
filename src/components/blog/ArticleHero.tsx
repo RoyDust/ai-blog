@@ -1,6 +1,11 @@
+"use client";
+
 import Link from "next/link";
 import { CalendarDays, Clock3, Eye, UserRound } from "lucide-react";
+import { motion } from "motion/react";
 import { FallbackImage } from "@/components/ui";
+import { revealVariants } from "@/components/motion/variants";
+import { revealTransition } from "@/components/motion/transitions";
 
 interface ArticleHeroProps {
   title: string;
@@ -24,7 +29,13 @@ export function ArticleHero({
   readingTimeMinutes,
 }: ArticleHeroProps) {
   return (
-    <header className="reader-banner flex min-h-[clamp(22rem,42vw,33rem)] items-end">
+    <motion.header
+      className="reader-banner flex min-h-[clamp(22rem,42vw,33rem)] items-end"
+      variants={revealVariants}
+      initial="hidden"
+      animate="visible"
+      transition={revealTransition}
+    >
       {coverImage ? (
         <FallbackImage
           alt={title}
@@ -96,6 +107,6 @@ export function ArticleHero({
           </span>
         </div>
       </div>
-    </header>
+    </motion.header>
   );
 }

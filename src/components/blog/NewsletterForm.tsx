@@ -1,6 +1,7 @@
 "use client";
 
 import { type FormEvent, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import { Mail } from "lucide-react";
 
 import { Button } from "@/components/ui/Button";
@@ -65,14 +66,21 @@ export function NewsletterForm() {
           {state === "submitting" ? "提交中..." : "订阅"}
         </Button>
       </div>
-      {message ? (
-        <p
-          className={`text-sm ${state === "error" ? "text-rose-500" : "text-[var(--muted)]"}`}
-          role={state === "error" ? "alert" : "status"}
-        >
-          {message}
-        </p>
-      ) : null}
+      <AnimatePresence>
+        {message ? (
+          <motion.p
+            key={state}
+            className={`text-sm ${state === "error" ? "text-rose-500" : "text-[var(--muted)]"}`}
+            role={state === "error" ? "alert" : "status"}
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.18 }}
+          >
+            {message}
+          </motion.p>
+        ) : null}
+      </AnimatePresence>
     </form>
   );
 }
