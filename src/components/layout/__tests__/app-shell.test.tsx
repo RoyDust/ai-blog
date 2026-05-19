@@ -32,7 +32,7 @@ describe("app shell", () => {
     expect(screen.getByRole("navigation", { name: "Primary" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "跳到主要内容" })).toHaveAttribute("href", "#main-content");
     expect(screen.getByRole("link", { name: "跳到主要内容" }).className).toContain("reader-panel");
-    expect(container.querySelector("main > div")?.className).toContain("max-w-[var(--content-max-width)]");
+    expect(container.querySelector("main div.max-w-\\[var\\(--content-max-width\\)\\]")).toBeInTheDocument();
     expect(sidebarRail).toBeInTheDocument();
     expect(mainContent).toBeInTheDocument();
 
