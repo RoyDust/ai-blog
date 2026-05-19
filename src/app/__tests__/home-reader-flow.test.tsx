@@ -65,7 +65,7 @@ describe('home reader flow', () => {
 
     const { default: Home } = await import('../(public)/page')
     const ui = await Home()
-    render(ui as React.ReactElement)
+    const { container } = render(ui as React.ReactElement)
 
     expect(screen.getByRole('heading', { name: 'AI 日报' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: '查看全部' })).toHaveAttribute('href', '/series/ai-daily')
@@ -86,6 +86,15 @@ describe('home reader flow', () => {
     expect(latest.getByRole('heading', { name: 'Test Post 6' })).toBeInTheDocument()
     expect(latest.queryByRole('heading', { name: 'Test Post 2' })).not.toBeInTheDocument()
     expect(latest.queryByRole('heading', { name: 'Test Post 3' })).not.toBeInTheDocument()
+
+    const jsonLd = JSON.parse(container.querySelector('script[type="application/ld+json"]')?.textContent ?? '{}')
+    expect(jsonLd).toMatchObject({
+      '@type': 'WebSite',
+      potentialAction: {
+        '@type': 'SearchAction',
+        'query-input': 'required name=search_term_string',
+      },
+    })
   }, 15_000)
 
   test('home keeps latest feed when only two posts exist', async () => {

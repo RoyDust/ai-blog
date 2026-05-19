@@ -8,23 +8,39 @@ import { springSnappy } from "@/components/motion/transitions";
 interface ShareButtonProps {
   title: string;
   slug: string;
+  authorName: string;
+  sourceName: string;
 }
 
-export function ShareButton({ title, slug }: ShareButtonProps) {
+export function buildArticleShareText({
+  title,
+  authorName,
+  url,
+  sourceName,
+}: {
+  title: string;
+  authorName: string;
+  url: string;
+  sourceName: string;
+}) {
+  return [
+    `文章：${title}`,
+    `作者：${authorName}`,
+    `链接：${url}`,
+    `来源：${sourceName}`,
+    "著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。",
+  ].join("\n");
+}
+
+export function ShareButton({ title, slug, authorName, sourceName }: ShareButtonProps) {
   const [copied, setCopied] = useState(false);
 
   const handleShare = async () => {
     const url = `${window.location.origin}/posts/${slug}`;
-    if (navigator.share) {
-      try {
-        await navigator.share({ title, url });
-        return;
-      } catch {
-        return;
-      }
-    }
+    const text = buildArticleShareText({ title, authorName, url, sourceName });
+
     try {
-      await navigator.clipboard.writeText(url);
+      await navigator.clipboard.writeText(text);
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1600);
     } catch {

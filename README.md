@@ -141,6 +141,8 @@ pnpm dev
 | `NEXTAUTH_SECRET` | 是 | NextAuth 密钥 |
 | `NEXTAUTH_URL` | 是 | 认证回调地址 |
 | `NEXT_PUBLIC_SITE_URL` | 是 | 站点公开访问地址 |
+| `GOOGLE_SITE_VERIFICATION` | 否 | Google Search Console HTML 标记 content 值 |
+| `BING_SITE_VERIFICATION` | 否 | Bing Webmaster Tools HTML 标记 content 值 |
 | `AUTH_GITHUB_ID` | 否 | GitHub OAuth Client ID |
 | `AUTH_GITHUB_SECRET` | 否 | GitHub OAuth Client Secret |
 | `QINIU_ACCESS_KEY` | 否 | 七牛云 Access Key |

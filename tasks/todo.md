@@ -124,3 +124,14 @@
 ### Motion-first Phase 4-6 Review
 
 已完成首页、文章列表、PostCard 外层 wrapper 和文章详情辅助动效的 Motion-first 改造，并补充文章列表测试以断言 Motion variants 下 6 篇文章均正常渲染。验证已运行 `pnpm test src/components/blog/__tests__/PostsListingClient.test.tsx`、`pnpm lint`、`pnpm test`、旧入口搜索和 `pnpm build`。旧入口搜索仍命中 `src/styles/animations.css`、layout chrome、taxonomy/about/archives 等页面以及 shadcn 内部 `transition-all`，因此全站旧 `.onload-animation` / `stagger-children` 清理尚未完成。
+
+## SEO 增强计划执行
+
+- [x] P0：补充 OG 图片 `alt` 与文章作者字段，并支持显式声明 `width` / `height` / `type`
+- [x] P1：分类、标签、系列详情页新增专属 OG 图片路由
+- [x] P1：分类、标签、系列详情页注入 BreadcrumbList JSON-LD
+- [x] P1：首页注入 WebSite JSON-LD 与 SearchAction
+- [x] P2：About 页注入 Person JSON-LD 与 `rel="me"` 链接
+- [x] P2：根 metadata 接入 Search Console 验证环境变量
+- [ ] P2/P3：登录 Google/Bing Search Console 完成站点验证并提交 sitemap
+- [ ] P3：自定义 sitemap 图片扩展、FAQ schema、IndexNow、规范化 HTTPS 重定向等长期项

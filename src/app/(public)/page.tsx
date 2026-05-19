@@ -15,7 +15,7 @@ import { getBlogSettings } from '@/lib/blog-settings'
 import { POSTS_PAGE_SIZE } from '@/lib/pagination'
 import { getPublishedPostsPage } from '@/lib/posts'
 import { prisma } from '@/lib/prisma'
-import { buildPageMetadata } from '@/lib/seo'
+import { buildPageMetadata, buildWebSiteJsonLd } from '@/lib/seo'
 
 export async function generateMetadata(): Promise<Metadata> {
   const settings = await getBlogSettings()
@@ -89,13 +89,22 @@ type HomePost = Awaited<ReturnType<typeof getData>>['posts'][number]
  * 负责把数据按“主阅读流 + 发现侧栏”的结构装配到首页组件树中。
  */
 export default async function Home() {
-  const { posts, aiDailyPosts, hasLoadError } = await getData()
+  const [{ posts, aiDailyPosts, hasLoadError }, settings] = await Promise.all([getData(), getBlogSettings()])
   const latestPosts = (posts as HomePost[])
     .filter((post) => !post.slug.startsWith('ai-daily-'))
     .slice(0, 5)
+  const websiteJsonLd = buildWebSiteJsonLd({
+    siteName: settings.siteName,
+    siteUrl: settings.siteUrl,
+    searchPath: '/search',
+  })
 
   return (
     <div className="reader-home-stage space-y-5">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
+      />
       {hasLoadError ? (
         <section
           role="alert"

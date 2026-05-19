@@ -16,7 +16,7 @@ import {
   Zap,
 } from "lucide-react";
 import { getBlogSettings } from "@/lib/blog-settings";
-import { buildPageMetadata } from "@/lib/seo";
+import { buildCanonicalUrl, buildPageMetadata, buildPersonJsonLd } from "@/lib/seo";
 import { getPublicProfile } from "@/lib/public-profile";
 import type { PublicProfileLinkKind } from "@/lib/public-profile-data";
 import { FallbackImage } from "@/components/ui";
@@ -48,9 +48,24 @@ export default async function AboutPage() {
   const about = settings.about;
   const emailLink = profile.links.find((link) => link.kind === "email");
   const githubLink = profile.links.find((link) => link.kind === "github");
+  const sameAsLinks = profile.links.filter((link) => link.url.startsWith("http")).map((link) => link.url);
+  const personJsonLd = buildPersonJsonLd({
+    name: profile.name,
+    url: buildCanonicalUrl("/about", settings.siteUrl),
+    image: profile.avatar,
+    description: profile.bio,
+    sameAs: sameAsLinks,
+  });
 
   return (
     <div className="space-y-6">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(personJsonLd) }}
+      />
+      {sameAsLinks.map((url) => (
+        <link key={url} rel="me" href={url} />
+      ))}
       <section className="card-base onload-animation relative overflow-hidden px-6 py-8 md:px-10 md:py-10">
         <div className="pointer-events-none absolute top-0 right-0 h-40 w-40 rounded-full bg-[color:color-mix(in_srgb,var(--primary)_10%,transparent)] blur-3xl" />
         <div className="pointer-events-none absolute bottom-0 left-10 h-24 w-24 rounded-full bg-[color:color-mix(in_srgb,var(--primary)_8%,transparent)] blur-2xl" />

@@ -7,7 +7,7 @@ import { notFound } from "next/navigation";
 import { PostCard } from "@/components/blog/PostCard";
 import { getBlogSettings } from "@/lib/blog-settings";
 import { prisma } from "@/lib/prisma";
-import { buildPageMetadata } from "@/lib/seo";
+import { buildBreadcrumbJsonLd, buildPageMetadata } from "@/lib/seo";
 
 async function getPublicSeriesDetail(slug: string) {
   return prisma.series.findFirst({
@@ -77,14 +77,24 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 export default async function SeriesDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const series = await getPublicSeriesDetail(slug);
+  const [series, settings] = await Promise.all([getPublicSeriesDetail(slug), getBlogSettings()]);
 
   if (!series) {
     notFound();
   }
 
+  const breadcrumbJsonLd = buildBreadcrumbJsonLd([
+    { name: "首页", path: "/" },
+    { name: "系列", path: "/series" },
+    { name: series.title, path: `/series/${series.slug}` },
+  ], { siteUrl: settings.siteUrl });
+
   return (
     <div className="reader-section">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
       <section className="reader-banner onload-animation px-6 py-8 md:px-8 md:py-10">
         <div className="relative z-10 flex min-h-[calc(var(--reader-banner-height)-4rem)] flex-col justify-end gap-6">
           <span className="reader-chip w-fit">Series</span>

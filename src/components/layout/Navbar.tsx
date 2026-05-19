@@ -60,7 +60,7 @@ export function Navbar({ siteName = "My Blog" }: NavbarProps) {
       id="navbar"
       className={`onload-animation sticky top-0 z-50 px-3 pt-[var(--reader-nav-offset)] pb-2 transition-transform duration-300 sm:px-4 ${isHidden ? "-translate-y-full" : "translate-y-0"}`}
     >
-      <div className="reader-nav relative mx-auto flex h-[var(--reader-nav-height)] w-full max-w-[var(--reader-nav-width)] items-center justify-between gap-2 px-3 sm:gap-3 sm:px-4">
+      <div className="reader-nav relative mx-auto flex h-[var(--reader-nav-height)] w-full max-w-[var(--page-width)] items-center justify-between gap-2 px-3 sm:gap-3 sm:px-4">
         <Link
           href="/"
           className="reader-link inline-flex h-10 shrink-0 items-center gap-2 rounded-lg px-2 text-sm font-bold text-[var(--foreground)] transition-colors hover:bg-[color:color-mix(in_oklab,var(--accent-sky)_10%,transparent)] focus-visible:bg-[color:color-mix(in_oklab,var(--accent-sky)_14%,transparent)]"

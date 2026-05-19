@@ -18,6 +18,16 @@ vi.mock("@/lib/blog-settings", () => ({
 
 vi.mock("@/lib/seo", () => ({
   buildPageMetadata: (input: unknown) => input,
+  buildBreadcrumbJsonLd: (items: Array<{ name: string; path: string }>, options: { siteUrl?: string } = {}) => ({
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: items.map((item, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      name: item.name,
+      item: `${options.siteUrl}${item.path}`,
+    })),
+  }),
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -87,10 +97,18 @@ describe("series public pages", () => {
     const { default: SeriesDetailPage } = await import("../[slug]/page");
     const ui = await SeriesDetailPage({ params: Promise.resolve({ slug: "engineering" }) });
 
-    render(ui as React.ReactElement);
+    const { container } = render(ui as React.ReactElement);
 
     expect(screen.getByRole("heading", { name: "工程系列" })).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: "First Post" })[0]).toHaveAttribute("href", "/posts/first-post");
+    expect(JSON.parse(container.querySelector('script[type="application/ld+json"]')?.textContent ?? "{}")).toMatchObject({
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { name: "首页", item: "https://blog.example/" },
+        { name: "系列", item: "https://blog.example/series" },
+        { name: "工程系列", item: "https://blog.example/series/engineering" },
+      ],
+    });
     expect(findFirst).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({
         slug: "engineering",

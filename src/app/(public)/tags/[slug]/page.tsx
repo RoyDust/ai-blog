@@ -6,7 +6,7 @@ import { notFound } from 'next/navigation'
 
 import { TaxonomyHero, TaxonomyPostGrid } from '@/components/taxonomy'
 import { getBlogSettings } from '@/lib/blog-settings'
-import { buildPageMetadata } from '@/lib/seo'
+import { buildBreadcrumbJsonLd, buildPageMetadata } from '@/lib/seo'
 import { getTagDetail, TAXONOMY_PAGE_SIZE } from '@/lib/taxonomy'
 import { clampPagination } from '@/lib/validation'
 
@@ -41,16 +41,28 @@ export default async function TagPage({
   const { slug } = await params
   const filters = searchParams ? await searchParams : undefined
   const { page } = clampPagination({ page: filters?.page ?? null, limit: String(TAXONOMY_PAGE_SIZE) })
-  const tag = await getTagDetail(slug, { page, limit: TAXONOMY_PAGE_SIZE })
+  const [tag, settings] = await Promise.all([
+    getTagDetail(slug, { page, limit: TAXONOMY_PAGE_SIZE }),
+    getBlogSettings(),
+  ])
 
   if (!tag) {
     notFound()
   }
 
   const isOutOfRangePage = tag.posts.length === 0 && tag.pagination.totalPages > 0 && tag.pagination.page > tag.pagination.totalPages
+  const breadcrumbJsonLd = buildBreadcrumbJsonLd([
+    { name: '首页', path: '/' },
+    { name: '标签', path: '/tags' },
+    { name: tag.name, path: `/tags/${tag.slug}` },
+  ], { siteUrl: settings.siteUrl })
 
   return (
     <div className="reader-section">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
       <TaxonomyHero
         eyebrow="Tag"
         title={`#${tag.name}`}

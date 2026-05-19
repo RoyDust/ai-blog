@@ -6,7 +6,7 @@ import { notFound } from 'next/navigation'
 
 import { TaxonomyHero, TaxonomyPostGrid } from '@/components/taxonomy'
 import { getBlogSettings } from '@/lib/blog-settings'
-import { buildPageMetadata } from '@/lib/seo'
+import { buildBreadcrumbJsonLd, buildPageMetadata } from '@/lib/seo'
 import { getCategoryDetail, TAXONOMY_PAGE_SIZE } from '@/lib/taxonomy'
 import { clampPagination } from '@/lib/validation'
 
@@ -41,16 +41,28 @@ export default async function CategoryPage({
   const { slug } = await params
   const filters = searchParams ? await searchParams : undefined
   const { page } = clampPagination({ page: filters?.page ?? null, limit: String(TAXONOMY_PAGE_SIZE) })
-  const category = await getCategoryDetail(slug, { page, limit: TAXONOMY_PAGE_SIZE })
+  const [category, settings] = await Promise.all([
+    getCategoryDetail(slug, { page, limit: TAXONOMY_PAGE_SIZE }),
+    getBlogSettings(),
+  ])
 
   if (!category) {
     notFound()
   }
 
   const isOutOfRangePage = category.posts.length === 0 && category.pagination.totalPages > 0 && category.pagination.page > category.pagination.totalPages
+  const breadcrumbJsonLd = buildBreadcrumbJsonLd([
+    { name: '首页', path: '/' },
+    { name: '分类', path: '/categories' },
+    { name: category.name, path: `/categories/${category.slug}` },
+  ], { siteUrl: settings.siteUrl })
 
   return (
     <div className="reader-section">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
       <TaxonomyHero
         eyebrow="Category"
         title={category.name}

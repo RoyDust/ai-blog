@@ -150,6 +150,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     image: post.coverImage,
     publishedTime: (post.publishedAt || post.createdAt).toISOString(),
     modifiedTime: post.updatedAt?.toISOString(),
+    authorName: post.author.name,
     siteUrl: settings.siteUrl,
   })
 }
@@ -434,7 +435,12 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
             <div className="flex flex-wrap items-center gap-3">
               <LikeButton initialCount={post._count.likes} initialLiked={false} slug={post.slug} />
               <BookmarkButton excerpt={post.excerpt} initialBookmarked={false} slug={post.slug} title={post.title} />
-              <ShareButton slug={post.slug} title={post.title} />
+              <ShareButton
+                authorName={post.author.name || settings.siteName}
+                slug={post.slug}
+                sourceName={settings.siteName}
+                title={post.title}
+              />
               <Link
                 className="inline-flex h-11 items-center justify-center rounded-full border border-[color:color-mix(in_oklab,var(--accent-warm)_58%,var(--reader-border))] bg-[color-mix(in_oklab,var(--accent-warm)_88%,black_12%)] px-4 text-sm font-semibold text-[color-mix(in_oklab,var(--foreground)_12%,white_88%)] transition hover:bg-[var(--accent-warm)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
                 href="#comments"

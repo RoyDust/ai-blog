@@ -66,6 +66,15 @@ vi.mock('@/lib/taxonomy', () => ({
   ),
 }))
 
+vi.mock('@/lib/blog-settings', () => ({
+  getBlogSettings: vi.fn(async () => ({
+    siteName: 'Configured Blog',
+    siteDescription: 'Configured description',
+    siteUrl: 'https://blog.example',
+    locale: 'zh-CN',
+  })),
+}))
+
 describe('taxonomy routes', () => {
   test('/categories renders category directory', async () => {
     const { default: CategoriesPage } = await import('@/app/(public)/categories/page')
@@ -95,24 +104,44 @@ describe('taxonomy routes', () => {
     const { default: CategoryPage } = await import('@/app/(public)/categories/[slug]/page')
     const ui = await CategoryPage({ params: Promise.resolve({ slug: 'frontend' }) })
 
-    render(ui as React.ReactElement)
+    const { container } = render(ui as React.ReactElement)
 
     expect(screen.getByRole('heading', { name: '前端' })).toBeInTheDocument()
     expect(document.querySelector('.reader-banner')).toBeInTheDocument()
     expect(document.querySelector('.reader-section')).toBeInTheDocument()
     expect(screen.getAllByRole('link', { name: 'Build Better UI' })[0]).toHaveAttribute('href', '/posts/build-better-ui')
+
+    const jsonLd = JSON.parse(container.querySelector('script[type="application/ld+json"]')?.textContent ?? '{}')
+    expect(jsonLd).toMatchObject({
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        { name: '首页', item: 'https://blog.example/' },
+        { name: '分类', item: 'https://blog.example/categories' },
+        { name: '前端', item: 'https://blog.example/categories/frontend' },
+      ],
+    })
   })
 
   test('/tags/[slug] renders tag article list', async () => {
     const { default: TagPage } = await import('@/app/(public)/tags/[slug]/page')
     const ui = await TagPage({ params: Promise.resolve({ slug: 'nextjs' }) })
 
-    render(ui as React.ReactElement)
+    const { container } = render(ui as React.ReactElement)
 
     expect(screen.getByRole('heading', { name: '#Next.js' })).toBeInTheDocument()
     expect(document.querySelector('.reader-banner')).toBeInTheDocument()
     expect(document.querySelector('.reader-section')).toBeInTheDocument()
     expect(screen.getAllByRole('link', { name: 'Next Patterns' })[0]).toHaveAttribute('href', '/posts/next-patterns')
+
+    const jsonLd = JSON.parse(container.querySelector('script[type="application/ld+json"]')?.textContent ?? '{}')
+    expect(jsonLd).toMatchObject({
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        { name: '首页', item: 'https://blog.example/' },
+        { name: '标签', item: 'https://blog.example/tags' },
+        { name: 'Next.js', item: 'https://blog.example/tags/nextjs' },
+      ],
+    })
   })
 
   test('/categories/[slug] shows a safe empty state for out-of-range pages', async () => {

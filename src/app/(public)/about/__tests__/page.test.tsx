@@ -52,7 +52,7 @@ test("about page renders configured personal homepage content", async () => {
   const { default: AboutPage } = await import("../page");
   const ui = await AboutPage();
 
-  render(ui as React.ReactElement);
+  const { container } = render(ui as React.ReactElement);
 
   expect(screen.getByRole("heading", { name: "RoyDust" })).toBeInTheDocument();
   expect(screen.getByText("后台个人信息驱动的作者资料。")).toBeInTheDocument();
@@ -70,6 +70,17 @@ test("about page renders configured personal homepage content", async () => {
   expect(screen.getByRole("link", { name: "GitHub" })).toHaveAttribute("href", "https://github.com/RoyDust");
   expect(screen.getByRole("link", { name: "Email" })).toHaveAttribute("href", "mailto:roy@example.com");
   expect(screen.getByRole("link", { name: "发送邮件" })).toHaveAttribute("href", "mailto:roy@example.com");
+
+  const jsonLd = JSON.parse(container.querySelector('script[type="application/ld+json"]')?.textContent ?? "{}");
+  expect(jsonLd).toMatchObject({
+    "@type": "Person",
+    name: "RoyDust",
+    url: "https://blog.example/about",
+    image: "https://example.com/avatar.png",
+    description: "后台个人信息驱动的作者资料。",
+    sameAs: ["https://github.com/RoyDust", "https://x.com/luoyichen12"],
+  });
+  expect(document.querySelector('link[rel="me"][href="https://github.com/RoyDust"]')).toBeInTheDocument();
 });
 
 test("about page wires in staged motion classes", async () => {

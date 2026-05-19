@@ -19,8 +19,31 @@ type SiteMetadataOptions = {
   siteUrl?: string
 }
 
+type OpenGraphImageMetadata = {
+  alt?: string
+  width?: number
+  height?: number
+  type?: string
+}
+
 function normalizeSiteUrl(value: string | undefined) {
   return value?.trim().replace(/\/$/, '')
+}
+
+function buildOpenGraphImages(image: string | null | undefined, fallbackAlt: string, metadata?: OpenGraphImageMetadata) {
+  if (!image) {
+    return undefined
+  }
+
+  return [
+    {
+      url: image,
+      alt: metadata?.alt || fallbackAlt,
+      ...(metadata?.width ? { width: metadata.width } : {}),
+      ...(metadata?.height ? { height: metadata.height } : {}),
+      ...(metadata?.type ? { type: metadata.type } : {}),
+    },
+  ]
 }
 
 /**
@@ -53,14 +76,17 @@ export function buildPageMetadata({
   description,
   path,
   image,
+  imageMetadata,
   siteUrl,
 }: {
   title: string
   description: string
   path: string
   image?: string | null
+  imageMetadata?: OpenGraphImageMetadata
 } & SiteMetadataOptions): Metadata {
   const canonical = buildCanonicalUrl(path, siteUrl)
+  const openGraphImages = buildOpenGraphImages(image, title, imageMetadata)
 
   return {
     title,
@@ -73,7 +99,7 @@ export function buildPageMetadata({
       description,
       url: canonical,
       type: 'website',
-      images: image ? [{ url: image }] : undefined,
+      images: openGraphImages,
     },
     twitter: {
       card: image ? 'summary_large_image' : 'summary',
@@ -116,18 +142,22 @@ export function buildArticleMetadata({
   description,
   path,
   image,
+  imageMetadata,
   publishedTime,
   modifiedTime,
+  authorName,
   siteUrl,
 }: {
   title: string
   description: string
   path: string
   image?: string | null
+  imageMetadata?: OpenGraphImageMetadata
   publishedTime?: string
   modifiedTime?: string
+  authorName?: string | null
 } & SiteMetadataOptions): Metadata {
-  const metadata = buildPageMetadata({ title, description, path, image, siteUrl })
+  const metadata = buildPageMetadata({ title, description, path, image, imageMetadata, siteUrl })
 
   return {
     ...metadata,
@@ -136,6 +166,7 @@ export function buildArticleMetadata({
       type: 'article',
       publishedTime,
       modifiedTime,
+      authors: authorName ? [authorName] : undefined,
     },
   }
 }
@@ -206,5 +237,58 @@ export function buildBreadcrumbJsonLd(items: Array<{ name: string; path: string 
       name: item.name,
       item: buildCanonicalUrl(item.path, options.siteUrl),
     })),
+  }
+}
+
+export function buildWebSiteJsonLd({
+  siteName,
+  siteUrl = getSiteUrl(),
+  searchPath,
+}: {
+  siteName: string
+  siteUrl?: string
+  searchPath?: string
+}) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    name: siteName,
+    url: siteUrl,
+    ...(searchPath
+      ? {
+          potentialAction: {
+            '@type': 'SearchAction',
+            target: {
+              '@type': 'EntryPoint',
+              urlTemplate: `${siteUrl}${searchPath}?q={search_term_string}`,
+            },
+            'query-input': 'required name=search_term_string',
+          },
+        }
+      : {}),
+  }
+}
+
+export function buildPersonJsonLd({
+  name,
+  url,
+  image,
+  description,
+  sameAs,
+}: {
+  name: string
+  url: string
+  image?: string | null
+  description?: string | null
+  sameAs?: string[]
+}) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Person',
+    name,
+    url,
+    image: image || undefined,
+    description: description || undefined,
+    sameAs: sameAs && sameAs.length > 0 ? sameAs : undefined,
   }
 }
