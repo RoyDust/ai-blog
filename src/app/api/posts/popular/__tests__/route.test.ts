@@ -34,7 +34,7 @@ describe("GET /api/posts/popular", () => {
       where: { published: true, deletedAt: null, viewCount: { gt: 0 } },
       select: { id: true, title: true, slug: true, viewCount: true },
       orderBy: { viewCount: "desc" },
-      take: 5,
+      take: 3,
     });
   });
 });

@@ -1,6 +1,8 @@
 import NextLink from "next/link";
 import { Eye, Flame } from "lucide-react";
 
+const POPULAR_POST_LIMIT = 3;
+
 export type PopularPost = {
   id: string;
   title: string;
@@ -27,7 +29,7 @@ export function PopularPostsWidget({ posts }: PopularPostsWidgetProps) {
         </h3>
       </div>
       <ol className="space-y-2">
-        {posts.map((post, index) => (
+        {posts.slice(0, POPULAR_POST_LIMIT).map((post, index) => (
           <li className="flex items-start gap-2.5" key={post.id}>
             <span className="mt-0.5 w-4 shrink-0 text-center text-xs font-bold tabular-nums text-[var(--text-faint)]">
               {index + 1}

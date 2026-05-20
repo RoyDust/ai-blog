@@ -4,6 +4,7 @@ import { toErrorResponse } from "@/lib/api-errors";
 import { prisma } from "@/lib/prisma";
 
 export const revalidate = 300;
+const POPULAR_POST_LIMIT = 3;
 
 async function GETHandler() {
   try {
@@ -11,7 +12,7 @@ async function GETHandler() {
       where: { published: true, deletedAt: null, viewCount: { gt: 0 } },
       select: { id: true, title: true, slug: true, viewCount: true },
       orderBy: { viewCount: "desc" },
-      take: 5,
+      take: POPULAR_POST_LIMIT,
     });
 
     return NextResponse.json({ success: true, data: posts });
