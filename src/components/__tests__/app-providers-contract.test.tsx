@@ -24,8 +24,20 @@ describe("app providers contract", () => {
 
     expect(providersSource).toContain("<AuthProvider>");
     expect(providersSource).toContain("<ThemeProvider>");
+    expect(providersSource).toContain("<BlogMotionProvider>");
     expect(providersSource).not.toContain("<MotionProvider>");
     expect(providersSource).toContain("{children}");
     expect(providersSource).toContain("<Toaster />");
+  });
+
+  test("motion and CSS respect reduced-motion preferences", () => {
+    const motionSource = readSource("src/components/motion/BlogMotionProvider.tsx");
+    const animationsSource = readSource("src/styles/animations.css");
+
+    expect(motionSource).toContain('<MotionConfig reducedMotion="user"');
+    expect(animationsSource).toContain("@media (prefers-reduced-motion: reduce)");
+    expect(animationsSource).toContain("animation-duration: 0.01ms !important");
+    expect(animationsSource).toContain("transition-duration: 0.01ms !important");
+    expect(animationsSource).toContain("scroll-behavior: auto !important");
   });
 });
