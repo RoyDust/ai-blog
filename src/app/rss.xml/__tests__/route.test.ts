@@ -26,7 +26,7 @@ describe('GET /rss.xml', () => {
     blogSettingsMocks.getBlogSettings.mockResolvedValue({
       siteName: 'RSS Blog',
       siteDescription: 'RSS Description',
-      siteUrl: 'https://rss.example',
+      siteUrl: 'https://rss.example/',
     })
   })
 
@@ -52,17 +52,21 @@ describe('GET /rss.xml', () => {
 
     expect(response.status).toBe(200)
     expect(response.headers.get('content-type')).toBe('application/rss+xml; charset=utf-8')
+    expect(response.headers.get('cache-control')).toBe('public, s-maxage=300, stale-while-revalidate=86400')
     expect(prismaMocks.postFindMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { published: true, deletedAt: null },
         orderBy: [{ publishedAt: { sort: 'desc', nulls: 'last' } }, { createdAt: 'desc' }],
       }),
     )
-    expect(body).toContain('<rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/">')
+    expect(body).toContain('<rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:atom="http://www.w3.org/2005/Atom">')
     expect(body).toContain('<title><![CDATA[RSS Blog]]></title>')
     expect(body).toContain('<description><![CDATA[RSS Description]]></description>')
+    expect(body).toContain('<language>zh-CN</language>')
     expect(body).toContain('<lastBuildDate>Tue, 03 Mar 2026 00:00:00 GMT</lastBuildDate>')
+    expect(body).toContain('<atom:link href="https://rss.example/rss.xml" rel="self" type="application/rss+xml" />')
     expect(body).toContain('<link>https://rss.example/posts/hello-rss</link>')
+    expect(body).toContain('<guid isPermaLink="true">https://rss.example/posts/hello-rss</guid>')
     expect(body).toContain('<description><![CDATA[SEO Description]]></description>')
     expect(body).toContain('<pubDate>Mon, 02 Mar 2026 00:00:00 GMT</pubDate>')
     expect(body).not.toContain('<author>')

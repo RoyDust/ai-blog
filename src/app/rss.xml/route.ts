@@ -1,6 +1,6 @@
 import { getBlogSettings } from '@/lib/blog-settings'
 
-export const dynamic = 'force-dynamic'
+export const revalidate = 300
 
 async function getRssPosts() {
   const { prisma } = await import('@/lib/prisma')
@@ -44,7 +44,7 @@ function buildCategories(post: RssPost) {
 
 export async function GET() {
   const settings = await getBlogSettings()
-  const siteUrl = settings.siteUrl
+  const siteUrl = settings.siteUrl.replace(/\/$/, '')
   let items = ''
   let lastBuildDate = new Date()
 
@@ -67,7 +67,7 @@ export async function GET() {
         <item>
           <title>${toCdata(post.title)}</title>
           <link>${postUrl}</link>
-          <guid>${postUrl}</guid>
+          <guid isPermaLink="true">${postUrl}</guid>
           <dc:creator>${toCdata(creator)}</dc:creator>
           <description>${toCdata(description)}</description>
           <pubDate>${pubDate.toUTCString()}</pubDate>
@@ -88,12 +88,14 @@ export async function GET() {
   }
 
   const xml = `<?xml version="1.0" encoding="UTF-8" ?>
-    <rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:atom="http://www.w3.org/2005/Atom">
       <channel>
         <title>${toCdata(settings.siteName)}</title>
         <link>${siteUrl}</link>
-        <description>${toCdata(settings.siteDescription)}</description>
+        <description>${toCdata(settings.siteDescription || settings.siteName)}</description>
+        <language>zh-CN</language>
         <lastBuildDate>${lastBuildDate.toUTCString()}</lastBuildDate>
+        <atom:link href="${siteUrl}/rss.xml" rel="self" type="application/rss+xml" />
         ${items}
       </channel>
     </rss>`
@@ -101,6 +103,7 @@ export async function GET() {
   return new Response(xml, {
     headers: {
       'Content-Type': 'application/rss+xml; charset=utf-8',
+      'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=86400',
     },
   })
 }
