@@ -5,6 +5,11 @@ import { ArrowUp } from "lucide-react";
 import { useState } from "react";
 import { springSnappy } from "@/components/motion/transitions";
 
+function getBackToTopScrollBehavior(): ScrollBehavior {
+  const reduceMotionQuery = window.matchMedia?.("(prefers-reduced-motion: reduce)");
+  return reduceMotionQuery?.matches ? "auto" : "smooth";
+}
+
 export function BackToTopButton() {
   const { scrollY } = useScroll();
   const [visible, setVisible] = useState(false);
@@ -14,7 +19,7 @@ export function BackToTopButton() {
   });
 
   const handleClick = () => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    window.scrollTo({ top: 0, behavior: getBackToTopScrollBehavior() });
   };
 
   return (
