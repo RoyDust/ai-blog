@@ -91,3 +91,29 @@
   user-select: none;
   width: 2.75rem;
 }
+
+html.dark .reader-prose .hljs-comment,
+html.dark .reader-prose .hljs-quote,
+html.dark .prose .hljs-comment,
+html.dark .prose .hljs-quote {
+  color: color-mix(in oklab, var(--text-muted) 70%, white 30%);
+  font-style: italic;
+}
+
+html.dark .reader-prose .hljs-keyword,
+html.dark .reader-prose .hljs-selector-tag,
+html.dark .reader-prose .hljs-subst,
+html.dark .prose .hljs-keyword,
+html.dark .prose .hljs-selector-tag,
+html.dark .prose .hljs-subst {
+  color: color-mix(in oklab, var(--accent-sky) 72%, white 28%);
+}
+
+html.dark .reader-prose .hljs-string,
+html.dark .reader-prose .hljs-attr,
+html.dark .reader-prose .hljs-template-tag,
+html.dark .prose .hljs-string,
+html.dark .prose .hljs-attr,
+html.dark .prose .hljs-template-tag {
+  color: color-mix(in oklab, var(--accent-cyan) 72%, white 28%);
+}
