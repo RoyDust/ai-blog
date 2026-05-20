@@ -22,7 +22,7 @@ import rehypeHighlight from "rehype-highlight";
 import rehypeHighlightCodeLines from "rehype-highlight-code-lines";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArticleContinuation, ArticleHero, ArticleReadTracker, ArticleToc, ArticleTocDrawer, BackToTopButton, BookmarkButton, CopyCodeButton, LikeButton, NewsletterForm, ReadingProgress, SectionHeader, SeriesNav, ShareButton } from "@/components/blog";
+import { ArticleContinuation, ArticleHero, ArticleReadTracker, ArticleRelatedPosts, ArticleToc, ArticleTocDrawer, BackToTopButton, BookmarkButton, CopyCodeButton, LikeButton, NewsletterForm, ReadingProgress, SectionHeader, SeriesNav, ShareButton } from "@/components/blog";
 import { CommentAuthGate } from "@/components/CommentAuthGate";
 import { FallbackImage } from "@/components/ui";
 import { getBlogSettings } from "@/lib/blog-settings";
@@ -128,6 +128,32 @@ async function getContinuationData(post: ArticlePost) {
     previousPost,
     nextPost,
   }
+}
+
+async function getRelatedPosts(postId: string, tagSlugs: string[], limit = 3) {
+  if (tagSlugs.length === 0) {
+    return []
+  }
+
+  return prisma.post.findMany({
+    where: {
+      id: { not: postId },
+      published: true,
+      deletedAt: null,
+      tags: { some: { slug: { in: tagSlugs }, deletedAt: null } },
+    },
+    select: {
+      id: true,
+      title: true,
+      slug: true,
+      excerpt: true,
+      coverImage: true,
+      createdAt: true,
+      category: { select: { name: true, slug: true } },
+    },
+    orderBy: [{ publishedAt: { sort: "desc", nulls: "last" } }, { createdAt: "desc" }],
+    take: limit,
+  })
 }
 
 /**
@@ -285,7 +311,10 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
     notFound();
   }
 
-  const { previousPost, nextPost } = await getContinuationData(post)
+  const [{ previousPost, nextPost }, relatedPosts] = await Promise.all([
+    getContinuationData(post),
+    getRelatedPosts(post.id, post.tags.map((tag) => tag.slug)),
+  ])
   const commentsPromise = getPostComments(post.id)
 
   const headings = extractHeadings(post.content);
@@ -426,6 +455,8 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
               series={{ title: post.series.title, slug: post.series.slug }}
             />
           ) : null}
+
+          <ArticleRelatedPosts posts={relatedPosts} />
 
           <section className="reader-panel w-full space-y-6 p-6 sm:p-8">
             <SectionHeader

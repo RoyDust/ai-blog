@@ -128,7 +128,13 @@ describe('article experience', () => {
     expect(screen.getByRole('button', { name: '收藏文章' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: '上一篇 Older Post' })).toHaveAttribute('href', '/posts/older-post')
     expect(screen.getByRole('link', { name: '下一篇 Newer Post' })).toHaveAttribute('href', '/posts/newer-post')
-    expect(findMany).not.toHaveBeenCalled()
+    expect(findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        id: { not: 'p1' },
+        tags: { some: { slug: { in: ['tag'] }, deletedAt: null } },
+      }),
+      take: 3,
+    }))
     expect(commentFindMany).toHaveBeenCalledWith(expect.objectContaining({
       where: { postId: 'p1', parentId: null, deletedAt: null },
     }))
@@ -142,6 +148,59 @@ describe('article experience', () => {
     expect(container.querySelector('pre')?.parentElement?.className).toContain('group')
     expect(screen.getByTestId('toc-rail').className).toContain('xl:sticky')
     expect(screen.getByTestId('toc-rail').className).toContain('hidden')
+  })
+
+  test('article page renders related posts by shared tags', async () => {
+    findMany.mockClear()
+    findMany.mockResolvedValueOnce([
+      {
+        id: 'related-1',
+        title: 'Related Post',
+        slug: 'related-post',
+        excerpt: 'Related excerpt',
+        coverImage: null,
+        createdAt: new Date('2026-01-03T00:00:00Z'),
+        category: { name: 'Category', slug: 'category' },
+      },
+    ])
+    findFirst
+      .mockResolvedValueOnce({
+        id: 'p1',
+        slug: 'test-post',
+        title: 'Article Title',
+        content: '# Intro\nBody text',
+        excerpt: 'Excerpt',
+        coverImage: null,
+        createdAt: new Date('2026-01-01T00:00:00Z'),
+        updatedAt: new Date('2026-01-02T00:00:00Z'),
+        publishedAt: new Date('2026-01-01T00:00:00Z'),
+        viewCount: 100,
+        readingTimeMinutes: 1,
+        author: { id: 'u1', name: 'Author', image: null },
+        category: { name: 'Category', slug: 'category' },
+        tags: [{ name: 'Tag', slug: 'tag' }],
+        comments: [],
+        _count: { comments: 0, likes: 2 },
+      })
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null)
+
+    const { default: PostPage } = await import('@/app/(public)/posts/[slug]/page')
+    const ui = await PostPage({ params: Promise.resolve({ slug: 'test-post' }) })
+    await act(async () => {
+      render(ui as React.ReactElement)
+    })
+
+    expect(screen.getByRole('heading', { level: 2, name: '相关文章' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Related Post/ })).toHaveAttribute('href', '/posts/related-post')
+    expect(findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        id: { not: 'p1' },
+        tags: { some: { slug: { in: ['tag'] }, deletedAt: null } },
+      }),
+      orderBy: [{ publishedAt: { sort: 'desc', nulls: 'last' } }, { createdAt: 'desc' }],
+      take: 3,
+    }))
   })
 
   test('article toc rail aligns with the public content grid', async () => {
