@@ -21,5 +21,6 @@ describe("SeriesNav", () => {
     expect(screen.getByRole("link", { name: /Second/ })).toHaveAttribute("aria-current", "page");
     expect(screen.getAllByRole("link", { name: /First/ })[0]).toHaveAttribute("href", "/posts/first");
     expect(screen.getAllByRole("link", { name: /Third/ })[0]).toHaveAttribute("href", "/posts/third");
+    expect(screen.getByTestId("series-progress-bar")).toHaveStyle({ width: "67%" });
   });
 });

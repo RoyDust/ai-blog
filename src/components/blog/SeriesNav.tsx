@@ -25,6 +25,8 @@ export function SeriesNav({ series, currentSlug, posts }: SeriesNavProps) {
     return null;
   }
 
+  const progressPercent = Math.round((Math.max(currentIndex + 1, 1) / posts.length) * 100);
+
   return (
     <nav aria-label={`${series.title} 系列导航`} className="reader-panel space-y-4 p-5 md:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -35,6 +37,13 @@ export function SeriesNav({ series, currentSlug, posts }: SeriesNavProps) {
         <span className="text-50 text-xs">
           {Math.max(currentIndex + 1, 1)} / {posts.length}
         </span>
+      </div>
+      <div className="h-1 w-full overflow-hidden rounded-full bg-[var(--reader-border)]" aria-hidden="true">
+        <div
+          className="h-full rounded-full bg-[var(--accent-warm)] transition-[width] duration-300"
+          data-testid="series-progress-bar"
+          style={{ width: `${progressPercent}%` }}
+        />
       </div>
 
       <ol className="space-y-2">
