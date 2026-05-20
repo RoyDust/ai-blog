@@ -93,6 +93,7 @@ test("sidebar loads categories from the public api route", async () => {
   const taxonomyRail = container.querySelector('[data-testid="sidebar-taxonomy-rail"]');
   expect(sidebar?.className).not.toContain("h-full");
   expect(taxonomyRail?.className).toContain("sticky");
+  expect(taxonomyRail?.className).toContain("reader-scrollbar-hidden");
   expect(taxonomyRail?.className).not.toContain("overflow-y-auto");
   expect(taxonomyRail?.className).not.toContain("max-height");
   expect(taxonomyRail?.getAttribute("style") ?? "").not.toContain("max-height");

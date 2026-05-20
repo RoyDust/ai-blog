@@ -91,7 +91,7 @@ export function Sidebar({
     <aside id="sidebar" className="onload-animation w-full">
       <div
         data-testid="sidebar-taxonomy-rail"
-        className="sticky space-y-3 pr-1 transition-[top,transform,box-shadow] duration-300 ease-out will-change-[top,transform]"
+        className="reader-scrollbar-hidden sticky space-y-3 pr-1 transition-[top,transform,box-shadow] duration-300 ease-out will-change-[top,transform]"
         style={{
           top: "calc(var(--sidebar-sticky-top, 0px) + 0.75rem)",
         }}
