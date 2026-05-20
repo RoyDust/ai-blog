@@ -69,7 +69,7 @@ test("about page renders configured personal homepage content", async () => {
   expect(screen.getByText("后台配置的联系描述")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "GitHub" })).toHaveAttribute("href", "https://github.com/RoyDust");
   expect(screen.getByRole("link", { name: "Email" })).toHaveAttribute("href", "mailto:roy@example.com");
-  expect(screen.getByRole("link", { name: "发送邮件" })).toHaveAttribute("href", "mailto:roy@example.com");
+  expect(screen.getByRole("link", { name: "联系我" })).toHaveAttribute("href", "/contact");
 
   const jsonLd = JSON.parse(container.querySelector('script[type="application/ld+json"]')?.textContent ?? "{}");
   expect(jsonLd).toMatchObject({

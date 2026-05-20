@@ -46,7 +46,6 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function AboutPage() {
   const [profile, settings] = await Promise.all([getPublicProfile(), getBlogSettings()]);
   const about = settings.about;
-  const emailLink = profile.links.find((link) => link.kind === "email");
   const githubLink = profile.links.find((link) => link.kind === "github");
   const sameAsLinks = profile.links.filter((link) => link.url.startsWith("http")).map((link) => link.url);
   const personJsonLd = buildPersonJsonLd({
@@ -199,11 +198,9 @@ export default async function AboutPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
-          {emailLink ? (
-            <Link className="btn-plain scale-animation inline-flex h-11 items-center gap-2 rounded-xl px-5" href={emailLink.url}>
-              <Mail className="h-4 w-4" />发送邮件
-            </Link>
-          ) : null}
+          <Link className="btn-plain scale-animation inline-flex h-11 items-center gap-2 rounded-xl px-5" href="/contact">
+            <Mail className="h-4 w-4" />联系我
+          </Link>
           {githubLink ? (
             <Link
               className="btn-plain scale-animation inline-flex h-11 items-center gap-2 rounded-xl px-5"
