@@ -137,6 +137,7 @@ describe('article experience', () => {
     expect(container.querySelector('.article-shell')).toBeInTheDocument()
     expect(container.querySelector('.reader-prose')?.className).toContain('prose-pre:rounded-2xl')
     expect(container.querySelector('pre code')?.className).toContain('hljs')
+    expect(container.querySelector('.code-line.numbered-code-line')).toHaveAttribute('data-line-number', '1')
     expect(screen.getByRole('button', { name: '复制代码' })).toBeInTheDocument()
     expect(container.querySelector('pre')?.parentElement?.className).toContain('group')
     expect(screen.getByTestId('toc-rail').className).toContain('xl:sticky')

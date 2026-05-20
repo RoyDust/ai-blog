@@ -66,3 +66,28 @@
   border-radius: 0;
   color: inherit;
 }
+
+.reader-prose pre code .code-line,
+.prose pre code .code-line {
+  display: block;
+  min-height: 1.5em;
+  min-width: 100%;
+  padding-left: 3.25rem;
+  position: relative;
+}
+
+.reader-prose pre code .numbered-code-line::before,
+.prose pre code .numbered-code-line::before {
+  border-right: 1px solid color-mix(in oklab, var(--reader-border) 60%, transparent);
+  color: var(--text-faint);
+  content: attr(data-line-number);
+  font-size: 0.75em;
+  left: 0;
+  line-height: 1.5em;
+  padding-right: 0.75rem;
+  pointer-events: none;
+  position: absolute;
+  text-align: right;
+  user-select: none;
+  width: 2.75rem;
+}
