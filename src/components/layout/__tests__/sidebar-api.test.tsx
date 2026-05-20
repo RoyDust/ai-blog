@@ -33,7 +33,16 @@ test("sidebar loads categories from the public api route", async () => {
     if (url.endsWith("/api/categories")) {
       return Promise.resolve(
         new Response(
-          JSON.stringify({ success: true, data: [{ id: "c1", name: "前端", slug: "frontend", _count: { posts: 3 } }] }),
+          JSON.stringify({
+            success: true,
+            data: [
+              { id: "c1", name: "前端", slug: "frontend", _count: { posts: 3 } },
+              { id: "c2", name: "后端", slug: "backend", _count: { posts: 2 } },
+              { id: "c3", name: "设计", slug: "design", _count: { posts: 2 } },
+              { id: "c4", name: "AI", slug: "ai", _count: { posts: 2 } },
+              { id: "c5", name: "生活", slug: "life", _count: { posts: 1 } },
+            ],
+          }),
           { status: 200 }
         )
       );
@@ -66,6 +75,11 @@ test("sidebar loads categories from the public api route", async () => {
   });
 
   expect(getByText("前端")).toBeInTheDocument();
+  expect(getByText("后端")).toBeInTheDocument();
+  expect(getByText("设计")).toBeInTheDocument();
+  expect(getByText("AI")).toBeInTheDocument();
+  expect(container).not.toHaveTextContent("生活");
+  expect(getByRole("link", { name: "查看更多分类" })).toHaveAttribute("href", "/categories");
   expect(getByText("React")).toBeInTheDocument();
   expect(getByRole("link", { name: "查看更多标签" })).toHaveAttribute("href", "/tags");
   expect(container.querySelector('[data-testid="sidebar-tags-list"]')?.className).toContain("max-h-[7rem]");

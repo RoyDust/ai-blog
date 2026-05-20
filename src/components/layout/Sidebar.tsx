@@ -84,7 +84,7 @@ export function Sidebar({
     };
   }, []);
 
-  const topCategories = categories.slice(0, 6);
+  const topCategories = categories.slice(0, 4);
   const topTags = tags.slice(0, 10);
 
   return (
@@ -134,12 +134,22 @@ export function Sidebar({
         </section>
 
         <section className="reader-panel p-4" aria-labelledby="sidebar-categories-title">
-          <div className="mb-3 flex items-center gap-2">
-            <span className="h-4 w-1 rounded-full bg-[var(--accent-sky)]" aria-hidden="true" />
-            <Folder className="h-4 w-4 text-[var(--text-body)]" aria-hidden="true" />
-            <h3 id="sidebar-categories-title" className="font-bold text-[var(--foreground)]">
-              分类
-            </h3>
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="h-4 w-1 rounded-full bg-[var(--accent-sky)]" aria-hidden="true" />
+              <Folder className="h-4 w-4 text-[var(--text-body)]" aria-hidden="true" />
+              <h3 id="sidebar-categories-title" className="font-bold text-[var(--foreground)]">
+                分类
+              </h3>
+            </div>
+            <NextLink
+              aria-label="查看更多分类"
+              className="reader-link inline-flex shrink-0 items-center gap-1 text-xs font-bold"
+              href="/categories"
+            >
+              更多分类
+              <ArrowRight aria-hidden="true" className="h-3.5 w-3.5" />
+            </NextLink>
           </div>
 
           {topCategories.length > 0 ? (
