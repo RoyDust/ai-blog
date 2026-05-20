@@ -4,9 +4,12 @@ import { expect, test, vi } from "vitest";
 import { PostCard } from "@/components/blog/PostCard";
 
 vi.mock("next/image", () => ({
-  default: (props: React.ComponentProps<"img"> & { fill?: boolean }) => {
-    const { fill: _fill, ...imageProps } = props;
+  default: (props: React.ComponentProps<"img"> & { blurDataURL?: string; fill?: boolean; placeholder?: string; quality?: number }) => {
+    const { blurDataURL: _blurDataURL, fill: _fill, placeholder: _placeholder, quality: _quality, ...imageProps } = props;
+    void _blurDataURL;
     void _fill;
+    void _placeholder;
+    void _quality;
     return React.createElement("img", { ...imageProps, alt: imageProps.alt ?? "" });
   },
 }));
