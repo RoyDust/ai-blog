@@ -13,6 +13,7 @@ export { ArticleHero } from "./ArticleHero";
 export { ArticleReadTracker } from "./ArticleReadTracker";
 export { ReadingProgress } from "./ReadingProgress";
 export { ArticleToc } from "./ArticleToc";
+export { ArticleTocDrawer } from "./ArticleTocDrawer";
 export { LikeButton } from "./LikeButton";
 export { BookmarkButton } from "./BookmarkButton";
 export { ShareButton } from "./ShareButton";

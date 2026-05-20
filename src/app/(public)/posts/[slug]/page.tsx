@@ -21,7 +21,7 @@ import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArticleContinuation, ArticleHero, ArticleReadTracker, ArticleToc, BackToTopButton, BookmarkButton, CopyCodeButton, LikeButton, NewsletterForm, ReadingProgress, SectionHeader, SeriesNav, ShareButton } from "@/components/blog";
+import { ArticleContinuation, ArticleHero, ArticleReadTracker, ArticleToc, ArticleTocDrawer, BackToTopButton, BookmarkButton, CopyCodeButton, LikeButton, NewsletterForm, ReadingProgress, SectionHeader, SeriesNav, ShareButton } from "@/components/blog";
 import { CommentAuthGate } from "@/components/CommentAuthGate";
 import { FallbackImage } from "@/components/ui";
 import { getBlogSettings } from "@/lib/blog-settings";
@@ -320,6 +320,7 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
       <ArticleReadTracker postId={post.id} />
       <ReadingProgress />
       <BackToTopButton />
+      <ArticleTocDrawer headings={headings} />
 
       <div className="grid gap-[var(--layout-rail-gap)] xl:grid-cols-[minmax(0,1fr)_var(--article-toc-width)] xl:items-start">
         <div className="min-w-0 space-y-8">
