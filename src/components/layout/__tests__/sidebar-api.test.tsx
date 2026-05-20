@@ -46,6 +46,14 @@ test("sidebar loads categories from the public api route", async () => {
         )
       );
     }
+    if (url.endsWith("/api/posts/popular")) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({ success: true, data: [{ id: "p1", title: "热门文章标题", slug: "popular-post", viewCount: 1280 }] }),
+          { status: 200 }
+        )
+      );
+    }
     return Promise.reject(new Error(`Unexpected URL: ${url}`));
   });
 
@@ -54,10 +62,14 @@ test("sidebar loads categories from the public api route", async () => {
   await waitFor(() => {
     expect(fetchMock).toHaveBeenCalledWith("/api/categories");
     expect(fetchMock).toHaveBeenCalledWith("/api/tags");
+    expect(fetchMock).toHaveBeenCalledWith("/api/posts/popular");
   });
 
   expect(getByText("前端")).toBeInTheDocument();
   expect(getByText("React")).toBeInTheDocument();
+  expect(getByRole("heading", { name: "热门文章" })).toBeInTheDocument();
+  expect(getByRole("link", { name: /热门文章标题/ })).toHaveAttribute("href", "/posts/popular-post");
+  expect(getByText("1,280")).toBeInTheDocument();
   expect(container.querySelector(".reader-panel")).toBeInTheDocument();
   expect(container.querySelector('[data-testid="sidebar-taxonomy-rail"]')?.className).toContain("sticky");
   expect(getByRole("heading", { name: "RoyDust" })).toBeInTheDocument();

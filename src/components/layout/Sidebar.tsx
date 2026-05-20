@@ -3,6 +3,7 @@
 import NextLink from "next/link";
 import { BarChart3, Folder, Github, Link2, Mail, Tags, Target } from "lucide-react";
 import { useEffect, useState } from "react";
+import { PopularPostsWidget, type PopularPost } from "@/components/blog/PopularPostsWidget";
 import { FallbackImage } from "@/components/ui";
 import { PUBLIC_PROFILE_FALLBACK, type PublicProfile, type PublicProfileLinkKind } from "@/lib/public-profile-data";
 import type { UserReadingStats } from "@/lib/reading-stats";
@@ -48,24 +49,32 @@ export function Sidebar({
 }) {
   const [categories, setCategories] = useState<CategoryItem[]>([]);
   const [tags, setTags] = useState<TagItem[]>([]);
+  const [popularPosts, setPopularPosts] = useState<PopularPost[]>([]);
 
   useEffect(() => {
     let isMounted = true;
 
     const loadTaxonomy = async () => {
-      try {
-        const [categoriesRes, tagsRes] = await Promise.all([fetch("/api/categories"), fetch("/api/tags")]);
-        const [categoriesJson, tagsJson] = await Promise.all([categoriesRes.json(), tagsRes.json()]);
+      const readApiJson = async (url: string) => {
+        try {
+          const response = await fetch(url);
+          return await response.json();
+        } catch {
+          return null;
+        }
+      };
 
-        if (!isMounted) return;
+      const [categoriesJson, tagsJson, popularJson] = await Promise.all([
+        readApiJson("/api/categories"),
+        readApiJson("/api/tags"),
+        readApiJson("/api/posts/popular"),
+      ]);
 
-        setCategories(Array.isArray(categoriesJson?.data) ? categoriesJson.data : []);
-        setTags(Array.isArray(tagsJson?.data) ? tagsJson.data : []);
-      } catch {
-        if (!isMounted) return;
-        setCategories([]);
-        setTags([]);
-      }
+      if (!isMounted) return;
+
+      setCategories(Array.isArray(categoriesJson?.data) ? categoriesJson.data : []);
+      setTags(Array.isArray(tagsJson?.data) ? tagsJson.data : []);
+      setPopularPosts(Array.isArray(popularJson?.data) ? popularJson.data : []);
     };
 
     void loadTaxonomy();
@@ -188,6 +197,8 @@ export function Sidebar({
             </p>
           )}
         </section>
+
+        <PopularPostsWidget posts={popularPosts} />
 
         {readingStats ? (
           <>
