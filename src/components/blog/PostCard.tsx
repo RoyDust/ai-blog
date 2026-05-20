@@ -2,6 +2,7 @@ import { FallbackImage } from "@/components/ui";
 import Link from "next/link";
 import { ChevronRight, Eye, Heart, MessageCircle } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { shimmerBlurDataURL } from "@/lib/image-placeholder";
 import { PostMeta } from "./PostMeta";
 
 const READER_CARD_FALLBACK_SRC = "/images/fuwari-post-cover-fallback.svg";
@@ -59,6 +60,8 @@ export function PostCard({ post }: PostCardProps) {
             className="theme-media-image object-cover"
             fill
             loading="lazy"
+            placeholder="blur"
+            blurDataURL={shimmerBlurDataURL}
             quality={70}
             sizes="(min-width: 1800px) 14rem, (max-width: 768px) 100vw, 11rem"
             src={post.coverImage!}

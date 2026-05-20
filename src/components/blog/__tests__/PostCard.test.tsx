@@ -3,7 +3,12 @@ import React from "react";
 import { describe, expect, test, vi } from "vitest";
 import { PostCard } from "../PostCard";
 
-type ImageMockProps = React.ComponentProps<"img"> & { fill?: boolean; quality?: number };
+type ImageMockProps = React.ComponentProps<"img"> & {
+  blurDataURL?: string;
+  fill?: boolean;
+  placeholder?: string;
+  quality?: number;
+};
 
 const imageMock = vi.fn((props: ImageMockProps) => {
   void props;
@@ -42,6 +47,8 @@ describe("PostCard", () => {
     expect(screen.getByLabelText("继续阅读 Post with cover")).toHaveAttribute("href", "/posts/post-with-cover");
     expect(screen.getByText("Excerpt").className).toContain("line-clamp-2");
     expect(imageMock.mock.calls[0]?.[0].sizes).toBe("(min-width: 1800px) 14rem, (max-width: 768px) 100vw, 11rem");
+    expect(imageMock.mock.calls[0]?.[0].placeholder).toBe("blur");
+    expect(imageMock.mock.calls[0]?.[0].blurDataURL).toMatch(/^data:image\/svg\+xml;base64,/);
   });
 
   test("renders a dedicated text-only variant without media filler", () => {
