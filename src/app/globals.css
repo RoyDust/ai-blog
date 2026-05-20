@@ -71,6 +71,25 @@ html.dark {
   background-color: rgb(148 163 184 / 0.38);
 }
 
+.reader-scrollbar-hidden,
+#sidebar [data-testid="sidebar-taxonomy-rail"] {
+  scrollbar-color: transparent transparent !important;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none;
+}
+
+.reader-scrollbar-hidden::-webkit-scrollbar,
+#sidebar [data-testid="sidebar-taxonomy-rail"]::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+.reader-scrollbar-hidden::-webkit-scrollbar-thumb,
+#sidebar [data-testid="sidebar-taxonomy-rail"]::-webkit-scrollbar-thumb {
+  background-color: transparent !important;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

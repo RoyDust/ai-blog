@@ -108,3 +108,17 @@ test('global scrollbars stay thin and transparent across surfaces', () => {
   expect(source).toContain('background: transparent')
   expect(source).toContain('background-color: rgb(148 163 184 / 0.22)')
 })
+
+test('sidebar scrollbar hiding overrides the global scrollbar treatment', () => {
+  const source = readSource('src/app/globals.css')
+  const globalScrollbarRule = source.indexOf('*::-webkit-scrollbar')
+  const sidebarScrollbarRule = source.indexOf('.reader-scrollbar-hidden')
+
+  expect(sidebarScrollbarRule).toBeGreaterThan(globalScrollbarRule)
+  expect(source).toContain('#sidebar [data-testid="sidebar-taxonomy-rail"]')
+  expect(source).toContain('scrollbar-color: transparent transparent')
+  expect(source).toContain('scrollbar-width: none')
+  expect(source).toContain('display: none')
+  expect(source).toContain('width: 0')
+  expect(source).toContain('height: 0')
+})

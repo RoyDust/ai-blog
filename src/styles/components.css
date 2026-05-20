@@ -165,15 +165,6 @@
     overflow: hidden;
   }
 
-  .reader-scrollbar-hidden {
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-  }
-
-  .reader-scrollbar-hidden::-webkit-scrollbar {
-    display: none;
-  }
-
   .reader-card,
   .reader-feed-card,
   .reader-feature-card {
