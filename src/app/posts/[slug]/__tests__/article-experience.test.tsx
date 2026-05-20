@@ -123,6 +123,7 @@ describe('article experience', () => {
     expect(screen.queryByRole('heading', { level: 2, name: '相关文章' })).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: '发表评论' })).toHaveAttribute('href', '#comments')
     expect(screen.getByRole('heading', { level: 2, name: '评论 (1)' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: '评论 (1)' })).toHaveAttribute('id', 'comments')
     expect(screen.getByTestId('comment-auth-gate')).toHaveTextContent('Comment gate for p1')
     expect(await screen.findByText('Great article')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '收藏文章' })).toBeInTheDocument()
@@ -148,6 +149,8 @@ describe('article experience', () => {
     expect(container.querySelector('pre')?.parentElement?.className).toContain('group')
     expect(screen.getByTestId('toc-rail').className).toContain('xl:sticky')
     expect(screen.getByTestId('toc-rail').className).toContain('hidden')
+    expect(screen.getByTestId('toc-rail')).toHaveAttribute('aria-label', '文章目录')
+    expect(screen.getByRole('navigation', { name: '本文目录' })).toBeInTheDocument()
   })
 
   test('article page renders related posts by shared tags', async () => {

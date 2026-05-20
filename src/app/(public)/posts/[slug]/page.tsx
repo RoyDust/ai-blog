@@ -496,8 +496,8 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
             </section>
           ) : null}
 
-          <section className="reader-panel w-full p-6 sm:p-8" id="comments">
-            <h2 className="mb-3 font-display text-2xl font-bold text-[var(--foreground)]">评论 ({post._count.comments})</h2>
+          <section aria-labelledby="comments-heading" className="reader-panel w-full p-6 sm:p-8" id="comments">
+            <h2 id="comments-heading" className="mb-3 font-display text-2xl font-bold text-[var(--foreground)]">评论 ({post._count.comments})</h2>
             <p className="mb-6 text-sm leading-6 text-[var(--text-muted)]">欢迎分享你的观点或补充事实和论据，但请避免人身攻击或侮辱他人。</p>
 
             <CommentAuthGate postId={post.id} />
@@ -510,16 +510,17 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
 
         <aside
           data-testid="toc-rail"
+          aria-label="文章目录"
           className="article-toc-rail hidden transition-[top,max-height,transform,box-shadow] duration-300 ease-out will-change-[top,transform] xl:sticky xl:block"
           style={{
             top: "calc(var(--sidebar-sticky-top, 0px) + 0.75rem)",
           }}
         >
-          <div className="reader-panel max-h-[var(--article-toc-card-max-height)] overflow-auto p-5">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">On this page</p>
-            <h3 className="mb-4 font-display text-lg font-semibold text-[var(--foreground)]">目录</h3>
+          <nav aria-label="本文目录" className="reader-panel max-h-[var(--article-toc-card-max-height)] overflow-auto p-5">
+            <p aria-hidden="true" className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">On this page</p>
+            <h2 className="mb-4 font-display text-lg font-semibold text-[var(--foreground)]">目录</h2>
             <ArticleToc headings={headings} />
-          </div>
+          </nav>
         </aside>
       </div>
     </div>
