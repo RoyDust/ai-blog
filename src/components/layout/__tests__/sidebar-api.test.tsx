@@ -71,7 +71,13 @@ test("sidebar loads categories from the public api route", async () => {
   expect(getByRole("link", { name: /热门文章标题/ })).toHaveAttribute("href", "/posts/popular-post");
   expect(getByText("1,280")).toBeInTheDocument();
   expect(container.querySelector(".reader-panel")).toBeInTheDocument();
-  expect(container.querySelector('[data-testid="sidebar-taxonomy-rail"]')?.className).toContain("sticky");
+  const sidebar = container.querySelector("#sidebar");
+  const taxonomyRail = container.querySelector('[data-testid="sidebar-taxonomy-rail"]');
+  expect(sidebar?.className).not.toContain("h-full");
+  expect(taxonomyRail?.className).toContain("sticky");
+  expect(taxonomyRail?.className).not.toContain("overflow-y-auto");
+  expect(taxonomyRail?.className).not.toContain("max-height");
+  expect(taxonomyRail?.getAttribute("style") ?? "").not.toContain("max-height");
   expect(getByRole("heading", { name: "RoyDust" })).toBeInTheDocument();
   expect(getByText("后台个人信息驱动的作者资料。")).toBeInTheDocument();
   expect(getByRole("link", { name: "Email" })).toHaveAttribute("href", "mailto:roy@example.com");
