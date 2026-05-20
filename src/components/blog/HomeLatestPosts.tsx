@@ -7,6 +7,7 @@ import { motion } from "motion/react";
 import { listContainerVariants, revealVariants } from "@/components/motion/variants";
 
 const READER_CARD_FALLBACK_SRC = '/images/fuwari-post-cover-fallback.svg'
+const HOME_LATEST_POST_LIMIT = 10
 
 interface HomeLatestPost {
   id: string
@@ -66,7 +67,7 @@ export function HomeLatestPosts({ posts }: HomeLatestPostsProps) {
         initial="hidden"
         animate="visible"
       >
-        {posts.slice(0, 4).map((post) => {
+        {posts.slice(0, HOME_LATEST_POST_LIMIT).map((post) => {
           return (
             <motion.article
               key={post.id}

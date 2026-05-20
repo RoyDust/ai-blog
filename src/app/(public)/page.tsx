@@ -17,6 +17,8 @@ import { getPublishedPostsPage } from '@/lib/posts'
 import { prisma } from '@/lib/prisma'
 import { buildPageMetadata, buildWebSiteJsonLd } from '@/lib/seo'
 
+const HOME_LATEST_POST_LIMIT = 10
+
 export async function generateMetadata(): Promise<Metadata> {
   const settings = await getBlogSettings()
 
@@ -92,7 +94,7 @@ export default async function Home() {
   const [{ posts, aiDailyPosts, hasLoadError }, settings] = await Promise.all([getData(), getBlogSettings()])
   const latestPosts = (posts as HomePost[])
     .filter((post) => !post.slug.startsWith('ai-daily-'))
-    .slice(0, 5)
+    .slice(0, HOME_LATEST_POST_LIMIT)
   const websiteJsonLd = buildWebSiteJsonLd({
     siteName: settings.siteName,
     siteUrl: settings.siteUrl,
@@ -115,7 +117,7 @@ export default async function Home() {
       ) : null}
 
       <HomeAiDailyStrip posts={aiDailyPosts} />
-      <HomeLatestPosts posts={latestPosts.length > 0 ? latestPosts : (posts as HomePost[]).slice(0, 5)} />
+      <HomeLatestPosts posts={latestPosts.length > 0 ? latestPosts : (posts as HomePost[]).slice(0, HOME_LATEST_POST_LIMIT)} />
     </div>
   )
 }

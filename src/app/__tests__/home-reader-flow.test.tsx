@@ -32,7 +32,7 @@ describe('home reader flow', () => {
     excerpt: `Excerpt ${index}`,
     coverImage: null,
     featured: false,
-    createdAt: new Date(`2026-01-0${index}T00:00:00Z`),
+    createdAt: new Date(Date.UTC(2026, 0, index)),
     author: { id: `u${index}`, name: 'Author', image: null },
     category: { name: 'Category', slug: 'category' },
     tags: [{ name: 'Tag', slug: 'tag' }],
@@ -60,7 +60,7 @@ describe('home reader flow', () => {
 
   test('home shows Fuwari-style AI daily strip and latest feed', async () => {
     postFindMany
-      .mockResolvedValueOnce([createPost(4), createPost(5), createPost(6), createPost(1)])
+      .mockResolvedValueOnce(Array.from({ length: 11 }, (_, index) => createPost(index + 4)))
       .mockResolvedValueOnce([createPost(1), createPost(2), createPost(3)])
 
     const { default: Home } = await import('../(public)/page')
@@ -82,8 +82,9 @@ describe('home reader flow', () => {
     const latest = within(latestSection!)
 
     expect(latest.getByRole('heading', { name: 'Test Post 4' })).toBeInTheDocument()
-    expect(latest.getByRole('heading', { name: 'Test Post 5' })).toBeInTheDocument()
-    expect(latest.getByRole('heading', { name: 'Test Post 6' })).toBeInTheDocument()
+    expect(latest.getByRole('heading', { name: 'Test Post 13' })).toBeInTheDocument()
+    expect(latest.getAllByRole('article')).toHaveLength(10)
+    expect(latest.queryByRole('heading', { name: 'Test Post 14' })).not.toBeInTheDocument()
     expect(latest.queryByRole('heading', { name: 'Test Post 2' })).not.toBeInTheDocument()
     expect(latest.queryByRole('heading', { name: 'Test Post 3' })).not.toBeInTheDocument()
 
