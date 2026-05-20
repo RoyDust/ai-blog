@@ -188,7 +188,7 @@ export function Sidebar({
           </div>
 
           {topTags.length > 0 ? (
-            <div className="flex max-h-[6.5rem] flex-wrap gap-2 overflow-hidden" data-testid="sidebar-tags-list">
+            <div className="flex max-h-[7rem] flex-wrap gap-2 overflow-hidden pb-2" data-testid="sidebar-tags-list">
               {topTags.map((tag) => (
                 <NextLink
                   key={tag.id}

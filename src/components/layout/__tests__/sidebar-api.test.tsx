@@ -68,8 +68,9 @@ test("sidebar loads categories from the public api route", async () => {
   expect(getByText("前端")).toBeInTheDocument();
   expect(getByText("React")).toBeInTheDocument();
   expect(getByRole("link", { name: "查看更多标签" })).toHaveAttribute("href", "/tags");
-  expect(container.querySelector('[data-testid="sidebar-tags-list"]')?.className).toContain("max-h-[6.5rem]");
+  expect(container.querySelector('[data-testid="sidebar-tags-list"]')?.className).toContain("max-h-[7rem]");
   expect(container.querySelector('[data-testid="sidebar-tags-list"]')?.className).toContain("overflow-hidden");
+  expect(container.querySelector('[data-testid="sidebar-tags-list"]')?.className).toContain("pb-2");
   expect(getByRole("heading", { name: "热门文章" })).toBeInTheDocument();
   expect(getByRole("link", { name: /热门文章标题/ })).toHaveAttribute("href", "/posts/popular-post");
   expect(getByText("1,280")).toBeInTheDocument();
