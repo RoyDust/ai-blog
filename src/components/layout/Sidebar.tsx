@@ -1,7 +1,7 @@
 "use client";
 
 import NextLink from "next/link";
-import { BarChart3, Folder, Github, Link2, Mail, Tags, Target } from "lucide-react";
+import { ArrowRight, BarChart3, Folder, Github, Link2, Mail, Tags, Target } from "lucide-react";
 import { useEffect, useState } from "react";
 import { PopularPostsWidget, type PopularPost } from "@/components/blog/PopularPostsWidget";
 import { FallbackImage } from "@/components/ui";
@@ -169,20 +169,30 @@ export function Sidebar({
         </section>
 
         <section className="reader-panel p-4" aria-labelledby="sidebar-tags-title">
-          <div className="mb-3 flex items-center gap-2">
-            <span className="h-4 w-1 rounded-full bg-[var(--accent-sky)]" aria-hidden="true" />
-            <Tags className="h-4 w-4 text-[var(--text-body)]" aria-hidden="true" />
-            <h3 id="sidebar-tags-title" className="font-bold text-[var(--foreground)]">
-              标签
-            </h3>
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="h-4 w-1 rounded-full bg-[var(--accent-sky)]" aria-hidden="true" />
+              <Tags className="h-4 w-4 text-[var(--text-body)]" aria-hidden="true" />
+              <h3 id="sidebar-tags-title" className="font-bold text-[var(--foreground)]">
+                标签
+              </h3>
+            </div>
+            <NextLink
+              aria-label="查看更多标签"
+              className="reader-link inline-flex shrink-0 items-center gap-1 text-xs font-bold"
+              href="/tags"
+            >
+              更多标签
+              <ArrowRight aria-hidden="true" className="h-3.5 w-3.5" />
+            </NextLink>
           </div>
 
           {topTags.length > 0 ? (
-            <div className="flex flex-wrap gap-2">
+            <div className="flex max-h-[6.5rem] flex-wrap gap-2 overflow-hidden" data-testid="sidebar-tags-list">
               {topTags.map((tag) => (
                 <NextLink
                   key={tag.id}
-                  className="reader-chip rounded-md px-2 py-1 text-[0.7rem]"
+                  className="reader-chip whitespace-nowrap rounded-md px-2 py-1 text-[0.7rem]"
                   href={`/tags/${tag.slug}`}
                   style={tag.color ? { borderColor: tag.color } : undefined}
                 >
