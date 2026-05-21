@@ -148,6 +148,18 @@ html.dark {
     var(--sidebar-foreground);
   --color-sidebar:
     var(--sidebar);
+
+  /* 收敛常用混色 Tokens */
+  --color-accent-sky-10: color-mix(in oklab, var(--accent-sky) 10%, transparent);
+  --color-accent-sky-12: color-mix(in oklab, var(--accent-sky) 12%, transparent);
+  --color-accent-sky-14: color-mix(in oklab, var(--accent-sky) 14%, transparent);
+  --color-accent-sky-16: color-mix(in oklab, var(--accent-sky) 16%, transparent);
+  --color-accent-sky-34: color-mix(in oklab, var(--accent-sky) 34%, var(--reader-border));
+  --color-accent-sky-72: color-mix(in oklab, var(--accent-sky) 72%, var(--foreground) 28%);
+  --color-accent-sky-82: color-mix(in oklab, var(--accent-sky) 82%, var(--foreground) 18%);
+  --color-accent-warm-14: color-mix(in oklab, var(--accent-warm) 14%, transparent);
+  --color-accent-warm-34: color-mix(in oklab, var(--accent-warm) 34%, var(--reader-border));
+  --color-accent-warm-78: color-mix(in oklab, var(--accent-warm) 78%, var(--foreground) 22%);
 }
 
 body {

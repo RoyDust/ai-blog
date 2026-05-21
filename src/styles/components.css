@@ -169,17 +169,37 @@
   .reader-feed-card,
   .reader-feature-card {
     transition:
-      border-color 180ms ease,
-      background-color 180ms ease,
-      box-shadow 220ms ease,
-      transform 220ms ease;
+      border-color 220ms ease,
+      background-color 220ms ease,
+      box-shadow 300ms ease,
+      transform 300ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .reader-card::before,
+  .reader-feed-card::before,
+  .reader-feature-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(120% 72% at 100% 0%, var(--post-card-text-accent-glow), transparent 64%);
+    opacity: 0;
+    z-index: -1;
+    transition: opacity 300ms ease;
+  }
+
+  .reader-card:hover::before,
+  .reader-feed-card:hover::before,
+  .reader-feature-card:hover::before {
+    opacity: 0.64;
   }
 
   .reader-card:hover,
   .reader-feed-card:hover,
   .reader-feature-card:hover {
     border-color: var(--reader-border-strong);
-    box-shadow: none;
+    box-shadow: var(--reader-shadow);
+    transform: translateY(-2px);
   }
 
   .article-shell {

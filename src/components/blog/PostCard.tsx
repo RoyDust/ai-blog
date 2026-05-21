@@ -77,7 +77,7 @@ export function PostCard({ post }: PostCardProps) {
       <div className="min-w-0 self-center space-y-2.5">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           {post.featured ? (
-            <span className="reader-chip border-[color:color-mix(in_oklab,var(--accent-warm)_34%,var(--reader-border))] bg-[color:color-mix(in_oklab,var(--accent-warm)_14%,transparent)] text-[color:color-mix(in_oklab,var(--accent-warm)_78%,var(--foreground)_22%)]">
+            <span className="reader-chip border-accent-warm-34 bg-accent-warm-14 text-accent-warm-78">
               精选
             </span>
           ) : null}
@@ -93,7 +93,7 @@ export function PostCard({ post }: PostCardProps) {
         </div>
 
         <Link href={`/posts/${post.slug}`} className="block min-w-0">
-                  <h3 className="text-90 line-clamp-2 text-lg font-extrabold leading-snug transition-colors group-hover:text-[color:color-mix(in_oklab,var(--accent-sky)_82%,var(--foreground)_18%)] md:text-xl">
+                  <h3 className="text-90 line-clamp-2 text-lg font-extrabold leading-snug transition-colors group-hover:text-accent-sky-82 md:text-xl">
             {post.title}
           </h3>
         </Link>
