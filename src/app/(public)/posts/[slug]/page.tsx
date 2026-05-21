@@ -22,7 +22,7 @@ import rehypeHighlight from "rehype-highlight";
 import rehypeHighlightCodeLines from "rehype-highlight-code-lines";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArticleContinuation, ArticleHero, ArticleReadTracker, ArticleRelatedPosts, ArticleToc, ArticleTocDrawer, BackToTopButton, BookmarkButton, CopyCodeButton, LikeButton, NewsletterForm, ReadingProgress, SectionHeader, SeriesNav, ShareButton } from "@/components/blog";
+import { ArticleHero, ArticleReadTracker, ArticleRelatedPosts, ArticleToc, ArticleTocDrawer, BackToTopButton, BookmarkButton, CopyCodeButton, LikeButton, NewsletterForm, ReadingProgress, SectionHeader, SeriesNav, ShareButton } from "@/components/blog";
 import { CommentAuthGate } from "@/components/CommentAuthGate";
 import { FallbackImage } from "@/components/ui";
 import { getBlogSettings } from "@/lib/blog-settings";
@@ -107,28 +107,6 @@ async function getPostComments(postId: string) {
 type ArticleComment = Awaited<ReturnType<typeof getPostComments>>[number]
 type ArticleReply = ArticleComment['replies'][number]
 
-/**
- * 查找当前文章的上一篇 / 下一篇，用于文章末尾继续阅读模块。
- */
-async function getContinuationData(post: ArticlePost) {
-  const [previousPost, nextPost] = await Promise.all([
-    prisma.post.findFirst({
-      where: { published: true, deletedAt: null, createdAt: { lt: post.createdAt } },
-      select: { slug: true, title: true, createdAt: true },
-      orderBy: { createdAt: 'desc' },
-    }),
-    prisma.post.findFirst({
-      where: { published: true, deletedAt: null, createdAt: { gt: post.createdAt } },
-      select: { slug: true, title: true, createdAt: true },
-      orderBy: { createdAt: 'asc' },
-    }),
-  ])
-
-  return {
-    previousPost,
-    nextPost,
-  }
-}
 
 async function getRelatedPosts(postId: string, tagSlugs: string[], limit = 3) {
   if (tagSlugs.length === 0) {
@@ -311,10 +289,7 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
     notFound();
   }
 
-  const [{ previousPost, nextPost }, relatedPosts] = await Promise.all([
-    getContinuationData(post),
-    getRelatedPosts(post.id, post.tags.map((tag) => tag.slug)),
-  ])
+  const relatedPosts = await getRelatedPosts(post.id, post.tags.map((tag) => tag.slug))
   const commentsPromise = getPostComments(post.id)
 
   const headings = extractHeadings(post.content);
@@ -462,7 +437,7 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
             <SectionHeader
               eyebrow="读后"
               title="读后操作"
-              description="保存、分享、继续阅读，或直接跳到评论区。"
+              description="保存、分享，或直接跳到评论区。"
             />
 
             <div className="flex flex-wrap items-center gap-3">
@@ -482,7 +457,6 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
               </Link>
             </div>
 
-            <ArticleContinuation nextPost={nextPost} previousPost={previousPost} />
           </section>
 
           {settings.newsletter.enabled ? (

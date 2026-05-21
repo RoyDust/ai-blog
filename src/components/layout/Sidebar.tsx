@@ -88,12 +88,13 @@ export function Sidebar({
   const topTags = tags.slice(0, 10);
 
   return (
-    <aside id="sidebar" className="onload-animation w-full">
+    <aside id="sidebar" className="onload-animation h-full w-full">
       <div
         data-testid="sidebar-taxonomy-rail"
-        className="reader-scrollbar-hidden sticky space-y-3 pr-1 transition-[top,transform,box-shadow] duration-300 ease-out will-change-[top,transform]"
+        className="reader-scrollbar-hidden sticky space-y-3 overflow-y-auto pr-1 transition-[top,max-height,transform,box-shadow] duration-300 ease-out will-change-[top,transform]"
         style={{
           top: "calc(var(--sidebar-sticky-top, 0px) + 0.75rem)",
+          maxHeight: "calc(100vh - var(--sidebar-sticky-top, 0px) - 1.75rem)",
         }}
       >
         <section aria-label="作者资料" className="reader-panel p-4 text-center">

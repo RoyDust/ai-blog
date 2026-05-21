@@ -8,7 +8,12 @@
       "mcp__plugin_claude-mem_mcp-search__smart_unfold",
       "mcp__plugin_claude-mem_mcp-search__smart_outline",
       "Bash(powershell -Command \"Stop-Process -Name node -Force -ErrorAction SilentlyContinue\")",
-      "Bash(pnpm dev *)"
+      "Bash(pnpm dev *)",
+      "Bash(Get-ChildItem -Recurse -Depth 4 -Name -Directory)",
+      "Bash(Select-Object -First 100)",
+      "Bash(Get-ChildItem -Path \"f:\\\\Code\\\\NewProject\\\\my-next-app\" -Depth 0 -Name)",
+      "Bash(Get-ChildItem -Path \"f:\\\\Code\\\\NewProject\\\\my-next-app\" -Depth 0)",
+      "Bash(Format-Table Name, Mode)"
     ]
   }
 }

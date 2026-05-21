@@ -96,8 +96,6 @@ describe('article experience', () => {
         tags: [{ name: 'Tag', slug: 'tag' }],
         _count: { comments: 1, likes: 2 },
       })
-      .mockResolvedValueOnce({ slug: 'older-post', title: 'Older Post', createdAt: new Date('2025-12-31T00:00:00Z') })
-      .mockResolvedValueOnce({ slug: 'newer-post', title: 'Newer Post', createdAt: new Date('2026-01-02T00:00:00Z') })
 
     const { default: PostPage } = await import('@/app/(public)/posts/[slug]/page')
     const ui = await PostPage({ params: Promise.resolve({ slug: 'test-post' }) })
@@ -117,7 +115,6 @@ describe('article experience', () => {
     expect(screen.getByText("Author")).toBeInTheDocument()
     expect(screen.getByRole('heading', { level: 2, name: '读后操作' })).toBeInTheDocument()
     expect(screen.queryByRole('heading', { level: 2, name: '与我互动' })).not.toBeInTheDocument()
-    expect(screen.getByRole('heading', { level: 2, name: '继续阅读' })).toBeInTheDocument()
     expect(screen.getByText('100 阅读')).toBeInTheDocument()
     expect(screen.getByText('预计阅读 1 分钟')).toBeInTheDocument()
     expect(screen.queryByRole('heading', { level: 2, name: '相关文章' })).not.toBeInTheDocument()
@@ -127,8 +124,6 @@ describe('article experience', () => {
     expect(screen.getByTestId('comment-auth-gate')).toHaveTextContent('Comment gate for p1')
     expect(await screen.findByText('Great article')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '收藏文章' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: '上一篇 Older Post' })).toHaveAttribute('href', '/posts/older-post')
-    expect(screen.getByRole('link', { name: '下一篇 Newer Post' })).toHaveAttribute('href', '/posts/newer-post')
     expect(findMany).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({
         id: { not: 'p1' },
@@ -185,8 +180,6 @@ describe('article experience', () => {
         comments: [],
         _count: { comments: 0, likes: 2 },
       })
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce(null)
 
     const { default: PostPage } = await import('@/app/(public)/posts/[slug]/page')
     const ui = await PostPage({ params: Promise.resolve({ slug: 'test-post' }) })
@@ -226,8 +219,6 @@ describe('article experience', () => {
         comments: [],
         _count: { comments: 0, likes: 2 },
       })
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce(null)
 
     const { default: PostPage } = await import('@/app/(public)/posts/[slug]/page')
     const ui = await PostPage({ params: Promise.resolve({ slug: 'test-post' }) })
@@ -281,8 +272,6 @@ describe('article experience', () => {
         comments: [],
         _count: { comments: 0, likes: 2 },
       })
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce(null)
 
     const { default: PostPage } = await import('@/app/(public)/posts/[slug]/page')
     const ui = await PostPage({ params: Promise.resolve({ slug: 'test-post' }) })
@@ -322,8 +311,6 @@ describe('article experience', () => {
         comments: [],
         _count: { comments: 0, likes: 2 },
       })
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce(null)
 
     const { default: PostPage } = await import('@/app/(public)/posts/[slug]/page')
     const ui = await PostPage({ params: Promise.resolve({ slug: 'test-post' }) })
@@ -354,8 +341,6 @@ describe('article experience', () => {
         comments: [],
         _count: { comments: 0, likes: 2 },
       })
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce(null)
 
     const { default: PostPage } = await import('@/app/(public)/posts/[slug]/page')
     const ui = await PostPage({ params: Promise.resolve({ slug: 'test-post' }) })

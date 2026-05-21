@@ -31,7 +31,7 @@ async function GETHandler() {
           select: { posts: { where: { deletedAt: null, published: true } } }
         }
       },
-      orderBy: { name: "asc" }
+      orderBy: { posts: { _count: "desc" } }
     })
 
     return NextResponse.json({
