@@ -33,6 +33,8 @@ describe("app shell", () => {
     expect(screen.getByRole("link", { name: "跳到主要内容" })).toHaveAttribute("href", "#main-content");
     expect(screen.getByRole("link", { name: "跳到主要内容" }).className).toContain("reader-panel");
     expect(container.querySelector("main div.max-w-\\[var\\(--content-max-width\\)\\]")).toBeInTheDocument();
+    expect(container.querySelector(".reader-layout-frame")).toBeInTheDocument();
+    expect(container.querySelector(".reader-content-frame")).toBeInTheDocument();
     expect(sidebarRail).toBeInTheDocument();
     expect(mainContent).toBeInTheDocument();
 
@@ -59,5 +61,23 @@ describe("app shell", () => {
     expect(source).toContain("box-shadow: none;");
     expect(source).toContain("backdrop-filter: none;");
     expect(source).toContain("margin-top: calc(var(--reader-page-top) * -0.08);");
+  });
+
+  test("content frame keeps a slow width transition for article route changes", () => {
+    const source = readFileSync(join(process.cwd(), "src/styles/components.css"), "utf8");
+    const globalsSource = readFileSync(join(process.cwd(), "src/app/globals.css"), "utf8");
+
+    expect(source).toContain(".reader-nav");
+    expect(source).toContain(".reader-layout-frame");
+    expect(source).toContain(".reader-content-frame");
+    expect(source).toContain("transition-property: max-width, width, flex-basis;");
+    expect(source).toContain("transition-duration: var(--reader-route-layout-duration);");
+    expect(source).toContain("transition-timing-function: var(--reader-route-layout-ease);");
+    expect(source).toContain("view-transition-name: reader-nav-frame;");
+    expect(source).toContain("view-transition-name: reader-layout-frame;");
+    expect(globalsSource).toContain("::view-transition-group(reader-nav-frame)");
+    expect(globalsSource.indexOf("::view-transition-old(reader-nav-frame)")).toBeGreaterThan(
+      globalsSource.indexOf("::view-transition-old(*)"),
+    );
   });
 });

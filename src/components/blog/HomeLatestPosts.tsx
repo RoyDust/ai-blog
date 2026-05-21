@@ -78,6 +78,7 @@ export function HomeLatestPosts({ posts }: HomeLatestPostsProps) {
                 href={`/posts/${post.slug}`}
                 aria-label={`阅读 ${post.title}`}
                 className="theme-media relative aspect-[1.65] overflow-hidden rounded-lg sm:h-full sm:aspect-auto"
+                style={{ viewTransitionName: `post-cover-${post.slug}` }}
               >
                 {post.coverImage ? (
                   <FallbackImage
@@ -105,7 +106,10 @@ export function HomeLatestPosts({ posts }: HomeLatestPostsProps) {
                 ) : null}
 
                 <Link href={`/posts/${post.slug}`} className="block min-w-0">
-                  <h3 className="line-clamp-2 text-lg font-extrabold leading-snug text-[var(--foreground)] transition-colors group-hover:text-[color:color-mix(in_oklab,var(--accent-sky)_82%,var(--foreground)_18%)] md:text-xl">
+                  <h3
+                    className="line-clamp-2 text-lg font-extrabold leading-snug text-[var(--foreground)] transition-colors group-hover:text-[color:color-mix(in_oklab,var(--accent-sky)_82%,var(--foreground)_18%)] md:text-xl"
+                    style={{ viewTransitionName: `post-title-${post.slug}` }}
+                  >
                     {post.title}
                   </h3>
                 </Link>

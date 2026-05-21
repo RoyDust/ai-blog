@@ -15,6 +15,8 @@
   --section-gap: clamp(1.25rem, 2vw, 2rem);
   --hero-media-ratio: 1.35;
   --content-delay: 150ms;
+  --reader-route-layout-duration: 1800ms;
+  --reader-route-layout-ease: cubic-bezier(0.16, 1, 0.3, 1);
   --reader-nav-height: 3.125rem;
   --reader-nav-width: 52rem;
   --reader-nav-offset: clamp(0.625rem, 1.2vw, 1rem);

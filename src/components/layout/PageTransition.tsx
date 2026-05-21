@@ -1,18 +1,54 @@
 "use client";
 
+import { useEffect, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
-import { motion } from "motion/react";
+import { AnimatePresence, motion, useReducedMotion, type Variants } from "motion/react";
 
-export function PageTransition({ children }: { children: React.ReactNode }) {
+const pageTransitionVariants: Variants = {
+  hidden: { opacity: 0, y: 8 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.72, ease: [0.16, 1, 0.3, 1] },
+  },
+  exit: {
+    opacity: 0,
+    y: -5,
+    transition: { duration: 0.52, ease: [0.25, 1, 0.5, 1] },
+  },
+};
+
+export function PageTransition({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  return (
+  const reduce = useReducedMotion();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => setMounted(true));
+
+    return () => cancelAnimationFrame(frame);
+  }, []);
+
+  const shouldAnimate = mounted && !reduce;
+  const content = (
     <motion.div
       key={pathname}
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+      variants={shouldAnimate ? pageTransitionVariants : undefined}
+      initial={shouldAnimate ? "hidden" : false}
+      animate={shouldAnimate ? "visible" : undefined}
+      exit={shouldAnimate ? "exit" : undefined}
     >
       {children}
     </motion.div>
+  );
+
+  if (!shouldAnimate) {
+    return content;
+  }
+
+  return (
+    <AnimatePresence mode="wait" initial={false}>
+      {content}
+    </AnimatePresence>
   );
 }

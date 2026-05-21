@@ -6,6 +6,7 @@ import { motion } from "motion/react";
 import { FallbackImage } from "@/components/ui";
 
 interface ArticleHeroProps {
+  slug: string;
   title: string;
   excerpt: string | null;
   coverImage?: string | null;
@@ -17,6 +18,7 @@ interface ArticleHeroProps {
 }
 
 export function ArticleHero({
+  slug,
   title,
   excerpt,
   coverImage,
@@ -31,7 +33,8 @@ export function ArticleHero({
       className="reader-banner flex min-h-[clamp(22rem,42vw,33rem)] items-end"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+      transition={{ duration: 0.82, ease: [0.16, 1, 0.3, 1] }}
+      style={{ viewTransitionName: `post-cover-${slug}` }}
     >
       {coverImage ? (
         <FallbackImage
@@ -76,7 +79,12 @@ export function ArticleHero({
           ) : null}
 
           <div className="space-y-4">
-            <h1 className="font-display text-4xl font-extrabold leading-tight text-white md:text-5xl lg:text-6xl">{title}</h1>
+            <h1
+              className="font-display text-4xl font-extrabold leading-tight text-white md:text-5xl lg:text-6xl"
+              style={{ viewTransitionName: `post-title-${slug}` }}
+            >
+              {title}
+            </h1>
             {excerpt ? <p className="max-w-3xl text-base leading-8 text-white/76 md:text-lg">{excerpt}</p> : null}
           </div>
         </div>

@@ -54,6 +54,7 @@ export function PostCard({ post }: PostCardProps) {
           href={`/posts/${post.slug}`}
           aria-label={`阅读 ${post.title}`}
           className="theme-media relative aspect-[1.55] overflow-hidden rounded-lg md:h-full md:aspect-auto"
+          style={{ viewTransitionName: `post-cover-${post.slug}` }}
         >
           <FallbackImage
             alt={post.title}
@@ -93,7 +94,10 @@ export function PostCard({ post }: PostCardProps) {
         </div>
 
         <Link href={`/posts/${post.slug}`} className="block min-w-0">
-                  <h3 className="text-90 line-clamp-2 text-lg font-extrabold leading-snug transition-colors group-hover:text-accent-sky-82 md:text-xl">
+          <h3
+            className="text-90 line-clamp-2 text-lg font-extrabold leading-snug transition-colors group-hover:text-accent-sky-82 md:text-xl"
+            style={{ viewTransitionName: `post-title-${post.slug}` }}
+          >
             {post.title}
           </h3>
         </Link>

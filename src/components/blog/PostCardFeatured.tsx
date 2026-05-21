@@ -29,6 +29,7 @@ export function PostCardFeatured({ post }: PostCardFeaturedProps) {
           href={`/posts/${post.slug}`}
           aria-label={`阅读封面：${post.title}`}
           className="theme-media relative min-h-[17rem] lg:min-h-[20rem]"
+          style={{ viewTransitionName: `post-cover-${post.slug}` }}
         >
           {post.coverImage ? (
             <FallbackImage
@@ -76,7 +77,10 @@ export function PostCardFeatured({ post }: PostCardFeaturedProps) {
             </span>
             <div className="space-y-4">
               <Link href={`/posts/${post.slug}`}>
-                <h2 className="text-90 line-clamp-3 text-2xl font-bold leading-tight transition-colors hover:text-[color:color-mix(in_oklab,var(--accent-sky)_82%,var(--foreground)_18%)] md:text-3xl">
+                <h2
+                  className="text-90 line-clamp-3 text-2xl font-bold leading-tight transition-colors hover:text-[color:color-mix(in_oklab,var(--accent-sky)_82%,var(--foreground)_18%)] md:text-3xl"
+                  style={{ viewTransitionName: `post-title-${post.slug}` }}
+                >
                   {post.title}
                 </h2>
               </Link>

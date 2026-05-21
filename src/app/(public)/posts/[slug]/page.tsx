@@ -22,7 +22,7 @@ import rehypeHighlight from "rehype-highlight";
 import rehypeHighlightCodeLines from "rehype-highlight-code-lines";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArticleHero, ArticleReadTracker, ArticleRelatedPosts, ArticleToc, ArticleTocDrawer, BackToTopButton, BookmarkButton, CopyCodeButton, LikeButton, NewsletterForm, ReadingProgress, SectionHeader, SeriesNav, ShareButton } from "@/components/blog";
+import { ArticleHero, ArticleReadTracker, ArticleRelatedPosts, ArticleSection, ArticleSectionsReveal, ArticleTocDrawer, ArticleTocRail, BackToTopButton, BookmarkButton, CopyCodeButton, LikeButton, NewsletterForm, ReadingProgress, SectionHeader, SeriesNav, ShareButton } from "@/components/blog";
 import { CommentAuthGate } from "@/components/CommentAuthGate";
 import { FallbackImage } from "@/components/ui";
 import { getBlogSettings } from "@/lib/blog-settings";
@@ -328,9 +328,11 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
       <ArticleTocDrawer headings={headings} />
 
       <div className="grid gap-[var(--layout-rail-gap)] xl:grid-cols-[minmax(0,1fr)_var(--article-toc-width)] xl:items-start">
-        <div className="min-w-0 space-y-8">
+        <ArticleSectionsReveal>
+          <ArticleSection>
           <article className="article-shell reader-card overflow-hidden">
             <ArticleHero
+              slug={post.slug}
               title={post.title}
               excerpt={post.excerpt}
               coverImage={post.coverImage}
@@ -422,18 +424,25 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
               </div>
             </div>
           </article>
+          </ArticleSection>
 
           {post.series && !post.series.deletedAt ? (
-            <SeriesNav
-              currentSlug={post.slug}
-              posts={post.series.posts}
-              series={{ title: post.series.title, slug: post.series.slug }}
-            />
+            <ArticleSection>
+              <SeriesNav
+                currentSlug={post.slug}
+                posts={post.series.posts}
+                series={{ title: post.series.title, slug: post.series.slug }}
+              />
+            </ArticleSection>
           ) : null}
 
-          <ArticleRelatedPosts posts={relatedPosts} />
+          {relatedPosts.length > 0 ? (
+            <ArticleSection>
+              <ArticleRelatedPosts posts={relatedPosts} />
+            </ArticleSection>
+          ) : null}
 
-          <section className="reader-panel w-full space-y-6 p-6 sm:p-8">
+          <ArticleSection className="reader-panel w-full space-y-6 p-6 sm:p-8">
             <SectionHeader
               eyebrow="读后"
               title="读后操作"
@@ -457,20 +466,20 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
               </Link>
             </div>
 
-          </section>
+          </ArticleSection>
 
           {settings.newsletter.enabled ? (
-            <section className="reader-panel w-full space-y-4 p-6 sm:p-8">
+            <ArticleSection className="reader-panel w-full space-y-4 p-6 sm:p-8">
               <SectionHeader
                 eyebrow="Newsletter"
                 title="订阅后续文章"
                 description="新内容发布后发送确认邮件，不会把未验证或已退订地址加入发送列表。"
               />
               <NewsletterForm />
-            </section>
+            </ArticleSection>
           ) : null}
 
-          <section aria-labelledby="comments-heading" className="reader-panel w-full p-6 sm:p-8" id="comments">
+          <ArticleSection aria-labelledby="comments-heading" className="reader-panel w-full p-6 sm:p-8" id="comments">
             <h2 id="comments-heading" className="mb-3 font-display text-2xl font-bold text-[var(--foreground)]">评论 ({post._count.comments})</h2>
             <p className="mb-6 text-sm leading-6 text-[var(--text-muted)]">欢迎分享你的观点或补充事实和论据，但请避免人身攻击或侮辱他人。</p>
 
@@ -479,23 +488,10 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
             <Suspense fallback={<CommentListSkeleton />}>
               <CommentList commentsPromise={commentsPromise} />
             </Suspense>
-          </section>
-        </div>
+          </ArticleSection>
+        </ArticleSectionsReveal>
 
-        <aside
-          data-testid="toc-rail"
-          aria-label="文章目录"
-          className="article-toc-rail hidden transition-[top,max-height,transform,box-shadow] duration-300 ease-out will-change-[top,transform] xl:sticky xl:block"
-          style={{
-            top: "calc(var(--sidebar-sticky-top, 0px) + 0.75rem)",
-          }}
-        >
-          <nav aria-label="本文目录" className="reader-panel max-h-[var(--article-toc-card-max-height)] overflow-auto p-5">
-            <p aria-hidden="true" className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">On this page</p>
-            <h2 className="mb-4 font-display text-lg font-semibold text-[var(--foreground)]">目录</h2>
-            <ArticleToc headings={headings} />
-          </nav>
-        </aside>
+        <ArticleTocRail headings={headings} />
       </div>
     </div>
   );

@@ -142,6 +142,7 @@
     background: var(--reader-nav-surface);
     box-shadow: var(--reader-nav-shadow);
     backdrop-filter: var(--reader-nav-backdrop);
+    view-transition-name: reader-nav-frame;
   }
 
   .reader-panel,
@@ -220,6 +221,18 @@
 
   .reader-shell:has(.reader-home-stage) .reader-side-rail .reader-panel {
     box-shadow: none;
+  }
+
+  .reader-nav,
+  .reader-layout-frame,
+  .reader-content-frame {
+    transition-property: max-width, width, flex-basis;
+    transition-duration: var(--reader-route-layout-duration);
+    transition-timing-function: var(--reader-route-layout-ease);
+  }
+
+  .reader-layout-frame {
+    view-transition-name: reader-layout-frame;
   }
 
   .reader-shell:has(.article-detail-page) {

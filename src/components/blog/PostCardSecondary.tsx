@@ -26,7 +26,7 @@ export function PostCardSecondary({ post }: PostCardSecondaryProps) {
       )}
     >
       {hasCover ? (
-        <>
+        <div className="absolute inset-0" style={{ viewTransitionName: `post-cover-${post.slug}` }}>
           <FallbackImage
             alt={post.title}
             className="theme-media-image object-cover"
@@ -37,7 +37,7 @@ export function PostCardSecondary({ post }: PostCardSecondaryProps) {
             src={post.coverImage!}
           />
           <div className="absolute inset-0" style={{ background: "var(--reader-media-overlay)" }} />
-        </>
+        </div>
       ) : null}
 
       <div
@@ -62,6 +62,7 @@ export function PostCardSecondary({ post }: PostCardSecondaryProps) {
                 ? "text-[color:color-mix(in_oklab,var(--foreground)_8%,white_92%)] hover:opacity-85"
                 : "text-90 hover:text-[color:color-mix(in_oklab,var(--accent-sky)_82%,var(--foreground)_18%)]",
             )}
+            style={{ viewTransitionName: `post-title-${post.slug}` }}
           >
             {post.title}
           </h3>

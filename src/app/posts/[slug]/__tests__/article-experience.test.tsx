@@ -231,16 +231,18 @@ describe('article experience', () => {
     expect(detailGrid?.className).toContain('xl:grid-cols-[minmax(0,1fr)_var(--article-toc-width)]')
     expect(tocRail.className).toContain('xl:sticky')
     expect(tocRail.className).not.toContain('xl:fixed')
-    expect(tocRail.className).toContain('transition-[top,max-height,transform,box-shadow]')
-    expect(tocRail.className).toContain('duration-300')
+    expect(tocRail.className).toContain('transition-[top,box-shadow]')
+    expect(tocRail.className).toContain('duration-700')
     expect(tocRail.className).toContain('ease-out')
-    expect(tocRail.className).toContain('will-change-[top,transform]')
+    expect(tocRail.className).toContain('will-change-[top]')
+    expect(tocRail.className).not.toContain('will-change-[top,transform]')
     expect(tocRail.className).not.toContain('xl:top-24')
     expect(tocRail.getAttribute('style')).toContain('top: calc(var(--sidebar-sticky-top, 0px) + 0.75rem)')
 
     const tocCard = tocRail.firstElementChild
     expect(tocCard?.className).toContain('reader-panel')
     expect(tocCard?.className).toContain('max-h-[var(--article-toc-card-max-height)]')
+    expect(tocCard).toHaveAttribute('data-state')
   })
 
   test('article page renders series navigation when the post belongs to a series', async () => {
@@ -347,6 +349,8 @@ describe('article experience', () => {
     await act(async () => {
       render(ui as React.ReactElement)
     })
+
+    await screen.findAllByRole('link', { name: '来源链接' })
 
     const tocLinks = Array.from(screen.getByTestId('toc-rail').querySelectorAll('a')).map((link) => link.getAttribute('href'))
     expect(tocLinks).toEqual(['#来源链接', '#来源链接-2'])

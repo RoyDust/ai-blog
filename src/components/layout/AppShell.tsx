@@ -25,13 +25,13 @@ export function AppShell({ children, profile, readingStats, siteDescription, sit
       </a>
       <Navbar siteName={siteName} />
       <div className="flex flex-1 flex-col">
-        <div className="relative z-10 mx-auto flex w-full max-w-[var(--page-width)] flex-1 flex-col gap-6 px-4 pb-8 pt-[var(--reader-page-top)] xl:flex-row xl:gap-[var(--layout-rail-gap)]">
+        <div className="reader-layout-frame relative z-10 mx-auto flex w-full max-w-[var(--page-width)] flex-1 flex-col gap-6 px-4 pb-8 pt-[var(--reader-page-top)] xl:flex-row xl:gap-[var(--layout-rail-gap)]">
           <div data-testid="sidebar-rail" className="reader-side-rail hidden xl:block xl:w-[var(--rail-width)] xl:shrink-0">
             <Sidebar profile={profile} readingStats={readingStats} />
           </div>
           <main id="main-content" className="min-w-0 flex-1">
             <PageTransition>
-              <div className="mx-auto w-full max-w-[var(--content-max-width)] space-y-[var(--section-gap)]">
+              <div className="reader-content-frame mx-auto w-full max-w-[var(--content-max-width)] space-y-[var(--section-gap)]">
                 {children}
               </div>
             </PageTransition>

@@ -169,6 +169,47 @@ body {
   min-height: 100vh;
 }
 
+@view-transition {
+  navigation: auto;
+}
+
+@layer utilities {
+  ::view-transition-group(*) {
+    animation-duration: 1080ms;
+    animation-timing-function: var(--reader-route-layout-ease);
+  }
+
+  ::view-transition-old(*) {
+    animation-duration: 560ms;
+  }
+
+  ::view-transition-new(*) {
+    animation-duration: 1080ms;
+  }
+
+  ::view-transition-group(reader-layout-frame),
+  ::view-transition-group(reader-nav-frame) {
+    animation-duration: var(--reader-route-layout-duration);
+    animation-timing-function: var(--reader-route-layout-ease);
+  }
+
+  ::view-transition-old(reader-layout-frame),
+  ::view-transition-new(reader-layout-frame),
+  ::view-transition-old(reader-nav-frame),
+  ::view-transition-new(reader-nav-frame) {
+    animation-duration: var(--reader-route-layout-duration);
+    animation-timing-function: var(--reader-route-layout-ease);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}
+
 html body[data-radix-select-open][data-scroll-locked] {
   --removed-body-scroll-bar-size: 0px !important;
   margin-right: 0 !important;

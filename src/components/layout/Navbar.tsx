@@ -23,7 +23,7 @@ const navLinks = [
 ];
 
 const navItemClass =
-  "reader-link relative inline-flex h-10 items-center gap-1.5 rounded-lg px-3 text-[0.8rem] font-bold text-[var(--text-body)] transition-colors hover:bg-accent-sky-10 hover:text-foreground focus-visible:bg-accent-sky-14";
+  "reader-link relative inline-flex h-10 items-center gap-1.5 rounded-lg px-3 text-[0.8rem] font-bold text-[var(--text-body)] transition-colors hover:bg-[color:color-mix(in_oklab,var(--accent-sky)_10%,transparent)] hover:text-foreground focus-visible:bg-[color:color-mix(in_oklab,var(--accent-sky)_14%,transparent)]";
 
 interface NavbarProps {
   siteName?: string;

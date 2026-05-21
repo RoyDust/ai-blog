@@ -5,6 +5,9 @@ const qiniuDomain = process.env.QINIU_DOMAIN;
 const qiniuUrl = qiniuDomain ? new URL(qiniuDomain) : null;
 
 const nextConfig: NextConfig = {
+  experimental: {
+    viewTransition: true,
+  },
   turbopack: {
     root: __dirname,
   },
