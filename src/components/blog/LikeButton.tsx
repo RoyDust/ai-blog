@@ -1,11 +1,12 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Heart } from 'lucide-react'
 import { getOrCreateBrowserId } from '@/lib/browser-id'
-import { motion } from "motion/react";
+import { motion, useReducedMotion } from "motion/react";
 import { springSnappy } from "@/components/motion/transitions";
 import { iconPopVariants } from "@/components/motion/variants";
+import { prefersReducedParticleMotion, spawnParticleBurst, type Particle } from './particle-burst'
 
 interface LikeButtonProps {
   slug: string
@@ -17,6 +18,21 @@ export function LikeButton({ slug, initialLiked, initialCount }: LikeButtonProps
   const [liked, setLiked] = useState(initialLiked)
   const [count, setCount] = useState(initialCount)
   const [loading, setLoading] = useState(false)
+  const reduceMotion = useReducedMotion()
+
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const particlesRef = useRef<Particle[]>([])
+  const animationRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    const animation = animationRef
+
+    return () => {
+      if (animation.current) {
+        cancelAnimationFrame(animation.current)
+      }
+    }
+  }, [])
 
   useEffect(() => {
     let active = true
@@ -45,6 +61,19 @@ export function LikeButton({ slug, initialLiked, initialCount }: LikeButtonProps
     }
   }, [initialCount, slug])
 
+  const spawnParticles = (isLiked: boolean) => {
+    if (prefersReducedParticleMotion(reduceMotion)) return
+
+    spawnParticleBurst({
+      animationRef,
+      canvas: canvasRef.current,
+      hueOffset: isLiked ? -18 : 162,
+      hueOffsets: [-24, -8, 0, 18, 36],
+      lightness: isLiked ? [60, 64, 58, 66, 62] : [58, 62, 66, 60, 64],
+      particlesRef,
+    })
+  }
+
   const handleLike = async () => {
     if (loading) return
     const nextLiked = !liked
@@ -52,6 +81,8 @@ export function LikeButton({ slug, initialLiked, initialCount }: LikeButtonProps
     setLiked(nextLiked)
     setCount(nextCount)
     setLoading(true)
+
+    spawnParticles(nextLiked)
 
     try {
       const browserId = getOrCreateBrowserId()
@@ -81,21 +112,26 @@ export function LikeButton({ slug, initialLiked, initialCount }: LikeButtonProps
       whileTap={{ scale: 0.92 }}
       whileFocus={{ scale: 0.96 }}
       transition={springSnappy}
-      className={`inline-flex h-11 items-center gap-2 rounded-full border px-4 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-60 ${
+      className={`relative inline-flex h-11 items-center gap-2 rounded-full border px-4 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-60 ${
         liked
           ? 'border-[color:color-mix(in_oklab,var(--accent-warm)_60%,var(--reader-border))] bg-[color-mix(in_oklab,var(--accent-warm)_24%,var(--reader-panel))] text-[var(--foreground)]'
           : 'border-[var(--reader-border)] bg-[color-mix(in_oklab,var(--reader-panel-elevated)_82%,transparent)] text-[var(--text-body)] hover:border-[var(--reader-border-strong)] hover:bg-[var(--reader-panel-elevated)] hover:text-[var(--foreground)]'
       }`}
     >
+      <canvas
+        ref={canvasRef}
+        className="pointer-events-none absolute left-1/2 top-1/2 h-[120px] w-[120px] -translate-x-1/2 -translate-y-1/2 overflow-visible"
+      />
       <motion.span
         key={liked ? 'liked' : 'idle'}
         variants={iconPopVariants}
         initial="hidden"
         animate="visible"
+        className="relative z-10 flex items-center"
       >
         <Heart className="h-5 w-5" fill={liked ? 'currentColor' : 'none'} />
       </motion.span>
-      <span>{count}</span>
+      <span className="relative z-10">{count}</span>
     </motion.button>
   )
 }

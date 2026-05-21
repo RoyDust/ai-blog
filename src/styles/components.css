@@ -527,4 +527,16 @@
     filter: var(--image-filter-hover);
     transform: scale(1.02);
   }
+
+  /* 统一键盘 Tab 导航高对比度聚焦环 */
+  a:focus-visible,
+  button:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible,
+  [tabindex]:focus-visible {
+    outline: 2px solid var(--ring) !important;
+    outline-offset: 2.5px !important;
+    box-shadow: 0 0 0 4px color-mix(in oklab, var(--ring) 18%, transparent) !important;
+  }
 }

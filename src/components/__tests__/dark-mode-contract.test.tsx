@@ -98,6 +98,15 @@ test('night reader theme exposes reusable tokens and semantic classes', () => {
   expect(componentSource).toContain('var(--reader-background-image)')
 })
 
+test('global focus ring keeps a high-contrast light-mode outline contract', () => {
+  const themeSource = readSource('src/styles/theme-variables.css')
+  const componentSource = readSource('src/styles/components.css')
+
+  expect(themeSource).toContain('--ring: oklch(0.58 0.12 var(--hue));')
+  expect(componentSource).toContain('outline: 2px solid var(--ring) !important')
+  expect(componentSource).toContain('outline-offset: 2.5px !important')
+})
+
 test('global scrollbars stay thin and transparent across surfaces', () => {
   const source = readSource('src/app/globals.css')
 
