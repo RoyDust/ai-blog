@@ -66,7 +66,11 @@ test("sidebar loads categories from the public api route", async () => {
     return Promise.reject(new Error(`Unexpected URL: ${url}`));
   });
 
-  const { getByRole, getByText, container } = render(<Sidebar profile={profile} readingStats={readingStats} />);
+  const { getByRole, getByTestId, getByText, queryByTestId, container } = render(<Sidebar profile={profile} readingStats={readingStats} />);
+
+  expect(getByTestId("sidebar-categories-skeleton")).toBeInTheDocument();
+  expect(getByTestId("sidebar-tags-skeleton")).toBeInTheDocument();
+  expect(getByTestId("popular-posts-skeleton")).toBeInTheDocument();
 
   await waitFor(() => {
     expect(fetchMock).toHaveBeenCalledWith("/api/categories");
@@ -78,9 +82,11 @@ test("sidebar loads categories from the public api route", async () => {
   expect(getByText("后端")).toBeInTheDocument();
   expect(getByText("设计")).toBeInTheDocument();
   expect(getByText("AI")).toBeInTheDocument();
+  expect(queryByTestId("sidebar-categories-skeleton")).not.toBeInTheDocument();
   expect(container).not.toHaveTextContent("生活");
   expect(getByRole("link", { name: "查看更多分类" })).toHaveAttribute("href", "/categories");
   expect(getByText("React")).toBeInTheDocument();
+  expect(queryByTestId("sidebar-tags-skeleton")).not.toBeInTheDocument();
   expect(getByRole("link", { name: "查看更多标签" })).toHaveAttribute("href", "/tags");
   expect(container.querySelector('[data-testid="sidebar-tags-list"]')?.className).toContain("max-h-[7rem]");
   expect(container.querySelector('[data-testid="sidebar-tags-list"]')?.className).toContain("overflow-hidden");

@@ -43,7 +43,7 @@ describe("PostCard", () => {
 
     const card = screen.getByRole("article");
     expect(card.className).toContain("reader-feed-card");
-    expect(card.className).toContain("md:grid-cols-[10.75rem_minmax(0,1fr)_2.25rem]");
+    expect(card.className).toContain("md:grid-cols-[12rem_minmax(0,1fr)_2rem]");
     expect(screen.getByLabelText("继续阅读 Post with cover")).toHaveAttribute("href", "/posts/post-with-cover");
     expect(screen.getByText("Excerpt").className).toContain("line-clamp-2");
     expect(imageMock.mock.calls[0]?.[0].sizes).toBe("(min-width: 1800px) 14rem, (max-width: 768px) 100vw, 11rem");

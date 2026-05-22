@@ -32,6 +32,36 @@ type TagItem = {
 
 const categoryDotColors = ["var(--accent-warm)", "var(--accent-warm)", "var(--accent-warm)", "var(--text-faint)", "var(--text-faint)", "var(--accent-cyan)"];
 
+function SidebarCategorySkeleton() {
+  return (
+    <div aria-hidden="true" className="space-y-2" data-testid="sidebar-categories-skeleton">
+      {Array.from({ length: 4 }).map((_, index) => (
+        <div className="flex items-center justify-between gap-3 px-1.5 py-1.5" key={index}>
+          <span className="flex min-w-0 flex-1 items-center gap-2">
+            <span className="h-2 w-2 shrink-0 rounded-full reader-skeleton" />
+            <span className="h-3.5 w-24 rounded-md reader-skeleton" />
+          </span>
+          <span className="h-5 w-7 shrink-0 rounded-md reader-skeleton" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function SidebarTagsSkeleton() {
+  return (
+    <div aria-hidden="true" className="flex max-h-[7rem] flex-wrap gap-2 overflow-hidden pb-2" data-testid="sidebar-tags-skeleton">
+      {Array.from({ length: 10 }).map((_, index) => (
+        <span
+          className="h-[1.2rem] rounded-md reader-skeleton"
+          key={index}
+          style={{ width: `${2.5 + (index % 4) * 0.65}rem` }}
+        />
+      ))}
+    </div>
+  );
+}
+
 function formatReadingTime(minutes: number) {
   if (minutes < 60) {
     return `${minutes}m`;
@@ -50,6 +80,8 @@ export function Sidebar({
   const [categories, setCategories] = useState<CategoryItem[]>([]);
   const [tags, setTags] = useState<TagItem[]>([]);
   const [popularPosts, setPopularPosts] = useState<PopularPost[]>([]);
+  const [isTaxonomyLoading, setIsTaxonomyLoading] = useState(true);
+  const [isPopularPostsLoading, setIsPopularPostsLoading] = useState(true);
 
   useEffect(() => {
     let isMounted = true;
@@ -75,6 +107,8 @@ export function Sidebar({
       setCategories(Array.isArray(categoriesJson?.data) ? categoriesJson.data : []);
       setTags(Array.isArray(tagsJson?.data) ? tagsJson.data : []);
       setPopularPosts(Array.isArray(popularJson?.data) ? popularJson.data : []);
+      setIsTaxonomyLoading(false);
+      setIsPopularPostsLoading(false);
     };
 
     void loadTaxonomy();
@@ -134,7 +168,7 @@ export function Sidebar({
           </div>
         </section>
 
-        <section className="reader-panel p-4" aria-labelledby="sidebar-categories-title">
+        <section aria-busy={isTaxonomyLoading} className="reader-panel p-4" aria-labelledby="sidebar-categories-title">
           <div className="mb-3 flex items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-2">
               <span className="h-4 w-1 rounded-full bg-[var(--accent-sky)]" aria-hidden="true" />
@@ -153,7 +187,9 @@ export function Sidebar({
             </NextLink>
           </div>
 
-          {topCategories.length > 0 ? (
+          {isTaxonomyLoading ? (
+            <SidebarCategorySkeleton />
+          ) : topCategories.length > 0 ? (
             <div className="space-y-1.5">
               {topCategories.map((category, index) => (
                 <NextLink
@@ -179,7 +215,7 @@ export function Sidebar({
           )}
         </section>
 
-        <section className="reader-panel p-4" aria-labelledby="sidebar-tags-title">
+        <section aria-busy={isTaxonomyLoading} className="reader-panel p-4" aria-labelledby="sidebar-tags-title">
           <div className="mb-3 flex items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-2">
               <span className="h-4 w-1 rounded-full bg-[var(--accent-sky)]" aria-hidden="true" />
@@ -198,7 +234,9 @@ export function Sidebar({
             </NextLink>
           </div>
 
-          {topTags.length > 0 ? (
+          {isTaxonomyLoading ? (
+            <SidebarTagsSkeleton />
+          ) : topTags.length > 0 ? (
             <div className="flex max-h-[7rem] flex-wrap gap-2 overflow-hidden pb-2" data-testid="sidebar-tags-list">
               {topTags.map((tag) => (
                 <NextLink
@@ -218,7 +256,7 @@ export function Sidebar({
           )}
         </section>
 
-        <PopularPostsWidget posts={popularPosts} />
+        <PopularPostsWidget isLoading={isPopularPostsLoading} posts={popularPosts} />
 
         {readingStats ? (
           <>

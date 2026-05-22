@@ -101,7 +101,7 @@ export default async function PostsPage({ searchParams }: { searchParams?: Posts
         fallback={
           <div className="reader-section">
             {Array.from({ length: 6 }).map((_, index) => (
-              <div key={index} className="onload-animation" style={{ animationDelay: `${60 + index * 40}ms` }}>
+              <div key={index}>
                 <PostCardSkeleton />
               </div>
             ))}

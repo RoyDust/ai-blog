@@ -3,8 +3,6 @@
 import Link from 'next/link'
 import { ArrowRight, BookOpen, CalendarDays, ChevronRight, Clock3, Eye } from 'lucide-react'
 import { FallbackImage } from '@/components/ui'
-import { motion } from "motion/react";
-import { listContainerVariants, revealVariants } from "@/components/motion/variants";
 
 const READER_CARD_FALLBACK_SRC = '/images/fuwari-post-cover-fallback.svg'
 const HOME_LATEST_POST_LIMIT = 10
@@ -61,29 +59,23 @@ export function HomeLatestPosts({ posts }: HomeLatestPostsProps) {
         </Link>
       </div>
 
-      <motion.div
-        className="space-y-3"
-        variants={listContainerVariants}
-        initial="hidden"
-        animate="visible"
-      >
+      <div className="home-latest-posts-stage space-y-3">
         {posts.slice(0, HOME_LATEST_POST_LIMIT).map((post) => {
           return (
-            <motion.article
+            <article
               key={post.id}
-              className="reader-feed-card group grid min-w-0 gap-4 p-3 sm:min-h-32 sm:grid-cols-[10.75rem_minmax(0,1fr)_2.25rem] sm:grid-rows-[minmax(0,1fr)] sm:p-3"
-              variants={revealVariants}
+              className="reader-feed-card group grid min-w-0 gap-6 p-5 sm:min-h-[12.5rem] sm:grid-cols-[12rem_minmax(0,1fr)_2rem] sm:grid-rows-[minmax(0,1fr)] sm:p-4"
             >
               <Link
                 href={`/posts/${post.slug}`}
                 aria-label={`阅读 ${post.title}`}
-                className="theme-media relative aspect-[1.65] overflow-hidden rounded-lg sm:h-full sm:aspect-auto"
+                className="theme-media relative aspect-[1.65] overflow-hidden rounded-xl sm:h-full sm:aspect-auto shadow-sm"
                 style={{ viewTransitionName: `post-cover-${post.slug}` }}
               >
                 {post.coverImage ? (
                   <FallbackImage
                     alt={post.title}
-                    className="theme-media-image object-cover"
+                    className="theme-media-image object-cover transition-transform duration-500 group-hover:scale-[1.04]"
                     fill
                     loading="lazy"
                     quality={70}
@@ -116,18 +108,18 @@ export function HomeLatestPosts({ posts }: HomeLatestPostsProps) {
 
                 <p className="line-clamp-2 text-sm leading-6 text-[var(--text-body)]">{post.excerpt ?? '暂无摘要'}</p>
 
-                <div className="flex flex-wrap items-center gap-3 text-xs text-[var(--text-muted)]">
+                <div className="flex flex-wrap items-center gap-3 text-xs text-[var(--text-faint)] opacity-75">
                   <span className="inline-flex items-center gap-1.5">
-                    <CalendarDays className="h-3.5 w-3.5 text-[var(--accent-sky)]" aria-hidden="true" />
+                    <CalendarDays className="h-3.5 w-3.5" aria-hidden="true" />
                     {new Date(post.createdAt).toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' })}
                   </span>
                   <span className="inline-flex items-center gap-1.5">
-                    <Clock3 className="h-3.5 w-3.5 text-[var(--text-faint)]" aria-hidden="true" />
+                    <Clock3 className="h-3.5 w-3.5" aria-hidden="true" />
                     {post.readingTimeMinutes ?? 10} 分钟
                   </span>
                   {(post.viewCount ?? 0) > 0 ? (
                     <span className="inline-flex items-center gap-1.5">
-                      <Eye className="h-3.5 w-3.5 text-[var(--text-faint)]" aria-hidden="true" />
+                      <Eye className="h-3.5 w-3.5" aria-hidden="true" />
                       {post.viewCount} 浏览
                     </span>
                   ) : null}
@@ -141,10 +133,10 @@ export function HomeLatestPosts({ posts }: HomeLatestPostsProps) {
               >
                 <ChevronRight aria-hidden="true" className="h-5 w-5" />
               </Link>
-            </motion.article>
+            </article>
           )
         })}
-      </motion.div>
+      </div>
 
     </section>
   )

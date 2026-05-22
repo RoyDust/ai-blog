@@ -139,16 +139,16 @@
     isolation: isolate;
     border: 1px solid var(--reader-border);
     background: var(--reader-panel);
-    box-shadow: none;
-    backdrop-filter: blur(18px) saturate(1.02);
+    box-shadow: var(--reader-shadow-normal);
+    backdrop-filter: blur(20px) saturate(1.04);
+    border-radius: 1.5rem;
   }
 
   .reader-panel,
-  .reader-card {
-    border-radius: 0.875rem;
-  }
-
-  .reader-panel {
+  .reader-card,
+  .reader-feed-card,
+  .reader-feature-card {
+    border-radius: 1.5rem;
     overflow: hidden;
   }
 
@@ -159,7 +159,7 @@
       border-color 220ms ease,
       background-color 220ms ease,
       box-shadow 300ms ease,
-      transform 300ms cubic-bezier(0.16, 1, 0.3, 1);
+      transform 320ms cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   .reader-card::before,
@@ -185,8 +185,8 @@
   .reader-feed-card:hover,
   .reader-feature-card:hover {
     border-color: var(--reader-border-strong);
-    box-shadow: var(--reader-shadow);
-    transform: translateY(-2px);
+    box-shadow: var(--reader-shadow-hover);
+    transform: translateY(-4px);
   }
 
   .article-shell {
@@ -258,15 +258,6 @@
     box-shadow: none;
   }
 
-  .reader-feed-card {
-    overflow: hidden;
-    border-radius: 0.875rem;
-    background: color-mix(in oklab, var(--reader-panel) 94%, transparent);
-  }
-
-  .reader-feed-card:hover {
-    transform: none;
-  }
 
   .reader-feature-card {
     overflow: hidden;

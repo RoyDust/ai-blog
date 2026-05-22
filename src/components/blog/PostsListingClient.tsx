@@ -12,7 +12,7 @@
 import { useCallback } from 'react'
 
 import { AnimatePresence, motion } from "motion/react";
-import { listContainerVariants, revealVariants } from "@/components/motion/variants";
+import { featuredPostRevealVariants, postCardRevealVariants, postListContainerVariants } from "@/components/motion/variants";
 import { PostCard } from './PostCard'
 import { PostCardFeatured } from './PostCardFeatured'
 import { PostCardSkeleton } from './PostCardSkeleton'
@@ -97,7 +97,7 @@ export function PostsListingClient({ initialPosts, initialPagination, filters }:
         ))
       ) : posts.length > 0 ? (
         <motion.div
-          variants={listContainerVariants}
+          variants={postListContainerVariants}
           initial="hidden"
           animate="visible"
         >
@@ -106,7 +106,7 @@ export function PostsListingClient({ initialPosts, initialPagination, filters }:
               <motion.div
                 key={post.id}
                 layout
-                variants={revealVariants}
+                variants={post.featured ? featuredPostRevealVariants : postCardRevealVariants}
               >
                 {post.featured ? <PostCardFeatured post={post} /> : <PostCard post={post} />}
               </motion.div>

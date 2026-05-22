@@ -29,7 +29,7 @@ export function PageTransition({ children }: { children: ReactNode }) {
     return () => cancelAnimationFrame(frame);
   }, []);
 
-  const shouldAnimate = mounted && !reduce;
+  const shouldAnimate = mounted && !reduce && pathname !== "/";
   const content = (
     <motion.div
       key={pathname}

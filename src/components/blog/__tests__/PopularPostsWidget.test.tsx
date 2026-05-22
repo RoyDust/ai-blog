@@ -9,6 +9,15 @@ describe("PopularPostsWidget", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
+  test("renders a loading skeleton before popular posts resolve", () => {
+    render(<PopularPostsWidget isLoading posts={[]} />);
+
+    expect(screen.getByRole("heading", { name: "热门文章" })).toBeInTheDocument();
+    expect(screen.getByTestId("popular-posts-skeleton")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "热门文章" })).toHaveAttribute("aria-busy", "true");
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+  });
+
   test("renders ranked popular post links", () => {
     render(
       <PopularPostsWidget

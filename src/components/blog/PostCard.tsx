@@ -43,22 +43,22 @@ export function PostCard({ post }: PostCardProps) {
   return (
     <article
       className={cn(
-        "reader-feed-card group min-w-0 p-4",
+        "reader-feed-card group min-w-0 p-5 md:p-6",
         hasCover
-          ? "grid gap-4 md:min-h-32 md:grid-cols-[10.75rem_minmax(0,1fr)_2.25rem] md:items-stretch md:p-3"
-          : "post-card--text-only grid gap-3 p-5 md:p-6",
+          ? "grid gap-6 md:min-h-[12.5rem] md:grid-cols-[12rem_minmax(0,1fr)_2rem] md:items-stretch md:p-4"
+          : "post-card--text-only grid gap-4 p-6 md:p-8",
       )}
     >
       {hasCover ? (
         <Link
           href={`/posts/${post.slug}`}
           aria-label={`阅读 ${post.title}`}
-          className="theme-media relative aspect-[1.55] overflow-hidden rounded-lg md:h-full md:aspect-auto"
+          className="theme-media relative aspect-[1.55] overflow-hidden rounded-xl md:h-full md:aspect-auto shadow-sm"
           style={{ viewTransitionName: `post-cover-${post.slug}` }}
         >
           <FallbackImage
             alt={post.title}
-            className="theme-media-image object-cover"
+            className="theme-media-image object-cover transition-transform duration-500 group-hover:scale-[1.04]"
             fill
             loading="lazy"
             placeholder="blur"
@@ -104,7 +104,7 @@ export function PostCard({ post }: PostCardProps) {
 
         <p className="text-75 line-clamp-2 text-sm leading-6">{post.excerpt ?? "暂无摘要"}</p>
 
-        <div className="flex flex-wrap items-center gap-3 text-xs text-[var(--text-faint)]">
+        <div className="flex flex-wrap items-center gap-3 text-xs text-[var(--text-faint)] opacity-75">
           <span className="inline-flex items-center gap-1.5">
             <MessageCircle aria-hidden="true" className="h-3.5 w-3.5" />
             {post._count.comments} 评论
