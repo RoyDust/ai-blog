@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import { Card } from "@/components/admin/ui";
 
 interface PageHeaderProps {
   title: string;
@@ -10,7 +9,7 @@ interface PageHeaderProps {
 
 export function PageHeader({ title, description, action, eyebrow }: PageHeaderProps) {
   return (
-    <Card className="gap-0 rounded-3xl p-5 shadow-[0_18px_40px_-32px_rgba(15,118,110,0.6)]">
+    <div className="flex flex-col gap-0 rounded-lg bg-[var(--surface)] p-5 border-none shadow-none">
       <section>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
@@ -21,6 +20,6 @@ export function PageHeader({ title, description, action, eyebrow }: PageHeaderPr
           {action ? <div className="flex items-center gap-2">{action}</div> : null}
         </div>
       </section>
-    </Card>
+    </div>
   );
 }

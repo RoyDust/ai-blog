@@ -8,8 +8,8 @@ import { DeleteImpactDialog, type DeleteImpactItem } from "@/components/admin/De
 import { PageHeader } from "@/components/admin/primitives/PageHeader";
 import { StatusBadge } from "@/components/admin/primitives/StatusBadge";
 import { Toolbar } from "@/components/admin/primitives/Toolbar";
-import { WorkspacePanel } from "@/components/admin/primitives/WorkspacePanel";
 import { getApiErrorMessage } from "@/lib/admin-api-client";
+import { CheckCircle2, Clock, MessageSquare, XCircle } from "lucide-react";
 
 type CommentStatus = "APPROVED" | "PENDING" | "REJECTED" | "SPAM";
 
@@ -32,12 +32,6 @@ interface DeleteDialogState {
   submitting: boolean;
 }
 
-interface ModerationBucket {
-  status: CommentStatus;
-  description: string;
-  highlight: string;
-}
-
 const initialDeleteDialog: DeleteDialogState = {
   open: false,
   ids: [],
@@ -54,23 +48,79 @@ const statusMeta: Record<CommentStatus, { label: string; tone: "success" | "warn
   SPAM: { label: "已隐藏", tone: "neutral" },
 };
 
-const moderationBuckets: ModerationBucket[] = [
-  {
-    status: "PENDING",
-    description: "新评论直接进入待处理队列，优先判断是否合规。",
-    highlight: "优先处理新评论",
-  },
-  {
-    status: "APPROVED",
-    description: "确认优质互动继续在线，关注近期通过数量。",
-    highlight: "保持声誉",
-  },
-  {
-    status: "REJECTED",
-    description: "记录驳回原因，确保敏感/低质评论不再曝光。",
-    highlight: "同步驳回记录",
-  },
-];
+interface StatsCardProps {
+  label: string;
+  value: string | number;
+  icon: React.ComponentType<{ className?: string; "aria-hidden"?: boolean }>;
+  scheme: "blue" | "emerald" | "amber" | "rose";
+  hint?: string;
+  onClick?: () => void;
+  active?: boolean;
+}
+
+function StatsCard({ label, value, icon: Icon, scheme, hint, onClick, active }: StatsCardProps) {
+  const schemeStyles = {
+    blue: {
+      bg: "bg-blue-50 dark:bg-blue-950/30",
+      text: "text-blue-600 dark:text-blue-400",
+      border: "border-blue-100 dark:border-blue-900/30",
+      ring: "ring-2 ring-blue-500/50 border-blue-500/50",
+    },
+    emerald: {
+      bg: "bg-emerald-50 dark:bg-emerald-950/30",
+      text: "text-emerald-600 dark:text-emerald-400",
+      border: "border-emerald-100 dark:border-emerald-900/30",
+      ring: "ring-2 ring-emerald-500/50 border-emerald-500/50",
+    },
+    amber: {
+      bg: "bg-amber-50 dark:bg-amber-950/30",
+      text: "text-amber-600 dark:text-amber-400",
+      border: "border-amber-100 dark:border-amber-900/30",
+      ring: "ring-2 ring-amber-500/50 border-amber-500/50",
+    },
+    rose: {
+      bg: "bg-rose-50 dark:bg-rose-950/30",
+      text: "text-rose-600 dark:text-rose-400",
+      border: "border-rose-100 dark:border-rose-900/30",
+      ring: "ring-2 ring-rose-500/50 border-rose-500/50",
+    },
+  }[scheme];
+
+  return (
+    <div
+      onClick={onClick}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={onClick ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } } : undefined}
+      className={`relative overflow-hidden rounded-lg border bg-[var(--surface)] p-4 shadow-sm transition-all duration-200
+        ${onClick ? "cursor-pointer hover:shadow-md select-none" : ""}
+        ${active ? `${schemeStyles.ring}` : "border-[var(--border)] dark:hover:border-blue-500/20"}
+        group`}
+    >
+      <div className="flex items-center justify-between">
+        <dt className="text-xs font-semibold text-[var(--muted)] tracking-wide uppercase">
+          {label}
+        </dt>
+        <span className={`inline-flex h-8 w-8 items-center justify-center rounded-lg ${schemeStyles.bg} ${schemeStyles.text} ${schemeStyles.border} border transition-all duration-300 group-hover:scale-110 shadow-sm`}>
+          <Icon className="h-4.5 w-4.5" aria-hidden />
+        </span>
+      </div>
+      <dd className="mt-2 text-2xl font-bold tracking-tight text-[var(--foreground)] font-mono">
+        {typeof value === "number" ? value.toLocaleString("zh-CN") : value}
+      </dd>
+      {hint ? (
+        <p className="mt-2 text-[10px] font-medium text-[var(--muted)] border-t border-[var(--border)] pt-1.5">
+          {hint}
+        </p>
+      ) : (
+        <p className="mt-2 text-[10px] font-medium text-emerald-500 border-t border-[var(--border)] pt-1.5 flex items-center gap-1">
+          <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
+          运行正常
+        </p>
+      )}
+    </div>
+  );
+}
 
 export default function AdminCommentsPage() {
   const [comments, setComments] = useState<CommentRow[]>([]);
@@ -184,13 +234,6 @@ export default function AdminCommentsPage() {
     return totals;
   }, [comments]);
 
-  const triageBuckets = useMemo(() => {
-    return moderationBuckets.map((bucket) => ({
-      ...bucket,
-      count: statusCounts[bucket.status],
-    }));
-  }, [statusCounts]);
-
   const filtered = useMemo(() => {
     const keyword = query.trim().toLowerCase();
 
@@ -303,29 +346,44 @@ export default function AdminCommentsPage() {
           description="围绕待审核、已通过与已驳回组织评论治理，优先完成 triage 操作。"
         />
 
-        <WorkspacePanel title="状态桶" description="按照状态设置审核节奏与优先级。">
-          <div className="grid gap-4 md:grid-cols-3">
-            {triageBuckets.map((bucket) => (
-              <div key={bucket.status} className="flex h-full flex-col gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
-                <div className="flex items-center justify-between gap-3">
-                  <StatusBadge tone={statusMeta[bucket.status].tone}>{statusMeta[bucket.status].label}</StatusBadge>
-                  <button
-                    type="button"
-                    className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--brand)] hover:text-[var(--brand-strong)]"
-                    onClick={() => setStatusFilter(bucket.status)}
-                  >
-                    聚焦
-                  </button>
-                </div>
-                <p className="text-sm text-[var(--muted)]">{bucket.description}</p>
-                <div className="mt-auto">
-                  <p className="text-4xl font-semibold text-[var(--foreground)]">{bucket.count}</p>
-                  <p className="text-xs uppercase tracking-[0.3em] text-[var(--muted)]">{bucket.highlight}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </WorkspacePanel>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <StatsCard
+            label="全部评论"
+            value={comments.length}
+            icon={MessageSquare}
+            scheme="blue"
+            hint="点击快速过滤全部评论"
+            onClick={() => setStatusFilter("ALL")}
+            active={statusFilter === "ALL"}
+          />
+          <StatsCard
+            label="待审核"
+            value={statusCounts.PENDING}
+            icon={Clock}
+            scheme="amber"
+            hint="新评论进入待处理，优先审核"
+            onClick={() => setStatusFilter("PENDING")}
+            active={statusFilter === "PENDING"}
+          />
+          <StatsCard
+            label="已通过"
+            value={statusCounts.APPROVED}
+            icon={CheckCircle2}
+            scheme="emerald"
+            hint="确认优质互动继续在线展示"
+            onClick={() => setStatusFilter("APPROVED")}
+            active={statusFilter === "APPROVED"}
+          />
+          <StatsCard
+            label="已驳回"
+            value={statusCounts.REJECTED}
+            icon={XCircle}
+            scheme="rose"
+            hint="被驳回或标记为不通过的评论"
+            onClick={() => setStatusFilter("REJECTED")}
+            active={statusFilter === "REJECTED"}
+          />
+        </div>
 
         <DataTable
           title="治理队列"

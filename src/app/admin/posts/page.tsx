@@ -12,6 +12,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { CheckCircle2, Eye, FileText, PenLine } from "lucide-react";
 import { DataTable, type DataColumn } from "@/components/admin/DataTable";
 import { DeleteImpactDialog, type DeleteImpactItem } from "@/components/admin/DeleteImpactDialog";
 import { BulkAiCompletionDialog } from "@/components/admin/ai/BulkAiCompletionDialog";
@@ -69,6 +70,80 @@ function getSummaryStatus(post: PostRow): PostSummaryStatus {
   return getSummaryStatusForExcerpt(post.excerpt);
 }
 
+interface StatsCardProps {
+  label: string;
+  value: string | number;
+  icon: React.ComponentType<{ className?: string; "aria-hidden"?: boolean }>;
+  scheme: "blue" | "emerald" | "amber" | "violet";
+  hint?: string;
+  onClick?: () => void;
+  active?: boolean;
+}
+
+function StatsCard({ label, value, icon: Icon, scheme, hint, onClick, active }: StatsCardProps) {
+  const schemeStyles = {
+    blue: {
+      bg: "bg-blue-50 dark:bg-blue-950/30",
+      text: "text-blue-600 dark:text-blue-400",
+      border: "border-blue-100 dark:border-blue-900/30",
+      ring: "ring-2 ring-blue-500/50 border-blue-500/50",
+    },
+    emerald: {
+      bg: "bg-emerald-50 dark:bg-emerald-950/30",
+      text: "text-emerald-600 dark:text-emerald-400",
+      border: "border-emerald-100 dark:border-emerald-900/30",
+      ring: "ring-2 ring-emerald-500/50 border-emerald-500/50",
+    },
+    amber: {
+      bg: "bg-amber-50 dark:bg-amber-950/30",
+      text: "text-amber-600 dark:text-amber-400",
+      border: "border-amber-100 dark:border-amber-900/30",
+      ring: "ring-2 ring-amber-500/50 border-amber-500/50",
+    },
+    violet: {
+      bg: "bg-violet-50 dark:bg-violet-950/30",
+      text: "text-violet-600 dark:text-violet-400",
+      border: "border-violet-100 dark:border-violet-900/30",
+      ring: "ring-2 ring-violet-500/50 border-violet-500/50",
+    },
+  }[scheme];
+
+  return (
+    <div
+      onClick={onClick}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={onClick ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } } : undefined}
+      className={`relative overflow-hidden rounded-lg border bg-[var(--surface)] p-4 shadow-sm transition-all duration-200
+        ${onClick ? "cursor-pointer hover:shadow-md select-none" : ""}
+        ${active ? `${schemeStyles.ring}` : "border-[var(--border)] dark:hover:border-blue-500/20"}
+        group`}
+    >
+      <div className="flex items-center justify-between">
+        <dt className="text-xs font-semibold text-[var(--muted)] tracking-wide uppercase">
+          {label}
+        </dt>
+        <span className={`inline-flex h-8 w-8 items-center justify-center rounded-lg ${schemeStyles.bg} ${schemeStyles.text} ${schemeStyles.border} border transition-all duration-300 group-hover:scale-110 shadow-sm`}>
+          <Icon className="h-4.5 w-4.5" aria-hidden />
+        </span>
+      </div>
+      <dd className="mt-2 text-2xl font-bold tracking-tight text-[var(--foreground)] font-mono">
+        {typeof value === "number" ? value.toLocaleString("zh-CN") : value}
+      </dd>
+      {hint ? (
+        <p className="mt-2 text-[10px] font-medium text-[var(--muted)] border-t border-[var(--border)] pt-1.5">
+          {hint}
+        </p>
+      ) : (
+        <p className="mt-2 text-[10px] font-medium text-emerald-500 border-t border-[var(--border)] pt-1.5 flex items-center gap-1">
+          <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
+          运行正常
+        </p>
+      )}
+    </div>
+  );
+}
+
 /**
  * 后台文章管理主页面。
  * 这里负责协调列表数据、批量操作弹窗与行级异步动作状态。
@@ -81,6 +156,14 @@ export default function AdminPostsPage() {
   const [busyRowIds, setBusyRowIds] = useState<string[]>([]);
   const [bulkAiIds, setBulkAiIds] = useState<string[]>([]);
   const [deleteDialog, setDeleteDialog] = useState<DeleteDialogState>(initialDeleteDialog);
+
+  const stats = useMemo(() => {
+    const total = posts.length;
+    const published = posts.filter((p) => p.published).length;
+    const drafts = total - published;
+    const views = posts.reduce((sum, p) => sum + p.viewCount, 0);
+    return { total, published, drafts, views };
+  }, [posts]);
 
   /**
    * 拉取后台文章列表。
@@ -363,6 +446,43 @@ export default function AdminPostsPage() {
             </Link>
           }
         />
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <StatsCard
+            label="全部内容"
+            value={stats.total}
+            icon={FileText}
+            scheme="blue"
+            hint="点击快速过滤全部内容"
+            onClick={() => setStatusFilter("all")}
+            active={statusFilter === "all"}
+          />
+          <StatsCard
+            label="已发布"
+            value={stats.published}
+            icon={CheckCircle2}
+            scheme="emerald"
+            hint="点击快速过滤已发布内容"
+            onClick={() => setStatusFilter("published")}
+            active={statusFilter === "published"}
+          />
+          <StatsCard
+            label="草稿箱"
+            value={stats.drafts}
+            icon={PenLine}
+            scheme="amber"
+            hint="点击快速过滤草稿内容"
+            onClick={() => setStatusFilter("draft")}
+            active={statusFilter === "draft"}
+          />
+          <StatsCard
+            label="总阅读量"
+            value={stats.views}
+            icon={Eye}
+            scheme="violet"
+            hint="所有文章累计阅读数"
+          />
+        </div>
 
         <Toolbar
           leading={

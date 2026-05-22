@@ -135,3 +135,283 @@
 - [x] P2：根 metadata 接入 Search Console 验证环境变量
 - [ ] P2/P3：登录 Google/Bing Search Console 完成站点验证并提交 sitemap
 - [ ] P3：自定义 sitemap 图片扩展、FAQ schema、IndexNow、规范化 HTTPS 重定向等长期项
+
+## 博客对标优化计划
+
+> 对标 Josh Comeau / Lee Robinson / Overreacted 等优质博客，系统补齐阅读体验、性能、可访问性与内容发现方面的短板。
+> 生成日期：2026-05-21　排除项：Web Share API / 平台分享按钮
+
+---
+
+### P0 快速修复（高影响 / 低成本）
+
+#### P0-1 RSS 端点
+
+- [ ] 新建 `src/app/rss.xml/route.ts`
+  - `GET /rss.xml`，`export const revalidate = 300`
+  - 并发查 `getBlogSettings()` + `prisma.post.findMany`（最新 20 篇已发布，取 title / slug / excerpt / publishedAt / author.name / category.name）
+  - 输出 RSS 2.0 XML，`Content-Type: application/xml; charset=utf-8`
+  - 内置 `escapeXml()` 转义 `& < > " '`，无需新依赖
+  - `<atom:link>` 自引用，`<language>zh-CN</language>`
+  - 响应头加 `Cache-Control: public, s-maxage=300, stale-while-revalidate=86400`
+- [ ] 验收：`curl /rss.xml` 返回合法 XML；Footer `/rss.xml` 链接不再 404
+
+**影响文件**：新建 1 个文件
+
+---
+
+#### P0-2 图片 Blur Placeholder
+
+- [ ] 新建 `src/lib/image-placeholder.ts`
+  - 导出 `shimmerBlurDataURL` 常量（预计算 8×5 px 灰色 SVG 的 base64，零运行时开销）
+- [ ] 修改 `src/components/blog/PostCard.tsx` L57-66
+  - `FallbackImage` 追加 `placeholder="blur"` + `blurDataURL={shimmerBlurDataURL}`
+  - `FallbackImage` 已通过 `...props` 透传所有 `ImageProps`，无需改动该组件
+- [ ] 验收：文章列表封面图加载期间显示柔和灰底而非白色空白闪烁
+
+**影响文件**：新建 1 个，修改 1 个
+
+---
+
+#### P0-3 移动端 TOC 抽屉
+
+- [ ] 新建 `src/components/blog/ArticleTocDrawer.tsx`（client 组件）
+  - 使用已有 `vaul` 包封装抽屉，内部复用现有 `ArticleToc` 组件
+  - 触发按钮：`fixed bottom-20 right-4 xl:hidden z-40`，显示"目录"文字 + 列表图标
+  - `headings.length === 0` 时不渲染
+  - Drawer 内部：标题栏 + `<ArticleToc headings={headings} />`
+- [ ] 修改 `src/app/(public)/posts/[slug]/page.tsx` L322
+  - 在 `<BackToTopButton />` 后追加 `<ArticleTocDrawer headings={headings} />`
+- [ ] 验收：手机端文章页右下角出现目录按钮；点击弹出抽屉，可点击跳转；xl 及以上不显示
+
+**影响文件**：新建 1 个，修改 1 个
+
+---
+
+### P1 高价值改进（高影响 / 中等成本）
+
+#### P1-1 相关文章
+
+- [ ] 修改 `src/app/(public)/posts/[slug]/page.tsx`
+  - 新增 `getRelatedPosts(postId: string, tagSlugs: string[], limit = 3)` 函数
+    - `WHERE tags.slug IN [...], id != postId, published = true, deletedAt = null`
+    - `ORDER BY publishedAt DESC`，`TAKE 3`
+    - 返回：id / title / slug / excerpt / coverImage / createdAt / category
+  - `PostPage` 内与 `getContinuationData` 并发调用：`Promise.all([getContinuationData(post), getRelatedPosts(...)])`
+  - 插入位置：L426 `<SeriesNav>` 渲染之后
+- [ ] 新建 `src/components/blog/ArticleRelatedPosts.tsx`
+  - 最多 3 张紧凑卡片（标题 + 摘要 + 分类 + 日期）
+  - `posts.length === 0` 时 `return null`
+- [ ] 验收：有共同标签的文章在底部"相关文章"区展示；当前文章无标签时区块静默隐藏
+
+**影响文件**：新建 1 个，修改 1 个
+
+---
+
+#### P1-2 代码块行号
+
+- [ ] `pnpm add rehype-highlight-code-lines`（~2 KB，专为 rehype-highlight 配套）
+- [ ] 修改 `src/app/(public)/posts/[slug]/page.tsx` L21-22
+  - `rehypePlugins` 数组追加 `[rehypeHighlightCodeLines, { showLineNumbers: true }]`
+- [ ] 修改 `src/styles/code-highlight.css`
+  - 追加 `.code-line` 行样式：`display:block; padding-left:3rem; position:relative`
+  - 追加 `.code-line::before`：`content:attr(data-line-number); position:absolute; left:0; width:2.5rem; text-align:right; color:var(--text-faint); font-size:0.75em; user-select:none`
+- [ ] 验收：代码块左侧显示行号；行号不可被"全选复制"选中；不影响现有复制按钮功能
+
+**影响文件**：修改 2 个，新增 1 个 npm 依赖
+
+---
+
+#### P1-3 prefers-reduced-motion
+
+- [ ] 修改 `src/styles/animations.css` — 末尾追加
+  ```css
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+  ```
+- [ ] 修改根 layout（`src/app/layout.tsx`）
+  - 引入 `MotionConfig` from `motion/react`
+  - 在 `<body>` 内层包裹 `<MotionConfig reducedMotion="user">`
+  - `reducedMotion="user"` 自动检测系统偏好，无需手写 media query hook
+- [ ] 验收：系统开启"减少动态效果"后所有 Motion 动画瞬间跳过；CSS transition 也同步禁用
+
+**影响文件**：修改 2 个
+
+---
+
+### P2 中等优先级（中等影响 / 低成本）
+
+#### P2-1 ARIA 标注完善
+
+- [ ] 修改 `src/app/(public)/posts/[slug]/page.tsx`，共 4 处单行改动：
+  - L466 `<section id="comments">` → 追加 `aria-labelledby="comments-heading"`
+  - L467 `<h2>评论</h2>` → 追加 `id="comments-heading"`
+  - L478 `<aside data-testid="toc-rail">` → 追加 `aria-label="文章目录"`
+  - L485-489 TOC 内容区：外层 `<div>` 改为 `<nav aria-label="本文目录">`，将 `<p>On this page</p>`、`<h3>目录</h3>` 和 `<ArticleToc>` 包裹在内
+- [ ] 验收：屏幕阅读器可通过地标导航直接跳转到评论区和目录
+
+**影响文件**：修改 1 个
+
+---
+
+#### P2-2 联系页 /contact
+
+- [ ] 新建 `src/app/(public)/contact/page.tsx`
+  - `generateMetadata`：含 title / description，不设 noindex
+  - 页面布局：标题区（标题 + 副标题）+ 两列（表单 + 侧边联系信息）
+- [ ] 新建 `src/app/(public)/contact/ContactForm.tsx`（client 组件）
+  - 使用已有 `react-hook-form` + `zod` 依赖
+  - 字段：姓名（可选）、邮箱（必填，zod email）、主题（必填）、内容（必填，min 20 字）
+  - 提交方式：构造 `mailto:` URL 打开系统邮件，收件地址读 `process.env.CONTACT_EMAIL`
+  - 提交后用已有 `sonner` 显示 toast 提示
+- [ ] `.env.example` 追加 `CONTACT_EMAIL=` 说明行
+- [ ] 验收：`/contact` 正常渲染；填写并提交后打开邮件客户端且字段预填正确
+
+**影响文件**：新建 2 个，修改 1 个
+
+---
+
+### P3 锦上添花
+
+#### P3-1 热门文章 Widget
+
+- [ ] 新建 `src/app/api/posts/popular/route.ts`
+  - 查 `viewCount DESC TAKE 5`，返回 title / slug / viewCount
+- [ ] 新建 `src/components/blog/PopularPostsWidget.tsx`
+  - 带序号的紧凑列表（序号 + 标题 + 阅读量），无封面
+- [ ] 修改 `src/components/layout/Sidebar.tsx`
+  - 在现有 `loadTaxonomy` 的 `Promise.all` 中并发加入 `/api/posts/popular`
+  - 在"标签"section 之后、阅读统计之前渲染 `<PopularPostsWidget>`
+- [ ] 验收：侧栏展示阅读量前 5 文章；数据加载失败时静默隐藏
+
+**影响文件**：新建 2 个，修改 1 个
+
+---
+
+#### P3-2 Series 进度条
+
+- [ ] 修改 `src/components/blog/SeriesNav.tsx` L35-37
+  - 在 `{currentIndex + 1} / {posts.length}` 文字下方追加进度条：
+    ```tsx
+    <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-(--reader-border)">
+      <div
+        className="h-full rounded-full bg-(--accent-warm) transition-[width] duration-300"
+        style={{ width: `${Math.round(((currentIndex + 1) / posts.length) * 100)}%` }}
+      />
+    </div>
+    ```
+- [ ] 验收：SeriesNav 进度区域出现彩色进度条；第 1 篇约 宽度为 `1/N * 100%`，最后一篇 100%
+
+**影响文件**：修改 1 个
+
+---
+
+#### P3-3 暗模式代码块对比度
+
+- [ ] 修改 `src/styles/code-highlight.css`
+  - 在 `html.dark` 作用域下覆盖注释色（当前 `var(--text-muted)` 在暗模式下对比度不足）
+  - 确保注释、关键字、字符串等 token 在暗模式背景下达到 WCAG AA（4.5:1）
+- [ ] 验收：暗模式代码块各 token 颜色可读，Chrome DevTools 无对比度警告
+
+**影响文件**：修改 1 个
+
+---
+
+### 工作量汇总
+
+| 优先级 | 任务数 | 新建文件 | 修改文件 | 新增依赖 |
+|--------|--------|----------|----------|----------|
+| P0 | 3 | 2 | 2 | 0 |
+| P1 | 3 | 1 | 4 | 1（rehype-highlight-code-lines） |
+| P2 | 2 | 3 | 2 | 0 |
+| P3 | 3 | 2 | 3 | 0 |
+| **合计** | **11** | **8** | **11** | **1** |
+
+---
+
+## 文章详情入场与出场动画
+
+> 让从首页 / `/posts` 点击进入文章详情形成"卡片放大→Hero、主体模块依次入场、右侧目录滑入"的连续动画，并补齐返回时的出场动画。完整实施参考见 `plan/article-transitions.md`。
+
+### 任务清单
+
+- [x] **启用 Next.js 16 View Transitions**
+  - 修改 `next.config.ts`：开启 `experimental.viewTransition`
+  - 验收：`pnpm dev` 启动正常，无新报错
+
+- [x] **卡片侧标记共享元素名**
+  - 修改 `src/components/blog/PostCard.tsx`、`PostCardFeatured.tsx`、`PostCardSecondary.tsx`、`HomeLatestPosts.tsx`：封面入口与主标题 `h2/h3` 加 `style={{ viewTransitionName: 'post-cover-${slug}' }}` / `post-title-${slug}`
+  - 验收：DOM 上能查到对应内联样式,且页内同 slug 唯一
+
+- [x] **详情页 Hero 标记同名共享元素**
+  - 修改 `src/components/blog/ArticleHero.tsx`:新增 `slug` prop；外层 `motion.header` 加 `viewTransitionName: 'post-cover-${slug}'`，`h1` 加 `post-title-${slug}`
+  - 修改 `src/app/(public)/posts/[slug]/page.tsx`：把 `post.slug` 传给 `ArticleHero`
+  - 验收：点击列表卡片进入详情，封面与标题从卡片位置插值放大到 Hero 位置
+
+- [x] **主体模块 stagger 入场**
+  - 新建 `src/components/blog/ArticleSectionsReveal.tsx`：client component，`motion.div variants={listContainerVariants}` 包装 children
+  - 修改 `src/app/(public)/posts/[slug]/page.tsx`：把主列的 `<article>`、`<SeriesNav>`、`<ArticleRelatedPosts>`、读后操作、Newsletter、评论区作为 `ArticleSectionsReveal` 的 children，并各自外包一层 `ArticleSection`
+  - 验收：进入详情页时，各 section 自上而下以 ~60ms 间隔淡入上移
+
+- [x] **右侧目录滑入**
+  - 新建 `src/components/blog/ArticleTocRail.tsx`：client component，包当前 `<aside>`，初始 `{opacity:0, x:16}` → `{opacity:1, x:0}`，`delay: 0.25`
+  - 修改 `src/app/(public)/posts/[slug]/page.tsx`：用 `ArticleTocRail` 替换原 aside
+  - 验收：Hero 共享元素到位后约 250ms，目录从右侧滑入并淡入
+
+- [x] **出场动画升级**
+  - 修改 `src/components/layout/PageTransition.tsx`：包 `AnimatePresence mode="wait"`，沿用 `revealVariants` 的 hidden/visible/exit
+  - 验收：返回列表 / 切换页面时，旧页面向上淡出再渲染新页面
+
+- [x] **reduced-motion 兜底**
+  - `ArticleSectionsReveal` / `ArticleTocRail` / `PageTransition` 使用 `useReducedMotion()`，命中时直接渲染静态结构
+  - 在 `src/app/globals.css` 增加 `@media (prefers-reduced-motion: reduce) { ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; } }`
+  - 验收：开启系统"减少动效"后，所有动画被静态替换
+
+- [x] **跨页面骨架占位（防共享元素错位）**
+  - 改造 `src/app/(public)/posts/[slug]/loading.tsx`：渲染封面 / 标题骨架；不在骨架上加 `viewTransitionName`，避免卡片插值目标落到骨架节点
+  - 验收：慢网下点击卡片，骨架直接"接住"共享元素，不会回弹到原位
+
+- [x] **自定义 View Transition 曲线**
+  - `src/app/globals.css` 增加全局 `::view-transition-group(*)` / old / new 曲线、时长覆盖，避免使用不受 CSS 语法支持的 slug 通配选择器
+  - 验收：实测过渡时长接近 380ms，曲线为 `cubic-bezier(0.22, 1, 0.36, 1)`
+
+- [x] **测试与回归**
+  - 新增 `src/components/blog/__tests__/ArticleSectionsReveal.test.tsx`：断言子节点正常渲染
+  - 跑 `pnpm test`、`pnpm lint`、`pnpm build`
+  - 浏览器矩阵手测：当前环境用 Playwright Chromium 覆盖完整 DOM / reduced-motion 流程；Firefox / WebKit 浏览器二进制未安装，未做真机矩阵
+  - 验收：现有 723 测试 + 1 新测试全部通过；Chromium 无控制台报错
+
+### 验收（整体）
+
+1. 从首页 / `/posts` 点击任意文章卡片进入详情，封面与标题从卡片位置放大到 Hero
+2. Hero 到位后，正文 / SeriesNav / 相关文章 / 读后操作 / 评论各 section 自上而下 stagger 淡入
+3. 右侧目录从右滑入并淡入
+4. 返回列表时，详情页内容向上淡出再切换
+5. `prefers-reduced-motion` 开启时全部动画跳过且无残影
+6. Firefox 等不支持的浏览器静默降级为现有切换效果，不报错
+
+**影响文件**：新建 3 个（`ArticleSectionsReveal.tsx`、`ArticleTocRail.tsx`、新测试文件），改造 1 个加载态（`loading.tsx`），修改约 8 个既有文件（`next.config.ts`、3 个卡片组件、`HomeLatestPosts.tsx`、`ArticleHero.tsx`、`page.tsx`、`PageTransition.tsx`、`globals.css` 等）
+
+**新增依赖**：无（复用现有 `motion/react`、Next.js 16 内置 View Transitions）
+
+### Review
+
+已完成文章详情入场与出场动画实施：Next 16 `experimental.viewTransition` 已启用，首页/列表文章入口与详情 Hero 使用同名 `viewTransitionName`；详情页主体改为 `ArticleSectionsReveal` + `ArticleSection` stagger 入场，右侧目录改为 `ArticleTocRail` 延迟滑入，`PageTransition` 增加挂载后 exit 动画并规避 hydration mismatch。已有 `loading.tsx` 已改造成文章详情慢网骨架，但按计划正文说明未给骨架加共享元素名，避免共享元素目标落到临时骨架。
+
+验证结果：`pnpm lint` 通过；`pnpm test` 通过 207 个测试文件 / 724 个测试；`pnpm build` 通过且构建输出确认 `viewTransition` experiment 已启用；Playwright Chromium 已验证首页入口 `post-cover-*` 到详情 Hero、`post-title-*` 到详情 H1 名称匹配，桌面 TOC 可见，`prefers-reduced-motion: reduce` 下 TOC `opacity=1` 且 `transform=none`。补充修复了导航栏样式契约测试中缺失 `var(--accent-sky)` token 的最小差异。
+
+剩余风险：当前机器已有 3000 端口 dev 服务，3001 因 `.next/dev/lock` 未另启；Firefox / WebKit / Safari 真机矩阵未执行（本机 Playwright 只安装了 Chromium）。Lighthouse 性能分未跑。
+
+### Review 补充：头部宽度动画
+
+修正了头部宽度变化未变慢的问题：实际导航宽度由 `.reader-nav` 的 `max-width: var(--page-width)` 控制，因此补充 `reader-nav-frame` 命名 View Transition，并将布局宽度动画时长收敛到 `--reader-route-layout-duration: 1800ms`。同时调整命名 View Transition 规则顺序，确保 `reader-nav-frame` / `reader-layout-frame` 的慢速规则覆盖通配 `old/new(*)` 规则。
+
+### Review 补充：右侧目录重载动画
+
+修正右侧目录的动效方向：移除 `ArticleTocRail` 的右侧滑入动画，改为原地骨架态到内容态的 layout 高度重载。目录卡片先显示列表骨架，再根据真实标题数量纵向增高或缩短并淡入内容，避免把目录理解成从页面右侧进入的新模块。

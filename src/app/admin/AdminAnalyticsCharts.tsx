@@ -6,13 +6,13 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } f
 import type { DashboardStats } from "@/lib/admin-stats";
 
 const visitTrendChartConfig = {
-  pv: { label: "PV", color: "#23875f" },
-  uv: { label: "UV", color: "#2563eb" },
+  pv: { label: "PV", color: "#2563eb" },
+  uv: { label: "UV", color: "#38bdf8" },
 } satisfies ChartConfig;
 
 const engagementChartConfig = {
-  comments: { label: "评论", color: "#d97706" },
-  likes: { label: "点赞", color: "#23875f" },
+  comments: { label: "评论", color: "#4f46e5" },
+  likes: { label: "点赞", color: "#0ea5e9" },
 } satisfies ChartConfig;
 
 function formatCompactNumber(value: number) {
@@ -25,20 +25,20 @@ export function VisitTrendChart({ stats }: { stats: DashboardStats["visits"] }) 
       <RechartsAreaChart data={stats.trend} margin={{ left: 0, right: 10, top: 12, bottom: 8 }} accessibilityLayer>
         <defs>
           <linearGradient id="visit-pv-area" x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor="var(--color-pv)" stopOpacity={0.24} />
-            <stop offset="100%" stopColor="var(--color-pv)" stopOpacity={0.02} />
+            <stop offset="0%" stopColor="var(--color-pv)" stopOpacity={0.16} />
+            <stop offset="100%" stopColor="var(--color-pv)" stopOpacity={0.005} />
           </linearGradient>
           <linearGradient id="visit-uv-area" x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor="var(--color-uv)" stopOpacity={0.14} />
-            <stop offset="100%" stopColor="var(--color-uv)" stopOpacity={0.01} />
+            <stop offset="0%" stopColor="var(--color-uv)" stopOpacity={0.1} />
+            <stop offset="100%" stopColor="var(--color-uv)" stopOpacity={0.002} />
           </linearGradient>
         </defs>
-        <RechartsCartesianGrid vertical={false} stroke="rgba(23,32,27,0.09)" />
+        <RechartsCartesianGrid vertical={false} stroke="rgba(148,163,184,0.08)" />
         <RechartsXAxis dataKey="label" tickLine={false} axisLine={false} minTickGap={stats.range > 30 ? 28 : 14} />
         <RechartsYAxis tickFormatter={formatCompactNumber} tickLine={false} axisLine={false} width={38} />
-        <ChartTooltip content={<ChartTooltipContent />} />
+        <ChartTooltip content={<ChartTooltipContent className="border border-slate-200/50 dark:border-slate-800/50 rounded-lg bg-[var(--surface)]/95 shadow-lg backdrop-blur-sm" />} />
         <RechartsArea dataKey="uv" type="monotone" stroke="var(--color-uv)" fill="url(#visit-uv-area)" strokeWidth={2} dot={false} />
-        <RechartsArea dataKey="pv" type="monotone" stroke="var(--color-pv)" fill="url(#visit-pv-area)" strokeWidth={2.5} dot={false} />
+        <RechartsArea dataKey="pv" type="monotone" stroke="var(--color-pv)" fill="url(#visit-pv-area)" strokeWidth={2} dot={false} />
       </RechartsAreaChart>
     </ChartContainer>
   );
@@ -50,18 +50,18 @@ export function EngagementTrendChart({ stats }: { stats: DashboardStats["engagem
       <RechartsAreaChart data={stats.trend} margin={{ left: -12, right: 6, top: 8, bottom: 0 }} accessibilityLayer>
         <defs>
           <linearGradient id="engagement-comments-area" x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor="var(--color-comments)" stopOpacity={0.18} />
-            <stop offset="100%" stopColor="var(--color-comments)" stopOpacity={0.02} />
+            <stop offset="0%" stopColor="var(--color-comments)" stopOpacity={0.12} />
+            <stop offset="100%" stopColor="var(--color-comments)" stopOpacity={0.002} />
           </linearGradient>
           <linearGradient id="engagement-likes-area" x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor="var(--color-likes)" stopOpacity={0.2} />
-            <stop offset="100%" stopColor="var(--color-likes)" stopOpacity={0.02} />
+            <stop offset="0%" stopColor="var(--color-likes)" stopOpacity={0.12} />
+            <stop offset="100%" stopColor="var(--color-likes)" stopOpacity={0.002} />
           </linearGradient>
         </defs>
-        <RechartsCartesianGrid vertical={false} stroke="rgba(23,32,27,0.09)" />
+        <RechartsCartesianGrid vertical={false} stroke="rgba(148,163,184,0.08)" />
         <RechartsXAxis dataKey="label" tickLine={false} axisLine={false} minTickGap={stats.range > 30 ? 28 : 16} />
         <RechartsYAxis allowDecimals={false} tickLine={false} axisLine={false} width={34} />
-        <ChartTooltip content={<ChartTooltipContent />} />
+        <ChartTooltip content={<ChartTooltipContent className="border border-slate-200/50 dark:border-slate-800/50 rounded-lg bg-[var(--surface)]/95 shadow-lg backdrop-blur-sm" />} />
         <RechartsArea dataKey="comments" type="monotone" stroke="var(--color-comments)" fill="url(#engagement-comments-area)" strokeWidth={2} dot={false} />
         <RechartsArea dataKey="likes" type="monotone" stroke="var(--color-likes)" fill="url(#engagement-likes-area)" strokeWidth={2} dot={false} />
       </RechartsAreaChart>

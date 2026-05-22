@@ -1,28 +1,14 @@
 @layer components {
   .card-base {
-    @apply overflow-hidden rounded-[var(--radius-large)] bg-[var(--card-bg)] transition-all;
+    @apply overflow-hidden rounded-[var(--radius-large)] bg-[var(--surface)] transition-all duration-300 ease-out;
     border: 1px solid var(--border);
     box-shadow: var(--shadow-card);
     position: relative;
     isolation: isolate;
   }
 
-  .card-base::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background: radial-gradient(120% 72% at 100% 0, var(--post-card-text-accent-glow), transparent 64%);
-    opacity: 0.48;
-    z-index: 0;
-  }
-
-  .card-base > * {
-    position: relative;
-    z-index: 1;
-  }
-
   .card-base:hover {
+    transform: translateY(-2px);
     box-shadow: var(--shadow-card-hover);
     border-color: var(--border-strong);
   }
