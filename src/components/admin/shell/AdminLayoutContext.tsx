@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { adminNavItems } from "./config";
 
@@ -21,16 +21,18 @@ interface AdminLayoutContextType {
 
 const AdminLayoutContext = createContext<AdminLayoutContextType | undefined>(undefined);
 const HOME_TAB: Tab = { href: "/admin", label: "首页" };
+const ADMIN_COLLAPSED_STORAGE_KEY = "vben_admin_collapsed";
+const ADMIN_TABS_STORAGE_KEY = "vben_admin_tabs";
 
 function readInitialCollapsedState() {
   if (typeof window === "undefined") return false;
-  return localStorage.getItem("vben_admin_collapsed") === "true";
+  return localStorage.getItem(ADMIN_COLLAPSED_STORAGE_KEY) === "true";
 }
 
 function readInitialTabs() {
   if (typeof window === "undefined") return [HOME_TAB];
 
-  const savedTabs = localStorage.getItem("vben_admin_tabs");
+  const savedTabs = localStorage.getItem(ADMIN_TABS_STORAGE_KEY);
   if (!savedTabs) return [HOME_TAB];
 
   try {
@@ -76,20 +78,44 @@ function getTabForPathname(pathname: string | null): Tab | null {
   return { href: pathname, label: item ? item.label : "管理后台" };
 }
 
+function ensureCurrentTab(tabs: Tab[], pathname: string | null) {
+  const tab = getTabForPathname(pathname);
+  if (!tab || tabs.some((item) => item.href === tab.href)) return tabs;
+  return [...tabs, tab];
+}
+
 export function AdminLayoutProvider({ children }: { children: React.ReactNode }) {
-  const [isCollapsed, setIsCollapsedState] = useState<boolean>(readInitialCollapsedState);
-  const [tabs, setTabs] = useState<Tab[]>(readInitialTabs);
+  const [isCollapsed, setIsCollapsedState] = useState(false);
+  const [tabs, setTabs] = useState<Tab[]>([HOME_TAB]);
+  const hasRestoredStateRef = useRef(false);
   const pathname = usePathname();
   const router = useRouter();
 
   const handleSetCollapsed = (val: boolean) => {
     setIsCollapsedState(val);
     if (typeof window !== "undefined") {
-      localStorage.setItem("vben_admin_collapsed", String(val));
+      localStorage.setItem(ADMIN_COLLAPSED_STORAGE_KEY, String(val));
     }
   };
 
   useEffect(() => {
+    if (hasRestoredStateRef.current) return;
+
+    const timeoutId = window.setTimeout(() => {
+      const restoredTabs = ensureCurrentTab(readInitialTabs(), pathname);
+
+      hasRestoredStateRef.current = true;
+      setIsCollapsedState(readInitialCollapsedState());
+      setTabs(restoredTabs);
+      localStorage.setItem(ADMIN_TABS_STORAGE_KEY, JSON.stringify(restoredTabs));
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!hasRestoredStateRef.current) return;
+
     const tab = getTabForPathname(pathname);
     if (!tab) return;
 
@@ -98,7 +124,7 @@ export function AdminLayoutProvider({ children }: { children: React.ReactNode })
         if (prev.some((item) => item.href === tab.href)) return prev;
 
         const updated = [...prev, tab];
-        localStorage.setItem("vben_admin_tabs", JSON.stringify(updated));
+        localStorage.setItem(ADMIN_TABS_STORAGE_KEY, JSON.stringify(updated));
         return updated;
       });
     }, 0);
@@ -111,7 +137,7 @@ export function AdminLayoutProvider({ children }: { children: React.ReactNode })
       if (prev.some((t) => t.href === tab.href)) return prev;
       const updated = [...prev, tab];
       if (typeof window !== "undefined") {
-        localStorage.setItem("vben_admin_tabs", JSON.stringify(updated));
+        localStorage.setItem(ADMIN_TABS_STORAGE_KEY, JSON.stringify(updated));
       }
       return updated;
     });
@@ -126,7 +152,7 @@ export function AdminLayoutProvider({ children }: { children: React.ReactNode })
 
       const updated = prev.filter((t) => t.href !== hrefToClose);
       if (typeof window !== "undefined") {
-        localStorage.setItem("vben_admin_tabs", JSON.stringify(updated));
+        localStorage.setItem(ADMIN_TABS_STORAGE_KEY, JSON.stringify(updated));
       }
 
       // If closing the active tab, navigate to another open tab
@@ -149,7 +175,7 @@ export function AdminLayoutProvider({ children }: { children: React.ReactNode })
         : keepTab ? [homeTab, keepTab] : prev;
 
       if (typeof window !== "undefined") {
-        localStorage.setItem("vben_admin_tabs", JSON.stringify(updated));
+        localStorage.setItem(ADMIN_TABS_STORAGE_KEY, JSON.stringify(updated));
       }
 
       if (pathname !== hrefToKeep && pathname !== "/admin") {
@@ -163,7 +189,7 @@ export function AdminLayoutProvider({ children }: { children: React.ReactNode })
   const closeAllTabs = () => {
     setTabs([HOME_TAB]);
     if (typeof window !== "undefined") {
-      localStorage.setItem("vben_admin_tabs", JSON.stringify([HOME_TAB]));
+      localStorage.setItem(ADMIN_TABS_STORAGE_KEY, JSON.stringify([HOME_TAB]));
     }
     router.push("/admin");
   };

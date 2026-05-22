@@ -30,6 +30,7 @@ describe("GlobalLoginDialog", () => {
   test("opens the login dialog from query params and passes auth errors through", async () => {
     render(<GlobalLoginDialog />);
 
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(await screen.findByRole("dialog")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "登录账号" })).toBeInTheDocument();
     expect(screen.getByText(/管理员账号/)).toBeInTheDocument();

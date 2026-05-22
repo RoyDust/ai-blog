@@ -1,9 +1,10 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
-import { Archive, BookOpenText, Home, ListTree, Menu, Palette, Search, Sparkles, UserRound } from "lucide-react";
+import { Archive, BookOpenText, Home, ListTree, Menu, Palette, Search, UserRound } from "lucide-react";
 
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { AccountEntry } from "@/components/auth/AccountEntry";
@@ -65,8 +66,8 @@ export function Navbar({ siteName = "My Blog" }: NavbarProps) {
           href="/"
           className="reader-link inline-flex h-10 shrink-0 items-center gap-2 rounded-lg px-2 text-sm font-bold text-[var(--foreground)] transition-colors hover:bg-accent-sky-10 focus-visible:bg-accent-sky-14"
         >
-          <span className="flex h-7 w-7 items-center justify-center rounded-lg border border-accent-sky-34 bg-accent-sky-16 text-[var(--accent-sky)]">
-            <Sparkles className="h-4 w-4" />
+          <span className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-lg border border-accent-sky-34 bg-accent-sky-16">
+            <Image alt="" aria-hidden="true" className="h-full w-full object-cover" height={28} priority src="/icons/icon-192.png" width={28} />
           </span>
           <span className="min-w-0 truncate text-[0.92rem] tracking-normal">{siteName}</span>
         </Link>

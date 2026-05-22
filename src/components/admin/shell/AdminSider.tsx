@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useState } from "react";
 import { signOut } from "next-auth/react";
-import { ChevronDown, Leaf, LogOut, Settings, Sparkles } from "lucide-react";
+import { ChevronDown, LogOut, Settings, Sparkles } from "lucide-react";
 import { useAdminLayout } from "./AdminLayoutContext";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/admin/ui";
 import { ADMIN_AI_GROUP_LABEL, type AdminNavItem, adminNavItems, isAdminNavItemActive } from "./config";
@@ -100,9 +100,9 @@ export function AdminSider({ pathname, siteName, user }: AdminSiderProps) {
     >
       {/* Brand logo section */}
       <div className={`transition-all duration-300 ${isCollapsed ? "px-2 py-4" : "px-5 py-5"} flex items-center justify-center border-b border-[var(--vben-sidebar-border)]`}>
-        <Link href="/admin" className={`flex items-center ${isCollapsed ? "justify-center" : "gap-3"} w-full`}>
-          <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--vben-primary)] text-white shadow-md shadow-blue-500/20">
-            <Leaf className="h-5.5 w-5.5" />
+        <Link aria-label={`${siteName} 后台首页`} href="/admin" className={`flex items-center ${isCollapsed ? "justify-center" : "gap-3"} w-full`}>
+          <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[var(--vben-primary)] shadow-md shadow-blue-500/20">
+            <Image alt="" aria-hidden="true" className="h-full w-full object-cover" height={36} priority src="/icons/icon-192.png" width={36} />
           </span>
           {!isCollapsed && (
             <span className="min-w-0 truncate font-display text-xl font-bold tracking-tight text-white transition-all duration-300">

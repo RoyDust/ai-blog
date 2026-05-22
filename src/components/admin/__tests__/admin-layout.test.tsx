@@ -17,6 +17,7 @@ vi.mock("next-auth/react", () => ({
 describe("admin layout", () => {
   beforeEach(() => {
     pathnameState.value = "/admin/taxonomy";
+    window.localStorage.clear();
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({
@@ -87,6 +88,28 @@ describe("admin layout", () => {
     expect(screen.getByTestId("admin-layout-content")).toHaveClass("h-screen", "overflow-hidden");
     expect(screen.getByTestId("admin-layout-main")).toHaveClass("flex-1", "overflow-y-auto");
     expect(screen.getByTestId("admin-layout-main").firstElementChild).toHaveClass("max-w-[1840px]");
+  });
+
+  test("restores persisted tabs after the initial client render", async () => {
+    window.localStorage.setItem(
+      "vben_admin_tabs",
+      JSON.stringify([
+        { href: "/admin", label: "首页" },
+        { href: "/admin/persisted", label: "已保存标签" },
+      ]),
+    );
+    const { AdminLayout } = await import("@/components/admin/shell/AdminLayout");
+
+    render(
+      <AdminLayout siteName="Configured Blog" user={{ label: "RoyDust", role: "ADMIN" }}>
+        <div>Taxonomy content</div>
+      </AdminLayout>,
+    );
+
+    expect(screen.queryByText("已保存标签")).not.toBeInTheDocument();
+
+    await waitFor(() => expect(screen.getByText("已保存标签")).toBeInTheDocument());
+    expect(window.localStorage.getItem("vben_admin_tabs")).toContain("/admin/taxonomy");
   });
 
   test.each([
