@@ -61,7 +61,7 @@ function adminApiJson(
 }
 
 /**
- * 棰勭暀缁熶竴涓棿浠跺叆鍙ｏ紝鍚庣画鍙湪杩欓噷鏀舵暃杈圭紭渚у畨鍏ㄧ瓥鐣ャ€? */
+ * 预留统一的中间件入口，后续可在这里收敛边缘侧的安全策略。 */
 export async function middleware(request: NextRequest, event?: NextFetchEvent) {
   const { pathname, search } = request.nextUrl
   const isAdminPage = pathname.startsWith('/admin')

@@ -23,10 +23,74 @@ const AdminLayoutContext = createContext<AdminLayoutContextType | undefined>(und
 const HOME_TAB: Tab = { href: "/admin", label: "首页" };
 const ADMIN_COLLAPSED_STORAGE_KEY = "vben_admin_collapsed";
 const ADMIN_TABS_STORAGE_KEY = "vben_admin_tabs";
+const MAX_ADMIN_TABS = 8;
+const RESTORABLE_ADMIN_HREFS = new Set([
+  ...adminNavItems.map((item) => item.href),
+  "/admin/posts/new",
+  "/admin/settings",
+  "/admin/notifications",
+]);
 
 function readInitialCollapsedState() {
   if (typeof window === "undefined") return false;
   return localStorage.getItem(ADMIN_COLLAPSED_STORAGE_KEY) === "true";
+}
+
+function writeTabs(tabs: Tab[]) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(ADMIN_TABS_STORAGE_KEY, JSON.stringify(tabs));
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isRestorableAdminHref(href: string) {
+  if (!href.startsWith("/admin")) return false;
+  if (href.startsWith("//") || href.includes("://")) return false;
+  if (href.includes("?") || href.includes("#")) return false;
+  if (href.startsWith("/admin/api")) return false;
+
+  return (
+    RESTORABLE_ADMIN_HREFS.has(href) ||
+    /^\/admin\/posts\/[^/]+\/edit$/.test(href) ||
+    /^\/admin\/ai\/tasks\/[^/]+$/.test(href)
+  );
+}
+
+function normalizeTabs(tabs: Tab[]) {
+  const normalized: Tab[] = [HOME_TAB];
+  const seen = new Set([HOME_TAB.href]);
+
+  for (const tab of tabs) {
+    if (seen.has(tab.href)) continue;
+    normalized.push(tab);
+    seen.add(tab.href);
+
+    if (normalized.length >= MAX_ADMIN_TABS) break;
+  }
+
+  return normalized;
+}
+
+function appendTab(tabs: Tab[], tab: Tab) {
+  if (tabs.some((item) => item.href === tab.href)) return tabs;
+  const normalized = normalizeTabs(tabs);
+  if (tab.href === HOME_TAB.href) return normalized;
+
+  const retainedTabs = normalized.filter((item) => item.href !== HOME_TAB.href);
+  return [HOME_TAB, ...[...retainedTabs, tab].slice(-(MAX_ADMIN_TABS - 1))];
+}
+
+function sanitizeStoredTab(value: unknown): Tab | null {
+  if (!isRecord(value) || typeof value.href !== "string" || typeof value.label !== "string") {
+    return null;
+  }
+
+  const href = value.href.trim();
+  if (!isRestorableAdminHref(href)) return null;
+
+  return getTabForPathname(href);
 }
 
 function readInitialTabs() {
@@ -37,18 +101,12 @@ function readInitialTabs() {
 
   try {
     const parsed: unknown = JSON.parse(savedTabs);
-    if (
-      Array.isArray(parsed) &&
-      parsed.length > 0 &&
-      parsed.every((tab) => typeof tab?.href === "string" && typeof tab?.label === "string")
-    ) {
-      return parsed as Tab[];
-    }
+    if (!Array.isArray(parsed) || parsed.length === 0) return [HOME_TAB];
+
+    return normalizeTabs(parsed.map(sanitizeStoredTab).filter((tab): tab is Tab => tab !== null));
   } catch {
     return [HOME_TAB];
   }
-
-  return [HOME_TAB];
 }
 
 function getTabForPathname(pathname: string | null): Tab | null {
@@ -71,6 +129,9 @@ function getTabForPathname(pathname: string | null): Tab | null {
   if (pathname.match(/^\/admin\/posts\/[^/]+\/edit$/)) {
     return { href: pathname, label: "编辑文章" };
   }
+  if (pathname.match(/^\/admin\/ai\/tasks\/[^/]+$/)) {
+    return { href: pathname, label: "AI 任务详情" };
+  }
 
   const item = adminNavItems.find(
     (nav) => nav.href === pathname || (nav.href !== "/admin" && pathname.startsWith(nav.href))
@@ -81,7 +142,7 @@ function getTabForPathname(pathname: string | null): Tab | null {
 function ensureCurrentTab(tabs: Tab[], pathname: string | null) {
   const tab = getTabForPathname(pathname);
   if (!tab || tabs.some((item) => item.href === tab.href)) return tabs;
-  return [...tabs, tab];
+  return appendTab(tabs, tab);
 }
 
 export function AdminLayoutProvider({ children }: { children: React.ReactNode }) {
@@ -107,7 +168,7 @@ export function AdminLayoutProvider({ children }: { children: React.ReactNode })
       hasRestoredStateRef.current = true;
       setIsCollapsedState(readInitialCollapsedState());
       setTabs(restoredTabs);
-      localStorage.setItem(ADMIN_TABS_STORAGE_KEY, JSON.stringify(restoredTabs));
+      writeTabs(restoredTabs);
     }, 0);
 
     return () => window.clearTimeout(timeoutId);
@@ -121,10 +182,9 @@ export function AdminLayoutProvider({ children }: { children: React.ReactNode })
 
     const timeoutId = window.setTimeout(() => {
       setTabs((prev) => {
-        if (prev.some((item) => item.href === tab.href)) return prev;
-
-        const updated = [...prev, tab];
-        localStorage.setItem(ADMIN_TABS_STORAGE_KEY, JSON.stringify(updated));
+        const updated = appendTab(prev, tab);
+        if (updated === prev) return prev;
+        writeTabs(updated);
         return updated;
       });
     }, 0);
@@ -134,11 +194,11 @@ export function AdminLayoutProvider({ children }: { children: React.ReactNode })
 
   const addTab = (tab: Tab) => {
     setTabs((prev) => {
-      if (prev.some((t) => t.href === tab.href)) return prev;
-      const updated = [...prev, tab];
-      if (typeof window !== "undefined") {
-        localStorage.setItem(ADMIN_TABS_STORAGE_KEY, JSON.stringify(updated));
-      }
+      const safeTab = sanitizeStoredTab(tab);
+      if (!safeTab) return prev;
+      const updated = appendTab(prev, safeTab);
+      if (updated === prev) return prev;
+      writeTabs(updated);
       return updated;
     });
   };
@@ -151,9 +211,7 @@ export function AdminLayoutProvider({ children }: { children: React.ReactNode })
       if (index === -1) return prev;
 
       const updated = prev.filter((t) => t.href !== hrefToClose);
-      if (typeof window !== "undefined") {
-        localStorage.setItem(ADMIN_TABS_STORAGE_KEY, JSON.stringify(updated));
-      }
+      writeTabs(updated);
 
       // If closing the active tab, navigate to another open tab
       if (pathname === hrefToClose) {
@@ -174,9 +232,7 @@ export function AdminLayoutProvider({ children }: { children: React.ReactNode })
         ? [homeTab]
         : keepTab ? [homeTab, keepTab] : prev;
 
-      if (typeof window !== "undefined") {
-        localStorage.setItem(ADMIN_TABS_STORAGE_KEY, JSON.stringify(updated));
-      }
+      writeTabs(updated);
 
       if (pathname !== hrefToKeep && pathname !== "/admin") {
         router.push(hrefToKeep);
@@ -188,9 +244,7 @@ export function AdminLayoutProvider({ children }: { children: React.ReactNode })
 
   const closeAllTabs = () => {
     setTabs([HOME_TAB]);
-    if (typeof window !== "undefined") {
-      localStorage.setItem(ADMIN_TABS_STORAGE_KEY, JSON.stringify([HOME_TAB]));
-    }
+    writeTabs([HOME_TAB]);
     router.push("/admin");
   };
 

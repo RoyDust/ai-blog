@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { ArrowRight, BookOpen, CalendarDays, ChevronRight, Clock3, Eye } from 'lucide-react'
 import { FallbackImage } from '@/components/ui'
+import { getPostViewTransitionName } from '@/lib/view-transition'
 
 const READER_CARD_FALLBACK_SRC = '/images/fuwari-post-cover-fallback.svg'
 const HOME_LATEST_POST_LIMIT = 10
@@ -70,7 +71,7 @@ export function HomeLatestPosts({ posts }: HomeLatestPostsProps) {
                 href={`/posts/${post.slug}`}
                 aria-label={`阅读 ${post.title}`}
                 className="theme-media relative aspect-[1.65] overflow-hidden rounded-xl sm:h-full sm:aspect-auto shadow-sm"
-                style={{ viewTransitionName: `post-cover-${post.slug}` }}
+                style={{ viewTransitionName: getPostViewTransitionName('cover', post.slug) }}
               >
                 {post.coverImage ? (
                   <FallbackImage
@@ -100,7 +101,7 @@ export function HomeLatestPosts({ posts }: HomeLatestPostsProps) {
                 <Link href={`/posts/${post.slug}`} className="block min-w-0">
                   <h3
                     className="line-clamp-2 text-lg font-extrabold leading-snug text-[var(--foreground)] transition-colors group-hover:text-[color:color-mix(in_oklab,var(--accent-sky)_82%,var(--foreground)_18%)] md:text-xl"
-                    style={{ viewTransitionName: `post-title-${post.slug}` }}
+                    style={{ viewTransitionName: getPostViewTransitionName('title', post.slug) }}
                   >
                     {post.title}
                   </h3>

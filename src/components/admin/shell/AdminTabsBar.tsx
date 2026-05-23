@@ -42,6 +42,7 @@ export function AdminTabsBar() {
               {/* Close Button */}
               {tab.href !== "/admin" && (
                 <button
+                  aria-label={`关闭 ${tab.label} 标签`}
                   onClick={(e) => {
                     e.stopPropagation();
                     e.preventDefault();
@@ -61,6 +62,7 @@ export function AdminTabsBar() {
       {/* Tabs Actions Dropdown */}
       <div className="flex items-center pl-2 border-l border-[var(--border)] gap-1 shrink-0">
         <button
+          aria-label="刷新页面"
           onClick={handleRefresh}
           className="rounded p-1 text-[var(--muted)] hover:bg-[var(--surface-alt)] hover:text-[var(--foreground)] transition-colors"
           title="刷新页面"
@@ -72,6 +74,7 @@ export function AdminTabsBar() {
         <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
             <button
+              aria-label="标签操作"
               className="flex items-center justify-center rounded p-1 text-[var(--muted)] hover:bg-[var(--surface-alt)] hover:text-[var(--foreground)] transition-colors"
               type="button"
             >

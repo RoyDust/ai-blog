@@ -8,6 +8,7 @@ import { PostCard } from "@/components/blog/PostCard";
 import { getBlogSettings } from "@/lib/blog-settings";
 import { prisma } from "@/lib/prisma";
 import { buildBreadcrumbJsonLd, buildPageMetadata } from "@/lib/seo";
+import { JsonLd } from "@/components/seo/JsonLd";
 
 async function getPublicSeriesDetail(slug: string) {
   return prisma.series.findFirst({
@@ -91,10 +92,7 @@ export default async function SeriesDetailPage({ params }: { params: Promise<{ s
 
   return (
     <div className="reader-section">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
-      />
+      <JsonLd data={breadcrumbJsonLd} />
       <section className="reader-banner onload-animation px-6 py-8 md:px-8 md:py-10">
         <div className="relative z-10 flex min-h-[calc(var(--reader-banner-height)-4rem)] flex-col justify-end gap-6">
           <span className="reader-chip w-fit">Series</span>

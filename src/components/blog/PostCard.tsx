@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ChevronRight, Eye, Heart, MessageCircle } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { shimmerBlurDataURL } from "@/lib/image-placeholder";
+import { getPostViewTransitionName } from "@/lib/view-transition";
 import { PostMeta } from "./PostMeta";
 
 const READER_CARD_FALLBACK_SRC = "/images/fuwari-post-cover-fallback.svg";
@@ -54,7 +55,7 @@ export function PostCard({ post }: PostCardProps) {
           href={`/posts/${post.slug}`}
           aria-label={`阅读 ${post.title}`}
           className="theme-media relative aspect-[1.55] overflow-hidden rounded-xl md:h-full md:aspect-auto shadow-sm"
-          style={{ viewTransitionName: `post-cover-${post.slug}` }}
+          style={{ viewTransitionName: getPostViewTransitionName("cover", post.slug) }}
         >
           <FallbackImage
             alt={post.title}
@@ -96,7 +97,7 @@ export function PostCard({ post }: PostCardProps) {
         <Link href={`/posts/${post.slug}`} className="block min-w-0">
           <h3
             className="text-90 line-clamp-2 text-lg font-extrabold leading-snug transition-colors group-hover:text-accent-sky-82 md:text-xl"
-            style={{ viewTransitionName: `post-title-${post.slug}` }}
+            style={{ viewTransitionName: getPostViewTransitionName("title", post.slug) }}
           >
             {post.title}
           </h3>

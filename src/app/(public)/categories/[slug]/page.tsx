@@ -7,6 +7,7 @@ import { notFound } from 'next/navigation'
 import { TaxonomyHero, TaxonomyPostGrid } from '@/components/taxonomy'
 import { getBlogSettings } from '@/lib/blog-settings'
 import { buildBreadcrumbJsonLd, buildPageMetadata } from '@/lib/seo'
+import { JsonLd } from '@/components/seo/JsonLd'
 import { getCategoryDetail, TAXONOMY_PAGE_SIZE } from '@/lib/taxonomy'
 import { clampPagination } from '@/lib/validation'
 
@@ -59,10 +60,7 @@ export default async function CategoryPage({
 
   return (
     <div className="reader-section">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
-      />
+      <JsonLd data={breadcrumbJsonLd} />
       <TaxonomyHero
         eyebrow="Category"
         title={category.name}

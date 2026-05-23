@@ -28,6 +28,7 @@ import { FallbackImage } from "@/components/ui";
 import { getBlogSettings } from "@/lib/blog-settings";
 import { prisma } from "@/lib/prisma";
 import { buildArticleJsonLd, buildArticleMetadata, buildBreadcrumbJsonLd } from "@/lib/seo";
+import { JsonLd } from "@/components/seo/JsonLd";
 
 /**
  * 读取单篇已发布文章详情。
@@ -318,10 +319,7 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
 
   return (
     <div className="article-detail-page relative overflow-x-clip pb-16">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify([articleJsonLd, breadcrumbJsonLd]) }}
-      />
+      <JsonLd data={[articleJsonLd, breadcrumbJsonLd]} />
       <ArticleReadTracker postId={post.id} />
       <ReadingProgress />
       <BackToTopButton />

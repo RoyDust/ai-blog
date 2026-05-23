@@ -37,14 +37,9 @@ function scheduleAfterPageHydration(callback: () => void) {
     });
   };
 
-  if (document.readyState === "complete") {
-    scheduleFrames();
-  } else {
-    window.addEventListener("load", scheduleFrames, { once: true });
-  }
+  scheduleFrames();
 
   return () => {
-    window.removeEventListener("load", scheduleFrames);
     if (firstFrameId !== null) cancelFrame(firstFrameId);
     if (secondFrameId !== null) cancelFrame(secondFrameId);
   };

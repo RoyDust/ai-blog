@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button, Card, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/admin/ui";
 
@@ -46,28 +46,12 @@ export function DataTable<T extends { id: string }>({
 }: DataTableProps<T>) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
+  const headerCheckboxRef = useRef<HTMLInputElement>(null);
 
   const visibleSelectedIds = useMemo(
     () => selectedIds.filter((id) => rows.some((row) => row.id === id)),
     [rows, selectedIds],
   );
-  const allSelected = useMemo(
-    () => rows.length > 0 && rows.every((row) => visibleSelectedIds.includes(row.id)),
-    [rows, visibleSelectedIds],
-  );
-
-  const toggleAll = () => {
-    if (allSelected) {
-      setSelectedIds([]);
-      return;
-    }
-
-    setSelectedIds(rows.map((row) => row.id));
-  };
-
-  const toggleOne = (id: string) => {
-    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]));
-  };
 
   // Pagination calculations
   const totalPages = Math.ceil(rows.length / pageSize);
@@ -78,6 +62,34 @@ export function DataTable<T extends { id: string }>({
     const start = (activePage - 1) * pageSize;
     return rows.slice(start, start + pageSize);
   }, [rows, activePage, pageSize]);
+  const currentPageIds = useMemo(() => paginatedRows.map((row) => row.id), [paginatedRows]);
+  const allCurrentPageSelected = useMemo(
+    () => currentPageIds.length > 0 && currentPageIds.every((id) => visibleSelectedIds.includes(id)),
+    [currentPageIds, visibleSelectedIds],
+  );
+  const isCurrentPagePartiallySelected = useMemo(
+    () => !allCurrentPageSelected && currentPageIds.some((id) => visibleSelectedIds.includes(id)),
+    [allCurrentPageSelected, currentPageIds, visibleSelectedIds],
+  );
+
+  useEffect(() => {
+    if (headerCheckboxRef.current) {
+      headerCheckboxRef.current.indeterminate = isCurrentPagePartiallySelected;
+    }
+  }, [isCurrentPagePartiallySelected]);
+
+  const toggleAll = () => {
+    if (allCurrentPageSelected) {
+      setSelectedIds((prev) => prev.filter((id) => !currentPageIds.includes(id)));
+      return;
+    }
+
+    setSelectedIds((prev) => Array.from(new Set([...prev, ...currentPageIds])));
+  };
+
+  const toggleOne = (id: string) => {
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]));
+  };
 
   return (
     <Card className="gap-0 overflow-hidden rounded-3xl py-0 border border-slate-100/80 dark:border-slate-800/50 shadow-sm transition-all duration-300">
@@ -97,7 +109,7 @@ export function DataTable<T extends { id: string }>({
         {bulkActions.length > 0 ? (
           <div className="flex flex-wrap items-center gap-3 border-b border-[var(--border)] bg-blue-50/10 dark:bg-slate-900/20 px-5 py-3">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">批量操作</span>
-            <span className="text-xs font-medium text-blue-600 dark:text-blue-450 bg-blue-50/85 dark:bg-blue-900/20 px-2 py-0.5 rounded-md">已选 {visibleSelectedIds.length} 项</span>
+            <span className="text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50/85 dark:bg-blue-900/20 px-2 py-0.5 rounded-md">已选 {visibleSelectedIds.length} 项</span>
             <div className="flex items-center gap-2">
               {bulkActions.map((action) => (
                 <Button
@@ -127,10 +139,12 @@ export function DataTable<T extends { id: string }>({
                 <TableRow className="hover:bg-transparent border-0">
                   <TableHead className="w-12 text-center py-3.5">
                     <input
-                      checked={allSelected}
+                      ref={headerCheckboxRef}
+                      checked={allCurrentPageSelected}
                       onChange={toggleAll}
                       type="checkbox"
-                      aria-label="全选"
+                      aria-label="选择当前页"
+                      aria-checked={isCurrentPagePartiallySelected ? "mixed" : allCurrentPageSelected}
                       className="rounded border-slate-300 dark:border-slate-700 text-blue-600 focus:ring-blue-500/25 focus:ring-offset-0 bg-[var(--surface)] transition-all cursor-pointer size-4"
                     />
                   </TableHead>
@@ -161,7 +175,7 @@ export function DataTable<T extends { id: string }>({
                         />
                       </TableCell>
                       {columns.map((column) => (
-                        <TableCell className={`py-4 text-sm text-slate-600 dark:text-slate-350 ${column.className || ""}`} key={column.key}>
+                        <TableCell className={`py-4 text-sm text-slate-600 dark:text-slate-300 ${column.className || ""}`} key={column.key}>
                           {column.render(row)}
                         </TableCell>
                       ))}
@@ -214,8 +228,8 @@ export function DataTable<T extends { id: string }>({
                     onClick={() => setCurrentPage(page)}
                     className={`flex size-8 items-center justify-center rounded-full text-xs font-bold transition-all duration-200 cursor-pointer ${
                       isActive
-                        ? "bg-blue-600 text-white shadow-sm shadow-blue-500/25 border border-blue-650"
-                        : "text-slate-600 dark:text-slate-455 border border-transparent hover:bg-slate-100 dark:hover:bg-slate-850 hover:border-slate-200 dark:hover:border-slate-800"
+                        ? "bg-blue-600 text-white shadow-sm shadow-blue-500/25 border border-blue-700"
+                        : "text-slate-600 dark:text-slate-400 border border-transparent hover:bg-slate-100 dark:hover:bg-slate-800 hover:border-slate-200 dark:hover:border-slate-800"
                     }`}
                   >
                     {page}

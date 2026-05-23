@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowRight, BookOpen } from "lucide-react";
 import { FallbackImage } from "@/components/ui";
+import { getPostViewTransitionName } from "@/lib/view-transition";
 import { PostMeta } from "./PostMeta";
 
 interface PostCardFeaturedProps {
@@ -29,7 +30,7 @@ export function PostCardFeatured({ post }: PostCardFeaturedProps) {
           href={`/posts/${post.slug}`}
           aria-label={`阅读封面：${post.title}`}
           className="theme-media relative min-h-[17rem] lg:min-h-[20rem]"
-          style={{ viewTransitionName: `post-cover-${post.slug}` }}
+          style={{ viewTransitionName: getPostViewTransitionName("cover", post.slug) }}
         >
           {post.coverImage ? (
             <FallbackImage
@@ -79,7 +80,7 @@ export function PostCardFeatured({ post }: PostCardFeaturedProps) {
               <Link href={`/posts/${post.slug}`}>
                 <h2
                   className="text-90 line-clamp-3 text-2xl font-bold leading-tight transition-colors hover:text-[color:color-mix(in_oklab,var(--accent-sky)_82%,var(--foreground)_18%)] md:text-3xl"
-                  style={{ viewTransitionName: `post-title-${post.slug}` }}
+                  style={{ viewTransitionName: getPostViewTransitionName("title", post.slug) }}
                 >
                   {post.title}
                 </h2>

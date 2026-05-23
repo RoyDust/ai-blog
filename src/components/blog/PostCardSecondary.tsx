@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { FallbackImage } from "@/components/ui";
 import { cn } from "@/lib/cn";
+import { getPostViewTransitionName } from "@/lib/view-transition";
 import { PostMeta } from "./PostMeta";
 
 interface PostCardSecondaryProps {
@@ -26,7 +27,7 @@ export function PostCardSecondary({ post }: PostCardSecondaryProps) {
       )}
     >
       {hasCover ? (
-        <div className="absolute inset-0" style={{ viewTransitionName: `post-cover-${post.slug}` }}>
+        <div className="absolute inset-0" style={{ viewTransitionName: getPostViewTransitionName("cover", post.slug) }}>
           <FallbackImage
             alt={post.title}
             className="theme-media-image object-cover"
@@ -62,7 +63,7 @@ export function PostCardSecondary({ post }: PostCardSecondaryProps) {
                 ? "text-[color:color-mix(in_oklab,var(--foreground)_8%,white_92%)] hover:opacity-85"
                 : "text-90 hover:text-[color:color-mix(in_oklab,var(--accent-sky)_82%,var(--foreground)_18%)]",
             )}
-            style={{ viewTransitionName: `post-title-${post.slug}` }}
+            style={{ viewTransitionName: getPostViewTransitionName("title", post.slug) }}
           >
             {post.title}
           </h3>

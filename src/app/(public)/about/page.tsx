@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { getBlogSettings } from "@/lib/blog-settings";
 import { buildCanonicalUrl, buildPageMetadata, buildPersonJsonLd } from "@/lib/seo";
+import { JsonLd } from "@/components/seo/JsonLd";
 import { getPublicProfile } from "@/lib/public-profile";
 import type { PublicProfileLinkKind } from "@/lib/public-profile-data";
 import { FallbackImage } from "@/components/ui";
@@ -58,10 +59,7 @@ export default async function AboutPage() {
 
   return (
     <div className="space-y-6">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(personJsonLd) }}
-      />
+      <JsonLd data={personJsonLd} />
       {sameAsLinks.map((url) => (
         <link key={url} rel="me" href={url} />
       ))}

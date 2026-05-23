@@ -4,6 +4,7 @@ import Link from "next/link";
 import { CalendarDays, Clock3, Eye, UserRound } from "lucide-react";
 import { motion } from "motion/react";
 import { FallbackImage } from "@/components/ui";
+import { getPostViewTransitionName } from "@/lib/view-transition";
 
 interface ArticleHeroProps {
   slug: string;
@@ -34,7 +35,7 @@ export function ArticleHero({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.82, ease: [0.16, 1, 0.3, 1] }}
-      style={{ viewTransitionName: `post-cover-${slug}` }}
+      style={{ viewTransitionName: getPostViewTransitionName("cover", slug) }}
     >
       {coverImage ? (
         <FallbackImage
@@ -81,7 +82,7 @@ export function ArticleHero({
           <div className="space-y-4">
             <h1
               className="font-display text-4xl font-extrabold leading-tight text-white md:text-5xl lg:text-6xl"
-              style={{ viewTransitionName: `post-title-${slug}` }}
+              style={{ viewTransitionName: getPostViewTransitionName("title", slug) }}
             >
               {title}
             </h1>

@@ -16,6 +16,7 @@ import { POSTS_PAGE_SIZE } from '@/lib/pagination'
 import { getPublishedPostsPage } from '@/lib/posts'
 import { prisma } from '@/lib/prisma'
 import { buildPageMetadata, buildWebSiteJsonLd } from '@/lib/seo'
+import { JsonLd } from '@/components/seo/JsonLd'
 
 const HOME_LATEST_POST_LIMIT = 10
 
@@ -103,10 +104,7 @@ export default async function Home() {
 
   return (
     <div className="reader-home-stage space-y-5">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
-      />
+      <JsonLd data={websiteJsonLd} />
       {hasLoadError ? (
         <section
           role="alert"

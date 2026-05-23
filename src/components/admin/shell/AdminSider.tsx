@@ -8,6 +8,7 @@ import { ChevronDown, LogOut, Settings, Sparkles } from "lucide-react";
 import { useAdminLayout } from "./AdminLayoutContext";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/admin/ui";
 import { ADMIN_AI_GROUP_LABEL, type AdminNavItem, adminNavItems, isAdminNavItemActive } from "./config";
+import { clearAllSessionData } from "@/lib/auth-client";
 
 interface AdminSiderProps {
   pathname: string;
@@ -44,9 +45,7 @@ export function AdminSider({ pathname, siteName, user }: AdminSiderProps) {
   const userMeta = user.email || (user.role === "ADMIN" ? "管理员" : user.role) || "管理员";
 
   const handleLogout = async () => {
-    if (typeof window !== "undefined") {
-      localStorage.clear();
-    }
+    clearAllSessionData();
     await signOut({ callbackUrl: "/" });
   };
 
@@ -83,7 +82,7 @@ export function AdminSider({ pathname, siteName, user }: AdminSiderProps) {
         <Icon className="h-5 w-5 shrink-0" />
         {!isCollapsed && <span className="truncate">{item.label}</span>}
         {!isCollapsed && item.badge ? (
-          <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-blue-500 dark:bg-blue-600 px-1.5 text-2xs font-bold text-white">
+          <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-blue-500 dark:bg-blue-600 px-1.5 text-[0.65rem] font-bold text-white">
             {item.badge}
           </span>
         ) : null}

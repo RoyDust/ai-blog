@@ -1,7 +1,23 @@
 export function clearAllSessionData() {
   if (typeof window === "undefined") return;
 
-  localStorage.clear();
+  const exactLocalStorageKeys = [
+    "vben_admin_collapsed",
+    "vben_admin_tabs",
+    "author:draft:new",
+  ];
+  const localStorageKeyPrefixes = ["author:draft:edit:"];
+
+  exactLocalStorageKeys.forEach((key) => {
+    localStorage.removeItem(key);
+  });
+
+  for (let index = localStorage.length - 1; index >= 0; index -= 1) {
+    const key = localStorage.key(index);
+    if (key && localStorageKeyPrefixes.some((prefix) => key.startsWith(prefix))) {
+      localStorage.removeItem(key);
+    }
+  }
 
   const cookieNames = [
     "next-auth.session-token",

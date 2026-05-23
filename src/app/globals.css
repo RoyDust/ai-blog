@@ -175,16 +175,16 @@ body {
 
 @layer utilities {
   ::view-transition-group(*) {
-    animation-duration: 1080ms;
+    animation-duration: 220ms;
     animation-timing-function: var(--reader-route-layout-ease);
   }
 
   ::view-transition-old(*) {
-    animation-duration: 560ms;
+    animation-duration: 160ms;
   }
 
   ::view-transition-new(*) {
-    animation-duration: 1080ms;
+    animation-duration: 220ms;
   }
 
   ::view-transition-group(reader-layout-frame),
