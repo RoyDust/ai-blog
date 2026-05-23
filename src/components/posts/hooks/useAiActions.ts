@@ -2,6 +2,7 @@
 
 import { useState, type Dispatch, type SetStateAction } from "react";
 
+import { getApiErrorMessage } from "@/lib/admin-api-client";
 import { generatePostSlug } from "@/lib/slug";
 
 import type { PostFormData } from "./usePostForm";
@@ -14,16 +15,27 @@ type TaxonomyOption = {
 type AiMetadataSuggestion = {
   title?: string;
   slug?: string;
+  excerpt?: string;
   categorySlug?: string | null;
   tagSlugs?: string[];
 };
 
-export type AiMetadataField = "title" | "slug" | "category" | "tags";
+type AiArticleInfoSuggestion = {
+  slug?: string;
+  excerpt?: string;
+  seoDescription?: string;
+  categoryId?: string | null;
+  tagIds?: string[];
+};
+
+type AiMetadataSingleField = "title" | "slug" | "category" | "tags";
+export type AiMetadataField = "all" | AiMetadataSingleField;
 
 type UseAiActionsOptions = {
   categories: TaxonomyOption[];
   formData: PostFormData;
   isSlugManuallyEdited: boolean;
+  postId?: string;
   setFormData: Dispatch<SetStateAction<PostFormData>>;
   setIsSlugManuallyEdited: (value: boolean) => void;
   tags: TaxonomyOption[];
@@ -37,6 +49,7 @@ export function useAiActions({
   categories,
   formData,
   isSlugManuallyEdited,
+  postId,
   setFormData,
   setIsSlugManuallyEdited,
   tags,
@@ -46,6 +59,7 @@ export function useAiActions({
   const [metadataPendingField, setMetadataPendingField] = useState<AiMetadataField | null>(null);
   const [metadataError, setMetadataError] = useState("");
   const isCompletingMetadata = metadataPendingField !== null;
+  const isGeneratingAllMetadata = metadataPendingField === "all";
 
   const handleGenerateSummary = async () => {
     if (!formData.content.trim()) return;
@@ -73,7 +87,7 @@ export function useAiActions({
     }
   };
 
-  const handleGenerateMetadata = async (field: AiMetadataField) => {
+  const handleGenerateMetadata = async (field: AiMetadataSingleField) => {
     if (!formData.content.trim() && !(field === "slug" && formData.title.trim())) return;
 
     setMetadataPendingField(field);
@@ -139,10 +153,68 @@ export function useAiActions({
     }
   };
 
+  const handleGenerateAllArticleInfo = async () => {
+    if (!formData.content.trim()) return;
+
+    setMetadataPendingField("all");
+    setMetadataError("");
+
+    try {
+      const response = await fetch("/api/admin/ai/actions/article-info", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          postId,
+          draft: {
+            title: formData.title,
+            slug: formData.slug,
+            content: formData.content,
+            excerpt: formData.excerpt,
+            seoDescription: formData.seoDescription,
+            categoryId: formData.categoryId,
+            tagIds: formData.tagIds,
+          },
+        }),
+      });
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(getApiErrorMessage(data, "一键 AI 生成失败"));
+      }
+
+      const suggestion = (data.data?.articleInfo ?? {}) as AiArticleInfoSuggestion;
+      const suggestedSlug = suggestion.slug?.trim();
+      const suggestedExcerpt = suggestion.excerpt?.trim();
+      const seoDescription = suggestion.seoDescription?.trim() ?? "";
+      const nextCategoryId = typeof suggestion.categoryId === "string" ? suggestion.categoryId : "";
+      const nextTagIds = Array.isArray(suggestion.tagIds) ? suggestion.tagIds : [];
+
+      if (!suggestedSlug || !suggestedExcerpt || !seoDescription) {
+        throw new Error("AI 返回的信息不完整");
+      }
+
+      setFormData((prev) => ({
+        ...prev,
+        slug: generatePostSlug(suggestedSlug),
+        excerpt: suggestedExcerpt,
+        seoDescription,
+        categoryId: nextCategoryId,
+        tagIds: nextTagIds,
+      }));
+      setIsSlugManuallyEdited(true);
+    } catch (error) {
+      setMetadataError(error instanceof Error ? error.message : "元信息补全失败");
+    } finally {
+      setMetadataPendingField(null);
+    }
+  };
+
   return {
+    handleGenerateAllArticleInfo,
     handleGenerateMetadata,
     handleGenerateSummary,
     isCompletingMetadata,
+    isGeneratingAllMetadata,
     isSummarizing,
     metadataError,
     metadataPendingField,

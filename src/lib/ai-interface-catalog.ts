@@ -135,6 +135,16 @@ export const aiInterfaceCatalog: AiInterfaceCatalogItem[] = [
     responseHint: "success/data，返回更新后的文章。",
   },
   {
+    name: "一键文章信息生成",
+    methods: ["POST"],
+    path: "/api/admin/ai/actions/article-info",
+    audience: "admin",
+    auth: "管理员会话",
+    feature: "创建文章信息 AI 任务，生成 slug、摘要、SEO 描述、分类和标签建议。",
+    requestHint: "JSON: postId 或 draft，modelId 可选；保留标题和正文。",
+    responseHint: "success/data，包含 taskId、articleInfo 与任务项输出。",
+  },
+  {
     name: "批量 AI 任务",
     methods: ["GET", "POST"],
     path: "/api/admin/ai/batch",

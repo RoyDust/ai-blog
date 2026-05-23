@@ -36,6 +36,7 @@ export type AiTaskItemStatus = (typeof AI_TASK_ITEM_STATUSES)[keyof typeof AI_TA
 
 export type AiTaskType =
   | "post-summary"
+  | "post-article-info"
   | "post-seo-description"
   | "post-title-suggestion"
   | "post-slug-suggestion"

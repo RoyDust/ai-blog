@@ -78,6 +78,7 @@ describe("AI batch job resume", () => {
         type: {
           in: expect.arrayContaining([
             "post-bulk-completion",
+            "post-article-info",
             "post-seo-description",
             "post-title-suggestion",
             "post-slug-suggestion",

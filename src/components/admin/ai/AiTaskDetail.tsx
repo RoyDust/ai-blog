@@ -50,6 +50,7 @@ type TaskDetail = {
 
 const taskTypeLabels: Record<string, string> = {
   "post-summary": "文章摘要",
+  "post-article-info": "文章信息",
   "post-seo-description": "SEO 描述",
   "post-title-suggestion": "标题建议",
   "post-slug-suggestion": "Slug 建议",
