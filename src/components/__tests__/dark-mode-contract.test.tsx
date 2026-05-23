@@ -10,8 +10,27 @@ test('theme toggle uses semantic token-driven icon styling', () => {
   const source = readSource('src/components/ThemeToggle.tsx')
 
   expect(source).toContain('text-current')
+  expect(source).toContain('theme-toggle-icon-stack')
+  expect(source).toContain('data-theme={theme}')
+  expect(source).not.toContain('dark:hidden')
+  expect(source).not.toContain('dark:block')
   expect(source).not.toMatch(/text-gray-\d+/)
   expect(source).not.toMatch(/dark:text-/)
+})
+
+test('theme toggle animates from the icon center with reduced motion fallback', () => {
+  const providerSource = readSource('src/components/ThemeProvider.tsx')
+  const animationSource = readSource('src/styles/animations.css')
+
+  expect(providerSource).toContain('startViewTransition')
+  expect(providerSource).toContain('--theme-transition-x')
+  expect(providerSource).toContain('--theme-transition-y')
+  expect(providerSource).toContain('--theme-transition-radius')
+  expect(providerSource).toContain('prefers-reduced-motion: reduce')
+  expect(animationSource).toContain('theme-circle-reveal')
+  expect(animationSource).toContain('html.theme-transitioning::view-transition-new(root)')
+  expect(animationSource).toContain('clip-path: circle')
+  expect(animationSource).toContain('@media (prefers-reduced-motion: reduce)')
 })
 
 test('root layout initializes saved theme before hydration', () => {

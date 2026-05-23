@@ -49,6 +49,113 @@
   }
 }
 
+.theme-toggle-btn {
+  position: relative;
+  overflow: hidden;
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease,
+    transform 140ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.theme-toggle-btn::after {
+  content: "";
+  position: absolute;
+  inset: 0.45rem;
+  border-radius: inherit;
+  background: radial-gradient(circle, color-mix(in oklab, var(--accent-warm) 32%, transparent), transparent 68%);
+  opacity: 0;
+  transform: scale(0.35);
+  transition:
+    opacity 160ms ease,
+    transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+}
+
+.theme-toggle-btn:active {
+  transform: scale(0.94);
+}
+
+.theme-toggle-btn:active::after {
+  opacity: 1;
+  transform: scale(1.9);
+}
+
+.theme-toggle-icon-stack {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  width: 1.25rem;
+  height: 1.25rem;
+  place-items: center;
+  transition: transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.theme-toggle-btn:active .theme-toggle-icon-stack {
+  transform: scale(0.92);
+}
+
+.theme-toggle-icon {
+  grid-area: 1 / 1;
+  transform-origin: center;
+  transition:
+    opacity 220ms ease,
+    filter 220ms ease,
+    transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: opacity, transform;
+}
+
+.theme-toggle-btn[data-theme="light"] .theme-toggle-icon--moon,
+.theme-toggle-btn[data-theme="dark"] .theme-toggle-icon--sun {
+  opacity: 1;
+  filter: blur(0);
+  transform: rotate(0deg) scale(1);
+}
+
+.theme-toggle-btn[data-theme="light"] .theme-toggle-icon--sun {
+  opacity: 0;
+  filter: blur(0.25px);
+  transform: rotate(96deg) scale(0.55);
+}
+
+.theme-toggle-btn[data-theme="dark"] .theme-toggle-icon--moon {
+  opacity: 0;
+  filter: blur(0.25px);
+  transform: rotate(-96deg) scale(0.55);
+}
+
+html.theme-transitioning::view-transition-group(root) {
+  animation-duration: 540ms;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+html.theme-transitioning::view-transition-old(root),
+html.theme-transitioning::view-transition-new(root) {
+  animation-duration: 540ms;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  mix-blend-mode: normal;
+}
+
+html.theme-transitioning::view-transition-old(root) {
+  animation: none;
+}
+
+html.theme-transitioning::view-transition-new(root) {
+  animation-name: theme-circle-reveal;
+  animation-fill-mode: both;
+}
+
+@keyframes theme-circle-reveal {
+  from {
+    clip-path: circle(0 at var(--theme-transition-x, 50vw) var(--theme-transition-y, 50vh));
+  }
+
+  to {
+    clip-path: circle(var(--theme-transition-radius, 150vmax) at var(--theme-transition-x, 50vw) var(--theme-transition-y, 50vh));
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -65,5 +172,17 @@
     animation: none !important;
     opacity: 1 !important;
     transform: none !important;
+  }
+
+  .theme-toggle-btn,
+  .theme-toggle-icon-stack,
+  .theme-toggle-icon {
+    transition: none !important;
+  }
+
+  html.theme-transitioning::view-transition-old(root),
+  html.theme-transitioning::view-transition-new(root) {
+    animation: none !important;
+    clip-path: none !important;
   }
 }
