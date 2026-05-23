@@ -10,6 +10,7 @@ interface WorkspacePanelProps {
   children: ReactNode;
   className?: string;
   delayIndex?: number;
+  fillHeight?: boolean;
 }
 
 export function WorkspacePanel({
@@ -20,13 +21,14 @@ export function WorkspacePanel({
   children,
   className = "",
   delayIndex = 0,
+  fillHeight = true,
 }: WorkspacePanelProps) {
   const shouldShowEmptyState = Boolean(emptyState) && Children.toArray(children).length === 0;
 
   return (
-    <MotionReveal className="h-full" delayIndex={delayIndex}>
-      <Card className={`${className} h-full flex flex-col border border-[var(--border)] bg-[var(--surface)] shadow-sm rounded-lg transition-colors duration-200`}>
-        <section className="flex flex-col h-full flex-1">
+    <MotionReveal className={fillHeight ? "h-full" : ""} delayIndex={delayIndex}>
+      <Card className={`${className} ${fillHeight ? "h-full" : ""} flex flex-col border border-[var(--border)] bg-[var(--surface)] shadow-sm rounded-lg transition-colors duration-200`}>
+        <section className={`flex flex-col ${fillHeight ? "h-full flex-1" : ""}`}>
           {title || description || actions ? (
             <header className="flex flex-wrap items-center justify-between gap-3 px-5 pb-3.5 pt-5 border-b border-[var(--border)]">
               <div>
@@ -36,7 +38,7 @@ export function WorkspacePanel({
               {actions}
             </header>
           ) : null}
-          <CardContent className="pt-4 pb-5 flex-1 flex flex-col">{shouldShowEmptyState ? emptyState : children}</CardContent>
+          <CardContent className={`pt-4 pb-5 flex flex-col ${fillHeight ? "flex-1" : ""}`}>{shouldShowEmptyState ? emptyState : children}</CardContent>
         </section>
       </Card>
     </MotionReveal>

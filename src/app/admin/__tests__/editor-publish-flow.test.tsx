@@ -268,4 +268,75 @@ describe('editor publish flow', () => {
     expect(screen.getByRole('checkbox', { name: 'React' })).toBeChecked()
   })
 
+  test('one-click AI generation replaces edit metadata while preserving title and content', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ data: [{ id: 'cat-1', name: '前端', slug: 'frontend' }] }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ data: [{ id: 'tag-1', name: 'React', slug: 'react' }] }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ success: true, data: [] }) })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: {
+            id: '1',
+            title: '旧标题',
+            slug: 'old-title',
+            content: '# 旧正文',
+            excerpt: '旧摘要',
+            seoDescription: '旧 SEO',
+            coverImage: '',
+            categoryId: '',
+            tags: [],
+            published: false,
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: {
+            taskId: 'task-1',
+            modelId: 'model-1',
+            articleInfo: {
+              slug: 'ai-edited-info',
+              excerpt: 'AI 编辑页摘要。',
+              seoDescription: 'AI 编辑页 SEO 描述。',
+              categoryId: 'cat-1',
+              tagIds: ['tag-1'],
+            },
+            items: [],
+          },
+        }),
+      })
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<AdminPostEditPage />)
+
+    expect(await screen.findByDisplayValue('旧标题')).toBeInTheDocument()
+    await screen.findByRole('checkbox', { name: 'React' })
+
+    fireEvent.click(screen.getByRole('button', { name: '一键 AI 生成' }))
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Slug')).toHaveValue('ai-edited-info')
+    })
+
+    expect(screen.getByLabelText('标题')).toHaveValue('旧标题')
+    expect(screen.getByLabelText('内容')).toHaveValue('# 旧正文')
+    expect(screen.getByDisplayValue('AI 编辑页摘要。')).toBeInTheDocument()
+    expect(screen.getByLabelText('SEO 描述')).toHaveValue('AI 编辑页 SEO 描述。')
+    expect(screen.getByLabelText('分类')).toHaveTextContent('前端')
+    expect(screen.getByRole('checkbox', { name: 'React' })).toBeChecked()
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/admin/ai/actions/article-info',
+      expect.objectContaining({
+        method: 'POST',
+        body: expect.stringContaining('"postId":"1"'),
+      })
+    )
+  })
+
 })

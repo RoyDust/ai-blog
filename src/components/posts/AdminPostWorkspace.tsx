@@ -25,7 +25,7 @@ import { CoverPicker } from "@/components/admin/covers/CoverPicker";
 import type { CoverAsset } from "@/components/admin/covers/types";
 import { StatusBadge } from "@/components/admin/primitives/StatusBadge";
 import { WorkspacePanel } from "@/components/admin/primitives/WorkspacePanel";
-import { Button, Input } from "@/components/admin/ui";
+import { Button, Input, Modal } from "@/components/admin/ui";
 import {
   Select,
   SelectContent,
@@ -111,7 +111,7 @@ function AiFieldButton({
       type="button"
       aria-label={label}
       title={label}
-      className="ui-ring inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[color-mix(in_oklab,var(--brand)_28%,var(--border)_72%)] bg-[color-mix(in_oklab,var(--brand)_8%,var(--surface)_92%)] text-[var(--brand)] transition-colors hover:border-[var(--brand)] hover:bg-[color-mix(in_oklab,var(--brand)_14%,var(--surface)_86%)] disabled:cursor-not-allowed disabled:opacity-45"
+      className="ui-ring inline-flex h-8 w-8 items-center justify-center rounded-md bg-transparent text-[var(--brand)] transition-colors hover:bg-[var(--surface-alt)] disabled:cursor-not-allowed disabled:opacity-45"
       disabled={disabled || loading}
       onClick={onClick}
     >
@@ -173,6 +173,7 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
   const [loading, setLoading] = useState(isEditMode);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [aiWorkspaceOpen, setAiWorkspaceOpen] = useState(false);
   const {
     applySlugChange,
     applyTitleChange,
@@ -190,9 +191,11 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
     setFormData((prev) => ({ ...prev, coverImage, coverAssetId })),
   );
   const {
+    handleGenerateAllArticleInfo,
     handleGenerateMetadata,
     handleGenerateSummary,
     isCompletingMetadata,
+    isGeneratingAllMetadata,
     isSummarizing,
     metadataError,
     metadataPendingField,
@@ -201,6 +204,7 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
     categories,
     formData,
     isSlugManuallyEdited,
+    postId: isEditMode ? postId : undefined,
     setFormData,
     setIsSlugManuallyEdited,
     tags,
@@ -368,6 +372,35 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
   const metadataEditor = (
     <div className="space-y-4">
         {metadataError ? <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{metadataError}</p> : null}
+
+        <div className="rounded-2xl border border-[color-mix(in_oklab,var(--brand)_18%,var(--border)_82%)] bg-[color-mix(in_oklab,var(--brand)_5%,var(--surface)_95%)] p-3">
+          <div className="flex flex-col gap-3">
+            <div className="min-w-0 space-y-1">
+              <p className="text-sm font-semibold text-[var(--foreground)]">一键 AI 生成信息</p>
+              <p className="text-xs leading-5 text-[var(--muted)]">保留标题和正文，覆盖 Slug、摘要、SEO、分类和标签。</p>
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              className="w-full"
+              disabled={isCompletingMetadata || !formData.content.trim()}
+              onClick={() => void handleGenerateAllArticleInfo()}
+            >
+              {isGeneratingAllMetadata ? (
+                <LoaderCircle className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />
+              ) : (
+                <Sparkles className="mr-1 h-4 w-4" aria-hidden="true" />
+              )}
+              {isGeneratingAllMetadata ? "生成中..." : "一键 AI 生成"}
+            </Button>
+            {canUseAiWorkspace ? (
+              <Button type="button" size="sm" variant="outline" className="w-full" onClick={() => setAiWorkspaceOpen(true)}>
+                <Sparkles className="mr-1 h-4 w-4" aria-hidden="true" />
+                打开 AI 辅助
+              </Button>
+            ) : null}
+          </div>
+        </div>
 
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-3">
@@ -677,17 +710,17 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
         />
 
         <aside className="flex min-h-0 flex-col gap-3 overflow-y-auto pr-1 xl:h-full xl:max-h-full">
-          <WorkspacePanel title="发布设置" description="保存、发布和前台展示相关设置。" className="rounded-2xl">
+          <WorkspacePanel title="发布设置" description="保存、发布和前台展示相关设置。" className="rounded-2xl" fillHeight={false}>
             <div className="space-y-4">
-              <div className="flex items-center justify-between gap-3">
-                <div className="space-y-1">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 space-y-1">
                   <p className="text-sm font-medium text-[var(--foreground)]">发布状态</p>
                   <p className="text-sm text-[var(--muted)]">{isEditMode ? "切换后通过保存或发布提交。" : saveStatusLabel}</p>
                 </div>
                 <StatusBadge tone={formData.published ? "success" : "warning"}>{formData.published ? "已发布" : "草稿"}</StatusBadge>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <Button
                   type="button"
                   size="sm"
@@ -706,6 +739,37 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
                 >
                   切换为已发布
                 </Button>
+              </div>
+
+              <div className="space-y-3 border-t border-[var(--border)] pt-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 space-y-1">
+                    <p className="text-sm font-medium text-[var(--foreground)]">精选状态</p>
+                    <p className="text-sm text-[var(--muted)]">最多 3 篇精选文章会展示在前台。</p>
+                  </div>
+                  <StatusBadge tone={formData.featured ? "success" : "neutral"}>{formData.featured ? "精选" : "普通"}</StatusBadge>
+                </div>
+
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={formData.featured ? "outline" : "primary"}
+                    disabled={!formData.featured}
+                    onClick={() => setFormData((prev) => ({ ...prev, featured: false }))}
+                  >
+                    取消精选
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={formData.featured ? "primary" : "outline"}
+                    disabled={formData.featured}
+                    onClick={() => setFormData((prev) => ({ ...prev, featured: true }))}
+                  >
+                    设为精选
+                  </Button>
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -738,7 +802,7 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
             </div>
           </WorkspacePanel>
 
-          <WorkspacePanel title="发布清单" description="发布前检查标题、正文、SEO 与封面。" className="rounded-2xl">
+          <WorkspacePanel title="发布清单" description="发布前检查标题、正文、SEO 与封面。" className="rounded-2xl" fillHeight={false}>
             <PublishChecklist
               variant="inline"
               content={formData.content}
@@ -750,50 +814,24 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
             />
           </WorkspacePanel>
 
-          <WorkspacePanel title="分类、标签与封面图" description="这些字段会随保存或发布提交。" className="rounded-2xl">
+          <WorkspacePanel title="分类、标签与封面图" description="这些字段会随保存或发布提交。" className="rounded-2xl" fillHeight={false}>
             {metadataEditor}
           </WorkspacePanel>
 
-          <WorkspacePanel title="精选状态" description="精选文章会出现在首页和文章列表顶部。" className="rounded-2xl">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between gap-3">
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-[var(--foreground)]">当前状态</p>
-                  <p className="text-sm text-[var(--muted)]">最多 3 篇精选文章会展示在前台。</p>
-                </div>
-                <StatusBadge tone={formData.featured ? "success" : "neutral"}>{formData.featured ? "精选" : "普通"}</StatusBadge>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={formData.featured ? "outline" : "primary"}
-                  disabled={!formData.featured}
-                  onClick={() => setFormData((prev) => ({ ...prev, featured: false }))}
-                >
-                  取消精选
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={formData.featured ? "primary" : "outline"}
-                  disabled={formData.featured}
-                  onClick={() => setFormData((prev) => ({ ...prev, featured: true }))}
-                >
-                  设为精选
-                </Button>
-              </div>
-            </div>
-          </WorkspacePanel>
-
-          {canUseAiWorkspace ? (
-            <WorkspacePanel title="AI 辅助" description="可用于摘要、元信息和审稿，不影响手动编辑。" className="rounded-2xl">
-              {aiWorkspace}
-            </WorkspacePanel>
-          ) : null}
         </aside>
       </div>
+
+      {canUseAiWorkspace ? (
+        <Modal
+          isOpen={aiWorkspaceOpen}
+          onClose={() => setAiWorkspaceOpen(false)}
+          title="AI 辅助"
+          size="3xl"
+          contentClassName="px-4 py-4 sm:px-6"
+        >
+          {aiWorkspace}
+        </Modal>
+      ) : null}
     </form>
   );
 }

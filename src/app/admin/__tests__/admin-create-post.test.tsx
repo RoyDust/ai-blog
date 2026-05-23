@@ -28,7 +28,7 @@ describe('admin create post', () => {
     fireEvent.click(await screen.findByRole('option', { name }))
   }
 
-  test('renders new post workspace in admin style', () => {
+  test('renders new post workspace in admin style', async () => {
     render(<AdminCreatePostPage />)
 
     expect(screen.getByRole('heading', { name: '新建文章' })).toBeInTheDocument()
@@ -44,9 +44,13 @@ describe('admin create post', () => {
     expect(screen.getByRole('heading', { name: '发布设置' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '保存草稿' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '发布文章' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'AI 辅助' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '打开 AI 辅助' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: '发布清单' })).toBeInTheDocument()
     expect(screen.getByText('实时预览')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: '打开 AI 辅助' }))
+
+    expect(await screen.findByRole('heading', { name: 'AI 辅助' })).toBeInTheDocument()
   })
 
   test('auto-generates a max-60 pinyin slug from Chinese title', () => {
@@ -256,6 +260,78 @@ describe('admin create post', () => {
     expect(screen.getByLabelText('分类')).toHaveTextContent('前端')
     expect(screen.getByRole('checkbox', { name: 'React' })).toBeChecked()
     expect(screen.getByRole('checkbox', { name: 'Next.js' })).toBeChecked()
+  })
+
+  test('one-click AI generation replaces article info while preserving title and content', async () => {
+    const originalTitle = '人工保留标题'
+    const originalContent = '# 正文\n\n这是一篇关于 Next.js 和 AI 写作体验的文章。'
+    const articleInfo = {
+      slug: 'ai-generated-info',
+      excerpt: 'AI 一键生成的摘要。',
+      seoDescription: 'AI 一键生成的 SEO 描述。',
+      categoryId: 'cat-1',
+      tagIds: ['tag-1', 'tag-2'],
+    }
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ data: [{ id: 'cat-1', name: '前端', slug: 'frontend' }] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ data: [{ id: 'tag-1', name: 'React', slug: 'react' }, { id: 'tag-2', name: 'Next.js', slug: 'nextjs' }] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true, data: [] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: {
+            taskId: 'task-1',
+            modelId: 'model-1',
+            articleInfo,
+            items: [],
+          },
+        }),
+      })
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<AdminCreatePostPage />)
+
+    fireEvent.change(screen.getByLabelText('标题'), {
+      target: { value: originalTitle },
+    })
+    fireEvent.change(screen.getByLabelText('内容'), {
+      target: { value: originalContent },
+    })
+
+    await openMetadataDialog()
+    await screen.findByRole('checkbox', { name: 'React' })
+
+    fireEvent.click(screen.getByRole('button', { name: '一键 AI 生成' }))
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Slug')).toHaveValue('ai-generated-info')
+    })
+
+    expect(screen.getByLabelText('标题')).toHaveValue(originalTitle)
+    expect(screen.getByLabelText('内容')).toHaveValue(originalContent)
+    expect(screen.getByDisplayValue('AI 一键生成的摘要。')).toBeInTheDocument()
+    expect(screen.getByLabelText('SEO 描述')).toHaveValue('AI 一键生成的 SEO 描述。')
+    expect(screen.getByLabelText('分类')).toHaveTextContent('前端')
+    expect(screen.getByRole('checkbox', { name: 'React' })).toBeChecked()
+    expect(screen.getByRole('checkbox', { name: 'Next.js' })).toBeChecked()
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/admin/ai/actions/article-info',
+      expect.objectContaining({
+        method: 'POST',
+        body: expect.stringContaining('"content":"# 正文\\n\\n这是一篇关于 Next.js 和 AI 写作体验的文章。"'),
+      })
+    )
   })
 
   test('hydrates legacy draft without categoryId and tagIds', () => {
