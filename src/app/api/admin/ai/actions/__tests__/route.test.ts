@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   normalizePostAiAction: vi.fn(),
   runPostAiAction: vi.fn(),
   aiTaskUpdate: vi.fn(),
+  postFindFirst: vi.fn(),
 }));
 
 vi.mock("@/lib/api-auth", () => ({
@@ -43,6 +44,9 @@ vi.mock("@/lib/prisma", () => ({
     aiTask: {
       update: mocks.aiTaskUpdate,
     },
+    post: {
+      findFirst: mocks.postFindFirst,
+    },
   },
 }));
 
@@ -68,6 +72,7 @@ describe("admin AI actions route", () => {
     mocks.buildPostAiInputSnapshot.mockReturnValue({ title: "标题" });
     mocks.createAiTask.mockResolvedValue({ id: "task-1", modelId: null, items: [{ id: "item-1" }] });
     mocks.runPostAiAction.mockResolvedValue({ modelId: "model-1", output: { seoDescription: "SEO 描述" } });
+    mocks.postFindFirst.mockResolvedValue(null);
   });
 
   test("generates a single-post AI suggestion without applying it", async () => {
@@ -82,8 +87,8 @@ describe("admin AI actions route", () => {
     const data = await response.json();
 
     expect(response.status).toBe(200);
-    expect(mocks.markAiTaskItemSucceeded).toHaveBeenCalledWith("item-1", { seoDescription: "SEO 描述" });
-    expect(data).toEqual({
+    expect(mocks.markAiTaskItemSucceeded).toHaveBeenCalledWith("item-1", expect.objectContaining({ seoDescription: "SEO 描述" }));
+    expect(data).toMatchObject({
       success: true,
       data: {
         taskId: "task-1",
@@ -93,6 +98,8 @@ describe("admin AI actions route", () => {
         output: { seoDescription: "SEO 描述" },
       },
     });
+    expect(data.data.durationMs).toEqual(expect.any(Number));
+    expect(data.data.output._meta).toEqual(expect.objectContaining({ modelId: "model-1", promptVersion: "post-ai-action-v1" }));
   });
 
   test("generates a draft AI suggestion without requiring a saved post", async () => {
@@ -112,17 +119,17 @@ describe("admin AI actions route", () => {
     expect(mocks.createAiTask).toHaveBeenCalledWith(
       expect.objectContaining({
         source: "draft-post",
-        metadata: { draft: true },
+        metadata: { draft: true, promptVersion: "post-ai-action-v1" },
         items: [
           expect.objectContaining({
             postId: null,
             action: "seo-description",
-            inputSnapshot: { title: "标题", draft: true },
+            inputSnapshot: { title: "标题", draft: true, promptVersion: "post-ai-action-v1" },
           }),
         ],
       }),
     );
-    expect(data).toEqual({
+    expect(data).toMatchObject({
       success: true,
       data: {
         taskId: "task-1",

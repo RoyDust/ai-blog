@@ -205,19 +205,19 @@ describe('editor publish flow', () => {
       })
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ success: true, data: { title: metadataSuggestion.title } }),
+        json: async () => ({ success: true, data: { output: { titles: [metadataSuggestion.title] } } }),
       })
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ success: true, data: { slug: metadataSuggestion.slug } }),
+        json: async () => ({ success: true, data: { output: { slug: metadataSuggestion.slug } } }),
       })
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ success: true, data: { categorySlug: metadataSuggestion.categorySlug } }),
+        json: async () => ({ success: true, data: { output: { categoryId: 'cat-1', categorySlug: metadataSuggestion.categorySlug } } }),
       })
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ success: true, data: { tagSlugs: metadataSuggestion.tagSlugs } }),
+        json: async () => ({ success: true, data: { output: { existingTagIds: ['tag-1'], tagSlugs: metadataSuggestion.tagSlugs } } }),
       })
       .mockResolvedValueOnce({
         ok: true,
@@ -253,10 +253,10 @@ describe('editor publish flow', () => {
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
-        '/api/admin/posts/metadata',
+        '/api/admin/ai/actions',
         expect.objectContaining({
           method: 'POST',
-          body: expect.stringContaining('"field":"slug"'),
+          body: expect.stringContaining('"action":"slug"'),
         })
       )
     })
@@ -282,7 +282,7 @@ describe('editor publish flow', () => {
             id: '1',
             title: '旧标题',
             slug: 'old-title',
-            content: '# 旧正文',
+            content: '# 旧正文\n\n这是一段足够长的正文内容，用来触发一键 AI 文章信息生成。',
             excerpt: '旧摘要',
             seoDescription: '旧 SEO',
             coverImage: '',
@@ -319,13 +319,15 @@ describe('editor publish flow', () => {
     await screen.findByRole('checkbox', { name: 'React' })
 
     fireEvent.click(screen.getByRole('button', { name: '一键 AI 生成' }))
+    expect(await screen.findByRole('heading', { name: '确认一键 AI 生成结果' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '应用这些结果' }))
 
     await waitFor(() => {
       expect(screen.getByLabelText('Slug')).toHaveValue('ai-edited-info')
     })
 
     expect(screen.getByLabelText('标题')).toHaveValue('旧标题')
-    expect(screen.getByLabelText('内容')).toHaveValue('# 旧正文')
+    expect(screen.getByLabelText('内容')).toHaveValue('# 旧正文\n\n这是一段足够长的正文内容，用来触发一键 AI 文章信息生成。')
     expect(screen.getByDisplayValue('AI 编辑页摘要。')).toBeInTheDocument()
     expect(screen.getByLabelText('SEO 描述')).toHaveValue('AI 编辑页 SEO 描述。')
     expect(screen.getByLabelText('分类')).toHaveTextContent('前端')
@@ -337,6 +339,70 @@ describe('editor publish flow', () => {
         body: expect.stringContaining('"postId":"1"'),
       })
     )
+  })
+
+  test('one-click AI generation applies successful partial fields when one action fails', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ data: [{ id: 'cat-1', name: '前端', slug: 'frontend' }] }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ data: [{ id: 'tag-1', name: 'React', slug: 'react' }] }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ success: true, data: [] }) })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: {
+            id: '1',
+            title: '旧标题',
+            slug: 'old-title',
+            content: '# 旧正文\n\n这是一段足够长的正文内容，用来触发一键 AI 文章信息生成。',
+            excerpt: '旧摘要',
+            seoDescription: '旧 SEO',
+            coverImage: '',
+            categoryId: '',
+            tags: [],
+            published: false,
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({
+          success: false,
+          error: 'Slug failed',
+          data: {
+            taskId: 'task-1',
+            partial: true,
+            failures: [{ action: 'slug', message: 'Slug failed' }],
+            items: [
+              { action: 'summary', output: { summary: 'AI 部分摘要。' } },
+              { action: 'seo-description', output: { seoDescription: 'AI 部分 SEO 描述。' } },
+              { action: 'category', output: { categoryId: 'cat-1', categoryName: '前端' } },
+              { action: 'tags', output: { existingTagIds: ['tag-1'], names: ['React'] } },
+            ],
+          },
+        }),
+      })
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<AdminPostEditPage />)
+
+    expect(await screen.findByDisplayValue('旧标题')).toBeInTheDocument()
+    await screen.findByRole('checkbox', { name: 'React' })
+
+    fireEvent.click(screen.getByRole('button', { name: '一键 AI 生成' }))
+    expect(await screen.findByRole('heading', { name: '确认一键 AI 生成结果' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '应用这些结果' }))
+
+    expect(await screen.findByDisplayValue('AI 部分摘要。')).toBeInTheDocument()
+    expect(screen.getByLabelText('Slug')).toHaveValue('old-title')
+    expect(screen.getByLabelText('标题')).toHaveValue('旧标题')
+    expect(screen.getByLabelText('内容')).toHaveValue('# 旧正文\n\n这是一段足够长的正文内容，用来触发一键 AI 文章信息生成。')
+    expect(screen.getByLabelText('SEO 描述')).toHaveValue('AI 部分 SEO 描述。')
+    expect(screen.getByLabelText('分类')).toHaveTextContent('前端')
+    expect(screen.getByRole('checkbox', { name: 'React' })).toBeChecked()
+    expect(screen.getByText('部分字段生成失败：Slug。请确认预览后应用其他可用结果。')).toBeInTheDocument()
   })
 
 })

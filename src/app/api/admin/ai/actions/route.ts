@@ -31,6 +31,8 @@ import {
 import { toErrorResponse, ValidationError } from "@/lib/api-errors";
 import { prisma } from "@/lib/prisma";
 
+const POST_AI_ACTION_PROMPT_VERSION = "post-ai-action-v1";
+
 type Body = {
   postId?: string;
   draft?: {
@@ -45,6 +47,75 @@ type Body = {
   action?: string;
   modelId?: string;
 };
+
+function readString(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function readOutputObject(output: unknown) {
+  return output && typeof output === "object" && !Array.isArray(output) ? (output as Record<string, unknown>) : {};
+}
+
+function withOutputMeta(output: unknown, meta: Record<string, JsonValue>) {
+  return {
+    ...readOutputObject(output),
+    _meta: meta,
+  };
+}
+
+async function resolvePostInput(body: Body, action: string) {
+  const postId = readString(body.postId);
+  const hasDraft = Boolean(body.draft && typeof body.draft === "object");
+
+  if (!postId && !hasDraft) {
+    throw new ValidationError("Post id or draft content is required");
+  }
+
+  if (hasDraft) {
+    const draftInput = {
+      ...body.draft,
+      content: action === "slug" && !readString(body.draft?.content) ? readString(body.draft?.title) : body.draft?.content,
+    };
+    const draftPost = await buildDraftPostForAiAction(draftInput);
+    return {
+      post: postId ? { ...draftPost, id: postId } : draftPost,
+      postId: postId || null,
+      source: postId ? "single-post" : "draft-post",
+      draft: true,
+    } as const;
+  }
+
+  return {
+    post: await getPostForAiAction(postId),
+    postId,
+    source: "single-post",
+    draft: false,
+  } as const;
+}
+
+async function getSlugQuality(output: Record<string, unknown>, postId: string | null) {
+  const slug = readString(output.slug);
+  if (!slug) return null;
+
+  const conflict = await prisma.post.findFirst({
+    where: {
+      slug,
+      deletedAt: null,
+      ...(postId ? { NOT: { id: postId } } : {}),
+    },
+    select: { id: true, title: true },
+  });
+
+  return {
+    score: conflict ? 70 : 100,
+    blockedFields: conflict ? ["slug"] : [],
+    checks: [
+      conflict
+        ? { key: "slug-unique", label: "Slug 唯一性", status: "danger", message: `已被《${conflict.title}》使用，应用时会保留原 Slug。` }
+        : { key: "slug-unique", label: "Slug 唯一性", status: "ok", message: "未发现重复 Slug。" },
+    ],
+  };
+}
 
 /**
  * 执行一次文章 AI 动作。
@@ -63,27 +134,27 @@ async function POSTHandler(request: Request) {
       throw new ValidationError("AI action is required");
     }
 
-    if (!body.postId && !body.draft) {
-      throw new ValidationError("Post id or draft content is required");
-    }
-
     const action = normalizePostAiAction(body.action);
-    const isDraft = !body.postId;
-    const post = body.postId ? await getPostForAiAction(body.postId) : await buildDraftPostForAiAction(body.draft ?? {});
+    const { draft, post, postId, source } = await resolvePostInput(body, action);
+    const metadata = {
+      draft,
+      promptVersion: POST_AI_ACTION_PROMPT_VERSION,
+    };
     const task = await createAiTask({
       type: getAiTaskTypeForAction(action),
-      source: isDraft ? "draft-post" : "single-post",
+      source,
       modelId: body.modelId ?? null,
       createdById: session.user.id,
-      metadata: isDraft ? { draft: true } : undefined,
+      metadata,
       items: [
         {
-          postId: isDraft ? null : post.id,
+          postId,
           action,
           status: AI_TASK_ITEM_STATUSES.queued,
           inputSnapshot: {
             ...(buildPostAiInputSnapshot(post, action) as Record<string, JsonValue>),
-            draft: isDraft,
+            draft,
+            promptVersion: POST_AI_ACTION_PROMPT_VERSION,
           },
         },
       ],
@@ -93,12 +164,21 @@ async function POSTHandler(request: Request) {
     await markAiTaskRunning(task.id);
     await markAiTaskItemRunning(item.id);
 
+    const startedAt = Date.now();
     try {
       const result = await runPostAiAction({ post, action, modelId: body.modelId });
+      const durationMs = Date.now() - startedAt;
       if (result.modelId !== task.modelId) {
         await prisma.aiTask.update({ where: { id: task.id }, data: { modelId: result.modelId } });
       }
-      await markAiTaskItemSucceeded(item.id, result.output as unknown as JsonValue);
+      const quality = action === "slug" ? await getSlugQuality(readOutputObject(result.output), postId) : null;
+      const output = withOutputMeta(result.output, {
+        modelId: result.modelId ?? null,
+        durationMs,
+        promptVersion: POST_AI_ACTION_PROMPT_VERSION,
+        ...(quality ? { quality } : {}),
+      });
+      await markAiTaskItemSucceeded(item.id, output as JsonValue);
 
       return NextResponse.json({
         success: true,
@@ -107,7 +187,8 @@ async function POSTHandler(request: Request) {
           itemId: item.id,
           action,
           modelId: result.modelId,
-          output: result.output,
+          durationMs,
+          output,
         },
       });
     } catch (error) {

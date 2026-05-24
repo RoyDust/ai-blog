@@ -48,6 +48,16 @@ type TaskDetail = {
   createdBy?: { name: string | null; email: string } | null;
 };
 
+type ArticleInfoSummary = {
+  slug: string;
+  excerpt: string;
+  seoDescription: string;
+  categoryName: string;
+  tagNames: string[];
+  partial: boolean;
+  quality: Record<string, unknown>;
+};
+
 const taskTypeLabels: Record<string, string> = {
   "post-summary": "文章摘要",
   "post-article-info": "文章信息",
@@ -122,6 +132,14 @@ function readOutput(output: unknown) {
   return output && typeof output === "object" && !Array.isArray(output) ? (output as Record<string, unknown>) : {};
 }
 
+function readMetadata(metadata: unknown) {
+  return metadata && typeof metadata === "object" && !Array.isArray(metadata) ? (metadata as Record<string, unknown>) : {};
+}
+
+function readString(value: unknown) {
+  return typeof value === "string" ? value : "";
+}
+
 /**
  * 从 AI 输出里安全读取字符串数组。
  */
@@ -169,8 +187,32 @@ function renderOutput(item: TaskItem) {
 /**
  * 只有成功、绑定文章且尚未应用的任务项可以直接应用。
  */
-function canApply(item: TaskItem) {
-  return item.status === "SUCCEEDED" && Boolean(item.postId) && !item.applied;
+function isOneClickArticleInfoTask(task: TaskDetail) {
+  const metadata = readMetadata(task.metadata);
+  return task.type === "post-article-info" || metadata.oneClick === true;
+}
+
+function canApply(task: TaskDetail, item: TaskItem) {
+  return !isOneClickArticleInfoTask(task) && item.status === "SUCCEEDED" && Boolean(item.postId) && !item.applied;
+}
+
+function getArticleInfoSummary(task: TaskDetail): ArticleInfoSummary {
+  const metadata = readMetadata(task.metadata);
+  const partial = metadata.partial === true;
+  const fromMetadata = partial ? {} : readMetadata(metadata.articleInfo);
+  const outputByAction = new Map(task.items.map((item) => [item.action, readOutput(item.output)]));
+
+  return {
+    slug: typeof fromMetadata.slug === "string" ? fromMetadata.slug : readString(readOutput(outputByAction.get("slug")).slug),
+    excerpt: typeof fromMetadata.excerpt === "string" ? fromMetadata.excerpt : readString(readOutput(outputByAction.get("summary")).summary),
+    seoDescription:
+      typeof fromMetadata.seoDescription === "string" ? fromMetadata.seoDescription : readString(readOutput(outputByAction.get("seo-description")).seoDescription),
+    categoryName:
+      typeof fromMetadata.categoryName === "string" ? fromMetadata.categoryName : readString(readOutput(outputByAction.get("category")).categoryName),
+    tagNames: Array.isArray(fromMetadata.tagNames) ? toStringList(fromMetadata.tagNames) : toStringList(readOutput(outputByAction.get("tags")).names),
+    partial,
+    quality: readMetadata(metadata.quality),
+  };
 }
 
 /**
@@ -184,12 +226,15 @@ export function AiTaskDetail({ task }: { task: TaskDetail }) {
   const [retrying, setRetrying] = useState(false);
   const [applyingItemId, setApplyingItemId] = useState<string | null>(null);
   const failedCount = useMemo(() => items.filter((item) => item.status === "FAILED").length, [items]);
+  const oneClickArticleInfoTask = isOneClickArticleInfoTask(task);
+  const articleInfoSummary = oneClickArticleInfoTask ? getArticleInfoSummary({ ...task, items }) : null;
+  const retryDisabled = failedCount === 0 || retrying || oneClickArticleInfoTask;
 
   /**
    * 为失败任务项创建新的重试任务，并跳转到新任务详情页。
    */
   async function retryFailedItems() {
-    if (retrying || failedCount === 0) {
+    if (retryDisabled) {
       return;
     }
 
@@ -255,8 +300,8 @@ export function AiTaskDetail({ task }: { task: TaskDetail }) {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <StatusBadge tone={statusTone(task.status)}>{statusLabels[task.status] ?? task.status}</StatusBadge>
-            <Button type="button" size="sm" variant="outline" disabled={failedCount === 0 || retrying} onClick={() => void retryFailedItems()}>
-              {retrying ? "重试中..." : "重试失败项"}
+            <Button type="button" size="sm" variant="outline" disabled={retryDisabled} onClick={() => void retryFailedItems()}>
+              {retrying ? "重试中..." : oneClickArticleInfoTask && failedCount > 0 ? "回编辑器重试" : "重试失败项"}
             </Button>
           </div>
         </div>
@@ -277,7 +322,42 @@ export function AiTaskDetail({ task }: { task: TaskDetail }) {
         </div>
 
         {task.lastError ? <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{task.lastError}</p> : null}
+        {oneClickArticleInfoTask && failedCount > 0 ? (
+          <p className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            一键文章信息任务不会在任务中心直接写库；请回到文章编辑器确认可用结果或重新生成失败项。
+          </p>
+        ) : null}
       </section>
+
+      {articleInfoSummary ? (
+        <section className="ui-surface rounded-3xl p-5 shadow-[var(--shadow-card)]">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h3 className="font-display text-lg font-semibold text-[var(--foreground)]">文章信息结果</h3>
+              <p className="mt-1 text-sm text-[var(--muted)]">组合查看一键生成结果，逐项明细仍保留在下方。</p>
+            </div>
+            {typeof articleInfoSummary.quality.score === "number" ? (
+              <StatusBadge tone={articleInfoSummary.quality.score >= 80 ? "success" : "warning"}>{articleInfoSummary.quality.score} / 100</StatusBadge>
+            ) : articleInfoSummary.partial ? (
+              <StatusBadge tone="warning">部分成功</StatusBadge>
+            ) : null}
+          </div>
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            {[
+              ["Slug", articleInfoSummary.slug],
+              ["摘要", articleInfoSummary.excerpt],
+              ["SEO 描述", articleInfoSummary.seoDescription],
+              ["分类", articleInfoSummary.categoryName],
+              ["标签", Array.isArray(articleInfoSummary.tagNames) ? articleInfoSummary.tagNames.join("、") : ""],
+            ].map(([label, value]) => (
+              <div key={label} className="min-w-0 rounded-2xl border border-[var(--border)] bg-[var(--surface-alt)] px-4 py-3">
+                <p className="text-xs text-[var(--muted)]">{label}</p>
+                <p className="mt-1 break-words text-sm font-medium leading-6 text-[var(--foreground)]">{typeof value === "string" && value.trim() ? value : "-"}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <section className="ui-surface overflow-hidden rounded-3xl shadow-[var(--shadow-card)]">
         <header className="border-b border-[var(--border)] px-4 py-3">
@@ -320,9 +400,11 @@ export function AiTaskDetail({ task }: { task: TaskDetail }) {
                     <span className="line-clamp-3">{item.error ?? "-"}</span>
                   </td>
                   <td className="px-4 py-3 align-top">
-                    {item.applied ? (
+                    {oneClickArticleInfoTask && item.status === "SUCCEEDED" ? (
+                      <StatusBadge tone="warning">待表单确认</StatusBadge>
+                    ) : item.applied ? (
                       <StatusBadge tone="success">已应用</StatusBadge>
-                    ) : canApply(item) ? (
+                    ) : canApply(task, item) ? (
                       <Button
                         type="button"
                         size="sm"

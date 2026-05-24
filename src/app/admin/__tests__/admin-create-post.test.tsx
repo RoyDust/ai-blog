@@ -185,20 +185,20 @@ describe('admin create post', () => {
         ok: true,
         json: async () => ({
           success: true,
-          data: { title: metadataSuggestion.title },
+          data: { output: { titles: [metadataSuggestion.title] } },
         }),
       })
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ success: true, data: { slug: metadataSuggestion.slug } }),
+        json: async () => ({ success: true, data: { output: { slug: metadataSuggestion.slug } } }),
       })
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ success: true, data: { categorySlug: metadataSuggestion.categorySlug } }),
+        json: async () => ({ success: true, data: { output: { categoryId: 'cat-1', categorySlug: metadataSuggestion.categorySlug } } }),
       })
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ success: true, data: { tagSlugs: metadataSuggestion.tagSlugs } }),
+        json: async () => ({ success: true, data: { output: { existingTagIds: ['tag-1', 'tag-2'], tagSlugs: metadataSuggestion.tagSlugs } } }),
       })
       .mockResolvedValueOnce({
         ok: true,
@@ -239,18 +239,18 @@ describe('admin create post', () => {
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
-        '/api/admin/posts/metadata',
+        '/api/admin/ai/actions',
         expect.objectContaining({
           method: 'POST',
-          body: expect.stringContaining('"field":"title"'),
+          body: expect.stringContaining('"action":"title"'),
         })
       )
     })
     expect(fetchMock).toHaveBeenCalledWith(
-      '/api/admin/posts/metadata',
+      '/api/admin/ai/actions',
       expect.objectContaining({
         method: 'POST',
-        body: expect.stringContaining('"field":"slug"'),
+        body: expect.stringContaining('"action":"slug"'),
       })
     )
 
@@ -313,6 +313,8 @@ describe('admin create post', () => {
     await screen.findByRole('checkbox', { name: 'React' })
 
     fireEvent.click(screen.getByRole('button', { name: '一键 AI 生成' }))
+    expect(await screen.findByRole('heading', { name: '确认一键 AI 生成结果' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '应用这些结果' }))
 
     await waitFor(() => {
       expect(screen.getByLabelText('Slug')).toHaveValue('ai-generated-info')
@@ -332,6 +334,39 @@ describe('admin create post', () => {
         body: expect.stringContaining('"content":"# 正文\\n\\n这是一篇关于 Next.js 和 AI 写作体验的文章。"'),
       })
     )
+  })
+
+  test('blocks one-click AI generation when content is too short', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ data: [{ id: 'cat-1', name: '前端', slug: 'frontend' }] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ data: [{ id: 'tag-1', name: 'React', slug: 'react' }] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true, data: [] }),
+      })
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<AdminCreatePostPage />)
+
+    fireEvent.change(screen.getByLabelText('标题'), {
+      target: { value: '短文' },
+    })
+    fireEvent.change(screen.getByLabelText('内容'), {
+      target: { value: '太短' },
+    })
+
+    await openMetadataDialog()
+    fireEvent.click(screen.getByRole('button', { name: '一键 AI 生成' }))
+
+    expect(await screen.findByText('正文至少需要 20 个有效字符后再使用一键 AI 生成')).toBeInTheDocument()
+    expect(fetchMock).not.toHaveBeenCalledWith('/api/admin/ai/actions/article-info', expect.anything())
   })
 
   test('hydrates legacy draft without categoryId and tagIds', () => {

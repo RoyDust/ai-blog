@@ -149,4 +149,21 @@ describe("ai task service", () => {
       }),
     );
   });
+
+  test("rejects retry tasks for one-click article info jobs", async () => {
+    prismaMocks.aiTaskFindUnique.mockResolvedValueOnce({
+      id: "task-1",
+      type: "post-article-info",
+      source: "draft-post",
+      modelId: "model-1",
+      metadata: { oneClick: true },
+      createdBy: null,
+      items: [{ id: "item-1", postId: null, action: "slug", status: "FAILED", inputSnapshot: { title: "草稿" } }],
+    });
+
+    const { retryAiTaskFailedItems } = await import("../ai-tasks");
+
+    await expect(retryAiTaskFailedItems("task-1", "admin-1")).rejects.toThrow("一键文章信息任务请回到文章编辑器重新生成");
+    expect(prismaMocks.aiTaskCreate).not.toHaveBeenCalled();
+  });
 });

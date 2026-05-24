@@ -477,6 +477,10 @@ export async function retryAiTaskFailedItems(taskId: string, createdById?: strin
   const failedItems = task.items.filter((item) => item.status === AI_TASK_ITEM_STATUSES.failed);
   const metadata = task.metadata && typeof task.metadata === "object" && !Array.isArray(task.metadata) ? (task.metadata as Record<string, unknown>) : {};
 
+  if (task.type === "post-article-info") {
+    throw new ValidationError("一键文章信息任务请回到文章编辑器重新生成");
+  }
+
   if (failedItems.length === 0) {
     throw new ValidationError("No failed AI task items to retry");
   }

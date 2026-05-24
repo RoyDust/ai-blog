@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   getPostForAiAction: vi.fn(),
   runPostAiAction: vi.fn(),
   aiTaskUpdate: vi.fn(),
+  postFindFirst: vi.fn(),
 }));
 
 vi.mock("@/lib/api-auth", () => ({
@@ -52,6 +53,9 @@ vi.mock("@/lib/prisma", () => ({
     aiTask: {
       update: mocks.aiTaskUpdate,
     },
+    post: {
+      findFirst: mocks.postFindFirst,
+    },
   },
 }));
 
@@ -64,7 +68,7 @@ describe("admin one-click article info AI action", () => {
       id: "draft",
       title: "草稿标题",
       slug: "cao-gao-biao-ti",
-      content: "正文",
+      content: "这是一段足够长的正文内容，用来触发一键 AI 文章信息生成。",
       excerpt: null,
       seoDescription: null,
       category: null,
@@ -72,6 +76,7 @@ describe("admin one-click article info AI action", () => {
       published: false,
     });
     mocks.buildPostAiInputSnapshot.mockImplementation((_post, action) => ({ action, title: "草稿标题" }));
+    mocks.postFindFirst.mockResolvedValue(null);
     mocks.createAiTask.mockResolvedValue({
       id: "task-1",
       modelId: null,
@@ -96,7 +101,7 @@ describe("admin one-click article info AI action", () => {
       new Request("http://localhost/api/admin/ai/actions/article-info", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ postId: "post-1", draft: { title: "保留标题", content: "正文" } }),
+        body: JSON.stringify({ postId: "post-1", draft: { title: "保留标题", content: "这是一段足够长的正文内容，用来触发一键 AI 文章信息生成。" } }),
       }),
     );
     const data = await response.json();
@@ -107,7 +112,7 @@ describe("admin one-click article info AI action", () => {
         type: "post-article-info",
         source: "single-post",
         createdById: "admin-1",
-        metadata: expect.objectContaining({ oneClick: true, preserve: ["title", "content"] }),
+        metadata: expect.objectContaining({ oneClick: true, preserve: ["title", "content"], promptVersion: "post-article-info-v1" }),
         items: articleInfoActions.map((action) =>
           expect.objectContaining({
             postId: "post-1",
@@ -135,7 +140,84 @@ describe("admin one-click article info AI action", () => {
           tagNames: ["React"],
           tagSlugs: ["react"],
         },
+        quality: expect.objectContaining({
+          score: expect.any(Number),
+          blockedFields: [],
+        }),
       },
     });
+    expect(data.data.items[0].output._meta).toEqual(expect.objectContaining({ promptVersion: "post-article-info-v1", durationMs: expect.any(Number) }));
+    expect(mocks.aiTaskUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "task-1" },
+        data: {
+          metadata: expect.objectContaining({
+            articleInfo: expect.objectContaining({ slug: "ai-generated-info" }),
+            partial: false,
+          }),
+        },
+      }),
+    );
+  });
+
+  test("returns partial item outputs when one article info action fails", async () => {
+    mocks.runPostAiAction.mockImplementation((_input: { action: string }) => {
+      if (_input.action === "slug") {
+        return Promise.reject(new Error("Slug failed"));
+      }
+
+      const outputByAction: Record<string, unknown> = {
+        summary: { summary: "AI 部分摘要。" },
+        "seo-description": { seoDescription: "AI 部分 SEO。" },
+        category: { categoryId: "cat-1", categoryName: "前端", categorySlug: "frontend" },
+        tags: { existingTagIds: ["tag-1"], names: ["React"], tagSlugs: ["react"] },
+      };
+
+      return Promise.resolve({ modelId: "model-1", output: outputByAction[_input.action] });
+    });
+
+    const { POST } = await import("../route");
+    const response = await POST(
+      new Request("http://localhost/api/admin/ai/actions/article-info", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ draft: { title: "草稿标题", content: "这是一段足够长的正文内容，用来触发一键 AI 文章信息生成。" } }),
+      }),
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(502);
+    expect(mocks.markAiTaskItemFailed).toHaveBeenCalledWith("item-slug", "Slug failed");
+    expect(mocks.markAiTaskItemSucceeded).toHaveBeenCalledTimes(4);
+    expect(data).toMatchObject({
+      success: false,
+      error: "Slug failed",
+      data: {
+        taskId: "task-1",
+        modelId: "model-1",
+        partial: true,
+        failures: [{ action: "slug", message: "Slug failed" }],
+      },
+    });
+    expect(data.data.articleInfo).toBeUndefined();
+    const metadataUpdate = mocks.aiTaskUpdate.mock.calls.find(([input]) => Boolean(input.data?.metadata))?.[0];
+    expect(metadataUpdate?.data.metadata).toEqual(
+      expect.objectContaining({
+        partial: true,
+        successfulFields: expect.objectContaining({
+          excerpt: "AI 部分摘要。",
+          seoDescription: "AI 部分 SEO。",
+        }),
+      }),
+    );
+    expect(metadataUpdate?.data.metadata.articleInfo).toBeUndefined();
+    expect(data.data.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ action: "summary", output: expect.objectContaining({ summary: "AI 部分摘要。" }) }),
+        expect.objectContaining({ action: "seo-description", output: expect.objectContaining({ seoDescription: "AI 部分 SEO。" }) }),
+        expect.objectContaining({ action: "category", output: expect.objectContaining({ categoryId: "cat-1" }) }),
+        expect.objectContaining({ action: "tags", output: expect.objectContaining({ existingTagIds: ["tag-1"] }) }),
+      ]),
+    );
   });
 });

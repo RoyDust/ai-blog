@@ -258,6 +258,7 @@ export function PostAiWorkspace({
 
   return (
     <div className="space-y-4">
+      <p className="text-sm leading-6 text-[var(--muted)]">单项生成只提供建议，确认后再应用到当前表单或文章。</p>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {actions.map((item) => (
           <button

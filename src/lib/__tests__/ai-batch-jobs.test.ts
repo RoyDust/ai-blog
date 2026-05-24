@@ -57,7 +57,7 @@ describe("AI batch job resume", () => {
     vi.restoreAllMocks();
   });
 
-  test("targeted resume includes retry task types handled by the batch runner", async () => {
+  test("targeted resume only includes task types handled by the batch runner", async () => {
     const setTimeoutSpy = vi.spyOn(globalThis, "setTimeout").mockImplementation(() => 1 as unknown as ReturnType<typeof setTimeout>);
     mocks.aiTaskFindMany.mockResolvedValueOnce([
       {
@@ -78,7 +78,6 @@ describe("AI batch job resume", () => {
         type: {
           in: expect.arrayContaining([
             "post-bulk-completion",
-            "post-article-info",
             "post-seo-description",
             "post-title-suggestion",
             "post-slug-suggestion",
@@ -90,6 +89,7 @@ describe("AI batch job resume", () => {
       },
       take: 1,
     }));
+    expect(mocks.aiTaskFindMany.mock.calls[0]?.[0]?.where.type.in).not.toContain("post-article-info");
     expect(setTimeoutSpy).toHaveBeenCalledTimes(1);
   });
 });

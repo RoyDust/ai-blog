@@ -27,7 +27,6 @@ const MAX_AI_BATCH_POSTS = 20;
 const runningBatchTasks = new Set<string>();
 const targetedResumeTaskTypes = [
   "post-bulk-completion",
-  "post-article-info",
   "post-seo-description",
   "post-title-suggestion",
   "post-slug-suggestion",
