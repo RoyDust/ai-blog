@@ -32,6 +32,8 @@ describe("admin AI interfaces page", () => {
     expect(screen.getByText("/api/admin/covers/generate")).toBeInTheDocument();
     expect(screen.getByText("/api/cron/ai-news")).toBeInTheDocument();
 
+    expect(screen.getByText("登录后生成 AI Token")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "生成 Token" })).toBeInTheDocument();
     expect(screen.getByText(/scripts\/create-ai-api-token\.mjs/)).toBeInTheDocument();
     expect(screen.getByText((content) => content.includes("https://example.com/api/ai/openapi"))).toBeInTheDocument();
     expect(screen.getAllByText((content) => content.includes("Authorization: Bearer <AI_TOKEN>")).length).toBeGreaterThan(0);

@@ -19,6 +19,7 @@ import {
   type AiInterfaceCatalogItem,
 } from "@/lib/ai-interface-catalog";
 import { getBlogSettings } from "@/lib/blog-settings";
+import { AiTokenGenerator } from "./AiTokenGenerator";
 
 export const dynamic = "force-dynamic";
 
@@ -187,8 +188,10 @@ export default async function AdminAiInterfacesPage() {
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">Agent Prompt</p>
             <h2 className="mt-2 font-display text-xl font-semibold text-[var(--foreground)]">给 AI agent 的使用提示词</h2>
             <p className="mt-3 text-sm leading-6 text-[var(--muted)]">
-              先用脚本创建包含 taxonomy:read、drafts:read、drafts:write 的 AI Token，再把这段提示词和 token 提供给 agent。
+              登录后可直接在此生成包含 taxonomy:read、drafts:read、drafts:write 的 AI Token，再把提示词和 token 提供给 agent。
             </p>
+            <AiTokenGenerator />
+            <p className="mt-5 text-xs leading-5 text-[var(--muted)]">也可以在服务器上用脚本创建 token：</p>
             <code className="mt-5 block break-all rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 text-xs leading-5 text-[var(--foreground)]">
               node --env-file=.env scripts/create-ai-api-token.mjs --name codex --email admin@example.com --scopes drafts:read,drafts:write,taxonomy:read
             </code>
