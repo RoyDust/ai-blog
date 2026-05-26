@@ -4,7 +4,7 @@ This file provides guidance to Codex (Codex.ai/code) when working with code in t
 
 ## 项目概述
 
-这是一个使用 Next.js 16 构建的现代化博客系统，支持用户注册登录、文章管理、评论、点赞收藏、分类标签和暗黑模式等功能。
+Inkforge 是一个使用 Next.js 16 构建的 AI 内容平台：在博客前台（用户注册登录、文章管理、评论、点赞收藏、分类标签、暗黑模式）之上，集成了 AI 写作与选题流水线（摘要 / SEO / 封面生成、AI 新闻自动成文、AI Agent 接入、AI 任务中心）和可观测运营后台（操作日志、站内通知、阅读分析）。
 
 ## 常用命令
 

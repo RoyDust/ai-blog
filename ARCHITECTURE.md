@@ -1,8 +1,8 @@
-# 博客系统架构设计文档
+# Inkforge 架构设计文档
 
 ## 项目概述
 
-- **项目名称**: my-next-app (博客系统)
+- **项目名称**: Inkforge（AI 内容平台）
 - **技术栈**: Next.js 16 + React 19 + TypeScript + Tailwind CSS + pnpm
 - **项目路径**: F:\Code\NewProject\my-next-app
 

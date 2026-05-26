@@ -1,97 +1,84 @@
-# Blog System
+# Inkforge
 
 <div align="center">
 
 [简体中文](./README.md) | [English](./README.en.md)
 
-A modern blog system built with `Next.js 16`, `React 19`, `Prisma 7`, and `PostgreSQL`, covering the full workflow from public reading experience to content creation, admin management, and production deployment.
+**An AI content platform that forges raw material into finished articles.**
+
+Inkforge is not a display-only Markdown theme. It packs a *polished blog frontend*, an *AI-assisted writing and curation pipeline*, and an *auditable operations backend* into a single Next.js application.
 
 [![Next.js](https://img.shields.io/badge/Next.js-16.1.6-111111?logo=next.js)](https://nextjs.org/)
 [![React](https://img.shields.io/badge/React-19.2.3-149ECA?logo=react)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript)](https://www.typescriptlang.org/)
 [![Prisma](https://img.shields.io/badge/Prisma-7.4.2-2D3748?logo=prisma)](https://www.prisma.io/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Database-336791?logo=postgresql)](https://www.postgresql.org/)
-[![pnpm](https://img.shields.io/badge/pnpm-workspace-F69220?logo=pnpm)](https://pnpm.io/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-v4-38BDF8?logo=tailwindcss)](https://tailwindcss.com/)
 
-[Live Demo](http://47.98.167.32) · [Architecture](./ARCHITECTURE.md) · [Deployment Guide](./docs/deployment/github-actions-manual-deploy.md)
+[Live Demo](http://47.98.167.32) · [Architecture](./ARCHITECTURE.md) · [Deployment Guide](./docs/deployment/github-actions-manual-deploy.md) · [Project Docs](./PROJECT_DOCS.md)
 
 </div>
 
-## Overview
+## Preview
 
-This project is more than a simple article listing template. It is a full blog application with a connected public reading experience, content publishing workflow, taxonomy system, interaction features, site metadata generation, and a deployment path based on GitHub Actions and Docker Compose. It works well as a foundation for a personal blog, content site, or lightweight knowledge base.
+Screenshots are placeholders for now. Drop images into `docs/assets/readme/` and replace the paths below.
 
-## Highlights
+| Reading Home | Post Detail | AI Task Center |
+| --- | --- | --- |
+| `docs/assets/readme/public-home.png` | `docs/assets/readme/post-detail.png` | `docs/assets/readme/admin-ai-tasks.png` |
 
-- A complete `App Router` structure with clear boundaries between the public site, auth pages, writing area, admin console, and API routes.
-- A full article workflow with drafts, publishing, categories, tags, reading time, cover images, soft deletion, and admin maintenance.
-- A polished reading experience including the homepage, post listing, post detail pages, archives, tag pages, category pages, on-site search, RSS, sitemap, and robots metadata.
-- Interaction features already wired in, including anonymous comments, anonymous likes, a local bookmark shelf, and admin-side comment moderation.
-- A Markdown-based editor with Qiniu image uploads and optional DashScope summary generation for ongoing content production.
-- Solid engineering foundations with Vitest, Playwright, CI workflows, manual deploy workflows, and production Docker configuration.
+## What Inkforge Is
 
-## Feature Overview
+A typical blog project only solves "render the Markdown." But running a content site long-term means dealing with topic selection, drafting, cover art, SEO, review, publishing, comments, subscriptions, observability, and deployment. Inkforge wires all of these together and brings AI in wherever the work can be automated:
 
-### Reader Experience
+- **Blog frontend** — home, posts, categories, tags, series, archives, search, and bookmarks, with reading progress, a table of contents, code highlighting, and dark mode.
+- **AI writing & curation pipeline** — from multi-source fetching to dedupe, scoring, topic selection, drafting, review, and publishing, paired with AI summaries, SEO, and cover generation, and opened up to external AI agents.
+- **Observable operations backend** — management for posts / categories / tags / series / comments / covers / AI models, layered with operation audit logs, in-app notifications, and reading-behavior analytics.
 
-- Homepage and latest post feed
-- Post detail pages with Markdown rendering
-- Categories, tags, archives, and site search
-- Reading time, likes, comments, and bookmarks
-- RSS feed, `sitemap.xml`, `robots.txt`, and `manifest`
+## Core Capabilities
 
-### Author and Admin Workflow
+### 1. AI Writing & Curation Pipeline (the heart of the project)
 
-- Login, registration, and session handling
-- Dedicated writing page and admin-side post editing
-- Admin panels for categories, tags, and comments
-- Comment moderation statuses: `APPROVED`, `PENDING`, `REJECTED`, and `SPAM`
-- Soft-delete handling for posts, categories, tags, and comments
+Turns "AI can write" into an operable workflow, not just a chat box:
 
-### Engineering and Deployment
+- **AI content assist** — one-click generation of post summaries, SEO titles/descriptions, and cover images; the summary state machine (queued → generating → done / failed) is trackable and retryable.
+- **AI news digest** — fetch candidates from RSS, Hacker News, GitHub Releases / Trending, and Reddit → normalize & dedupe → AI scoring & topic selection → automated drafting → AI review scoring → publish, with both manual and Cron-triggered runs.
+- **External AI agent access** — scoped API tokens let external agents create / update drafts (draft bindings + an OpenAPI descriptor + a metadata endpoint), plugging third-party writing agents into the publishing flow.
+- **AI task center** — every AI operation flows through a task queue with requested / succeeded / failed counts, supporting batch runs, partial-failure retries, and result application, with in-app notifications at key milestones.
+- **AI model management** — configure OpenAI-compatible models in the admin (DashScope / Qwen-compatible by default), set per-capability default models (summary / cover), and test connectivity with one click.
 
-- Prisma schema backed by PostgreSQL
-- GitHub Actions CI with manual CD
-- Docker Compose production deployment
-- Optional Qiniu upload support
-- Optional DashScope article summary generation
+### 2. Reading & Interaction Frontend
+
+- Home and featured section, post detail, archives, categories, tags, series, on-site search, and bookmarks
+- Reading progress, table of contents, code highlighting with line numbers, dark mode, a mobile TOC drawer, and reduced-motion support
+- Anonymous likes, comments with nested replies, local bookmarks, sharing, and back-to-top
+- RSS, `sitemap.xml`, `robots.txt`, `manifest`, Open Graph images, and JSON-LD structured data
+
+### 3. Content Production & Operations Backend
+
+- Markdown authoring workspace and post editor, with Qiniu image uploads + client-side compression
+- Drafts, publishing, scheduled publishing, featuring, reading time, series grouping, soft deletion, and public-path revalidation
+- Admin management for posts / categories / tags / series / comments, with moderation states (`APPROVED` / `PENDING` / `REJECTED` / `SPAM`)
+- Cover library, system settings, newsletter subscriptions, and contact-page configuration
+- **Observability** — API operation audit logs, an in-app notification center, visit logs, and reading-behavior (duration / scroll depth) analytics
 
 ## Tech Stack
 
-| Category | Stack |
+| Layer | Stack |
 | --- | --- |
-| Frontend | Next.js 16 + React 19 + TypeScript |
-| Styling | Tailwind CSS 4 |
-| Data Layer | Prisma 7 + PostgreSQL |
-| Authentication | NextAuth.js |
-| Content | react-markdown + remark-gfm + rehype-highlight |
-| Motion and Feedback | Framer Motion + Sonner |
+| Framework | Next.js 16 App Router + React 19 |
+| Language | TypeScript |
+| Styling | Tailwind CSS v4 + CSS Variables + OKLCH theme tokens |
+| Data | Prisma 7 + PostgreSQL (`@prisma/adapter-pg` driver adapter) |
+| Auth | NextAuth.js v4 + Prisma Adapter (local accounts + GitHub OAuth) |
+| Content | react-markdown + remark-gfm + rehype-highlight + rehype-highlight-code-lines |
+| AI | OpenAI-compatible interface (DashScope / Qwen-compatible by default), visual model management in the admin |
+| Storage & Images | Qiniu object storage + compressorjs client-side compression |
+| Motion | motion/react + View Transitions |
+| Forms & Validation | react-hook-form + Zod |
+| UI | Radix UI / Base UI + lucide-react + sonner + cmdk + recharts |
 | Testing | Vitest + Testing Library + Playwright |
-| Deployment | GitHub Actions + Docker Compose + Nginx |
-
-## Project Structure
-
-```text
-.
-├─ src/app
-│  ├─ (public)         # Public-facing pages: home, posts, categories, tags, search, archives, bookmarks
-│  ├─ (auth)           # Login and registration
-│  ├─ admin            # Admin console
-│  ├─ api              # Route Handlers
-│  ├─ profile          # User profile
-│  └─ write            # Authoring entry
-├─ src/components
-│  ├─ admin            # Admin UI components
-│  ├─ blog             # Blog reading components
-│  ├─ layout           # Site layout
-│  ├─ posts            # Editor and publishing workflow
-│  ├─ search           # Search experience
-│  └─ ui               # Reusable UI primitives
-├─ src/lib             # Auth, Prisma, SEO, cache, validation, rate limit, and utilities
-├─ prisma              # Data model and migrations
-├─ docs                # Design, implementation, deployment, and planning docs
-├─ deploy              # Deployment support files such as Nginx config
-└─ .github/workflows   # CI and deploy workflows
-```
+| Deployment | Docker + Docker Compose + Nginx + GitHub Actions |
 
 ## Quick Start
 
@@ -103,8 +90,6 @@ pnpm install
 
 ### 2. Configure environment variables
 
-Copy `.env.example` to `.env` and fill in at least the database and auth-related values.
-
 ```bash
 cp .env.example .env
 ```
@@ -115,6 +100,16 @@ On Windows PowerShell:
 Copy-Item .env.example .env
 ```
 
+Minimum required values:
+
+```env
+DATABASE_URL="postgresql://postgres:postgres@127.0.0.1:5432/my_next_app?schema=public"
+AUTH_SECRET="replace-with-a-long-random-secret"
+NEXTAUTH_SECRET="replace-with-a-long-random-secret"
+NEXTAUTH_URL="http://localhost:3000"
+NEXT_PUBLIC_SITE_URL="http://localhost:3000"
+```
+
 ### 3. Initialize the database
 
 ```bash
@@ -122,7 +117,7 @@ pnpm prisma generate
 pnpm prisma migrate dev
 ```
 
-### 4. Start the development server
+### 4. Start the dev server
 
 ```bash
 pnpm dev
@@ -130,95 +125,114 @@ pnpm dev
 
 The default local address is `http://localhost:3000`.
 
+## Common Commands
+
+```bash
+pnpm dev            # Start local development (default http://localhost:3000)
+pnpm build          # Production build
+pnpm start          # Start the production server
+pnpm lint           # ESLint
+pnpm test           # Vitest unit / component tests
+pnpm test:e2e       # Playwright end-to-end tests
+pnpm ai-news:check  # Check AI news pipeline readiness
+```
+
 ## Environment Variables
 
-See `.env.example` for the full template. The most important variables are listed below:
+See [.env.example](./.env.example) for the full template. The most common variables:
 
 | Variable | Required | Description |
 | --- | --- | --- |
 | `DATABASE_URL` | Yes | PostgreSQL connection string |
-| `AUTH_SECRET` | Yes | Auth signing secret |
-| `NEXTAUTH_SECRET` | Yes | NextAuth secret |
+| `AUTH_SECRET` | Yes | App auth signing secret |
+| `NEXTAUTH_SECRET` | Yes | NextAuth session secret |
 | `NEXTAUTH_URL` | Yes | Auth callback base URL |
 | `NEXT_PUBLIC_SITE_URL` | Yes | Public site URL |
-| `AUTH_GITHUB_ID` | No | GitHub OAuth Client ID |
-| `AUTH_GITHUB_SECRET` | No | GitHub OAuth Client Secret |
-| `QINIU_ACCESS_KEY` | No | Qiniu Access Key |
-| `QINIU_SECRET_KEY` | No | Qiniu Secret Key |
-| `QINIU_BUCKET` | No | Qiniu bucket name |
-| `QINIU_DOMAIN` | No | Qiniu asset domain |
-| `QINIU_UPLOAD_URL` | No | Qiniu upload endpoint |
-| `DASHSCOPE_API_KEY` | No | DashScope API key |
-| `DASHSCOPE_BASE_URL` | No | DashScope-compatible base URL |
-| `DASHSCOPE_MODEL` | No | DashScope model name |
+| `NEXT_PUBLIC_CONTACT_EMAIL` | No | Default contact-page email |
+| `GOOGLE_SITE_VERIFICATION` / `BING_SITE_VERIFICATION` | No | Search engine site verification |
+| `AUTH_GITHUB_ID` / `AUTH_GITHUB_SECRET` | No | GitHub OAuth credentials |
+| `QINIU_ACCESS_KEY` / `QINIU_SECRET_KEY` / `QINIU_BUCKET` / `QINIU_DOMAIN` / `QINIU_UPLOAD_URL` | No | Qiniu image uploads |
+| `AI_OPENAI_COMPAT_API_KEY` / `AI_OPENAI_COMPAT_BASE_URL` / `AI_OPENAI_COMPAT_MODEL` | No | OpenAI-compatible AI model (takes precedence when set) |
+| `AI_POST_SUMMARY_TIMEOUT_MS` / `AI_POST_SUMMARY_MAX_INPUT_CHARS` | No | AI summary timeout and input character cap |
+| `DASHSCOPE_API_KEY` / `DASHSCOPE_BASE_URL` / `DASHSCOPE_MODEL` | No | DashScope-compatible fallback |
 
-## Common Commands
+## Project Structure
 
-```bash
-pnpm dev
-pnpm build
-pnpm start
-pnpm lint
-pnpm test
-pnpm test:e2e
+```text
+.
+├─ src/app
+│  ├─ (public)         # Frontend: home, posts, categories, tags, series, search, archives, bookmarks, about, contact
+│  ├─ (auth)           # Login, registration, auth callbacks
+│  ├─ admin            # Admin: posts/categories/tags/series/comments/covers/AI models/AI tasks/AI news/logs/notifications/settings
+│  ├─ api              # Route Handlers (incl. /api/ai/* agent access and /api/cron/* scheduled jobs)
+│  ├─ profile          # User profile
+│  └─ write            # Authoring entry
+├─ src/components       # admin / blog / layout / motion / posts / search / ui components
+├─ src/lib             # Auth, Prisma, SEO, AI (summary/news/cover/tasks), rate limiting, logging, subscriptions
+├─ prisma              # Data model and migrations
+├─ scripts             # Data seeding and ops scripts (seed, AI token, readiness checks)
+├─ docs                # Design, implementation, deployment, and planning docs
+├─ deploy              # Deployment support files such as Nginx config
+└─ .github/workflows   # CI / Deploy workflows
 ```
 
-## Data Model Overview
+## Data Model
 
-The core Prisma models in the project are:
+Core models, grouped into four areas:
 
-- `User` / `Account` / `Session` / `VerificationToken`
-- `Post` / `Category` / `Tag`
-- `Comment` / `Like` / `Bookmark`
+- **Accounts & permissions**: `User` / `Account` / `Session` / `VerificationToken` (roles `USER` / `ADMIN`)
+- **Content**: `Post` / `Category` / `Tag` / `Series` / `Comment` / `Like` / `Bookmark`
+- **AI**: `AiModel` / `AiTask` / `AiTaskItem` / `AiApiClient` / `AiDraftBinding` / `AiNewsRun` / `AiNewsSource` / `AiNewsCandidate` / `CoverAsset`
+- **Operations & observability**: `Notification` / `NotificationRecipient` / `VisitLog` / `ReadingEvent` / `ApiOperationLog` / `SystemSetting` / `NewsletterSubscriber`
 
-`Post`, `Category`, `Tag`, and `Comment` all support soft deletion through `deletedAt`. `Comment` supports nested replies and moderation states, while `Post` includes `readingTimeMinutes` for reading-time estimation.
-
-## Testing and Quality
-
-The repository already includes unit, component, and end-to-end testing support:
-
-```bash
-pnpm test
-pnpm test:e2e
-pnpm build
-```
-
-Coverage includes public reading flows, admin pages, search, comments, likes, image fallback handling, and the Markdown editor workflow.
+Posts, categories, tags, series, comments, and covers all use soft deletion (`deletedAt`). Posts support featuring, reading time, scheduled publishing, series ordering, SEO fields, AI summary status, and cover-asset linkage.
 
 ## Deployment
 
-The project currently uses a split CI/CD flow:
+The project ships with production deployment entry points:
 
-- CI runs automatically on every push and pull request
-- CD is triggered manually through GitHub Actions
-- Production deployment rebuilds the app with `docker-compose.prod.yml` and applies Prisma migrations on the server
+- Dockerfile: [Dockerfile](./Dockerfile)
+- Compose: [docker-compose.prod.yml](./docker-compose.prod.yml)
+- Nginx: [deploy/nginx.my-next-app.conf](./deploy/nginx.my-next-app.conf)
+- Manual deploy flow: [docs/deployment/github-actions-manual-deploy.md](./docs/deployment/github-actions-manual-deploy.md)
 
-Key entry points:
+The production flow is roughly:
 
-- CI workflow: `.github/workflows/ci.yml`
-- Deploy workflow: `.github/workflows/deploy.yml`
-- Production compose file: `docker-compose.prod.yml`
-- Nginx config: `deploy/nginx.my-next-app.conf`
-- Deployment guide: `docs/deployment/github-actions-manual-deploy.md`
-
-Current public server address:
-
-```text
-http://47.98.167.32
+```bash
+pnpm build
+docker compose -f docker-compose.prod.yml up -d --build
+pnpm prisma migrate deploy
 ```
 
-## Additional Docs
+For real deployments, follow the deployment docs and the GitHub Actions workflows as the source of truth.
+
+## Testing & Quality
+
+```bash
+pnpm lint
+pnpm test
+pnpm test:e2e
+pnpm build
+```
+
+Coverage spans public reading flows, post detail, search, RSS, SEO metadata, admin management, comments, likes, bookmarks, AI tasks and article-info generation, AI news dedupe / scoring, deployment scripts, and key component contracts.
+
+## Roadmap
+
+- [ ] Add README screenshots and a live demo recording
+- [ ] Expand topic-subscription feeds and a JSON Feed
+- [ ] Strengthen Lighthouse / accessibility automation
+- [ ] Improve multilingual content and i18n routing
+- [ ] Add more AI writing and editing assist flows
+
+## Docs
 
 - [ARCHITECTURE.md](./ARCHITECTURE.md)
 - [PROJECT_DOCS.md](./PROJECT_DOCS.md)
-- [Deployment Guide](./docs/deployment/github-actions-manual-deploy.md)
+- [TEST_REPORT.md](./TEST_REPORT.md)
 - [Server Execution Checklist](./docs/deployment/server-execution-checklist.md)
+- [HTTPS / HTTP2 Deployment Notes](./docs/deployment/https-http2-roydust-top.md)
 
-## Good Fit For
+## License
 
-This repository is a good fit if you want:
-
-- a personal blog or content site that is ready for continued iteration
-- an integrated frontend and admin workflow instead of a display-only template
-- self-hosted deployment with full operational control
-- a Markdown publishing flow with image uploads and optional AI-generated summaries
+This repository does not currently declare an open-source license. Add a `LICENSE` before public distribution or commercial reuse.

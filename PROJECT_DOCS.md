@@ -1,4 +1,4 @@
-# 博客项目开发文档
+# Inkforge 开发文档
 
 ## 项目信息
 
@@ -18,17 +18,17 @@
 ## 数据库
 
 - **类型**: PostgreSQL
-- **地址**: 47.98.167.32:5432
-- **数据库名**: T3Blog
+- **地址**: `<DB_HOST>:5432`（真实值见 `.env`，勿写入文档）
+- **数据库名**: `<DB_NAME>`
 
 ## 环境变量 (.env)
 
 ```env
 # Database
-DATABASE_URL="postgresql://root:XW147369258@47.98.167.32:5432/T3Blog"
+DATABASE_URL="postgresql://USER:PASSWORD@HOST:5432/DBNAME?schema=public"
 
 # NextAuth
-AUTH_SECRET="azd9jcSX011UgGtbE6SNZALCCxFy24m4ctmrRAn4dow="
+AUTH_SECRET="replace-with-a-long-random-secret"
 NEXTAUTH_URL="http://localhost:3001"
 
 # GitHub OAuth (可选)
