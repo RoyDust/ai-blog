@@ -51,7 +51,7 @@ describe("app shell", () => {
     expect(sidebarRail.compareDocumentPosition(mainContent) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  test("home sidebar rail does not add a gray backing layer", () => {
+  test("home sidebar rail does not add a gray backing layer or vertical offset", () => {
     const source = readFileSync(join(process.cwd(), "src/styles/components.css"), "utf8");
 
     expect(source).toContain(".reader-shell:has(.reader-home-stage) .reader-side-rail");
@@ -60,7 +60,8 @@ describe("app shell", () => {
     expect(source).toContain("background: transparent;");
     expect(source).toContain("box-shadow: none;");
     expect(source).toContain("backdrop-filter: none;");
-    expect(source).toContain("margin-top: calc(var(--reader-page-top) * -0.08);");
+    expect(source).not.toContain(".reader-home-stage {\n    margin-top:");
+    expect(source).not.toContain(".reader-shell:has(.reader-home-stage) .reader-side-rail {\n    margin-top:");
   });
 
   test("content frame keeps a slow width transition for article route changes", () => {

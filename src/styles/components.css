@@ -201,10 +201,6 @@
     backdrop-filter: none;
   }
 
-  .reader-shell:has(.reader-home-stage) .reader-side-rail {
-    margin-top: calc(var(--reader-page-top) * -0.08);
-  }
-
   .reader-shell:has(.reader-home-stage) .reader-side-rail .reader-panel {
     box-shadow: none;
   }
@@ -322,10 +318,6 @@
     border-color: var(--reader-border);
     background: color-mix(in oklab, var(--reader-panel-elevated) 82%, transparent);
     color: var(--foreground);
-  }
-
-  .reader-home-stage {
-    margin-top: calc(var(--reader-page-top) * -0.08);
   }
 
   .reader-section-heading {
