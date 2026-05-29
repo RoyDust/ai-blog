@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { AdminPagination } from "@/components/admin/primitives/AdminPagination";
 import { StatusBadge } from "@/components/admin/primitives/StatusBadge";
 import { Button } from "@/components/admin/ui";
 
@@ -24,6 +25,12 @@ type Pagination = {
   limit: number;
   total: number;
   totalPages: number;
+};
+
+type AiTaskListSearchParams = {
+  status?: string | null;
+  type?: string | null;
+  limit?: string | null;
 };
 
 const taskTypeLabels: Record<string, string> = {
@@ -87,7 +94,15 @@ function formatDuration(task: Task) {
  *
  * 这里只展示聚合进度和最近错误，单项输出与重试入口在任务详情页处理。
  */
-export function AiTaskList({ tasks, pagination }: { tasks: Task[]; pagination: Pagination }) {
+export function AiTaskList({
+  tasks,
+  pagination,
+  searchParams,
+}: {
+  tasks: Task[];
+  pagination: Pagination;
+  searchParams?: AiTaskListSearchParams;
+}) {
   return (
     <section className="ui-surface overflow-hidden rounded-3xl shadow-[var(--shadow-card)]">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] px-4 py-3">
@@ -146,6 +161,23 @@ export function AiTaskList({ tasks, pagination }: { tasks: Task[]; pagination: P
           </table>
         </div>
       )}
+
+      {pagination.total > 0 ? (
+        <AdminPagination
+          hrefBase="/admin/ai/tasks"
+          hrefParams={{
+            status: searchParams?.status,
+            type: searchParams?.type,
+            limit: String(pagination.limit),
+          }}
+          itemLabel="个 AI 任务"
+          page={pagination.page}
+          pageSize={pagination.limit}
+          pageSizeOptions={[10, 20, 50]}
+          total={pagination.total}
+          totalPages={pagination.totalPages}
+        />
+      ) : null}
     </section>
   );
 }

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Wand2 } from "lucide-react";
 import { toast } from "sonner";
 
+import { AdminPagination } from "@/components/admin/primitives/AdminPagination";
 import { PageHeader } from "@/components/admin/primitives/PageHeader";
 import { Toolbar } from "@/components/admin/primitives/Toolbar";
 import { WorkspacePanel } from "@/components/admin/primitives/WorkspacePanel";
@@ -37,6 +38,8 @@ export function CoverGalleryManager() {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "archived">("all");
   const [sourceFilter, setSourceFilter] = useState<"all" | "upload" | "manual" | "ai">("all");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(24);
   const [editing, setEditing] = useState<CoverAsset | null>(null);
   const [randomizing, setRandomizing] = useState(false);
 
@@ -46,12 +49,12 @@ export function CoverGalleryManager() {
    * loadAssets 依赖这个 memo，因此筛选变化会自然触发重新拉取。
    */
   const params = useMemo(() => {
-    const next = new URLSearchParams({ limit: "60" });
+    const next = new URLSearchParams({ page: String(page), limit: String(pageSize) });
     if (query.trim()) next.set("q", query.trim());
     if (statusFilter !== "all") next.set("status", statusFilter);
     if (sourceFilter !== "all") next.set("source", sourceFilter);
     return next;
-  }, [query, sourceFilter, statusFilter]);
+  }, [page, pageSize, query, sourceFilter, statusFilter]);
 
   /**
    * 拉取当前筛选下的封面资产列表。
@@ -81,16 +84,25 @@ export function CoverGalleryManager() {
   }, [loadAssets]);
 
   /**
-   * 将新建或更新后的资产合并回当前列表。
+   * 编辑弹窗保存后，就地替换当前页中的对应卡片。
    *
-   * 上传、外链新增和编辑弹窗都走这一个入口，保持列表和总数更新策略一致。
+   * 资产仍在可见页内，只是字段更新，无需重新拉取，避免列表闪烁。
    */
-  const upsertAsset = (asset: CoverAsset) => {
-    setAssets((prev) => {
-      const exists = prev.some((item) => item.id === asset.id);
-      return exists ? prev.map((item) => (item.id === asset.id ? asset : item)) : [asset, ...prev];
-    });
-    setTotal((prev) => (assets.some((item) => item.id === asset.id) ? prev : prev + 1));
+  const patchAsset = (asset: CoverAsset) => {
+    setAssets((prev) => prev.map((item) => (item.id === asset.id ? asset : item)));
+  };
+
+  /**
+   * 上传或外链新增成功后回到第一页并刷新。
+   *
+   * 新资产按创建时间倒序排在最前，跳到第一页才能看到它；分页下不能再做本地乐观插入。
+   */
+  const handleCreated = () => {
+    if (page === 1) {
+      void loadAssets();
+    } else {
+      setPage(1);
+    }
   };
 
   /**
@@ -104,10 +116,13 @@ export function CoverGalleryManager() {
 
     try {
       await readApiJson(await fetch(`/api/admin/covers/${asset.id}`, { method: "DELETE" }), "归档失败");
-
-      setAssets((prev) => prev.filter((item) => item.id !== asset.id));
-      setTotal((prev) => Math.max(0, prev - 1));
       toast.success("封面已归档");
+
+      if (assets.length === 1 && page > 1) {
+        setPage((prev) => prev - 1);
+      } else {
+        void loadAssets();
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "归档失败");
     }
@@ -163,9 +178,15 @@ export function CoverGalleryManager() {
                   className="ui-ring min-w-[240px] flex-1 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--foreground)] placeholder:text-[var(--muted)] focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
                   placeholder="搜索标题、URL、标签"
                   value={query}
-                  onChange={(event) => setQuery(event.target.value)}
+                  onChange={(event) => {
+                    setQuery(event.target.value);
+                    setPage(1);
+                  }}
                 />
-                <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as typeof statusFilter)}>
+                <Select value={statusFilter} onValueChange={(value) => {
+                  setStatusFilter(value as typeof statusFilter);
+                  setPage(1);
+                }}>
                   <SelectTrigger aria-label="封面状态" className={adminSelectTriggerClassName}>
                     <SelectValue />
                   </SelectTrigger>
@@ -175,7 +196,10 @@ export function CoverGalleryManager() {
                     <SelectItem value="archived">归档</SelectItem>
                   </SelectContent>
                 </Select>
-                <Select value={sourceFilter} onValueChange={(value) => setSourceFilter(value as typeof sourceFilter)}>
+                <Select value={sourceFilter} onValueChange={(value) => {
+                  setSourceFilter(value as typeof sourceFilter);
+                  setPage(1);
+                }}>
                   <SelectTrigger aria-label="封面来源" className={adminSelectTriggerClassName}>
                     <SelectValue />
                   </SelectTrigger>
@@ -192,22 +216,40 @@ export function CoverGalleryManager() {
           />
 
           <CoverAssetGrid assets={assets} loading={loading} onEdit={setEditing} onDelete={archiveAsset} />
+
+          {total > 0 ? (
+            <AdminPagination
+              className="rounded-2xl border border-[var(--border)]"
+              disabled={loading}
+              itemLabel="张封面"
+              onPageChange={setPage}
+              onPageSizeChange={(nextPageSize) => {
+                setPageSize(nextPageSize);
+                setPage(1);
+              }}
+              page={page}
+              pageSize={pageSize}
+              pageSizeOptions={[12, 24, 48]}
+              total={total}
+              totalPages={Math.max(1, Math.ceil(total / pageSize))}
+            />
+          ) : null}
         </section>
 
-        <aside className="space-y-4">
-          <WorkspacePanel title="上传封面" description="进入图库后，文章编辑器就能直接选择。">
+        <aside className="space-y-4 xl:self-start">
+          <WorkspacePanel title="上传封面" description="进入图库后，文章编辑器就能直接选择。" fillHeight={false}>
             <CoverUploadDropzone
-              onCreated={(asset) => {
-                upsertAsset(asset);
+              onCreated={() => {
+                handleCreated();
                 toast.success("封面已保存到图库");
               }}
             />
           </WorkspacePanel>
 
-          <WorkspacePanel title="添加已有链接" description="适合已经在图床中的旧封面。">
+          <WorkspacePanel title="添加已有链接" description="适合已经在图床中的旧封面。" fillHeight={false}>
             <CoverAssetForm
-              onSaved={(asset) => {
-                upsertAsset(asset);
+              onSaved={() => {
+                handleCreated();
                 toast.success("封面已加入图库");
               }}
             />
@@ -220,7 +262,7 @@ export function CoverGalleryManager() {
           asset={editing}
           onCancel={() => setEditing(null)}
           onSaved={(asset) => {
-            upsertAsset(asset);
+            patchAsset(asset);
             setEditing(null);
             toast.success("封面已更新");
           }}

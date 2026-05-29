@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useRef, useSyncExternalStore } from 'react'
 import { flushSync } from 'react-dom'
 
 type Theme = 'light' | 'dark'
@@ -17,18 +17,51 @@ type ViewTransitionDocument = Document & {
   startViewTransition?: (callback: () => void) => BrowserViewTransition
 }
 
+const DEFAULT_THEME: Theme = 'dark'
+const THEME_STORAGE_KEY = 'theme'
+const THEME_CHANGE_EVENT = 'inkforge-theme-change'
+
 const ThemeContext = createContext<{
   theme: Theme
   toggleTheme: (origin?: ThemeTransitionOrigin) => void
 }>({
-  theme: 'light',
+  theme: DEFAULT_THEME,
   toggleTheme: () => {}
 })
 
 function applyTheme(theme: Theme) {
   document.documentElement.classList.toggle('dark', theme === 'dark')
   document.documentElement.style.colorScheme = theme
-  localStorage.setItem('theme', theme)
+  localStorage.setItem(THEME_STORAGE_KEY, theme)
+  window.dispatchEvent(new Event(THEME_CHANGE_EVENT))
+}
+
+function getStoredTheme(): Theme {
+  if (typeof window === 'undefined') return DEFAULT_THEME
+
+  const saved = localStorage.getItem(THEME_STORAGE_KEY)
+
+  return saved === 'light' || saved === 'dark' ? saved : DEFAULT_THEME
+}
+
+function getServerThemeSnapshot(): Theme {
+  return DEFAULT_THEME
+}
+
+function subscribeToTheme(onStoreChange: () => void) {
+  if (typeof window === 'undefined') return () => {}
+
+  const handleStorage = (event: StorageEvent) => {
+    if (event.key === THEME_STORAGE_KEY) onStoreChange()
+  }
+
+  window.addEventListener('storage', handleStorage)
+  window.addEventListener(THEME_CHANGE_EVENT, onStoreChange)
+
+  return () => {
+    window.removeEventListener('storage', handleStorage)
+    window.removeEventListener(THEME_CHANGE_EVENT, onStoreChange)
+  }
 }
 
 function getTransitionRadius(origin: ThemeTransitionOrigin) {
@@ -39,17 +72,17 @@ function getTransitionRadius(origin: ThemeTransitionOrigin) {
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<Theme>(() => {
-    if (typeof window === 'undefined') return 'dark'
-
-    const saved = localStorage.getItem('theme')
-    if (saved === 'light' || saved === 'dark') return saved
-
-    return 'dark'
-  })
+  const theme = useSyncExternalStore(subscribeToTheme, getStoredTheme, getServerThemeSnapshot)
+  const hasAppliedInitialThemeRef = useRef(false)
   const isTransitioningRef = useRef(false)
 
   useEffect(() => {
+    if (!hasAppliedInitialThemeRef.current) {
+      hasAppliedInitialThemeRef.current = true
+      applyTheme(getStoredTheme())
+      return
+    }
+
     applyTheme(theme)
   }, [theme])
 
@@ -59,13 +92,13 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const toggleTheme = useCallback((origin?: ThemeTransitionOrigin) => {
-    const nextTheme = theme === 'light' ? 'dark' : 'light'
+    const currentTheme = getStoredTheme()
+    const nextTheme = currentTheme === 'light' ? 'dark' : 'light'
     const transitionDocument = document as ViewTransitionDocument
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
     if (!origin || !transitionDocument.startViewTransition || prefersReducedMotion || isTransitioningRef.current) {
       applyTheme(nextTheme)
-      setTheme(nextTheme)
       return
     }
 
@@ -79,9 +112,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     root.classList.add('theme-transitioning')
 
     const transition = transitionDocument.startViewTransition(() => {
-      applyTheme(nextTheme)
       flushSync(() => {
-        setTheme(nextTheme)
+        applyTheme(nextTheme)
       })
     })
 
@@ -95,7 +127,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         root.classList.remove('theme-transitioning')
       },
     )
-  }, [theme])
+  }, [])
 
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme }}>

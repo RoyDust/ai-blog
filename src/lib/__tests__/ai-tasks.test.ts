@@ -166,4 +166,32 @@ describe("ai task service", () => {
     await expect(retryAiTaskFailedItems("task-1", "admin-1")).rejects.toThrow("一键文章信息任务请回到文章编辑器重新生成");
     expect(prismaMocks.aiTaskCreate).not.toHaveBeenCalled();
   });
+
+  test("clamps out-of-range task list pages to the last page", async () => {
+    prismaMocks.aiTaskCount.mockResolvedValueOnce(45);
+    prismaMocks.aiTaskFindMany.mockResolvedValueOnce([{ id: "task-41" }]);
+
+    const { listAiTasks } = await import("../ai-tasks");
+    const result = await listAiTasks({
+      page: "999",
+      limit: "20",
+      status: "FAILED",
+      type: "post-summary",
+    });
+
+    expect(prismaMocks.aiTaskCount).toHaveBeenCalledWith({
+      where: { status: "FAILED", type: "post-summary" },
+    });
+    expect(prismaMocks.aiTaskFindMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { status: "FAILED", type: "post-summary" },
+      skip: 40,
+      take: 20,
+    }));
+    expect(result.pagination).toEqual({
+      page: 3,
+      limit: 20,
+      total: 45,
+      totalPages: 3,
+    });
+  });
 });

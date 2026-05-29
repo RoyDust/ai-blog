@@ -33,13 +33,14 @@ describe("admin API operation logs routes", () => {
     });
 
     const { GET } = await import("../route");
-    const response = await GET(new Request("http://localhost/api/admin/logs?range=30&method=POST&status=5xx&includeSelf=1"));
+    const response = await GET(new Request("http://localhost/api/admin/logs?range=30&method=POST&status=5xx&page=2&includeSelf=1"));
     const payload = await response.json();
 
     expect(response.status).toBe(200);
     expect(payload.success).toBe(true);
     expect(listApiOperationLogs).toHaveBeenCalledWith(expect.objectContaining({
       range: "30",
+      page: "2",
       method: "POST",
       status: "5xx",
       includeSelf: true,

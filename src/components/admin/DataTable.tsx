@@ -2,8 +2,8 @@
 
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button, Card, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/admin/ui";
+import { AdminPagination } from "@/components/admin/primitives/AdminPagination";
 
 export interface DataColumn<T> {
   key: string;
@@ -23,6 +23,7 @@ interface DataTableProps<T extends { id: string }> {
   loadingLabel?: string;
   densityLabel?: string;
   pageSize?: number;
+  pageSizeOptions?: number[];
   bulkActions?: Array<{
     label: string;
     onClick: (ids: string[]) => void;
@@ -41,11 +42,13 @@ export function DataTable<T extends { id: string }>({
   isLoading = false,
   loadingLabel = "加载中...",
   densityLabel,
-  pageSize = 10,
+  pageSize: initialPageSize = 10,
+  pageSizeOptions = [10, 20, 50, 100],
   bulkActions = [],
 }: DataTableProps<T>) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(initialPageSize);
   const headerCheckboxRef = useRef<HTMLInputElement>(null);
 
   const visibleSelectedIds = useMemo(
@@ -53,7 +56,6 @@ export function DataTable<T extends { id: string }>({
     [rows, selectedIds],
   );
 
-  // Pagination calculations
   const totalPages = Math.ceil(rows.length / pageSize);
   const activePage = Math.min(currentPage, totalPages || 1);
 
@@ -187,67 +189,20 @@ export function DataTable<T extends { id: string }>({
           </div>
         )}
 
-        {/* Pagination Footer */}
-        {!isLoading && totalPages > 1 ? (
-          <footer className="flex flex-wrap items-center justify-between border-t border-[var(--border)] px-5 py-4 gap-3 bg-slate-50/20 dark:bg-slate-900/5">
-            <div className="text-xs text-[var(--muted)] font-medium">
-              显示第 {Math.min((activePage - 1) * pageSize + 1, rows.length)} 到 {Math.min(activePage * pageSize, rows.length)} 条，共 {rows.length} 条记录
-            </div>
-            <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                disabled={activePage === 1}
-                onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-                className="flex size-8 items-center justify-center rounded-full border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-700 disabled:opacity-30 disabled:pointer-events-none transition-all cursor-pointer"
-                aria-label="上一页"
-              >
-                <ChevronLeft className="size-4" />
-              </button>
-
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
-                if (
-                  totalPages > 5 &&
-                  page !== 1 &&
-                  page !== totalPages &&
-                  Math.abs(page - activePage) > 1
-                ) {
-                  if (page === 2 && activePage > 3) {
-                    return <span key="ellipsis-start" className="px-1 text-xs text-[var(--muted)] select-none">...</span>;
-                  }
-                  if (page === totalPages - 1 && activePage < totalPages - 2) {
-                    return <span key="ellipsis-end" className="px-1 text-xs text-[var(--muted)] select-none">...</span>;
-                  }
-                  return null;
-                }
-
-                const isActive = page === activePage;
-                return (
-                  <button
-                    key={page}
-                    type="button"
-                    onClick={() => setCurrentPage(page)}
-                    className={`flex size-8 items-center justify-center rounded-full text-xs font-bold transition-all duration-200 cursor-pointer ${
-                      isActive
-                        ? "bg-blue-600 text-white shadow-sm shadow-blue-500/25 border border-blue-700"
-                        : "text-slate-600 dark:text-slate-400 border border-transparent hover:bg-slate-100 dark:hover:bg-slate-800 hover:border-slate-200 dark:hover:border-slate-800"
-                    }`}
-                  >
-                    {page}
-                  </button>
-                );
-              })}
-
-              <button
-                type="button"
-                disabled={activePage === totalPages}
-                onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
-                className="flex size-8 items-center justify-center rounded-full border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-700 disabled:opacity-30 disabled:pointer-events-none transition-all cursor-pointer"
-                aria-label="下一页"
-              >
-                <ChevronRight className="size-4" />
-              </button>
-            </div>
-          </footer>
+        {!isLoading && rows.length > 0 ? (
+          <AdminPagination
+            itemLabel="条记录"
+            onPageChange={setCurrentPage}
+            onPageSizeChange={(nextPageSize) => {
+              setPageSize(nextPageSize);
+              setCurrentPage(1);
+            }}
+            page={activePage}
+            pageSize={pageSize}
+            pageSizeOptions={pageSizeOptions}
+            total={rows.length}
+            totalPages={Math.max(totalPages, 1)}
+          />
         ) : null}
       </section>
     </Card>

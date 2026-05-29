@@ -1,6 +1,10 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, test, vi } from "vitest";
 
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn() }),
+}));
+
 import { DataTable } from "../DataTable";
 
 const rows = Array.from({ length: 12 }, (_, index) => ({
@@ -48,5 +52,25 @@ describe("DataTable", () => {
     expect(headerCheckbox).not.toBeChecked();
     expect(headerCheckbox.indeterminate).toBe(true);
     expect(headerCheckbox).toHaveAttribute("aria-checked", "mixed");
+  });
+
+  test("supports jumping to a specific page", () => {
+    render(
+      <DataTable
+        columns={[{ key: "name", label: "名称", render: (row) => row.name }]}
+        emptyText="暂无数据"
+        pageSize={10}
+        rows={rows}
+        title="测试表格"
+      />,
+    );
+
+    expect(screen.queryByText("Row 11")).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("跳转页码"), { target: { value: "2" } });
+    fireEvent.click(screen.getByRole("button", { name: "跳转" }));
+
+    expect(screen.getByText("Row 11")).toBeInTheDocument();
+    expect(screen.getByText("显示第 11 到 12 条，共 12 条记录")).toBeInTheDocument();
   });
 });

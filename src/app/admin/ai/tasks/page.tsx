@@ -18,13 +18,37 @@ const filters = [
   { label: "已完成", status: "SUCCEEDED" },
 ];
 
+type AiTaskPageSearchParams = {
+  page?: string;
+  status?: string;
+  type?: string;
+  limit?: string;
+};
+
+function buildTasksHref(
+  params: AiTaskPageSearchParams,
+  updates: { page?: string; status?: string | null },
+) {
+  const query = new URLSearchParams();
+  const nextStatus = updates.status !== undefined ? updates.status : params.status;
+  const nextPage = updates.page !== undefined ? updates.page : params.page;
+
+  if (nextStatus) query.set("status", nextStatus);
+  if (params.type) query.set("type", params.type);
+  if (params.limit) query.set("limit", params.limit);
+  if (nextPage && nextPage !== "1") query.set("page", nextPage);
+
+  const queryString = query.toString();
+  return queryString ? `/admin/ai/tasks?${queryString}` : "/admin/ai/tasks";
+}
+
 export default async function AdminAiTasksPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string; status?: string; type?: string }>;
+  searchParams: Promise<AiTaskPageSearchParams>;
 }) {
   const params = await searchParams;
-  const data = await listAiTasks({ page: params.page, status: params.status, type: params.type });
+  const data = await listAiTasks({ page: params.page, limit: params.limit, status: params.status, type: params.type });
   const activeTaskCount = data.tasks.filter((task) => task.status === "QUEUED" || task.status === "RUNNING").length;
 
   return (
@@ -45,7 +69,7 @@ export default async function AdminAiTasksPage({
         <div className="flex flex-wrap items-center gap-2">
           {filters.map((filter) => {
             const active = (params.status ?? null) === filter.status;
-            const href = filter.status ? `/admin/ai/tasks?status=${filter.status}` : "/admin/ai/tasks";
+            const href = buildTasksHref(params, { status: filter.status, page: "1" });
 
             return (
               <Link
@@ -65,7 +89,11 @@ export default async function AdminAiTasksPage({
         </div>
       </section>
 
-      <AiTaskList tasks={data.tasks} pagination={data.pagination} />
+      <AiTaskList
+        tasks={data.tasks}
+        pagination={data.pagination}
+        searchParams={{ status: params.status, type: params.type, limit: params.limit }}
+      />
     </div>
   );
 }

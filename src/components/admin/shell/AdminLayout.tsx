@@ -32,24 +32,25 @@ function AdminLayoutContent({ children, siteName, user }: { children: ReactNode;
   const pathname = usePathname();
   const { isCollapsed } = useAdminLayout();
   const isPostEditorRoute = /^\/admin\/posts\/(?:new|[^/]+\/edit)\/?$/.test(pathname);
+  const isScrollLockedRoute = isPostEditorRoute || pathname === "/admin/logs";
 
-  const rootClassName = isPostEditorRoute
+  const rootClassName = isScrollLockedRoute
     ? "admin-theme fixed inset-0 h-dvh overflow-hidden bg-[var(--background)] text-[var(--foreground)] antialiased"
     : "admin-theme h-screen overflow-hidden bg-[var(--background)] text-[var(--foreground)] antialiased";
 
-  const gridClassName = isPostEditorRoute
+  const gridClassName = isScrollLockedRoute
     ? `grid h-full min-h-0 overflow-hidden transition-all duration-300 ${isCollapsed ? "lg:grid-cols-[64px_minmax(0,1fr)]" : "lg:grid-cols-[224px_minmax(0,1fr)]"}`
     : `grid h-screen transition-all duration-300 ${isCollapsed ? "lg:grid-cols-[64px_minmax(0,1fr)]" : "lg:grid-cols-[224px_minmax(0,1fr)]"}`;
 
-  const layoutContentClassName = isPostEditorRoute
+  const layoutContentClassName = isScrollLockedRoute
     ? "min-w-0 flex h-full min-h-0 flex-col overflow-hidden"
     : "min-w-0 h-screen overflow-hidden flex flex-col";
 
-  const mainClassName = isPostEditorRoute
+  const mainClassName = isScrollLockedRoute
     ? "flex-1 min-h-0 w-full overflow-hidden px-4 py-4 lg:px-5 lg:py-5"
     : "flex-1 w-full overflow-y-auto px-4 py-4 lg:px-5 lg:py-5";
 
-  const contentClassName = isPostEditorRoute
+  const contentClassName = isScrollLockedRoute
     ? "mx-auto h-full min-h-0 w-full max-w-[1840px]"
     : "mx-auto w-full max-w-[1840px]";
 

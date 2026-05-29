@@ -12,6 +12,7 @@ async function GETHandler(request: Request) {
     const { searchParams } = new URL(request.url);
     const data = await listApiOperationLogs({
       cursor: searchParams.get("cursor"),
+      page: searchParams.get("page"),
       limit: searchParams.get("limit"),
       range: searchParams.get("range"),
       from: searchParams.get("from"),

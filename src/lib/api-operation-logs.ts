@@ -32,6 +32,7 @@ export type ApiOperationLogCreateInput = {
 
 export type ApiOperationLogListOptions = {
   cursor?: string | null;
+  page?: unknown;
   limit?: unknown;
   range?: unknown;
   from?: string | null;
@@ -145,6 +146,12 @@ function normalizeLimit(value: unknown, fallback = 30) {
   }
 
   return Math.min(limit, 100);
+}
+
+function normalizePage(value: unknown) {
+  const page = Number(value);
+
+  return Number.isInteger(page) && page > 0 ? page : 1;
 }
 
 function normalizeRange(value: unknown) {
@@ -372,29 +379,42 @@ export async function listApiOperationLogs(options: ApiOperationLogListOptions) 
     return {
       items: [],
       nextCursor: null,
+      pagination: { page: 1, limit: normalizeLimit(options.limit), total: 0, totalPages: 1 },
       summary: { totalCount: 0, failedCount: 0, successCount: 0 },
     };
   }
 
   const pageSize = normalizeLimit(options.limit);
   const where = buildWhere(options);
-  const [totalCount, failedCount, rows] = await Promise.all([
+  const [totalCount, failedCount] = await Promise.all([
     model.count({ where }),
     model.count({ where: { AND: [where, { success: false }] } }),
-    model.findMany({
-      where,
-      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-      take: pageSize + 1,
-      ...(options.cursor ? { cursor: { id: options.cursor }, skip: 1 } : {}),
-    }),
   ]);
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+  const requestedPage = normalizePage(options.page);
+  const activePage = Math.min(requestedPage, totalPages);
+  const usesCursorPagination = Boolean(options.cursor) || options.page === undefined || options.page === null || options.page === "";
+  const rows = await model.findMany({
+    where,
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    take: usesCursorPagination ? pageSize + 1 : pageSize,
+    ...(usesCursorPagination
+      ? options.cursor ? { cursor: { id: options.cursor }, skip: 1 } : {}
+      : { skip: (activePage - 1) * pageSize }),
+  });
 
-  const hasMore = rows.length > pageSize;
-  const items = hasMore ? rows.slice(0, pageSize) : rows;
+  const hasMore = usesCursorPagination ? rows.length > pageSize : activePage < totalPages;
+  const items = usesCursorPagination && rows.length > pageSize ? rows.slice(0, pageSize) : rows;
 
   return {
     items,
     nextCursor: hasMore ? items.at(-1)?.id ?? null : null,
+    pagination: {
+      page: activePage,
+      limit: pageSize,
+      total: totalCount,
+      totalPages,
+    },
     summary: {
       totalCount,
       failedCount,

@@ -45,9 +45,9 @@ const severityMeta = {
 /**
  * 根据列表筛选项拼出通知查询 URL。
  *
- * 顶部筛选的“未读”和业务分类最终映射到不同的查询参数。
+ * 顶部筛选的“未读”和业务分类最终映射到不同的查询参数；cursor 用于游标式加载更多。
  */
-function buildNotificationUrl(filter: NotificationFilter) {
+function buildNotificationUrl(filter: NotificationFilter, cursor?: string | null) {
   const params = new URLSearchParams();
   params.set("limit", "30");
 
@@ -57,6 +57,10 @@ function buildNotificationUrl(filter: NotificationFilter) {
 
   if (filter === "comment" || filter === "ai" || filter === "system") {
     params.set("category", filter);
+  }
+
+  if (cursor) {
+    params.set("cursor", cursor);
   }
 
   return `/api/admin/notifications?${params.toString()}`;
@@ -96,7 +100,9 @@ export function NotificationCenterClient() {
   const [activeFilter, setActiveFilter] = useState<NotificationFilter>("all");
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const unreadIds = useMemo(() => items.filter((item) => !item.readAt).map((item) => item.id), [items]);
@@ -113,6 +119,7 @@ export function NotificationCenterClient() {
       const data = await readPayload(await fetch(buildNotificationUrl(activeFilter), { cache: "no-store" }));
       setItems(data.items);
       setUnreadCount(data.unreadCount);
+      setNextCursor(data.nextCursor);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "通知加载失败");
     } finally {
@@ -123,6 +130,30 @@ export function NotificationCenterClient() {
   useEffect(() => {
     void loadNotifications();
   }, [loadNotifications]);
+
+  /**
+   * 游标式加载更多：把下一页通知追加到当前列表末尾。
+   *
+   * 服务端按 cursor 跳过已读取的最后一条，因此追加不会与现有项重复。
+   */
+  const loadMore = useCallback(async () => {
+    if (!nextCursor || loadingMore) {
+      return;
+    }
+
+    try {
+      setLoadingMore(true);
+      setError(null);
+      const data = await readPayload(await fetch(buildNotificationUrl(activeFilter, nextCursor), { cache: "no-store" }));
+      setItems((current) => [...current, ...data.items]);
+      setUnreadCount(data.unreadCount);
+      setNextCursor(data.nextCursor);
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "通知加载失败");
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [activeFilter, loadingMore, nextCursor]);
 
   /**
    * 标记一组通知为已读，并用后端返回的 unreadCount 同步全局未读数。
@@ -266,6 +297,14 @@ export function NotificationCenterClient() {
                 </article>
               );
             })}
+          </div>
+        ) : null}
+
+        {!loading && !error && nextCursor ? (
+          <div className="border-t border-[var(--border)] px-5 py-4 text-center">
+            <Button disabled={loadingMore} onClick={() => void loadMore()} size="sm" type="button" variant="outline">
+              {loadingMore ? "加载中..." : "加载更多"}
+            </Button>
           </div>
         ) : null}
       </section>

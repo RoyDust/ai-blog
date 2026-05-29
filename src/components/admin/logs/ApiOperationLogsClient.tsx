@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { CheckCircle2, Eye, RefreshCw, Search, Trash2, XCircle } from "lucide-react";
 
+import { AdminPagination } from "@/components/admin/primitives/AdminPagination";
 import {
   Button,
   Dialog,
@@ -54,6 +55,12 @@ type LogItem = {
 type LogPayload = {
   items: LogItem[];
   nextCursor: string | null;
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
   summary: {
     totalCount: number;
     failedCount: number;
@@ -79,6 +86,7 @@ const statusOptions = [
 
 const scopeOptions = ["", "admin", "public", "auth", "ai", "cron", "analytics", "account"];
 const allFilterValue = "__all__";
+const defaultPageSize = 40;
 const selectTriggerClassName = "h-10 w-full rounded-xl border-[var(--border)] bg-[var(--surface)] px-3 text-sm font-medium text-[var(--foreground)] shadow-none";
 
 function filterValue(value: string) {
@@ -137,58 +145,54 @@ export function ApiOperationLogsClient() {
   const [scope, setScope] = useState("");
   const [query, setQuery] = useState("");
   const [includeSelf, setIncludeSelf] = useState(false);
-  const [payload, setPayload] = useState<LogPayload>({ items: [], nextCursor: null, summary: { totalCount: 0, failedCount: 0, successCount: 0 } });
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(defaultPageSize);
+  const [payload, setPayload] = useState<LogPayload>({
+    items: [],
+    nextCursor: null,
+    pagination: { page: 1, limit: defaultPageSize, total: 0, totalPages: 1 },
+    summary: { totalCount: 0, failedCount: 0, successCount: 0 },
+  });
   const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedLog, setSelectedLog] = useState<LogItem | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [purging, setPurging] = useState(false);
 
-  const buildLogsUrl = useCallback((cursor?: string | null) => {
-    const params = new URLSearchParams({ range, limit: "40" });
+  const buildLogsUrl = useCallback((pageNumber: number) => {
+    const params = new URLSearchParams({ range, limit: String(pageSize), page: String(pageNumber) });
     if (method) params.set("method", method);
     if (status) params.set("status", status);
     if (scope) params.set("scope", scope);
     if (query.trim()) params.set("path", query.trim());
     if (includeSelf) params.set("includeSelf", "1");
-    if (cursor) params.set("cursor", cursor);
     return `/api/admin/logs?${params.toString()}`;
-  }, [includeSelf, method, query, range, scope, status]);
+  }, [includeSelf, method, pageSize, query, range, scope, status]);
 
-  const loadLogs = useCallback(async (cursor?: string | null) => {
-    const append = Boolean(cursor);
+  const loadLogs = useCallback(async (pageNumber = page) => {
     try {
-      if (append) {
-        setLoadingMore(true);
-      } else {
-        setLoading(true);
-      }
+      setLoading(true);
       setError(null);
-      const response = await fetch(buildLogsUrl(cursor), { cache: "no-store" });
+      const response = await fetch(buildLogsUrl(pageNumber), { cache: "no-store" });
       const data = await readApiJson<{ success?: boolean; data?: LogPayload }>(response, "接口日志加载失败");
       const nextPayload = data.data;
       if (!nextPayload) {
         throw new Error("接口日志加载失败");
       }
-      setPayload((current) => append ? {
-        ...nextPayload,
-        items: [...current.items, ...nextPayload.items],
-      } : nextPayload);
+      setPayload(nextPayload);
+      if (nextPayload.pagination.page !== pageNumber) {
+        setPage(nextPayload.pagination.page);
+      }
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "接口日志加载失败");
     } finally {
-      if (append) {
-        setLoadingMore(false);
-      } else {
-        setLoading(false);
-      }
+      setLoading(false);
     }
-  }, [buildLogsUrl]);
+  }, [buildLogsUrl, page]);
 
   useEffect(() => {
-    void loadLogs();
-  }, [loadLogs]);
+    void loadLogs(page);
+  }, [loadLogs, page]);
 
   const openDetail = useCallback(async (item: LogItem) => {
     setSelectedLog(item);
@@ -223,9 +227,11 @@ export function ApiOperationLogsClient() {
     }
   }, [loadLogs]);
 
+  const pagination = payload.pagination;
+
   return (
-    <div className="space-y-4">
-      <section className="grid gap-3 md:grid-cols-3">
+    <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
+      <section className="grid shrink-0 gap-3 md:grid-cols-3">
         <div className="ui-surface rounded-2xl px-4 py-3">
           <p className="text-xs font-medium uppercase text-[var(--muted)]">总请求</p>
           <p className="mt-2 text-2xl font-semibold text-[var(--foreground)]">{payload.summary.totalCount}</p>
@@ -240,9 +246,12 @@ export function ApiOperationLogsClient() {
         </div>
       </section>
 
-      <section className="ui-surface rounded-2xl p-3">
+      <section className="ui-surface shrink-0 rounded-2xl p-3">
         <div className="grid gap-3 lg:grid-cols-[repeat(4,minmax(0,1fr))_minmax(240px,1.4fr)_auto]">
-          <Select value={range} onValueChange={setRange}>
+          <Select value={range} onValueChange={(value) => {
+            setRange(value);
+            setPage(1);
+          }}>
             <SelectTrigger className={selectTriggerClassName}>
               <SelectValue />
             </SelectTrigger>
@@ -250,7 +259,10 @@ export function ApiOperationLogsClient() {
               {rangeOptions.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Select value={filterValue(method)} onValueChange={(value) => setMethod(normalizeFilterValue(value))}>
+          <Select value={filterValue(method)} onValueChange={(value) => {
+            setMethod(normalizeFilterValue(value));
+            setPage(1);
+          }}>
             <SelectTrigger className={selectTriggerClassName}>
               <SelectValue />
             </SelectTrigger>
@@ -262,7 +274,10 @@ export function ApiOperationLogsClient() {
               ))}
             </SelectContent>
           </Select>
-          <Select value={filterValue(status)} onValueChange={(value) => setStatus(normalizeFilterValue(value))}>
+          <Select value={filterValue(status)} onValueChange={(value) => {
+            setStatus(normalizeFilterValue(value));
+            setPage(1);
+          }}>
             <SelectTrigger className={selectTriggerClassName}>
               <SelectValue />
             </SelectTrigger>
@@ -274,7 +289,10 @@ export function ApiOperationLogsClient() {
               ))}
             </SelectContent>
           </Select>
-          <Select value={filterValue(scope)} onValueChange={(value) => setScope(normalizeFilterValue(value))}>
+          <Select value={filterValue(scope)} onValueChange={(value) => {
+            setScope(normalizeFilterValue(value));
+            setPage(1);
+          }}>
             <SelectTrigger className={selectTriggerClassName}>
               <SelectValue />
             </SelectTrigger>
@@ -292,12 +310,18 @@ export function ApiOperationLogsClient() {
               className="ui-ring w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] py-2 pl-9 pr-3 text-sm"
               placeholder="搜索 path / operation / requestId"
               value={query}
-              onChange={(event) => setQuery(event.target.value)}
+              onChange={(event) => {
+                setQuery(event.target.value);
+                setPage(1);
+              }}
             />
           </label>
           <div className="flex flex-wrap items-center gap-2">
             <label className="inline-flex items-center gap-2 whitespace-nowrap rounded-xl border border-[var(--border)] px-3 py-2 text-sm text-[var(--foreground)]">
-              <input checked={includeSelf} onChange={(event) => setIncludeSelf(event.target.checked)} type="checkbox" />
+              <input checked={includeSelf} onChange={(event) => {
+                setIncludeSelf(event.target.checked);
+                setPage(1);
+              }} type="checkbox" />
               显示自身
             </label>
             <Button aria-label="刷新接口日志" onClick={() => void loadLogs()} size="icon" type="button" variant="outline">
@@ -310,8 +334,8 @@ export function ApiOperationLogsClient() {
         </div>
       </section>
 
-      <section className="ui-surface overflow-hidden rounded-3xl">
-        <div className="flex items-center justify-between gap-3 border-b border-[var(--border)] px-5 py-4">
+      <section className="ui-surface flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl">
+        <div className="shrink-0 border-b border-[var(--border)] px-5 py-4">
           <div>
             <h2 className="text-base font-semibold text-[var(--foreground)]">请求记录</h2>
             <p className="mt-1 text-sm text-[var(--muted)]">{payload.summary.totalCount} 条匹配记录</p>
@@ -324,52 +348,64 @@ export function ApiOperationLogsClient() {
 
         {!loading && !error && payload.items.length > 0 ? (
           <>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>时间</TableHead>
-                  <TableHead>状态</TableHead>
-                  <TableHead>方法</TableHead>
-                  <TableHead>路径</TableHead>
-                  <TableHead>调用方</TableHead>
-                  <TableHead>耗时</TableHead>
-                  <TableHead>Request ID</TableHead>
-                  <TableHead>详情</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {payload.items.map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell className="whitespace-nowrap text-xs text-[var(--muted)]">{formatDate(item.createdAt)}</TableCell>
-                    <TableCell>
-                      <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${statusClassName(item.success)}`}>
-                        {item.success ? <CheckCircle2 className="h-3.5 w-3.5" /> : <XCircle className="h-3.5 w-3.5" />}
-                        {item.statusCode ?? "NA"}
-                      </span>
-                    </TableCell>
-                    <TableCell><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${methodClassName(item.method)}`}>{item.method}</span></TableCell>
-                    <TableCell className="max-w-[340px]">
-                      <p className="truncate font-medium">{item.path}</p>
-                      <p className="mt-1 truncate text-xs text-[var(--muted)]">{item.operation ?? item.route ?? item.scope}</p>
-                    </TableCell>
-                    <TableCell className="max-w-[180px] truncate">{formatActor(item)}</TableCell>
-                    <TableCell className="whitespace-nowrap">{item.durationMs ?? 0} ms</TableCell>
-                    <TableCell className="max-w-[190px] truncate text-xs text-[var(--muted)]">{item.requestId}</TableCell>
-                    <TableCell>
-                      <Button aria-label="查看接口日志详情" onClick={() => void openDetail(item)} size="sm" type="button" variant="outline">
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
+            <div className="min-h-0 flex-1 overflow-auto">
+              <Table>
+                <TableHeader className="sticky top-0 z-10 bg-[var(--surface)] shadow-[0_1px_0_var(--border)]">
+                  <TableRow>
+                    <TableHead>时间</TableHead>
+                    <TableHead>状态</TableHead>
+                    <TableHead>方法</TableHead>
+                    <TableHead>路径</TableHead>
+                    <TableHead>调用方</TableHead>
+                    <TableHead>耗时</TableHead>
+                    <TableHead>Request ID</TableHead>
+                    <TableHead>详情</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-            {payload.nextCursor ? (
-              <div className="border-t border-[var(--border)] px-5 py-4 text-center">
-                <Button disabled={loadingMore} onClick={() => void loadLogs(payload.nextCursor)} type="button" variant="outline">
-                  {loadingMore ? "正在加载..." : "加载更多"}
-                </Button>
-              </div>
+                </TableHeader>
+                <TableBody>
+                  {payload.items.map((item) => (
+                    <TableRow key={item.id}>
+                      <TableCell className="whitespace-nowrap text-xs text-[var(--muted)]">{formatDate(item.createdAt)}</TableCell>
+                      <TableCell>
+                        <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${statusClassName(item.success)}`}>
+                          {item.success ? <CheckCircle2 className="h-3.5 w-3.5" /> : <XCircle className="h-3.5 w-3.5" />}
+                          {item.statusCode ?? "NA"}
+                        </span>
+                      </TableCell>
+                      <TableCell><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${methodClassName(item.method)}`}>{item.method}</span></TableCell>
+                      <TableCell className="max-w-[340px]">
+                        <p className="truncate font-medium">{item.path}</p>
+                        <p className="mt-1 truncate text-xs text-[var(--muted)]">{item.operation ?? item.route ?? item.scope}</p>
+                      </TableCell>
+                      <TableCell className="max-w-[180px] truncate">{formatActor(item)}</TableCell>
+                      <TableCell className="whitespace-nowrap">{item.durationMs ?? 0} ms</TableCell>
+                      <TableCell className="max-w-[190px] truncate text-xs text-[var(--muted)]">{item.requestId}</TableCell>
+                      <TableCell>
+                        <Button aria-label="查看接口日志详情" onClick={() => void openDetail(item)} size="sm" type="button" variant="outline">
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+            {pagination.total > 0 ? (
+              <AdminPagination
+                className="shrink-0"
+                disabled={loading}
+                itemLabel="条记录"
+                onPageChange={setPage}
+                onPageSizeChange={(nextPageSize) => {
+                  setPageSize(nextPageSize);
+                  setPage(1);
+                }}
+                page={pagination.page}
+                pageSize={pagination.limit}
+                pageSizeOptions={[20, 40, 80, 100]}
+                total={pagination.total}
+                totalPages={pagination.totalPages}
+              />
             ) : null}
           </>
         ) : null}

@@ -383,31 +383,31 @@ export async function listAiTasks({
     ...(status ? { status } : {}),
     ...(type ? { type } : {}),
   };
-  const [total, tasks] = await Promise.all([
-    prisma.aiTask.count({ where }),
-    prisma.aiTask.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-      skip: (currentPage - 1) * pageSize,
-      take: pageSize,
-      include: {
-        createdBy: { select: { id: true, name: true, email: true } },
-        items: {
-          take: 3,
-          orderBy: { createdAt: "asc" },
-          include: { post: { select: { id: true, title: true, slug: true } } },
-        },
+  const total = await prisma.aiTask.count({ where });
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const activePage = Math.min(currentPage, totalPages);
+  const tasks = await prisma.aiTask.findMany({
+    where,
+    orderBy: { createdAt: "desc" },
+    skip: (activePage - 1) * pageSize,
+    take: pageSize,
+    include: {
+      createdBy: { select: { id: true, name: true, email: true } },
+      items: {
+        take: 3,
+        orderBy: { createdAt: "asc" },
+        include: { post: { select: { id: true, title: true, slug: true } } },
       },
-    }),
-  ]);
+    },
+  });
 
   return {
     tasks,
     pagination: {
-      page: currentPage,
+      page: activePage,
       limit: pageSize,
       total,
-      totalPages: Math.max(1, Math.ceil(total / pageSize)),
+      totalPages,
     },
   };
 }

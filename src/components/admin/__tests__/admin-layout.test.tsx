@@ -151,7 +151,8 @@ describe("admin layout", () => {
   test.each([
     ["/admin/posts/new"],
     ["/admin/posts/1/edit"],
-  ])("locks page scrolling for post editor route %s", async (pathname) => {
+    ["/admin/logs"],
+  ])("locks page scrolling for fixed-height admin route %s", async (pathname) => {
     pathnameState.value = pathname;
     const { AdminLayout } = await import("@/components/admin/shell/AdminLayout");
 

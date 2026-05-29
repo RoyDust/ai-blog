@@ -156,4 +156,23 @@ describe("api operation logs", () => {
       }),
     }));
   });
+
+  test("clamps page-based log lists to the last page", async () => {
+    prismaMocks.count.mockResolvedValueOnce(45).mockResolvedValueOnce(5);
+    prismaMocks.findMany.mockResolvedValueOnce([{ id: "log-41" }]);
+
+    const result = await listApiOperationLogs({ range: "7", limit: "20", page: "999" });
+
+    expect(prismaMocks.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      skip: 40,
+      take: 20,
+    }));
+    expect(result.pagination).toEqual({
+      page: 3,
+      limit: 20,
+      total: 45,
+      totalPages: 3,
+    });
+    expect(result.nextCursor).toBeNull();
+  });
 });
