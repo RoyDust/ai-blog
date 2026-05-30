@@ -110,7 +110,7 @@ interface TagRow {
 
 function CategoriesManager() {
   const [form, setForm] = useState({ id: "", name: "", slug: "", description: "" });
-  const { closeDeleteDialog, confirmDelete, deleteDialog, filtered, loading, openDeleteDialog, query, setQuery, setRows } =
+  const { closeDeleteDialog, confirmDelete, deleteDialog, filtered, loading, openDeleteDialog, pagination, query, reload, setPage, setPageSize, setQuery, setRows } =
     useTaxonomyRows<CategoryRow>({
       deleteError: "隐藏分类失败",
       deleteRetryError: "隐藏分类失败，请稍后重试",
@@ -121,6 +121,7 @@ function CategoriesManager() {
       listRetryError: "分类列表加载失败，请稍后重试",
       previewError: "删除影响预览加载失败",
       previewRetryError: "删除影响预览加载失败，请稍后重试",
+      serverPagination: true,
     });
   const { save } = useTaxonomyActions({
     buildCreatedRow: (data) => ({ ...(data as CategoryRow), _count: { posts: 0 } }),
@@ -134,6 +135,7 @@ function CategoriesManager() {
       updateRetryError: "保存分类失败，请稍后重试",
       updateSuccess: "分类已保存",
     },
+    onSaved: reload,
     resetForm: () => setForm({ id: "", name: "", slug: "", description: "" }),
     setRows,
   });
@@ -188,6 +190,12 @@ function CategoriesManager() {
               ]}
               columns={columns}
               emptyText="暂无分类"
+              onPageChange={setPage}
+              onPageSizeChange={(nextPageSize) => {
+                setPageSize(nextPageSize);
+                setPage(1);
+              }}
+              pagination={pagination}
               rows={filtered}
               title="分类列表"
             />
@@ -236,7 +244,7 @@ const defaultColors = ["#0f766e", "#2563eb", "#7c3aed", "#db2777", "#ea580c", "#
 
 function TagsManager() {
   const [form, setForm] = useState({ id: "", name: "", slug: "", color: defaultColors[0] });
-  const { closeDeleteDialog, confirmDelete, deleteDialog, filtered, loading, openDeleteDialog, query, setQuery, setRows } =
+  const { closeDeleteDialog, confirmDelete, deleteDialog, filtered, loading, openDeleteDialog, pagination, query, reload, setPage, setPageSize, setQuery, setRows } =
     useTaxonomyRows<TagRow>({
       deleteError: "隐藏标签失败",
       deleteRetryError: "隐藏标签失败，请稍后重试",
@@ -247,6 +255,7 @@ function TagsManager() {
       listRetryError: "标签列表加载失败，请稍后重试",
       previewError: "删除影响预览加载失败",
       previewRetryError: "删除影响预览加载失败，请稍后重试",
+      serverPagination: true,
     });
   const { save } = useTaxonomyActions({
     buildCreatedRow: (data) => ({ ...(data as TagRow), _count: { posts: 0 } }),
@@ -260,6 +269,7 @@ function TagsManager() {
       updateRetryError: "保存标签失败，请稍后重试",
       updateSuccess: "标签已保存",
     },
+    onSaved: reload,
     resetForm: () => setForm({ id: "", name: "", slug: "", color: defaultColors[0] }),
     setRows,
   });
@@ -322,6 +332,12 @@ function TagsManager() {
               ]}
               columns={columns}
               emptyText="暂无标签"
+              onPageChange={setPage}
+              onPageSizeChange={(nextPageSize) => {
+                setPageSize(nextPageSize);
+                setPage(1);
+              }}
+              pagination={pagination}
               rows={filtered}
               title="标签列表"
             />

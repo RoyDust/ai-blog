@@ -1,8 +1,10 @@
 import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 import { NextResponse } from "next/server"
+import type { Prisma } from "@prisma/client"
 
 import { requireAdminSession } from "@/lib/api-auth"
 import { isPrismaConflictError, NotFoundError, toErrorResponse } from "@/lib/api-errors"
+import { buildAdminListPagination, getAdminListSkip, parseAdminListPagination } from "@/lib/admin-list-pagination"
 import { prisma } from "@/lib/prisma"
 import { parseIdList, parseTaxonomyInput } from "@/lib/validation"
 
@@ -35,13 +37,32 @@ async function GETHandler(request: Request) {
       })
     }
 
+    const requestedPagination = parseAdminListPagination({
+      page: searchParams.get("page"),
+      limit: searchParams.get("limit"),
+    })
+    const query = searchParams.get("q")?.trim()
+    const where: Prisma.CategoryWhereInput = { deletedAt: null }
+
+    if (query) {
+      where.OR = [
+        { name: { contains: query, mode: "insensitive" } },
+        { slug: { contains: query, mode: "insensitive" } },
+      ]
+    }
+
+    const total = await prisma.category.count({ where })
+    const pagination = buildAdminListPagination({ ...requestedPagination, total })
+
     const categories = await prisma.category.findMany({
-      where: { deletedAt: null },
+      where,
       include: { _count: { select: { posts: { where: { deletedAt: null } } } } },
       orderBy: { name: "asc" },
+      skip: getAdminListSkip(pagination),
+      take: pagination.limit,
     })
 
-    return NextResponse.json({ success: true, data: categories })
+    return NextResponse.json({ success: true, data: categories, pagination })
   } catch (error) {
     return toErrorResponse(error)
   }

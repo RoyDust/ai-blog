@@ -24,6 +24,14 @@ interface DataTableProps<T extends { id: string }> {
   densityLabel?: string;
   pageSize?: number;
   pageSizeOptions?: number[];
+  pagination?: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+  onPageChange?: (page: number) => void;
+  onPageSizeChange?: (pageSize: number) => void;
   bulkActions?: Array<{
     label: string;
     onClick: (ids: string[]) => void;
@@ -44,26 +52,33 @@ export function DataTable<T extends { id: string }>({
   densityLabel,
   pageSize: initialPageSize = 10,
   pageSizeOptions = [10, 20, 50, 100],
+  pagination,
+  onPageChange,
+  onPageSizeChange,
   bulkActions = [],
 }: DataTableProps<T>) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(initialPageSize);
+  const [clientPageSize, setClientPageSize] = useState(initialPageSize);
   const headerCheckboxRef = useRef<HTMLInputElement>(null);
+  const usesServerPagination = Boolean(pagination);
 
   const visibleSelectedIds = useMemo(
     () => selectedIds.filter((id) => rows.some((row) => row.id === id)),
     [rows, selectedIds],
   );
 
-  const totalPages = Math.ceil(rows.length / pageSize);
-  const activePage = Math.min(currentPage, totalPages || 1);
+  const pageSize = pagination?.limit ?? clientPageSize;
+  const totalRows = pagination?.total ?? rows.length;
+  const totalPages = pagination?.totalPages ?? Math.ceil(rows.length / clientPageSize);
+  const activePage = usesServerPagination ? pagination?.page ?? 1 : Math.min(currentPage, totalPages || 1);
 
   const paginatedRows = useMemo(() => {
+    if (usesServerPagination) return rows;
     if (rows.length <= pageSize) return rows;
     const start = (activePage - 1) * pageSize;
     return rows.slice(start, start + pageSize);
-  }, [rows, activePage, pageSize]);
+  }, [activePage, pageSize, rows, usesServerPagination]);
   const currentPageIds = useMemo(() => paginatedRows.map((row) => row.id), [paginatedRows]);
   const allCurrentPageSelected = useMemo(
     () => currentPageIds.length > 0 && currentPageIds.every((id) => visibleSelectedIds.includes(id)),
@@ -99,7 +114,7 @@ export function DataTable<T extends { id: string }>({
         <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] px-5 py-4">
           <div>
             <h2 className="font-display text-lg font-bold tracking-tight text-[var(--foreground)]">{title}</h2>
-            <p className="mt-1 text-sm text-[var(--muted)]">{summary ?? `共 ${rows.length} 条记录`}</p>
+            <p className="mt-1 text-sm text-[var(--muted)]">{summary ?? `共 ${totalRows} 条记录`}</p>
           </div>
           {densityLabel ? (
             <span className="rounded-full bg-blue-50/60 dark:bg-blue-900/10 px-3 py-1 text-xs font-semibold text-blue-600 dark:text-blue-400">{densityLabel}</span>
@@ -192,15 +207,20 @@ export function DataTable<T extends { id: string }>({
         {!isLoading && rows.length > 0 ? (
           <AdminPagination
             itemLabel="条记录"
-            onPageChange={setCurrentPage}
+            onPageChange={usesServerPagination ? onPageChange : setCurrentPage}
             onPageSizeChange={(nextPageSize) => {
-              setPageSize(nextPageSize);
+              if (usesServerPagination) {
+                onPageSizeChange?.(nextPageSize);
+                return;
+              }
+
+              setClientPageSize(nextPageSize);
               setCurrentPage(1);
             }}
             page={activePage}
             pageSize={pageSize}
             pageSizeOptions={pageSizeOptions}
-            total={rows.length}
+            total={totalRows}
             totalPages={Math.max(totalPages, 1)}
           />
         ) : null}

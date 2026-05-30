@@ -73,4 +73,26 @@ describe("DataTable", () => {
     expect(screen.getByText("Row 11")).toBeInTheDocument();
     expect(screen.getByText("显示第 11 到 12 条，共 12 条记录")).toBeInTheDocument();
   });
+
+  test("uses server pagination metadata without slicing current rows", () => {
+    const onPageChange = vi.fn();
+
+    render(
+      <DataTable
+        columns={[{ key: "name", label: "名称", render: (row) => row.name }]}
+        emptyText="暂无数据"
+        onPageChange={onPageChange}
+        pagination={{ page: 3, limit: 10, total: 42, totalPages: 5 }}
+        rows={rows.slice(0, 10)}
+        title="服务端表格"
+      />,
+    );
+
+    expect(screen.getByText("Row 1")).toBeInTheDocument();
+    expect(screen.getByText("显示第 21 到 30 条，共 42 条记录")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "下一页" }));
+
+    expect(onPageChange).toHaveBeenCalledWith(4);
+  });
 });

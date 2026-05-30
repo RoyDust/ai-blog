@@ -1,8 +1,10 @@
 import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 import { NextResponse } from "next/server"
+import type { Prisma } from "@prisma/client"
 
 import { requireAdminSession } from "@/lib/api-auth"
 import { NotFoundError, toErrorResponse } from "@/lib/api-errors"
+import { buildAdminListPagination, getAdminListSkip, parseAdminListPagination } from "@/lib/admin-list-pagination"
 import { createAdminPost } from "@/lib/ai-authoring"
 import { revalidatePublicContent } from "@/lib/cache"
 import { prisma } from "@/lib/prisma"
@@ -39,8 +41,37 @@ async function GETHandler(request: Request) {
       })
     }
 
+    const requestedPagination = parseAdminListPagination({
+      page: searchParams.get("page"),
+      limit: searchParams.get("limit"),
+    })
+    const query = searchParams.get("q")?.trim()
+    const status = searchParams.get("status")
+    const where: Prisma.PostWhereInput = { deletedAt: null }
+
+    if (query) {
+      where.OR = [
+        { title: { contains: query, mode: "insensitive" } },
+        { slug: { contains: query, mode: "insensitive" } },
+      ]
+    }
+
+    if (status === "published") {
+      where.published = true
+    } else if (status === "draft") {
+      where.published = false
+    }
+
+    const [total, allCount, publishedCount, viewAggregate] = await Promise.all([
+      prisma.post.count({ where }),
+      prisma.post.count({ where: { deletedAt: null } }),
+      prisma.post.count({ where: { deletedAt: null, published: true } }),
+      prisma.post.aggregate({ where: { deletedAt: null }, _sum: { viewCount: true } }),
+    ])
+    const pagination = buildAdminListPagination({ ...requestedPagination, total })
+
     const posts = await prisma.post.findMany({
-      where: { deletedAt: null },
+      where,
       include: {
         author: {
           select: { id: true, name: true, email: true },
@@ -52,9 +83,21 @@ async function GETHandler(request: Request) {
         },
       },
       orderBy: { createdAt: "desc" },
+      skip: getAdminListSkip(pagination),
+      take: pagination.limit,
     })
 
-    return NextResponse.json({ success: true, data: posts })
+    return NextResponse.json({
+      success: true,
+      data: posts,
+      pagination,
+      stats: {
+        total: allCount,
+        published: publishedCount,
+        drafts: allCount - publishedCount,
+        views: viewAggregate._sum.viewCount ?? 0,
+      },
+    })
   } catch (error) {
     return toErrorResponse(error)
   }

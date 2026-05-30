@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, test, vi } from 'vitest'
 
 const create = vi.fn()
 const findMany = vi.fn()
+const count = vi.fn()
+const aggregate = vi.fn()
 const postUpdateMany = vi.fn()
 const commentUpdateMany = vi.fn()
 const transaction = vi.fn()
@@ -36,6 +38,8 @@ vi.mock('@/lib/prisma', () => ({
   prisma: {
     $transaction: transaction,
     post: {
+      aggregate,
+      count,
       create,
       findMany,
       updateMany: postUpdateMany,
@@ -56,6 +60,29 @@ describe('POST /api/admin/posts', () => {
     })
     touchCoverAssetUsage.mockResolvedValue(undefined)
     transaction.mockImplementation(async (operations) => Promise.all(operations))
+  })
+
+  test('paginates and filters the admin post list on the server', async () => {
+    getServerSession.mockResolvedValueOnce({ user: { id: 'admin-1', role: 'ADMIN' } })
+    count.mockResolvedValueOnce(42).mockResolvedValueOnce(120).mockResolvedValueOnce(90)
+    aggregate.mockResolvedValueOnce({ _sum: { viewCount: 1234 } })
+    findMany.mockResolvedValueOnce([{ id: 'post-21', title: 'AI Draft' }])
+
+    const { GET } = await import('../route')
+    const response = await GET(new Request('http://localhost/api/admin/posts?page=3&limit=10&status=draft&q=ai'))
+    const payload = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(findMany).toHaveBeenCalledWith(expect.objectContaining({
+      skip: 20,
+      take: 10,
+      where: expect.objectContaining({
+        published: false,
+        OR: expect.any(Array),
+      }),
+    }))
+    expect(payload.pagination).toEqual({ page: 3, limit: 10, total: 42, totalPages: 5 })
+    expect(payload.stats).toEqual({ total: 120, published: 90, drafts: 30, views: 1234 })
   })
 
   test('stores calculated reading time when creating a post', async () => {

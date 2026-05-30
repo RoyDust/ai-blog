@@ -23,6 +23,7 @@ type UseTaxonomyActionsOptions<Row extends { id: string }, Form extends Taxonomy
   buildPayload: (form: Form) => Payload;
   endpoint: string;
   messages: SaveMessages;
+  onSaved?: () => void | Promise<void>;
   resetForm: () => void;
   setRows: Dispatch<SetStateAction<Row[]>>;
 };
@@ -36,6 +37,7 @@ export function useTaxonomyActions<Row extends { id: string }, Form extends Taxo
   buildPayload,
   endpoint,
   messages,
+  onSaved,
   resetForm,
   setRows,
 }: UseTaxonomyActionsOptions<Row, Form, Payload>) {
@@ -65,11 +67,12 @@ export function useTaxonomyActions<Row extends { id: string }, Form extends Taxo
 
         resetForm();
         toast.success(isEditing ? messages.updateSuccess : messages.createSuccess);
+        void onSaved?.();
       } catch {
         toast.error(isEditing ? messages.updateRetryError : messages.createRetryError);
       }
     },
-    [buildCreatedRow, buildPayload, endpoint, messages, resetForm, setRows],
+    [buildCreatedRow, buildPayload, endpoint, messages, onSaved, resetForm, setRows],
   );
 
   return { save };

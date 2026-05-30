@@ -33,6 +33,24 @@ describe("posts workbench", () => {
           success: true,
           data: { id: "1", published: true },
         }),
+      })
+      .mockResolvedValueOnce({
+        json: async () => ({
+          success: true,
+          data: [
+            {
+              id: "1",
+              title: "AI Draft",
+              slug: "ai-draft",
+              excerpt: null,
+              published: true,
+              viewCount: 3,
+              createdAt: "2026-04-01T00:00:00Z",
+              author: { name: "Admin", email: "admin@example.com" },
+              _count: { comments: 2, likes: 5 },
+            },
+          ],
+        }),
       });
 
     vi.stubGlobal("fetch", fetchMock);
@@ -43,6 +61,7 @@ describe("posts workbench", () => {
       expect(screen.getByRole("heading", { name: "内容队列" })).toBeInTheDocument();
     });
 
+    expect(fetchMock).toHaveBeenCalledWith("/api/admin/posts?page=1&limit=10");
     expect(screen.getByText("仅看草稿")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "切换为已发布" })).toBeInTheDocument();
     expect(screen.getByText("评论 2")).toBeInTheDocument();

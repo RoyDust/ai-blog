@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { DataTable, type DataColumn } from "@/components/admin/DataTable";
 import { DeleteImpactDialog, type DeleteImpactItem } from "@/components/admin/DeleteImpactDialog";
@@ -46,6 +46,38 @@ const statusMeta: Record<CommentStatus, { label: string; tone: "success" | "warn
   PENDING: { label: "待审核", tone: "warning" },
   REJECTED: { label: "已驳回", tone: "danger" },
   SPAM: { label: "已隐藏", tone: "neutral" },
+};
+
+const defaultPageSize = 10;
+
+type PaginationState = {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+};
+
+type CommentStats = {
+  total: number;
+  pending: number;
+  approved: number;
+  rejected: number;
+  spam: number;
+};
+
+const emptyPagination: PaginationState = {
+  page: 1,
+  limit: defaultPageSize,
+  total: 0,
+  totalPages: 1,
+};
+
+const emptyStats: CommentStats = {
+  total: 0,
+  pending: 0,
+  approved: 0,
+  rejected: 0,
+  spam: 0,
 };
 
 interface StatsCardProps {
@@ -124,29 +156,67 @@ function StatsCard({ label, value, icon: Icon, scheme, hint, onClick, active }: 
 
 export default function AdminCommentsPage() {
   const [comments, setComments] = useState<CommentRow[]>([]);
+  const [pagination, setPagination] = useState<PaginationState>(emptyPagination);
+  const [stats, setStats] = useState<CommentStats>(emptyStats);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"ALL" | CommentStatus>("ALL");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(defaultPageSize);
   const [deleteDialog, setDeleteDialog] = useState<DeleteDialogState>(initialDeleteDialog);
 
-  const fetchComments = useCallback(async () => {
+  const fetchComments = useCallback(async (options: { silent?: boolean } = {}) => {
     try {
-      const res = await fetch("/api/admin/comments");
+      if (!options.silent) {
+        setLoading(true);
+      }
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: String(pageSize),
+      });
+      const keyword = debouncedQuery.trim();
+      if (keyword) params.set("q", keyword);
+      if (statusFilter !== "ALL") params.set("status", statusFilter);
+
+      const res = await fetch(`/api/admin/comments?${params.toString()}`);
       const data = await res.json();
       if (data?.success && Array.isArray(data.data)) {
+        const nextPagination = data.pagination ?? {
+          page,
+          limit: pageSize,
+          total: data.data.length,
+          totalPages: Math.max(1, Math.ceil(data.data.length / pageSize)),
+        };
         setComments(data.data);
+        setPagination(nextPagination);
+        setStats(data.stats ?? emptyStats);
+        if (nextPagination.page !== page) {
+          setPage(nextPagination.page);
+        }
         return;
       }
 
       toast.error(getApiErrorMessage(data, "评论列表加载失败"));
       setComments([]);
+      setPagination({ ...emptyPagination, limit: pageSize });
+      setStats(emptyStats);
     } catch {
       toast.error("评论列表加载失败，请稍后重试");
       setComments([]);
+      setPagination({ ...emptyPagination, limit: pageSize });
+      setStats(emptyStats);
     } finally {
-      setLoading(false);
+      if (!options.silent) {
+        setLoading(false);
+      }
     }
-  }, []);
+  }, [debouncedQuery, page, pageSize, statusFilter]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQuery(query), 300);
+    return () => clearTimeout(timer);
+  }, [query]);
 
   useEffect(() => {
     void fetchComments();
@@ -164,6 +234,7 @@ export default function AdminCommentsPage() {
       if (data?.success) {
         setComments((prev) => prev.map((item) => (ids.includes(item.id) ? { ...item, status } : item)));
         toast.success(ids.length > 1 ? `已更新 ${ids.length} 条评论状态` : "评论状态已更新");
+        void fetchComments({ silent: true });
         return;
       }
 
@@ -207,7 +278,7 @@ export default function AdminCommentsPage() {
       if (data.success) {
         setDeleteDialog(initialDeleteDialog);
         toast.success(deleteDialog.ids.length > 1 ? `已隐藏 ${deleteDialog.ids.length} 条评论` : "评论已隐藏");
-        void fetchComments();
+        void fetchComments({ silent: true });
         return;
       }
 
@@ -218,31 +289,6 @@ export default function AdminCommentsPage() {
 
     setDeleteDialog((prev) => ({ ...prev, submitting: false }));
   }
-
-  const statusCounts = useMemo(() => {
-    const totals: Record<CommentStatus, number> = {
-      APPROVED: 0,
-      PENDING: 0,
-      REJECTED: 0,
-      SPAM: 0,
-    };
-
-    comments.forEach((comment) => {
-      totals[comment.status] = (totals[comment.status] ?? 0) + 1;
-    });
-
-    return totals;
-  }, [comments]);
-
-  const filtered = useMemo(() => {
-    const keyword = query.trim().toLowerCase();
-
-    return comments.filter((item) => {
-      const matchesKeyword = !keyword || item.content.toLowerCase().includes(keyword) || item.post.title.toLowerCase().includes(keyword);
-      const matchesStatus = statusFilter === "ALL" || item.status === statusFilter;
-      return matchesKeyword && matchesStatus;
-    });
-  }, [comments, query, statusFilter]);
 
   const columns: DataColumn<CommentRow>[] = [
     { key: "content", label: "评论内容", render: (row) => <p className="line-clamp-2 max-w-xl">{row.content}</p> },
@@ -309,7 +355,10 @@ export default function AdminCommentsPage() {
               id="admin-comments-search"
               placeholder="搜索评论内容或文章标题"
               value={query}
-              onChange={(event) => setQuery(event.target.value)}
+              onChange={(event) => {
+                setQuery(event.target.value);
+                setPage(1);
+              }}
               className="ui-ring w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--foreground)] placeholder:text-[var(--muted)] focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
             />
           </div>
@@ -323,7 +372,10 @@ export default function AdminCommentsPage() {
                     ? "ui-btn rounded-xl bg-[var(--primary)] px-3 py-1.5 text-xs text-white"
                     : "ui-btn rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-1.5 text-xs text-[var(--foreground)] hover:bg-[var(--surface-alt)]"
                 }
-                onClick={() => setStatusFilter(filter.key)}
+                onClick={() => {
+                  setStatusFilter(filter.key);
+                  setPage(1);
+                }}
               >
                 {filter.label}
               </button>
@@ -335,7 +387,7 @@ export default function AdminCommentsPage() {
     />
   );
 
-  if (loading) return <p className="py-20 text-center text-[var(--muted)]">加载中...</p>;
+  if (loading && comments.length === 0 && pagination.total === 0) return <p className="py-20 text-center text-[var(--muted)]">加载中...</p>;
 
   return (
     <>
@@ -349,38 +401,50 @@ export default function AdminCommentsPage() {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatsCard
             label="全部评论"
-            value={comments.length}
+            value={stats.total}
             icon={MessageSquare}
             scheme="blue"
             hint="点击快速过滤全部评论"
-            onClick={() => setStatusFilter("ALL")}
+            onClick={() => {
+              setStatusFilter("ALL");
+              setPage(1);
+            }}
             active={statusFilter === "ALL"}
           />
           <StatsCard
             label="待审核"
-            value={statusCounts.PENDING}
+            value={stats.pending}
             icon={Clock}
             scheme="amber"
             hint="新评论进入待处理，优先审核"
-            onClick={() => setStatusFilter("PENDING")}
+            onClick={() => {
+              setStatusFilter("PENDING");
+              setPage(1);
+            }}
             active={statusFilter === "PENDING"}
           />
           <StatsCard
             label="已通过"
-            value={statusCounts.APPROVED}
+            value={stats.approved}
             icon={CheckCircle2}
             scheme="emerald"
             hint="确认优质互动继续在线展示"
-            onClick={() => setStatusFilter("APPROVED")}
+            onClick={() => {
+              setStatusFilter("APPROVED");
+              setPage(1);
+            }}
             active={statusFilter === "APPROVED"}
           />
           <StatsCard
             label="已驳回"
-            value={statusCounts.REJECTED}
+            value={stats.rejected}
             icon={XCircle}
             scheme="rose"
             hint="被驳回或标记为不通过的评论"
-            onClick={() => setStatusFilter("REJECTED")}
+            onClick={() => {
+              setStatusFilter("REJECTED");
+              setPage(1);
+            }}
             active={statusFilter === "REJECTED"}
           />
         </div>
@@ -390,8 +454,16 @@ export default function AdminCommentsPage() {
           summary="在一个视图里完成审核、驳回与隐藏操作。"
           toolbar={triageToolbar}
           columns={columns}
-          rows={filtered}
+          rows={comments}
           emptyText="暂无评论"
+          isLoading={loading}
+          loadingLabel="正在加载评论队列..."
+          pagination={pagination}
+          onPageChange={setPage}
+          onPageSizeChange={(nextPageSize) => {
+            setPageSize(nextPageSize);
+            setPage(1);
+          }}
           bulkActions={[
             { label: "批量通过", onClick: (ids) => void updateStatuses(ids, "APPROVED") },
             { label: "批量设为待审核", onClick: (ids) => void updateStatuses(ids, "PENDING") },

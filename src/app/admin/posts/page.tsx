@@ -62,6 +62,36 @@ const initialDeleteDialog: DeleteDialogState = {
   submitting: false,
 };
 
+const defaultPageSize = 10;
+
+type PaginationState = {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+};
+
+type PostStats = {
+  total: number;
+  published: number;
+  drafts: number;
+  views: number;
+};
+
+const emptyPagination: PaginationState = {
+  page: 1,
+  limit: defaultPageSize,
+  total: 0,
+  totalPages: 1,
+};
+
+const emptyStats: PostStats = {
+  total: 0,
+  published: 0,
+  drafts: 0,
+  views: 0,
+};
+
 function getSummaryStatus(post: PostRow): PostSummaryStatus {
   if (post.summaryStatus) {
     return post.summaryStatus;
@@ -150,43 +180,73 @@ function StatsCard({ label, value, icon: Icon, scheme, hint, onClick, active }: 
  */
 export default function AdminPostsPage() {
   const [posts, setPosts] = useState<PostRow[]>([]);
+  const [pagination, setPagination] = useState<PaginationState>(emptyPagination);
+  const [stats, setStats] = useState<PostStats>(emptyStats);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "published" | "draft">("all");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(defaultPageSize);
   const [busyRowIds, setBusyRowIds] = useState<string[]>([]);
   const [bulkAiIds, setBulkAiIds] = useState<string[]>([]);
   const [deleteDialog, setDeleteDialog] = useState<DeleteDialogState>(initialDeleteDialog);
-
-  const stats = useMemo(() => {
-    const total = posts.length;
-    const published = posts.filter((p) => p.published).length;
-    const drafts = total - published;
-    const views = posts.reduce((sum, p) => sum + p.viewCount, 0);
-    return { total, published, drafts, views };
-  }, [posts]);
 
   /**
    * 拉取后台文章列表。
    * 是本页所有刷新动作的统一入口。
    */
-  const fetchPosts = useCallback(async () => {
+  const fetchPosts = useCallback(async (options: { silent?: boolean } = {}) => {
     try {
-      const res = await fetch("/api/admin/posts");
+      if (!options.silent) {
+        setLoading(true);
+      }
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: String(pageSize),
+      });
+      const keyword = debouncedQuery.trim();
+      if (keyword) params.set("q", keyword);
+      if (statusFilter !== "all") params.set("status", statusFilter);
+
+      const res = await fetch(`/api/admin/posts?${params.toString()}`);
       const data = await res.json();
-      if (data.success) {
+      if (data?.success && Array.isArray(data.data)) {
+        const nextPagination = data.pagination ?? {
+          page,
+          limit: pageSize,
+          total: data.data.length,
+          totalPages: Math.max(1, Math.ceil(data.data.length / pageSize)),
+        };
         setPosts(data.data);
+        setPagination(nextPagination);
+        setStats(data.stats ?? emptyStats);
+        if (nextPagination.page !== page) {
+          setPage(nextPagination.page);
+        }
         return;
       }
 
       toast.error(getApiErrorMessage(data, "文章列表加载失败"));
       setPosts([]);
+      setPagination({ ...emptyPagination, limit: pageSize });
+      setStats(emptyStats);
     } catch {
       toast.error("文章列表加载失败，请稍后重试");
       setPosts([]);
+      setPagination({ ...emptyPagination, limit: pageSize });
+      setStats(emptyStats);
     } finally {
-      setLoading(false);
+      if (!options.silent) {
+        setLoading(false);
+      }
     }
-  }, []);
+  }, [debouncedQuery, page, pageSize, statusFilter]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQuery(query), 300);
+    return () => clearTimeout(timer);
+  }, [query]);
 
   useEffect(() => {
     void fetchPosts();
@@ -200,7 +260,7 @@ export default function AdminPostsPage() {
   const syncSummaryJobs = useCallback(async () => {
     try {
       await fetch("/api/admin/posts/summarize/bulk?resume=1");
-      await fetchPosts();
+      await fetchPosts({ silent: true });
     } catch {
       toast.error("摘要任务状态同步失败");
     }
@@ -216,7 +276,7 @@ export default function AdminPostsPage() {
       try {
         await fetch("/api/admin/posts/summarize/bulk?resume=1");
         if (!cancelled) {
-          await fetchPosts();
+          await fetchPosts({ silent: true });
         }
       } catch {
         if (!cancelled) {
@@ -235,16 +295,6 @@ export default function AdminPostsPage() {
       window.clearInterval(timer);
     };
   }, [activeSummaryIds.length, fetchPosts]);
-
-  const filtered = useMemo(() => {
-    const keyword = query.trim().toLowerCase();
-
-    return posts.filter((post) => {
-      const matchesKeyword = !keyword || post.title.toLowerCase().includes(keyword) || post.slug.toLowerCase().includes(keyword);
-      const matchesStatus = statusFilter === "all" || (statusFilter === "published" ? post.published : !post.published);
-      return matchesKeyword && matchesStatus;
-    });
-  }, [posts, query, statusFilter]);
 
   /**
    * 打开删除影响预览弹窗。
@@ -286,9 +336,9 @@ export default function AdminPostsPage() {
       const data = await res.json();
 
       if (data.success) {
-        setPosts((prev) => prev.filter((post) => !deleteDialog.ids.includes(post.id)));
         setDeleteDialog(initialDeleteDialog);
         toast.success(deleteDialog.ids.length > 1 ? `已隐藏 ${deleteDialog.ids.length} 篇文章` : "文章已隐藏");
+        void fetchPosts({ silent: true });
         return;
       }
 
@@ -326,6 +376,7 @@ export default function AdminPostsPage() {
       }
 
       toast.success(nextPublished ? "文章已发布" : "已转为草稿");
+      void fetchPosts({ silent: true });
     } catch (error) {
       setPosts((prev) => prev.map((item) => (item.id === row.id ? { ...item, published: row.published } : item)));
       toast.error(error instanceof Error ? error.message : "更新发布状态失败");
@@ -454,7 +505,10 @@ export default function AdminPostsPage() {
             icon={FileText}
             scheme="blue"
             hint="点击快速过滤全部内容"
-            onClick={() => setStatusFilter("all")}
+            onClick={() => {
+              setStatusFilter("all");
+              setPage(1);
+            }}
             active={statusFilter === "all"}
           />
           <StatsCard
@@ -463,7 +517,10 @@ export default function AdminPostsPage() {
             icon={CheckCircle2}
             scheme="emerald"
             hint="点击快速过滤已发布内容"
-            onClick={() => setStatusFilter("published")}
+            onClick={() => {
+              setStatusFilter("published");
+              setPage(1);
+            }}
             active={statusFilter === "published"}
           />
           <StatsCard
@@ -472,7 +529,10 @@ export default function AdminPostsPage() {
             icon={PenLine}
             scheme="amber"
             hint="点击快速过滤草稿内容"
-            onClick={() => setStatusFilter("draft")}
+            onClick={() => {
+              setStatusFilter("draft");
+              setPage(1);
+            }}
             active={statusFilter === "draft"}
           />
           <StatsCard
@@ -492,7 +552,10 @@ export default function AdminPostsPage() {
                 className="ui-ring min-w-[240px] flex-1 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--foreground)] placeholder:text-[var(--muted)] focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
                 placeholder="搜索标题或 slug"
                 value={query}
-                onChange={(event) => setQuery(event.target.value)}
+                onChange={(event) => {
+                  setQuery(event.target.value);
+                  setPage(1);
+                }}
               />
               {[
                 { key: "all", label: "全部内容" },
@@ -508,14 +571,17 @@ export default function AdminPostsPage() {
                       ? "ui-btn rounded-xl bg-[var(--primary)] px-3 py-2 text-sm text-white"
                       : "ui-btn rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--surface-alt)]"
                   }
-                  onClick={() => setStatusFilter(item.key as typeof statusFilter)}
+                  onClick={() => {
+                    setStatusFilter(item.key as typeof statusFilter);
+                    setPage(1);
+                  }}
                 >
                   {item.label}
                 </button>
               ))}
             </>
           }
-          trailing={<span className="text-sm text-[var(--muted)]">共 {filtered.length} 篇内容</span>}
+          trailing={<span className="text-sm text-[var(--muted)]">共 {pagination.total} 篇内容</span>}
         />
 
         <DataTable
@@ -543,7 +609,13 @@ export default function AdminPostsPage() {
           ]}
           columns={columns}
           emptyText="暂无文章"
-          rows={filtered}
+          rows={posts}
+          pagination={pagination}
+          onPageChange={setPage}
+          onPageSizeChange={(nextPageSize) => {
+            setPageSize(nextPageSize);
+            setPage(1);
+          }}
         />
       </div>
 

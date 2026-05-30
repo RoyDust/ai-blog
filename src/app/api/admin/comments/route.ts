@@ -1,8 +1,10 @@
 import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 import { NextResponse } from "next/server"
+import type { Prisma } from "@prisma/client"
 
 import { requireAdminSession } from "@/lib/api-auth"
 import { NotFoundError, ValidationError, toErrorResponse } from "@/lib/api-errors"
+import { buildAdminListPagination, getAdminListSkip, parseAdminListPagination } from "@/lib/admin-list-pagination"
 import { prisma } from "@/lib/prisma"
 import { parseCommentStatusInput, parseIdList } from "@/lib/validation"
 
@@ -41,8 +43,41 @@ async function GETHandler(request: Request) {
       })
     }
 
+    const requestedPagination = parseAdminListPagination({
+      page: searchParams.get("page"),
+      limit: searchParams.get("limit"),
+    })
+    const query = searchParams.get("q")?.trim()
+    const status = searchParams.get("status")?.toUpperCase()
+    const where: Prisma.CommentWhereInput = { deletedAt: null }
+
+    if (query) {
+      where.OR = [
+        { content: { contains: query, mode: "insensitive" } },
+        { authorLabel: { contains: query, mode: "insensitive" } },
+        { post: { is: { title: { contains: query, mode: "insensitive" } } } },
+      ]
+    }
+
+    if (status && status !== "ALL") {
+      if (!allowedStatuses.has(status as CommentStatus)) {
+        throw new ValidationError("Invalid comment status")
+      }
+      where.status = status as CommentStatus
+    }
+
+    const [total, allCount, pendingCount, approvedCount, rejectedCount, spamCount] = await Promise.all([
+      prisma.comment.count({ where }),
+      prisma.comment.count({ where: { deletedAt: null } }),
+      prisma.comment.count({ where: { deletedAt: null, status: "PENDING" } }),
+      prisma.comment.count({ where: { deletedAt: null, status: "APPROVED" } }),
+      prisma.comment.count({ where: { deletedAt: null, status: "REJECTED" } }),
+      prisma.comment.count({ where: { deletedAt: null, status: "SPAM" } }),
+    ])
+    const pagination = buildAdminListPagination({ ...requestedPagination, total })
+
     const comments = await prisma.comment.findMany({
-      where: { deletedAt: null },
+      where,
       select: {
         id: true,
         content: true,
@@ -57,15 +92,23 @@ async function GETHandler(request: Request) {
         },
       },
       orderBy: { createdAt: "desc" },
-      take: 100,
+      skip: getAdminListSkip(pagination),
+      take: pagination.limit,
     })
 
-    return NextResponse.json({ success: true, data: comments })
+    return NextResponse.json({
+      success: true,
+      data: comments,
+      pagination,
+      stats: {
+        total: allCount,
+        pending: pendingCount,
+        approved: approvedCount,
+        rejected: rejectedCount,
+        spam: spamCount,
+      },
+    })
   } catch (error) {
-    console.error("Get admin comments error:", error)
-    if (error instanceof Error && process.env.NODE_ENV !== "production" && !(error instanceof ValidationError)) {
-      return NextResponse.json({ error: "Failed to load comments", detail: error.message }, { status: 500 })
-    }
     return toErrorResponse(error, "Failed to load comments")
   }
 }

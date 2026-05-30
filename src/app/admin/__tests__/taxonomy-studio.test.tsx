@@ -39,7 +39,7 @@ describe("TaxonomyStudio", () => {
     expect(screen.getByRole("button", { name: "标签" })).toHaveAttribute("aria-pressed", "false");
 
     await waitFor(() => {
-      expect(globalThis.fetch).toHaveBeenCalledWith("/api/admin/categories");
+      expect(globalThis.fetch).toHaveBeenCalledWith("/api/admin/categories?page=1&limit=10");
     });
   });
 
@@ -60,7 +60,7 @@ describe("TaxonomyStudio", () => {
     expect(screen.getByRole("button", { name: "标签" })).toHaveAttribute("aria-pressed", "true");
 
     await waitFor(() => {
-      expect(globalThis.fetch).toHaveBeenCalledWith("/api/admin/tags");
+      expect(globalThis.fetch).toHaveBeenCalledWith("/api/admin/tags?page=1&limit=10");
     });
   });
 
@@ -94,7 +94,7 @@ describe("TaxonomyStudio", () => {
   test("creates a category through the admin taxonomy form", async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce({
-        json: async () => ({ success: true, data: [] }),
+        json: async () => ({ success: true, data: [], pagination: { page: 1, limit: 10, total: 0, totalPages: 1 } }),
       })
       .mockResolvedValueOnce({
         json: async () => ({
@@ -106,6 +106,20 @@ describe("TaxonomyStudio", () => {
             description: "AI notes",
             createdAt: "2026-05-09T00:00:00.000Z",
           },
+        }),
+      })
+      .mockResolvedValueOnce({
+        json: async () => ({
+          success: true,
+          data: [{
+            id: "cat-1",
+            name: "AI",
+            slug: "ai",
+            description: "AI notes",
+            createdAt: "2026-05-09T00:00:00.000Z",
+            _count: { posts: 0 },
+          }],
+          pagination: { page: 1, limit: 10, total: 1, totalPages: 1 },
         }),
       });
     vi.stubGlobal("fetch", fetchMock);
@@ -150,6 +164,20 @@ describe("TaxonomyStudio", () => {
       })
       .mockResolvedValueOnce({
         json: async () => ({ success: true, data: { id: "tag-1" } }),
+      })
+      .mockResolvedValueOnce({
+        json: async () => ({
+          success: true,
+          data: [{
+            id: "tag-1",
+            name: "React 19",
+            slug: "react-19",
+            color: "#2563eb",
+            createdAt: "2026-05-09T00:00:00.000Z",
+            _count: { posts: 2 },
+          }],
+          pagination: { page: 1, limit: 10, total: 1, totalPages: 1 },
+        }),
       });
     vi.stubGlobal("fetch", fetchMock);
 
