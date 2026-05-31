@@ -33,6 +33,27 @@ function parseRegenerate(value: unknown) {
   return value
 }
 
+function parseSourceSelection(payload: { sourceMode?: unknown; sourceIds?: unknown }) {
+  if (payload.sourceMode == null || payload.sourceMode === "" || payload.sourceMode === "default") {
+    return { sourceMode: "default" as const, sourceIds: undefined }
+  }
+
+  if (payload.sourceMode !== "selected") {
+    throw new ValidationError("Invalid source mode")
+  }
+
+  if (!Array.isArray(payload.sourceIds)) {
+    throw new ValidationError("sourceIds must be an array")
+  }
+
+  const sourceIds = Array.from(new Set(payload.sourceIds.map((value) => (typeof value === "string" ? value.trim() : "")).filter(Boolean)))
+  if (sourceIds.length === 0) {
+    throw new ValidationError("At least one AI news source must be selected")
+  }
+
+  return { sourceMode: "selected" as const, sourceIds }
+}
+
 async function POSTHandler(request: Request) {
   let runDate: Date | null = null
   let notifyFailure = false
@@ -40,13 +61,21 @@ async function POSTHandler(request: Request) {
   try {
     const session = await requireAdminSession()
     const body = await request.json().catch(() => ({}))
-    const payload = body as { date?: unknown; modelId?: unknown; regenerate?: unknown }
+    const payload = body as { date?: unknown; modelId?: unknown; regenerate?: unknown; sourceMode?: unknown; sourceIds?: unknown }
     const date = parseRunDate(payload.date)
     const modelId = parseModelId(payload.modelId)
     const regenerate = parseRegenerate(payload.regenerate)
+    const sourceSelection = parseSourceSelection(payload)
     runDate = date
     notifyFailure = true
-    const result = await runDailyAiNews({ authorId: session.user.id, date, modelId, regenerate, trigger: "manual" })
+    const result = await runDailyAiNews({
+      authorId: session.user.id,
+      date,
+      modelId,
+      regenerate,
+      trigger: "manual",
+      ...(sourceSelection.sourceMode === "selected" ? sourceSelection : {}),
+    })
 
     await notifyDailyAiNewsSuccess(result, date)
 

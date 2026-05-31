@@ -10,10 +10,25 @@ export type AiNewsSourceConfig = {
   homepage?: string | null
   category?: string | null
   enabled?: boolean
+  defaultEnabled?: boolean
   weight?: number
   minScore?: number | null
   fetchLimit?: number | null
   config?: AiNewsJsonObject | null
+}
+
+export type AiNewsSourceSnapshot = {
+  id: string
+  type: AiNewsSourceType
+  name: string
+  url: string
+  homepage?: string | null
+  category?: string | null
+  enabled: boolean
+  defaultEnabled?: boolean
+  weight?: number
+  minScore?: number | null
+  fetchLimit?: number | null
 }
 
 export type AiNewsRawItem = {
@@ -98,6 +113,7 @@ export type AiNewsRunMetrics = {
   dedupedCandidateCount: number
   scoredCandidateCount: number
   selectedCandidateCount: number
+  configuredSourceCount?: number
   sourceFailureJson?: AiNewsSourceFailure[]
   qualityScore?: number
   citationCoverage?: number

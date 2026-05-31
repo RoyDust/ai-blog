@@ -128,6 +128,31 @@ describe("POST /api/admin/ai-news/run", () => {
     })
   })
 
+  test("passes selected source ids through for manual runs", async () => {
+    mocks.requireAdminSession.mockResolvedValueOnce({ user: { id: "admin-1", role: "ADMIN" } })
+    mocks.runDailyAiNews.mockResolvedValueOnce({ operation: "created", published: false, run: { id: "run-1", status: "SUCCEEDED" } })
+
+    const { POST } = await import("../route")
+    const response = await POST(
+      new Request("http://localhost/api/admin/ai-news/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date: "2026-04-29", modelId: "model-1", sourceMode: "selected", sourceIds: ["openai", "openai", "disabled"] }),
+      }),
+    )
+
+    expect(response.status).toBe(200)
+    expect(mocks.runDailyAiNews).toHaveBeenCalledWith({
+      authorId: "admin-1",
+      date: new Date("2026-04-29T00:00:00.000Z"),
+      modelId: "model-1",
+      regenerate: false,
+      trigger: "manual",
+      sourceMode: "selected",
+      sourceIds: ["openai", "disabled"],
+    })
+  })
+
   test("creates a failure notification when generation fails after validation", async () => {
     mocks.requireAdminSession.mockResolvedValueOnce({ user: { id: "admin-1", role: "ADMIN" } })
     mocks.runDailyAiNews.mockRejectedValueOnce(new Error("No AI news candidates available"))

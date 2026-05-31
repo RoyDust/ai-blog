@@ -638,4 +638,52 @@ describe("ai news aggregation", () => {
       data: expect.objectContaining({ status: "FAILED", sourceCount: 0, failureCount: 1, error: "No AI news candidates available" }),
     })
   })
+
+  test("selected source mode can temporarily run disabled sources without fallback", async () => {
+    findFirst.mockResolvedValueOnce(null)
+    findManyAiNewsSource.mockResolvedValueOnce([
+      {
+        id: "disabled",
+        type: "RSS",
+        name: "Disabled RSS",
+        url: "https://example.com/disabled.xml",
+        enabled: false,
+        weight: 10,
+        fetchLimit: null,
+        minScore: null,
+        config: null,
+      },
+    ])
+    const fetchImpl = vi.fn().mockResolvedValue({ ok: false, status: 500 }) as unknown as typeof fetch
+
+    const { runDailyAiNews } = await import("@/lib/ai-news")
+
+    await expect(
+      runDailyAiNews({
+        authorId: "admin-1",
+        date: new Date("2026-04-29T08:00:00Z"),
+        sourceMode: "selected",
+        sourceIds: ["disabled"],
+        fetchImpl,
+      }),
+    ).rejects.toThrow("No AI news candidates available")
+
+    expect(findManyAiNewsSource).toHaveBeenCalledWith({
+      where: { id: { in: ["disabled"] } },
+      orderBy: [{ weight: "desc" }, { name: "asc" }],
+    })
+    expect(fetchImpl).toHaveBeenCalledWith("https://example.com/disabled.xml", expect.any(Object))
+    expect(updateAiNewsRun).toHaveBeenCalledWith({
+      where: { id: "run-1" },
+      data: {
+        sourceSnapshotJson: [
+          expect.objectContaining({
+            id: "disabled",
+            enabled: true,
+            defaultEnabled: false,
+          }),
+        ],
+      },
+    })
+  })
 })

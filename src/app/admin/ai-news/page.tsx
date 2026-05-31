@@ -17,6 +17,8 @@ import { PageHeader } from "@/components/admin/primitives/PageHeader"
 import { StatusBadge } from "@/components/admin/primitives/StatusBadge"
 import { WorkspacePanel } from "@/components/admin/primitives/WorkspacePanel"
 import { Button } from "@/components/admin/ui"
+import { AiNewsSourcePanel } from "@/components/admin/ai-news/AiNewsSourcePanel"
+import { useAiNewsSources } from "@/components/admin/ai-news/hooks/useAiNewsSources"
 import {
   Select,
   SelectContent,
@@ -48,6 +50,7 @@ type RunHistoryItem = {
   reviewScore?: number | null
   createdAt: string
   durationMs?: number | null
+  sourceSnapshotJson?: Array<{ id: string; name: string; type: string; defaultEnabled?: boolean }> | null
 }
 
 type RunCandidateItem = {
@@ -88,6 +91,7 @@ type RunResult = {
     qualityScore?: number | null
     citationCoverage?: number | null
     generationMode?: string | null
+    configuredSourceCount?: number | null
   }
   run?: { id: string; status: RunHistoryItem["status"] }
 }
@@ -139,6 +143,13 @@ function runCandidateFunnel(run: Pick<RunHistoryItem, "sourceCount" | "rawCandid
   return `原始 ${raw} · 去重 ${deduped} · 入选 ${selected}`
 }
 
+function runSourceSummary(run: Pick<RunHistoryItem, "sourceSnapshotJson">) {
+  const sources = Array.isArray(run.sourceSnapshotJson) ? run.sourceSnapshotJson : []
+  if (sources.length === 0) return null
+
+  return `来源 ${sources.length}`
+}
+
 /**
  * AI 日报后台页面入口。
  * 负责协调模型列表、运行记录、候选明细和手动触发动作。
@@ -155,6 +166,7 @@ export default function AdminAiNewsPage() {
   const [runsLoading, setRunsLoading] = useState(false)
   const [runsError, setRunsError] = useState<string | null>(null)
   const [candidateStates, setCandidateStates] = useState<Record<string, CandidateState>>({})
+  const aiNewsSources = useAiNewsSources()
 
   const selectedModel = useMemo(
     () => models.find((model) => model.id === selectedModelId) ?? null,
@@ -284,13 +296,20 @@ export default function AdminAiNewsPage() {
       toast.error("请选择可用模型")
       return
     }
+    if (aiNewsSources.sourceMode === "selected" && aiNewsSources.selectedSourceIds.length === 0) {
+      toast.error("至少选择一个来源")
+      return
+    }
 
     setRunning(true)
     try {
+      const sourcePayload = aiNewsSources.sourceMode === "selected"
+        ? { sourceMode: "selected", sourceIds: aiNewsSources.selectedSourceIds }
+        : {}
       const response = await fetch("/api/admin/ai-news/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ date, modelId: selectedModelId, ...(regenerate ? { regenerate: true } : {}) }),
+        body: JSON.stringify({ date, modelId: selectedModelId, ...(regenerate ? { regenerate: true } : {}), ...sourcePayload }),
       })
       const data = await response.json()
 
@@ -372,6 +391,9 @@ export default function AdminAiNewsPage() {
             <p>流程：抓取 RSS/Atom/HN/GitHub → URL 去重 → AI 评分筛选 → 生成 Markdown 日报 → AI 审稿 → 达标自动发布。</p>
             <p className="mt-2">同一天使用固定 slug，重复触发不会重复创建文章。</p>
             <p className="mt-2">重新生成会覆盖同日已存在日报内容，并保留原文章链接。</p>
+            <p className="mt-2">
+              来源范围：{aiNewsSources.sourceMode === "selected" ? `本次选中 ${aiNewsSources.selectedSourceIds.length} 个来源` : "默认启用来源"}。
+            </p>
             {selectedModel ? (
               <p className="mt-2">
                 当前模型：{selectedModel.name}（{selectedModel.model}）。
@@ -381,6 +403,36 @@ export default function AdminAiNewsPage() {
           </div>
         </div>
       </WorkspacePanel>
+
+      <AiNewsSourcePanel
+        sources={aiNewsSources.sources}
+        selectedSourceIds={aiNewsSources.selectedSourceIds}
+        sourceMode={aiNewsSources.sourceMode}
+        query={aiNewsSources.query}
+        category={aiNewsSources.category}
+        pagination={aiNewsSources.pagination}
+        summary={aiNewsSources.summary}
+        loading={aiNewsSources.loading}
+        saving={aiNewsSources.saving}
+        testingId={aiNewsSources.testingId}
+        deletingId={aiNewsSources.deletingId}
+        message={aiNewsSources.message}
+        error={aiNewsSources.error}
+        testResults={aiNewsSources.testResults}
+        onSourceModeChange={aiNewsSources.setSourceMode}
+        onQueryChange={aiNewsSources.setQuery}
+        onCategoryChange={aiNewsSources.setCategory}
+        onPageChange={aiNewsSources.setPage}
+        onPageSizeChange={aiNewsSources.setPageSize}
+        onToggleSourceSelection={aiNewsSources.toggleSourceSelection}
+        onSelectEnabledSources={aiNewsSources.selectEnabledSources}
+        onReload={() => void aiNewsSources.loadSources()}
+        onSaveSource={aiNewsSources.saveSource}
+        onToggleSourceEnabled={(source) => void aiNewsSources.toggleSourceEnabled(source)}
+        onDeleteSource={(source) => void aiNewsSources.deleteSource(source)}
+        onTestSource={(source) => void aiNewsSources.testSource(source)}
+        onDisableProblemSources={() => void aiNewsSources.disableProblemSources()}
+      />
 
       {result ? (
         <WorkspacePanel title="最近一次运行" description={result.reason ?? "运行完成"} className="border border-[var(--border)]">
@@ -394,6 +446,9 @@ export default function AdminAiNewsPage() {
                   ? `原始 ${result.metrics.rawCandidateCount} · 去重 ${result.metrics.dedupedCandidateCount} · 入选 ${result.metrics.selectedCandidateCount}`
                   : `候选新闻 ${result.sourceCount ?? 0} 条`}
               </span>
+              {typeof result.metrics?.configuredSourceCount === "number" ? (
+                <span className="text-sm text-[var(--muted)]">来源 {result.metrics.configuredSourceCount} 个</span>
+              ) : null}
               {typeof result.metrics?.qualityScore === "number" ? (
                 <span className="text-sm text-[var(--muted)]">候选质量 {result.metrics.qualityScore} 分</span>
               ) : null}
@@ -456,6 +511,7 @@ export default function AdminAiNewsPage() {
                   <span className="text-sm text-[var(--muted)]">{runTriggerLabel(run.trigger)}</span>
                   <span className="text-sm text-[var(--muted)]">{run.runDate.slice(0, 10)}</span>
                   <span className="text-sm text-[var(--muted)]">{runCandidateFunnel(run)}</span>
+                  {runSourceSummary(run) ? <span className="text-sm text-[var(--muted)]">{runSourceSummary(run)}</span> : null}
                   {run.failureCount ? <span className="text-sm text-[var(--muted)]">失败 {run.failureCount} 个</span> : null}
                   {typeof run.qualityScore === "number" ? <span className="text-sm text-[var(--muted)]">质量 {run.qualityScore} 分</span> : null}
                   {run.durationMs ? <span className="text-sm text-[var(--muted)]">{Math.round(run.durationMs / 1000)} 秒</span> : null}
