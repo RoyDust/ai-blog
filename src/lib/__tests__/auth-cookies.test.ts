@@ -10,7 +10,7 @@ describe("auth cookie security", () => {
     expect(
       shouldUseSecureAuthCookies({
         NODE_ENV: "production",
-        NEXTAUTH_URL: "http://roydust.top",
+        NEXTAUTH_URL: "http://example.com",
         NEXT_PUBLIC_SITE_URL: "",
         SITE_URL: "",
       }),
@@ -21,7 +21,7 @@ describe("auth cookie security", () => {
     expect(
       shouldUseSecureAuthCookies({
         NODE_ENV: "production",
-        NEXTAUTH_URL: "https://roydust.top",
+        NEXTAUTH_URL: "https://example.com",
         NEXT_PUBLIC_SITE_URL: "",
         SITE_URL: "",
       }),

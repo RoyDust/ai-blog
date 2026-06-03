@@ -163,7 +163,7 @@ describe("AI news fetchers", () => {
 
     expect(fetchImpl).toHaveBeenCalledWith(
       "https://api.github.com/repos/vercel/next.js/releases?per_page=2",
-      expect.objectContaining({ headers: expect.objectContaining({ Authorization: "Bearer ghp_test", "User-Agent": "RoyDustBlog-AiNews/1.0" }) }),
+      expect.objectContaining({ headers: expect.objectContaining({ Authorization: "Bearer ghp_test", "User-Agent": "Inkforge-AiNews/1.0" }) }),
     )
     expect(result.failures).toEqual([])
     expect(result.items).toHaveLength(1)

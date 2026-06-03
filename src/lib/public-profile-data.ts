@@ -27,32 +27,26 @@ export type PublicProfileContent = {
   twitterUrl: string;
 };
 
-const fallbackEmail = "roydust@foxmail.com";
-
 export const PUBLIC_PROFILE_CONTENT_FALLBACK: PublicProfileContent = {
   subtitle: "专注前端开发与工程实践",
   tagline: "内容创作 / 前端体验 / 开源实践",
   bio: "全栈开发者，热爱开源和技术分享。专注于 React 生态和现代 Web 开发。",
   intro:
     "我更喜欢把个人主页做成一个适合停留和阅读的地方，而不是只堆一组链接。这里既是作者简介，也是我表达工作方法、内容方向与技术偏好的入口。",
-  githubUrl: "https://github.com/RoyDust",
-  twitterUrl: "https://x.com/luoyichen12",
+  githubUrl: "",
+  twitterUrl: "",
 };
 
 export const PUBLIC_PROFILE_FALLBACK: PublicProfile = {
-  name: "Zhang Wei",
-  initials: "ZW",
+  name: "Inkforge Author",
+  initials: "IA",
   avatar: "https://avatars.githubusercontent.com/u/50167909",
-  email: fallbackEmail,
+  email: null,
   subtitle: PUBLIC_PROFILE_CONTENT_FALLBACK.subtitle,
   tagline: PUBLIC_PROFILE_CONTENT_FALLBACK.tagline,
   bio: PUBLIC_PROFILE_CONTENT_FALLBACK.bio,
   intro: PUBLIC_PROFILE_CONTENT_FALLBACK.intro,
-  links: [
-    { kind: "github", name: "GitHub", url: PUBLIC_PROFILE_CONTENT_FALLBACK.githubUrl },
-    { kind: "twitter", name: "Twitter", url: PUBLIC_PROFILE_CONTENT_FALLBACK.twitterUrl },
-    { kind: "email", name: "Email", url: `mailto:${fallbackEmail}` },
-  ],
+  links: [],
 };
 
 export function getInitials(value: string) {

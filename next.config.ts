@@ -12,14 +12,9 @@ const nextConfig: NextConfig = {
     root: __dirname,
   },
   images: {
-    dangerouslyAllowLocalIP: process.env.NODE_ENV !== "production",
+    dangerouslyAllowLocalIP: true,
     qualities: [70, 75],
     remotePatterns: [
-      {
-        protocol: "http",
-        hostname: "project.roydust.top",
-        pathname: "/**",
-      },
       {
         protocol: "https",
         hostname: "images.unsplash.com",
@@ -27,6 +22,11 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: "https",
+        hostname: "project.roydust.top",
+        pathname: "/**",
+      },
+      {
+        protocol: "http",
         hostname: "project.roydust.top",
         pathname: "/**",
       },

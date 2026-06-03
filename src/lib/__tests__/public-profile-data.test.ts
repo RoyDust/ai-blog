@@ -5,13 +5,13 @@ describe("public profile data", () => {
   test("maps the admin profile fields into public author data", () => {
     expect(
       mergePublicProfileUser({
-        name: "RoyDust",
+        name: "Inkforge",
         email: "roy@example.com",
         image: "https://example.com/avatar.png",
       }),
     ).toMatchObject({
-      name: "RoyDust",
-      initials: "RD",
+      name: "Inkforge",
+      initials: "I",
       avatar: "https://example.com/avatar.png",
       email: "roy@example.com",
       links: expect.arrayContaining([{ kind: "email", name: "Email", url: "mailto:roy@example.com" }]),
@@ -20,8 +20,8 @@ describe("public profile data", () => {
 
   test("keeps static public copy as fallback when profile fields are empty", () => {
     expect(mergePublicProfileUser({ name: "", email: "", image: "" })).toMatchObject({
-      name: "Zhang Wei",
-      initials: "ZW",
+      name: "Inkforge Author",
+      initials: "IA",
       email: null,
     });
   });
@@ -39,7 +39,7 @@ describe("public profile data", () => {
     expect(
       mergePublicProfileUser(
         {
-          name: "RoyDust",
+          name: "Inkforge",
           email: "roy@example.com",
           image: "https://example.com/avatar.png",
         },
@@ -68,12 +68,12 @@ describe("public profile data", () => {
         twitterUrl: "",
       }),
     ).toMatchObject({
-      name: "Zhang Wei",
+      name: "Inkforge Author",
       subtitle: "后台配置副标题",
       tagline: "后台配置标语",
       bio: "后台配置简介",
       intro: "后台配置介绍",
-      links: [{ kind: "email", name: "Email", url: "mailto:roydust@foxmail.com" }],
+      links: [],
     });
   });
 });

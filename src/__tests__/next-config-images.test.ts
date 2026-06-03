@@ -9,12 +9,12 @@ describe('next image config', () => {
     expect(remotePatterns).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          protocol: 'http',
+          protocol: 'https',
           hostname: 'project.roydust.top',
           pathname: '/**',
         }),
         expect.objectContaining({
-          protocol: 'https',
+          protocol: 'http',
           hostname: 'project.roydust.top',
           pathname: '/**',
         }),

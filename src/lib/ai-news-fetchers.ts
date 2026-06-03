@@ -42,7 +42,7 @@ type GitHubRelease = {
 const TRACKING_PARAMS = new Set(["utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content", "utm_id", "fbclid", "gclid"])
 const HACKER_NEWS_API_BASE = "https://hacker-news.firebaseio.com/v0"
 const HACKER_NEWS_DISCUSSION_BASE = "https://news.ycombinator.com/item?id="
-const DEFAULT_USER_AGENT = "RoyDustBlog-AiNews/1.0"
+const DEFAULT_USER_AGENT = "Inkforge-AiNews/1.0"
 
 function xmlDecode(value: string) {
   return value
