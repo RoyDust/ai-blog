@@ -48,3 +48,12 @@ next-env.d.ts
 
 /src/generated/prisma
 /.worktrees
+
+# local agent/tooling artifacts
+/.antigravitycli
+/.claude/
+/.codex/
+/.omx/
+/.opencode/
+/.sisyphus/
+/tasks/
