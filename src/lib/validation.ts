@@ -607,10 +607,19 @@ export function parseCommentStatusInput(payload: unknown) {
  * 用于显式切换文章发布状态的轻量接口。
  */
 export function parsePublishInput(payload: unknown) {
-  const data = (payload ?? {}) as { id?: unknown; published?: unknown; scheduledAt?: unknown }
+  const data = (payload ?? {}) as { id?: unknown; ids?: unknown; published?: unknown; scheduledAt?: unknown }
+  const bulkIds = normalizeStringArray(data.ids, "ids")
+  const singleId = bulkIds ? undefined : optionalString(data.id, "id")
+  const ids = bulkIds ?? (singleId ? [singleId] : [])
+  const uniqueIds = Array.from(new Set(ids))
+
+  if (uniqueIds.length === 0) {
+    throw new ValidationError("Post ID is required")
+  }
 
   return {
-    id: readString(data.id, 'id'),
+    id: uniqueIds[0],
+    ids: uniqueIds,
     published: readBoolean(data.published, 'published'),
     scheduledAt: optionalFutureDate(data.scheduledAt, 'scheduledAt'),
   }

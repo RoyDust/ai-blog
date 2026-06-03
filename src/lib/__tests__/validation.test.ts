@@ -159,6 +159,21 @@ describe('validation helpers', () => {
     }
   })
 
+  test('parses bulk publish ids and deduplicates them', () => {
+    expect(parsePublishInput({
+      ids: ['post-1', 'post-2', 'post-1'],
+      published: true,
+    })).toMatchObject({
+      id: 'post-1',
+      ids: ['post-1', 'post-2'],
+      published: true,
+    })
+  })
+
+  test('rejects publish inputs without any post ids', () => {
+    expect(() => parsePublishInput({ ids: [], published: true })).toThrow('Post ID is required')
+  })
+
   test('parses comma-separated id lists', () => {
     expect(parseIdList(new URLSearchParams('ids=a,b,c'))).toEqual(['a', 'b', 'c'])
   })

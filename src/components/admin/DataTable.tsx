@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button, Card, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/admin/ui";
 import { AdminPagination } from "@/components/admin/primitives/AdminPagination";
+import { cn } from "@/lib/utils";
 
 export interface DataColumn<T> {
   key: string;
@@ -30,6 +31,7 @@ interface DataTableProps<T extends { id: string }> {
     total: number;
     totalPages: number;
   };
+  fillHeight?: boolean;
   onPageChange?: (page: number) => void;
   onPageSizeChange?: (pageSize: number) => void;
   bulkActions?: Array<{
@@ -53,6 +55,7 @@ export function DataTable<T extends { id: string }>({
   pageSize: initialPageSize = 10,
   pageSizeOptions = [10, 20, 50, 100],
   pagination,
+  fillHeight = false,
   onPageChange,
   onPageSizeChange,
   bulkActions = [],
@@ -108,10 +111,19 @@ export function DataTable<T extends { id: string }>({
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]));
   };
 
+  const statusClassName = fillHeight
+    ? "flex min-h-0 flex-1 items-center justify-center px-4 py-16 text-center text-sm text-[var(--muted)]"
+    : "px-4 py-16 text-center text-sm text-[var(--muted)]";
+
   return (
-    <Card className="gap-0 overflow-hidden rounded-3xl py-0 border border-slate-100/80 dark:border-slate-800/50 shadow-sm transition-all duration-300">
-      <section>
-        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] px-5 py-4">
+    <Card
+      className={cn(
+        "gap-0 overflow-hidden rounded-3xl py-0 border border-slate-100/80 dark:border-slate-800/50 shadow-sm transition-all duration-300",
+        fillHeight && "flex min-h-0 flex-1 flex-col",
+      )}
+    >
+      <section className={cn(fillHeight && "flex min-h-0 flex-1 flex-col")}>
+        <header className="shrink-0 flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] px-5 py-4">
           <div>
             <h2 className="font-display text-lg font-bold tracking-tight text-[var(--foreground)]">{title}</h2>
             <p className="mt-1 text-sm text-[var(--muted)]">{summary ?? `共 ${totalRows} 条记录`}</p>
@@ -121,10 +133,10 @@ export function DataTable<T extends { id: string }>({
           ) : null}
         </header>
 
-        {toolbar ? <div className="border-b border-[var(--border)] px-5 py-3.5 bg-slate-50/20 dark:bg-slate-900/5">{toolbar}</div> : null}
+        {toolbar ? <div className="shrink-0 border-b border-[var(--border)] px-5 py-3.5 bg-slate-50/20 dark:bg-slate-900/5">{toolbar}</div> : null}
 
         {bulkActions.length > 0 ? (
-          <div className="flex flex-wrap items-center gap-3 border-b border-[var(--border)] bg-blue-50/10 dark:bg-slate-900/20 px-5 py-3">
+          <div className="shrink-0 flex flex-wrap items-center gap-3 border-b border-[var(--border)] bg-blue-50/10 dark:bg-slate-900/20 px-5 py-3">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">批量操作</span>
             <span className="text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50/85 dark:bg-blue-900/20 px-2 py-0.5 rounded-md">已选 {visibleSelectedIds.length} 项</span>
             <div className="flex items-center gap-2">
@@ -146,13 +158,13 @@ export function DataTable<T extends { id: string }>({
         ) : null}
 
         {isLoading ? (
-          <p className="px-4 py-16 text-center text-sm text-[var(--muted)]">{loadingLabel}</p>
+          <p className={statusClassName}>{loadingLabel}</p>
         ) : rows.length === 0 ? (
-          <p className="px-4 py-16 text-center text-sm text-[var(--muted)]">{emptyText}</p>
+          <p className={statusClassName}>{emptyText}</p>
         ) : (
-          <div className="overflow-x-auto">
+          <div className={cn(fillHeight ? "min-h-0 flex-1 overflow-auto" : "overflow-x-auto")} data-testid="admin-data-table-scroll">
             <Table>
-              <TableHeader className="bg-slate-50/40 dark:bg-slate-900/30 border-b border-[var(--border)]">
+              <TableHeader className={cn("bg-slate-50/40 dark:bg-slate-900/30 border-b border-[var(--border)]", fillHeight && "sticky top-0 z-10")}>
                 <TableRow className="hover:bg-transparent border-0">
                   <TableHead className="w-12 text-center py-3.5">
                     <input
@@ -206,6 +218,7 @@ export function DataTable<T extends { id: string }>({
 
         {!isLoading && rows.length > 0 ? (
           <AdminPagination
+            className={fillHeight ? "shrink-0" : undefined}
             itemLabel="条记录"
             onPageChange={usesServerPagination ? onPageChange : setCurrentPage}
             onPageSizeChange={(nextPageSize) => {

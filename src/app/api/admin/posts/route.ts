@@ -31,10 +31,10 @@ async function GETHandler(request: Request) {
       return NextResponse.json({
         success: true,
         data: {
-          title: ids.length > 1 ? "批量隐藏文章" : "隐藏文章",
-          description: "隐藏后文章会从前台和后台默认列表移除，且不可直接访问。",
+          title: ids.length > 1 ? "批量删除文章" : "删除文章",
+          description: "删除后文章会从前台和后台默认列表移除，且不可直接访问；系统会保留记录用于审计和关联恢复。",
           impacts: [
-            { label: "将隐藏文章", value: postCount, unit: "篇" },
+            { label: "将删除文章", value: postCount, unit: "篇" },
             { label: "将连带隐藏评论", value: commentCount, unit: "条" },
           ],
         },

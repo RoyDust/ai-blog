@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 const getServerSession = vi.fn();
 const findFirst = vi.fn();
+const findMany = vi.fn();
 const update = vi.fn();
 const revalidatePublicContent = vi.fn();
 const resolvePostCoverInput = vi.fn();
@@ -28,6 +29,7 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     post: {
       findFirst,
+      findMany,
       update,
     },
   },
@@ -273,5 +275,87 @@ describe("PATCH /api/admin/posts/publish", () => {
         scheduledAt: null,
       },
     }));
+  });
+
+  test("publishes multiple selected posts", async () => {
+    const publishedAt = new Date("2026-05-17T01:00:00.000Z");
+    vi.useFakeTimers();
+    vi.setSystemTime(publishedAt);
+
+    findMany.mockResolvedValueOnce([
+      {
+        id: "post-1",
+        slug: "draft-one",
+        coverImage: "",
+        coverAssetId: null,
+        category: { slug: "engineering" },
+        series: null,
+        tags: [{ slug: "nextjs" }],
+      },
+      {
+        id: "post-2",
+        slug: "draft-two",
+        coverImage: "https://cdn.example.com/covers/existing.jpg",
+        coverAssetId: "cover-existing",
+        category: null,
+        series: { slug: "series-a" },
+        tags: [],
+      },
+    ]);
+    resolvePostCoverInput.mockResolvedValueOnce({
+      coverImage: "https://cdn.example.com/covers/random.jpg",
+      coverAssetId: "cover-1",
+      selectedAssetId: "cover-1",
+    });
+    update
+      .mockResolvedValueOnce({
+        slug: "draft-one",
+        published: true,
+        coverImage: "https://cdn.example.com/covers/random.jpg",
+        coverAssetId: "cover-1",
+        category: { slug: "engineering" },
+        series: null,
+        tags: [{ slug: "nextjs" }],
+      })
+      .mockResolvedValueOnce({
+        slug: "draft-two",
+        published: true,
+        coverImage: "https://cdn.example.com/covers/existing.jpg",
+        coverAssetId: "cover-existing",
+        category: null,
+        series: { slug: "series-a" },
+        tags: [],
+      });
+
+    const { PATCH } = await import("../route");
+    const response = await PATCH(new Request("http://localhost/api/admin/posts/publish", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids: ["post-1", "post-2"], published: true }),
+    }));
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.data.count).toBe(2);
+    expect(findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: { in: ["post-1", "post-2"] }, deletedAt: null },
+    }));
+    expect(update).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      where: { id: "post-1" },
+      data: expect.objectContaining({
+        published: true,
+        publishedAt,
+        coverImage: "https://cdn.example.com/covers/random.jpg",
+        coverAssetId: "cover-1",
+      }),
+    }));
+    expect(update).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      where: { id: "post-2" },
+      data: expect.objectContaining({
+        published: true,
+        publishedAt,
+      }),
+    }));
+    expect(revalidatePublicContent).toHaveBeenCalledTimes(2);
   });
 });

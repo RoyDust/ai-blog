@@ -189,6 +189,7 @@ export default function AdminPostsPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(defaultPageSize);
   const [busyRowIds, setBusyRowIds] = useState<string[]>([]);
+  const [bulkPublishAction, setBulkPublishAction] = useState<"publish" | "draft" | null>(null);
   const [bulkAiIds, setBulkAiIds] = useState<string[]>([]);
   const [deleteDialog, setDeleteDialog] = useState<DeleteDialogState>(initialDeleteDialog);
 
@@ -298,7 +299,7 @@ export default function AdminPostsPage() {
 
   /**
    * 打开删除影响预览弹窗。
-   * 先请求服务端返回影响说明，再允许用户确认隐藏文章。
+   * 先请求服务端返回影响说明，再允许用户确认删除文章。
    */
   async function openDeleteDialog(ids: string[]) {
     try {
@@ -325,7 +326,7 @@ export default function AdminPostsPage() {
   }
 
   /**
-   * 确认隐藏文章。
+   * 确认删除文章。
    * 这里走的是软删除 / 隐藏语义，不直接物理删除数据库记录。
    */
   async function confirmDelete() {
@@ -337,14 +338,14 @@ export default function AdminPostsPage() {
 
       if (data.success) {
         setDeleteDialog(initialDeleteDialog);
-        toast.success(deleteDialog.ids.length > 1 ? `已隐藏 ${deleteDialog.ids.length} 篇文章` : "文章已隐藏");
+        toast.success(deleteDialog.ids.length > 1 ? `已删除 ${deleteDialog.ids.length} 篇文章` : "文章已删除");
         void fetchPosts({ silent: true });
         return;
       }
 
-      toast.error(getApiErrorMessage(data, "隐藏文章失败"));
+      toast.error(getApiErrorMessage(data, "删除文章失败"));
     } catch {
-      toast.error("隐藏文章失败，请稍后重试");
+      toast.error("删除文章失败，请稍后重试");
     }
 
     setDeleteDialog((prev) => ({ ...prev, submitting: false }));
@@ -382,6 +383,53 @@ export default function AdminPostsPage() {
       toast.error(error instanceof Error ? error.message : "更新发布状态失败");
     } finally {
       setBusyRowIds((prev) => prev.filter((id) => id !== row.id));
+    }
+  }
+
+  /**
+   * 批量切换文章发布状态。
+   * 批量发布只处理草稿，批量转草稿只处理已发布文章，避免无意刷新发布时间。
+   */
+  async function updateBulkPublish(ids: string[], published: boolean) {
+    if (bulkPublishAction) {
+      return;
+    }
+
+    const targetRows = posts.filter((post) => ids.includes(post.id) && post.published !== published);
+    const targetIds = targetRows.map((post) => post.id);
+
+    if (targetIds.length === 0) {
+      toast.info(published ? "所选文章已全部发布" : "所选文章已全部是草稿");
+      return;
+    }
+
+    const previousPosts = posts;
+    const action = published ? "publish" : "draft";
+    setBulkPublishAction(action);
+    setBusyRowIds((prev) => Array.from(new Set([...prev, ...targetIds])));
+    setPosts((prev) => prev.map((item) => (targetIds.includes(item.id) ? { ...item, published } : item)));
+
+    try {
+      const res = await fetch("/api/admin/posts/publish", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: targetIds, published }),
+      });
+      const data = await res.json();
+
+      if (!data.success) {
+        throw new Error(getApiErrorMessage(data, published ? "批量发布失败" : "批量转草稿失败"));
+      }
+
+      const count = data.data?.count ?? targetIds.length;
+      toast.success(published ? `已发布 ${count} 篇文章` : `已将 ${count} 篇文章转为草稿`);
+      void fetchPosts({ silent: true });
+    } catch (error) {
+      setPosts(previousPosts);
+      toast.error(error instanceof Error ? error.message : published ? "批量发布失败" : "批量转草稿失败");
+    } finally {
+      setBulkPublishAction(null);
+      setBusyRowIds((prev) => prev.filter((id) => !targetIds.includes(id)));
     }
   }
 
@@ -473,11 +521,11 @@ export default function AdminPostsPage() {
           <Link className="text-[var(--brand)] hover:underline" href={`/admin/posts/${row.id}/edit`}>
             编辑
           </Link>
-          <Link className="text-[var(--foreground)] hover:text-[var(--brand)]" href={`/posts/${row.slug}`}>
+          <Link className="text-[var(--foreground)] hover:text-[var(--brand)]" href={row.published ? `/posts/${row.slug}` : `/posts/${row.slug}?preview=admin`}>
             预览
           </Link>
           <button className="text-rose-600 hover:underline" onClick={() => void openDeleteDialog([row.id])} type="button">
-            隐藏
+            删除
           </button>
         </div>
       ),
@@ -486,19 +534,21 @@ export default function AdminPostsPage() {
 
   return (
     <>
-      <div className="space-y-4">
-        <PageHeader
-          eyebrow="Content"
-          title="内容队列"
-          description="围绕草稿、发布和复盘组织文章操作。"
-          action={
-            <Link href="/admin/posts/new">
-              <Button size="sm">新建文章</Button>
-            </Link>
-          }
-        />
+      <div className="flex h-full min-h-0 flex-col gap-4 overflow-hidden">
+        <div className="shrink-0">
+          <PageHeader
+            eyebrow="Content"
+            title="内容队列"
+            description="围绕草稿、发布和复盘组织文章操作。"
+            action={
+              <Link href="/admin/posts/new">
+                <Button size="sm">新建文章</Button>
+              </Link>
+            }
+          />
+        </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid shrink-0 grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatsCard
             label="全部内容"
             value={stats.total}
@@ -544,53 +594,59 @@ export default function AdminPostsPage() {
           />
         </div>
 
-        <Toolbar
-          leading={
-            <>
-              <input
-                aria-label="搜索文章"
-                className="ui-ring min-w-[240px] flex-1 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--foreground)] placeholder:text-[var(--muted)] focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
-                placeholder="搜索标题或 slug"
-                value={query}
-                onChange={(event) => {
-                  setQuery(event.target.value);
-                  setPage(1);
-                }}
-              />
-              {[
-                { key: "all", label: "全部内容" },
-                { key: "draft", label: "仅看草稿" },
-                { key: "published", label: "已发布" },
-              ].map((item) => (
-                <button
-                  key={item.key}
-                  type="button"
-                  aria-pressed={statusFilter === item.key}
-                  className={
-                    statusFilter === item.key
-                      ? "ui-btn rounded-xl bg-[var(--primary)] px-3 py-2 text-sm text-white"
-                      : "ui-btn rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--surface-alt)]"
-                  }
-                  onClick={() => {
-                    setStatusFilter(item.key as typeof statusFilter);
+        <div className="shrink-0">
+          <Toolbar
+            leading={
+              <>
+                <input
+                  aria-label="搜索文章"
+                  className="ui-ring min-w-[240px] flex-1 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--foreground)] placeholder:text-[var(--muted)] focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+                  placeholder="搜索标题或 slug"
+                  value={query}
+                  onChange={(event) => {
+                    setQuery(event.target.value);
                     setPage(1);
                   }}
-                >
-                  {item.label}
-                </button>
-              ))}
-            </>
-          }
-          trailing={<span className="text-sm text-[var(--muted)]">共 {pagination.total} 篇内容</span>}
-        />
+                />
+                {[
+                  { key: "all", label: "全部内容" },
+                  { key: "draft", label: "仅看草稿" },
+                  { key: "published", label: "已发布" },
+                ].map((item) => (
+                  <button
+                    key={item.key}
+                    type="button"
+                    aria-pressed={statusFilter === item.key}
+                    className={
+                      statusFilter === item.key
+                        ? "ui-btn rounded-xl bg-[var(--primary)] px-3 py-2 text-sm text-white"
+                        : "ui-btn rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--surface-alt)]"
+                    }
+                    onClick={() => {
+                      setStatusFilter(item.key as typeof statusFilter);
+                      setPage(1);
+                    }}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </>
+            }
+            trailing={<span className="text-sm text-[var(--muted)]">共 {pagination.total} 篇内容</span>}
+          />
+        </div>
 
         <DataTable
+          fillHeight
           title="文章列表"
           summary="按内容状态和发布时间组织内容队列。"
           densityLabel="内容队列"
           toolbar={
             <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
-              <span>支持批量 AI 摘要、封面生成、内容补全、隐藏与状态切换</span>
+              <span>支持批量 AI 摘要、封面生成、内容补全、发布、转草稿与删除</span>
+              {bulkPublishAction ? (
+                <StatusBadge tone="warning">{bulkPublishAction === "publish" ? "批量发布处理中" : "批量转草稿处理中"}</StatusBadge>
+              ) : null}
               {activeSummaryIds.length > 0 ? <StatusBadge tone="warning">{activeSummaryIds.length} 篇摘要处理中</StatusBadge> : null}
             </div>
           }
@@ -599,11 +655,23 @@ export default function AdminPostsPage() {
           bulkActions={[
             {
               label: "AI 批量补全",
+              disabled: bulkPublishAction !== null,
               onClick: (ids) => setBulkAiIds(ids),
             },
             {
-              label: "批量隐藏",
+              label: "批量发布",
+              disabled: bulkPublishAction !== null,
+              onClick: (ids) => void updateBulkPublish(ids, true),
+            },
+            {
+              label: "批量转草稿",
+              disabled: bulkPublishAction !== null,
+              onClick: (ids) => void updateBulkPublish(ids, false),
+            },
+            {
+              label: "批量删除",
               variant: "danger",
+              disabled: bulkPublishAction !== null,
               onClick: (ids) => void openDeleteDialog(ids),
             },
           ]}
@@ -620,7 +688,7 @@ export default function AdminPostsPage() {
       </div>
 
       <DeleteImpactDialog
-        confirmLabel="确认隐藏"
+        confirmLabel="确认删除"
         description={deleteDialog.description}
         impacts={deleteDialog.impacts}
         onConfirm={confirmDelete}

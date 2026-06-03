@@ -55,7 +55,7 @@ describe("posts workbench", () => {
 
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<AdminPostsPage />);
+    const { container } = render(<AdminPostsPage />);
 
     await waitFor(() => {
       expect(screen.getByRole("heading", { name: "内容队列" })).toBeInTheDocument();
@@ -65,7 +65,13 @@ describe("posts workbench", () => {
     expect(screen.getByText("仅看草稿")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "切换为已发布" })).toBeInTheDocument();
     expect(screen.getByText("评论 2")).toBeInTheDocument();
-    expect(screen.getByText("支持批量 AI 摘要、封面生成、内容补全、隐藏与状态切换")).toBeInTheDocument();
+    expect(screen.getByText("支持批量 AI 摘要、封面生成、内容补全、发布、转草稿与删除")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "批量发布" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "批量转草稿" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "批量删除" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "预览" })).toHaveAttribute("href", "/posts/ai-draft?preview=admin");
+    expect(container.firstElementChild).toHaveClass("h-full", "min-h-0", "overflow-hidden");
+    expect(screen.getByTestId("admin-data-table-scroll")).toHaveClass("min-h-0", "flex-1", "overflow-auto");
 
     fireEvent.click(screen.getByRole("button", { name: "切换为已发布" }));
 
@@ -140,5 +146,73 @@ describe("posts workbench", () => {
       apply: true,
     });
     expect(await screen.findByText("查看详情")).toHaveAttribute("href", "/admin/ai/tasks/task-1");
+  });
+
+  test("batch publishes selected draft posts without republishing already published rows", async () => {
+    const fetchMock = vi.fn(async (url, options) => {
+      if (url === "/api/admin/posts/publish" && (options as { method?: string } | undefined)?.method === "PATCH") {
+        return {
+          ok: true,
+          json: async () => ({ success: true, data: { count: 1 } }),
+        };
+      }
+
+      return {
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: [
+            {
+              id: "1",
+              title: "Draft Post",
+              slug: "draft-post",
+              excerpt: null,
+              published: false,
+              viewCount: 3,
+              createdAt: "2026-04-01T00:00:00Z",
+              author: { name: "Admin", email: "admin@example.com" },
+              _count: { comments: 2, likes: 5 },
+            },
+            {
+              id: "2",
+              title: "Published Post",
+              slug: "published-post",
+              excerpt: "摘要",
+              published: true,
+              viewCount: 8,
+              createdAt: "2026-04-02T00:00:00Z",
+              author: { name: "Admin", email: "admin@example.com" },
+              _count: { comments: 0, likes: 1 },
+            },
+          ],
+        }),
+      };
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<AdminPostsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Draft Post")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByLabelText("选择 1"));
+    fireEvent.click(screen.getByLabelText("选择 2"));
+    fireEvent.click(screen.getByRole("button", { name: "批量发布" }));
+
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some(
+          ([url, options]) => url === "/api/admin/posts/publish" && (options as { method?: string } | undefined)?.method === "PATCH",
+        ),
+      ).toBe(true);
+    });
+
+    const publishCall = fetchMock.mock.calls.find(([url]) => url === "/api/admin/posts/publish");
+    expect(JSON.parse(String(publishCall?.[1]?.body))).toMatchObject({
+      ids: ["1"],
+      published: true,
+    });
   });
 });
