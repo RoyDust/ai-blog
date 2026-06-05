@@ -32,7 +32,7 @@ function AdminLayoutContent({ children, siteName, user }: { children: ReactNode;
   const pathname = usePathname();
   const { isCollapsed } = useAdminLayout();
   const isPostEditorRoute = /^\/admin\/posts\/(?:new|[^/]+\/edit)\/?$/.test(pathname);
-  const isScrollLockedRoute = isPostEditorRoute || pathname === "/admin/logs";
+  const isScrollLockedRoute = isPostEditorRoute || pathname === "/admin/posts" || pathname === "/admin/logs";
 
   const rootClassName = isScrollLockedRoute
     ? "admin-theme fixed inset-0 h-dvh overflow-hidden bg-[var(--background)] text-[var(--foreground)] antialiased"

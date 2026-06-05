@@ -19,6 +19,7 @@ async function GETHandler(request: Request) {
     const data = await listCoverAssets({
       ...pagination,
       q: searchParams.get("q") ?? undefined,
+      generatedByAi: searchParams.get("generatedByAi") === "true" ? true : searchParams.get("generatedByAi") === "false" ? false : undefined,
       source: searchParams.get("source") ?? undefined,
       status: searchParams.get("status") ?? undefined,
     })

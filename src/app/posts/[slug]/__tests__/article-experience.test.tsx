@@ -5,6 +5,7 @@ import { describe, expect, test, vi } from 'vitest'
 const findFirst = vi.fn()
 const findMany = vi.fn()
 const commentFindMany = vi.fn()
+const getServerSession = vi.fn().mockResolvedValue(null)
 
 vi.mock('@/components/CommentAuthGate', () => ({
   CommentAuthGate: ({ postId }: { postId: string }) => <div data-testid="comment-auth-gate">Comment gate for {postId}</div>,
@@ -45,7 +46,7 @@ findMany.mockResolvedValue([])
 commentFindMany.mockResolvedValue([])
 
 vi.mock('next-auth', () => ({
-  getServerSession: vi.fn().mockResolvedValue(null),
+  getServerSession,
 }))
 
 vi.mock('next-auth/react', () => ({
@@ -67,6 +68,51 @@ vi.mock('@/lib/auth', () => ({
 }))
 
 describe('article experience', () => {
+  test('admin preview renders an unpublished draft without public interactions', async () => {
+    findFirst.mockClear()
+    findMany.mockClear()
+    commentFindMany.mockClear()
+    getServerSession.mockResolvedValueOnce({ user: { id: 'admin-1', role: 'ADMIN' } })
+    findFirst.mockResolvedValueOnce({
+      id: 'draft-1',
+      slug: 'draft-post',
+      title: 'Draft Title',
+      content: '# Draft Intro\nDraft body',
+      excerpt: 'Draft excerpt',
+      seoDescription: null,
+      coverImage: null,
+      createdAt: new Date('2026-01-01T00:00:00Z'),
+      updatedAt: new Date('2026-01-02T00:00:00Z'),
+      publishedAt: null,
+      published: false,
+      viewCount: 0,
+      readingTimeMinutes: 1,
+      author: { id: 'u1', name: 'Author', image: null },
+      category: { name: 'Category', slug: 'category' },
+      series: null,
+      tags: [{ name: 'Tag', slug: 'tag' }],
+      _count: { comments: 0, likes: 0 },
+    })
+
+    const { default: PostPage } = await import('@/app/(public)/posts/[slug]/page')
+    const ui = await PostPage({
+      params: Promise.resolve({ slug: 'draft-post' }),
+      searchParams: Promise.resolve({ preview: 'admin' }),
+    })
+    await act(async () => {
+      render(ui as React.ReactElement)
+    })
+
+    expect(findFirst.mock.calls[0]?.[0].where).toEqual({ slug: 'draft-post', deletedAt: null })
+    expect(screen.getByRole('heading', { level: 1, name: 'Draft Intro' })).toBeInTheDocument()
+    expect(screen.getByText('草稿预览仅后台管理员可见，公开阅读、点赞、收藏、评论和阅读统计已停用。')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '点赞' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '收藏文章' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { level: 2, name: '评论 (0)' })).not.toBeInTheDocument()
+    expect(findMany).not.toHaveBeenCalled()
+    expect(commentFindMany).not.toHaveBeenCalled()
+  })
+
   test('article page includes progress and anonymous interaction rail', async () => {
     commentFindMany.mockResolvedValueOnce([
       {

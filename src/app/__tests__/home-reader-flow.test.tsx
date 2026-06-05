@@ -29,6 +29,7 @@ describe('home reader flow', () => {
     id: `${index}`,
     title: `Test Post ${index}`,
     slug: `test-post-${index}`,
+    generatedByAiNews: false,
     excerpt: `Excerpt ${index}`,
     coverImage: null,
     featured: false,
@@ -101,7 +102,7 @@ describe('home reader flow', () => {
   test('home keeps latest feed when only two posts exist', async () => {
     postFindMany
       .mockResolvedValueOnce([createPost(3), createPost(4)])
-      .mockResolvedValueOnce([{ ...createPost(1), slug: 'ai-daily-2026-01-01' }])
+      .mockResolvedValueOnce([{ ...createPost(1), slug: 'ai-daily-2026-01-01', generatedByAiNews: true }])
     postCount.mockResolvedValueOnce(2)
 
     const { default: Home } = await import('../(public)/page')

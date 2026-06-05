@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test, vi } from "vitest"
 
 import { fetchAiNewsRawItems, parseAiNewsFeed } from "@/lib/ai-news-fetchers"
-import { FALLBACK_DAILY_AI_NEWS_SOURCES, loadDailyAiNewsSources } from "@/lib/ai-news-sources"
+import { FALLBACK_DAILY_AI_NEWS_SOURCES, loadDailyAiNewsSources, loadSelectedDailyAiNewsSources } from "@/lib/ai-news-sources"
 import type { AiNewsSourceConfig } from "@/lib/ai-news-types"
 
 function textResponse(body: string, init?: ResponseInit) {
@@ -163,7 +163,7 @@ describe("AI news fetchers", () => {
 
     expect(fetchImpl).toHaveBeenCalledWith(
       "https://api.github.com/repos/vercel/next.js/releases?per_page=2",
-      expect.objectContaining({ headers: expect.objectContaining({ Authorization: "Bearer ghp_test", "User-Agent": "RoyDustBlog-AiNews/1.0" }) }),
+      expect.objectContaining({ headers: expect.objectContaining({ Authorization: "Bearer ghp_test", "User-Agent": "Inkforge-AiNews/1.0" }) }),
     )
     expect(result.failures).toEqual([])
     expect(result.items).toHaveLength(1)
@@ -259,5 +259,34 @@ describe("AI news fetchers", () => {
     await expect(loadDailyAiNewsSources({ prisma: { aiNewsSource: { findMany: vi.fn().mockResolvedValue([]) } } })).resolves.toEqual(FALLBACK_DAILY_AI_NEWS_SOURCES)
     await expect(loadDailyAiNewsSources({ prisma: {} })).resolves.toEqual(FALLBACK_DAILY_AI_NEWS_SOURCES)
     await expect(loadDailyAiNewsSources({ prisma: { aiNewsSource: { findMany: vi.fn().mockRejectedValue(new Error("stale client")) } } })).resolves.toEqual(FALLBACK_DAILY_AI_NEWS_SOURCES)
+  })
+
+  test("loads selected sources without enabled filtering or fallback", async () => {
+    const findMany = vi.fn().mockResolvedValue([
+      { id: "disabled", type: "RSS", name: "Disabled", url: "https://example.com/feed.xml", enabled: false, weight: 10 },
+    ])
+
+    const result = await loadSelectedDailyAiNewsSources({
+      prisma: { aiNewsSource: { findMany } },
+      sourceIds: ["disabled", "missing"],
+    })
+
+    expect(findMany).toHaveBeenCalledWith({
+      where: { id: { in: ["disabled", "missing"] } },
+      orderBy: [{ weight: "desc" }, { name: "asc" }],
+    })
+    expect(result.sources).toEqual([
+      expect.objectContaining({
+        id: "disabled",
+        enabled: true,
+        defaultEnabled: false,
+      }),
+    ])
+    expect(result.missingIds).toEqual(["missing"])
+
+    await expect(loadSelectedDailyAiNewsSources({ prisma: { aiNewsSource: { findMany: vi.fn().mockResolvedValue([]) } }, sourceIds: ["missing"] })).resolves.toEqual({
+      sources: [],
+      missingIds: ["missing"],
+    })
   })
 })

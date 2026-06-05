@@ -81,9 +81,8 @@ function FilterBarForm({
 
   return (
     <form
-      className="card-base sticky z-30 space-y-4 p-4"
+      className="card-base space-y-4 p-4"
       method="get"
-      style={{ top: "calc(var(--sidebar-sticky-top, 0px) + 1rem)" }}
     >
       {search ? <input type="hidden" name="q" value={search} /> : null}
       {categoryValue ? <input type="hidden" name="category" value={categoryValue} /> : null}

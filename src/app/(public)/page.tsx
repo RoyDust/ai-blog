@@ -42,7 +42,7 @@ async function getData() {
       where: {
         deletedAt: null,
         published: true,
-        series: { slug: 'ai-daily' },
+        generatedByAiNews: true,
       },
       select: {
         id: true,
@@ -94,7 +94,7 @@ type HomePost = Awaited<ReturnType<typeof getData>>['posts'][number]
 export default async function Home() {
   const [{ posts, aiDailyPosts, hasLoadError }, settings] = await Promise.all([getData(), getBlogSettings()])
   const latestPosts = (posts as HomePost[])
-    .filter((post) => !post.slug.startsWith('ai-daily-'))
+    .filter((post) => !post.generatedByAiNews)
     .slice(0, HOME_LATEST_POST_LIMIT)
   const websiteJsonLd = buildWebSiteJsonLd({
     siteName: settings.siteName,

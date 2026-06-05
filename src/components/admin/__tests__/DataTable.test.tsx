@@ -95,4 +95,29 @@ describe("DataTable", () => {
 
     expect(onPageChange).toHaveBeenCalledWith(4);
   });
+
+  test("supports fixed-height internal scrolling", () => {
+    const { container } = render(
+      <DataTable
+        fillHeight
+        columns={[{ key: "name", label: "名称", render: (row) => row.name }]}
+        emptyText="暂无数据"
+        pageSize={10}
+        rows={rows}
+        title="固定高度表格"
+      />,
+    );
+
+    const card = container.querySelector('[data-slot="card"]');
+    const section = card?.querySelector("section");
+    const scrollContainer = screen.getByTestId("admin-data-table-scroll");
+    const tableHeader = container.querySelector('[data-slot="table-header"]');
+    const pagination = screen.getByText("显示第 1 到 10 条，共 12 条记录").closest("footer");
+
+    expect(card).toHaveClass("flex", "min-h-0", "flex-1", "overflow-hidden");
+    expect(section).toHaveClass("flex", "min-h-0", "flex-1", "flex-col");
+    expect(scrollContainer).toHaveClass("min-h-0", "flex-1", "overflow-auto");
+    expect(tableHeader).toHaveClass("sticky", "top-0");
+    expect(pagination).toHaveClass("shrink-0");
+  });
 });

@@ -48,6 +48,28 @@ describe("/api/admin/covers/randomize-posts", () => {
     expect(backfillMissingPostCovers).toHaveBeenCalledWith({
       postIds: ["post-1"],
       publishedOnly: false,
+      replaceExisting: false,
+      nonAiDailyOnly: true,
+    });
+  });
+
+  test("passes explicit replace mode for current non AI daily cover refresh", async () => {
+    getServerSession.mockResolvedValueOnce({ user: { id: "admin-1", role: "ADMIN" } });
+    backfillMissingPostCovers.mockResolvedValueOnce({ updated: 3, skipped: 0 });
+
+    const { POST } = await import("../route");
+    const response = await POST(new Request("http://localhost/api/admin/covers/randomize-posts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ publishedOnly: false, replaceExisting: true }),
+    }));
+
+    expect(response.status).toBe(200);
+    expect(backfillMissingPostCovers).toHaveBeenCalledWith({
+      postIds: undefined,
+      publishedOnly: false,
+      replaceExisting: true,
+      nonAiDailyOnly: true,
     });
   });
 });

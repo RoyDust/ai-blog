@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 import { StatusBadge } from "@/components/admin/primitives/StatusBadge";
 import { Button } from "@/components/admin/ui";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/shadcn/ui/table";
 import { getApiErrorMessage } from "@/lib/admin-api-client";
 
 type TaskItem = {
@@ -359,47 +360,47 @@ export function AiTaskDetail({ task }: { task: TaskDetail }) {
         </section>
       ) : null}
 
-      <section className="ui-surface overflow-hidden rounded-3xl shadow-[var(--shadow-card)]">
-        <header className="border-b border-[var(--border)] px-4 py-3">
-          <h3 className="font-display text-lg font-semibold text-[var(--foreground)]">任务项</h3>
-          <p className="mt-1 text-sm text-[var(--muted)]">逐条查看输出、失败原因和应用状态。</p>
+      <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+        <header className="border-b border-slate-200 px-4 py-3">
+          <h3 className="text-base font-semibold text-slate-950">任务项</h3>
+          <p className="mt-1 text-xs text-slate-500">逐条查看输出、失败原因和应用状态。</p>
         </header>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[980px]">
-            <thead className="bg-[var(--surface-alt)]">
-              <tr>
+          <Table className="min-w-[980px] table-fixed">
+            <TableHeader className="border-b border-slate-200 bg-[#f8faf8] shadow-[0_1px_0_rgba(15,23,42,0.06)]">
+              <TableRow className="border-0 hover:bg-transparent">
                 {["文章", "动作", "状态", "输出预览", "错误", "应用", "更新时间"].map((label) => (
-                  <th key={label} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-[var(--muted)]">
+                  <TableHead key={label} className="px-4 py-3.5 text-xs font-medium uppercase tracking-wide text-slate-500">
                     {label}
-                  </th>
+                  </TableHead>
                 ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[var(--border)]">
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {items.map((item) => (
-                <tr key={item.id} className="transition-colors hover:bg-[var(--surface-alt)]/60">
-                  <td className="px-4 py-3 align-top">
+                <TableRow key={item.id} className="border-slate-100 transition-colors hover:bg-slate-50/80">
+                  <TableCell className="whitespace-normal px-4 py-4 align-top">
                     {item.post ? (
-                      <Link className="font-medium text-[var(--foreground)] hover:text-[var(--brand)]" href={`/admin/posts/${item.post.id}/edit`}>
+                      <Link className="font-medium text-slate-950 hover:text-cyan-700" href={`/admin/posts/${item.post.id}/edit`}>
                         {item.post.title}
                       </Link>
                     ) : task.source === "draft-post" ? (
-                      <span className="text-sm text-[var(--muted)]">未保存草稿</span>
+                      <span className="text-sm text-slate-500">未保存草稿</span>
                     ) : (
-                      <span className="text-sm text-[var(--muted)]">文章不存在</span>
+                      <span className="text-sm text-slate-500">文章不存在</span>
                     )}
-                  </td>
-                  <td className="px-4 py-3 align-top text-sm text-[var(--foreground)]">{actionLabels[item.action] ?? item.action}</td>
-                  <td className="px-4 py-3 align-top">
+                  </TableCell>
+                  <TableCell className="px-4 py-4 align-top text-sm text-slate-700">{actionLabels[item.action] ?? item.action}</TableCell>
+                  <TableCell className="px-4 py-4 align-top">
                     <StatusBadge tone={statusTone(item.status)}>{statusLabels[item.status] ?? item.status}</StatusBadge>
-                  </td>
-                  <td className="max-w-[320px] px-4 py-3 align-top text-sm leading-6 text-[var(--muted)]">
+                  </TableCell>
+                  <TableCell className="whitespace-normal px-4 py-4 align-top text-sm leading-6 text-slate-500">
                     <span className="line-clamp-3">{renderOutput(item)}</span>
-                  </td>
-                  <td className="max-w-[260px] px-4 py-3 align-top text-sm text-rose-600">
+                  </TableCell>
+                  <TableCell className="whitespace-normal px-4 py-4 align-top text-sm text-rose-600">
                     <span className="line-clamp-3">{item.error ?? "-"}</span>
-                  </td>
-                  <td className="px-4 py-3 align-top">
+                  </TableCell>
+                  <TableCell className="px-4 py-4 align-top">
                     {oneClickArticleInfoTask && item.status === "SUCCEEDED" ? (
                       <StatusBadge tone="warning">待表单确认</StatusBadge>
                     ) : item.applied ? (
@@ -415,14 +416,14 @@ export function AiTaskDetail({ task }: { task: TaskDetail }) {
                         {applyingItemId === item.id ? "应用中..." : "应用"}
                       </Button>
                     ) : (
-                      <span className="text-sm text-[var(--muted)]">-</span>
+                      <span className="text-sm text-slate-500">-</span>
                     )}
-                  </td>
-                  <td className="px-4 py-3 align-top text-sm text-[var(--muted)]">{formatDate(item.updatedAt)}</td>
-                </tr>
+                  </TableCell>
+                  <TableCell className="px-4 py-4 align-top text-sm text-slate-500">{formatDate(item.updatedAt)}</TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       </section>
     </div>

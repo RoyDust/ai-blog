@@ -80,6 +80,28 @@ describe("cover asset service", () => {
     })).rejects.toMatchObject({ name: "ValidationError" });
   });
 
+  test("marks AI source covers as AI-generated on create", async () => {
+    findUniqueCoverAsset.mockResolvedValueOnce(null);
+    createCoverAssetRecord.mockResolvedValueOnce({ id: "cover-ai" });
+
+    const { createCoverAsset } = await import("../cover-assets");
+    await createCoverAsset({
+      url: "https://cdn.example.com/covers/ai/a.jpg",
+      key: "covers/ai/a.jpg",
+      provider: "qiniu",
+      source: "ai",
+      status: "active",
+      tags: [],
+    });
+
+    expect(createCoverAssetRecord).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        source: "ai",
+        generatedByAi: true,
+      }),
+    }));
+  });
+
   test("selects a deterministic random active cover", async () => {
     countCoverAssets.mockResolvedValueOnce(5);
     findFirstCoverAsset.mockResolvedValueOnce({ id: "cover-3" });
@@ -89,7 +111,12 @@ describe("cover asset service", () => {
 
     expect(findFirstCoverAsset).toHaveBeenCalledWith(expect.objectContaining({
       skip: 2,
-      where: { status: "active", deletedAt: null },
+      where: {
+        status: "active",
+        source: "upload",
+        generatedByAi: false,
+        deletedAt: null,
+      },
     }));
     expect(result).toEqual({ id: "cover-3" });
   });
@@ -119,6 +146,7 @@ describe("cover asset service", () => {
       key: "covers/a.jpg",
       provider: "qiniu",
       source: "upload",
+      generatedByAi: false,
       status: "active",
       title: null,
       alt: null,
@@ -157,6 +185,7 @@ describe("cover asset service", () => {
     expect(findManyPosts).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({
         published: true,
+        generatedByAiNews: false,
         OR: [{ coverImage: null }, { coverImage: "" }],
       }),
     }));
@@ -165,5 +194,56 @@ describe("cover asset service", () => {
       skipped: 2,
       skippedReason: "NO_ACTIVE_COVERS",
     });
+  });
+
+  test("can replace all non AI daily post covers with uploaded library assets", async () => {
+    findManyPosts.mockResolvedValueOnce([{ id: "post-1" }]);
+    countCoverAssets.mockResolvedValueOnce(1);
+    findFirstCoverAsset.mockResolvedValueOnce({
+      id: "cover-1",
+      url: "https://cdn.example.com/covers/uploaded.jpg",
+      key: "covers/uploaded.jpg",
+      provider: "qiniu",
+      source: "upload",
+      generatedByAi: false,
+      status: "active",
+      title: null,
+      alt: null,
+      description: null,
+      tags: [],
+      usageCount: 0,
+      lastUsedAt: null,
+      createdAt: new Date("2026-06-06"),
+    });
+    updatePost.mockResolvedValueOnce({
+      id: "post-1",
+      slug: "post-1",
+      published: true,
+      category: null,
+      tags: [],
+    });
+    updateCoverAssetRecord.mockResolvedValueOnce({});
+
+    const { backfillMissingPostCovers } = await import("../cover-assets");
+    const result = await backfillMissingPostCovers({
+      publishedOnly: false,
+      replaceExisting: true,
+    });
+
+    const where = findManyPosts.mock.calls[0]?.[0]?.where;
+    expect(where).toMatchObject({
+      deletedAt: null,
+      generatedByAiNews: false,
+    });
+    expect(where.published).toBeUndefined();
+    expect(where.OR).toBeUndefined();
+    expect(updatePost).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: "post-1" },
+      data: {
+        coverImage: "https://cdn.example.com/covers/uploaded.jpg",
+        coverAssetId: "cover-1",
+      },
+    }));
+    expect(result).toEqual({ updated: 1, skipped: 0 });
   });
 });

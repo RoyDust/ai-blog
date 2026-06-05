@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 import { PageHeader } from "@/components/admin/primitives/PageHeader";
 import { Button } from "@/components/admin/ui";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/shadcn/ui/table";
 import { getApiErrorMessage } from "@/lib/admin-api-client";
 
 interface SeriesRow {
@@ -241,11 +242,11 @@ export default function AdminSeriesPage() {
           </div>
         </form>
 
-        <section className="ui-surface rounded-xl p-5 shadow-[var(--shadow-card)]">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+        <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
             <div>
-              <h2 className="font-display text-lg font-semibold text-[var(--foreground)]">系列列表</h2>
-              <p className="mt-1 text-sm text-[var(--muted)]">共 {filtered.length} 个可用系列</p>
+              <h2 className="text-base font-semibold text-slate-950">系列列表</h2>
+              <p className="mt-1 text-xs text-slate-500">共 {filtered.length} 个可用系列</p>
             </div>
             <input
               aria-label="搜索系列"
@@ -256,59 +257,59 @@ export default function AdminSeriesPage() {
             />
           </div>
 
-          <div className="mt-5 overflow-x-auto">
-            <table className="min-w-full divide-y divide-[var(--border)] text-sm">
-              <thead>
-                <tr className="text-left text-xs uppercase tracking-wide text-[var(--muted)]">
-                  <th className="py-3 pr-4 font-medium">系列</th>
-                  <th className="py-3 pr-4 font-medium">文章</th>
-                  <th className="py-3 pr-4 font-medium">排序</th>
-                  <th className="py-3 font-medium">操作</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[var(--border)]">
+          <div className="overflow-x-auto">
+            <Table className="min-w-[720px] table-fixed">
+              <TableHeader className="border-b border-slate-200 bg-[#f8faf8] shadow-[0_1px_0_rgba(15,23,42,0.06)]">
+                <TableRow className="border-0 hover:bg-transparent">
+                  <TableHead className="w-[52%] px-4 py-3.5 text-xs uppercase tracking-wide text-slate-500">系列</TableHead>
+                  <TableHead className="w-[90px] px-4 py-3.5 text-xs uppercase tracking-wide text-slate-500">文章</TableHead>
+                  <TableHead className="w-[90px] px-4 py-3.5 text-xs uppercase tracking-wide text-slate-500">排序</TableHead>
+                  <TableHead className="px-4 py-3.5 text-xs uppercase tracking-wide text-slate-500">操作</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {loading ? (
-                  <tr>
-                    <td colSpan={4} className="py-8 text-center text-[var(--muted)]">
+                  <TableRow>
+                    <TableCell colSpan={4} className="py-8 text-center text-slate-500">
                       正在加载系列...
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ) : filtered.length > 0 ? (
                   filtered.map((row) => (
-                    <tr key={row.id}>
-                      <td className="max-w-md py-4 pr-4">
+                    <TableRow key={row.id} className="border-slate-100 transition-colors hover:bg-slate-50/80">
+                      <TableCell className="whitespace-normal px-4 py-4 align-top">
                         <div className="space-y-1">
-                          <div className="font-medium text-[var(--foreground)]">{row.title}</div>
-                          <div className="text-xs text-[var(--muted)]">/series/{row.slug}</div>
-                          {row.description ? <p className="line-clamp-2 text-xs leading-5 text-[var(--muted)]">{row.description}</p> : null}
+                          <div className="font-medium text-slate-950">{row.title}</div>
+                          <div className="font-mono text-xs text-slate-500">/series/{row.slug}</div>
+                          {row.description ? <p className="line-clamp-2 text-xs leading-5 text-slate-500">{row.description}</p> : null}
                         </div>
-                      </td>
-                      <td className="py-4 pr-4 text-[var(--muted)]">{row._count.posts}</td>
-                      <td className="py-4 pr-4 text-[var(--muted)]">{row.order}</td>
-                      <td className="py-4">
+                      </TableCell>
+                      <TableCell className="px-4 py-4 align-top text-slate-500">{row._count.posts}</TableCell>
+                      <TableCell className="px-4 py-4 align-top text-slate-500">{row.order}</TableCell>
+                      <TableCell className="whitespace-normal px-4 py-4 align-top">
                         <div className="flex flex-wrap items-center gap-3">
-                          <button type="button" className="text-[var(--brand)] hover:underline" onClick={() => setForm(toForm(row))}>
+                          <button type="button" className="text-cyan-700 hover:underline" onClick={() => setForm(toForm(row))}>
                             编辑
                           </button>
-                          <Link className="text-[var(--foreground)] hover:text-[var(--brand)]" href={`/series/${row.slug}`}>
+                          <Link className="text-slate-700 hover:text-cyan-700" href={`/series/${row.slug}`}>
                             预览
                           </Link>
                           <button type="button" className="text-rose-600 hover:underline" onClick={() => void deleteSeries(row)}>
                             隐藏
                           </button>
                         </div>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ))
                 ) : (
-                  <tr>
-                    <td colSpan={4} className="py-8 text-center text-[var(--muted)]">
+                  <TableRow>
+                    <TableCell colSpan={4} className="py-8 text-center text-slate-500">
                       暂无系列
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 )}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         </section>
       </section>

@@ -37,19 +37,19 @@ function clearSiteUrlEnv() {
 }
 
 describe('seo helpers', () => {
-  test('defaults canonical urls to roydust.top', () => {
+  test('defaults canonical urls to localhost', () => {
     clearSiteUrlEnv()
 
-    expect(getSiteUrl()).toBe('http://roydust.top')
-    expect(buildCanonicalUrl('/posts/hello-world')).toBe('http://roydust.top/posts/hello-world')
+    expect(getSiteUrl()).toBe('http://localhost:3000')
+    expect(buildCanonicalUrl('/posts/hello-world')).toBe('http://localhost:3000/posts/hello-world')
   })
 
   test('prefers the public site url over auth callback url', () => {
-    process.env.NEXT_PUBLIC_SITE_URL = 'http://roydust.top/'
+    process.env.NEXT_PUBLIC_SITE_URL = 'https://blog.example/'
     process.env.NEXTAUTH_URL = 'http://127.0.0.1:3000'
 
-    expect(getSiteUrl()).toBe('http://roydust.top')
-    expect(buildCanonicalUrl('posts/hello-world')).toBe('http://roydust.top/posts/hello-world')
+    expect(getSiteUrl()).toBe('https://blog.example')
+    expect(buildCanonicalUrl('posts/hello-world')).toBe('https://blog.example/posts/hello-world')
   })
 
   test('builds noindex metadata for utility pages', () => {
@@ -61,7 +61,7 @@ describe('seo helpers', () => {
       path: '/search',
     })
 
-    expect(metadata.alternates?.canonical).toBe('http://roydust.top/search')
+    expect(metadata.alternates?.canonical).toBe('http://localhost:3000/search')
     expect(metadata.robots).toEqual({ index: false, follow: true })
   })
 
@@ -152,12 +152,12 @@ describe('seo helpers', () => {
 
     expect(payload['@type']).toBe('BlogPosting')
     expect(payload.headline).toBe('Hello World')
-    expect(payload.mainEntityOfPage).toBe('http://roydust.top/posts/hello-world')
-    expect(payload.url).toBe('http://roydust.top/posts/hello-world')
+    expect(payload.mainEntityOfPage).toBe('http://localhost:3000/posts/hello-world')
+    expect(payload.url).toBe('http://localhost:3000/posts/hello-world')
     expect(payload.publisher).toEqual({
       '@type': 'Organization',
       name: 'My Blog',
-      url: 'http://roydust.top',
+      url: 'http://localhost:3000',
     })
     expect(payload.articleSection).toBe('Engineering')
     expect(payload.keywords).toBe('Next.js, Prisma')
@@ -193,9 +193,9 @@ describe('seo helpers', () => {
 
     expect(payload['@type']).toBe('BreadcrumbList')
     expect(payload.itemListElement).toEqual([
-      { '@type': 'ListItem', position: 1, name: '首页', item: 'http://roydust.top/' },
-      { '@type': 'ListItem', position: 2, name: '文章', item: 'http://roydust.top/posts' },
-      { '@type': 'ListItem', position: 3, name: 'Hello World', item: 'http://roydust.top/posts/hello-world' },
+      { '@type': 'ListItem', position: 1, name: '首页', item: 'http://localhost:3000/' },
+      { '@type': 'ListItem', position: 2, name: '文章', item: 'http://localhost:3000/posts' },
+      { '@type': 'ListItem', position: 3, name: 'Hello World', item: 'http://localhost:3000/posts/hello-world' },
     ])
   })
 
@@ -228,7 +228,7 @@ describe('seo helpers', () => {
       url: 'https://blog.example/about',
       image: 'https://example.com/avatar.png',
       description: 'Author bio',
-      sameAs: ['https://github.com/RoyDust'],
+      sameAs: ['https://github.com/inkforge'],
     })
 
     expect(payload).toEqual({
@@ -238,7 +238,7 @@ describe('seo helpers', () => {
       url: 'https://blog.example/about',
       image: 'https://example.com/avatar.png',
       description: 'Author bio',
-      sameAs: ['https://github.com/RoyDust'],
+      sameAs: ['https://github.com/inkforge'],
     })
   })
 })

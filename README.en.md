@@ -15,7 +15,7 @@ Inkforge is not a display-only Markdown theme. It packs a *polished blog fronten
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Database-336791?logo=postgresql)](https://www.postgresql.org/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-v4-38BDF8?logo=tailwindcss)](https://tailwindcss.com/)
 
-[Live Demo](http://47.98.167.32) · [Architecture](./ARCHITECTURE.md) · [Deployment Guide](./docs/deployment/github-actions-manual-deploy.md) · [Project Docs](./PROJECT_DOCS.md)
+[Live Demo](http://47.98.167.32) · [Architecture](./ARCHITECTURE.md) · [Deployment Guide](./docs/deployment/github-actions-manual-deploy.md)
 
 </div>
 
@@ -228,8 +228,9 @@ Coverage spans public reading flows, post detail, search, RSS, SEO metadata, adm
 ## Docs
 
 - [ARCHITECTURE.md](./ARCHITECTURE.md)
-- [PROJECT_DOCS.md](./PROJECT_DOCS.md)
-- [TEST_REPORT.md](./TEST_REPORT.md)
+- [Cleanup Audit](./docs/plans/2026-06-04-project-cleanup-audit.md)
+- [Archived Project Docs](./docs/archive/PROJECT_DOCS.md)
+- [Archived Test Report](./docs/archive/TEST_REPORT.md)
 - [Server Execution Checklist](./docs/deployment/server-execution-checklist.md)
 - [HTTPS / HTTP2 Deployment Notes](./docs/deployment/https-http2-roydust-top.md)
 

@@ -37,12 +37,13 @@ describe("/api/admin/covers", () => {
     listCoverAssets.mockResolvedValueOnce({ items: [], total: 0, page: 1, limit: 10 });
 
     const { GET } = await import("../route");
-    const response = await GET(new Request("http://localhost/api/admin/covers?q=tech&status=active"));
+    const response = await GET(new Request("http://localhost/api/admin/covers?q=tech&status=active&generatedByAi=true"));
 
     expect(response.status).toBe(200);
     expect(listCoverAssets).toHaveBeenCalledWith(expect.objectContaining({
       q: "tech",
       status: "active",
+      generatedByAi: true,
       page: 1,
       limit: 10,
     }));

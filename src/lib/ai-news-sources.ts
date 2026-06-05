@@ -9,6 +9,15 @@ type DailyAiNewsSourceLoaderOptions = {
   fallback?: AiNewsSourceConfig[]
 }
 
+type SelectedAiNewsSourceLoaderOptions = {
+  prisma?: {
+    aiNewsSource?: {
+      findMany?: (args?: unknown) => Promise<unknown[]>
+    }
+  } | null
+  sourceIds: string[]
+}
+
 const LEGACY_DAILY_AI_NEWS_SOURCES = [
   { id: "openai", name: "OpenAI Blog", feedUrl: "https://openai.com/news/rss.xml", homepage: "https://openai.com/news/" },
   { id: "anthropic", name: "Anthropic News", feedUrl: "https://www.anthropic.com/news/rss.xml", homepage: "https://www.anthropic.com/news", enabled: false },
@@ -85,6 +94,10 @@ function sortSources(sources: AiNewsSourceConfig[]) {
   })
 }
 
+function uniqueStrings(values: string[]) {
+  return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)))
+}
+
 export async function loadDailyAiNewsSources({
   prisma,
   fallback = FALLBACK_DAILY_AI_NEWS_SOURCES,
@@ -105,5 +118,36 @@ export async function loadDailyAiNewsSources({
     return dbSources.length > 0 ? dbSources : fallbackSources
   } catch {
     return fallbackSources
+  }
+}
+
+export async function loadSelectedDailyAiNewsSources({
+  prisma,
+  sourceIds,
+}: SelectedAiNewsSourceLoaderOptions): Promise<{ sources: AiNewsSourceConfig[]; missingIds: string[] }> {
+  const ids = uniqueStrings(sourceIds)
+  const findMany = prisma?.aiNewsSource?.findMany
+
+  if (ids.length === 0 || typeof findMany !== "function") {
+    return { sources: [], missingIds: ids }
+  }
+
+  const rows = await findMany({
+    where: { id: { in: ids } },
+    orderBy: [{ weight: "desc" }, { name: "asc" }],
+  })
+  const sources = rows
+    .map(mapDbSource)
+    .filter((source): source is AiNewsSourceConfig => Boolean(source))
+    .map((source) => ({
+      ...source,
+      defaultEnabled: source.enabled !== false,
+      enabled: true,
+    }))
+  const foundIds = new Set(sources.map((source) => source.id))
+
+  return {
+    sources: sortSources(sources),
+    missingIds: ids.filter((id) => !foundIds.has(id)),
   }
 }

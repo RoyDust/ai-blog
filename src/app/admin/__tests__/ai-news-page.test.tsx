@@ -39,11 +39,72 @@ const modelPayload = [
   },
 ]
 
+const sourcePayload = [
+  {
+    id: "openai",
+    type: "RSS",
+    name: "OpenAI Blog",
+    url: "https://example.com/openai.xml",
+    homepage: "https://example.com",
+    category: "official",
+    enabled: true,
+    weight: 120,
+    minScore: null,
+    fetchLimit: null,
+    settings: {},
+    editable: true,
+    deletable: false,
+    lastTestedAt: null,
+    lastTestStatus: null,
+    lastTestMessage: null,
+    lastFetchedItemCount: null,
+    stats: { recentRunCount: 0, recentCandidateCount: 0, recentSelectedCount: 0, recentFailureCount: 0 },
+    healthWarnings: [],
+  },
+  {
+    id: "disabled",
+    type: "RSS",
+    name: "Disabled Feed",
+    url: "https://example.com/disabled.xml",
+    homepage: null,
+    category: "industry",
+    enabled: false,
+    weight: 20,
+    minScore: null,
+    fetchLimit: null,
+    settings: {},
+    editable: true,
+    deletable: true,
+    lastTestedAt: null,
+    lastTestStatus: null,
+    lastTestMessage: null,
+    lastFetchedItemCount: null,
+    stats: { recentRunCount: 0, recentCandidateCount: 0, recentSelectedCount: 0, recentFailureCount: 0 },
+    healthWarnings: [],
+  },
+]
+
 function jsonResponse(data: unknown) {
   return {
     ok: true,
     json: async () => data,
   }
+}
+
+function sourceListResponse(data = sourcePayload) {
+  return jsonResponse({
+    success: true,
+    data,
+    pagination: { page: 1, limit: 10, total: data.length, totalPages: 1 },
+    summary: {
+      enabledCount: data.filter((source) => source.enabled).length,
+      enabledSourceIds: data.filter((source) => source.enabled).map((source) => source.id),
+    },
+  })
+}
+
+function isSourceListUrl(url: string) {
+  return url.startsWith("/api/admin/ai-news/sources?")
 }
 
 describe("admin AI news page", () => {
@@ -53,6 +114,10 @@ describe("admin AI news page", () => {
 
       if (url === "/api/admin/ai/models") {
         return Promise.resolve(jsonResponse({ success: true, data: modelPayload }))
+      }
+
+      if (isSourceListUrl(url)) {
+        return Promise.resolve(sourceListResponse())
       }
 
       if (url === "/api/admin/ai-news/run" && init?.method === "POST") {
@@ -114,6 +179,10 @@ describe("admin AI news page", () => {
         return Promise.resolve(jsonResponse({ success: true, data: modelPayload }))
       }
 
+      if (isSourceListUrl(url)) {
+        return Promise.resolve(sourceListResponse())
+      }
+
       if (url === "/api/admin/ai-news/run" && init?.method === "POST") {
         return Promise.resolve(jsonResponse({
           success: true,
@@ -157,12 +226,71 @@ describe("admin AI news page", () => {
     expect(screen.getByText("生成模型 日报模型（qwen-news）")).toBeInTheDocument()
   })
 
+  test("sends selected sources for one-off generation", async () => {
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+
+      if (url === "/api/admin/ai/models") {
+        return Promise.resolve(jsonResponse({ success: true, data: modelPayload }))
+      }
+
+      if (isSourceListUrl(url)) {
+        return Promise.resolve(sourceListResponse())
+      }
+
+      if (url === "/api/admin/ai-news/run" && init?.method === "POST") {
+        return Promise.resolve(jsonResponse({
+          success: true,
+          data: {
+            operation: "created",
+            published: false,
+            sourceCount: 2,
+            failures: [],
+            generatedBy: { id: "model-1", name: "日报模型", model: "qwen-news" },
+            metrics: { rawCandidateCount: 2, dedupedCandidateCount: 2, scoredCandidateCount: 2, selectedCandidateCount: 1, configuredSourceCount: 2 },
+            post: { id: "post-1", title: "AI 日报", slug: "ai-daily-2026-04-29", published: false },
+          },
+        }))
+      }
+
+      if (url === "/api/admin/ai-news/run") {
+        return Promise.resolve(jsonResponse({ success: true, data: [] }))
+      }
+
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    render(<AdminAiNewsPage />)
+
+    expect(await screen.findByText("OpenAI Blog")).toBeInTheDocument()
+    fireEvent.click(screen.getByRole("button", { name: "选中来源" }))
+    fireEvent.click(screen.getByRole("button", { name: "选择 Disabled Feed" }))
+    fireEvent.change(screen.getByLabelText("生成日期"), { target: { value: "2026-04-29" } })
+    fireEvent.click(screen.getByRole("button", { name: "生成今日 AI 日报" }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/admin/ai-news/run",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({ date: "2026-04-29", modelId: "model-1", sourceMode: "selected", sourceIds: ["openai", "disabled"] }),
+        }),
+      )
+    })
+    expect(await screen.findByText("来源 2 个")).toBeInTheDocument()
+  })
+
   test("renders recent run history with failure reasons", async () => {
     const fetchMock = vi.fn((input: RequestInfo | URL) => {
       const url = String(input)
 
       if (url === "/api/admin/ai/models") {
         return Promise.resolve(jsonResponse({ success: true, data: modelPayload }))
+      }
+
+      if (isSourceListUrl(url)) {
+        return Promise.resolve(sourceListResponse())
       }
 
       if (url === "/api/admin/ai-news/run") {
@@ -202,6 +330,10 @@ describe("admin AI news page", () => {
 
       if (url === "/api/admin/ai/models") {
         return Promise.resolve(jsonResponse({ success: true, data: modelPayload }))
+      }
+
+      if (isSourceListUrl(url)) {
+        return Promise.resolve(sourceListResponse())
       }
 
       if (url === "/api/admin/ai-news/run") {

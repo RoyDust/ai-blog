@@ -24,7 +24,9 @@ test("sidebar and footer expose discovery-oriented public chrome", () => {
     expect(container.querySelector("#footer .reader-panel")).toBeInTheDocument();
     expect(container.querySelector("#sidebar .reader-panel")).toBeInTheDocument();
     expect(screen.getByRole("navigation", { name: "Footer" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Zhang Wei" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Inkforge Author" })).toBeInTheDocument();
+    expect(container.querySelector('#sidebar a[href=""]')).not.toBeInTheDocument();
+    expect(container.querySelector('#sidebar a[href="mailto:null"]')).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "分类" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "阅读统计" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "本月阅读目标" })).not.toBeInTheDocument();

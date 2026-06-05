@@ -31,8 +31,9 @@ import { fetchAiNewsRawItems } from "@/lib/ai-news-fetchers"
 import { buildDailyAiNewsSlug, dedupeNewsItems, parseNewsFeed, type AiNewsItem, type AiNewsSource } from "@/lib/ai-news-parser"
 import { applyAiNewsPostEnhancements, formatAiNewsPostEnhancementWarning } from "@/lib/ai-news-post-processing"
 import { renderDailyAiNewsMarkdown } from "@/lib/ai-news-renderer"
-import { loadDailyAiNewsSources } from "@/lib/ai-news-sources"
+import { loadDailyAiNewsSources, loadSelectedDailyAiNewsSources } from "@/lib/ai-news-sources"
 import { scoreAiNewsCandidate, selectScoredCandidates } from "@/lib/ai-news-scoring"
+import { ValidationError } from "@/lib/api-errors"
 import type {
   AiNewsCandidateInput,
   AiNewsJsonObject,
@@ -40,12 +41,14 @@ import type {
   AiNewsScoredCandidate,
   AiNewsSourceConfig,
   AiNewsSourceFailure,
+  AiNewsSourceSnapshot,
 } from "@/lib/ai-news-types"
 import { generatePostReview, isAutoPublishableReview } from "@/lib/ai-review"
 import { prisma } from "@/lib/prisma"
 
 type AiNewsRunTriggerInput = "manual" | "cron"
 type AiNewsRunStatusValue = "RUNNING" | "SUCCEEDED" | "FAILED" | "SKIPPED"
+type AiNewsSourceMode = "default" | "selected"
 
 function readPositiveIntegerEnv(key: string, fallback: number) {
   const value = Number(process.env[key])
@@ -193,19 +196,14 @@ async function mapWithConcurrency<T, R>(
  */
 async function collectDailyAiNewsRawItems({
   date,
-  sources,
+  sourceConfigs,
   fetchImpl,
 }: {
   date: Date
-  sources?: AiNewsSource[]
+  sourceConfigs: AiNewsSourceConfig[]
   fetchImpl: typeof fetch
 }) {
   const cutoff = new Date(date.getTime() - RECENT_WINDOW_MS)
-  const sourceConfigs = sources
-    ? legacySourcesToConfigs(sources)
-    : await loadDailyAiNewsSources({
-        prisma: prisma as unknown as { aiNewsSource?: { findMany?: (args?: unknown) => Promise<unknown[]> } },
-      })
   const { items, failures } = await fetchAiNewsRawItems({ sources: sourceConfigs, since: cutoff, fetchImpl })
   const recentItems = items.filter((item) => !item.publishedAt || item.publishedAt >= cutoff)
 
@@ -214,6 +212,61 @@ async function collectDailyAiNewsRawItems({
     items: sortRawItemsByDate(recentItems),
     failures,
   }
+}
+
+async function resolveDailyAiNewsSourceConfigs({
+  sources,
+  sourceMode,
+  sourceIds,
+}: {
+  sources?: AiNewsSource[]
+  sourceMode: AiNewsSourceMode
+  sourceIds?: string[]
+}) {
+  if (sources) {
+    return legacySourcesToConfigs(sources)
+  }
+
+  const sourcePrisma = prisma as unknown as { aiNewsSource?: { findMany?: (args?: unknown) => Promise<unknown[]> } }
+
+  if (sourceMode === "selected") {
+    const ids = Array.from(new Set((sourceIds ?? []).map((id) => id.trim()).filter(Boolean)))
+    if (ids.length === 0) {
+      throw new ValidationError("At least one AI news source must be selected")
+    }
+
+    const { sources: selectedSources, missingIds } = await loadSelectedDailyAiNewsSources({
+      prisma: sourcePrisma,
+      sourceIds: ids,
+    })
+
+    if (missingIds.length > 0) {
+      throw new ValidationError(`Unknown AI news sources: ${missingIds.join(", ")}`)
+    }
+    if (selectedSources.length === 0) {
+      throw new ValidationError("At least one AI news source must be selected")
+    }
+
+    return selectedSources
+  }
+
+  return loadDailyAiNewsSources({ prisma: sourcePrisma })
+}
+
+function buildAiNewsSourceSnapshot(sources: AiNewsSourceConfig[]): AiNewsSourceSnapshot[] {
+  return sources.map((source) => ({
+    id: source.id,
+    type: source.type,
+    name: source.name,
+    url: source.url,
+    homepage: source.homepage ?? null,
+    category: source.category ?? null,
+    enabled: source.enabled !== false,
+    defaultEnabled: source.defaultEnabled ?? source.enabled !== false,
+    weight: source.weight,
+    minScore: source.minScore ?? null,
+    fetchLimit: source.fetchLimit ?? null,
+  }))
 }
 
 /**
@@ -516,6 +569,8 @@ async function finishAiNewsRun({
   startedAtMs: number
   data: Record<string, unknown> & { status: AiNewsRunStatusValue }
 }) {
+  const postId = typeof data.postId === "string" && data.postId.trim() ? data.postId : null
+
   await prisma.aiNewsRun.update({
     where: { id: runId },
     data: {
@@ -524,6 +579,13 @@ async function finishAiNewsRun({
       durationMs: Math.max(0, Date.now() - startedAtMs),
     },
   })
+
+  if (postId) {
+    await prisma.post.updateMany({
+      where: { id: postId, generatedByAiNews: false },
+      data: { generatedByAiNews: true },
+    })
+  }
 }
 
 /**
@@ -584,6 +646,8 @@ export async function runDailyAiNews({
   modelId,
   regenerate = false,
   sources,
+  sourceMode = "default",
+  sourceIds,
   fetchImpl = fetch,
   trigger = "manual",
 }: {
@@ -592,6 +656,8 @@ export async function runDailyAiNews({
   modelId?: string | null
   regenerate?: boolean
   sources?: AiNewsSource[]
+  sourceMode?: AiNewsSourceMode
+  sourceIds?: string[]
   fetchImpl?: typeof fetch
   trigger?: AiNewsRunTriggerInput
 }) {
@@ -651,8 +717,14 @@ export async function runDailyAiNews({
       }
     }
 
+    const sourceConfigs = await resolveDailyAiNewsSourceConfigs({ sources, sourceMode, sourceIds })
+    const sourceSnapshotJson = buildAiNewsSourceSnapshot(sourceConfigs)
+    await prisma.aiNewsRun.update({
+      where: { id: run.id },
+      data: { sourceSnapshotJson },
+    })
     const aiModel = await resolveDailyAiNewsModel(modelId)
-    const { sourceConfigs, items: rawItems, failures } = await collectDailyAiNewsRawItems({ date, sources, fetchImpl })
+    const { items: rawItems, failures } = await collectDailyAiNewsRawItems({ date, sourceConfigs, fetchImpl })
     const dedupedCandidates = dedupeByCanonicalUrl(rawItems)
     const persistedCandidates = await persistDailyAiNewsCandidates({ runId: run.id, candidates: dedupedCandidates })
     const { scoredCandidates, selectedCandidates, duplicateMap, selection, generationMode: selectedGenerationMode } =
@@ -768,6 +840,7 @@ export async function runDailyAiNews({
               content: draft.content,
               excerpt: draft.excerpt,
               published: existing.published,
+              generatedByAiNews: true,
             },
           })),
           title: draft.title,
@@ -780,6 +853,7 @@ export async function runDailyAiNews({
             content: draft.content,
             excerpt: draft.excerpt,
             published: false,
+            generatedByAiNews: true,
           },
         })
 

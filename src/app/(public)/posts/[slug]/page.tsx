@@ -22,9 +22,11 @@ import rehypeHighlight from "rehype-highlight";
 import rehypeHighlightCodeLines from "rehype-highlight-code-lines";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { getServerSession } from "next-auth";
 import { ArticleHero, ArticleReadTracker, ArticleRelatedPosts, ArticleSection, ArticleSectionsReveal, ArticleTocDrawer, ArticleTocRail, BackToTopButton, BookmarkButton, CopyCodeButton, LikeButton, NewsletterForm, ReadingProgress, SectionHeader, SeriesNav, ShareButton } from "@/components/blog";
 import { CommentAuthGate } from "@/components/CommentAuthGate";
 import { FallbackImage } from "@/components/ui";
+import { authOptions } from "@/lib/auth";
 import { getBlogSettings } from "@/lib/blog-settings";
 import { prisma } from "@/lib/prisma";
 import { buildArticleJsonLd, buildArticleMetadata, buildBreadcrumbJsonLd } from "@/lib/seo";
@@ -34,9 +36,25 @@ import { JsonLd } from "@/components/seo/JsonLd";
  * 读取单篇已发布文章详情。
  * 返回正文、作者、分类、标签、评论与互动统计，供文章页一次性渲染。
  */
-async function getPost(slug: string) {
+type PostSearchParams = Promise<{ preview?: string | string[] }>;
+
+function readSearchParam(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+async function canPreviewDraft(searchParams?: PostSearchParams) {
+  const params = searchParams ? await searchParams : {};
+  if (readSearchParam(params.preview) !== "admin") {
+    return false;
+  }
+
+  const session = await getServerSession(authOptions);
+  return session?.user?.role === "ADMIN";
+}
+
+async function getPost(slug: string, options: { includeDraft?: boolean } = {}) {
   return prisma.post.findFirst({
-    where: { slug, deletedAt: null, published: true },
+    where: { slug, deletedAt: null, ...(options.includeDraft ? {} : { published: true }) },
     select: {
       id: true,
       title: true,
@@ -48,6 +66,7 @@ async function getPost(slug: string) {
       createdAt: true,
       updatedAt: true,
       publishedAt: true,
+      published: true,
       viewCount: true,
       readingTimeMinutes: true,
       author: {
@@ -138,9 +157,10 @@ async function getRelatedPosts(postId: string, tagSlugs: string[], limit = 3) {
 /**
  * 为文章详情页生成 SEO metadata。
  */
-export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+export async function generateMetadata({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams?: PostSearchParams }): Promise<Metadata> {
   const { slug } = await params
-  const [post, settings] = await Promise.all([getPost(slug), getBlogSettings()])
+  const includeDraft = await canPreviewDraft(searchParams)
+  const [post, settings] = await Promise.all([getPost(slug, { includeDraft }), getBlogSettings()])
   if (!post) {
     return {
       title: `文章不存在 | ${settings.siteName}`,
@@ -149,7 +169,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   }
   const description = post.seoDescription || post.excerpt || `${post.title} - ${settings.siteName}`
 
-  return buildArticleMetadata({
+  const metadata = buildArticleMetadata({
     title: `${post.title} | ${settings.siteName}`,
     description,
     path: `/posts/${post.slug}`,
@@ -159,6 +179,12 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     authorName: post.author.name,
     siteUrl: settings.siteUrl,
   })
+
+  if (includeDraft && !post.published) {
+    metadata.robots = { index: false, follow: false };
+  }
+
+  return metadata;
 }
 
 /**
@@ -282,16 +308,19 @@ function CommentList({ commentsPromise }: { commentsPromise: Promise<Awaited<Ret
  * 文章详情页入口。
  * 负责把正文、目录、互动按钮、上一篇/下一篇与评论区组合成完整阅读体验。
  */
-export default async function PostPage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function PostPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams?: PostSearchParams }) {
   const { slug } = await params;
-  const post = await getPost(slug);
+  const includeDraft = await canPreviewDraft(searchParams);
+  const post = await getPost(slug, { includeDraft });
 
   if (!post) {
     notFound();
   }
 
-  const relatedPosts = await getRelatedPosts(post.id, post.tags.map((tag) => tag.slug))
-  const commentsPromise = getPostComments(post.id)
+  const isDraftPreview = includeDraft && !post.published;
+
+  const relatedPosts = isDraftPreview ? [] : await getRelatedPosts(post.id, post.tags.map((tag) => tag.slug))
+  const commentsPromise = isDraftPreview ? null : getPostComments(post.id)
 
   const headings = extractHeadings(post.content);
   const renderedHeadingCounters = new Map<string, number>()
@@ -319,11 +348,17 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
 
   return (
     <div className="article-detail-page relative overflow-x-clip pb-16">
-      <JsonLd data={[articleJsonLd, breadcrumbJsonLd]} />
-      <ArticleReadTracker postId={post.id} />
+      {isDraftPreview ? null : <JsonLd data={[articleJsonLd, breadcrumbJsonLd]} />}
+      {isDraftPreview ? null : <ArticleReadTracker postId={post.id} />}
       <ReadingProgress />
       <BackToTopButton />
       <ArticleTocDrawer headings={headings} />
+
+      {isDraftPreview ? (
+        <div className="mb-6 rounded-2xl border border-amber-300/70 bg-amber-50 px-5 py-4 text-sm font-medium text-amber-900 dark:border-amber-500/40 dark:bg-amber-950/40 dark:text-amber-100">
+          草稿预览仅后台管理员可见，公开阅读、点赞、收藏、评论和阅读统计已停用。
+        </div>
+      ) : null}
 
       <div className="grid gap-[var(--layout-rail-gap)] xl:grid-cols-[minmax(0,1fr)_var(--article-toc-width)] xl:items-start">
         <ArticleSectionsReveal>
@@ -434,12 +469,13 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
             </ArticleSection>
           ) : null}
 
-          {relatedPosts.length > 0 ? (
+          {!isDraftPreview && relatedPosts.length > 0 ? (
             <ArticleSection>
               <ArticleRelatedPosts posts={relatedPosts} />
             </ArticleSection>
           ) : null}
 
+          {isDraftPreview ? null : (
           <ArticleSection className="reader-panel w-full space-y-6 p-6 sm:p-8">
             <SectionHeader
               eyebrow="读后"
@@ -465,8 +501,9 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
             </div>
 
           </ArticleSection>
+          )}
 
-          {settings.newsletter.enabled ? (
+          {!isDraftPreview && settings.newsletter.enabled ? (
             <ArticleSection className="reader-panel w-full space-y-4 p-6 sm:p-8">
               <SectionHeader
                 eyebrow="Newsletter"
@@ -477,6 +514,7 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
             </ArticleSection>
           ) : null}
 
+          {commentsPromise ? (
           <ArticleSection aria-labelledby="comments-heading" className="reader-panel w-full p-6 sm:p-8" id="comments">
             <h2 id="comments-heading" className="mb-3 font-display text-2xl font-bold text-[var(--foreground)]">评论 ({post._count.comments})</h2>
             <p className="mb-6 text-sm leading-6 text-[var(--text-muted)]">欢迎分享你的观点或补充事实和论据，但请避免人身攻击或侮辱他人。</p>
@@ -487,6 +525,7 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
               <CommentList commentsPromise={commentsPromise} />
             </Suspense>
           </ArticleSection>
+          ) : null}
         </ArticleSectionsReveal>
 
         <ArticleTocRail headings={headings} />

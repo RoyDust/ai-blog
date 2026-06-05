@@ -343,7 +343,7 @@ export function AdminSettingsClient({ user, blogSettings, operationLogSettings }
                   <Input
                     label="显示名称"
                     onChange={(event) => setProfile((value) => ({ ...value, name: event.target.value }))}
-                    placeholder="例如 RoyDust"
+                    placeholder="例如 Inkforge"
                     value={profile.name}
                   />
                   <Input

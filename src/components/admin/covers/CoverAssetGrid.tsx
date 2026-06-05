@@ -58,6 +58,7 @@ export function CoverAssetGrid({ assets, loading = false, onEdit, onDelete }: Co
 
             <div className="flex flex-wrap gap-2 text-xs text-[var(--muted)]">
               <span className="rounded-full bg-[var(--surface-alt)] px-2 py-1">{getSourceLabel(asset.source)}</span>
+              <span className="rounded-full bg-[var(--surface-alt)] px-2 py-1">{asset.generatedByAi ? "AI 生成" : "非 AI"}</span>
               <span className="rounded-full bg-[var(--surface-alt)] px-2 py-1">{asset.status === "active" ? "可用" : "归档"}</span>
               <span className="rounded-full bg-[var(--surface-alt)] px-2 py-1">使用 {asset.usageCount}</span>
             </div>

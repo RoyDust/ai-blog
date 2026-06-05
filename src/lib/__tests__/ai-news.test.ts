@@ -8,6 +8,7 @@ const publishAiDraftPost = vi.fn()
 const applyAiNewsPostEnhancements = vi.fn()
 const formatAiNewsPostEnhancementWarning = vi.fn()
 const findFirst = vi.fn()
+const updateManyPost = vi.fn()
 const createAiNewsRun = vi.fn()
 const updateAiNewsRun = vi.fn()
 const findManyAiNewsSource = vi.fn()
@@ -32,6 +33,7 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     post: {
       findFirst,
+      updateMany: updateManyPost,
     },
     aiNewsRun: {
       create: createAiNewsRun,
@@ -249,6 +251,7 @@ describe("ai news aggregation", () => {
       input: expect.objectContaining({
         slug: "ai-daily-2026-04-29",
         published: false,
+        generatedByAiNews: true,
         content: expect.stringContaining("生成标注：本文由 AI 模型"),
       }),
     })
@@ -335,6 +338,7 @@ describe("ai news aggregation", () => {
 
     findManyAiNewsSource.mockResolvedValueOnce(sourceRows)
     findFirst.mockResolvedValueOnce(null)
+    updateManyPost.mockResolvedValue({ count: 1 })
     createAdminPost.mockResolvedValueOnce({ id: "post-1", title: "2026-04-29 AI 日报：代理与开源更新", slug: "ai-daily-2026-04-29", published: false })
     generatePostReview.mockResolvedValueOnce({ verdict: "ready", score: 94, summary: "可以发布", checks: [], suggestions: [] })
     isAutoPublishableReview.mockReturnValueOnce(true)
@@ -447,6 +451,7 @@ describe("ai news aggregation", () => {
         title: "2026-04-29 AI 日报：代理与开源更新",
         slug: "ai-daily-2026-04-29",
         published: false,
+        generatedByAiNews: true,
         content: expect.stringContaining("https://github.com/vercel/ai/releases/tag/v6.0.0"),
       }),
     })
@@ -480,6 +485,10 @@ describe("ai news aggregation", () => {
         reviewSummary: expect.stringContaining("入选候选少于 6 条"),
       }),
     })
+    expect(updateManyPost).toHaveBeenCalledWith({
+      where: { id: "post-1", generatedByAiNews: false },
+      data: { generatedByAiNews: true },
+    })
     expect(result).toMatchObject({
       operation: "created",
       published: false,
@@ -504,6 +513,7 @@ describe("ai news aggregation", () => {
 
   test("skips generation when the daily slug already exists", async () => {
     findFirst.mockResolvedValueOnce({ id: "post-existing", title: "已存在", slug: "ai-daily-2026-04-29", published: true })
+    updateManyPost.mockResolvedValue({ count: 1 })
 
     const { runDailyAiNews } = await import("@/lib/ai-news")
     const result = await runDailyAiNews({
@@ -518,6 +528,10 @@ describe("ai news aggregation", () => {
     expect(updateAiNewsRun).toHaveBeenCalledWith({
       where: { id: "run-1" },
       data: expect.objectContaining({ status: "SKIPPED", postId: "post-existing", published: true }),
+    })
+    expect(updateManyPost).toHaveBeenCalledWith({
+      where: { id: "post-existing", generatedByAiNews: false },
+      data: { generatedByAiNews: true },
     })
     expect(result).toMatchObject({
       operation: "skipped",
@@ -564,6 +578,7 @@ describe("ai news aggregation", () => {
         content: expect.stringContaining("生成标注：本文由 AI 模型"),
         excerpt: "新的摘要",
         published: true,
+        generatedByAiNews: true,
       }),
     })
     expect(publishAiDraftPost).not.toHaveBeenCalled()
@@ -636,6 +651,54 @@ describe("ai news aggregation", () => {
     expect(updateAiNewsRun).toHaveBeenCalledWith({
       where: { id: "run-1" },
       data: expect.objectContaining({ status: "FAILED", sourceCount: 0, failureCount: 1, error: "No AI news candidates available" }),
+    })
+  })
+
+  test("selected source mode can temporarily run disabled sources without fallback", async () => {
+    findFirst.mockResolvedValueOnce(null)
+    findManyAiNewsSource.mockResolvedValueOnce([
+      {
+        id: "disabled",
+        type: "RSS",
+        name: "Disabled RSS",
+        url: "https://example.com/disabled.xml",
+        enabled: false,
+        weight: 10,
+        fetchLimit: null,
+        minScore: null,
+        config: null,
+      },
+    ])
+    const fetchImpl = vi.fn().mockResolvedValue({ ok: false, status: 500 }) as unknown as typeof fetch
+
+    const { runDailyAiNews } = await import("@/lib/ai-news")
+
+    await expect(
+      runDailyAiNews({
+        authorId: "admin-1",
+        date: new Date("2026-04-29T08:00:00Z"),
+        sourceMode: "selected",
+        sourceIds: ["disabled"],
+        fetchImpl,
+      }),
+    ).rejects.toThrow("No AI news candidates available")
+
+    expect(findManyAiNewsSource).toHaveBeenCalledWith({
+      where: { id: { in: ["disabled"] } },
+      orderBy: [{ weight: "desc" }, { name: "asc" }],
+    })
+    expect(fetchImpl).toHaveBeenCalledWith("https://example.com/disabled.xml", expect.any(Object))
+    expect(updateAiNewsRun).toHaveBeenCalledWith({
+      where: { id: "run-1" },
+      data: {
+        sourceSnapshotJson: [
+          expect.objectContaining({
+            id: "disabled",
+            enabled: true,
+            defaultEnabled: false,
+          }),
+        ],
+      },
     })
   })
 })

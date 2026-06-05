@@ -149,6 +149,7 @@ describe("admin layout", () => {
   });
 
   test.each([
+    ["/admin/posts"],
     ["/admin/posts/new"],
     ["/admin/posts/1/edit"],
     ["/admin/logs"],

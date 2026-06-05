@@ -47,6 +47,7 @@ describe("ai cover image", () => {
     expect(createCoverAsset).toHaveBeenCalledWith(expect.objectContaining({
       provider: "qiniu",
       source: "ai",
+      generatedByAi: true,
       aiModelId: "qwen-wan2.6-image",
       createdById: "admin-1",
     }));

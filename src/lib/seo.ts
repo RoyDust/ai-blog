@@ -12,7 +12,7 @@ import type { Metadata } from 'next'
  */
 export const SITE_NAME = 'My Blog'
 
-const defaultSiteUrl = 'http://roydust.top'
+const defaultSiteUrl = 'http://localhost:3000'
 
 type SiteMetadataOptions = {
   siteName?: string

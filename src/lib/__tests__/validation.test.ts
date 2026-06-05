@@ -121,6 +121,8 @@ describe('validation helpers', () => {
     expect(parseCoverRandomizeInput({ postIds: ['post-1'], publishedOnly: false })).toEqual({
       postIds: ['post-1'],
       publishedOnly: false,
+      replaceExisting: false,
+      nonAiDailyOnly: true,
     })
   })
 
@@ -157,6 +159,21 @@ describe('validation helpers', () => {
     } finally {
       Date.now = realNow
     }
+  })
+
+  test('parses bulk publish ids and deduplicates them', () => {
+    expect(parsePublishInput({
+      ids: ['post-1', 'post-2', 'post-1'],
+      published: true,
+    })).toMatchObject({
+      id: 'post-1',
+      ids: ['post-1', 'post-2'],
+      published: true,
+    })
+  })
+
+  test('rejects publish inputs without any post ids', () => {
+    expect(() => parsePublishInput({ ids: [], published: true })).toThrow('Post ID is required')
   })
 
   test('parses comma-separated id lists', () => {

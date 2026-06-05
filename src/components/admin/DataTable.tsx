@@ -2,8 +2,11 @@
 
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Button, Card, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/admin/ui";
+import { Button } from "@/components/shadcn/ui/button";
+import { Card, CardHeader, CardTitle } from "@/components/shadcn/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/shadcn/ui/table";
 import { AdminPagination } from "@/components/admin/primitives/AdminPagination";
+import { cn } from "@/lib/utils";
 
 export interface DataColumn<T> {
   key: string;
@@ -30,6 +33,7 @@ interface DataTableProps<T extends { id: string }> {
     total: number;
     totalPages: number;
   };
+  fillHeight?: boolean;
   onPageChange?: (page: number) => void;
   onPageSizeChange?: (pageSize: number) => void;
   bulkActions?: Array<{
@@ -53,6 +57,7 @@ export function DataTable<T extends { id: string }>({
   pageSize: initialPageSize = 10,
   pageSizeOptions = [10, 20, 50, 100],
   pagination,
+  fillHeight = false,
   onPageChange,
   onPageSizeChange,
   bulkActions = [],
@@ -108,25 +113,36 @@ export function DataTable<T extends { id: string }>({
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]));
   };
 
-  return (
-    <Card className="gap-0 overflow-hidden rounded-3xl py-0 border border-slate-100/80 dark:border-slate-800/50 shadow-sm transition-all duration-300">
-      <section>
-        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] px-5 py-4">
-          <div>
-            <h2 className="font-display text-lg font-bold tracking-tight text-[var(--foreground)]">{title}</h2>
-            <p className="mt-1 text-sm text-[var(--muted)]">{summary ?? `共 ${totalRows} 条记录`}</p>
-          </div>
-          {densityLabel ? (
-            <span className="rounded-full bg-blue-50/60 dark:bg-blue-900/10 px-3 py-1 text-xs font-semibold text-blue-600 dark:text-blue-400">{densityLabel}</span>
-          ) : null}
-        </header>
+  const statusClassName = fillHeight
+    ? "flex min-h-0 flex-1 items-center justify-center px-4 py-16 text-center text-sm text-slate-500"
+    : "px-4 py-16 text-center text-sm text-slate-500";
 
-        {toolbar ? <div className="border-b border-[var(--border)] px-5 py-3.5 bg-slate-50/20 dark:bg-slate-900/5">{toolbar}</div> : null}
+  return (
+    <Card
+      className={cn(
+        "gap-0 overflow-hidden rounded-lg border-slate-200 bg-white py-0 text-slate-950 shadow-none",
+        fillHeight && "flex min-h-0 flex-1 flex-col",
+      )}
+    >
+      <section className={cn(fillHeight && "flex min-h-0 flex-1 flex-col")}>
+        <CardHeader className="shrink-0 gap-0 border-b border-slate-200 px-4 py-3">
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+            <div className="min-w-0">
+              <CardTitle className="text-base font-semibold text-slate-950">{title}</CardTitle>
+              <p className="mt-1 text-xs text-slate-500">{summary ?? `共 ${totalRows} 条记录`}</p>
+            </div>
+            {densityLabel ? (
+              <span className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600">{densityLabel}</span>
+            ) : null}
+          </div>
+        </CardHeader>
+
+        {toolbar ? <div className="shrink-0 border-b border-slate-200 bg-white px-4 py-3">{toolbar}</div> : null}
 
         {bulkActions.length > 0 ? (
-          <div className="flex flex-wrap items-center gap-3 border-b border-[var(--border)] bg-blue-50/10 dark:bg-slate-900/20 px-5 py-3">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">批量操作</span>
-            <span className="text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50/85 dark:bg-blue-900/20 px-2 py-0.5 rounded-md">已选 {visibleSelectedIds.length} 项</span>
+          <div className="flex shrink-0 flex-wrap items-center gap-3 border-b border-slate-200 bg-slate-50/80 px-4 py-3">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">批量操作</span>
+            <span className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-600">已选 {visibleSelectedIds.length} 项</span>
             <div className="flex items-center gap-2">
               {bulkActions.map((action) => (
                 <Button
@@ -135,8 +151,11 @@ export function DataTable<T extends { id: string }>({
                   onClick={() => action.onClick(visibleSelectedIds)}
                   size="sm"
                   type="button"
-                  variant={action.variant === "danger" ? "danger" : "primary"}
-                  className="rounded-xl shadow-xs transition-transform duration-200 active:scale-95"
+                  variant={action.variant === "danger" ? "destructive" : "outline"}
+                  className={cn(
+                    "h-8 rounded-md shadow-none",
+                    action.variant !== "danger" && "!border-slate-200 !bg-white !text-slate-700 hover:!bg-slate-50",
+                  )}
                 >
                   {action.label}
                 </Button>
@@ -146,15 +165,15 @@ export function DataTable<T extends { id: string }>({
         ) : null}
 
         {isLoading ? (
-          <p className="px-4 py-16 text-center text-sm text-[var(--muted)]">{loadingLabel}</p>
+          <p className={statusClassName}>{loadingLabel}</p>
         ) : rows.length === 0 ? (
-          <p className="px-4 py-16 text-center text-sm text-[var(--muted)]">{emptyText}</p>
+          <p className={statusClassName}>{emptyText}</p>
         ) : (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader className="bg-slate-50/40 dark:bg-slate-900/30 border-b border-[var(--border)]">
-                <TableRow className="hover:bg-transparent border-0">
-                  <TableHead className="w-12 text-center py-3.5">
+          <div className={cn(fillHeight ? "min-h-0 flex-1 overflow-auto" : "overflow-x-auto")} data-testid="admin-data-table-scroll">
+            <Table className="min-w-[860px] table-fixed xl:min-w-[1080px]">
+              <TableHeader className={cn("border-b border-slate-200 bg-[#f8faf8] shadow-[0_1px_0_rgba(15,23,42,0.06)]", fillHeight && "sticky top-0 z-10")}>
+                <TableRow className="border-0 hover:bg-transparent">
+                  <TableHead className="w-12 px-4 py-3.5 text-center">
                     <input
                       ref={headerCheckboxRef}
                       checked={allCurrentPageSelected}
@@ -162,37 +181,38 @@ export function DataTable<T extends { id: string }>({
                       type="checkbox"
                       aria-label="选择当前页"
                       aria-checked={isCurrentPagePartiallySelected ? "mixed" : allCurrentPageSelected}
-                      className="rounded border-slate-300 dark:border-slate-700 text-blue-600 focus:ring-blue-500/25 focus:ring-offset-0 bg-[var(--surface)] transition-all cursor-pointer size-4"
+                      className="size-4 cursor-pointer rounded border-slate-300 bg-white text-cyan-600 focus:ring-cyan-500/25 focus:ring-offset-0"
                     />
                   </TableHead>
                   {columns.map((column) => (
-                    <TableHead key={column.key} className="font-bold text-slate-700 dark:text-slate-300 py-3.5 text-xs uppercase tracking-wider">
+                    <TableHead key={column.key} className="py-3.5 text-xs font-medium uppercase tracking-wide text-slate-500">
                       {column.label}
                     </TableHead>
                   ))}
                 </TableRow>
               </TableHeader>
-              <TableBody className="divide-y divide-[var(--border)] bg-[var(--surface)]">
+              <TableBody>
                 {paginatedRows.map((row) => {
                   const isRowSelected = visibleSelectedIds.includes(row.id);
                   return (
                     <TableRow
                       key={row.id}
-                      className={`transition-colors duration-200 border-b border-[var(--border)] last:border-0 hover:bg-blue-50/20 dark:hover:bg-slate-800/10 ${
-                        isRowSelected ? "bg-blue-50/10 dark:bg-blue-900/5" : ""
-                      }`}
+                      className={cn(
+                        "border-slate-100 transition-colors hover:bg-slate-50/80",
+                        isRowSelected && "bg-cyan-50/70 hover:bg-cyan-50",
+                      )}
                     >
-                      <TableCell className="text-center py-4">
+                      <TableCell className="px-4 py-4 text-center align-top">
                         <input
                           checked={isRowSelected}
                           onChange={() => toggleOne(row.id)}
                           type="checkbox"
                           aria-label={`选择 ${row.id}`}
-                          className="rounded border-slate-300 dark:border-slate-700 text-blue-600 focus:ring-blue-500/25 focus:ring-offset-0 bg-[var(--surface)] transition-all cursor-pointer size-4"
+                          className="size-4 cursor-pointer rounded border-slate-300 bg-white text-cyan-600 focus:ring-cyan-500/25 focus:ring-offset-0"
                         />
                       </TableCell>
                       {columns.map((column) => (
-                        <TableCell className={`py-4 text-sm text-slate-600 dark:text-slate-300 ${column.className || ""}`} key={column.key}>
+                        <TableCell className={cn("whitespace-normal py-4 align-top text-sm text-slate-600", column.className)} key={column.key}>
                           {column.render(row)}
                         </TableCell>
                       ))}
@@ -206,6 +226,7 @@ export function DataTable<T extends { id: string }>({
 
         {!isLoading && rows.length > 0 ? (
           <AdminPagination
+            className={fillHeight ? "shrink-0" : undefined}
             itemLabel="条记录"
             onPageChange={usesServerPagination ? onPageChange : setCurrentPage}
             onPageSizeChange={(nextPageSize) => {
