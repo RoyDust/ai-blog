@@ -32,12 +32,12 @@ describe("admin density", () => {
     render(<AdminPostsPage />);
 
     await waitFor(() => {
-      expect(screen.getByRole("heading", { name: "内容队列" })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "AI 内容队列" })).toBeInTheDocument();
     });
 
     expect(screen.getByRole("link", { name: "新建文章" })).toHaveAttribute("href", "/admin/posts/new");
     expect(screen.getByRole("button", { name: "全部内容" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: "仅看草稿" })).toBeInTheDocument();
-    expect(screen.getByText("共 1 篇内容")).toBeInTheDocument();
+    expect(screen.getByText(/1\s*篇内容/)).toBeInTheDocument();
   });
 });

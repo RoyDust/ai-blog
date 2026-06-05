@@ -121,6 +121,8 @@ describe('validation helpers', () => {
     expect(parseCoverRandomizeInput({ postIds: ['post-1'], publishedOnly: false })).toEqual({
       postIds: ['post-1'],
       publishedOnly: false,
+      replaceExisting: false,
+      nonAiDailyOnly: true,
     })
   })
 

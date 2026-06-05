@@ -3,6 +3,7 @@ import Link from "next/link";
 import { AdminPagination } from "@/components/admin/primitives/AdminPagination";
 import { StatusBadge } from "@/components/admin/primitives/StatusBadge";
 import { Button } from "@/components/admin/ui";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/shadcn/ui/table";
 
 type Task = {
   id: string;
@@ -104,61 +105,61 @@ export function AiTaskList({
   searchParams?: AiTaskListSearchParams;
 }) {
   return (
-    <section className="ui-surface overflow-hidden rounded-3xl shadow-[var(--shadow-card)]">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] px-4 py-3">
+    <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
         <div>
-          <h2 className="font-display text-lg font-semibold text-[var(--foreground)]">任务记录</h2>
-          <p className="mt-1 text-sm text-[var(--muted)]">共 {pagination.total} 个 AI 任务，按最近创建排序。</p>
+          <h2 className="text-base font-semibold text-slate-950">任务记录</h2>
+          <p className="mt-1 text-xs text-slate-500">共 {pagination.total} 个 AI 任务，按最近创建排序。</p>
         </div>
-        <span className="rounded-full bg-[var(--surface-alt)] px-3 py-1 text-xs font-medium text-[var(--muted)]">
+        <span className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600">
           第 {pagination.page} / {pagination.totalPages} 页
         </span>
       </header>
 
       {tasks.length === 0 ? (
-        <p className="px-4 py-12 text-center text-sm text-[var(--muted)]">暂无 AI 任务记录</p>
+        <p className="px-4 py-12 text-center text-sm text-slate-500">暂无 AI 任务记录</p>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[900px]">
-            <thead className="bg-[var(--surface-alt)]">
-              <tr>
+          <Table className="min-w-[900px] table-fixed">
+            <TableHeader className="border-b border-slate-200 bg-[#f8faf8] shadow-[0_1px_0_rgba(15,23,42,0.06)]">
+              <TableRow className="border-0 hover:bg-transparent">
                 {["任务", "状态", "进度", "耗时", "创建时间", "最近错误", "操作"].map((label) => (
-                  <th key={label} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-[var(--muted)]">
+                  <TableHead key={label} className="px-4 py-3.5 text-xs font-medium uppercase tracking-wide text-slate-500">
                     {label}
-                  </th>
+                  </TableHead>
                 ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[var(--border)]">
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {tasks.map((task) => (
-                <tr key={task.id} className="transition-colors hover:bg-[var(--surface-alt)]/60">
-                  <td className="px-4 py-3 align-top">
+                <TableRow key={task.id} className="border-slate-100 transition-colors hover:bg-slate-50/80">
+                  <TableCell className="whitespace-normal px-4 py-4 align-top">
                     <div className="space-y-1">
-                      <p className="font-medium text-[var(--foreground)]">{taskTypeLabels[task.type] ?? task.type}</p>
-                      <p className="text-xs text-[var(--muted)]">{task.source} · {task.modelId ?? "默认模型"}</p>
+                      <p className="font-medium text-slate-950">{taskTypeLabels[task.type] ?? task.type}</p>
+                      <p className="text-xs text-slate-500">{task.source} · {task.modelId ?? "默认模型"}</p>
                     </div>
-                  </td>
-                  <td className="px-4 py-3 align-top">
+                  </TableCell>
+                  <TableCell className="px-4 py-4 align-top">
                     <StatusBadge tone={statusTone(task.status)}>{statusLabels[task.status] ?? task.status}</StatusBadge>
-                  </td>
-                  <td className="px-4 py-3 align-top text-sm text-[var(--foreground)]">
+                  </TableCell>
+                  <TableCell className="whitespace-normal px-4 py-4 align-top text-sm text-slate-700">
                     {task.succeededCount}/{task.requestedCount} 成功
                     {task.failedCount > 0 ? <span className="ml-2 text-rose-600">{task.failedCount} 失败</span> : null}
-                  </td>
-                  <td className="px-4 py-3 align-top text-sm text-[var(--muted)]">{formatDuration(task)}</td>
-                  <td className="px-4 py-3 align-top text-sm text-[var(--muted)]">{formatDate(task.createdAt)}</td>
-                  <td className="max-w-[260px] px-4 py-3 align-top text-sm text-[var(--muted)]">
+                  </TableCell>
+                  <TableCell className="px-4 py-4 align-top text-sm text-slate-500">{formatDuration(task)}</TableCell>
+                  <TableCell className="px-4 py-4 align-top text-sm text-slate-500">{formatDate(task.createdAt)}</TableCell>
+                  <TableCell className="whitespace-normal px-4 py-4 align-top text-sm text-slate-500">
                     <span className="line-clamp-2">{task.lastError ?? "-"}</span>
-                  </td>
-                  <td className="px-4 py-3 align-top">
+                  </TableCell>
+                  <TableCell className="px-4 py-4 align-top">
                     <Link href={`/admin/ai/tasks/${task.id}`}>
                       <Button size="sm" variant="outline" type="button">查看</Button>
                     </Link>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       )}
 

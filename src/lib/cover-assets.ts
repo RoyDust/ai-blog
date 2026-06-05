@@ -18,6 +18,7 @@ export type CoverAssetInput = {
   key?: string
   provider: string
   source: string
+  generatedByAi?: boolean
   status: string
   title?: string
   alt?: string
@@ -46,6 +47,7 @@ export type CoverAssetRecord = {
   key: string | null
   provider: string
   source: string
+  generatedByAi: boolean
   status: string
   title: string | null
   alt: string | null
@@ -107,6 +109,7 @@ function assertQiniuCoverAsset(input: Pick<CoverAssetInput, "url" | "key" | "pro
 
 function buildListWhere(input: {
   q?: string
+  generatedByAi?: boolean
   source?: string
   status?: string
 }) {
@@ -115,6 +118,7 @@ function buildListWhere(input: {
   return {
     deletedAt: null,
     ...(input.source ? { source: input.source } : {}),
+    ...(typeof input.generatedByAi === "boolean" ? { generatedByAi: input.generatedByAi } : {}),
     ...(input.status ? { status: input.status } : {}),
     ...(q
       ? {
@@ -136,6 +140,7 @@ function buildListWhere(input: {
  */
 export async function listCoverAssets(input: {
   q?: string
+  generatedByAi?: boolean
   source?: string
   status?: string
   page?: number
@@ -178,6 +183,7 @@ export async function createCoverAsset(input: CoverAssetInput) {
           key: input.key,
           provider: input.provider,
           source: input.source,
+          generatedByAi: input.generatedByAi ?? input.source === "ai",
           status: input.status,
           title: input.title,
           alt: input.alt,
@@ -205,6 +211,7 @@ export async function createCoverAsset(input: CoverAssetInput) {
         key: input.key,
         provider: input.provider,
         source: input.source,
+        generatedByAi: input.generatedByAi ?? input.source === "ai",
         status: input.status,
         title: input.title,
         alt: input.alt,
@@ -288,6 +295,8 @@ export async function softDeleteCoverAsset(id: string) {
 export async function selectRandomCoverAsset(input: { random?: RandomSource } = {}) {
   const where = {
     status: ACTIVE_COVER_STATUS,
+    source: "upload",
+    generatedByAi: false,
     deletedAt: null,
   }
   const count = await prisma.coverAsset.count({ where })
@@ -454,19 +463,22 @@ export async function ensurePostCoverFromLibrary(post: { id: string; coverImage?
 }
 
 /**
- * 批量为缺少封面的文章补齐封面。
- * 主要用于后台批处理操作，支持限定文章集合以及“仅已发布文章”模式。
+ * 批量为文章分配上传封面素材。
+ * 默认只补齐缺少封面的非 AI 日报文章；replaceExisting=true 时会显式覆盖已有封面。
  */
 export async function backfillMissingPostCovers(input: {
   postIds?: string[]
   publishedOnly?: boolean
+  replaceExisting?: boolean
+  nonAiDailyOnly?: boolean
 }) {
   const posts = await prisma.post.findMany({
     where: {
       deletedAt: null,
       ...(input.postIds && input.postIds.length > 0 ? { id: { in: input.postIds } } : {}),
       ...(input.publishedOnly === false ? {} : { published: true }),
-      OR: [{ coverImage: null }, { coverImage: "" }],
+      ...(input.nonAiDailyOnly === false ? {} : { generatedByAiNews: false }),
+      ...(input.replaceExisting ? {} : { OR: [{ coverImage: null }, { coverImage: "" }] }),
     },
     select: { id: true },
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],

@@ -22,6 +22,7 @@ type CoverPickerProps = {
 export function CoverPicker({ selectedAssetId, onSelect, buttonLabel = "从图库选择" }: CoverPickerProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [imageKindFilter, setImageKindFilter] = useState<"all" | "uploaded" | "ai-generated">("all");
   const [assets, setAssets] = useState<CoverAsset[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -44,6 +45,12 @@ export function CoverPicker({ selectedAssetId, onSelect, buttonLabel = "从图�
         const params = new URLSearchParams({ status: "active", limit: "50" });
         if (query.trim()) {
           params.set("q", query.trim());
+        }
+        if (imageKindFilter === "uploaded") {
+          params.set("source", "upload");
+          params.set("generatedByAi", "false");
+        } else if (imageKindFilter === "ai-generated") {
+          params.set("generatedByAi", "true");
         }
         const data = await readApiJson(await fetch(`/api/admin/covers?${params.toString()}`), "封面图库加载失败");
 
@@ -70,7 +77,7 @@ export function CoverPicker({ selectedAssetId, onSelect, buttonLabel = "从图�
       active = false;
       window.clearTimeout(timer);
     };
-  }, [open, query]);
+  }, [imageKindFilter, open, query]);
 
   const selected = useMemo(() => assets.find((asset) => asset.id === selectedAssetId), [assets, selectedAssetId]);
 
@@ -94,6 +101,23 @@ export function CoverPicker({ selectedAssetId, onSelect, buttonLabel = "从图�
             />
           </label>
           {selected ? <span className="text-sm text-[var(--muted)]">当前：{selected.title || selected.url}</span> : null}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {[
+            { key: "all", label: "全部图片" },
+            { key: "uploaded", label: "上传图片" },
+            { key: "ai-generated", label: "AI 生成" },
+          ].map((item) => (
+            <Button
+              key={item.key}
+              type="button"
+              size="sm"
+              variant={imageKindFilter === item.key ? "default" : "outline"}
+              onClick={() => setImageKindFilter(item.key as typeof imageKindFilter)}
+            >
+              {item.label}
+            </Button>
+          ))}
         </div>
 
         {error ? <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p> : null}

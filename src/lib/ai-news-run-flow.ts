@@ -569,6 +569,8 @@ async function finishAiNewsRun({
   startedAtMs: number
   data: Record<string, unknown> & { status: AiNewsRunStatusValue }
 }) {
+  const postId = typeof data.postId === "string" && data.postId.trim() ? data.postId : null
+
   await prisma.aiNewsRun.update({
     where: { id: runId },
     data: {
@@ -577,6 +579,13 @@ async function finishAiNewsRun({
       durationMs: Math.max(0, Date.now() - startedAtMs),
     },
   })
+
+  if (postId) {
+    await prisma.post.updateMany({
+      where: { id: postId, generatedByAiNews: false },
+      data: { generatedByAiNews: true },
+    })
+  }
 }
 
 /**
@@ -831,6 +840,7 @@ export async function runDailyAiNews({
               content: draft.content,
               excerpt: draft.excerpt,
               published: existing.published,
+              generatedByAiNews: true,
             },
           })),
           title: draft.title,
@@ -843,6 +853,7 @@ export async function runDailyAiNews({
             content: draft.content,
             excerpt: draft.excerpt,
             published: false,
+            generatedByAiNews: true,
           },
         })
 

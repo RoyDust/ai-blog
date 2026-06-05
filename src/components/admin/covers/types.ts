@@ -4,6 +4,7 @@ export type CoverAsset = {
   key?: string | null;
   provider: string;
   source: string;
+  generatedByAi: boolean;
   status: string;
   title?: string | null;
   alt?: string | null;

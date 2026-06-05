@@ -5,19 +5,21 @@ import { CheckCircle2, Eye, RefreshCw, Search, Trash2, XCircle } from "lucide-re
 
 import { AdminPagination } from "@/components/admin/primitives/AdminPagination";
 import {
-  Button,
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
+} from "@/components/admin/ui";
+import { Button } from "@/components/shadcn/ui/button";
+import {
   Table,
   TableBody,
   TableCell,
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/admin/ui";
+} from "@/components/shadcn/ui/table";
 import {
   Select,
   SelectContent,
@@ -334,38 +336,38 @@ export function ApiOperationLogsClient() {
         </div>
       </section>
 
-      <section className="ui-surface flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl">
-        <div className="shrink-0 border-b border-[var(--border)] px-5 py-4">
+      <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-slate-200 bg-white">
+        <div className="shrink-0 border-b border-slate-200 px-4 py-3">
           <div>
-            <h2 className="text-base font-semibold text-[var(--foreground)]">请求记录</h2>
-            <p className="mt-1 text-sm text-[var(--muted)]">{payload.summary.totalCount} 条匹配记录</p>
+            <h2 className="text-base font-semibold text-slate-950">请求记录</h2>
+            <p className="mt-1 text-xs text-slate-500">{payload.summary.totalCount} 条匹配记录</p>
           </div>
         </div>
 
-        {loading ? <p className="px-5 py-10 text-center text-sm text-[var(--muted)]">正在加载接口日志...</p> : null}
+        {loading ? <p className="px-5 py-10 text-center text-sm text-slate-500">正在加载接口日志...</p> : null}
         {!loading && error ? <p className="px-5 py-10 text-center text-sm text-rose-600">{error}</p> : null}
-        {!loading && !error && payload.items.length === 0 ? <p className="px-5 py-10 text-center text-sm text-[var(--muted)]">暂无匹配日志。</p> : null}
+        {!loading && !error && payload.items.length === 0 ? <p className="px-5 py-10 text-center text-sm text-slate-500">暂无匹配日志。</p> : null}
 
         {!loading && !error && payload.items.length > 0 ? (
           <>
             <div className="min-h-0 flex-1 overflow-auto">
-              <Table>
-                <TableHeader className="sticky top-0 z-10 bg-[var(--surface)] shadow-[0_1px_0_var(--border)]">
-                  <TableRow>
-                    <TableHead>时间</TableHead>
-                    <TableHead>状态</TableHead>
-                    <TableHead>方法</TableHead>
-                    <TableHead>路径</TableHead>
-                    <TableHead>调用方</TableHead>
-                    <TableHead>耗时</TableHead>
-                    <TableHead>Request ID</TableHead>
-                    <TableHead>详情</TableHead>
+              <Table className="min-w-[980px] table-fixed">
+                <TableHeader className="sticky top-0 z-10 border-b border-slate-200 bg-[#f8faf8] shadow-[0_1px_0_rgba(15,23,42,0.06)]">
+                  <TableRow className="border-0 hover:bg-transparent">
+                    <TableHead className="w-[120px] text-xs uppercase tracking-wide text-slate-500">时间</TableHead>
+                    <TableHead className="w-[96px] text-xs uppercase tracking-wide text-slate-500">状态</TableHead>
+                    <TableHead className="w-[90px] text-xs uppercase tracking-wide text-slate-500">方法</TableHead>
+                    <TableHead className="text-xs uppercase tracking-wide text-slate-500">路径</TableHead>
+                    <TableHead className="w-[170px] text-xs uppercase tracking-wide text-slate-500">调用方</TableHead>
+                    <TableHead className="w-[90px] text-xs uppercase tracking-wide text-slate-500">耗时</TableHead>
+                    <TableHead className="w-[190px] text-xs uppercase tracking-wide text-slate-500">Request ID</TableHead>
+                    <TableHead className="w-[76px] text-xs uppercase tracking-wide text-slate-500">详情</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {payload.items.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell className="whitespace-nowrap text-xs text-[var(--muted)]">{formatDate(item.createdAt)}</TableCell>
+                    <TableRow key={item.id} className="border-slate-100 transition-colors hover:bg-slate-50/80">
+                      <TableCell className="whitespace-nowrap align-top text-xs text-slate-500">{formatDate(item.createdAt)}</TableCell>
                       <TableCell>
                         <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${statusClassName(item.success)}`}>
                           {item.success ? <CheckCircle2 className="h-3.5 w-3.5" /> : <XCircle className="h-3.5 w-3.5" />}
@@ -373,15 +375,15 @@ export function ApiOperationLogsClient() {
                         </span>
                       </TableCell>
                       <TableCell><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${methodClassName(item.method)}`}>{item.method}</span></TableCell>
-                      <TableCell className="max-w-[340px]">
-                        <p className="truncate font-medium">{item.path}</p>
-                        <p className="mt-1 truncate text-xs text-[var(--muted)]">{item.operation ?? item.route ?? item.scope}</p>
+                      <TableCell className="whitespace-normal align-top">
+                        <p className="truncate font-medium text-slate-950">{item.path}</p>
+                        <p className="mt-1 truncate text-xs text-slate-500">{item.operation ?? item.route ?? item.scope}</p>
                       </TableCell>
-                      <TableCell className="max-w-[180px] truncate">{formatActor(item)}</TableCell>
-                      <TableCell className="whitespace-nowrap">{item.durationMs ?? 0} ms</TableCell>
-                      <TableCell className="max-w-[190px] truncate text-xs text-[var(--muted)]">{item.requestId}</TableCell>
+                      <TableCell className="truncate align-top text-slate-600">{formatActor(item)}</TableCell>
+                      <TableCell className="whitespace-nowrap align-top text-slate-600">{item.durationMs ?? 0} ms</TableCell>
+                      <TableCell className="truncate align-top text-xs text-slate-500">{item.requestId}</TableCell>
                       <TableCell>
-                        <Button aria-label="查看接口日志详情" onClick={() => void openDetail(item)} size="sm" type="button" variant="outline">
+                        <Button aria-label="查看接口日志详情" className="size-8 rounded-md !border-slate-200 !bg-white !text-slate-600 hover:!bg-slate-50" onClick={() => void openDetail(item)} size="icon-sm" type="button" variant="outline">
                           <Eye className="h-4 w-4" />
                         </Button>
                       </TableCell>

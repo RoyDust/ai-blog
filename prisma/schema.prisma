@@ -148,6 +148,7 @@ model Post {
   coverImage         String?
   coverAssetId       String?
   published          Boolean           @default(false)
+  generatedByAiNews  Boolean           @default(false)
   featured           Boolean           @default(false)
   viewCount          Int               @default(0)
   readingTimeMinutes Int               @default(1)
@@ -177,6 +178,7 @@ model Post {
   @@index([authorId])
   @@index([categoryId])
   @@index([published, createdAt])
+  @@index([generatedByAiNews, createdAt])
   @@index([published, scheduledAt])
   @@index([featured, createdAt])
   @@index([coverAssetId])
@@ -311,6 +313,7 @@ model CoverAsset {
   key         String?
   provider    String    @default("qiniu")
   source      String    @default("upload")
+  generatedByAi Boolean @default(false)
   status      String    @default("active")
   title       String?
   alt         String?
@@ -333,6 +336,7 @@ model CoverAsset {
 
   @@index([status, createdAt])
   @@index([source, createdAt])
+  @@index([generatedByAi, createdAt])
   @@index([deletedAt])
   @@map("cover_assets")
 }

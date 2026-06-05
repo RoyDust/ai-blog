@@ -4,6 +4,7 @@ import AdminCommentsPage from '../comments/page'
 
 afterEach(() => {
   vi.unstubAllGlobals()
+  window.localStorage.clear()
 })
 
 describe('admin comments page', () => {
@@ -61,6 +62,35 @@ describe('admin comments page', () => {
     })
   })
 
+  test('restores cached comment filters after refresh before loading comments', async () => {
+    window.localStorage.setItem(
+      'admin:comments:list-filters',
+      JSON.stringify({
+        query: 'spam',
+        statusFilter: 'REJECTED',
+        page: 4,
+        pageSize: 20,
+      }),
+    )
+    const fetchMock = vi.fn().mockResolvedValue({
+      json: async () => ({
+        success: true,
+        data: [],
+        pagination: { page: 4, limit: 20, total: 0, totalPages: 1 },
+        stats: { total: 0, pending: 0, approved: 0, rejected: 0, spam: 0 },
+      }),
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<AdminCommentsPage />)
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/admin/comments?page=4&limit=20&q=spam&status=REJECTED')
+    })
+    expect(fetchMock).not.toHaveBeenCalledWith('/api/admin/comments?page=1&limit=10')
+    expect(screen.getByLabelText('搜索评论')).toHaveValue('spam')
+  })
+
   test('does not fire a fetch per keystroke while typing in search', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       json: async () => ({
@@ -86,6 +116,28 @@ describe('admin comments page', () => {
 
     // debounce window has not elapsed, so no additional fetch should fire
     expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  test('keeps the comments shell visible when switching filters after an empty result', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      json: async () => ({
+        success: true,
+        data: [],
+        pagination: { page: 1, limit: 10, total: 0, totalPages: 1 },
+        stats: { total: 0, pending: 0, approved: 0, rejected: 0, spam: 0 },
+      }),
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<AdminCommentsPage />)
+
+    await screen.findByText('暂无评论')
+
+    fireEvent.click(screen.getByRole('button', { name: '待审核' }))
+
+    expect(screen.getByText('评论收件箱')).toBeInTheDocument()
+    expect(screen.queryByText(/^加载中\.\.\.$/)).not.toBeInTheDocument()
+    expect(screen.getByText('正在加载评论队列...')).toBeInTheDocument()
   })
 
   test('approves a comment with optimistic update and silent refetch', async () => {

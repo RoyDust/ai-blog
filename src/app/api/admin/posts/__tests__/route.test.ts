@@ -69,7 +69,7 @@ describe('POST /api/admin/posts', () => {
     findMany.mockResolvedValueOnce([{ id: 'post-21', title: 'AI Draft' }])
 
     const { GET } = await import('../route')
-    const response = await GET(new Request('http://localhost/api/admin/posts?page=3&limit=10&status=draft&q=ai'))
+    const response = await GET(new Request('http://localhost/api/admin/posts?page=3&limit=10&status=draft&q=ai&type=non-ai-daily'))
     const payload = await response.json()
 
     expect(response.status).toBe(200)
@@ -78,6 +78,7 @@ describe('POST /api/admin/posts', () => {
       take: 10,
       where: expect.objectContaining({
         published: false,
+        generatedByAiNews: false,
         OR: expect.any(Array),
       }),
     }))

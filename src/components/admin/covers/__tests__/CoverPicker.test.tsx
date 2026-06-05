@@ -28,6 +28,7 @@ describe("CoverPicker", () => {
               url: "https://cdn.example.com/covers/a.jpg",
               provider: "qiniu",
               source: "upload",
+              generatedByAi: false,
               status: "active",
               title: "Tech Cover",
               alt: "Tech cover",
@@ -59,5 +60,30 @@ describe("CoverPicker", () => {
       id: "cover-1",
       url: "https://cdn.example.com/covers/a.jpg",
     }));
+  });
+
+  test("filters AI-generated covers separately", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        success: true,
+        data: {
+          items: [],
+          total: 0,
+          page: 1,
+          limit: 50,
+        },
+      }),
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<CoverPicker onSelect={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "从图库选择" }));
+    fireEvent.click(await screen.findByRole("button", { name: "AI 生成" }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenLastCalledWith("/api/admin/covers?status=active&limit=50&generatedByAi=true");
+    });
   });
 });

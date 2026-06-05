@@ -57,6 +57,7 @@ type AdminPostInput = {
   scheduledAt?: Date | null
   published: boolean
   featured?: boolean
+  generatedByAiNews?: boolean
 }
 
 type AdminPostPatchInput = {
@@ -74,6 +75,7 @@ type AdminPostPatchInput = {
   scheduledAt?: Date | null
   published?: boolean
   featured?: boolean
+  generatedByAiNews?: boolean
 }
 
 type PrismaTransactionClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
@@ -549,6 +551,7 @@ export async function createAdminPost({
       seriesId: input.seriesId,
       seriesOrder: input.seriesOrder ?? 0,
       published,
+      generatedByAiNews: input.generatedByAiNews ?? false,
       featured: input.featured ?? false,
       publishedAt: published ? new Date() : null,
       scheduledAt: input.scheduledAt ?? null,
@@ -649,6 +652,7 @@ export async function updateAdminPost({
       seriesId: input.seriesId,
       seriesOrder: input.seriesOrder,
       published: nextPublished,
+      generatedByAiNews: input.generatedByAiNews,
       publishedAt: nextPublishedAt,
       scheduledAt: input.scheduledAt,
       tags: input.tagIds

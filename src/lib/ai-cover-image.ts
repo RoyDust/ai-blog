@@ -239,6 +239,7 @@ export async function generateAiCoverImage(input: GenerateAiCoverInput): Promise
     key: uploaded.key,
     provider: "qiniu",
     source: "ai",
+    generatedByAi: true,
     status: "active",
     title: `${title} AI 封面`,
     alt: title,

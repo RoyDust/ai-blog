@@ -24,6 +24,66 @@ import type { CoverAsset, CoverAssetListResponse } from "./types";
 
 const adminSelectTriggerClassName = "w-[140px] rounded-xl border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--foreground)] shadow-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]";
 const adminSelectContentClassName = "rounded-xl border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)]";
+const coverGalleryMemoryKey = "admin:covers:list-filters";
+const statusFilters = ["all", "active", "archived"] as const;
+const imageKindFilters = ["all", "uploaded", "ai-generated"] as const;
+const pageSizeOptions = [12, 24, 48];
+
+type CoverStatusFilter = (typeof statusFilters)[number];
+type CoverImageKindFilter = (typeof imageKindFilters)[number];
+type CoverGalleryMemory = {
+  query: string;
+  statusFilter: CoverStatusFilter;
+  imageKindFilter: CoverImageKindFilter;
+  page: number;
+  pageSize: number;
+};
+
+function readPositiveInteger(value: unknown, fallback: number) {
+  const number = Number(value);
+  return Number.isInteger(number) && number > 0 ? number : fallback;
+}
+
+function readCoverGalleryMemory(): CoverGalleryMemory {
+  const fallback: CoverGalleryMemory = {
+    query: "",
+    statusFilter: "all",
+    imageKindFilter: "all",
+    page: 1,
+    pageSize: 24,
+  };
+
+  if (typeof window === "undefined") {
+    return fallback;
+  }
+
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(coverGalleryMemoryKey) ?? "{}") as Partial<CoverGalleryMemory>;
+    const nextPageSize = readPositiveInteger(parsed.pageSize, fallback.pageSize);
+
+    return {
+      query: typeof parsed.query === "string" ? parsed.query : fallback.query,
+      statusFilter: statusFilters.includes(parsed.statusFilter as CoverStatusFilter) ? (parsed.statusFilter as CoverStatusFilter) : fallback.statusFilter,
+      imageKindFilter: imageKindFilters.includes(parsed.imageKindFilter as CoverImageKindFilter) ? (parsed.imageKindFilter as CoverImageKindFilter) : fallback.imageKindFilter,
+      page: readPositiveInteger(parsed.page, fallback.page),
+      pageSize: pageSizeOptions.includes(nextPageSize) ? nextPageSize : fallback.pageSize,
+    };
+  } catch {
+    return fallback;
+  }
+}
+
+function writeCoverGalleryMemory(value: CoverGalleryMemory) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(coverGalleryMemoryKey, JSON.stringify(value));
+  } catch {
+    // localStorage can be unavailable in private or constrained browser contexts.
+  }
+}
 
 /**
  * 后台封面图库管理页。
@@ -36,12 +96,13 @@ export function CoverGalleryManager() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "archived">("all");
-  const [sourceFilter, setSourceFilter] = useState<"all" | "upload" | "manual" | "ai">("all");
+  const [statusFilter, setStatusFilter] = useState<CoverStatusFilter>("all");
+  const [imageKindFilter, setImageKindFilter] = useState<CoverImageKindFilter>("all");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(24);
   const [editing, setEditing] = useState<CoverAsset | null>(null);
   const [randomizing, setRandomizing] = useState(false);
+  const [filtersRestored, setFiltersRestored] = useState(false);
 
   /**
    * 将页面筛选状态转换成图库查询参数。
@@ -52,9 +113,14 @@ export function CoverGalleryManager() {
     const next = new URLSearchParams({ page: String(page), limit: String(pageSize) });
     if (query.trim()) next.set("q", query.trim());
     if (statusFilter !== "all") next.set("status", statusFilter);
-    if (sourceFilter !== "all") next.set("source", sourceFilter);
+    if (imageKindFilter === "uploaded") {
+      next.set("source", "upload");
+      next.set("generatedByAi", "false");
+    } else if (imageKindFilter === "ai-generated") {
+      next.set("generatedByAi", "true");
+    }
     return next;
-  }, [page, pageSize, query, sourceFilter, statusFilter]);
+  }, [imageKindFilter, page, pageSize, query, statusFilter]);
 
   /**
    * 拉取当前筛选下的封面资产列表。
@@ -62,6 +128,10 @@ export function CoverGalleryManager() {
    * 失败时清空本地列表，避免界面继续展示已经与筛选条件不匹配的旧数据。
    */
   const loadAssets = useCallback(async () => {
+    if (!filtersRestored) {
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -77,7 +147,31 @@ export function CoverGalleryManager() {
     } finally {
       setLoading(false);
     }
-  }, [params]);
+  }, [filtersRestored, params]);
+
+  useEffect(() => {
+    const saved = readCoverGalleryMemory();
+    setQuery(saved.query);
+    setStatusFilter(saved.statusFilter);
+    setImageKindFilter(saved.imageKindFilter);
+    setPage(saved.page);
+    setPageSize(saved.pageSize);
+    setFiltersRestored(true);
+  }, []);
+
+  useEffect(() => {
+    if (!filtersRestored) {
+      return;
+    }
+
+    writeCoverGalleryMemory({
+      query,
+      statusFilter,
+      imageKindFilter,
+      page,
+      pageSize,
+    });
+  }, [filtersRestored, imageKindFilter, page, pageSize, query, statusFilter]);
 
   useEffect(() => {
     void loadAssets();
@@ -196,18 +290,17 @@ export function CoverGalleryManager() {
                     <SelectItem value="archived">归档</SelectItem>
                   </SelectContent>
                 </Select>
-                <Select value={sourceFilter} onValueChange={(value) => {
-                  setSourceFilter(value as typeof sourceFilter);
+                <Select value={imageKindFilter} onValueChange={(value) => {
+                  setImageKindFilter(value as typeof imageKindFilter);
                   setPage(1);
                 }}>
-                  <SelectTrigger aria-label="封面来源" className={adminSelectTriggerClassName}>
+                  <SelectTrigger aria-label="图片类型" className={adminSelectTriggerClassName}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className={adminSelectContentClassName}>
-                    <SelectItem value="all">全部来源</SelectItem>
-                    <SelectItem value="upload">上传</SelectItem>
-                    <SelectItem value="manual">外链</SelectItem>
-                    <SelectItem value="ai">AI</SelectItem>
+                    <SelectItem value="all">全部图片</SelectItem>
+                    <SelectItem value="uploaded">上传图片</SelectItem>
+                    <SelectItem value="ai-generated">AI 生成</SelectItem>
                   </SelectContent>
                 </Select>
               </>
@@ -229,7 +322,7 @@ export function CoverGalleryManager() {
               }}
               page={page}
               pageSize={pageSize}
-              pageSizeOptions={[12, 24, 48]}
+              pageSizeOptions={pageSizeOptions}
               total={total}
               totalPages={Math.max(1, Math.ceil(total / pageSize))}
             />

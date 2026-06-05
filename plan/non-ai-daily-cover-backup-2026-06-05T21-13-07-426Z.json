@@ -1,0 +1,619 @@
+{
+  "createdAt": "2026-06-05T21:13:07.427Z",
+  "postCount": 68,
+  "assetCount": 20,
+  "assignments": [
+    {
+      "postId": "cmpk40c6u0009u8v5ak7ihjty",
+      "slug": "linus-ai-maintainer-bottleneck",
+      "title": "Linus 没有反 AI，他反的是把维护者当垃圾桶",
+      "previousCoverImage": "http://project.roydust.top/covers/ai/1779511226499-c58e0fe9f14c.png",
+      "previousCoverAssetId": null,
+      "nextCoverImage": "http://project.roydust.top/covers/1780693474621-bf3351a0-97096454_p0.jpg",
+      "nextCoverAssetId": "cmq1ex390002uy8v5q08i1z3t"
+    },
+    {
+      "postId": "cmpk3xka00005u8v52b4sswba",
+      "slug": "multi-protocol-ai-gateway",
+      "title": "多协议网关不是“薅 API 神器”，而是 AI 工具生态的适配层",
+      "previousCoverImage": null,
+      "previousCoverAssetId": null,
+      "nextCoverImage": "http://project.roydust.top/covers/1780693465637-d6da8cf3-95461158_p0.jpg",
+      "nextCoverAssetId": "cmq1ewwhe002py8v5o155m6t4"
+    },
+    {
+      "postId": "cmpk3wt2k0001u8v5390cbbno",
+      "slug": "vibe-coding-responsibility",
+      "title": "别再神化 100% Vibe Coding 了，它最大的漏洞不是 AI 不够强，而是你总得有人负责",
+      "previousCoverImage": "http://project.roydust.top/covers/ai/1779598879689-954e6fd1bc32.png",
+      "previousCoverAssetId": null,
+      "nextCoverImage": "http://project.roydust.top/covers/1780693459506-e462da3b-89268058_p0.jpg",
+      "nextCoverAssetId": "cmq1ewr79002jy8v5k3l6xryt"
+    },
+    {
+      "postId": "cmojuywkl000018k93b5hfzpg",
+      "slug": "ai-daily-2026-04-29",
+      "title": "2026-04-29 AI 日报：AWS 接入 OpenAI，Nvidia 开源多模态模型，谷歌签署五角大楼合同",
+      "previousCoverImage": "http://project.roydust.top/covers/1777190159152-2be86064-3bfba6dd29022f4211d470d0ae191c4b.jpg",
+      "previousCoverAssetId": "cmofh4vci000bm0v5m60fsogk",
+      "nextCoverImage": "http://project.roydust.top/covers/1780693453780-573b93cd-91788288_p0.jpg",
+      "nextCoverAssetId": "cmq1ewmr8002ey8v5fop8rgkr"
+    },
+    {
+      "postId": "cmofj5dwm000om0v5hol5sl1o",
+      "slug": "rag-technology-why-not-frequently-mentioned",
+      "title": "RAG技术退潮：为什么现在很少人再提它了？",
+      "previousCoverImage": "http://project.roydust.top/covers/1777190159152-2be86064-3bfba6dd29022f4211d470d0ae191c4b.jpg",
+      "previousCoverAssetId": "cmofh4vci000bm0v5m60fsogk",
+      "nextCoverImage": "http://project.roydust.top/covers/1780693448722-bc1d7f31-85127098_p0.jpg",
+      "nextCoverAssetId": "cmq1ewisl0029y8v5vy5fqew7"
+    },
+    {
+      "postId": "cmnyrowwv000004v5798epa3d",
+      "slug": "40-ge-agent-skills-jing-xuan-zi-yuan-ru-men-jiao-cheng-shi-y",
+      "title": "40 个 Agent Skills 精选资源：入门教程 + 实用工具 + 必装推荐",
+      "previousCoverImage": "http://project.roydust.top/covers/1777190159152-2be86064-3bfba6dd29022f4211d470d0ae191c4b.jpg",
+      "previousCoverAssetId": "cmofh4vci000bm0v5m60fsogk",
+      "nextCoverImage": "http://project.roydust.top/covers/1780693441382-b5f32719-86611310_p0.jpg",
+      "nextCoverAssetId": "cmq1ewd4k0024y8v5iiijshq6"
+    },
+    {
+      "postId": "cmnvtfhdp0000cgv5o1xj4p55",
+      "slug": "ai-authoring-api-practice-with-codex",
+      "title": "AI 发文接口实践：用 Codex 通过 HTTP 写入博客草稿",
+      "previousCoverImage": null,
+      "previousCoverAssetId": null,
+      "nextCoverImage": "http://project.roydust.top/covers/1780693433933-c9a79a5e-anime-pictures-net_-_818934-7000x4260-arknights-muelsyse-arknights-ash-c-single-long-hair-looking-at-viewer.jpg",
+      "nextCoverAssetId": "cmq1ew7qt001zy8v569h9696j"
+    },
+    {
+      "postId": "cmpyceafa00dx0jo0kn9180nw",
+      "slug": "ai-tool-run-long-horizon-ta-k-with-codex-chine-e-tran-lation-f51cb570",
+      "title": "Codex 长程任务怎么跑：规格、计划、执行手册和持续验证",
+      "previousCoverImage": "http://project.roydust.top/covers/ai/1778093208198-63b3e4abdf74.png",
+      "previousCoverAssetId": "cmouescc8000ugkv5slsz1ivj",
+      "nextCoverImage": "http://project.roydust.top/covers/1780693418487-2cc10367-120940509_p0.jpg",
+      "nextCoverAssetId": "cmq1evvya001ty8v5odxt507i"
+    },
+    {
+      "postId": "cmpyce8vp00dr0jo0zhax924x",
+      "slug": "ai-tool-open-pec-uperpower-claudecode-36190a31",
+      "title": "在 Claude Code 中组合 OpenSpec 和 Superpowers：一个管目标，一个管执行",
+      "previousCoverImage": "http://project.roydust.top/covers/ai/1779426063004-1eba542340dd.png",
+      "previousCoverAssetId": "cmpggc1vl002s0jqi0oik9kdm",
+      "nextCoverImage": "http://project.roydust.top/covers/1780693371011-daef3a17-articlebg.jpg",
+      "nextCoverAssetId": "cmq1euv30001ny8v52ijdnr8f"
+    },
+    {
+      "postId": "cmpyce78w00dl0jo0xzyi0p8k",
+      "slug": "ai-tool-opencode-chine-e-project-prompt-template-a4092545",
+      "title": "OpenCode 中文项目指令模板：让主 Agent 先拆任务，再并行执行",
+      "previousCoverImage": "http://project.roydust.top/covers/ai/1778093223980-08c1feb01403.png",
+      "previousCoverAssetId": "cmouesohn000vgkv5rbg5tlup",
+      "nextCoverImage": "http://project.roydust.top/covers/1780693360994-7ae5244d-hi7r_v2beaawagt.jpg",
+      "nextCoverAssetId": "cmq1eun5x001hy8v5v9lm2g7e"
+    },
+    {
+      "postId": "cmpycfnvc00ja0jo0zjdfg35d",
+      "slug": "openclaw-openclaw-memory-y-tem-etup-5c3575b6",
+      "title": "OpenClaw 记忆管理系统搭建记录：先能记住，再能检索，最后自动维护",
+      "previousCoverImage": "http://project.roydust.top/covers/1778002277815-c01bc6db-98085854_p0.jpg",
+      "previousCoverAssetId": "cmoswne5r0003f4v524tmwdas",
+      "nextCoverImage": "http://project.roydust.top/covers/1780693353854-b4152831-121044426_p0.jpg",
+      "nextCoverAssetId": "cmq1euhu5001cy8v5bwy1dbh8"
+    },
+    {
+      "postId": "cmpycdxsg00cl0jo0llfzvgky",
+      "slug": "ai-tool-cliproxyapi-maco-in-tall-per-i-tent-run-18f13c5d",
+      "title": "CLIProxyAPI 在 macOS 上安装并用 launchd 持久化运行",
+      "previousCoverImage": "http://project.roydust.top/covers/ai/1779080820337-56866b1267a4.png",
+      "previousCoverAssetId": "cmpaqsaxn002e0invsut75z3a",
+      "nextCoverImage": "http://project.roydust.top/covers/1780693344943-dec9ebb6-hkdzvsxa4aaf7wh.jpg",
+      "nextCoverAssetId": "cmq1euazq0017y8v5g9ocernu"
+    },
+    {
+      "postId": "cmpyce2gq00d30jo0cu827sy9",
+      "slug": "ai-tool-openclaw-agent-arpc-protocol-guide-50e85084",
+      "title": "OpenClaw Agent ARPC 通信手册：强身份只认 ARP identity",
+      "previousCoverImage": "http://project.roydust.top/covers/1778002291850-e856afca-118672299_p0.jpg",
+      "previousCoverAssetId": "cmoswnpuc0004f4v5i81tbecv",
+      "nextCoverImage": "http://project.roydust.top/covers/1780693333680-8a27a569-112167497_p0.jpg",
+      "nextCoverAssetId": "cmq1eu2f20011y8v5yauuz77j"
+    },
+    {
+      "postId": "cmpycdvzk00cf0jo0xuclgqfg",
+      "slug": "ai-tool-chatgpt-china-u-age-40363631",
+      "title": "ChatGPT 国内使用方案怎么选：账号、API 中转、Apple 内购和 Azure OpenAI",
+      "previousCoverImage": "http://project.roydust.top/covers/ai/1780293683182-c5fda50b17d1.png",
+      "previousCoverAssetId": "cmpusw5ui001l0jo0hbe0amjr",
+      "nextCoverImage": "http://project.roydust.top/covers/1778435081301-a7744f32-125521081_p0.jpg",
+      "nextCoverAssetId": "cmp02bvdv00m1zkv5yathtnhk"
+    },
+    {
+      "postId": "cmmhrg60400008ov5l7uhop0n",
+      "slug": "openclaw-he-claude-code-bian-xie-dai-ma-neng-li-dui-bi",
+      "title": "OpenClaw 和 Claude Code 编写代码能力对比",
+      "previousCoverImage": "http://project.roydust.top/covers/1772974742633-8ca9377e-121393919_p0.jpg",
+      "previousCoverAssetId": null,
+      "nextCoverImage": "http://project.roydust.top/covers/1778002291850-e856afca-118672299_p0.jpg",
+      "nextCoverAssetId": "cmoswnpuc0004f4v5i81tbecv"
+    },
+    {
+      "postId": "cmmhj3z6o00081kv5qhe62eet",
+      "slug": "content-page-reading-rhythm",
+      "title": "产品与体验：内容型页面为什么需要节奏感",
+      "previousCoverImage": "https://images.unsplash.com/photo-1516321497487-e288fb19713f?auto=format&fit=crop&w=1600&q=80",
+      "previousCoverAssetId": null,
+      "nextCoverImage": "http://project.roydust.top/covers/1778002277815-c01bc6db-98085854_p0.jpg",
+      "nextCoverAssetId": "cmoswne5r0003f4v524tmwdas"
+    },
+    {
+      "postId": "cmmhj3yyv00071kv5duk61gkw",
+      "slug": "content-site-ci-cd-workflow",
+      "title": "部署与运维：把 CI/CD 接入内容站日常迭代",
+      "previousCoverImage": "https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1600&q=80",
+      "previousCoverAssetId": null,
+      "nextCoverImage": "http://project.roydust.top/covers/1778002265668-a4c874d6-97190273_p0.jpg",
+      "nextCoverAssetId": "cmoswn70q0002f4v5y4nivo9z"
+    },
+    {
+      "postId": "cmmhj3yr200061kv5l5hdym7h",
+      "slug": "content-platform-database-design-scalability",
+      "title": "从数据库设计看内容平台的可扩展性",
+      "previousCoverImage": "https://images.unsplash.com/photo-1544383835-bda2bc66a55d?auto=format&fit=crop&w=1600&q=80",
+      "previousCoverAssetId": null,
+      "nextCoverImage": "http://project.roydust.top/covers/1778002223310-23c31ec6-140699637_p0_master1200.jpg",
+      "nextCoverAssetId": "cmoswm8740001f4v5b8hmvhdq"
+    },
+    {
+      "postId": "cmmhj3yja00051kv5b32lvs9f",
+      "slug": "api-design-and-prisma-modeling",
+      "title": "API 设计与 Prisma 建模的协作边界",
+      "previousCoverImage": "https://images.unsplash.com/photo-1555949963-aa79dcee981c?auto=format&fit=crop&w=1600&q=80",
+      "previousCoverAssetId": null,
+      "nextCoverImage": "http://project.roydust.top/covers/1778002211260-e2155ea0-116767804_p0.jpg",
+      "nextCoverAssetId": "cmoswm0jd0000f4v5lhpnk9s3"
+    },
+    {
+      "postId": "cmmhj3ybf00041kv5yxh33abz",
+      "slug": "bringing-design-system-into-real-projects",
+      "title": "如何把设计系统落到真实项目里",
+      "previousCoverImage": "https://images.unsplash.com/photo-1507238691740-187a5b1d37b8?auto=format&fit=crop&w=1600&q=80",
+      "previousCoverAssetId": null,
+      "nextCoverImage": "http://project.roydust.top/covers/1777190159152-2be86064-3bfba6dd29022f4211d470d0ae191c4b.jpg",
+      "nextCoverAssetId": "cmofh4vci000bm0v5m60fsogk"
+    },
+    {
+      "postId": "cmmhj3y3m00031kv5ha9tmq5i",
+      "slug": "web-performance-find-real-bottlenecks",
+      "title": "页面性能优化：先找到真正的瓶颈",
+      "previousCoverImage": "https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1600&q=80",
+      "previousCoverAssetId": null,
+      "nextCoverImage": "http://project.roydust.top/covers/1780693474621-bf3351a0-97096454_p0.jpg",
+      "nextCoverAssetId": "cmq1ex390002uy8v5q08i1z3t"
+    },
+    {
+      "postId": "cmmhj3xvt00021kv54srue45l",
+      "slug": "frontend-engineering-overlooked-basics",
+      "title": "前端工程化里最容易被忽略的三件事",
+      "previousCoverImage": "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1600&q=80",
+      "previousCoverAssetId": null,
+      "nextCoverImage": "http://project.roydust.top/covers/1780693465637-d6da8cf3-95461158_p0.jpg",
+      "nextCoverAssetId": "cmq1ewwhe002py8v5o155m6t4"
+    },
+    {
+      "postId": "cmmhj3xny00011kv5oq4cjqkl",
+      "slug": "react-component-design-evolution",
+      "title": "React 组件设计：从可复用到可演进",
+      "previousCoverImage": "https://images.unsplash.com/photo-1558655146-d09347e92766?auto=format&fit=crop&w=1600&q=80",
+      "previousCoverAssetId": null,
+      "nextCoverImage": "http://project.roydust.top/covers/1780693459506-e462da3b-89268058_p0.jpg",
+      "nextCoverAssetId": "cmq1ewr79002jy8v5k3l6xryt"
+    },
+    {
+      "postId": "cmmhj3xfz00001kv5ogxtgbnp",
+      "slug": "nextjs-content-site-architecture",
+      "title": "用 Next.js 组织一个可长期维护的内容站",
+      "previousCoverImage": "https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=1600&q=80",
+      "previousCoverAssetId": null,
+      "nextCoverImage": "http://project.roydust.top/covers/1780693453780-573b93cd-91788288_p0.jpg",
+      "nextCoverAssetId": "cmq1ewmr8002ey8v5fop8rgkr"
+    },
+    {
+      "postId": "cmmg8ttdu0000kov5ttb876dy",
+      "slug": "self",
+      "title": "不过是吃了几年互联网红利罢了，我高估了自己",
+      "previousCoverImage": "http://project.roydust.top/covers/1772883105958-971322d7-articlebg.jpg",
+      "previousCoverAssetId": null,
+      "nextCoverImage": "http://project.roydust.top/covers/1780693448722-bc1d7f31-85127098_p0.jpg",
+      "nextCoverAssetId": "cmq1ewisl0029y8v5vy5fqew7"
+    },
+    {
+      "postId": "cmpycdzd600cr0jo0fj32veq5",
+      "slug": "ai-tool-openclaw-claude-code-coding-capability-compari-on-openclaw-claude-code-coding-capa-9e9d4880",
+      "title": "OpenClaw 和 Claude Code 写同一个问卷系统，差距主要在执行纪律",
+      "previousCoverImage": "http://project.roydust.top/covers/ai/1778820562999-26887822ff44.png",
+      "previousCoverAssetId": "cmp6fu30z005q0zmhsqikpdop",
+      "nextCoverImage": "http://project.roydust.top/covers/1780693441382-b5f32719-86611310_p0.jpg",
+      "nextCoverAssetId": "cmq1ewd4k0024y8v5iiijshq6"
+    },
+    {
+      "postId": "cmpycfpe000jg0jo0yn0rs5kc",
+      "slug": "ru-t-ai-generated-ru-t-learning-tage4-5-fb4ee7b3",
+      "title": "Rust 学习第四、第五阶段：从抽象能力走到工程化和 WASM",
+      "previousCoverImage": "http://project.roydust.top/covers/ai/1779511226499-c58e0fe9f14c.png",
+      "previousCoverAssetId": "cmphv1egl00320jo4x9xnsv7r",
+      "nextCoverImage": "http://project.roydust.top/covers/1780693433933-c9a79a5e-anime-pictures-net_-_818934-7000x4260-arknights-muelsyse-arknights-ash-c-single-long-hair-looking-at-viewer.jpg",
+      "nextCoverAssetId": "cmq1ew7qt001zy8v569h9696j"
+    },
+    {
+      "postId": "cmpycec0b00e30jo0pjfz25xd",
+      "slug": "ai-tool-uperpower-complete-guide-cc3dd5fd",
+      "title": "Superpowers 完整指南：把 AI 编程从“会写代码”拉回工程流程",
+      "previousCoverImage": "http://project.roydust.top/covers/ai/1778560572016-5907ace4e9a0.png",
+      "previousCoverAssetId": "cmp251ksu001r0zpbiagfspie",
+      "nextCoverImage": "http://project.roydust.top/covers/1780693418487-2cc10367-120940509_p0.jpg",
+      "nextCoverAssetId": "cmq1evvya001ty8v5odxt507i"
+    },
+    {
+      "postId": "cmpyce5ox00df0jo0fuelbsvo",
+      "slug": "ai-tool-openclaw-claudecode-ac3d78f8",
+      "title": "OpenClaw 与 Claude Code 对比：不要让调度工具单独承担编码交付",
+      "previousCoverImage": "http://project.roydust.top/covers/1778002223310-23c31ec6-140699637_p0_master1200.jpg",
+      "previousCoverAssetId": "cmoswm8740001f4v5b8hmvhdq",
+      "nextCoverImage": "http://project.roydust.top/covers/1780693371011-daef3a17-articlebg.jpg",
+      "nextCoverAssetId": "cmq1euv30001ny8v52ijdnr8f"
+    },
+    {
+      "postId": "cmpyce0vv00cx0jo0h7uoll87",
+      "slug": "ai-tool-openclaw-dockerclu-ter-dev-plan-3e8d5025",
+      "title": "用 Docker 跑多个 OpenClaw 节点：前端、后端、测试分工协作",
+      "previousCoverImage": "http://project.roydust.top/covers/ai/1778993660419-61e893a4b0b1.png",
+      "previousCoverAssetId": "cmp9aw5y0007o0zoaxo1yxt4l",
+      "nextCoverImage": "http://project.roydust.top/covers/1780693360994-7ae5244d-hi7r_v2beaawagt.jpg",
+      "nextCoverAssetId": "cmq1eun5x001hy8v5v9lm2g7e"
+    },
+    {
+      "postId": "cmpyce46c00d90jo0owzz8g2n",
+      "slug": "ai-tool-openclaw-fei-hu-codex-remote-dev-734ef871",
+      "title": "个人开发者如何用 OpenClaw、飞书和 Codex 组织远程开发",
+      "previousCoverImage": "http://project.roydust.top/covers/ai/1780031604373-e5129fce3ecf.png",
+      "previousCoverAssetId": "cmpqguwnk002h0jju120haust",
+      "nextCoverImage": "http://project.roydust.top/covers/1780693353854-b4152831-121044426_p0.jpg",
+      "nextCoverAssetId": "cmq1euhu5001cy8v5bwy1dbh8"
+    },
+    {
+      "postId": "cmmdtndmq0002dwv5q4i43uak",
+      "slug": "rust-1234",
+      "title": "先搞懂：Rust 的 “方法” 是什么？和函数有啥区别？",
+      "previousCoverImage": "http://project.roydust.top/covers/1772821378855-9706bb21-gu8-fxbwqaalskh.jpg",
+      "previousCoverAssetId": null,
+      "nextCoverImage": "http://project.roydust.top/covers/1780693344943-dec9ebb6-hkdzvsxa4aaf7wh.jpg",
+      "nextCoverAssetId": "cmq1euazq0017y8v5g9ocernu"
+    },
+    {
+      "postId": "cmmawuhyj0000y8v55b82av7m",
+      "slug": "rust-",
+      "title": "Rust 中的泛型",
+      "previousCoverImage": null,
+      "previousCoverAssetId": null,
+      "nextCoverImage": "http://project.roydust.top/covers/1780693333680-8a27a569-112167497_p0.jpg",
+      "nextCoverAssetId": "cmq1eu2f20011y8v5yauuz77j"
+    },
+    {
+      "postId": "cmm80vra60003dsv5xf8mqvjh",
+      "slug": "asdasda",
+      "title": "Vibe Coding 指南",
+      "previousCoverImage": "",
+      "previousCoverAssetId": null,
+      "nextCoverImage": "http://project.roydust.top/covers/1778435081301-a7744f32-125521081_p0.jpg",
+      "nextCoverAssetId": "cmp02bvdv00m1zkv5yathtnhk"
+    },
+    {
+      "postId": "cmm7yhr2s0003nov59a7b9f36",
+      "slug": "123123123",
+      "title": "123123123",
+      "previousCoverImage": "http://project.roydust.top/covers/ai/1780466612209-e44a55422c1f.png",
+      "previousCoverAssetId": "cmpxnumsr00890jo0ntwhqifj",
+      "nextCoverImage": "http://project.roydust.top/covers/1778002291850-e856afca-118672299_p0.jpg",
+      "nextCoverAssetId": "cmoswnpuc0004f4v5i81tbecv"
+    },
+    {
+      "postId": "cmm7yhd710002nov5gr243lkb",
+      "slug": "123123",
+      "title": "123123",
+      "previousCoverImage": "http://project.roydust.top/covers/1778002265668-a4c874d6-97190273_p0.jpg",
+      "previousCoverAssetId": "cmoswn70q0002f4v5y4nivo9z",
+      "nextCoverImage": "http://project.roydust.top/covers/1778002277815-c01bc6db-98085854_p0.jpg",
+      "nextCoverAssetId": "cmoswne5r0003f4v524tmwdas"
+    },
+    {
+      "postId": "cmpycfmc300j40jo0zzxfylfp",
+      "slug": "interview-frontend-interview-interview-experience-801018ad",
+      "title": "前端面经复盘：从输入 URL 到页面渲染，面试官到底在问什么",
+      "previousCoverImage": "http://project.roydust.top/covers/ai/1779858872270-839207605a0e.png",
+      "previousCoverAssetId": "cmpnm0ns3002k0jo6fwtfgnob",
+      "nextCoverImage": "http://project.roydust.top/covers/1778002265668-a4c874d6-97190273_p0.jpg",
+      "nextCoverAssetId": "cmoswn70q0002f4v5y4nivo9z"
+    },
+    {
+      "postId": "cmpycfksc00iy0jo0rpmywwz0",
+      "slug": "interview-frontend-interview-interview-prep-05d0c78e",
+      "title": "前端面试准备：把 HTML、CSS 和 JS 高频题串成一条主线",
+      "previousCoverImage": "http://project.roydust.top/covers/1778002277815-c01bc6db-98085854_p0.jpg",
+      "previousCoverAssetId": "cmoswne5r0003f4v524tmwdas",
+      "nextCoverImage": "http://project.roydust.top/covers/1778002223310-23c31ec6-140699637_p0_master1200.jpg",
+      "nextCoverAssetId": "cmoswm8740001f4v5b8hmvhdq"
+    },
+    {
+      "postId": "cmpycfstt00js0jo0tx7bj8qz",
+      "slug": "tech-learning-frontend-react-react-2b5e3af1",
+      "title": "React 进阶指南：把 JSX、Fiber、调度、Hooks 串成一条更新链路",
+      "previousCoverImage": "http://project.roydust.top/covers/ai/1778993660419-61e893a4b0b1.png",
+      "previousCoverAssetId": "cmp9aw5y0007o0zoaxo1yxt4l",
+      "nextCoverImage": "http://project.roydust.top/covers/1778002211260-e2155ea0-116767804_p0.jpg",
+      "nextCoverAssetId": "cmoswm0jd0000f4v5lhpnk9s3"
+    },
+    {
+      "postId": "cmpycfehm00ia0jo0hb5ebz97",
+      "slug": "tech-learning-frontend-java-cript-java-criptde-ign-principle-960f8706",
+      "title": "JavaScript 设计模式：用“封装变化”串起创建型、结构型和行为型",
+      "previousCoverImage": "http://project.roydust.top/covers/ai/1780466612209-e44a55422c1f.png",
+      "previousCoverAssetId": "cmpxnumsr00890jo0ntwhqifj",
+      "nextCoverImage": "http://project.roydust.top/covers/1777190159152-2be86064-3bfba6dd29022f4211d470d0ae191c4b.jpg",
+      "nextCoverAssetId": "cmofh4vci000bm0v5m60fsogk"
+    },
+    {
+      "postId": "cmpycfj3400is0jo0nsciny7b",
+      "slug": "tech-learning-frontend-vue-vue3-t-405e68f2",
+      "title": "Vue3 + TypeScript 项目初始化：从代码规范到权限 CMS 架构",
+      "previousCoverImage": "http://project.roydust.top/covers/1777190159152-2be86064-3bfba6dd29022f4211d470d0ae191c4b.jpg",
+      "previousCoverAssetId": "cmofh4vci000bm0v5m60fsogk",
+      "nextCoverImage": "http://project.roydust.top/covers/1780693474621-bf3351a0-97096454_p0.jpg",
+      "nextCoverAssetId": "cmq1ex390002uy8v5q08i1z3t"
+    },
+    {
+      "postId": "cmpycf9rf00hs0jo0maoic8go",
+      "slug": "tech-learning-frontend-c-commonc-67976e20",
+      "title": "常用 CSS：一段背景图代码里的四个关键点",
+      "previousCoverImage": "http://project.roydust.top/covers/ai/1778560572016-5907ace4e9a0.png",
+      "previousCoverAssetId": "cmp251ksu001r0zpbiagfspie",
+      "nextCoverImage": "http://project.roydust.top/covers/1780693465637-d6da8cf3-95461158_p0.jpg",
+      "nextCoverAssetId": "cmq1ewwhe002py8v5o155m6t4"
+    },
+    {
+      "postId": "cmpycf86i00hm0jo0cw6n2cpy",
+      "slug": "tech-learning-project-mini-program-project-yichen-yougou-7f75d3a3",
+      "title": "依尘优购小程序：一个电商小程序项目的页面、状态和支付链路",
+      "previousCoverImage": "http://project.roydust.top/covers/ai/1779080820337-56866b1267a4.png",
+      "previousCoverAssetId": "cmpaqsaxn002e0invsut75z3a",
+      "nextCoverImage": "http://project.roydust.top/covers/1780693459506-e462da3b-89268058_p0.jpg",
+      "nextCoverAssetId": "cmq1ewr79002jy8v5k3l6xryt"
+    },
+    {
+      "postId": "cmpycf55d00ha0jo0bmf1ymnq",
+      "slug": "tech-learning-frontend-wechat-mini-program-wechat-mini-programtip-e9461c7f",
+      "title": "微信小程序组件补充：slot 和样式隔离怎么用",
+      "previousCoverImage": "http://project.roydust.top/covers/ai/1778093208198-63b3e4abdf74.png",
+      "previousCoverAssetId": "cmouescc8000ugkv5slsz1ivj",
+      "nextCoverImage": "http://project.roydust.top/covers/1780693453780-573b93cd-91788288_p0.jpg",
+      "nextCoverAssetId": "cmq1ewmr8002ey8v5fop8rgkr"
+    },
+    {
+      "postId": "cmpycf0lh00gs0jo0caf8ipdv",
+      "slug": "tech-learning-frontend-wechat-mini-program-wechat-mini-programlinked-menu-olution-d3f8ecdc",
+      "title": "微信小程序菜单左右联动：用 scroll-view 做点单页分类导航",
+      "previousCoverImage": "http://project.roydust.top/covers/ai/1780116785826-2d6f4ad0a8dd.png",
+      "previousCoverAssetId": "cmprvkn5r005u0jju5mylxrz3",
+      "nextCoverImage": "http://project.roydust.top/covers/1780693448722-bc1d7f31-85127098_p0.jpg",
+      "nextCoverAssetId": "cmq1ewisl0029y8v5vy5fqew7"
+    },
+    {
+      "postId": "cmpyceswn00fx0jo034gi278a",
+      "slug": "tech-learning-data-tructure-java-cript-relearnjava-cript-a837a1ad",
+      "title": "重学 JavaScript 数据结构：数组 API、字符串转换和 fill 的引用陷阱",
+      "previousCoverImage": "http://project.roydust.top/covers/ai/1778905731298-9dd04313f543.png",
+      "previousCoverAssetId": "cmp7ujjfq004s0zoat6cnpqjt",
+      "nextCoverImage": "http://project.roydust.top/covers/1780693441382-b5f32719-86611310_p0.jpg",
+      "nextCoverAssetId": "cmq1ewd4k0024y8v5iiijshq6"
+    },
+    {
+      "postId": "cmpyceoas00ff0jo0s1wpx4r4",
+      "slug": "tech-learning-data-tructure-coding-practice-leetcodecoding-practice-abeafea6",
+      "title": "力扣刷题笔记：异或、去重、数独校验和字符计数",
+      "previousCoverImage": "http://project.roydust.top/covers/ai/1778093223980-08c1feb01403.png",
+      "previousCoverAssetId": "cmouesohn000vgkv5rbg5tlup",
+      "nextCoverImage": "http://project.roydust.top/covers/1780693433933-c9a79a5e-anime-pictures-net_-_818934-7000x4260-arknights-muelsyse-arknights-ash-c-single-long-hair-looking-at-viewer.jpg",
+      "nextCoverAssetId": "cmq1ew7qt001zy8v569h9696j"
+    },
+    {
+      "postId": "cmpycez3v00gm0jo02sursmdv",
+      "slug": "tech-learning-frontend-network-api-axio-3ff59661",
+      "title": "Axios 多重封装：用 TypeScript 管住实例、拦截器和 Loading",
+      "previousCoverImage": "http://project.roydust.top/covers/ai/1779426063004-1eba542340dd.png",
+      "previousCoverAssetId": "cmpggc1vl002s0jqi0oik9kdm",
+      "nextCoverImage": "http://project.roydust.top/covers/1780693418487-2cc10367-120940509_p0.jpg",
+      "nextCoverAssetId": "cmq1evvya001ty8v5odxt507i"
+    },
+    {
+      "postId": "cmpyceuhb00g30jo0t2qhj89r",
+      "slug": "tech-learning-data-tructure-java-cript-j-exerci-e-2c353ee4",
+      "title": "JS 做题笔记：相等比较、this、数组方法和异步闭包陷阱",
+      "previousCoverImage": "http://project.roydust.top/covers/ai/1779686455099-d423b9aa1284.png",
+      "previousCoverAssetId": "cmpkrd5oa002d0jl3shr1mgbv",
+      "nextCoverImage": "http://project.roydust.top/covers/1780693371011-daef3a17-articlebg.jpg",
+      "nextCoverAssetId": "cmq1euv30001ny8v52ijdnr8f"
+    },
+    {
+      "postId": "cmpycerd500fr0jo05h6kpwha",
+      "slug": "tech-learning-data-tructure-java-javacoding-practicecollection-47b5319a",
+      "title": "Java 刷题集合类速查：数组、List、栈、队列、堆、Set、Map 和字符串",
+      "previousCoverImage": "http://project.roydust.top/covers/ai/1780378235580-ea0ef52dfd96.png",
+      "previousCoverAssetId": "cmpw78ewt00480jo05yorunpj",
+      "nextCoverImage": "http://project.roydust.top/covers/1780693360994-7ae5244d-hi7r_v2beaawagt.jpg",
+      "nextCoverAssetId": "cmq1eun5x001hy8v5v9lm2g7e"
+    },
+    {
+      "postId": "cmpycepsp00fl0jo04bozx2jk",
+      "slug": "tech-learning-data-tructure-java-java-9b1f22b5",
+      "title": "Java 数据结构入门：复杂度、存储结构和五种排序算法",
+      "previousCoverImage": "http://project.roydust.top/covers/1778002291850-e856afca-118672299_p0.jpg",
+      "previousCoverAssetId": "cmoswnpuc0004f4v5i81tbecv",
+      "nextCoverImage": "http://project.roydust.top/covers/1780693353854-b4152831-121044426_p0.jpg",
+      "nextCoverAssetId": "cmq1euhu5001cy8v5bwy1dbh8"
+    },
+    {
+      "postId": "cmpycel4u00f30jo09vz43ua2",
+      "slug": "tech-learning-dev-tool-gitteam-collaboration-976bc2fc",
+      "title": "Git 团队协同入门：从 clone 到 commit、push 和冲突处理",
+      "previousCoverImage": "http://project.roydust.top/covers/ai/1778993660419-61e893a4b0b1.png",
+      "previousCoverAssetId": "cmp9aw5y0007o0zoaxo1yxt4l",
+      "nextCoverImage": "http://project.roydust.top/covers/1780693344943-dec9ebb6-hkdzvsxa4aaf7wh.jpg",
+      "nextCoverAssetId": "cmq1euazq0017y8v5g9ocernu"
+    },
+    {
+      "postId": "cmpycei3g00er0jo0btqfcsx9",
+      "slug": "tech-learning-backend-databa-e-nginx-deployment-pm2deploymentegg-erver-7b66a982",
+      "title": "用 PM2 部署 Egg.js 项目：端口、入口文件、HTTPS 和常用命令",
+      "previousCoverImage": "http://project.roydust.top/covers/1778002277815-c01bc6db-98085854_p0.jpg",
+      "previousCoverAssetId": "cmoswne5r0003f4v524tmwdas",
+      "nextCoverImage": "http://project.roydust.top/covers/1780693333680-8a27a569-112167497_p0.jpg",
+      "nextCoverAssetId": "cmq1eu2f20011y8v5yauuz77j"
+    },
+    {
+      "postId": "cmpycegkj00el0jo0xfbc3mlx",
+      "slug": "tech-learning-backend-databa-e-nginx-deployment-nginxknowledge-23aa0759",
+      "title": "Nginx 小知识：Vue 打包后的接口代理和 PID 报错处理",
+      "previousCoverImage": "http://project.roydust.top/covers/ai/1779080820337-56866b1267a4.png",
+      "previousCoverAssetId": "cmpaqsaxn002e0invsut75z3a",
+      "nextCoverImage": "http://project.roydust.top/covers/1778435081301-a7744f32-125521081_p0.jpg",
+      "nextCoverAssetId": "cmp02bvdv00m1zkv5yathtnhk"
+    },
+    {
+      "postId": "cmpycfr1500jm0jo0h9jniazw",
+      "slug": "tech-learning-frontend-react-react18note-8809a2e5",
+      "title": "React 18 学习笔记：从 JSX 到 Hooks 的可执行路线",
+      "previousCoverImage": "http://project.roydust.top/covers/ai/1779598879689-954e6fd1bc32.png",
+      "previousCoverAssetId": "cmpjb841z005z0jp61hly1bhr",
+      "nextCoverImage": "http://project.roydust.top/covers/1778002291850-e856afca-118672299_p0.jpg",
+      "nextCoverAssetId": "cmoswnpuc0004f4v5i81tbecv"
+    },
+    {
+      "postId": "cmpycfhjq00im0jo0sgimbos7",
+      "slug": "tech-learning-frontend-vue-vue3-j-note-417c5884",
+      "title": "Vue3 学习笔记：模板、组件、Composition API、Router、Vuex 和 Mini-Vue",
+      "previousCoverImage": "http://project.roydust.top/covers/1778002211260-e2155ea0-116767804_p0.jpg",
+      "previousCoverAssetId": "cmoswm0jd0000f4v5lhpnk9s3",
+      "nextCoverImage": "http://project.roydust.top/covers/1778002277815-c01bc6db-98085854_p0.jpg",
+      "nextCoverAssetId": "cmoswne5r0003f4v524tmwdas"
+    },
+    {
+      "postId": "cmpycfg0s00ig0jo0e55clygm",
+      "slug": "tech-learning-frontend-vue-vue2-j-note-b8a92c2a",
+      "title": "Vue2 学习笔记：从模板语法到组件通信和 Webpack",
+      "previousCoverImage": "http://project.roydust.top/covers/ai/1780031604373-e5129fce3ecf.png",
+      "previousCoverAssetId": "cmpqguwnk002h0jju120haust",
+      "nextCoverImage": "http://project.roydust.top/covers/1778002265668-a4c874d6-97190273_p0.jpg",
+      "nextCoverAssetId": "cmoswn70q0002f4v5y4nivo9z"
+    },
+    {
+      "postId": "cmpycf6ms00hg0jo0yjyfv90c",
+      "slug": "tech-learning-frontend-performance-performance-7f3ff899",
+      "title": "前端性能优化：从 V8 执行链路理解 JavaScript 写法",
+      "previousCoverImage": "http://project.roydust.top/covers/ai/1778905731298-9dd04313f543.png",
+      "previousCoverAssetId": "cmp7ujjfq004s0zoat6cnpqjt",
+      "nextCoverImage": "http://project.roydust.top/covers/1778002223310-23c31ec6-140699637_p0_master1200.jpg",
+      "nextCoverAssetId": "cmoswm8740001f4v5b8hmvhdq"
+    },
+    {
+      "postId": "cmpycf3nq00h40jo0uz7gowro",
+      "slug": "tech-learning-frontend-wechat-mini-program-wechat-mini-programcloud-dev-a5b95e84",
+      "title": "微信小程序云开发：数据库、云函数和云存储的最小闭环",
+      "previousCoverImage": "http://project.roydust.top/covers/1778002223310-23c31ec6-140699637_p0_master1200.jpg",
+      "previousCoverAssetId": "cmoswm8740001f4v5b8hmvhdq",
+      "nextCoverImage": "http://project.roydust.top/covers/1778002211260-e2155ea0-116767804_p0.jpg",
+      "nextCoverAssetId": "cmoswm0jd0000f4v5lhpnk9s3"
+    },
+    {
+      "postId": "cmpycf23y00gy0jo0o486e10f",
+      "slug": "tech-learning-frontend-wechat-mini-program-wechat-mini-programnote-d456bba6",
+      "title": "微信小程序学习笔记：从目录结构到生命周期的入门框架",
+      "previousCoverImage": "http://project.roydust.top/covers/ai/1780466612209-e44a55422c1f.png",
+      "previousCoverAssetId": "cmpxnumsr00890jo0ntwhqifj",
+      "nextCoverImage": "http://project.roydust.top/covers/1777190159152-2be86064-3bfba6dd29022f4211d470d0ae191c4b.jpg",
+      "nextCoverAssetId": "cmofh4vci000bm0v5m60fsogk"
+    },
+    {
+      "postId": "cmpycejm500ex0jo0e82wp04c",
+      "slug": "tech-learning-backend-databa-e-node-j-node-j-note-84fe6f7a",
+      "title": "Node.js 学习笔记：从 HTTP、文件系统到 Express、Koa 和 MongoDB",
+      "previousCoverImage": "http://project.roydust.top/covers/1778002291850-e856afca-118672299_p0.jpg",
+      "previousCoverAssetId": "cmoswnpuc0004f4v5i81tbecv",
+      "nextCoverImage": "http://project.roydust.top/covers/1780693474621-bf3351a0-97096454_p0.jpg",
+      "nextCoverAssetId": "cmq1ex390002uy8v5q08i1z3t"
+    },
+    {
+      "postId": "cmpycfcty00i40jo0wdzcqb1s",
+      "slug": "tech-learning-frontend-java-cript-relearnj-ba-ic-232fb8da",
+      "title": "重学 JS 基础：DOM、事件、BOM 和 JSON 的浏览器主线",
+      "previousCoverImage": "http://project.roydust.top/covers/ai/1778093223980-08c1feb01403.png",
+      "previousCoverAssetId": "cmouesohn000vgkv5rbg5tlup",
+      "nextCoverImage": "http://project.roydust.top/covers/1780693465637-d6da8cf3-95461158_p0.jpg",
+      "nextCoverAssetId": "cmq1ewwhe002py8v5o155m6t4"
+    },
+    {
+      "postId": "cmpycfbau00hy0jo08l6sxjjp",
+      "slug": "tech-learning-frontend-java-cript-advancedjava-cript-2c2363d8",
+      "title": "高阶 JavaScript 笔记：从执行模型到响应式原理",
+      "previousCoverImage": "http://project.roydust.top/covers/ai/1780204690440-b7972eaef7e6.png",
+      "previousCoverAssetId": "cmptbwqlt00360jmctzglec31",
+      "nextCoverImage": "http://project.roydust.top/covers/1780693459506-e462da3b-89268058_p0.jpg",
+      "nextCoverAssetId": "cmq1ewr79002jy8v5k3l6xryt"
+    },
+    {
+      "postId": "cmpycexkv00gg0jo0jf3rqqrz",
+      "slug": "tech-learning-frontend-vi-ualization-echart-note-1be80917",
+      "title": "ECharts 学习笔记：从 option 到可视化大屏的实现路径",
+      "previousCoverImage": "http://project.roydust.top/covers/ai/1778560572016-5907ace4e9a0.png",
+      "previousCoverAssetId": "cmp251ksu001r0zpbiagfspie",
+      "nextCoverImage": "http://project.roydust.top/covers/1780693453780-573b93cd-91788288_p0.jpg",
+      "nextCoverAssetId": "cmq1ewmr8002ey8v5fop8rgkr"
+    },
+    {
+      "postId": "cmpycew1x00ga0jo04jsh2vcw",
+      "slug": "tech-learning-frontend-build-tooling-relearnwebpack-50e0b558",
+      "title": "重学 Webpack：从跨域到构建性能的一张路线图",
+      "previousCoverImage": "http://project.roydust.top/covers/ai/1780116785826-2d6f4ad0a8dd.png",
+      "previousCoverAssetId": "cmprvkn5r005u0jju5mylxrz3",
+      "nextCoverImage": "http://project.roydust.top/covers/1780693448722-bc1d7f31-85127098_p0.jpg",
+      "nextCoverAssetId": "cmq1ewisl0029y8v5vy5fqew7"
+    },
+    {
+      "postId": "cmpycemry00f90jo08idahfgp",
+      "slug": "tech-learning-dev-tool-githubprofile-poli-h-f02dba1e",
+      "title": "GitHub Profile README 美化：把个人主页做成工程名片",
+      "previousCoverImage": "http://project.roydust.top/covers/ai/1780466612209-e44a55422c1f.png",
+      "previousCoverAssetId": "cmpxnumsr00890jo0ntwhqifj",
+      "nextCoverImage": "http://project.roydust.top/covers/1780693441382-b5f32719-86611310_p0.jpg",
+      "nextCoverAssetId": "cmq1ewd4k0024y8v5iiijshq6"
+    },
+    {
+      "postId": "cmpycef1o00ef0jo01qeczark",
+      "slug": "tech-learning-backend-databa-e-my-ql-my-qldataba-enote-24d2b3f5",
+      "title": "MySQL 学习笔记：从建表、查询到事务、索引和 JDBC",
+      "previousCoverImage": "http://project.roydust.top/covers/ai/1778091246721-c0b5f1c0ec2b.png",
+      "previousCoverAssetId": "cmoudmatt0000gkv5e3cqdcum",
+      "nextCoverImage": "http://project.roydust.top/covers/1780693433933-c9a79a5e-anime-pictures-net_-_818934-7000x4260-arknights-muelsyse-arknights-ash-c-single-long-hair-looking-at-viewer.jpg",
+      "nextCoverAssetId": "cmq1ew7qt001zy8v569h9696j"
+    },
+    {
+      "postId": "cmpycedj700e90jo0f7edd60w",
+      "slug": "tech-learning-backend-databa-e-java-javanote-ff1635ba",
+      "title": "Java 基础学习笔记：从语法到集合和树结构的路线图",
+      "previousCoverImage": "http://project.roydust.top/covers/ai/1779080820337-56866b1267a4.png",
+      "previousCoverAssetId": "cmpaqsaxn002e0invsut75z3a",
+      "nextCoverImage": "http://project.roydust.top/covers/1780693418487-2cc10367-120940509_p0.jpg",
+      "nextCoverAssetId": "cmq1evvya001ty8v5odxt507i"
+    }
+  ]
+}

@@ -16,6 +16,7 @@ export interface PublicPostRecord {
   id: string
   title: string
   slug: string
+  generatedByAiNews: boolean
   excerpt: string | null
   coverImage: string | null
   featured: boolean
@@ -55,6 +56,7 @@ export function getPublicPostSelect(options: { includeTagColor?: boolean } = {})
     id: true,
     title: true,
     slug: true,
+    generatedByAiNews: true,
     excerpt: true,
     coverImage: true,
     featured: true,

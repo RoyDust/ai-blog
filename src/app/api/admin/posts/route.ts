@@ -47,6 +47,7 @@ async function GETHandler(request: Request) {
     })
     const query = searchParams.get("q")?.trim()
     const status = searchParams.get("status")
+    const type = searchParams.get("type")
     const where: Prisma.PostWhereInput = { deletedAt: null }
 
     if (query) {
@@ -60,6 +61,10 @@ async function GETHandler(request: Request) {
       where.published = true
     } else if (status === "draft") {
       where.published = false
+    }
+
+    if (type === "non-ai-daily") {
+      where.generatedByAiNews = false
     }
 
     const [total, allCount, publishedCount, viewAggregate] = await Promise.all([

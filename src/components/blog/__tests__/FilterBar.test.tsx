@@ -3,7 +3,7 @@ import { expect, test } from "vitest";
 import { FilterBar } from "../FilterBar";
 
 test("filter bar renders active chips and a reset entry when filters are present", () => {
-  render(
+  const { container } = render(
     <FilterBar
       search="react"
       category="frontend"
@@ -17,6 +17,8 @@ test("filter bar renders active chips and a reset entry when filters are present
   expect(screen.getByRole("link", { name: "分类: frontend" })).toHaveAttribute("href", "/posts?q=react&tag=nextjs");
   expect(screen.getByRole("link", { name: "标签: nextjs" })).toHaveAttribute("href", "/posts?q=react&category=frontend");
   expect(screen.getByRole("link", { name: "清空筛选" })).toHaveAttribute("href", "/posts");
+  expect(container.querySelector("form")).not.toHaveClass("sticky");
+  expect(container.querySelector("form")).not.toHaveClass("z-30");
 });
 
 test("filter bar resyncs selected values when filter props change", () => {

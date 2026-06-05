@@ -49,6 +49,9 @@ const statusMeta: Record<CommentStatus, { label: string; tone: "success" | "warn
 };
 
 const defaultPageSize = 10;
+const commentsFilterMemoryKey = "admin:comments:list-filters";
+const commentStatusFilters = ["ALL", "APPROVED", "PENDING", "REJECTED", "SPAM"] as const;
+const pageSizeOptions = [10, 20, 50, 100];
 
 type PaginationState = {
   page: number;
@@ -79,6 +82,58 @@ const emptyStats: CommentStats = {
   rejected: 0,
   spam: 0,
 };
+
+type CommentStatusFilter = "ALL" | CommentStatus;
+type CommentsFilterMemory = {
+  query: string;
+  statusFilter: CommentStatusFilter;
+  page: number;
+  pageSize: number;
+};
+
+function readPositiveInteger(value: unknown, fallback: number) {
+  const number = Number(value);
+  return Number.isInteger(number) && number > 0 ? number : fallback;
+}
+
+function readCommentsFilterMemory(): CommentsFilterMemory {
+  const fallback: CommentsFilterMemory = {
+    query: "",
+    statusFilter: "ALL",
+    page: 1,
+    pageSize: defaultPageSize,
+  };
+
+  if (typeof window === "undefined") {
+    return fallback;
+  }
+
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(commentsFilterMemoryKey) ?? "{}") as Partial<CommentsFilterMemory>;
+    const nextPageSize = readPositiveInteger(parsed.pageSize, fallback.pageSize);
+
+    return {
+      query: typeof parsed.query === "string" ? parsed.query : fallback.query,
+      statusFilter: commentStatusFilters.includes(parsed.statusFilter as CommentStatusFilter) ? (parsed.statusFilter as CommentStatusFilter) : fallback.statusFilter,
+      page: readPositiveInteger(parsed.page, fallback.page),
+      pageSize: pageSizeOptions.includes(nextPageSize) ? nextPageSize : fallback.pageSize,
+    };
+  } catch {
+    return fallback;
+  }
+}
+
+function writeCommentsFilterMemory(value: CommentsFilterMemory) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(commentsFilterMemoryKey, JSON.stringify(value));
+  } catch {
+    // localStorage can be unavailable in private or constrained browser contexts.
+  }
+}
 
 interface StatsCardProps {
   label: string;
@@ -159,14 +214,20 @@ export default function AdminCommentsPage() {
   const [pagination, setPagination] = useState<PaginationState>(emptyPagination);
   const [stats, setStats] = useState<CommentStats>(emptyStats);
   const [loading, setLoading] = useState(true);
+  const [hasLoaded, setHasLoaded] = useState(false);
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"ALL" | CommentStatus>("ALL");
+  const [statusFilter, setStatusFilter] = useState<CommentStatusFilter>("ALL");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(defaultPageSize);
   const [deleteDialog, setDeleteDialog] = useState<DeleteDialogState>(initialDeleteDialog);
+  const [filtersRestored, setFiltersRestored] = useState(false);
 
   const fetchComments = useCallback(async (options: { silent?: boolean } = {}) => {
+    if (!filtersRestored) {
+      return;
+    }
+
     try {
       if (!options.silent) {
         setLoading(true);
@@ -207,11 +268,35 @@ export default function AdminCommentsPage() {
       setPagination({ ...emptyPagination, limit: pageSize });
       setStats(emptyStats);
     } finally {
+      setHasLoaded(true);
       if (!options.silent) {
         setLoading(false);
       }
     }
-  }, [debouncedQuery, page, pageSize, statusFilter]);
+  }, [debouncedQuery, filtersRestored, page, pageSize, statusFilter]);
+
+  useEffect(() => {
+    const saved = readCommentsFilterMemory();
+    setQuery(saved.query);
+    setDebouncedQuery(saved.query);
+    setStatusFilter(saved.statusFilter);
+    setPage(saved.page);
+    setPageSize(saved.pageSize);
+    setFiltersRestored(true);
+  }, []);
+
+  useEffect(() => {
+    if (!filtersRestored) {
+      return;
+    }
+
+    writeCommentsFilterMemory({
+      query,
+      statusFilter,
+      page,
+      pageSize,
+    });
+  }, [filtersRestored, page, pageSize, query, statusFilter]);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedQuery(query), 300);
@@ -387,7 +472,7 @@ export default function AdminCommentsPage() {
     />
   );
 
-  if (loading && comments.length === 0 && pagination.total === 0) return <p className="py-20 text-center text-[var(--muted)]">加载中...</p>;
+  if (loading && !hasLoaded) return <p className="py-20 text-center text-[var(--muted)]">加载中...</p>;
 
   return (
     <>

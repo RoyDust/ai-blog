@@ -301,6 +301,7 @@ export function parseCoverAssetInput(payload: unknown) {
     key?: unknown
     provider?: unknown
     source?: unknown
+    generatedByAi?: unknown
     status?: unknown
     title?: unknown
     alt?: unknown
@@ -335,6 +336,7 @@ export function parseCoverAssetInput(payload: unknown) {
     key,
     provider,
     source: data.source == null ? "upload" : readCoverAssetSource(data.source),
+    generatedByAi: data.generatedByAi == null ? undefined : readBoolean(data.generatedByAi, "generatedByAi"),
     status: data.status == null ? "active" : readCoverAssetStatus(data.status),
     title,
     alt,
@@ -381,14 +383,21 @@ export function parseCoverAssetPatchInput(payload: unknown) {
 
 /**
  * 校验“随机分配封面”批量操作的输入。
- * 支持限定文章集合，也支持只针对已发布文章执行。
+ * 默认只补非 AI 日报缺失封面；replaceExisting=true 时允许显式覆盖已有封面。
  */
 export function parseCoverRandomizeInput(payload: unknown) {
-  const data = (payload ?? {}) as { postIds?: unknown; publishedOnly?: unknown }
+  const data = (payload ?? {}) as {
+    postIds?: unknown
+    publishedOnly?: unknown
+    replaceExisting?: unknown
+    nonAiDailyOnly?: unknown
+  }
 
   return {
     postIds: normalizeStringArray(data.postIds, "postIds") ?? undefined,
     publishedOnly: data.publishedOnly == null ? true : readBoolean(data.publishedOnly, "publishedOnly"),
+    replaceExisting: data.replaceExisting == null ? false : readBoolean(data.replaceExisting, "replaceExisting"),
+    nonAiDailyOnly: data.nonAiDailyOnly == null ? true : readBoolean(data.nonAiDailyOnly, "nonAiDailyOnly"),
   }
 }
 
