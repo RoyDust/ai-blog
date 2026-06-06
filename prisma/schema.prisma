@@ -68,6 +68,22 @@ enum NotificationSeverity {
   ERROR
 }
 
+enum NewsletterCampaignStatus {
+  DRAFT
+  SENDING
+  SENT
+  PARTIAL_FAILED
+  FAILED
+}
+
+enum AiTopicStatus {
+  NEW
+  WATCHING
+  PLANNED
+  DRAFTED
+  ARCHIVED
+}
+
 model Account {
   id                String  @id @default(cuid())
   userId            String
@@ -174,6 +190,7 @@ model Post {
   readingEvents  ReadingEvent[]
   aiDraftBinding AiDraftBinding?
   aiTaskItems    AiTaskItem[]
+  topicGuidePosts TopicGuidePost[]
 
   @@index([authorId])
   @@index([categoryId])
@@ -219,6 +236,44 @@ model NewsletterSubscriber {
 
   @@index([status, createdAt])
   @@map("newsletter_subscribers")
+}
+
+model NewsletterCampaign {
+  id          String                   @id @default(cuid())
+  title       String
+  subject     String
+  intro       String?                  @db.Text
+  postIds     String[]                 @default([])
+  status      NewsletterCampaignStatus @default(DRAFT)
+  scheduledAt DateTime?
+  sentAt      DateTime?
+  createdById String?
+  createdAt   DateTime                 @default(now())
+  updatedAt   DateTime                 @updatedAt
+
+  deliveries NewsletterDelivery[]
+
+  @@index([status, createdAt])
+  @@index([scheduledAt])
+  @@map("newsletter_campaigns")
+}
+
+model NewsletterDelivery {
+  id           String             @id @default(cuid())
+  campaignId   String
+  campaign     NewsletterCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  subscriberId String
+  email        String
+  status       String             @default("pending")
+  error        String?            @db.Text
+  sentAt       DateTime?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  @@unique([campaignId, subscriberId])
+  @@index([campaignId, status])
+  @@index([subscriberId])
+  @@map("newsletter_deliveries")
 }
 
 model VisitLog {
@@ -555,6 +610,44 @@ model AiNewsCandidate {
   @@map("ai_news_candidates")
 }
 
+model AiTopic {
+  id          String        @id @default(cuid())
+  title       String
+  slug        String        @unique
+  summary     String?       @db.Text
+  angle       String?       @db.Text
+  status      AiTopicStatus @default(NEW)
+  score       Float         @default(0)
+  heat        Int           @default(0)
+  tags        String[]      @default([])
+  riskFlags   String[]      @default([])
+  sourceCount Int           @default(0)
+  firstSeenAt DateTime?
+  lastSeenAt  DateTime?
+  postId      String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  candidates AiTopicCandidate[]
+
+  @@index([status, score])
+  @@index([lastSeenAt])
+  @@map("ai_topics")
+}
+
+model AiTopicCandidate {
+  id          String   @id @default(cuid())
+  topicId     String
+  topic       AiTopic  @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  candidateId String
+  relevance   Float    @default(0)
+  createdAt   DateTime @default(now())
+
+  @@unique([topicId, candidateId])
+  @@index([candidateId])
+  @@map("ai_topic_candidates")
+}
+
 model Notification {
   id         String               @id @default(cuid())
   type       NotificationType
@@ -644,6 +737,39 @@ model Comment {
   @@index([browserId])
   @@index([deletedAt])
   @@map("comments")
+}
+
+model TopicGuide {
+  id          String    @id @default(cuid())
+  title       String
+  slug        String    @unique
+  description String?   @db.Text
+  status      String    @default("draft")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  posts TopicGuidePost[]
+
+  @@index([status, createdAt])
+  @@index([deletedAt])
+  @@map("topic_guides")
+}
+
+model TopicGuidePost {
+  id        String     @id @default(cuid())
+  guideId   String
+  guide     TopicGuide @relation(fields: [guideId], references: [id], onDelete: Cascade)
+  postId    String
+  post      Post       @relation(fields: [postId], references: [id], onDelete: Cascade)
+  order     Int        @default(0)
+  note      String?    @db.Text
+  createdAt DateTime   @default(now())
+
+  @@unique([guideId, postId])
+  @@index([guideId, order])
+  @@index([postId])
+  @@map("topic_guide_posts")
 }
 
 model Like {
