@@ -28,6 +28,7 @@ import { CommentAuthGate } from "@/components/CommentAuthGate";
 import { FallbackImage } from "@/components/ui";
 import { getBlogSettings } from "@/lib/blog-settings";
 import { prisma } from "@/lib/prisma";
+import { getRecommendedPostsForPost } from "@/lib/recommendations";
 import { buildArticleJsonLd, buildArticleMetadata, buildBreadcrumbJsonLd } from "@/lib/seo";
 import { JsonLd } from "@/components/seo/JsonLd";
 
@@ -125,32 +126,6 @@ async function getPostComments(postId: string) {
 type ArticleComment = Awaited<ReturnType<typeof getPostComments>>[number]
 type ArticleReply = ArticleComment['replies'][number]
 
-
-async function getRelatedPosts(postId: string, tagSlugs: string[], limit = 3) {
-  if (tagSlugs.length === 0) {
-    return []
-  }
-
-  return prisma.post.findMany({
-    where: {
-      id: { not: postId },
-      published: true,
-      deletedAt: null,
-      tags: { some: { slug: { in: tagSlugs }, deletedAt: null } },
-    },
-    select: {
-      id: true,
-      title: true,
-      slug: true,
-      excerpt: true,
-      coverImage: true,
-      createdAt: true,
-      category: { select: { name: true, slug: true } },
-    },
-    orderBy: [{ publishedAt: { sort: "desc", nulls: "last" } }, { createdAt: "desc" }],
-    take: limit,
-  })
-}
 
 /**
  * 为文章详情页生成 SEO metadata。
@@ -310,7 +285,7 @@ export async function renderArticlePage({ slug, includeDraft = false }: { slug: 
 
   const isDraftPreview = includeDraft && !post.published;
 
-  const relatedPosts = isDraftPreview ? [] : await getRelatedPosts(post.id, post.tags.map((tag) => tag.slug))
+  const relatedPosts = isDraftPreview ? [] : await getRecommendedPostsForPost({ postId: post.id, limit: 3 })
   const commentsPromise = isDraftPreview ? null : getPostComments(post.id)
 
   const headings = extractHeadings(post.content);

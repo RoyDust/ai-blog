@@ -1,10 +1,11 @@
 import { act, render, screen } from '@testing-library/react'
 import React from 'react'
-import { describe, expect, test, vi } from 'vitest'
+import { beforeEach, describe, expect, test, vi } from 'vitest'
 
 const findFirst = vi.fn()
 const findMany = vi.fn()
 const commentFindMany = vi.fn()
+const getRecommendedPostsForPost = vi.fn()
 const getServerSession = vi.fn().mockResolvedValue(null)
 
 vi.mock('@/components/CommentAuthGate', () => ({
@@ -21,6 +22,10 @@ vi.mock('@/lib/prisma', () => ({
       findMany: commentFindMany,
     },
   },
+}))
+
+vi.mock('@/lib/recommendations', () => ({
+  getRecommendedPostsForPost,
 }))
 
 findFirst.mockResolvedValue({
@@ -43,6 +48,7 @@ findFirst.mockResolvedValue({
 })
 
 findMany.mockResolvedValue([])
+getRecommendedPostsForPost.mockResolvedValue([])
 commentFindMany.mockResolvedValue([])
 
 vi.mock('next-auth', () => ({
@@ -68,6 +74,10 @@ vi.mock('@/lib/auth', () => ({
 }))
 
 describe('article experience', () => {
+  beforeEach(() => {
+    getRecommendedPostsForPost.mockResolvedValue([])
+  })
+
   test('generates static params for published articles only', async () => {
     findMany.mockClear()
     findMany.mockResolvedValueOnce([{ slug: 'published-post' }, { slug: 'another-post' }])
@@ -126,6 +136,7 @@ describe('article experience', () => {
     expect(screen.queryByRole('button', { name: '收藏文章' })).not.toBeInTheDocument()
     expect(screen.queryByRole('heading', { level: 2, name: '评论 (0)' })).not.toBeInTheDocument()
     expect(findMany).not.toHaveBeenCalled()
+    expect(getRecommendedPostsForPost).not.toHaveBeenCalled()
     expect(commentFindMany).not.toHaveBeenCalled()
   })
 
@@ -186,13 +197,7 @@ describe('article experience', () => {
     expect(screen.getByTestId('comment-auth-gate')).toHaveTextContent('Comment gate for p1')
     expect(await screen.findByText('Great article')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '收藏文章' })).toBeInTheDocument()
-    expect(findMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: expect.objectContaining({
-        id: { not: 'p1' },
-        tags: { some: { slug: { in: ['tag'] }, deletedAt: null } },
-      }),
-      take: 3,
-    }))
+    expect(getRecommendedPostsForPost).toHaveBeenCalledWith({ postId: 'p1', limit: 3 })
     expect(commentFindMany).toHaveBeenCalledWith(expect.objectContaining({
       where: { postId: 'p1', parentId: null, deletedAt: null, status: 'APPROVED' },
       select: expect.objectContaining({
@@ -215,9 +220,8 @@ describe('article experience', () => {
     expect(screen.getByRole('navigation', { name: '本文目录' })).toBeInTheDocument()
   })
 
-  test('article page renders related posts by shared tags', async () => {
-    findMany.mockClear()
-    findMany.mockResolvedValueOnce([
+  test('article page renders recommendations from the recommendation service', async () => {
+    getRecommendedPostsForPost.mockResolvedValueOnce([
       {
         id: 'related-1',
         title: 'Related Post',
@@ -226,6 +230,10 @@ describe('article experience', () => {
         coverImage: null,
         createdAt: new Date('2026-01-03T00:00:00Z'),
         category: { name: 'Category', slug: 'category' },
+        tags: [],
+        publishedAt: new Date('2026-01-03T00:00:00Z'),
+        viewCount: 12,
+        _count: { likes: 1 },
       },
     ])
     findFirst
@@ -256,14 +264,55 @@ describe('article experience', () => {
 
     expect(screen.getByRole('heading', { level: 2, name: '相关文章' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Related Post/ })).toHaveAttribute('href', '/posts/related-post')
-    expect(findMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: expect.objectContaining({
-        id: { not: 'p1' },
-        tags: { some: { slug: { in: ['tag'] }, deletedAt: null } },
-      }),
-      orderBy: [{ publishedAt: { sort: 'desc', nulls: 'last' } }, { createdAt: 'desc' }],
-      take: 3,
-    }))
+    expect(getRecommendedPostsForPost).toHaveBeenCalledWith({ postId: 'p1', limit: 3 })
+  })
+
+  test('article page can render recommendations even when the post has no tag overlap', async () => {
+    getRecommendedPostsForPost.mockResolvedValueOnce([
+      {
+        id: 'fallback-1',
+        title: 'Popular Fallback',
+        slug: 'popular-fallback',
+        excerpt: 'Fallback excerpt',
+        coverImage: null,
+        createdAt: new Date('2026-01-03T00:00:00Z'),
+        publishedAt: new Date('2026-01-03T00:00:00Z'),
+        viewCount: 90,
+        category: null,
+        tags: [],
+        _count: { likes: 4 },
+      },
+    ])
+    findFirst
+      .mockResolvedValueOnce({
+        id: 'p1',
+        slug: 'test-post',
+        title: 'Article Title',
+        content: '# Intro\nBody text',
+        excerpt: 'Excerpt',
+        coverImage: null,
+        createdAt: new Date('2026-01-01T00:00:00Z'),
+        updatedAt: new Date('2026-01-02T00:00:00Z'),
+        publishedAt: new Date('2026-01-01T00:00:00Z'),
+        viewCount: 100,
+        readingTimeMinutes: 1,
+        author: { id: 'u1', name: 'Author', image: null },
+        category: { name: 'Category', slug: 'category' },
+        series: null,
+        tags: [],
+        comments: [],
+        _count: { comments: 0, likes: 2 },
+      })
+
+    const { default: PostPage } = await import('@/app/(public)/posts/[slug]/page')
+    const ui = await PostPage({ params: Promise.resolve({ slug: 'test-post' }) })
+    await act(async () => {
+      render(ui as React.ReactElement)
+    })
+
+    expect(screen.getByRole('heading', { level: 2, name: '相关文章' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Popular Fallback/ })).toHaveAttribute('href', '/posts/popular-fallback')
+    expect(getRecommendedPostsForPost).toHaveBeenCalledWith({ postId: 'p1', limit: 3 })
   })
 
   test('article toc rail aligns with the public content grid', async () => {
