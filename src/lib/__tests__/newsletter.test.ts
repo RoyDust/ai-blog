@@ -148,9 +148,21 @@ describe("newsletter", () => {
         verifiedAt: { not: null },
         unsubscribedAt: null,
       },
-      orderBy: { createdAt: "asc" },
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
       take: 25,
     });
+  });
+
+  test("listVerifiedSubscribers can continue after a cursor", async () => {
+    prismaMocks.findMany.mockResolvedValueOnce([]);
+
+    await listVerifiedSubscribers(25, "sub-25");
+
+    expect(prismaMocks.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      cursor: { id: "sub-25" },
+      skip: 1,
+      take: 25,
+    }));
   });
 
   test("newsletter mailer is predictable when provider is not configured", async () => {

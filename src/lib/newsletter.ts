@@ -217,7 +217,7 @@ export async function unsubscribe(tokenOrEmail: string) {
   });
 }
 
-export async function listVerifiedSubscribers(batchSize = DEFAULT_BATCH_SIZE) {
+export async function listVerifiedSubscribers(batchSize = DEFAULT_BATCH_SIZE, cursorId?: string | null) {
   const take = Math.min(Math.max(Math.trunc(batchSize), 1), MAX_BATCH_SIZE);
 
   return newsletterClient().findMany({
@@ -226,7 +226,8 @@ export async function listVerifiedSubscribers(batchSize = DEFAULT_BATCH_SIZE) {
       verifiedAt: { not: null },
       unsubscribedAt: null,
     },
-    orderBy: { createdAt: "asc" },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    ...(cursorId ? { cursor: { id: cursorId }, skip: 1 } : {}),
     take,
   });
 }
