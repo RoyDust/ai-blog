@@ -58,6 +58,24 @@ describe("admin shell config", () => {
     });
   });
 
+  test("maps growth feature routes into grouped workspace labels", () => {
+    expect(getAdminPathMeta("/admin/newsletter")).toEqual({
+      currentLabel: "邮件运营",
+      currentGroup: "主导航",
+      crumbs: ["后台", "主导航", "邮件运营"],
+    });
+    expect(getAdminPathMeta("/admin/topic-guides")).toEqual({
+      currentLabel: "专题导读",
+      currentGroup: "主导航",
+      crumbs: ["后台", "主导航", "专题导读"],
+    });
+    expect(getAdminPathMeta("/admin/ai/topics")).toEqual({
+      currentLabel: "选题雷达",
+      currentGroup: "AI 助手",
+      crumbs: ["后台", "AI 助手", "选题雷达"],
+    });
+  });
+
   test("exposes the grouped editorial navigation items", () => {
     expect(adminNavItems.map((item) => ({ label: item.label, group: item.group, disabled: item.disabled ?? false }))).toEqual([
       { label: "首页", group: "主导航", disabled: false },
@@ -66,7 +84,10 @@ describe("admin shell config", () => {
       { label: "评论", group: "主导航", disabled: false },
       { label: "分类", group: "主导航", disabled: false },
       { label: "媒体库", group: "主导航", disabled: false },
+      { label: "邮件运营", group: "主导航", disabled: false },
+      { label: "专题导读", group: "主导航", disabled: false },
       { label: "AI 日报", group: "AI 助手", disabled: false },
+      { label: "选题雷达", group: "AI 助手", disabled: false },
       { label: "AI 接口", group: "AI 助手", disabled: false },
       { label: "模型配置", group: "AI 助手", disabled: false },
       { label: "AI 任务", group: "AI 助手", disabled: false },
@@ -107,7 +128,10 @@ describe("admin shell config", () => {
     expect(isAdminNavItemActive("/admin/posts-archive", "/admin/posts")).toBe(false);
     expect(isAdminNavItemActive("/admin/series", "/admin/series")).toBe(true);
     expect(isAdminNavItemActive("/admin/covers", "/admin/covers")).toBe(true);
+    expect(isAdminNavItemActive("/admin/newsletter", "/admin/newsletter")).toBe(true);
+    expect(isAdminNavItemActive("/admin/topic-guides", "/admin/topic-guides")).toBe(true);
     expect(isAdminNavItemActive("/admin/taxonomy", "/admin/taxonomy")).toBe(true);
+    expect(isAdminNavItemActive("/admin/ai/topics", "/admin/ai/topics")).toBe(true);
     expect(isAdminNavItemActive("/admin/ai/interfaces", "/admin/ai/interfaces")).toBe(true);
     expect(isAdminNavItemActive("/admin/ai/models", "/admin/ai/models")).toBe(true);
     expect(isAdminNavItemActive("/admin/ai/tasks/task-1", "/admin/ai/tasks")).toBe(true);
