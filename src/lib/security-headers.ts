@@ -1,4 +1,10 @@
-export const securityHeaders = [
+export function createSecurityHeaders(environment = process.env.NODE_ENV) {
+  const scriptSrc = [
+    "script-src 'self' 'unsafe-inline'",
+    environment === 'production' ? null : "'unsafe-eval'",
+  ].filter(Boolean).join(' ')
+
+  return [
   { key: 'X-Content-Type-Options', value: 'nosniff' },
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
   { key: 'X-Frame-Options', value: 'DENY' },
@@ -10,7 +16,7 @@ export const securityHeaders = [
       "img-src 'self' http: https: data: blob:",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com data:",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+      scriptSrc,
       "connect-src 'self' https:",
       "frame-ancestors 'none'",
       "base-uri 'self'",
@@ -18,3 +24,6 @@ export const securityHeaders = [
     ].join('; '),
   },
 ]
+}
+
+export const securityHeaders = createSecurityHeaders()

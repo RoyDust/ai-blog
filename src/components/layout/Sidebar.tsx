@@ -1,6 +1,7 @@
 "use client";
 
 import NextLink from "next/link";
+import { useSession } from "next-auth/react";
 import { ArrowRight, BarChart3, Folder, Github, Link2, Mail, Tags, Target } from "lucide-react";
 import { useEffect, useState } from "react";
 import { PopularPostsWidget, type PopularPost } from "@/components/blog/PopularPostsWidget";
@@ -72,14 +73,16 @@ function formatReadingTime(minutes: number) {
 
 export function Sidebar({
   profile = PUBLIC_PROFILE_FALLBACK,
-  readingStats,
+  readingStats: initialReadingStats = null,
 }: {
   profile?: PublicProfile;
   readingStats?: UserReadingStats | null;
 }) {
+  const { status } = useSession();
   const [categories, setCategories] = useState<CategoryItem[]>([]);
   const [tags, setTags] = useState<TagItem[]>([]);
   const [popularPosts, setPopularPosts] = useState<PopularPost[]>([]);
+  const [readingStats, setReadingStats] = useState<UserReadingStats | null>(initialReadingStats);
   const [isTaxonomyLoading, setIsTaxonomyLoading] = useState(true);
   const [isPopularPostsLoading, setIsPopularPostsLoading] = useState(true);
 
@@ -118,8 +121,45 @@ export function Sidebar({
     };
   }, []);
 
+  useEffect(() => {
+    if (initialReadingStats || status === "loading") {
+      return;
+    }
+
+    if (status === "unauthenticated") {
+      return;
+    }
+
+    let isMounted = true;
+
+    const loadReadingStats = async () => {
+      try {
+        const response = await fetch("/api/users/me/reading-stats");
+        if (!response.ok) {
+          return;
+        }
+
+        const json = await response.json();
+        if (isMounted) {
+          setReadingStats(json?.data ?? null);
+        }
+      } catch {
+        if (isMounted) {
+          setReadingStats(null);
+        }
+      }
+    };
+
+    void loadReadingStats();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [initialReadingStats, status]);
+
   const topCategories = categories.slice(0, 4);
   const topTags = tags.slice(0, 10);
+  const displayedReadingStats = status === "unauthenticated" && !initialReadingStats ? null : readingStats;
 
   return (
     <aside id="sidebar" className="onload-animation h-full w-full">
@@ -258,7 +298,7 @@ export function Sidebar({
 
         <PopularPostsWidget isLoading={isPopularPostsLoading} posts={popularPosts} />
 
-        {readingStats ? (
+        {displayedReadingStats ? (
           <>
             <section className="reader-panel p-5" aria-labelledby="sidebar-reading-stats-title">
               <div className="mb-4 flex items-center gap-2">
@@ -271,17 +311,17 @@ export function Sidebar({
               <div className="grid grid-cols-3 divide-x divide-[var(--reader-border)] text-center">
                 <div>
                   <p className="text-xs text-[var(--text-muted)]">文章数</p>
-                  <p className="mt-1 text-2xl font-bold text-[var(--foreground)]">{readingStats.totalArticles}</p>
+                  <p className="mt-1 text-2xl font-bold text-[var(--foreground)]">{displayedReadingStats.totalArticles}</p>
                 </div>
                 <div>
                   <p className="text-xs text-[var(--text-muted)]">阅读时长</p>
                   <p className="mt-1 text-2xl font-bold text-[var(--foreground)]">
-                    {formatReadingTime(readingStats.totalReadingMinutes)}
+                    {formatReadingTime(displayedReadingStats.totalReadingMinutes)}
                   </p>
                 </div>
                 <div>
                   <p className="text-xs text-[var(--text-muted)]">连续阅读</p>
-                  <p className="mt-1 text-2xl font-bold text-[var(--foreground)]">{readingStats.streakDays}天</p>
+                  <p className="mt-1 text-2xl font-bold text-[var(--foreground)]">{displayedReadingStats.streakDays}天</p>
                 </div>
               </div>
             </section>
@@ -296,18 +336,18 @@ export function Sidebar({
 
               <div className="flex items-end justify-between gap-4">
                 <p className="text-2xl font-bold text-[var(--foreground)]">
-                  {readingStats.monthlyRead}
+                  {displayedReadingStats.monthlyRead}
                   <span className="text-base font-medium text-[var(--text-muted)]">
                     {" "}
-                    / {readingStats.monthlyGoal} 篇
+                    / {displayedReadingStats.monthlyGoal} 篇
                   </span>
                 </p>
-                <span className="text-xs font-semibold text-[var(--text-muted)]">{readingStats.monthlyProgress}%</span>
+                <span className="text-xs font-semibold text-[var(--text-muted)]">{displayedReadingStats.monthlyProgress}%</span>
               </div>
               <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[color:color-mix(in_oklab,var(--foreground)_10%,transparent)]">
                 <div
                   className="h-full rounded-full bg-[color:color-mix(in_oklab,var(--accent-warm)_82%,var(--accent-sky)_18%)]"
-                  style={{ width: `${readingStats.monthlyProgress}%` }}
+                  style={{ width: `${displayedReadingStats.monthlyProgress}%` }}
                 />
               </div>
             </section>

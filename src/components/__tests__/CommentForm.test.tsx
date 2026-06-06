@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { CommentForm } from '../CommentForm'
 
@@ -43,4 +43,21 @@ test('shows localized loading label while submitting', async () => {
   fireEvent.click(screen.getByRole('button', { name: '发表评论' }))
 
   expect(await screen.findByRole('button', { name: '提交中...' })).toBeInTheDocument()
+})
+
+test('shows moderation feedback after submitting a comment', async () => {
+  vi.spyOn(global, 'fetch').mockResolvedValue({
+    ok: true,
+    json: async () => ({ success: true, data: { id: 'comment-1', status: 'PENDING' } }),
+  } as Response)
+
+  render(<CommentForm postId="post-1" />)
+
+  fireEvent.change(screen.getByPlaceholderText('写下你的评论...'), {
+    target: { value: '测试评论' },
+  })
+  fireEvent.click(screen.getByRole('button', { name: '发表评论' }))
+
+  expect(await screen.findByText('评论已提交，审核通过后会公开显示。')).toBeInTheDocument()
+  await waitFor(() => expect(refresh).toHaveBeenCalledOnce())
 })

@@ -306,7 +306,7 @@ async function GETHandler(request: Request) {
           author: { select: { id: true, name: true, image: true } },
           category: true,
           tags: { where: { deletedAt: null } },
-          _count: { select: { comments: { where: { deletedAt: null } }, likes: true } },
+          _count: { select: { comments: { where: { deletedAt: null, status: 'APPROVED' } }, likes: true } },
         },
         orderBy: [{ createdAt: 'desc' }],
         skip: (page - 1) * limit,

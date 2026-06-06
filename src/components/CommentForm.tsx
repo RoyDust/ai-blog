@@ -13,6 +13,7 @@ export function CommentForm({ postId }: CommentFormProps) {
   const [content, setContent] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -20,6 +21,7 @@ export function CommentForm({ postId }: CommentFormProps) {
 
     setLoading(true)
     setError('')
+    setSuccess('')
 
     try {
       const browserId = getOrCreateBrowserId()
@@ -39,6 +41,7 @@ export function CommentForm({ postId }: CommentFormProps) {
       }
 
       setContent('')
+      setSuccess('评论已提交，审核通过后会公开显示。')
       router.refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong')
@@ -52,6 +55,11 @@ export function CommentForm({ postId }: CommentFormProps) {
       {error && (
         <div className="ui-alert-danger mb-4 rounded-lg p-3">
           <p className="text-sm">{error}</p>
+        </div>
+      )}
+      {success && (
+        <div className="mb-4 rounded-lg border border-[var(--success-border)] bg-[var(--success-surface)] p-3 text-[var(--success-foreground)]">
+          <p className="text-sm">{success}</p>
         </div>
       )}
       <textarea

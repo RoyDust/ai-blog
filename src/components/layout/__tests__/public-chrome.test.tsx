@@ -3,6 +3,10 @@ import { expect, test, vi } from "vitest";
 import { Footer } from "@/components/layout/Footer";
 import { Sidebar } from "@/components/layout/Sidebar";
 
+vi.mock("next-auth/react", () => ({
+  useSession: () => ({ data: null, status: "unauthenticated" }),
+}));
+
 test("sidebar and footer expose discovery-oriented public chrome", () => {
   const fetchMock = vi.fn(() =>
     Promise.resolve({

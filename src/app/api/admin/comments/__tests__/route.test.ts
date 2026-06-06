@@ -12,6 +12,12 @@ const findMany = vi.fn()
 const count = vi.fn()
 const updateMany = vi.fn()
 const deleteComment = vi.fn()
+const transaction = vi.fn(async (operations: unknown[]) => operations)
+const revalidatePublicContent = vi.fn()
+
+vi.mock("@/lib/cache", () => ({
+  revalidatePublicContent,
+}))
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -21,6 +27,7 @@ vi.mock("@/lib/prisma", () => ({
       updateMany,
       delete: deleteComment,
     },
+    $transaction: transaction,
   },
 }))
 
@@ -80,5 +87,57 @@ describe("GET /api/admin/comments", () => {
     }))
     expect(payload.pagination).toEqual({ page: 6, limit: 20, total: 125, totalPages: 7 })
     expect(payload.stats).toEqual({ total: 125, pending: 35, approved: 80, rejected: 8, spam: 2 })
+  })
+
+  test("revalidates affected public post pages after moderation changes", async () => {
+    const { getServerSession } = await import("next-auth")
+    vi.mocked(getServerSession).mockResolvedValueOnce({ user: { id: "admin-1", role: "ADMIN" } } as never)
+    findMany.mockResolvedValueOnce([
+      { post: { slug: "post-a" } },
+      { post: { slug: "post-a" } },
+      { post: { slug: "post-b" } },
+    ])
+    updateMany.mockResolvedValueOnce({ count: 3 })
+
+    const { PATCH } = await import("../route")
+    const response = await PATCH(
+      new Request("http://localhost/api/admin/comments", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: ["c1", "c2", "c3"], status: "APPROVED" }),
+      }),
+    )
+
+    expect(response.status).toBe(200)
+    expect(updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ["c1", "c2", "c3"] }, deletedAt: null },
+      data: { status: "APPROVED" },
+    })
+    expect(revalidatePublicContent).toHaveBeenCalledWith({ slug: "post-a" })
+    expect(revalidatePublicContent).toHaveBeenCalledWith({ slug: "post-b" })
+    expect(revalidatePublicContent).toHaveBeenCalledTimes(2)
+  })
+
+  test("revalidates affected public post pages after hiding comments", async () => {
+    const { getServerSession } = await import("next-auth")
+    vi.mocked(getServerSession).mockResolvedValueOnce({ user: { id: "admin-1", role: "ADMIN" } } as never)
+    findMany.mockResolvedValueOnce([
+      { id: "c1", post: { slug: "post-a" } },
+      { id: "c2", post: { slug: "post-b" } },
+    ])
+    updateMany.mockResolvedValueOnce({ count: 2 })
+
+    const { DELETE } = await import("../route")
+    const response = await DELETE(new Request("http://localhost/api/admin/comments?id=c1&id=c2"))
+
+    expect(response.status).toBe(200)
+    expect(updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        OR: [{ id: { in: ["c1", "c2"] } }, { parentId: { in: ["c1", "c2"] } }],
+      }),
+    }))
+    expect(transaction).toHaveBeenCalledOnce()
+    expect(revalidatePublicContent).toHaveBeenCalledWith({ slug: "post-a" })
+    expect(revalidatePublicContent).toHaveBeenCalledWith({ slug: "post-b" })
   })
 })

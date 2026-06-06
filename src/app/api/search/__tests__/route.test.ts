@@ -80,7 +80,9 @@ describe('GET /api/search', () => {
             { tags: { some: { name: { contains: 'react', mode: 'insensitive' } } } },
           ],
         },
-        include: expect.any(Object),
+        include: expect.objectContaining({
+          _count: { select: { comments: { where: { deletedAt: null, status: 'APPROVED' } }, likes: true } },
+        }),
         orderBy: [{ createdAt: 'desc' }],
         skip: 0,
         take: 12,

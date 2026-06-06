@@ -65,6 +65,7 @@ describe('POST /api/comments', () => {
       data: expect.objectContaining({
         postId: 'post-1',
         content: 'Nice post',
+        status: 'PENDING',
         browserId: expect.stringMatching(/^anon_[a-f0-9]{64}$/),
         authorLabel: '203.0.*.*',
       }),
@@ -73,6 +74,7 @@ describe('POST /api/comments', () => {
     expect(createAdminNotification).toHaveBeenCalledWith(expect.objectContaining({
       type: 'COMMENT_CREATED',
       title: '有新评论',
+      body: '203.0.*.* 评论了《Hello》，等待审核。',
       actionUrl: '/admin/comments',
       entityType: 'comment',
       entityId: 'comment-1',

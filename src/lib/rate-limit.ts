@@ -43,30 +43,9 @@ const analyticsLimiter = createMemoryRateLimiter({ limit: 30, windowMs: 60_000 }
 const interactionLimiter = createMemoryRateLimiter({ limit: 20, windowMs: 60_000 })
 const uploadLimiter = createMemoryRateLimiter({ limit: 10, windowMs: 60_000 })
 const aiCoverLimiter = createMemoryRateLimiter({ limit: 5, windowMs: 60_000 })
-let rateLimitTableReady = false
-
-async function ensureRateLimitTable() {
-  if (rateLimitTableReady || process.env.NODE_ENV === "test") {
-    return
-  }
-
-  const { prisma } = await import("@/lib/prisma")
-
-  await prisma.$executeRawUnsafe(`
-    CREATE TABLE IF NOT EXISTS rate_limit_entries (
-      key TEXT PRIMARY KEY,
-      count INTEGER NOT NULL,
-      reset_at TIMESTAMPTZ NOT NULL
-    )
-  `)
-
-  rateLimitTableReady = true
-}
 
 async function checkDatabaseRateLimit(key: string, limit: number, windowMs: number): Promise<RateLimitResult> {
   const { prisma } = await import("@/lib/prisma")
-
-  await ensureRateLimitTable()
 
   const rows = await prisma.$queryRawUnsafe<Array<{ count: number; reset_at: Date }>>(
     `

@@ -45,6 +45,14 @@ describe("GET /api/series/[slug]", () => {
       include: expect.objectContaining({
         posts: expect.objectContaining({
           where: { deletedAt: null, published: true },
+          include: expect.objectContaining({
+            _count: {
+              select: {
+                comments: { where: { deletedAt: null, status: "APPROVED" } },
+                likes: true,
+              },
+            },
+          }),
           orderBy: [{ seriesOrder: "asc" }, { publishedAt: "desc" }, { createdAt: "desc" }],
         }),
       }),

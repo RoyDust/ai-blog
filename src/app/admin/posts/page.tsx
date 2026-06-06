@@ -282,7 +282,7 @@ function getSummaryMeta(status: PostSummaryStatus): { label: string; tone: Tone;
 function getPreviewHref(row: PostRow) {
   const slug = row.slug?.trim();
   if (!slug) return null;
-  return row.published ? `/posts/${slug}` : `/posts/${slug}?preview=admin`;
+  return row.published ? `/posts/${slug}` : `/admin/posts/preview/${slug}`;
 }
 
 function StatusPill({ tone, children, icon: Icon }: { tone: Tone; children: React.ReactNode; icon?: LucideIcon }) {

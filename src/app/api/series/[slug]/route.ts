@@ -29,7 +29,7 @@ async function GETHandler(_: Request, { params }: { params: Promise<{ slug: stri
             tags: { where: { deletedAt: null } },
             _count: {
               select: {
-                comments: { where: { deletedAt: null } },
+                comments: { where: { deletedAt: null, status: "APPROVED" } },
                 likes: true,
               },
             },

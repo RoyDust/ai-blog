@@ -3,6 +3,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { ConflictError, toErrorResponse } from "@/lib/api-errors"
 import { requireSession } from "@/lib/api-auth"
+import { revalidateBlogSettings } from "@/lib/cache"
 import { parseProfileUpdateInput } from "@/lib/validation"
 
 async function GETHandler() {
@@ -50,16 +51,27 @@ async function PATCHHandler(request: Request) {
       }
     }
 
-    const user = await prisma.user.update({
+    const updatedUser = await prisma.user.update({
       where: { id: session.user.id },
       data: { name, email, image },
       select: {
         id: true,
         name: true,
         email: true,
-        image: true
+        image: true,
+        role: true
       }
     })
+    if (updatedUser.role === "ADMIN") {
+      revalidateBlogSettings()
+    }
+
+    const user = {
+      id: updatedUser.id,
+      name: updatedUser.name,
+      email: updatedUser.email,
+      image: updatedUser.image
+    }
 
     return NextResponse.json({
       success: true,

@@ -34,7 +34,7 @@ async function getPublicSeriesDetail(slug: string) {
           tags: { where: { deletedAt: null } },
           _count: {
             select: {
-              comments: { where: { deletedAt: null } },
+              comments: { where: { deletedAt: null, status: "APPROVED" } },
               likes: true,
             },
           },

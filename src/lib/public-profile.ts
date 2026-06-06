@@ -1,10 +1,7 @@
-import { unstable_noStore as noStore } from "next/cache";
 import { getBlogSettings } from "@/lib/blog-settings";
 import { mergePublicProfileUser } from "@/lib/public-profile-data";
 
 export async function getPublicProfile() {
-  noStore();
-
   const settings = await getBlogSettings();
 
   try {

@@ -60,7 +60,7 @@ async function GETHandler(
           orderBy: { createdAt: "desc" }
         },
         _count: {
-          select: { comments: { where: { deletedAt: null } }, likes: true }
+          select: { comments: { where: { deletedAt: null, status: "APPROVED" } }, likes: true }
         }
       }
     })

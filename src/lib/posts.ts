@@ -76,7 +76,7 @@ export function getPublicPostSelect(options: { includeTagColor?: boolean } = {})
         : { id: true, name: true, slug: true },
     },
     _count: {
-      select: { comments: { where: { deletedAt: null } }, likes: true },
+      select: { comments: { where: { deletedAt: null, status: 'APPROVED' } }, likes: true },
     },
   } satisfies PublicPostSelect
 }

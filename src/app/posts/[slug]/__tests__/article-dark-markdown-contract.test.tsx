@@ -19,12 +19,23 @@ test('article markdown prose uses semantic dark-mode tokens', () => {
   expect(source).toContain('prose-li:marker:text-[var(--text-faint)]')
 })
 
-test('article details stay runtime-rendered in deployments without build-time database access', () => {
+test('public article details use incremental revalidation instead of full runtime rendering', () => {
   const source = readSource('src/app/(public)/posts/[slug]/page.tsx')
 
+  expect(source).toContain('export const revalidate = 300')
+  expect(source).toContain('export const dynamicParams = true')
+  expect(source).toContain('export async function generateStaticParams()')
+  expect(source).toContain('where: { published: true, deletedAt: null }')
+  expect(source).not.toContain('getServerSession')
+  expect(source).not.toContain('authOptions')
+  expect(source).not.toContain('export const dynamic = "force-dynamic"')
+})
+
+test('admin draft preview stays on a dynamic protected route', () => {
+  const source = readSource('src/app/admin/posts/preview/[slug]/page.tsx')
+
   expect(source).toContain('export const dynamic = "force-dynamic"')
-  expect(source).not.toContain('generateStaticParams')
-  expect(source).not.toContain('export const revalidate')
+  expect(source).toContain('renderArticlePage({ slug, includeDraft: true })')
 })
 
 test('article table of contents rail matches the left sidebar width token', () => {

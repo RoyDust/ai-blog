@@ -1,4 +1,5 @@
-export const dynamic = "force-dynamic";
+export const revalidate = 300;
+export const dynamicParams = true;
 
 /**
  * 前台文章详情页。
@@ -22,11 +23,9 @@ import rehypeHighlight from "rehype-highlight";
 import rehypeHighlightCodeLines from "rehype-highlight-code-lines";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getServerSession } from "next-auth";
 import { ArticleHero, ArticleReadTracker, ArticleRelatedPosts, ArticleSection, ArticleSectionsReveal, ArticleTocDrawer, ArticleTocRail, BackToTopButton, BookmarkButton, CopyCodeButton, LikeButton, NewsletterForm, ReadingProgress, SectionHeader, SeriesNav, ShareButton } from "@/components/blog";
 import { CommentAuthGate } from "@/components/CommentAuthGate";
 import { FallbackImage } from "@/components/ui";
-import { authOptions } from "@/lib/auth";
 import { getBlogSettings } from "@/lib/blog-settings";
 import { prisma } from "@/lib/prisma";
 import { buildArticleJsonLd, buildArticleMetadata, buildBreadcrumbJsonLd } from "@/lib/seo";
@@ -36,22 +35,6 @@ import { JsonLd } from "@/components/seo/JsonLd";
  * 读取单篇已发布文章详情。
  * 返回正文、作者、分类、标签、评论与互动统计，供文章页一次性渲染。
  */
-type PostSearchParams = Promise<{ preview?: string | string[] }>;
-
-function readSearchParam(value: string | string[] | undefined) {
-  return Array.isArray(value) ? value[0] : value;
-}
-
-async function canPreviewDraft(searchParams?: PostSearchParams) {
-  const params = searchParams ? await searchParams : {};
-  if (readSearchParam(params.preview) !== "admin") {
-    return false;
-  }
-
-  const session = await getServerSession(authOptions);
-  return session?.user?.role === "ADMIN";
-}
-
 async function getPost(slug: string, options: { includeDraft?: boolean } = {}) {
   return prisma.post.findFirst({
     where: { slug, deletedAt: null, ...(options.includeDraft ? {} : { published: true }) },
@@ -87,7 +70,7 @@ async function getPost(slug: string, options: { includeDraft?: boolean } = {}) {
       },
       tags: { where: { deletedAt: null }, select: { name: true, slug: true } },
       _count: {
-        select: { comments: { where: { deletedAt: null } }, likes: true },
+        select: { comments: { where: { deletedAt: null, status: "APPROVED" } }, likes: true },
       },
     },
   });
@@ -95,9 +78,24 @@ async function getPost(slug: string, options: { includeDraft?: boolean } = {}) {
 
 type ArticlePost = NonNullable<Awaited<ReturnType<typeof getPost>>>
 
+export async function generateStaticParams() {
+  try {
+    const posts = await prisma.post.findMany({
+      where: { published: true, deletedAt: null },
+      select: { slug: true },
+      orderBy: [{ publishedAt: { sort: "desc", nulls: "last" } }, { createdAt: "desc" }],
+    });
+
+    return posts.map((post) => ({ slug: post.slug }));
+  } catch (error) {
+    console.error("Generate article static params error:", error);
+    return [];
+  }
+}
+
 async function getPostComments(postId: string) {
   return prisma.comment.findMany({
-    where: { postId, parentId: null, deletedAt: null },
+    where: { postId, parentId: null, deletedAt: null, status: "APPROVED" },
     select: {
       id: true,
       content: true,
@@ -107,7 +105,7 @@ async function getPostComments(postId: string) {
         select: { id: true, name: true, image: true },
       },
       replies: {
-        where: { deletedAt: null },
+        where: { deletedAt: null, status: "APPROVED" },
         select: {
           id: true,
           content: true,
@@ -157,10 +155,9 @@ async function getRelatedPosts(postId: string, tagSlugs: string[], limit = 3) {
 /**
  * 为文章详情页生成 SEO metadata。
  */
-export async function generateMetadata({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams?: PostSearchParams }): Promise<Metadata> {
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params
-  const includeDraft = await canPreviewDraft(searchParams)
-  const [post, settings] = await Promise.all([getPost(slug, { includeDraft }), getBlogSettings()])
+  const [post, settings] = await Promise.all([getPost(slug), getBlogSettings()])
   if (!post) {
     return {
       title: `文章不存在 | ${settings.siteName}`,
@@ -179,10 +176,6 @@ export async function generateMetadata({ params, searchParams }: { params: Promi
     authorName: post.author.name,
     siteUrl: settings.siteUrl,
   })
-
-  if (includeDraft && !post.published) {
-    metadata.robots = { index: false, follow: false };
-  }
 
   return metadata;
 }
@@ -308,9 +301,7 @@ function CommentList({ commentsPromise }: { commentsPromise: Promise<Awaited<Ret
  * 文章详情页入口。
  * 负责把正文、目录、互动按钮、上一篇/下一篇与评论区组合成完整阅读体验。
  */
-export default async function PostPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams?: PostSearchParams }) {
-  const { slug } = await params;
-  const includeDraft = await canPreviewDraft(searchParams);
+export async function renderArticlePage({ slug, includeDraft = false }: { slug: string; includeDraft?: boolean }) {
   const post = await getPost(slug, { includeDraft });
 
   if (!post) {
@@ -532,4 +523,10 @@ export default async function PostPage({ params, searchParams }: { params: Promi
       </div>
     </div>
   );
+}
+
+export default async function PostPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+
+  return renderArticlePage({ slug });
 }

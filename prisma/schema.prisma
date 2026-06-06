@@ -624,7 +624,7 @@ model Tag {
 model Comment {
   id        String        @id @default(cuid())
   content   String        @db.Text
-  status    CommentStatus @default(APPROVED)
+  status    CommentStatus @default(PENDING)
   deletedAt DateTime?
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt

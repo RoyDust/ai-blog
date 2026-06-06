@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest"
 const getServerSession = vi.fn()
 const findFirst = vi.fn()
 const update = vi.fn()
+const revalidateBlogSettings = vi.fn()
 
 vi.mock("next-auth", () => ({
   getServerSession,
@@ -19,6 +20,10 @@ vi.mock("@/lib/prisma", () => ({
       update,
     },
   },
+}))
+
+vi.mock("@/lib/cache", () => ({
+  revalidateBlogSettings,
 }))
 
 describe("PATCH /api/users/me", () => {
@@ -43,6 +48,7 @@ describe("PATCH /api/users/me", () => {
     expect(response.status).toBe(409)
     expect(payload).toEqual({ error: "Email already in use" })
     expect(update).not.toHaveBeenCalled()
+    expect(revalidateBlogSettings).not.toHaveBeenCalled()
   })
 
   test("updates profile image with the current user profile", async () => {
@@ -69,8 +75,29 @@ describe("PATCH /api/users/me", () => {
         name: true,
         email: true,
         image: true,
+        role: true,
       },
     })
     expect(payload.data.image).toBe("https://example.com/avatar.png")
+    expect(payload.data.role).toBeUndefined()
+    expect(revalidateBlogSettings).not.toHaveBeenCalled()
+  })
+
+  test("revalidates public settings when an admin profile changes", async () => {
+    getServerSession.mockResolvedValueOnce({ user: { id: "admin-1", role: "ADMIN" } })
+    findFirst.mockResolvedValueOnce(null)
+    update.mockResolvedValueOnce({ id: "admin-1", name: "Admin", email: "admin@example.com", image: null, role: "ADMIN" })
+
+    const { PATCH } = await import("../route")
+    const response = await PATCH(
+      new Request("http://localhost/api/users/me", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "Admin", email: "admin@example.com", image: null }),
+      }),
+    )
+
+    expect(response.status).toBe(200)
+    expect(revalidateBlogSettings).toHaveBeenCalledOnce()
   })
 })

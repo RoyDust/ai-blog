@@ -5,12 +5,21 @@ import type { Prisma } from "@prisma/client"
 import { requireAdminSession } from "@/lib/api-auth"
 import { NotFoundError, ValidationError, toErrorResponse } from "@/lib/api-errors"
 import { buildAdminListPagination, getAdminListSkip, parseAdminListPagination } from "@/lib/admin-list-pagination"
+import { revalidatePublicContent } from "@/lib/cache"
 import { prisma } from "@/lib/prisma"
 import { parseCommentStatusInput, parseIdList } from "@/lib/validation"
 
 type CommentStatus = "APPROVED" | "PENDING" | "REJECTED" | "SPAM"
 
 const allowedStatuses = new Set<CommentStatus>(["APPROVED", "PENDING", "REJECTED", "SPAM"])
+
+function revalidateCommentPostPaths(comments: Array<{ post: { slug: string } | null }>) {
+  const slugs = [...new Set(comments.map((comment) => comment.post?.slug).filter((slug): slug is string => Boolean(slug)))]
+
+  for (const slug of slugs) {
+    revalidatePublicContent({ slug })
+  }
+}
 
 async function GETHandler(request: Request) {
   try {
@@ -127,10 +136,16 @@ async function PATCHHandler(request: Request) {
       throw new ValidationError("Invalid comment status")
     }
 
+    const comments = await prisma.comment.findMany({
+      where: { id: { in: ids }, deletedAt: null },
+      select: { post: { select: { slug: true } } },
+    })
+
     await prisma.comment.updateMany({
       where: { id: { in: ids }, deletedAt: null },
       data: { status: status as CommentStatus },
     })
+    revalidateCommentPostPaths(comments)
 
     return NextResponse.json({ success: true })
   } catch (error) {
@@ -151,7 +166,7 @@ async function DELETEHandler(request: Request) {
 
     const comments = await prisma.comment.findMany({
       where: { id: { in: ids }, deletedAt: null },
-      select: { id: true },
+      select: { id: true, post: { select: { slug: true } } },
     })
 
     if (comments.length === 0) {
@@ -170,6 +185,7 @@ async function DELETEHandler(request: Request) {
         data: { deletedAt },
       }),
     ])
+    revalidateCommentPostPaths(comments)
 
     return NextResponse.json({ success: true })
   } catch (error) {

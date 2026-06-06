@@ -3,6 +3,7 @@ import { securityHeaders } from "./src/lib/security-headers";
 
 const qiniuDomain = process.env.QINIU_DOMAIN;
 const qiniuUrl = qiniuDomain ? new URL(qiniuDomain) : null;
+const allowLocalIpImages = process.env.NEXT_IMAGE_ALLOW_LOCAL_IP === "true" || process.env.NODE_ENV !== "production";
 
 const nextConfig: NextConfig = {
   experimental: {
@@ -12,7 +13,7 @@ const nextConfig: NextConfig = {
     root: __dirname,
   },
   images: {
-    dangerouslyAllowLocalIP: true,
+    dangerouslyAllowLocalIP: allowLocalIpImages,
     qualities: [70, 75],
     remotePatterns: [
       {

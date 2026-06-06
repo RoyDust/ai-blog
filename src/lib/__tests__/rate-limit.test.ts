@@ -5,7 +5,6 @@ const queryRawUnsafe = vi.fn()
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     $queryRawUnsafe: queryRawUnsafe,
-    $executeRawUnsafe: vi.fn(),
   },
 }))
 

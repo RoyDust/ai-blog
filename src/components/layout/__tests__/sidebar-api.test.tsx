@@ -3,6 +3,10 @@ import { expect, test, vi } from "vitest";
 import { Sidebar } from "@/components/layout/Sidebar";
 import type { PublicProfile } from "@/lib/public-profile-data";
 
+vi.mock("next-auth/react", () => ({
+  useSession: () => ({ data: null, status: "unauthenticated" }),
+}));
+
 const profile: PublicProfile = {
   name: "RoyDust",
   initials: "RD",

@@ -28,6 +28,7 @@ async function POSTHandler(request: Request) {
     const comment = await prisma.comment.create({
       data: {
         content,
+        status: 'PENDING',
         postId: post.id,
         parentId,
         browserId: anonymousActor.actorId,
@@ -45,7 +46,7 @@ async function POSTHandler(request: Request) {
         type: NOTIFICATION_TYPES.commentCreated,
         severity: NOTIFICATION_SEVERITIES.info,
         title: '有新评论',
-        body: `${comment.authorLabel || '匿名访客'} 评论了《${post.title}》。`,
+        body: `${comment.authorLabel || '匿名访客'} 评论了《${post.title}》，等待审核。`,
         actionUrl: '/admin/comments',
         entityType: 'comment',
         entityId: comment.id,

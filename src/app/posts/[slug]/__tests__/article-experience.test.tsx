@@ -68,6 +68,23 @@ vi.mock('@/lib/auth', () => ({
 }))
 
 describe('article experience', () => {
+  test('generates static params for published articles only', async () => {
+    findMany.mockClear()
+    findMany.mockResolvedValueOnce([{ slug: 'published-post' }, { slug: 'another-post' }])
+
+    const { generateStaticParams } = await import('@/app/(public)/posts/[slug]/page')
+
+    await expect(generateStaticParams()).resolves.toEqual([
+      { slug: 'published-post' },
+      { slug: 'another-post' },
+    ])
+    expect(findMany).toHaveBeenCalledWith({
+      where: { published: true, deletedAt: null },
+      select: { slug: true },
+      orderBy: [{ publishedAt: { sort: 'desc', nulls: 'last' } }, { createdAt: 'desc' }],
+    })
+  })
+
   test('admin preview renders an unpublished draft without public interactions', async () => {
     findFirst.mockClear()
     findMany.mockClear()
@@ -94,10 +111,9 @@ describe('article experience', () => {
       _count: { comments: 0, likes: 0 },
     })
 
-    const { default: PostPage } = await import('@/app/(public)/posts/[slug]/page')
+    const { default: PostPage } = await import('@/app/admin/posts/preview/[slug]/page')
     const ui = await PostPage({
       params: Promise.resolve({ slug: 'draft-post' }),
-      searchParams: Promise.resolve({ preview: 'admin' }),
     })
     await act(async () => {
       render(ui as React.ReactElement)
@@ -178,7 +194,12 @@ describe('article experience', () => {
       take: 3,
     }))
     expect(commentFindMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: { postId: 'p1', parentId: null, deletedAt: null },
+      where: { postId: 'p1', parentId: null, deletedAt: null, status: 'APPROVED' },
+      select: expect.objectContaining({
+        replies: expect.objectContaining({
+          where: { deletedAt: null, status: 'APPROVED' },
+        }),
+      }),
     }))
     expect(container.querySelector('.reader-banner')).toBeInTheDocument()
     expect(container.querySelector('.reader-card')).toBeInTheDocument()
