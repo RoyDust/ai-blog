@@ -88,7 +88,7 @@ describe('admin comments page', () => {
       expect(fetchMock).toHaveBeenCalledWith('/api/admin/comments?page=4&limit=20&q=spam&status=REJECTED')
     })
     expect(fetchMock).not.toHaveBeenCalledWith('/api/admin/comments?page=1&limit=10')
-    expect(screen.getByLabelText('搜索评论')).toHaveValue('spam')
+    expect(await screen.findByLabelText('搜索评论')).toHaveValue('spam')
   })
 
   test('does not fire a fetch per keystroke while typing in search', async () => {

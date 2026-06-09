@@ -13,7 +13,8 @@ describe("admin post workspace layout contract", () => {
 
     expect(panelSource).toContain("fillHeight?: boolean");
     expect(panelSource).toContain("fillHeight = true");
-    expect(panelSource).toContain('className={fillHeight ? "h-full" : ""}');
+    expect(panelSource).toContain('${fillHeight ? "h-full" : ""}');
+    expect(panelSource).not.toContain("MotionReveal");
     expect(workspaceSource).toContain('title="分类、标签与封面图"');
     expect(workspaceSource).toContain('<p className="text-sm font-medium text-[var(--foreground)]">精选状态</p>');
     expect(workspaceSource).not.toContain('WorkspacePanel title="精选状态"');
