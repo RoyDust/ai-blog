@@ -38,7 +38,7 @@ export function AdminHeader() {
           <AdminGlobalSearch />
 
           <Link
-            className="inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-lg bg-[var(--brand)] px-3.5 text-xs font-semibold text-white shadow-sm shadow-blue-500/10 transition-all duration-200 hover:bg-[var(--brand-strong)] hover:-translate-y-0.5 hover:shadow-md active:translate-y-0"
+            className="inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-lg bg-[var(--brand)] px-3.5 text-xs font-semibold text-white shadow-sm transition-colors duration-200 hover:bg-[var(--brand-strong)]"
             href="/admin/posts/new"
           >
             <PenLine className="h-3.5 w-3.5" />

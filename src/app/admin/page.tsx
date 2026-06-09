@@ -78,6 +78,17 @@ type PendingCommentListItem = Awaited<ReturnType<typeof getPendingCommentQueue>>
 type PopularPostListItem = Awaited<ReturnType<typeof getPopularPosts>>[number];
 type AiModelListItem = PublicAiModelOption;
 
+const dashboardLinkClassName = "inline-flex items-center gap-2 text-sm font-semibold text-[var(--brand)] transition-colors hover:text-[var(--brand-strong)] hover:underline";
+const dashboardTitleHoverClassName = "transition-colors group-hover:text-[var(--brand)]";
+
+function PanelMetaPill({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="inline-flex items-center rounded-md border border-[var(--border)] bg-[var(--surface-alt)] px-2.5 py-1 text-xs font-semibold text-[var(--text-body)]">
+      {children}
+    </span>
+  );
+}
+
 const formatRelativeDate = (value: Date | string | null) => {
   if (!value) return "未发布";
 
@@ -125,7 +136,7 @@ function Thumbnail({
 }
 
 function Avatar({ name, index }: { name: string; index: number }) {
-  const palettes = ["bg-emerald-100 text-emerald-800", "bg-sky-100 text-sky-800", "bg-stone-200 text-stone-700"];
+  const palettes = ["bg-emerald-100 text-emerald-900", "bg-sky-100 text-sky-900", "bg-amber-100 text-amber-900"];
 
   return (
     <span className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${palettes[index % palettes.length]}`}>
@@ -165,37 +176,6 @@ function DashboardMetric({
   icon?: React.ComponentType<{ className?: string; "aria-hidden"?: boolean }>;
   hint?: string;
 }) {
-  const getColorScheme = (lbl: string) => {
-    if (lbl.includes("PV") || lbl.includes("UV") || lbl.includes("访问")) {
-      return {
-        bg: "bg-blue-50 dark:bg-blue-950/30",
-        text: "text-blue-600 dark:text-blue-400",
-        border: "border-blue-100 dark:border-blue-900/30",
-      };
-    }
-    if (lbl.includes("阅读") || lbl.includes("停留") || lbl.includes("时长")) {
-      return {
-        bg: "bg-emerald-50 dark:bg-emerald-950/30",
-        text: "text-emerald-600 dark:text-emerald-400",
-        border: "border-emerald-100 dark:border-emerald-900/30",
-      };
-    }
-    if (lbl.includes("互动") || lbl.includes("点赞") || lbl.includes("评论")) {
-      return {
-        bg: "bg-amber-50 dark:bg-amber-950/30",
-        text: "text-amber-600 dark:text-amber-400",
-        border: "border-amber-100 dark:border-amber-900/30",
-      };
-    }
-    return {
-      bg: "bg-violet-50 dark:bg-violet-950/30",
-      text: "text-violet-600 dark:text-violet-400",
-      border: "border-violet-100 dark:border-violet-900/30",
-    };
-  };
-
-  const scheme = getColorScheme(label);
-
   let FinalIcon = Icon;
   if (!FinalIcon) {
     if (label.includes("PV") || label.includes("访问")) {
@@ -208,12 +188,12 @@ function DashboardMetric({
   }
 
   return (
-    <div className="relative overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4 shadow-sm transition-colors duration-200 hover:shadow-md dark:hover:border-blue-500/20 group">
+    <div className="relative overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4 shadow-sm transition-colors duration-200 hover:border-[var(--border-strong)]">
       <div className="flex items-center justify-between">
-        <dt className="text-xs font-semibold text-[var(--muted)] tracking-wide uppercase">
+        <dt className="text-xs font-semibold text-[var(--muted)]">
           {label}
         </dt>
-        <span className={`inline-flex h-8 w-8 items-center justify-center rounded-lg ${scheme.bg} ${scheme.text} ${scheme.border} border transition-all duration-300 group-hover:scale-110 shadow-sm`}>
+        <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] text-[var(--brand)]">
           {FinalIcon ? <FinalIcon className="h-4.5 w-4.5" aria-hidden /> : null}
         </span>
       </div>
@@ -224,12 +204,7 @@ function DashboardMetric({
         <p className="mt-2 text-[10px] font-medium text-[var(--muted)] border-t border-[var(--border)] pt-1.5">
           {hint}
         </p>
-      ) : (
-        <p className="mt-2 text-[10px] font-medium text-emerald-500 border-t border-[var(--border)] pt-1.5 flex items-center gap-1">
-          <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
-          运行正常
-        </p>
-      )}
+      ) : null}
     </div>
   );
 }
@@ -241,18 +216,15 @@ function VisitTrendPanel({ stats }: { stats: DashboardStats["visits"] }) {
   return (
     <WorkspacePanel
       title="访问趋势"
-      delayIndex={0}
       actions={
         <div className="flex flex-wrap items-center gap-3">
-          <span className="inline-flex items-center rounded-full bg-blue-50 dark:bg-blue-950/40 px-3 py-1 text-xs font-semibold text-blue-600 dark:text-blue-400">
-            真实统计
-          </span>
+          <PanelMetaPill>真实统计</PanelMetaPill>
           <div className="flex items-center overflow-hidden rounded-lg border border-[var(--border)] text-sm">
             {ranges.map((item, index) => (
               <Link
                 key={item}
                 href={`/admin?range=${item}`}
-                className={`${index === 0 ? "" : "border-l border-[var(--border)]"} px-4 py-2 font-medium ${range === item ? "bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400" : "text-[var(--muted)] hover:bg-[var(--surface-alt)]"}`}
+                className={`${index === 0 ? "" : "border-l border-[var(--border)]"} px-4 py-2 font-medium ${range === item ? "bg-[var(--btn-regular-bg)] text-[var(--btn-content)]" : "text-[var(--muted)] hover:bg-[var(--surface-alt)]"}`}
               >
                 {item} 天
               </Link>
@@ -288,8 +260,7 @@ function ReadingStatsPanel({ stats }: { stats: DashboardStats["reading"] }) {
   return (
     <WorkspacePanel
       title="阅读统计"
-      delayIndex={2}
-      actions={<span className="rounded-full bg-blue-50 dark:bg-blue-950/40 px-3 py-1 text-xs font-semibold text-blue-600 dark:text-blue-400">近 {stats.range} 天</span>}
+      actions={<PanelMetaPill>近 {stats.range} 天</PanelMetaPill>}
       className="min-h-[300px]"
     >
       <dl className="grid grid-cols-2 gap-3">
@@ -314,8 +285,7 @@ function EngagementStatsPanel({ stats }: { stats: DashboardStats["engagement"] }
   return (
     <WorkspacePanel
       title="互动统计"
-      delayIndex={3}
-      actions={<span className="rounded-full bg-blue-50 dark:bg-blue-950/40 px-3 py-1 text-xs font-semibold text-blue-600 dark:text-blue-400">近 {stats.range} 天</span>}
+      actions={<PanelMetaPill>近 {stats.range} 天</PanelMetaPill>}
       className="min-h-[300px]"
     >
       <dl className="grid grid-cols-3 gap-3">
@@ -331,22 +301,22 @@ function EngagementStatsPanel({ stats }: { stats: DashboardStats["engagement"] }
 
 function RecentDraftsPanel({ drafts }: { drafts: DraftListItem[] }) {
   return (
-    <WorkspacePanel title="最近草稿" delayIndex={1} className="min-h-[430px]">
+    <WorkspacePanel title="最近草稿" className="min-h-[430px]">
       <div className="flex-1 flex flex-col justify-between">
         {drafts.length > 0 ? (
           <div className="divide-y divide-[var(--border)]">
             {drafts.slice(0, 3).map((post) => (
               <article key={post.id} className="group py-4 first:pt-0 transition-transform duration-200 ease-out hover:translate-x-1">
                 <div className="flex min-w-0 items-center gap-2">
-                  <h3 className="truncate text-base font-semibold text-[var(--foreground)] group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{post.title}</h3>
-                  <span className="shrink-0 rounded-md bg-blue-50 dark:bg-blue-950/40 px-2 py-0.5 text-xs font-semibold text-blue-600 dark:text-blue-400">草稿</span>
+                  <h3 className={`truncate text-base font-semibold text-[var(--foreground)] ${dashboardTitleHoverClassName}`}>{post.title}</h3>
+                  <StatusBadge tone="warning">草稿</StatusBadge>
                 </div>
                 <p className="mt-2 line-clamp-3 text-sm leading-6 text-[var(--muted)]">{getDraftPreview(post)}</p>
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
                   <p className="text-xs text-[var(--muted)]">{formatRelativeDate(post.updatedAt ?? post.createdAt)}</p>
                   <Link
                     href={`/admin/posts/${post.id}/edit`}
-                    className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm font-semibold text-[var(--foreground)] transition-colors hover:bg-[var(--surface-alt)] hover:text-blue-600 dark:hover:text-blue-400"
+                    className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm font-semibold text-[var(--foreground)] transition-colors hover:bg-[var(--surface-alt)] hover:text-[var(--brand)]"
                   >
                     继续编辑
                   </Link>
@@ -357,7 +327,7 @@ function RecentDraftsPanel({ drafts }: { drafts: DraftListItem[] }) {
         ) : (
           <EmptyPanelMessage>当前没有最近草稿。</EmptyPanelMessage>
         )}
-        <Link href="/admin/posts?status=draft" className="mt-auto pt-4 inline-flex items-center gap-2 text-sm font-semibold text-blue-600 dark:text-blue-400 hover:underline">
+        <Link href="/admin/posts?status=draft" className={`mt-auto pt-4 ${dashboardLinkClassName}`}>
           查看全部草稿
           <span aria-hidden>→</span>
         </Link>
@@ -370,8 +340,7 @@ function PendingCommentsPanel({ comments, count }: { comments: PendingCommentLis
   return (
     <WorkspacePanel
       title="待审评论"
-      delayIndex={4}
-      actions={<span className="rounded-full bg-blue-50 dark:bg-blue-950/40 px-3 py-1 text-xs font-semibold text-blue-600 dark:text-blue-400">{count}</span>}
+      actions={<PanelMetaPill>{count}</PanelMetaPill>}
       className="min-h-[460px]"
     >
       <div className="flex-1 flex flex-col justify-between">
@@ -385,13 +354,13 @@ function PendingCommentsPanel({ comments, count }: { comments: PendingCommentLis
                   <Avatar name={authorName} index={index} />
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="font-bold text-[var(--foreground)] group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{authorName}</h3>
+                      <h3 className={`font-bold text-[var(--foreground)] ${dashboardTitleHoverClassName}`}>{authorName}</h3>
                       <span className="text-sm text-[var(--muted)]">评论于《{comment.post.title}》</span>
                     </div>
                     <p className="mt-2 line-clamp-2 text-sm leading-6 text-[var(--text-body)]">{comment.content}</p>
                     <div className="mt-2 flex flex-wrap items-center gap-3 text-sm">
                       <span className="text-[var(--muted)]">{formatRelativeDate(comment.createdAt).replace("更新于 ", "")}</span>
-                      <Link href="/admin/comments" className="font-semibold text-blue-600 dark:text-blue-400 hover:underline">
+                      <Link href="/admin/comments" className="font-semibold text-[var(--brand)] hover:underline">
                         批准
                       </Link>
                       <Link href="/admin/comments" className="font-semibold text-rose-500 hover:underline">
@@ -406,7 +375,7 @@ function PendingCommentsPanel({ comments, count }: { comments: PendingCommentLis
             <EmptyPanelMessage>当前没有待审核评论。</EmptyPanelMessage>
           )}
         </div>
-        <Link href="/admin/comments" className="mt-auto pt-4 inline-flex items-center gap-2 text-sm font-semibold text-blue-600 dark:text-blue-400 hover:underline">
+        <Link href="/admin/comments" className={`mt-auto pt-4 ${dashboardLinkClassName}`}>
           查看全部评论
           <span aria-hidden>→</span>
         </Link>
@@ -417,9 +386,9 @@ function PendingCommentsPanel({ comments, count }: { comments: PendingCommentLis
 
 function PopularPostsPanel({ posts, range }: { posts: PopularPostListItem[]; range: VisitTrendRange }) {
   const rankTone = [
-    "bg-blue-600 text-white",
-    "bg-blue-400 text-white",
-    "bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300",
+    "bg-[var(--brand)] text-white",
+    "bg-[var(--btn-regular-bg-active)] text-[var(--btn-content)]",
+    "bg-[var(--surface-alt)] text-[var(--foreground)]",
     "bg-slate-100 dark:bg-slate-800 text-[var(--muted)]",
     "bg-slate-100 dark:bg-slate-800 text-[var(--muted)]",
   ];
@@ -427,8 +396,7 @@ function PopularPostsPanel({ posts, range }: { posts: PopularPostListItem[]; ran
   return (
     <WorkspacePanel
       title="热门文章"
-      delayIndex={5}
-      actions={<span className="rounded-full bg-blue-50 dark:bg-blue-950/40 px-3 py-1 text-xs font-semibold text-blue-600 dark:text-blue-400">近 {range} 天</span>}
+      actions={<PanelMetaPill>近 {range} 天</PanelMetaPill>}
       className="min-h-[460px]"
     >
       <div className="flex-1 flex flex-col justify-between">
@@ -440,7 +408,7 @@ function PopularPostsPanel({ posts, range }: { posts: PopularPostListItem[]; ran
                   {index + 1}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <Link href={`/posts/${post.slug}`} className="line-clamp-1 font-semibold text-[var(--foreground)] hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                  <Link href={`/posts/${post.slug}`} className="line-clamp-1 font-semibold text-[var(--foreground)] transition-colors hover:text-[var(--brand)]">
                     {post.title}
                   </Link>
                   <p className="mt-1 inline-flex items-center gap-1 text-xs text-[var(--muted)]">
@@ -455,7 +423,7 @@ function PopularPostsPanel({ posts, range }: { posts: PopularPostListItem[]; ran
         ) : (
           <EmptyPanelMessage>近 {range} 天暂无文章浏览数据。</EmptyPanelMessage>
         )}
-        <Link href="/admin/posts" className="mt-auto pt-4 inline-flex items-center gap-2 text-sm font-semibold text-blue-600 dark:text-blue-400 hover:underline">
+        <Link href="/admin/posts" className={`mt-auto pt-4 ${dashboardLinkClassName}`}>
           查看全部文章
           <span aria-hidden>→</span>
         </Link>
@@ -472,8 +440,7 @@ function AiModelChecklistPanel({ models }: { models: AiModelListItem[] }) {
   return (
     <WorkspacePanel
       title="AI 模型清单"
-      delayIndex={6}
-      actions={<span className="rounded-full bg-blue-50 dark:bg-blue-950/40 px-3 py-1 text-xs font-semibold text-blue-600 dark:text-blue-400">{summaryLabel}</span>}
+      actions={<PanelMetaPill>{summaryLabel}</PanelMetaPill>}
       className="min-h-[460px]"
     >
       <div className="flex-1 flex flex-col justify-between">
@@ -487,12 +454,12 @@ function AiModelChecklistPanel({ models }: { models: AiModelListItem[] }) {
               return (
                 <li key={model.id} className="group py-5 first:pt-0 transition-transform duration-200 ease-out hover:translate-x-1">
                   <div className="flex items-start gap-4">
-                    <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-[var(--surface-alt)]/50 group-hover:bg-blue-50 dark:group-hover:bg-blue-950/40 text-blue-600 dark:text-blue-400 transition-colors">
+                    <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-[var(--surface-alt)]/50 text-[var(--brand)] transition-colors group-hover:bg-[var(--btn-regular-bg)]">
                       <BrainCircuit className="h-6 w-6" aria-hidden="true" />
                     </span>
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="font-bold text-[var(--foreground)] group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{model.name}</h3>
+                        <h3 className={`font-bold text-[var(--foreground)] ${dashboardTitleHoverClassName}`}>{model.name}</h3>
                         {isDefaultSummary ? <StatusBadge tone="success">当前首选</StatusBadge> : null}
                         <StatusBadge tone={status.tone === "success" ? "success" : status.tone === "warning" ? "warning" : "neutral"}>{status.label}</StatusBadge>
                       </div>
@@ -524,7 +491,7 @@ function AiModelChecklistPanel({ models }: { models: AiModelListItem[] }) {
           ) : (
             <span aria-hidden="true" />
           )}
-          <Link href="/admin/ai/models" className="inline-flex items-center gap-2 text-sm font-semibold text-blue-600 dark:text-blue-400 hover:underline">
+          <Link href="/admin/ai/models" className={dashboardLinkClassName}>
             管理模型
             <span aria-hidden>→</span>
           </Link>
