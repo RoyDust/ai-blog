@@ -20,8 +20,11 @@
   --reader-nav-height: 3.125rem;
   --reader-nav-width: 52rem;
   --reader-nav-offset: clamp(0.625rem, 1.2vw, 1rem);
-  --reader-page-top: clamp(17rem, 34vh, 22rem);
-  --reader-banner-height: clamp(14rem, 28vw, 23rem);
+  --reader-background-height: 54vh;
+  --reader-background-fade-start: 22vh;
+  --reader-background-fade-end: 41vh;
+  --reader-page-top: clamp(11.5rem, 22vh, 14rem);
+  --reader-banner-height: clamp(11rem, 22vw, 18rem);
   --reader-content-lift: clamp(1.25rem, 4vw, 3rem);
 
   --page-bg: oklch(0.965 0.012 var(--hue));
@@ -199,8 +202,21 @@
   :root {
     --reader-nav-height: 3.5rem;
     --reader-nav-width: 60rem;
-    --reader-page-top: clamp(18rem, 29vh, 20rem);
+    --reader-background-height: 48vh;
+    --reader-background-fade-start: 19vh;
+    --reader-background-fade-end: 36vh;
+    --reader-page-top: clamp(12.5rem, 20vh, 15rem);
     --section-gap: clamp(1.25rem, 1.5vw, 1.75rem);
+  }
+}
+
+@media (max-width: 767px) {
+  :root {
+    --reader-background-height: 42vh;
+    --reader-background-fade-start: 17vh;
+    --reader-background-fade-end: 32vh;
+    --reader-page-top: clamp(8.5rem, 20vh, 10rem);
+    --reader-banner-height: clamp(10rem, 44vw, 13rem);
   }
 }
 

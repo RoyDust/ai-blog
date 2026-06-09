@@ -61,11 +61,11 @@
       linear-gradient(
         180deg,
         transparent 0,
-        color-mix(in oklab, var(--page-bg) 8%, transparent) 26vh,
-        color-mix(in oklab, var(--page-bg) 54%, transparent) 50vh,
-        var(--page-bg) 66vh
+        color-mix(in oklab, var(--page-bg) 8%, transparent) var(--reader-background-fade-start),
+        color-mix(in oklab, var(--page-bg) 54%, transparent) var(--reader-background-fade-end),
+        var(--page-bg) var(--reader-background-height)
       ),
-      var(--reader-background-image) top center / 100% 66vh no-repeat,
+      var(--reader-background-image) top center / 100% var(--reader-background-height) no-repeat,
       var(--page-bg);
     background-color: var(--page-bg);
   }
@@ -89,11 +89,11 @@
       linear-gradient(
         180deg,
         transparent 0,
-        color-mix(in oklab, var(--page-bg) 6%, transparent) 24vh,
-        color-mix(in oklab, var(--page-bg) 58%, transparent) 50vh,
-        var(--page-bg) 66vh
+        color-mix(in oklab, var(--page-bg) 6%, transparent) var(--reader-background-fade-start),
+        color-mix(in oklab, var(--page-bg) 58%, transparent) var(--reader-background-fade-end),
+        var(--page-bg) var(--reader-background-height)
       ),
-      var(--reader-background-image) top center / 100% 66vh no-repeat,
+      var(--reader-background-image) top center / 100% var(--reader-background-height) no-repeat,
       var(--page-bg);
     background-color: var(--page-bg);
   }
@@ -205,14 +205,6 @@
     box-shadow: none;
   }
 
-  .reader-nav,
-  .reader-layout-frame,
-  .reader-content-frame {
-    transition-property: max-width, width, flex-basis;
-    transition-duration: var(--reader-route-layout-duration);
-    transition-timing-function: var(--reader-route-layout-ease);
-  }
-
   .reader-layout-frame {
     view-transition-name: reader-layout-frame;
   }
@@ -301,6 +293,7 @@
 
   .reader-icon-btn {
     display: inline-flex;
+    flex-shrink: 0;
     align-items: center;
     justify-content: center;
     width: 2.75rem;

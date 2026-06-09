@@ -77,13 +77,13 @@ export default async function PostsPage({ searchParams }: { searchParams?: Posts
 
   return (
     <div className="reader-section">
-      <section className="reader-panel p-6 md:p-8">
+      <section className="reader-panel p-5 md:p-6">
         <div className="max-w-3xl space-y-3">
-          <p className="ui-kicker text-[color:color-mix(in_oklab,var(--accent-warm)_74%,var(--foreground)_26%)]">
-            Article Index
+          <p className="text-xs font-semibold text-[color:color-mix(in_oklab,var(--accent-warm)_74%,var(--foreground)_26%)]">
+            文章索引
           </p>
-          <h1 className="text-90 text-3xl font-bold leading-tight md:text-4xl">全部文章</h1>
-          <p className="text-75 text-sm leading-7 md:text-base">
+          <h1 className="text-90 text-2xl font-bold leading-tight md:text-3xl">全部文章</h1>
+          <p className="text-75 max-w-2xl text-sm leading-7">
             按发布时间浏览所有已发布内容，精选文章会以夜读主推卡片展示，其余文章保持轻盈的阅读流节奏。
           </p>
         </div>

@@ -174,7 +174,7 @@ export function Sidebar({
         <section aria-label="作者资料" className="reader-panel p-4 text-center">
           <div className="mx-auto mb-3 flex h-20 w-20 items-center justify-center rounded-full border border-[var(--reader-border-strong)] bg-[color:color-mix(in_oklab,var(--accent-sky)_18%,var(--reader-panel-elevated))] text-xl font-bold text-[var(--foreground)] shadow-[var(--reader-shadow)]">
             {profile.avatar ? (
-              <FallbackImage alt={profile.name} className="rounded-full object-cover" height={80} src={profile.avatar} width={80} />
+              <FallbackImage alt={profile.name} className="rounded-full object-cover" height={80} loading="eager" src={profile.avatar} width={80} />
             ) : (
               profile.initials
             )}

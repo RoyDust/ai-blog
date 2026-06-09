@@ -40,8 +40,8 @@ function buildFilterHref({
 
 const allCategoryValue = "__all_categories__";
 const allTagValue = "__all_tags__";
-const filterSelectTriggerClassName = "w-full rounded-xl border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--foreground)] shadow-none";
-const filterSelectContentClassName = "rounded-xl border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)]";
+const filterSelectTriggerClassName = "h-10 w-full rounded-xl border-[var(--reader-border)] bg-[var(--reader-panel-elevated)] px-3 text-sm text-[var(--foreground)] shadow-none";
+const filterSelectContentClassName = "rounded-xl border-[var(--reader-border)] bg-[var(--reader-panel-elevated)] text-[var(--foreground)]";
 
 export function FilterBar({ search, category, tag, categories, tags }: FilterBarProps) {
   const initialCategory = category || allCategoryValue;
@@ -81,13 +81,13 @@ function FilterBarForm({
 
   return (
     <form
-      className="card-base space-y-4 p-4"
+      className="rounded-2xl border border-[var(--reader-border)] bg-[color-mix(in_oklab,var(--reader-panel)_92%,transparent)] p-3"
       method="get"
     >
       {search ? <input type="hidden" name="q" value={search} /> : null}
       {categoryValue ? <input type="hidden" name="category" value={categoryValue} /> : null}
       {tagValue ? <input type="hidden" name="tag" value={tagValue} /> : null}
-      <div className="grid gap-3 lg:grid-cols-[repeat(2,minmax(0,1fr))_auto]">
+      <div className="grid gap-2 lg:grid-cols-[repeat(2,minmax(0,1fr))_auto]">
         <Select value={selectedCategory} onValueChange={setSelectedCategory}>
           <SelectTrigger aria-label="分类筛选" className={filterSelectTriggerClassName}>
             <SelectValue />
@@ -114,13 +114,13 @@ function FilterBarForm({
             ))}
           </SelectContent>
         </Select>
-        <button className="ui-btn rounded-xl bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-white" type="submit">
+        <button className="ui-btn h-10 rounded-xl bg-[var(--primary)] px-4 text-sm font-semibold text-white" type="submit">
           应用筛选
         </button>
       </div>
 
       {hasActiveFilters ? (
-        <div className="flex flex-wrap items-center gap-2 border-t border-[var(--border)] pt-3">
+        <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-[var(--reader-border)] pt-3">
           {search ? <Link className="ui-chip" href={buildFilterHref({ category: categoryValue, tag: tagValue })}>关键词: {search}</Link> : null}
           {categoryValue ? <Link className="ui-chip" href={buildFilterHref({ search, tag: tagValue })}>分类: {categoryValue}</Link> : null}
           {tagValue ? <Link className="ui-chip" href={buildFilterHref({ search, category: categoryValue })}>标签: {tagValue}</Link> : null}

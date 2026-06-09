@@ -13,11 +13,11 @@ html {
     linear-gradient(
       180deg,
       transparent 0,
-      color-mix(in oklab, var(--page-bg) 8%, transparent) 26vh,
-      color-mix(in oklab, var(--page-bg) 54%, transparent) 50vh,
-      var(--page-bg) 66vh
+      color-mix(in oklab, var(--page-bg) 8%, transparent) var(--reader-background-fade-start),
+      color-mix(in oklab, var(--page-bg) 54%, transparent) var(--reader-background-fade-end),
+      var(--page-bg) var(--reader-background-height)
     ),
-    var(--reader-background-image) top center / 100% 66vh no-repeat,
+    var(--reader-background-image) top center / 100% var(--reader-background-height) no-repeat,
     var(--page-bg);
   background: var(--app-root-background);
   background-attachment: fixed;
@@ -30,11 +30,11 @@ html.dark {
     linear-gradient(
       180deg,
       transparent 0,
-      color-mix(in oklab, var(--page-bg) 6%, transparent) 24vh,
-      color-mix(in oklab, var(--page-bg) 58%, transparent) 50vh,
-      var(--page-bg) 66vh
+      color-mix(in oklab, var(--page-bg) 6%, transparent) var(--reader-background-fade-start),
+      color-mix(in oklab, var(--page-bg) 58%, transparent) var(--reader-background-fade-end),
+      var(--page-bg) var(--reader-background-height)
     ),
-    var(--reader-background-image) top center / 100% 66vh no-repeat,
+    var(--reader-background-image) top center / 100% var(--reader-background-height) no-repeat,
     var(--page-bg);
   color-scheme: dark;
 }

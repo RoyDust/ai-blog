@@ -61,7 +61,7 @@ export function HomeLatestPosts({ posts }: HomeLatestPostsProps) {
       </div>
 
       <div className="home-latest-posts-stage space-y-3">
-        {posts.slice(0, HOME_LATEST_POST_LIMIT).map((post) => {
+        {posts.slice(0, HOME_LATEST_POST_LIMIT).map((post, index) => {
           return (
             <article
               key={post.id}
@@ -78,11 +78,11 @@ export function HomeLatestPosts({ posts }: HomeLatestPostsProps) {
                     alt={post.title}
                     className="theme-media-image object-cover transition-transform duration-500 group-hover:scale-[1.04]"
                     fill
-                    loading="lazy"
                     quality={70}
                     sizes="(min-width: 1800px) 14rem, (max-width: 640px) 100vw, 10rem"
                     src={post.coverImage}
                     fallbackSrc={READER_CARD_FALLBACK_SRC}
+                    {...(index === 0 ? { priority: true } : { loading: 'lazy' as const })}
                   />
                 ) : (
                   <div className="absolute inset-0 flex items-center justify-center bg-[var(--reader-panel-muted)]">

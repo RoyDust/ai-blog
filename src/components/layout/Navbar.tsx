@@ -120,7 +120,7 @@ export function Navbar({ siteName = "My Blog" }: NavbarProps) {
           <button
             aria-label="主题设置"
             aria-expanded={showHuePicker}
-            className="reader-icon-btn"
+            className="reader-icon-btn hidden sm:inline-flex"
             onClick={() => setShowHuePicker(!showHuePicker)}
             type="button"
           >
@@ -147,7 +147,7 @@ export function Navbar({ siteName = "My Blog" }: NavbarProps) {
           id="mobile-reader-menu"
           aria-hidden={!showMobileMenu}
           data-state={showMobileMenu ? "open" : "closed"}
-          className="reader-panel absolute top-[calc(var(--reader-nav-height)+0.75rem)] right-2 left-2 origin-top p-2 md:hidden"
+          className={`reader-panel absolute top-[calc(var(--reader-nav-height)+0.75rem)] right-2 left-2 origin-top p-2 md:hidden ${showMobileMenu ? "visible" : "invisible"}`}
           animate={{
             opacity: showMobileMenu ? 1 : 0,
             scale: showMobileMenu ? 1 : 0.97,
