@@ -171,7 +171,7 @@ const toneClassName: Record<Tone, string> = {
   amber: "border-amber-200 bg-amber-50 text-amber-700",
   rose: "border-rose-200 bg-rose-50 text-rose-700",
   slate: "border-slate-200 bg-slate-100 text-slate-600",
-  blue: "border-blue-200 bg-blue-50 text-blue-700",
+  blue: "border-slate-300 bg-white text-slate-700",
 };
 
 function readPositiveInteger(value: unknown, fallback: number) {
@@ -372,7 +372,7 @@ function MetricCard({
     >
       <CardContent className="flex items-center justify-between gap-3 p-3">
         <div className="min-w-0">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+          <p className="text-[11px] font-semibold text-slate-500">{label}</p>
           <p className="mt-1 font-mono text-xl font-semibold tabular-nums text-slate-950">{valueText}</p>
           <p className="mt-1 truncate text-xs text-slate-500">{caption}</p>
         </div>
@@ -1011,52 +1011,58 @@ export default function AdminPostsPage() {
                 </div>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="outline" className="h-8 rounded-md border-slate-200 bg-slate-50 px-2.5 text-slate-600">
-                  已选 {formatNumber(visibleSelectedIds.length)}
-                </Badge>
-                <Button
-                  className="h-8 rounded-md !border-cyan-200 !bg-cyan-50 px-3 !text-cyan-700 hover:!bg-cyan-100"
-                  disabled={!hasSelection || bulkPublishAction !== null}
-                  onClick={() => setBulkAiIds(visibleSelectedIds)}
-                  size="sm"
-                  type="button"
-                  variant="outline"
-                >
-                  <Sparkles className="size-4" />
-                  AI 批量补全
-                </Button>
-                <Button
-                  className="h-8 rounded-md !border-slate-200 !bg-white !text-slate-700 hover:!bg-slate-50"
-                  disabled={!hasSelection || bulkPublishAction !== null}
-                  onClick={() => void updateBulkPublish(visibleSelectedIds, true)}
-                  size="sm"
-                  type="button"
-                  variant="outline"
-                >
-                  批量发布
-                </Button>
-                <Button
-                  className="h-8 rounded-md !border-slate-200 !bg-white !text-slate-700 hover:!bg-slate-50"
-                  disabled={!hasSelection || bulkPublishAction !== null}
-                  onClick={() => void updateBulkPublish(visibleSelectedIds, false)}
-                  size="sm"
-                  type="button"
-                  variant="outline"
-                >
-                  批量转草稿
-                </Button>
-                <Button
-                  className="h-8 rounded-md"
-                  disabled={!hasSelection || bulkPublishAction !== null}
-                  onClick={() => void openDeleteDialog(visibleSelectedIds)}
-                  size="sm"
-                  type="button"
-                  variant="destructive"
-                >
-                  批量删除
-                </Button>
-              </div>
+              {hasSelection ? (
+                <div className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5">
+                  <Badge variant="outline" className="h-7 rounded-md border-slate-200 bg-white px-2.5 text-slate-600">
+                    已选 {formatNumber(visibleSelectedIds.length)}
+                  </Badge>
+                  <Button
+                    className="h-8 rounded-md !border-cyan-200 !bg-cyan-50 px-3 !text-cyan-700 hover:!bg-cyan-100"
+                    disabled={bulkPublishAction !== null}
+                    onClick={() => setBulkAiIds(visibleSelectedIds)}
+                    size="sm"
+                    type="button"
+                    variant="outline"
+                  >
+                    <Sparkles className="size-4" />
+                    AI 批量补全
+                  </Button>
+                  <Button
+                    className="h-8 rounded-md !border-slate-200 !bg-white !text-slate-700 hover:!bg-slate-50"
+                    disabled={bulkPublishAction !== null}
+                    onClick={() => void updateBulkPublish(visibleSelectedIds, true)}
+                    size="sm"
+                    type="button"
+                    variant="outline"
+                  >
+                    批量发布
+                  </Button>
+                  <Button
+                    className="h-8 rounded-md !border-slate-200 !bg-white !text-slate-700 hover:!bg-slate-50"
+                    disabled={bulkPublishAction !== null}
+                    onClick={() => void updateBulkPublish(visibleSelectedIds, false)}
+                    size="sm"
+                    type="button"
+                    variant="outline"
+                  >
+                    批量转草稿
+                  </Button>
+                  <Button
+                    className="h-8 rounded-md"
+                    disabled={bulkPublishAction !== null}
+                    onClick={() => void openDeleteDialog(visibleSelectedIds)}
+                    size="sm"
+                    type="button"
+                    variant="destructive"
+                  >
+                    批量删除
+                  </Button>
+                </div>
+              ) : (
+                <p className="rounded-lg border border-dashed border-slate-200 px-3 py-2 text-xs text-slate-500">
+                  勾选文章后显示批量操作
+                </p>
+              )}
             </CardContent>
           </Card>
 
@@ -1088,13 +1094,13 @@ export default function AdminPostsPage() {
                         onCheckedChange={(checked) => toggleAllCurrentPage(checked === true)}
                       />
                     </TableHead>
-                    <TableHead className="w-[34%] text-xs uppercase tracking-wide text-slate-500 xl:w-[30%]">标题</TableHead>
-                    <TableHead className="hidden w-[13%] text-xs uppercase tracking-wide text-slate-500 xl:table-cell">作者</TableHead>
-                    <TableHead className="w-[32%] text-xs uppercase tracking-wide text-slate-500 xl:w-[24%]">AI 摘要</TableHead>
-                    <TableHead className="w-[148px] text-xs uppercase tracking-wide text-slate-500">发布</TableHead>
-                    <TableHead className="hidden w-[13%] pl-6 text-xs uppercase tracking-wide text-slate-500 2xl:table-cell">上下文</TableHead>
-                    <TableHead className="hidden w-[10%] text-xs uppercase tracking-wide text-slate-500 xl:table-cell">日期</TableHead>
-                    <TableHead className="w-[104px] text-right text-xs uppercase tracking-wide text-slate-500">操作</TableHead>
+                    <TableHead className="w-[34%] text-xs font-semibold text-slate-500 xl:w-[30%]">标题</TableHead>
+                    <TableHead className="hidden w-[13%] text-xs font-semibold text-slate-500 xl:table-cell">作者</TableHead>
+                    <TableHead className="w-[32%] text-xs font-semibold text-slate-500 xl:w-[24%]">AI 摘要</TableHead>
+                    <TableHead className="w-[148px] text-xs font-semibold text-slate-500">发布</TableHead>
+                    <TableHead className="hidden w-[13%] pl-6 text-xs font-semibold text-slate-500 2xl:table-cell">上下文</TableHead>
+                    <TableHead className="hidden w-[10%] text-xs font-semibold text-slate-500 xl:table-cell">日期</TableHead>
+                    <TableHead className="w-[104px] text-right text-xs font-semibold text-slate-500">操作</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>

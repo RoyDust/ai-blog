@@ -85,9 +85,10 @@ describe("posts workbench", () => {
     expect(screen.getByRole("button", { name: "非 AI 日报" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "切换为已发布" })).toBeInTheDocument();
     expect(screen.getAllByText("评论 2").length).toBeGreaterThan(0);
-    expect(screen.getByRole("button", { name: "批量发布" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "批量转草稿" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "批量删除" })).toBeInTheDocument();
+    expect(screen.getByText("勾选文章后显示批量操作")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "批量发布" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "批量转草稿" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "批量删除" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "预览" })).toHaveAttribute("href", "/admin/posts/preview/ai-draft");
     expect(container.firstElementChild).toHaveClass("h-full", "min-h-0", "overflow-hidden");
     expect(screen.getByTestId("admin-data-table-scroll")).toHaveClass("min-h-0", "flex-1", "overflow-auto");
