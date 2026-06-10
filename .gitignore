@@ -49,6 +49,9 @@ next-env.d.ts
 /src/generated/prisma
 /.worktrees
 
+# temp screenshots from agent verification runs
+.tmp-*
+
 # local agent/tooling artifacts
 /.antigravitycli
 /.claude/

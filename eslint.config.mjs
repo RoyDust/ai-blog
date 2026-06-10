@@ -14,6 +14,9 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
     "scripts/**/*.cjs",
+    // 第三方 agent skill 脚本，不参与本项目质量门禁
+    ".agents/**",
+    ".impeccable/**",
   ]),
 ]);
 
