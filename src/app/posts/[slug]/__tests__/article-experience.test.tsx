@@ -1,6 +1,6 @@
 import { act, render, screen } from '@testing-library/react'
 import React from 'react'
-import { beforeEach, describe, expect, test, vi } from 'vitest'
+import { beforeAll, beforeEach, describe, expect, test, vi } from 'vitest'
 
 const findFirst = vi.fn()
 const findMany = vi.fn()
@@ -74,6 +74,16 @@ vi.mock('@/lib/auth', () => ({
 }))
 
 describe('article experience', () => {
+  let publicPostPage: typeof import('@/app/(public)/posts/[slug]/page')
+  let adminPreviewPage: typeof import('@/app/admin/posts/preview/[slug]/page')
+
+  // 页面模块依赖链较重（react-markdown/rehype），全量测试高负载下逐测试导入会超过默认 5s 超时，
+  // 且超时后悬挂的导入 promise 会在后续测试中 resolve 并触发 mock，因此统一在此一次性导入
+  beforeAll(async () => {
+    publicPostPage = await import('@/app/(public)/posts/[slug]/page')
+    adminPreviewPage = await import('@/app/admin/posts/preview/[slug]/page')
+  }, 60_000)
+
   beforeEach(() => {
     getRecommendedPostsForPost.mockResolvedValue([])
   })
@@ -82,7 +92,7 @@ describe('article experience', () => {
     findMany.mockClear()
     findMany.mockResolvedValueOnce([{ slug: 'published-post' }, { slug: 'another-post' }])
 
-    const { generateStaticParams } = await import('@/app/(public)/posts/[slug]/page')
+    const { generateStaticParams } = publicPostPage
 
     await expect(generateStaticParams()).resolves.toEqual([
       { slug: 'published-post' },
@@ -121,7 +131,7 @@ describe('article experience', () => {
       _count: { comments: 0, likes: 0 },
     })
 
-    const { default: PostPage } = await import('@/app/admin/posts/preview/[slug]/page')
+    const { default: PostPage } = adminPreviewPage
     const ui = await PostPage({
       params: Promise.resolve({ slug: 'draft-post' }),
     })
@@ -170,7 +180,7 @@ describe('article experience', () => {
         _count: { comments: 1, likes: 2 },
       })
 
-    const { default: PostPage } = await import('@/app/(public)/posts/[slug]/page')
+    const { default: PostPage } = publicPostPage
     const ui = await PostPage({ params: Promise.resolve({ slug: 'test-post' }) })
     let container!: HTMLElement
     await act(async () => {
@@ -256,7 +266,7 @@ describe('article experience', () => {
         _count: { comments: 0, likes: 2 },
       })
 
-    const { default: PostPage } = await import('@/app/(public)/posts/[slug]/page')
+    const { default: PostPage } = publicPostPage
     const ui = await PostPage({ params: Promise.resolve({ slug: 'test-post' }) })
     await act(async () => {
       render(ui as React.ReactElement)
@@ -304,7 +314,7 @@ describe('article experience', () => {
         _count: { comments: 0, likes: 2 },
       })
 
-    const { default: PostPage } = await import('@/app/(public)/posts/[slug]/page')
+    const { default: PostPage } = publicPostPage
     const ui = await PostPage({ params: Promise.resolve({ slug: 'test-post' }) })
     await act(async () => {
       render(ui as React.ReactElement)
@@ -336,7 +346,7 @@ describe('article experience', () => {
         _count: { comments: 0, likes: 2 },
       })
 
-    const { default: PostPage } = await import('@/app/(public)/posts/[slug]/page')
+    const { default: PostPage } = publicPostPage
     const ui = await PostPage({ params: Promise.resolve({ slug: 'test-post' }) })
     await act(async () => {
       render(ui as React.ReactElement)
@@ -391,7 +401,7 @@ describe('article experience', () => {
         _count: { comments: 0, likes: 2 },
       })
 
-    const { default: PostPage } = await import('@/app/(public)/posts/[slug]/page')
+    const { default: PostPage } = publicPostPage
     const ui = await PostPage({ params: Promise.resolve({ slug: 'test-post' }) })
     await act(async () => {
       render(ui as React.ReactElement)
@@ -430,7 +440,7 @@ describe('article experience', () => {
         _count: { comments: 0, likes: 2 },
       })
 
-    const { default: PostPage } = await import('@/app/(public)/posts/[slug]/page')
+    const { default: PostPage } = publicPostPage
     const ui = await PostPage({ params: Promise.resolve({ slug: 'test-post' }) })
     await act(async () => {
       render(ui as React.ReactElement)
@@ -460,7 +470,7 @@ describe('article experience', () => {
         _count: { comments: 0, likes: 2 },
       })
 
-    const { default: PostPage } = await import('@/app/(public)/posts/[slug]/page')
+    const { default: PostPage } = publicPostPage
     const ui = await PostPage({ params: Promise.resolve({ slug: 'test-post' }) })
     await act(async () => {
       render(ui as React.ReactElement)
