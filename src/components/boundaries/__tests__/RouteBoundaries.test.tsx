@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, test, vi } from "vitest";
-import { ArticleLoadingState, PublicLoadingState } from "@/components/boundaries/LoadingStates";
+import { ArticleLoadingState } from "@/components/boundaries/LoadingStates";
 import { NotFoundState } from "@/components/boundaries/NotFoundState";
 import { RouteErrorState } from "@/components/boundaries/RouteErrorState";
 
@@ -26,11 +26,8 @@ describe("route boundary states", () => {
     expect(screen.getByRole("link", { name: /查看文章/ })).toHaveAttribute("href", "/posts");
   });
 
-  test("loading states render route-specific skeletons", () => {
-    const { rerender } = render(<PublicLoadingState />);
-    expect(screen.getByTestId("public-loading")).toHaveAccessibleName("页面加载中");
-
-    rerender(<ArticleLoadingState />);
+  test("article loading state renders a route-specific skeleton", () => {
+    render(<ArticleLoadingState />);
     expect(screen.getByTestId("article-loading")).toHaveAccessibleName("文章加载中");
   });
 });

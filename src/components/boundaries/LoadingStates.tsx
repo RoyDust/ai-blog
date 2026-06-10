@@ -4,59 +4,6 @@ function SkeletonLine({ className = "" }: { className?: string }) {
   return <div className={`reader-skeleton rounded-full ${className}`} />;
 }
 
-function ReaderCardSkeleton() {
-  return (
-    <article className="reader-feed-card p-4">
-      <div className="grid gap-4 md:grid-cols-[10.75rem_minmax(0,1fr)_2.75rem] md:items-center">
-        <div className="reader-skeleton aspect-[1.55] rounded-[calc(var(--radius-large)-0.25rem)] md:h-28 md:aspect-auto" />
-        <div className="min-w-0 space-y-4">
-          <div className="flex gap-2">
-            <SkeletonLine className="h-7 w-20" />
-            <SkeletonLine className="h-7 w-28" />
-          </div>
-          <div className="space-y-2">
-            <SkeletonLine className="h-5 w-4/5" />
-            <SkeletonLine className="h-4 w-full" />
-            <SkeletonLine className="h-4 w-3/5" />
-          </div>
-          <div className="flex gap-3">
-            <SkeletonLine className="h-4 w-16" />
-            <SkeletonLine className="h-4 w-16" />
-            <SkeletonLine className="h-4 w-16" />
-          </div>
-        </div>
-        <div className="reader-skeleton hidden h-11 w-11 rounded-full md:block" />
-      </div>
-    </article>
-  );
-}
-
-export function PublicLoadingState() {
-  return (
-    <div aria-label="页面加载中" className="reader-section" data-testid="public-loading">
-      <section className="reader-banner min-h-[18rem] px-6 py-8 md:px-8 md:py-10">
-        <div className="relative z-10 max-w-2xl space-y-5">
-          <SkeletonLine className="h-6 w-28" />
-          <div className="space-y-3">
-            <SkeletonLine className="h-9 w-4/5 max-w-xl" />
-            <SkeletonLine className="h-9 w-3/5 max-w-lg" />
-          </div>
-          <div className="space-y-2">
-            <SkeletonLine className="h-4 w-full max-w-2xl" />
-            <SkeletonLine className="h-4 w-3/4 max-w-xl" />
-          </div>
-        </div>
-      </section>
-
-      <section className="grid gap-4">
-        {skeletonItems.map((item) => (
-          <ReaderCardSkeleton key={item} />
-        ))}
-      </section>
-    </div>
-  );
-}
-
 export function ArticleLoadingState() {
   return (
     <div aria-label="文章加载中" className="article-detail-page relative overflow-x-clip pb-16" data-testid="article-loading">

@@ -67,10 +67,11 @@ describe("series public pages", () => {
     const { default: SeriesPage } = await import("../page");
     const ui = await SeriesPage();
 
-    render(ui as React.ReactElement);
+    const { container } = render(ui as React.ReactElement);
 
     expect(screen.getByRole("heading", { name: "文章系列" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "工程系列" })).toHaveAttribute("href", "/series/engineering");
+    expect(container.querySelector(".onload-animation")).toBeNull();
     expect(findMany).toHaveBeenCalledWith(expect.objectContaining({
       where: {
         deletedAt: null,
@@ -101,6 +102,7 @@ describe("series public pages", () => {
 
     expect(screen.getByRole("heading", { name: "工程系列" })).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: "First Post" })[0]).toHaveAttribute("href", "/posts/first-post");
+    expect(container.querySelector(".onload-animation")).toBeNull();
     expect(JSON.parse(container.querySelector('script[type="application/ld+json"]')?.textContent ?? "{}")).toMatchObject({
       "@type": "BreadcrumbList",
       itemListElement: [

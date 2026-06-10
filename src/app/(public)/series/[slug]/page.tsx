@@ -93,7 +93,7 @@ export default async function SeriesDetailPage({ params }: { params: Promise<{ s
   return (
     <div className="reader-section">
       <JsonLd data={breadcrumbJsonLd} />
-      <section className="reader-banner onload-animation px-6 py-8 md:px-8 md:py-10">
+      <section className="reader-banner px-6 py-8 md:px-8 md:py-10">
         <div className="relative z-10 flex min-h-[calc(var(--reader-banner-height)-4rem)] flex-col justify-end gap-6">
           <span className="reader-chip w-fit">Series</span>
           <div className="max-w-3xl space-y-3">

@@ -62,7 +62,7 @@ export default async function SeriesPage() {
 
   return (
     <div className="reader-section">
-      <section className="reader-banner onload-animation px-6 py-8 md:px-8 md:py-10">
+      <section className="reader-banner px-6 py-8 md:px-8 md:py-10">
         <div className="relative z-10 flex min-h-[calc(var(--reader-banner-height)-4rem)] flex-col justify-end gap-6">
           <span className="reader-chip w-fit">Series</span>
           <div className="max-w-3xl space-y-3">
@@ -83,10 +83,8 @@ export default async function SeriesPage() {
         </section>
       ) : series.length > 0 ? (
         <section className="grid gap-4 md:grid-cols-2">
-          {series.map((item, index) => (
-            <div key={item.id} className="onload-animation" style={{ animationDelay: `${80 + index * 30}ms` }}>
-              <SeriesCard series={item} />
-            </div>
+          {series.map((item) => (
+            <SeriesCard key={item.id} series={item} />
           ))}
         </section>
       ) : (
