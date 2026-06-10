@@ -35,6 +35,7 @@
   --float-panel-bg: color-mix(in oklab, var(--card-bg) 92%, white);
   --reader-bg: oklch(0.955 0.014 var(--hue));
   --reader-panel: color-mix(in oklab, var(--card-bg) 92%, var(--surface-alt) 8%);
+  --reader-card-bg: var(--reader-panel);
   --reader-panel-elevated: color-mix(in oklab, var(--card-bg) 96%, white 4%);
   --reader-panel-muted: color-mix(in oklab, var(--surface-alt) 88%, var(--card-bg) 12%);
   --reader-nav-surface:
@@ -124,6 +125,7 @@
   --float-panel-bg: color-mix(in oklab, var(--card-bg) 88%, black);
   --reader-bg: oklch(0.075 0.024 var(--hue));
   --reader-panel: rgb(18 28 38 / 0.84);
+  --reader-card-bg: rgb(19 29 40 / 0.95);
   --reader-panel-elevated: rgb(22 34 46 / 0.9);
   --reader-panel-muted: rgb(34 49 66 / 0.76);
   --reader-nav-surface: rgb(13 20 28 / 0.92);

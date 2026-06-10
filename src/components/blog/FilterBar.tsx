@@ -80,14 +80,11 @@ function FilterBarForm({
   const hasActiveFilters = Boolean(search || categoryValue || tagValue);
 
   return (
-    <form
-      className="rounded-2xl border border-[var(--reader-border)] bg-[color-mix(in_oklab,var(--reader-panel)_92%,transparent)] p-3"
-      method="get"
-    >
+    <form className="min-w-0" method="get">
       {search ? <input type="hidden" name="q" value={search} /> : null}
       {categoryValue ? <input type="hidden" name="category" value={categoryValue} /> : null}
       {tagValue ? <input type="hidden" name="tag" value={tagValue} /> : null}
-      <div className="grid gap-2 lg:grid-cols-[repeat(2,minmax(0,1fr))_auto]">
+      <div className="grid gap-2 sm:grid-cols-[minmax(8.5rem,11rem)_minmax(8.5rem,11rem)_auto]">
         <Select value={selectedCategory} onValueChange={setSelectedCategory}>
           <SelectTrigger aria-label="分类筛选" className={filterSelectTriggerClassName}>
             <SelectValue />
@@ -114,7 +111,7 @@ function FilterBarForm({
             ))}
           </SelectContent>
         </Select>
-        <button className="ui-btn h-10 rounded-xl bg-[var(--primary)] px-4 text-sm font-semibold text-white" type="submit">
+        <button className="ui-btn h-10 whitespace-nowrap rounded-xl bg-[var(--primary)] px-4 text-sm font-semibold text-white" type="submit">
           应用筛选
         </button>
       </div>

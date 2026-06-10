@@ -19,14 +19,11 @@ export default function ContactPage() {
   return (
     <div className="mx-auto grid max-w-5xl gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
       <section className="reader-panel space-y-8 p-6 sm:p-8">
-        <div className="space-y-3">
-          <p className="ui-kicker text-[var(--accent-warm)]">Contact</p>
-          <div className="space-y-2">
-            <h1 className="font-display text-3xl font-bold text-[var(--foreground)] sm:text-4xl">联系我</h1>
-            <p className="max-w-2xl text-sm leading-7 text-[var(--text-body)]">
-              有问题、合作意向或只是想聊聊，填写表单后会打开你的邮件客户端。
-            </p>
-          </div>
+        <div className="space-y-2">
+          <h1 className="font-display text-3xl font-bold text-[var(--foreground)] sm:text-4xl">联系我</h1>
+          <p className="max-w-2xl text-sm leading-7 text-[var(--text-body)]">
+            有问题、合作意向或只是想聊聊，填写表单后会打开你的邮件客户端。
+          </p>
         </div>
 
         <ContactForm />

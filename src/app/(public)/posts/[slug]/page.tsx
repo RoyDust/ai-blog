@@ -29,6 +29,7 @@ import { FallbackImage } from "@/components/ui";
 import { getBlogSettings } from "@/lib/blog-settings";
 import { prisma } from "@/lib/prisma";
 import { getRecommendedPostsForPost } from "@/lib/recommendations";
+import { stripLeadingTitleHeading } from "@/lib/article-content";
 import { buildArticleJsonLd, buildArticleMetadata, buildBreadcrumbJsonLd } from "@/lib/seo";
 import { JsonLd } from "@/components/seo/JsonLd";
 
@@ -288,7 +289,8 @@ export async function renderArticlePage({ slug, includeDraft = false }: { slug: 
   const relatedPosts = isDraftPreview ? [] : await getRecommendedPostsForPost({ postId: post.id, limit: 3 })
   const commentsPromise = isDraftPreview ? null : getPostComments(post.id)
 
-  const headings = extractHeadings(post.content);
+  const articleContent = stripLeadingTitleHeading(post.content, post.title)
+  const headings = extractHeadings(articleContent);
   const renderedHeadingCounters = new Map<string, number>()
   const getRenderedHeadingId = (children: ReactNode) => getUniqueHeadingId(nodeText(children), renderedHeadingCounters)
   const settings = await getBlogSettings()
@@ -403,7 +405,7 @@ export async function renderArticlePage({ slug, includeDraft = false }: { slug: 
                       },
                     }}
                   >
-                    {post.content}
+                    {articleContent}
                   </ReactMarkdown>
                 </div>
 

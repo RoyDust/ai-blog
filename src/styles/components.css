@@ -140,8 +140,18 @@
     border: 1px solid var(--reader-border);
     background: var(--reader-panel);
     box-shadow: var(--reader-shadow-normal);
-    backdrop-filter: blur(20px) saturate(1.04);
     border-radius: 1.5rem;
+  }
+
+  /* 毛玻璃只留给数量少的浮层与面板；列表卡数量多，blur 叠加在低端设备上掉帧 */
+  .reader-panel {
+    backdrop-filter: blur(20px) saturate(1.04);
+  }
+
+  .reader-card,
+  .reader-feed-card,
+  .reader-feature-card {
+    background: var(--reader-card-bg, var(--reader-panel));
   }
 
   .reader-panel,
@@ -178,7 +188,7 @@
   .reader-card:hover::before,
   .reader-feed-card:hover::before,
   .reader-feature-card:hover::before {
-    opacity: 0.64;
+    opacity: 0.42;
   }
 
   .reader-card:hover,
@@ -186,7 +196,7 @@
   .reader-feature-card:hover {
     border-color: var(--reader-border-strong);
     box-shadow: var(--reader-shadow-hover);
-    transform: translateY(-4px);
+    transform: translateY(-2px);
   }
 
   .article-shell {
@@ -270,7 +280,8 @@
     transition:
       background-color 180ms ease,
       border-color 180ms ease,
-      color 180ms ease;
+      color 180ms ease,
+      transform 140ms ease;
   }
 
   .reader-chip:hover {
@@ -304,7 +315,8 @@
     transition:
       background-color 180ms ease,
       border-color 180ms ease,
-      color 180ms ease;
+      color 180ms ease,
+      transform 140ms ease;
   }
 
   .reader-icon-btn:hover {
@@ -313,12 +325,19 @@
     color: var(--foreground);
   }
 
+  .reader-icon-btn:active,
+  .reader-chip:active,
+  .reader-card-action:active {
+    transform: scale(0.96);
+  }
+
   .reader-section-heading {
     display: flex;
     align-items: center;
     gap: 0.625rem;
-    font-size: 1.02rem;
+    font-size: 1.15rem;
     font-weight: 800;
+    letter-spacing: -0.01em;
     color: var(--foreground);
   }
 
@@ -328,7 +347,6 @@
     height: 1.1rem;
     border-radius: 999px;
     background: var(--accent-sky);
-    box-shadow: 0 0 18px color-mix(in oklab, var(--accent-sky) 36%, transparent);
   }
 
   .reader-card-action {

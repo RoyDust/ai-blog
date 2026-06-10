@@ -31,7 +31,7 @@ type TagItem = {
   _count?: { posts?: number };
 };
 
-const categoryDotColors = ["var(--accent-warm)", "var(--accent-warm)", "var(--accent-warm)", "var(--text-faint)", "var(--text-faint)", "var(--accent-cyan)"];
+const categoryDotColors = ["var(--accent-sky)", "var(--accent-warm)", "var(--accent-cyan)", "var(--text-faint)"];
 
 function SidebarCategorySkeleton() {
   return (
@@ -244,7 +244,7 @@ export function Sidebar({
                     />
                     <span className="truncate text-[var(--text-body)] transition group-hover:text-[var(--foreground)]">{category.name}</span>
                   </span>
-                  <span className="shrink-0 rounded-md bg-[color:color-mix(in_oklab,var(--accent-sky)_72%,white_8%)] px-2 py-0.5 text-xs font-bold text-[#06101a]">{category._count?.posts ?? 0}</span>
+                  <span className="shrink-0 rounded-md bg-[color:color-mix(in_oklab,var(--foreground)_7%,transparent)] px-2 py-0.5 text-xs font-semibold tabular-nums text-[var(--text-muted)]">{category._count?.posts ?? 0}</span>
                 </NextLink>
               ))}
             </div>
@@ -308,7 +308,7 @@ export function Sidebar({
                 </h3>
               </div>
 
-              <div className="grid grid-cols-3 divide-x divide-[var(--reader-border)] text-center">
+              <div className="grid grid-cols-3 divide-x divide-[var(--reader-border)] text-center tabular-nums">
                 <div>
                   <p className="text-xs text-[var(--text-muted)]">文章数</p>
                   <p className="mt-1 text-2xl font-bold text-[var(--foreground)]">{displayedReadingStats.totalArticles}</p>

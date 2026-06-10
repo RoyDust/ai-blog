@@ -105,7 +105,7 @@ export function PostCard({ post }: PostCardProps) {
 
         <p className="text-75 line-clamp-2 text-sm leading-6">{post.excerpt ?? "暂无摘要"}</p>
 
-        <div className="flex flex-wrap items-center gap-3 text-xs text-[var(--text-faint)] opacity-75">
+        <div className="flex flex-wrap items-center gap-3 text-xs tabular-nums text-[var(--text-faint)] opacity-75">
           <span className="inline-flex items-center gap-1.5">
             <MessageCircle aria-hidden="true" className="h-3.5 w-3.5" />
             {post._count.comments} 评论

@@ -39,7 +39,7 @@ export function HomeLatestPosts({ posts }: HomeLatestPostsProps) {
           <div className="flex flex-col gap-3 text-sm leading-7 text-[var(--text-body)]">
             <span className="inline-flex w-fit items-center gap-2 rounded-full border border-[var(--reader-border)] px-3 py-1 text-xs font-semibold text-[var(--text-muted)]">
               <Clock3 className="h-4 w-4 text-[var(--accent-warm)]" aria-hidden="true" />
-              Waiting for notes
+              新文章筹备中
             </span>
             <p>最新文章区会保留当前位置，避免首页在空数据时突然塌陷。</p>
           </div>
@@ -109,7 +109,7 @@ export function HomeLatestPosts({ posts }: HomeLatestPostsProps) {
 
                 <p className="line-clamp-2 text-sm leading-6 text-[var(--text-body)]">{post.excerpt ?? '暂无摘要'}</p>
 
-                <div className="flex flex-wrap items-center gap-3 text-xs text-[var(--text-faint)] opacity-75">
+                <div className="flex flex-wrap items-center gap-3 text-xs tabular-nums text-[var(--text-faint)] opacity-75">
                   <span className="inline-flex items-center gap-1.5">
                     <CalendarDays className="h-3.5 w-3.5" aria-hidden="true" />
                     {new Date(post.createdAt).toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' })}

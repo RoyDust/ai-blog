@@ -4,9 +4,10 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
-import { Archive, BookOpenText, Home, ListTree, Menu, Palette, Search, UserRound } from "lucide-react";
+import { Archive, BookOpenText, Home, ListTree, Menu, Moon, Palette, Search, Sun, UserRound } from "lucide-react";
 
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { useTheme } from "@/components/ThemeProvider";
 import { AccountEntry } from "@/components/auth/AccountEntry";
 import { SearchForm } from "@/components/search/SearchForm";
 import { HuePicker } from "@/components/ui/HuePicker";
@@ -34,6 +35,7 @@ interface NavbarProps {
 export function Navbar({ siteName = "My Blog" }: NavbarProps) {
   const [showHuePicker, setShowHuePicker] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const { theme, toggleTheme } = useTheme();
   const isHidden = useScrollHide({ threshold: 100, delta: 5 });
   const navbarRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
@@ -127,7 +129,9 @@ export function Navbar({ siteName = "My Blog" }: NavbarProps) {
             <Palette className="h-5 w-5" />
           </button>
 
-          <ThemeToggle />
+          <span className="hidden sm:flex">
+            <ThemeToggle />
+          </span>
 
           <AccountEntry />
 
@@ -173,6 +177,34 @@ export function Navbar({ siteName = "My Blog" }: NavbarProps) {
                 </Link>
               );
             })}
+
+            <button
+              type="button"
+              className="reader-link flex h-11 w-full items-center justify-start gap-3 rounded-xl border-t border-[var(--reader-border)] px-4 text-sm font-semibold text-[var(--text-body)] transition-colors hover:bg-accent-sky-12 hover:text-[var(--foreground)] sm:hidden"
+              onClick={(event) => {
+                const rect = event.currentTarget.getBoundingClientRect();
+                toggleTheme({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
+                setShowMobileMenu(false);
+              }}
+              tabIndex={showMobileMenu ? undefined : -1}
+            >
+              {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              {theme === "dark" ? "切换到日间主题" : "切换到夜间主题"}
+            </button>
+
+            <button
+              type="button"
+              aria-expanded={showHuePicker}
+              className="reader-link flex h-11 w-full items-center justify-start gap-3 rounded-xl px-4 text-sm font-semibold text-[var(--text-body)] transition-colors hover:bg-accent-sky-12 hover:text-[var(--foreground)] sm:hidden"
+              onClick={() => {
+                setShowMobileMenu(false);
+                setShowHuePicker(true);
+              }}
+              tabIndex={showMobileMenu ? undefined : -1}
+            >
+              <Palette className="h-4 w-4" />
+              主题色
+            </button>
           </div>
         </motion.div>
 

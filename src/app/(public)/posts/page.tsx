@@ -78,24 +78,21 @@ export default async function PostsPage({ searchParams }: { searchParams?: Posts
   return (
     <div className="reader-section">
       <section className="reader-panel p-5 md:p-6">
-        <div className="max-w-3xl space-y-3">
-          <p className="text-xs font-semibold text-[color:color-mix(in_oklab,var(--accent-warm)_74%,var(--foreground)_26%)]">
-            文章索引
-          </p>
-          <h1 className="text-90 text-2xl font-bold leading-tight md:text-3xl">全部文章</h1>
-          <p className="text-75 max-w-2xl text-sm leading-7">
-            按发布时间浏览所有已发布内容，精选文章会以夜读主推卡片展示，其余文章保持轻盈的阅读流节奏。
-          </p>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="min-w-0 space-y-1.5">
+            <h1 className="text-90 text-3xl font-bold leading-tight tracking-tight md:text-4xl">全部文章</h1>
+            <p className="text-75 text-sm leading-6">按发布时间浏览全部内容，精选文章以主推卡片展示。</p>
+          </div>
+
+          <FilterBar
+            categories={categories}
+            category={filters.category}
+            search={filters.search}
+            tag={filters.tag}
+            tags={tags}
+          />
         </div>
       </section>
-
-      <FilterBar
-        categories={categories}
-        category={filters.category}
-        search={filters.search}
-        tag={filters.tag}
-        tags={tags}
-      />
 
       <Suspense
         fallback={
