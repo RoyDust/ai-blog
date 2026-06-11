@@ -9,6 +9,7 @@ interface WorkspacePanelProps {
   children: ReactNode;
   className?: string;
   fillHeight?: boolean;
+  reveal?: boolean;
 }
 
 export function WorkspacePanel({
@@ -19,11 +20,12 @@ export function WorkspacePanel({
   children,
   className = "",
   fillHeight = true,
+  reveal = true,
 }: WorkspacePanelProps) {
   const shouldShowEmptyState = Boolean(emptyState) && Children.toArray(children).length === 0;
 
   return (
-    <Card className={`${className} ${fillHeight ? "h-full" : ""} flex flex-col border border-[var(--border)] bg-[var(--surface)] shadow-sm rounded-lg transition-colors duration-200`}>
+    <Card className={`${className} ${fillHeight ? "h-full" : ""} flex flex-col border border-[var(--border)] bg-[var(--surface)] shadow-sm rounded-lg ${reveal ? "transition-colors duration-200" : ""}`}>
       <section className={`flex flex-col ${fillHeight ? "h-full flex-1" : ""}`}>
         {title || description || actions ? (
           <header className="flex flex-wrap items-center justify-between gap-3 px-5 pb-3.5 pt-5 border-b border-[var(--border)]">

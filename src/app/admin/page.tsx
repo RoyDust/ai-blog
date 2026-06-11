@@ -1,28 +1,28 @@
 import Link from "next/link";
 import {
-  BrainCircuit,
   BookOpenCheck,
   CheckCircle2,
-  CircleAlert,
   Eye,
   ImageIcon,
-  KeyRound,
   MessageCircle,
   ThumbsUp,
   Timer,
 } from "lucide-react";
 
 import { EngagementTrendChart, VisitTrendChart } from "@/app/admin/AdminAnalyticsCharts";
+import { AdminTodoStrip } from "@/components/admin/dashboard/AdminTodoStrip";
 import { WorkspacePanel } from "@/components/admin/primitives/WorkspacePanel";
 import { StatusBadge } from "@/components/admin/primitives/StatusBadge";
 import { FallbackImage } from "@/components/admin/ui";
 import {
   getAdminStatsRangeWindow,
-  getDashboardStats,
+  getAdminTodoCounts,
+  getDashboardStatsWithComparison,
   parseAdminStatsRange,
   type DashboardStats,
+  type DashboardStatsWithComparison,
 } from "@/lib/admin-stats";
-import { getPublicAiModelOptions, type PublicAiModelOption } from "@/lib/ai-models";
+import { getPublicAiModelOptions } from "@/lib/ai-models";
 import type { VisitTrendRange } from "@/lib/analytics";
 import { getBlogSettings } from "@/lib/blog-settings";
 import { prisma } from "@/lib/prisma";
@@ -76,7 +76,6 @@ async function getPopularPosts(range: VisitTrendRange) {
 type DraftListItem = Awaited<ReturnType<typeof getDraftQueue>>[number];
 type PendingCommentListItem = Awaited<ReturnType<typeof getPendingCommentQueue>>[number];
 type PopularPostListItem = Awaited<ReturnType<typeof getPopularPosts>>[number];
-type AiModelListItem = PublicAiModelOption;
 
 const dashboardLinkClassName = "inline-flex items-center gap-2 text-sm font-semibold text-[var(--brand)] transition-colors hover:text-[var(--brand-strong)] hover:underline";
 const dashboardTitleHoverClassName = "transition-colors group-hover:text-[var(--brand)]";
@@ -149,22 +148,6 @@ function EmptyPanelMessage({ children }: { children: React.ReactNode }) {
   return <p className="rounded-lg bg-[var(--surface-alt)] px-4 py-4 text-sm text-[var(--muted)]">{children}</p>;
 }
 
-function aiModelStatusMeta(status: AiModelListItem["status"]) {
-  if (status === "ready") {
-    return { label: "可用", tone: "success" as const, icon: CheckCircle2 };
-  }
-
-  if (status === "disabled") {
-    return { label: "已停用", tone: "neutral" as const, icon: CircleAlert };
-  }
-
-  return { label: "缺少密钥", tone: "warning" as const, icon: KeyRound };
-}
-
-function aiModelSourceLabel(source: AiModelListItem["source"]) {
-  return source === "environment" ? "环境变量" : "数据库";
-}
-
 function DashboardMetric({
   label,
   value,
@@ -209,6 +192,66 @@ function DashboardMetric({
   );
 }
 
+function formatDelta(value: number, options: { unit?: string; percent?: boolean } = {}) {
+  const absoluteValue = options.percent ? Math.round(value * 100) : value;
+  const formatted = Math.abs(absoluteValue).toLocaleString("zh-CN");
+  const prefix = absoluteValue > 0 ? "+" : absoluteValue < 0 ? "-" : "";
+  const unit = options.percent ? " 个百分点" : options.unit ? ` ${options.unit}` : "";
+
+  return `较上期 ${prefix}${formatted}${unit}`;
+}
+
+function formatMetricValue(value: number, options: { unit?: string; percent?: boolean } = {}) {
+  if (options.percent) {
+    return `${Math.round(value * 100).toLocaleString("zh-CN")}%`;
+  }
+
+  return `${value.toLocaleString("zh-CN")}${options.unit ? ` ${options.unit}` : ""}`;
+}
+
+function DashboardHealthMetrics({ comparison }: { comparison: DashboardStatsWithComparison }) {
+  const metrics = [
+    {
+      label: "7 日发布数",
+      value: formatMetricValue(comparison.metrics.publishedPosts, { unit: "篇" }),
+      delta: formatDelta(comparison.deltas.publishedPosts, { unit: "篇" }),
+    },
+    {
+      label: "阅读时长",
+      value: formatMetricValue(comparison.metrics.readingMinutes, { unit: "分钟" }),
+      delta: formatDelta(comparison.deltas.readingMinutes, { unit: "分钟" }),
+    },
+    {
+      label: "互动率",
+      value: formatMetricValue(comparison.metrics.engagementRate, { percent: true }),
+      delta: formatDelta(comparison.deltas.engagementRate, { percent: true }),
+    },
+    {
+      label: "订阅净增",
+      value: formatMetricValue(comparison.metrics.subscribers, { unit: "人" }),
+      delta: formatDelta(comparison.deltas.subscribers, { unit: "人" }),
+    },
+  ];
+
+  return (
+    <section aria-label="内容健康指标" className="rounded-lg bg-[var(--surface)] px-4 py-4">
+      <dl className="grid grid-cols-1 divide-y divide-[var(--border)] sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-4">
+        {metrics.map((metric, index) => (
+          <div
+            key={metric.label}
+            aria-label={`${metric.label} ${metric.value}，${metric.delta}`}
+            className={`${index === 0 ? "sm:pl-0" : ""} px-0 py-3 first:pt-0 last:pb-0 sm:px-5 sm:py-1`}
+          >
+            <dt className="text-xs font-semibold text-[var(--muted)]">{metric.label}</dt>
+            <dd className="mt-1 font-mono text-2xl font-bold tabular-nums text-[var(--foreground)]">{metric.value}</dd>
+            <p className="mt-1 text-xs text-[var(--muted)]">{metric.delta}</p>
+          </div>
+        ))}
+      </dl>
+    </section>
+  );
+}
+
 function VisitTrendPanel({ stats }: { stats: DashboardStats["visits"] }) {
   const { range, summary } = stats;
   const ranges: VisitTrendRange[] = [7, 30, 90];
@@ -233,6 +276,7 @@ function VisitTrendPanel({ stats }: { stats: DashboardStats["visits"] }) {
         </div>
       }
       className="min-h-[430px]"
+      reveal={false}
     >
       <dl className="grid grid-cols-2 gap-3 pt-2 sm:grid-cols-4">
         <DashboardMetric label="区间 PV" value={summary.totalPv} />
@@ -262,6 +306,7 @@ function ReadingStatsPanel({ stats }: { stats: DashboardStats["reading"] }) {
       title="阅读统计"
       actions={<PanelMetaPill>近 {stats.range} 天</PanelMetaPill>}
       className="min-h-[300px]"
+      reveal={false}
     >
       <dl className="grid grid-cols-2 gap-3">
         <DashboardMetric label="有效阅读" value={stats.summary.qualifiedEvents} icon={BookOpenCheck} />
@@ -287,6 +332,7 @@ function EngagementStatsPanel({ stats }: { stats: DashboardStats["engagement"] }
       title="互动统计"
       actions={<PanelMetaPill>近 {stats.range} 天</PanelMetaPill>}
       className="min-h-[300px]"
+      reveal={false}
     >
       <dl className="grid grid-cols-3 gap-3">
         <DashboardMetric label="总互动" value={stats.summary.total} />
@@ -301,7 +347,7 @@ function EngagementStatsPanel({ stats }: { stats: DashboardStats["engagement"] }
 
 function RecentDraftsPanel({ drafts }: { drafts: DraftListItem[] }) {
   return (
-    <WorkspacePanel title="最近草稿" className="min-h-[430px]">
+    <WorkspacePanel title="最近草稿" className="min-h-[430px]" reveal={false}>
       <div className="flex-1 flex flex-col justify-between">
         {drafts.length > 0 ? (
           <div className="divide-y divide-[var(--border)]">
@@ -327,7 +373,7 @@ function RecentDraftsPanel({ drafts }: { drafts: DraftListItem[] }) {
         ) : (
           <EmptyPanelMessage>当前没有最近草稿。</EmptyPanelMessage>
         )}
-        <Link href="/admin/posts?status=draft" className={`mt-auto pt-4 ${dashboardLinkClassName}`}>
+        <Link href="/admin/posts" className={`mt-auto pt-4 ${dashboardLinkClassName}`}>
           查看全部草稿
           <span aria-hidden>→</span>
         </Link>
@@ -342,6 +388,7 @@ function PendingCommentsPanel({ comments, count }: { comments: PendingCommentLis
       title="待审评论"
       actions={<PanelMetaPill>{count}</PanelMetaPill>}
       className="min-h-[460px]"
+      reveal={false}
     >
       <div className="flex-1 flex flex-col justify-between">
         <div className="divide-y divide-[var(--border)]">
@@ -398,6 +445,7 @@ function PopularPostsPanel({ posts, range }: { posts: PopularPostListItem[]; ran
       title="热门文章"
       actions={<PanelMetaPill>近 {range} 天</PanelMetaPill>}
       className="min-h-[460px]"
+      reveal={false}
     >
       <div className="flex-1 flex flex-col justify-between">
         {posts.length > 0 ? (
@@ -432,75 +480,6 @@ function PopularPostsPanel({ posts, range }: { posts: PopularPostListItem[]; ran
   );
 }
 
-function AiModelChecklistPanel({ models }: { models: AiModelListItem[] }) {
-  const visibleModels = models.slice(0, 5);
-  const readyCount = models.filter((model) => model.status === "ready").length;
-  const summaryLabel = models.length > 0 ? `${readyCount}/${models.length} 可用` : "未配置";
-
-  return (
-    <WorkspacePanel
-      title="AI 模型清单"
-      actions={<PanelMetaPill>{summaryLabel}</PanelMetaPill>}
-      className="min-h-[460px]"
-    >
-      <div className="flex-1 flex flex-col justify-between">
-        {visibleModels.length > 0 ? (
-          <ul className="divide-y divide-[var(--border)]">
-            {visibleModels.map((model) => {
-              const status = aiModelStatusMeta(model.status);
-              const StatusIcon = status.icon;
-              const isDefaultSummary = model.defaultFor.includes("post-summary");
-
-              return (
-                <li key={model.id} className="group py-5 first:pt-0 transition-transform duration-200 ease-out hover:translate-x-1">
-                  <div className="flex items-start gap-4">
-                    <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-[var(--surface-alt)]/50 text-[var(--brand)] transition-colors group-hover:bg-[var(--btn-regular-bg)]">
-                      <BrainCircuit className="h-6 w-6" aria-hidden="true" />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h3 className={`font-bold text-[var(--foreground)] ${dashboardTitleHoverClassName}`}>{model.name}</h3>
-                        {isDefaultSummary ? <StatusBadge tone="success">当前首选</StatusBadge> : null}
-                        <StatusBadge tone={status.tone === "success" ? "success" : status.tone === "warning" ? "warning" : "neutral"}>{status.label}</StatusBadge>
-                      </div>
-                      <p className="mt-1 break-all text-sm font-medium text-[var(--foreground)]">{model.model}</p>
-                      <p className="mt-2 line-clamp-2 text-sm leading-5 text-[var(--muted)]">
-                        {model.description || "未填写模型说明。"}
-                      </p>
-                      <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
-                        <span className="inline-flex items-center gap-1 rounded-full bg-[var(--surface-alt)] px-2.5 py-1">
-                          <StatusIcon className="h-3.5 w-3.5" aria-hidden="true" />
-                          {model.hasApiKey ? "密钥已配置" : model.apiKeyEnv}
-                        </span>
-                        <span className="rounded-full bg-[var(--surface-alt)] px-2.5 py-1">{aiModelSourceLabel(model.source)}</span>
-                        <span className="rounded-full bg-[var(--surface-alt)] px-2.5 py-1">文章摘要</span>
-                      </div>
-                    </div>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        ) : (
-          <EmptyPanelMessage>当前没有可用的 AI 模型配置。</EmptyPanelMessage>
-        )}
-
-        <div className="mt-auto pt-4 flex flex-wrap items-center justify-between gap-3">
-          {models.length > visibleModels.length ? (
-            <p className="text-sm text-[var(--muted)]">还有 {models.length - visibleModels.length} 个模型未显示。</p>
-          ) : (
-            <span aria-hidden="true" />
-          )}
-          <Link href="/admin/ai/models" className={dashboardLinkClassName}>
-            管理模型
-            <span aria-hidden>→</span>
-          </Link>
-        </div>
-      </div>
-    </WorkspacePanel>
-  );
-}
-
 /**
  * 后台首页入口。
  * 使用并发查询一次性拿到首页卡片所需数据，避免串行等待拖慢首屏。
@@ -508,21 +487,29 @@ function AiModelChecklistPanel({ models }: { models: AiModelListItem[] }) {
 export default async function AdminPage({ searchParams }: { searchParams?: Promise<{ range?: string }> } = {}) {
   const resolvedSearchParams = await searchParams;
   const range = parseAdminStatsRange(resolvedSearchParams?.range);
-  const [pendingCommentCount, draftQueue, pendingQueue, popularPosts, aiModels, dashboardStats, blogSettings] = await Promise.all([
-    prisma.comment.count({ where: { deletedAt: null, status: PENDING_COMMENT_STATUS } }),
+  const [todoCounts, draftQueue, pendingQueue, popularPosts, aiModels, dashboardComparison, blogSettings] = await Promise.all([
+    getAdminTodoCounts(),
     getDraftQueue(),
     getPendingCommentQueue(),
     getPopularPosts(range),
     getPublicAiModelOptions(),
-    getDashboardStats(range),
+    getDashboardStatsWithComparison(range),
     getBlogSettings(),
   ]);
+  const dashboardStats = dashboardComparison.current;
+  const hasReadyAiModel = aiModels.some((model) => model.status === "ready");
 
   return (
     <div className="space-y-5 2xl:space-y-6" data-testid="admin-dashboard">
+      <AdminTodoStrip counts={todoCounts} showAiModelWarning={!hasReadyAiModel} />
+
+      <DashboardHealthMetrics comparison={dashboardComparison} />
+
       <section className="grid grid-cols-1 gap-5 2xl:gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(440px,0.75fr)]">
         <VisitTrendPanel stats={dashboardStats.visits} />
-        <RecentDraftsPanel drafts={draftQueue} />
+        <div id="stale-drafts">
+          <RecentDraftsPanel drafts={draftQueue} />
+        </div>
       </section>
 
       <section className="grid grid-cols-1 gap-5 2xl:gap-6 lg:grid-cols-2">
@@ -530,10 +517,11 @@ export default async function AdminPage({ searchParams }: { searchParams?: Promi
         <EngagementStatsPanel stats={dashboardStats.engagement} />
       </section>
 
-      <section className="grid grid-cols-1 gap-5 2xl:gap-6 xl:grid-cols-[minmax(360px,1.05fr)_minmax(380px,1.05fr)_minmax(440px,1.15fr)]">
-        <PendingCommentsPanel comments={pendingQueue} count={pendingCommentCount} />
+      <section className="grid grid-cols-1 gap-5 2xl:gap-6 lg:grid-cols-2">
+        <div id="pending-comments">
+          <PendingCommentsPanel comments={pendingQueue} count={todoCounts.pendingComments} />
+        </div>
         <PopularPostsPanel posts={popularPosts} range={range} />
-        <AiModelChecklistPanel models={aiModels} />
       </section>
 
       <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border)] pt-5 text-sm text-[var(--muted)]">
