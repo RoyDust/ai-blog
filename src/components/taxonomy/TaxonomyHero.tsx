@@ -44,7 +44,7 @@ export function TaxonomyHero({
             {eyebrow}
           </span>
           <div className="space-y-3">
-            <h1 className="text-90 text-4xl font-black leading-tight md:text-5xl">{title}</h1>
+            <h1 className="text-90 font-display text-3xl font-black leading-tight tracking-tight md:text-4xl">{title}</h1>
             <p className="max-w-2xl text-sm leading-7 text-[var(--text-body)] md:text-base">{description}</p>
           </div>
         </div>

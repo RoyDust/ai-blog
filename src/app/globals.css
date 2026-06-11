@@ -169,6 +169,22 @@ body {
   min-height: 100vh;
 }
 
+.serif-display-scope {
+  --font-display: var(--font-noto-serif-sc-display, "Noto Serif SC"), var(--font-alibaba-puhuiti), "Source Han Serif SC", serif;
+}
+
+.serif-display-scope :where(h2, h3, h4, h5, h6),
+.serif-display-scope :where(.reader-nav, .prose, .reader-prose),
+.admin-theme {
+  --font-display: var(--font-alibaba-puhuiti);
+}
+
+/* Tailwind v4 将 font-display 工具类编译为内联的 var(--font-alibaba-puhuiti)，
+   不会消费上面的级联变量；在作用域内改读 --font-display 才能让衬线生效 */
+.serif-display-scope .font-display {
+  font-family: var(--font-display);
+}
+
 @view-transition {
   navigation: auto;
 }

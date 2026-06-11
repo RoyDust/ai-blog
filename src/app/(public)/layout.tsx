@@ -10,13 +10,15 @@ export default async function PublicLayout({ children }: { children: React.React
   ]);
 
   return (
-    <AppShell
-      profile={profile}
-      siteDescription={blogSettings.siteDescription}
-      siteName={blogSettings.siteName}
-    >
-      <VisitTracker />
-      {children}
-    </AppShell>
+    <div className="serif-display-scope">
+      <AppShell
+        profile={profile}
+        siteDescription={blogSettings.siteDescription}
+        siteName={blogSettings.siteName}
+      >
+        <VisitTracker />
+        {children}
+      </AppShell>
+    </div>
   );
 }

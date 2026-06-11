@@ -66,7 +66,7 @@ export default async function SeriesPage() {
         <div className="relative z-10 flex min-h-[calc(var(--reader-banner-height)-4rem)] flex-col justify-end gap-6">
           <span className="reader-chip w-fit">Series</span>
           <div className="max-w-3xl space-y-3">
-            <h1 className="text-90 text-4xl font-black leading-tight md:text-5xl">文章系列</h1>
+            <h1 className="text-90 font-display text-3xl font-black leading-tight tracking-tight md:text-4xl">文章系列</h1>
             <p className="max-w-2xl text-sm leading-7 text-[var(--text-body)] md:text-base">
               把同一主题下的文章整理成连续路径。适合从第一篇开始读，也适合快速回到某个系列复盘上下文。
             </p>

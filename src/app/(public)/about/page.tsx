@@ -85,7 +85,7 @@ export default async function AboutPage() {
             <div className="onload-animation space-y-3" style={{ animationDelay: "140ms" }}>
               <p className="text-50 text-xs font-medium uppercase tracking-[0.32em]">About</p>
               <div className="space-y-2">
-                <h1 className="text-90 text-4xl font-bold tracking-tight md:text-5xl">{profile.name}</h1>
+                <h1 className="text-90 font-display text-3xl font-bold tracking-tight md:text-4xl">{profile.name}</h1>
                 <p className="text-[var(--primary)] text-sm font-medium md:text-base">{profile.tagline}</p>
               </div>
               <p className="text-75 max-w-3xl text-base leading-8 md:text-lg">{profile.bio}</p>

@@ -37,7 +37,7 @@ export default async function GuidesPage() {
         <div className="relative z-10 flex min-h-[calc(var(--reader-banner-height)-4rem)] flex-col justify-end gap-6">
           <span className="reader-chip w-fit">专题</span>
           <div className="max-w-3xl space-y-3">
-            <h1 className="text-90 text-4xl font-black leading-tight md:text-5xl">专题导读</h1>
+            <h1 className="text-90 font-display text-3xl font-black leading-tight tracking-tight md:text-4xl">专题导读</h1>
             <p className="max-w-2xl text-sm leading-7 text-[var(--text-body)] md:text-base">
               把分散文章整理成可连续阅读的主题路径。先读入口，再沿着上下文补齐背景、方法和案例。
             </p>

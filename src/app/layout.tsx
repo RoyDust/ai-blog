@@ -3,7 +3,7 @@ import type { CSSProperties } from "react";
 import "./globals.css";
 import { AppProviders } from "@/components/AppProviders";
 import { getBlogSettings, toOpenGraphLocale } from "@/lib/blog-settings";
-import { alibabaPuHuiTi } from "./fonts";
+import { alibabaPuHuiTi, notoSerifSCDisplay } from "./fonts";
 
 function toCssImageUrl(url: string) {
   return `url("${url.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}")`;
@@ -99,7 +99,7 @@ export default async function RootLayout({
       <head>
         <script id="theme-init" dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
-      <body className={`${alibabaPuHuiTi.variable} antialiased`}>
+      <body className={`${alibabaPuHuiTi.variable} ${notoSerifSCDisplay.variable} antialiased`}>
         <noscript>
           <div className="mx-auto max-w-2xl px-4 py-6 text-sm leading-6 text-slate-700">
             此站点需要启用 JavaScript 才能完整浏览和登录后台。请启用 JavaScript 后刷新页面。
