@@ -2,6 +2,7 @@ import { ArrowRight, BookOpenText } from "lucide-react";
 import Link from "next/link";
 
 import { FallbackImage } from "@/components/ui";
+import { getSeriesViewTransitionName } from "@/lib/view-transition";
 
 interface SeriesCardProps {
   series: {
@@ -20,7 +21,12 @@ export function SeriesCard({ series }: SeriesCardProps) {
   return (
     <article className="reader-card group overflow-hidden p-0 transition-colors">
       {series.coverImage ? (
-        <Link href={`/series/${series.slug}`} aria-label={`查看系列 ${series.title}`} className="theme-media relative block aspect-[2.4] overflow-hidden">
+        <Link
+          href={`/series/${series.slug}`}
+          aria-label={`查看系列 ${series.title}`}
+          className="theme-media relative block aspect-[2.4] overflow-hidden"
+          style={{ viewTransitionName: getSeriesViewTransitionName("cover", series.slug) }}
+        >
           <FallbackImage
             alt={series.title}
             className="theme-media-image object-cover"
@@ -44,7 +50,11 @@ export function SeriesCard({ series }: SeriesCardProps) {
               <span className="text-50 text-xs">{series._count.posts} 篇文章</span>
             </div>
 
-            <Link href={`/series/${series.slug}`} className="text-90 block text-2xl font-black leading-tight transition group-hover:text-[var(--accent-warm)]">
+            <Link
+              href={`/series/${series.slug}`}
+              className="text-90 block text-2xl font-black leading-tight transition group-hover:text-[var(--accent-warm)]"
+              style={{ viewTransitionName: getSeriesViewTransitionName("title", series.slug) }}
+            >
               {series.title}
             </Link>
             <p className="text-75 line-clamp-3 text-sm leading-7">
@@ -55,7 +65,7 @@ export function SeriesCard({ series }: SeriesCardProps) {
 
         <Link href={`/series/${series.slug}`} className="reader-link inline-flex items-center gap-1 text-sm font-semibold">
           进入系列
-          <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
+          <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
         </Link>
       </div>
     </article>

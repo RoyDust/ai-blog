@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { CalendarDays, Clock3, Eye, UserRound } from "lucide-react";
 import { motion } from "motion/react";
+import { listContainerVariants, revealVariants } from "@/components/motion/variants";
 import { FallbackImage } from "@/components/ui";
 import { getPostViewTransitionName } from "@/lib/view-transition";
 
@@ -29,12 +30,15 @@ export function ArticleHero({
   viewCount,
   readingTimeMinutes,
 }: ArticleHeroProps) {
+  // 封面与 h1 带 viewTransitionName，跨页 morph 期间不能再叠加变换，
+  // 因此 header 与标题链保持静态，级联只作用于面包屑/章节/摘要/meta；
+  // reduced-motion 由 BlogMotionProvider 的 MotionConfig 全局处理
+  const containerVariants = listContainerVariants;
+  const itemVariants = revealVariants;
+
   return (
-    <motion.header
+    <header
       className="reader-banner flex min-h-[clamp(22rem,42vw,33rem)] items-end"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.82, ease: [0.16, 1, 0.3, 1] }}
       style={{ viewTransitionName: getPostViewTransitionName("cover", slug) }}
     >
       {coverImage ? (
@@ -49,8 +53,13 @@ export function ArticleHero({
       ) : null}
       <div className="absolute inset-0 bg-[linear-gradient(90deg,rgb(2_6_23_/_0.82),rgb(2_6_23_/_0.52)_52%,rgb(2_6_23_/_0.28)),var(--reader-media-overlay)]" />
 
-      <div className="relative z-10 grid w-full gap-6 p-6 sm:p-8 lg:p-10">
-        <nav aria-label="Breadcrumb" className="flex min-w-0 flex-wrap items-center gap-2 text-sm text-white/70">
+      <motion.div
+        className="relative z-10 grid w-full gap-6 p-6 sm:p-8 lg:p-10"
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+      >
+        <motion.nav aria-label="Breadcrumb" className="flex min-w-0 flex-wrap items-center gap-2 text-sm text-white/70" variants={itemVariants}>
           <Link className="transition-colors hover:text-white" href="/">
             首页
           </Link>
@@ -68,15 +77,15 @@ export function ArticleHero({
             </>
           ) : null}
           <span className="min-w-0 truncate text-white/55">{title}</span>
-        </nav>
+        </motion.nav>
 
         <div className="grid max-w-[var(--article-reading-max-width)] gap-5">
           {category ? (
-            <div>
+            <motion.div variants={itemVariants}>
               <Link className="reader-chip border-white/20 bg-white/10 text-white hover:bg-white/15" href={`/categories/${category.slug}`}>
                 {category.name}
               </Link>
-            </div>
+            </motion.div>
           ) : null}
 
           <div className="space-y-4">
@@ -86,11 +95,15 @@ export function ArticleHero({
             >
               {title}
             </h1>
-            {excerpt ? <p className="max-w-3xl text-base leading-8 text-white/76 md:text-lg">{excerpt}</p> : null}
+            {excerpt ? (
+              <motion.p className="max-w-3xl text-base leading-8 text-white/76 md:text-lg" variants={itemVariants}>
+                {excerpt}
+              </motion.p>
+            ) : null}
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 text-sm text-white/72">
+        <motion.div className="flex flex-wrap items-center gap-3 text-sm text-white/72" variants={itemVariants}>
           <span className="inline-flex items-center gap-2">
             {author.image ? (
               <FallbackImage alt={author.name ?? "作者头像"} className="rounded-full object-cover" height={24} src={author.image} width={24} />
@@ -111,8 +124,8 @@ export function ArticleHero({
             <Clock3 className="h-4 w-4" />
             预计阅读 {readingTimeMinutes} 分钟
           </span>
-        </div>
-      </div>
-    </motion.header>
+        </motion.div>
+      </motion.div>
+    </header>
   );
 }

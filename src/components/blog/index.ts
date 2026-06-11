@@ -8,7 +8,7 @@ export { HomeAiDailyStrip } from "./HomeAiDailyStrip";
 export { PopularPostsWidget } from "./PopularPostsWidget";
 export { PostsListingClient } from "./PostsListingClient";
 export { ArticleHero } from "./ArticleHero";
-export { ArticleSection, ArticleSectionsReveal } from "./ArticleSectionsReveal";
+export { ArticleSection } from "./ArticleSectionsReveal";
 export { ArticleReadTracker } from "./ArticleReadTracker";
 export { ReadingProgress } from "./ReadingProgress";
 export { ArticleToc } from "./ArticleToc";

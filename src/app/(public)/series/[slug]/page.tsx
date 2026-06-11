@@ -5,9 +5,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { PostCard } from "@/components/blog/PostCard";
+import { InViewReveal } from "@/components/motion";
 import { getBlogSettings } from "@/lib/blog-settings";
 import { prisma } from "@/lib/prisma";
 import { buildBreadcrumbJsonLd, buildPageMetadata } from "@/lib/seo";
+import { getSeriesViewTransitionName } from "@/lib/view-transition";
 import { JsonLd } from "@/components/seo/JsonLd";
 
 async function getPublicSeriesDetail(slug: string) {
@@ -93,11 +95,19 @@ export default async function SeriesDetailPage({ params }: { params: Promise<{ s
   return (
     <div className="reader-section">
       <JsonLd data={breadcrumbJsonLd} />
-      <section className="reader-banner px-6 py-8 md:px-8 md:py-10">
+      <section
+        className="reader-banner px-6 py-8 md:px-8 md:py-10"
+        style={{ viewTransitionName: getSeriesViewTransitionName("cover", series.slug) }}
+      >
         <div className="relative z-10 flex min-h-[calc(var(--reader-banner-height)-4rem)] flex-col justify-end gap-6">
           <span className="reader-chip w-fit">Series</span>
           <div className="max-w-3xl space-y-3">
-            <h1 className="text-90 text-4xl font-black leading-tight md:text-5xl">{series.title}</h1>
+            <h1
+              className="text-90 font-display text-3xl font-black leading-tight tracking-tight md:text-4xl"
+              style={{ viewTransitionName: getSeriesViewTransitionName("title", series.slug) }}
+            >
+              {series.title}
+            </h1>
             <p className="max-w-2xl text-sm leading-7 text-[var(--text-body)] md:text-base">
               {series.description || "这个系列按推荐阅读顺序组织文章，帮助你从起点进入主题并逐步补齐上下文。"}
             </p>
@@ -114,8 +124,10 @@ export default async function SeriesDetailPage({ params }: { params: Promise<{ s
       </section>
 
       <section className="space-y-4">
-        {series.posts.map((post) => (
-          <PostCard key={post.id} post={post} />
+        {series.posts.map((post, index) => (
+          <InViewReveal key={post.id} delay={Math.min(index, 3) * 0.06}>
+            <PostCard post={post} />
+          </InViewReveal>
         ))}
       </section>
     </div>

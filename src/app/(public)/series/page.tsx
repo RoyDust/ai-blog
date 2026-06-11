@@ -3,6 +3,7 @@ export const revalidate = 300;
 import type { Metadata } from "next";
 
 import { SeriesCard } from "@/components/blog/SeriesCard";
+import { InViewReveal } from "@/components/motion";
 import { getBlogSettings } from "@/lib/blog-settings";
 import { prisma } from "@/lib/prisma";
 import { buildPageMetadata } from "@/lib/seo";
@@ -83,8 +84,10 @@ export default async function SeriesPage() {
         </section>
       ) : series.length > 0 ? (
         <section className="grid gap-4 md:grid-cols-2">
-          {series.map((item) => (
-            <SeriesCard key={item.id} series={item} />
+          {series.map((item, index) => (
+            <InViewReveal key={item.id} delay={Math.min(index, 3) * 0.06}>
+              <SeriesCard series={item} />
+            </InViewReveal>
           ))}
         </section>
       ) : (

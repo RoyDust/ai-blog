@@ -23,7 +23,8 @@ import rehypeHighlight from "rehype-highlight";
 import rehypeHighlightCodeLines from "rehype-highlight-code-lines";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArticleHero, ArticleReadTracker, ArticleRelatedPosts, ArticleSection, ArticleSectionsReveal, ArticleTocDrawer, ArticleTocRail, BackToTopButton, BookmarkButton, CopyCodeButton, LikeButton, NewsletterForm, ReadingProgress, SectionHeader, SeriesNav, ShareButton } from "@/components/blog";
+import { ArticleHero, ArticleReadTracker, ArticleRelatedPosts, ArticleSection, ArticleTocDrawer, ArticleTocRail, BackToTopButton, BookmarkButton, CopyCodeButton, LikeButton, NewsletterForm, ReadingProgress, SectionHeader, SeriesNav, ShareButton } from "@/components/blog";
+import { InViewReveal } from "@/components/motion";
 import { CommentAuthGate } from "@/components/CommentAuthGate";
 import { FallbackImage } from "@/components/ui";
 import { getBlogSettings } from "@/lib/blog-settings";
@@ -329,8 +330,8 @@ export async function renderArticlePage({ slug, includeDraft = false }: { slug: 
       ) : null}
 
       <div className="grid gap-[var(--layout-rail-gap)] xl:grid-cols-[minmax(0,1fr)_var(--article-toc-width)] xl:items-start">
-        <ArticleSectionsReveal>
-          <ArticleSection>
+        <div className="min-w-0 space-y-8">
+          <ArticleSection animate="visible" initial="hidden">
           <article className="article-shell reader-card overflow-hidden">
             <ArticleHero
               slug={post.slug}
@@ -428,23 +429,23 @@ export async function renderArticlePage({ slug, includeDraft = false }: { slug: 
           </ArticleSection>
 
           {post.series && !post.series.deletedAt ? (
-            <ArticleSection>
+            <InViewReveal>
               <SeriesNav
                 currentSlug={post.slug}
                 posts={post.series.posts}
                 series={{ title: post.series.title, slug: post.series.slug }}
               />
-            </ArticleSection>
+            </InViewReveal>
           ) : null}
 
           {!isDraftPreview && relatedPosts.length > 0 ? (
-            <ArticleSection>
+            <InViewReveal>
               <ArticleRelatedPosts posts={relatedPosts} />
-            </ArticleSection>
+            </InViewReveal>
           ) : null}
 
           {isDraftPreview ? null : (
-          <ArticleSection className="reader-panel w-full space-y-6 p-6 sm:p-8">
+          <InViewReveal className="reader-panel w-full space-y-6 p-6 sm:p-8">
             <SectionHeader
               eyebrow="读后"
               title="读后操作"
@@ -468,22 +469,22 @@ export async function renderArticlePage({ slug, includeDraft = false }: { slug: 
               </Link>
             </div>
 
-          </ArticleSection>
+          </InViewReveal>
           )}
 
           {!isDraftPreview && settings.newsletter.enabled ? (
-            <ArticleSection className="reader-panel w-full space-y-4 p-6 sm:p-8">
+            <InViewReveal className="reader-panel w-full space-y-4 p-6 sm:p-8">
               <SectionHeader
                 eyebrow="Newsletter"
                 title="订阅后续文章"
                 description="新内容发布后发送确认邮件，不会把未验证或已退订地址加入发送列表。"
               />
               <NewsletterForm />
-            </ArticleSection>
+            </InViewReveal>
           ) : null}
 
           {commentsPromise ? (
-          <ArticleSection aria-labelledby="comments-heading" className="reader-panel w-full p-6 sm:p-8" id="comments">
+          <InViewReveal aria-labelledby="comments-heading" className="reader-panel w-full p-6 sm:p-8" id="comments">
             <h2 id="comments-heading" className="mb-3 font-display text-2xl font-bold text-[var(--foreground)]">评论 ({post._count.comments})</h2>
             <p className="mb-6 text-sm leading-6 text-[var(--text-muted)]">欢迎分享你的观点或补充事实和论据，但请避免人身攻击或侮辱他人。</p>
 
@@ -492,9 +493,9 @@ export async function renderArticlePage({ slug, includeDraft = false }: { slug: 
             <Suspense fallback={<CommentListSkeleton />}>
               <CommentList commentsPromise={commentsPromise} />
             </Suspense>
-          </ArticleSection>
+          </InViewReveal>
           ) : null}
-        </ArticleSectionsReveal>
+        </div>
 
         <ArticleTocRail headings={headings} />
       </div>
