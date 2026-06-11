@@ -110,7 +110,7 @@ export function AdminTodoStrip({ counts, showAiModelWarning = false }: AdminTodo
               aria-label={`${item.label} ${countLabel}，点击进入${item.destination}`}
               className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm font-semibold text-[var(--foreground)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--surface-alt)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface)]"
             >
-              <Icon className="h-4 w-4 text-[var(--muted)]" aria-hidden="true" />
+              <Icon className="h-4 w-4 text-[var(--muted)]" aria-hidden />
               <span>{item.label}</span>
               <StatusBadge tone={item.tone}>{countLabel}</StatusBadge>
             </Link>
