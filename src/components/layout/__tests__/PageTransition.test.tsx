@@ -1,73 +1,26 @@
 import { render, screen } from "@testing-library/react";
-import type { ReactNode } from "react";
-import { describe, expect, test, vi } from "vitest";
+import { describe, expect, test } from "vitest";
 import { PageTransition } from "@/components/layout/PageTransition";
 
-const pathState = vi.hoisted(() => ({ pathname: "/series" }));
-
-vi.mock("next/navigation", () => ({
-  usePathname: () => pathState.pathname,
-}));
-
-vi.mock("motion/react", () => ({
-  AnimatePresence: ({ children, initial }: { children: ReactNode; initial?: boolean }) => (
-    <div data-initial={String(initial)} data-testid="animate-presence">
-      {children}
-    </div>
-  ),
-  motion: {
-    div: ({
-      animate,
-      children,
-      exit,
-      initial,
-      variants,
-    }: {
-      animate?: unknown;
-      children: ReactNode;
-      exit?: unknown;
-      initial?: unknown;
-      variants?: unknown;
-    }) => (
-      <div
-        data-animate={String(animate)}
-        data-exit={String(exit)}
-        data-has-variants={String(Boolean(variants))}
-        data-initial={String(initial)}
-        data-testid="page-motion"
-      >
-        {children}
-      </div>
-    ),
-  },
-  useReducedMotion: () => false,
-}));
-
+/**
+ * 契约：路由内容必须原样透传。
+ *
+ * - 不允许 motion/AnimatePresence 包装层：presence 的 initial={false} 会
+ *   禁用子树全部入场动画；带 opacity 初始态的包装层会把缓存返回的可见
+ *   内容重新隐藏（43df139 修过的闪烁）。路由过渡由 View Transitions 承担。
+ */
 describe("PageTransition", () => {
-  test("keeps non-home content visible on initial render and route changes", () => {
-    const { rerender } = render(
+  test("renders children as-is without any wrapper that could hide cached content", () => {
+    const { container } = render(
       <PageTransition>
         <span>Series</span>
       </PageTransition>,
     );
 
-    expect(screen.getByTestId("page-motion")).toHaveAttribute("data-initial", "false");
-    expect(screen.getByTestId("page-motion")).toHaveAttribute("data-animate", "visible");
-    expect(screen.getByTestId("page-motion")).toHaveAttribute("data-exit", "exit");
-    expect(screen.getByTestId("page-motion")).toHaveAttribute("data-has-variants", "true");
-    expect(screen.getByTestId("animate-presence")).toHaveAttribute("data-initial", "false");
+    expect(screen.getByText("Series")).toBeInTheDocument();
 
-    pathState.pathname = "/series/career-reflections";
-    rerender(
-      <PageTransition>
-        <span>Series detail</span>
-      </PageTransition>,
-    );
-
-    expect(screen.getByTestId("animate-presence")).toHaveAttribute("data-initial", "false");
-    expect(screen.getByTestId("page-motion")).toHaveAttribute("data-initial", "false");
-    expect(screen.getByTestId("page-motion")).toHaveAttribute("data-animate", "visible");
-    expect(screen.getByTestId("page-motion")).toHaveAttribute("data-exit", "exit");
-    expect(screen.getByTestId("page-motion")).toHaveAttribute("data-has-variants", "true");
+    const span = screen.getByText("Series");
+    expect(span.parentElement).toBe(container);
+    expect(container.querySelector("[style*='opacity']")).toBeNull();
   });
 });

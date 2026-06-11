@@ -1,46 +1,17 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { usePathname } from "next/navigation";
-import { AnimatePresence, motion, useReducedMotion, type Variants } from "motion/react";
 
-const pageTransitionVariants: Variants = {
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.18, ease: [0.16, 1, 0.3, 1] },
-  },
-  exit: {
-    opacity: 1,
-    y: -3,
-    transition: { duration: 0.14, ease: [0.25, 1, 0.5, 1] },
-  },
-};
-
+/**
+ * 路由切换过渡由 Next 的 View Transitions（experimental.viewTransition）承担，
+ * 这里刻意保持透传：
+ *
+ * - AnimatePresence 的 initial={false} 会通过 presence 上下文禁用整个子树的
+ *   入场动画（曾让文章页/系列页的所有 motion 入场失效，只有绕开本组件的
+ *   首页幸免）；
+ * - 任何用 opacity 隐藏已可见内容的路由动画都会复发 43df139 修过的
+ *   缓存切换闪烁。
+ */
 export function PageTransition({ children }: { children: ReactNode }) {
-  const pathname = usePathname();
-  const reduce = useReducedMotion();
-
-  const shouldAnimate = !reduce && pathname !== "/";
-  const content = (
-    <motion.div
-      key={pathname}
-      variants={shouldAnimate ? pageTransitionVariants : undefined}
-      initial={false}
-      animate={shouldAnimate ? "visible" : undefined}
-      exit={shouldAnimate ? "exit" : undefined}
-    >
-      {children}
-    </motion.div>
-  );
-
-  if (!shouldAnimate) {
-    return content;
-  }
-
-  return (
-    <AnimatePresence mode="wait" initial={false}>
-      {content}
-    </AnimatePresence>
-  );
+  return <>{children}</>;
 }
