@@ -168,7 +168,7 @@ function SearchContent() {
   return (
     <div className="space-y-6">
       <section className="ui-surface rounded-2xl p-6">
-        <h1 className="font-display text-3xl font-extrabold text-[var(--foreground)]">搜索结果</h1>
+        <h1 className="font-display text-3xl font-extrabold tracking-tight text-[var(--foreground)] md:text-4xl">搜索结果</h1>
         <p className="mt-2 text-sm text-[var(--muted)]">输入关键词，搜索文章标题、摘要、正文、标签与分类。</p>
         <div className="mt-4">
           <SearchForm defaultValue={query} />
