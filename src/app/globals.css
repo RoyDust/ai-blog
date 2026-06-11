@@ -170,7 +170,7 @@ body {
 }
 
 .serif-display-scope {
-  --font-display: var(--font-noto-serif-sc-display, "Noto Serif SC"), var(--font-alibaba-puhuiti), "Source Han Serif SC", serif;
+  --font-display: "Noto Serif SC", var(--font-alibaba-puhuiti), "Source Han Serif SC", serif;
 }
 
 .serif-display-scope :where(h2, h3, h4, h5, h6),

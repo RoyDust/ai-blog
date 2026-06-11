@@ -1,5 +1,4 @@
 import localFont from "next/font/local";
-import { Noto_Serif_SC } from "next/font/google";
 
 export const alibabaPuHuiTi = localFont({
   src: [
@@ -27,12 +26,4 @@ export const alibabaPuHuiTi = localFont({
   variable: "--font-alibaba-puhuiti",
   display: "swap",
   fallback: ["PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "sans-serif"],
-});
-
-export const notoSerifSCDisplay = Noto_Serif_SC({
-  weight: ["700", "900"],
-  display: "swap",
-  preload: false,
-  variable: "--font-noto-serif-sc-display",
-  fallback: ["Source Han Serif SC", "SimSun", "serif"],
 });
