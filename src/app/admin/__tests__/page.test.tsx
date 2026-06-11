@@ -2,7 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import React from "react";
 import { describe, expect, test, vi } from "vitest";
 
-const { postFindManyMock, commentCountMock, commentFindManyMock, findPopularPostVisitsInRangeMock, getDashboardStatsMock, getPublicAiModelOptionsMock } = vi.hoisted(() => {
+const { postFindManyMock, commentFindManyMock, findPopularPostVisitsInRangeMock, getAdminTodoCountsMock, getDashboardStatsWithComparisonMock, getPublicAiModelOptionsMock } = vi.hoisted(() => {
   const draftQueuePosts = [
     {
       id: "post-draft-1",
@@ -120,40 +120,72 @@ const { postFindManyMock, commentCountMock, commentFindManyMock, findPopularPost
 
       return Promise.resolve([]);
     }),
-    commentCountMock: vi.fn().mockResolvedValue(4),
     commentFindManyMock: vi.fn().mockResolvedValue(pendingQueueComments),
     findPopularPostVisitsInRangeMock: vi.fn().mockResolvedValue(popularPosts),
-    getDashboardStatsMock: vi.fn().mockResolvedValue({
-      range: 7,
-      visits: {
+    getAdminTodoCountsMock: vi.fn().mockResolvedValue({
+      pendingComments: 4,
+      failedAiTasks: 2,
+      staleDrafts: 3,
+      pendingNewsletters: 1,
+    }),
+    getDashboardStatsWithComparisonMock: vi.fn().mockResolvedValue({
+      current: {
         range: 7,
-        hasData: true,
-        trend: [
-          { date: "2026-05-10", label: "05-10", pv: 10, uv: 6 },
-          { date: "2026-05-11", label: "05-11", pv: 14, uv: 8 },
-        ],
-        summary: { totalPv: 24, totalUv: 10, todayPv: 14, yesterdayPv: 10 },
-      },
-      reading: {
-        range: 7,
-        hasData: true,
-        trend: [],
-        summary: {
-          totalEvents: 5,
-          qualifiedEvents: 4,
-          completedEvents: 3,
-          totalDurationSeconds: 780,
-          averageDurationSeconds: 156,
+        visits: {
+          range: 7,
+          hasData: true,
+          trend: [
+            { date: "2026-05-10", label: "05-10", pv: 10, uv: 6 },
+            { date: "2026-05-11", label: "05-11", pv: 14, uv: 8 },
+          ],
+          summary: { totalPv: 24, totalUv: 10, todayPv: 14, yesterdayPv: 10 },
+        },
+        reading: {
+          range: 7,
+          hasData: true,
+          trend: [],
+          summary: {
+            totalEvents: 5,
+            qualifiedEvents: 4,
+            completedEvents: 3,
+            totalDurationSeconds: 780,
+            averageDurationSeconds: 156,
+          },
+        },
+        engagement: {
+          range: 7,
+          hasData: true,
+          trend: [
+            { date: "2026-05-10", label: "05-10", comments: 1, likes: 2 },
+            { date: "2026-05-11", label: "05-11", comments: 2, likes: 4 },
+          ],
+          summary: { comments: 3, likes: 6, total: 9 },
         },
       },
-      engagement: {
+      previous: {
         range: 7,
-        hasData: true,
-        trend: [
-          { date: "2026-05-10", label: "05-10", comments: 1, likes: 2 },
-          { date: "2026-05-11", label: "05-11", comments: 2, likes: 4 },
-        ],
-        summary: { comments: 3, likes: 6, total: 9 },
+        visits: { range: 7, hasData: false, trend: [], summary: { totalPv: 12, totalUv: 5, todayPv: 0, yesterdayPv: 0 } },
+        reading: { range: 7, hasData: false, trend: [], summary: { totalEvents: 0, qualifiedEvents: 0, completedEvents: 0, totalDurationSeconds: 0, averageDurationSeconds: 0 } },
+        engagement: { range: 7, hasData: false, trend: [], summary: { comments: 0, likes: 0, total: 0 } },
+      },
+      metrics: {
+        publishedPosts: 6,
+        readingMinutes: 13,
+        engagementRate: 0.38,
+        subscribers: 5,
+      },
+      previousMetrics: {
+        publishedPosts: 2,
+        readingMinutes: 5,
+        engagementRate: 0.2,
+        subscribers: 1,
+      },
+      deltas: {
+        visits: 12,
+        publishedPosts: 4,
+        readingMinutes: 8,
+        engagementRate: 0.18,
+        subscribers: 4,
       },
     }),
     getPublicAiModelOptionsMock: vi.fn().mockResolvedValue(aiModels),
@@ -166,7 +198,6 @@ vi.mock("@/lib/prisma", () => ({
       findMany: postFindManyMock,
     },
     comment: {
-      count: commentCountMock,
       findMany: commentFindManyMock,
     },
 
@@ -185,12 +216,13 @@ vi.mock("@/lib/admin-stats", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/admin-stats")>();
   return {
     ...actual,
-    getDashboardStats: getDashboardStatsMock,
+    getAdminTodoCounts: getAdminTodoCountsMock,
+    getDashboardStatsWithComparison: getDashboardStatsWithComparisonMock,
   };
 });
 
 describe("admin overview", () => {
-  test("renders the lightweight blog dashboard with real queues and AI model panel", async () => {
+  test("renders the todo-first dashboard with health metrics and detail panels", async () => {
     const { default: AdminPage } = await import("../page");
     const ui = await AdminPage();
 
@@ -202,9 +234,22 @@ describe("admin overview", () => {
     expect(screen.getByRole("heading", { name: "最近草稿" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "待审评论" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "热门文章" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "AI 模型清单" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "AI 模型清单" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "博客后台总览" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "发布清单" })).not.toBeInTheDocument();
+
+    expect(screen.getByRole("region", { name: "今日待办" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "待审评论 4 条，点击进入评论审核" })).toHaveAttribute("href", "/admin/comments");
+    expect(screen.getByRole("link", { name: "失败 AI 任务 2 条，点击进入AI 任务中心" })).toHaveAttribute("href", "/admin/ai/tasks");
+    expect(screen.getByRole("link", { name: "滞留草稿 3 条，点击进入文章工作台" })).toHaveAttribute("href", "/admin/posts");
+    expect(screen.getByRole("link", { name: "待处理 Newsletter 1 条，点击进入Newsletter" })).toHaveAttribute("href", "/admin/newsletter");
+    expect(screen.getByText("7 日发布数")).toBeInTheDocument();
+    expect(screen.getByText("6 篇")).toBeInTheDocument();
+    expect(screen.getByText("阅读时长")).toBeInTheDocument();
+    expect(screen.getByText("互动率")).toBeInTheDocument();
+    expect(screen.getByText("订阅净增")).toBeInTheDocument();
+    expect(screen.getByText("较上期 +4 篇")).toBeInTheDocument();
+    expect(screen.getByText("较上期 +18 个百分点")).toBeInTheDocument();
 
     expect(screen.getByText("真实统计")).toBeInTheDocument();
     expect(screen.getByText("7 天")).toBeInTheDocument();
@@ -213,7 +258,7 @@ describe("admin overview", () => {
     expect(screen.getByText("区间 UV")).toBeInTheDocument();
     expect(screen.getByText("有效阅读")).toBeInTheDocument();
     expect(screen.getByText("深度完成")).toBeInTheDocument();
-    expect(screen.getByText("13 分钟")).toBeInTheDocument();
+    expect(screen.getAllByText("13 分钟")).toHaveLength(2);
     expect(screen.getByText("总互动")).toBeInTheDocument();
     expect(screen.getByText("评论")).toBeInTheDocument();
     expect(screen.getByText("点赞")).toBeInTheDocument();
@@ -237,21 +282,6 @@ describe("admin overview", () => {
     expect(within(popularPanel as HTMLElement).getByText("近 7 天")).toBeInTheDocument();
     expect(within(popularPanel as HTMLElement).getByText("120 浏览")).toBeInTheDocument();
 
-    const aiModelPanel = screen.getByRole("heading", { name: "AI 模型清单" }).closest("section");
-    expect(aiModelPanel).not.toBeNull();
-    expect(within(aiModelPanel as HTMLElement).getByText("文章摘要生成")).toBeInTheDocument();
-    expect(within(aiModelPanel as HTMLElement).getByText("summary-model")).toBeInTheDocument();
-    expect(within(aiModelPanel as HTMLElement).getByText("当前首选")).toBeInTheDocument();
-    expect(within(aiModelPanel as HTMLElement).getByText("可用")).toBeInTheDocument();
-    expect(within(aiModelPanel as HTMLElement).getByText("环境变量")).toBeInTheDocument();
-    expect(within(aiModelPanel as HTMLElement).getByText("备用摘要模型")).toBeInTheDocument();
-    expect(within(aiModelPanel as HTMLElement).getByText("缺少密钥")).toBeInTheDocument();
-    expect(within(aiModelPanel as HTMLElement).getByText("AI_BACKUP_API_KEY")).toBeInTheDocument();
-    expect(within(aiModelPanel as HTMLElement).getByRole("link", { name: "管理模型" })).toHaveAttribute("href", "/admin/ai/models");
-
-    expect(commentCountMock).toHaveBeenCalledWith({
-      where: { deletedAt: null, status: "PENDING" },
-    });
     expect(postFindManyMock).toHaveBeenCalledWith({
       where: { deletedAt: null, published: false },
       select: { id: true, title: true, slug: true, excerpt: true, content: true, updatedAt: true, createdAt: true },
@@ -272,7 +302,8 @@ describe("admin overview", () => {
       take: 3,
     });
     expect(findPopularPostVisitsInRangeMock).toHaveBeenCalledWith(expect.any(Date), expect.any(Date), 5);
-    expect(getDashboardStatsMock).toHaveBeenCalledWith(7);
+    expect(getAdminTodoCountsMock).toHaveBeenCalledTimes(1);
+    expect(getDashboardStatsWithComparisonMock).toHaveBeenCalledWith(7);
     expect(getPublicAiModelOptionsMock).toHaveBeenCalledTimes(1);
   });
 });

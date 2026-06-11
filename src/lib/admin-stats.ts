@@ -6,10 +6,16 @@ import {
   startOfUtcDay,
   type VisitTrendRange,
 } from "@/lib/analytics";
+import { AI_TASK_STATUSES } from "@/lib/ai-tasks";
+import { NEWSLETTER_STATUS_VERIFIED } from "@/lib/newsletter";
 import { prisma } from "@/lib/prisma";
 import { findVisitLogsInRange } from "@/lib/visit-log-repository";
 
 export type AdminStatsRange = VisitTrendRange;
+
+const ADMIN_TODO_WINDOW_DAYS = 7;
+const PENDING_COMMENT_STATUS = "PENDING";
+const PENDING_NEWSLETTER_STATUSES = ["DRAFT", "PARTIAL_FAILED", "FAILED"] as const;
 
 export type VisitTrendStatItem = {
   date: string;
@@ -77,6 +83,36 @@ export type DashboardStats = {
   engagement: EngagementStats;
 };
 
+export type AdminTodoCounts = {
+  pendingComments: number;
+  failedAiTasks: number;
+  staleDrafts: number;
+  pendingNewsletters: number;
+};
+
+export type DashboardPeriodMetrics = {
+  publishedPosts: number;
+  readingMinutes: number;
+  engagementRate: number;
+  subscribers: number;
+};
+
+export type DashboardComparisonDeltas = {
+  visits: number;
+  publishedPosts: number;
+  readingMinutes: number;
+  engagementRate: number;
+  subscribers: number;
+};
+
+export type DashboardStatsWithComparison = {
+  current: DashboardStats;
+  previous: DashboardStats;
+  metrics: DashboardPeriodMetrics;
+  previousMetrics: DashboardPeriodMetrics;
+  deltas: DashboardComparisonDeltas;
+};
+
 type ReadingEventRecord = {
   date: Date | string;
   events: number | bigint | string;
@@ -138,6 +174,84 @@ function toCount(value: number | bigint | string | null | undefined) {
 
 function rawPrisma() {
   return prisma as PrismaWithRawQueries;
+}
+
+function subtractUtcDays(date: Date, days: number) {
+  return addUtcDays(date, -days);
+}
+
+function getPreviousWindowNow(range: AdminStatsRange, now: Date) {
+  return subtractUtcDays(getAdminStatsRangeWindow(range, now).today, range);
+}
+
+function getEngagementRate(stats: DashboardStats) {
+  const visits = stats.visits.summary.totalPv;
+
+  return visits > 0 ? stats.engagement.summary.total / visits : 0;
+}
+
+async function getDashboardPeriodMetrics(range: AdminStatsRange, now: Date): Promise<DashboardPeriodMetrics> {
+  const { start, end } = getAdminStatsRangeWindow(range, now);
+  const [publishedPosts, verifiedSubscribers, unsubscribedSubscribers] = await Promise.all([
+    prisma.post.count({
+      where: {
+        deletedAt: null,
+        published: true,
+        publishedAt: { gte: start, lt: end },
+      },
+    }),
+    prisma.newsletterSubscriber.count({
+      where: {
+        status: NEWSLETTER_STATUS_VERIFIED,
+        unsubscribedAt: null,
+        createdAt: { gte: start, lt: end },
+      },
+    }),
+    prisma.newsletterSubscriber.count({
+      where: {
+        unsubscribedAt: { gte: start, lt: end },
+      },
+    }),
+  ]);
+
+  return {
+    publishedPosts,
+    readingMinutes: 0,
+    engagementRate: 0,
+    subscribers: verifiedSubscribers - unsubscribedSubscribers,
+  };
+}
+
+export async function getAdminTodoCounts(now = new Date()): Promise<AdminTodoCounts> {
+  const staleBefore = subtractUtcDays(now, ADMIN_TODO_WINDOW_DAYS);
+  const [pendingComments, failedAiTasks, staleDrafts, pendingNewsletters] = await Promise.all([
+    prisma.comment.count({ where: { deletedAt: null, status: PENDING_COMMENT_STATUS } }),
+    prisma.aiTask.count({
+      where: {
+        status: { in: [AI_TASK_STATUSES.failed, AI_TASK_STATUSES.partialFailed] },
+        finishedAt: { gte: staleBefore },
+      },
+    }),
+    prisma.post.count({
+      where: {
+        deletedAt: null,
+        published: false,
+        updatedAt: { lt: staleBefore },
+      },
+    }),
+    prisma.newsletterCampaign.count({
+      where: {
+        status: { in: [...PENDING_NEWSLETTER_STATUSES] },
+      },
+    }),
+  ]);
+
+  return {
+    pendingComments,
+    failedAiTasks,
+    staleDrafts,
+    pendingNewsletters,
+  };
 }
 
 export async function getVisitTrendStats(rangeInput: unknown, now = new Date()): Promise<VisitTrendStats> {
@@ -314,5 +428,40 @@ export async function getDashboardStats(rangeInput: unknown, now = new Date()): 
     visits,
     reading,
     engagement,
+  };
+}
+
+export async function getDashboardStatsWithComparison(rangeInput: unknown, now = new Date()): Promise<DashboardStatsWithComparison> {
+  const range = parseAdminStatsRange(rangeInput);
+  const previousNow = getPreviousWindowNow(range, now);
+  const [current, previous, currentMetrics, previousMetrics] = await Promise.all([
+    getDashboardStats(range, now),
+    getDashboardStats(range, previousNow),
+    getDashboardPeriodMetrics(range, now),
+    getDashboardPeriodMetrics(range, previousNow),
+  ]);
+  const metrics = {
+    ...currentMetrics,
+    readingMinutes: Math.round(current.reading.summary.totalDurationSeconds / 60),
+    engagementRate: getEngagementRate(current),
+  };
+  const priorMetrics = {
+    ...previousMetrics,
+    readingMinutes: Math.round(previous.reading.summary.totalDurationSeconds / 60),
+    engagementRate: getEngagementRate(previous),
+  };
+
+  return {
+    current,
+    previous,
+    metrics,
+    previousMetrics: priorMetrics,
+    deltas: {
+      visits: current.visits.summary.totalPv - previous.visits.summary.totalPv,
+      publishedPosts: metrics.publishedPosts - priorMetrics.publishedPosts,
+      readingMinutes: metrics.readingMinutes - priorMetrics.readingMinutes,
+      engagementRate: metrics.engagementRate - priorMetrics.engagementRate,
+      subscribers: metrics.subscribers - priorMetrics.subscribers,
+    },
   };
 }
