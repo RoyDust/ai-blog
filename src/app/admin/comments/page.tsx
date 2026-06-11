@@ -148,28 +148,28 @@ interface StatsCardProps {
 function StatsCard({ label, value, icon: Icon, scheme, hint, onClick, active }: StatsCardProps) {
   const schemeStyles = {
     blue: {
-      bg: "bg-blue-50 dark:bg-blue-950/30",
-      text: "text-blue-600 dark:text-blue-400",
-      border: "border-blue-100 dark:border-blue-900/30",
-      ring: "ring-2 ring-blue-500/50 border-blue-500/50",
+      bg: "bg-[color-mix(in_oklab,var(--brand)_10%,var(--surface))]",
+      text: "text-[var(--brand)]",
+      border: "border-[color-mix(in_oklab,var(--brand)_22%,var(--border))]",
+      ring: "border-[var(--brand)] ring-2 ring-[color-mix(in_oklab,var(--brand)_24%,transparent)]",
     },
     emerald: {
-      bg: "bg-emerald-50 dark:bg-emerald-950/30",
-      text: "text-emerald-600 dark:text-emerald-400",
-      border: "border-emerald-100 dark:border-emerald-900/30",
-      ring: "ring-2 ring-emerald-500/50 border-emerald-500/50",
+      bg: "bg-[var(--success-surface)]",
+      text: "text-[var(--success-foreground)]",
+      border: "border-[var(--success-border)]",
+      ring: "border-[var(--success-foreground)] ring-2 ring-[color-mix(in_oklab,var(--success-foreground)_24%,transparent)]",
     },
     amber: {
-      bg: "bg-amber-50 dark:bg-amber-950/30",
-      text: "text-amber-600 dark:text-amber-400",
-      border: "border-amber-100 dark:border-amber-900/30",
-      ring: "ring-2 ring-amber-500/50 border-amber-500/50",
+      bg: "bg-[var(--warning-surface)]",
+      text: "text-[var(--warning-foreground)]",
+      border: "border-[var(--warning-border)]",
+      ring: "border-[var(--warning-foreground)] ring-2 ring-[color-mix(in_oklab,var(--warning-foreground)_24%,transparent)]",
     },
     rose: {
-      bg: "bg-rose-50 dark:bg-rose-950/30",
-      text: "text-rose-600 dark:text-rose-400",
-      border: "border-rose-100 dark:border-rose-900/30",
-      ring: "ring-2 ring-rose-500/50 border-rose-500/50",
+      bg: "bg-[var(--danger-surface)]",
+      text: "text-[var(--danger-foreground)]",
+      border: "border-[var(--danger-border)]",
+      ring: "border-[var(--danger-foreground)] ring-2 ring-[color-mix(in_oklab,var(--danger-foreground)_24%,transparent)]",
     },
   }[scheme];
 
@@ -181,7 +181,7 @@ function StatsCard({ label, value, icon: Icon, scheme, hint, onClick, active }: 
       onKeyDown={onClick ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } } : undefined}
       className={`relative overflow-hidden rounded-lg border bg-[var(--surface)] p-4 shadow-sm transition-all duration-200
         ${onClick ? "cursor-pointer hover:shadow-md select-none" : ""}
-        ${active ? `${schemeStyles.ring}` : "border-[var(--border)] dark:hover:border-blue-500/20"}
+        ${active ? `${schemeStyles.ring}` : "border-[var(--border)] hover:border-[color-mix(in_oklab,var(--brand)_18%,var(--border))]"}
         group`}
     >
       <div className="flex items-center justify-between">

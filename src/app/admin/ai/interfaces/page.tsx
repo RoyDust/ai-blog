@@ -41,7 +41,7 @@ const audienceMeta: Record<
   admin: {
     title: "后台内部 AI 接口",
     description: "后台界面使用的模型、任务、摘要、审稿、封面和 AI 日报能力。",
-    badgeClassName: "border-sky-200 bg-sky-50 text-sky-700",
+    badgeClassName: "border-[color-mix(in_oklab,var(--brand)_22%,var(--border))] bg-[color-mix(in_oklab,var(--brand)_10%,var(--surface))] text-[var(--brand)]",
   },
   cron: {
     title: "定时任务接口",
@@ -160,7 +160,7 @@ export default async function AdminAiInterfacesPage() {
         </div>
         <div className="ui-surface rounded-2xl p-5">
           <div className="flex items-center gap-3">
-            <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-sky-50 text-sky-700">
+            <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[color-mix(in_oklab,var(--brand)_10%,var(--surface))] text-[var(--brand)]">
               <ShieldCheck className="h-5 w-5" />
             </span>
             <div>

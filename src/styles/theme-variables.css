@@ -1,6 +1,9 @@
 :root {
   --hue: 224;
   --radius-large: 1rem;
+  --radius-control: 0.65rem;
+  --radius-panel: 1rem;
+  --radius-card: 1.5rem;
   --page-width: clamp(61.5rem, 62vw, 76rem);
   --content-max-width: 100%;
   --reading-max-width: 48rem;
@@ -224,15 +227,16 @@
 
 .admin-theme {
   color-scheme: light;
-  --vben-primary: #0960bd;
-  --vben-primary-hover: #0052d9;
-  --vben-sidebar-bg: #001529;
-  --vben-sidebar-text: rgba(255, 255, 255, 0.85);
-  --vben-sidebar-muted: rgba(255, 255, 255, 0.45);
-  --vben-sidebar-hover: rgba(255, 255, 255, 0.08);
-  --vben-sidebar-border: rgba(255, 255, 255, 0.06);
-  --vben-sidebar-active: #0960bd;
-  --vben-sidebar-active-bg: rgba(9, 96, 189, 0.15);
+  --primary: oklch(0.52 0.1 var(--hue));
+  --brand: var(--primary);
+  --brand-strong: oklch(0.46 0.11 var(--hue));
+  --admin-sidebar-bg: oklch(0.16 0.03 var(--hue));
+  --admin-sidebar-text: color-mix(in oklab, white 86%, var(--brand) 14%);
+  --admin-sidebar-muted: color-mix(in oklab, white 48%, var(--admin-sidebar-bg) 52%);
+  --admin-sidebar-hover: color-mix(in oklab, white 9%, transparent);
+  --admin-sidebar-border: color-mix(in oklab, white 7%, transparent);
+  --admin-sidebar-active: var(--brand);
+  --admin-sidebar-active-bg: color-mix(in oklab, var(--brand) 22%, transparent);
 
   --background: #f0f2f5;
   --surface: #ffffff;
@@ -248,10 +252,6 @@
   --border: rgba(15, 23, 42, 0.06);
   --border-strong: rgba(15, 23, 42, 0.12);
   --line-color: rgba(15, 23, 42, 0.06);
-  --primary: var(--vben-primary);
-  --brand: var(--vben-primary);
-  --brand-strong: var(--vben-primary-hover);
-  --ring: color-mix(in srgb, var(--vben-primary) 30%, transparent);
   --btn-content: color-mix(in oklab, var(--brand) 26%, var(--foreground) 74%);
   --btn-regular-bg: color-mix(in oklab, var(--surface-alt) 84%, var(--brand) 16%);
   --btn-regular-bg-hover: color-mix(in oklab, var(--surface-alt) 70%, var(--brand) 30%);
@@ -259,15 +259,6 @@
   --btn-plain-bg-hover: color-mix(in oklab, var(--surface-alt) 92%, var(--foreground) 8%);
   --btn-plain-bg-active: color-mix(in oklab, var(--surface-alt) 82%, var(--foreground) 18%);
   --btn-card-bg-hover: color-mix(in oklab, var(--surface-alt) 86%, var(--foreground) 6%);
-  --danger-surface: #fff1f2;
-  --danger-border: rgba(244, 63, 94, 0.12);
-  --danger-foreground: #e11d48;
-  --success-surface: #f0fdf4;
-  --success-border: rgba(22, 163, 74, 0.12);
-  --success-foreground: #16a34a;
-  --warning-surface: #fffbeb;
-  --warning-border: rgba(217, 119, 6, 0.15);
-  --warning-foreground: #d97706;
   --shadow-ambient: 0 8px 30px rgba(15, 23, 42, 0.03);
   --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.02);
   --shadow-card-hover: 0 6px 20px rgba(15, 23, 42, 0.05), 0 0 0 1px rgba(37, 99, 235, 0.05);
@@ -283,15 +274,16 @@
 
 .dark .admin-theme {
   color-scheme: dark;
-  --vben-primary: #0960bd;
-  --vben-primary-hover: #1890ff;
-  --vben-sidebar-bg: #151515;
-  --vben-sidebar-text: rgba(255, 255, 255, 0.85);
-  --vben-sidebar-muted: rgba(255, 255, 255, 0.45);
-  --vben-sidebar-hover: rgba(255, 255, 255, 0.08);
-  --vben-sidebar-border: rgba(255, 255, 255, 0.06);
-  --vben-sidebar-active: #0960bd;
-  --vben-sidebar-active-bg: rgba(9, 96, 189, 0.25);
+  --primary: oklch(0.62 0.1 var(--hue));
+  --brand: var(--primary);
+  --brand-strong: oklch(0.72 0.11 var(--hue));
+  --admin-sidebar-bg: oklch(0.13 0.026 var(--hue));
+  --admin-sidebar-text: color-mix(in oklab, white 84%, var(--brand) 16%);
+  --admin-sidebar-muted: color-mix(in oklab, white 46%, var(--admin-sidebar-bg) 54%);
+  --admin-sidebar-hover: color-mix(in oklab, white 9%, transparent);
+  --admin-sidebar-border: color-mix(in oklab, white 7%, transparent);
+  --admin-sidebar-active: var(--brand);
+  --admin-sidebar-active-bg: color-mix(in oklab, var(--brand) 28%, transparent);
 
   --background: #141414;
   --surface: #1f1f1f;
@@ -307,10 +299,6 @@
   --border: rgba(255, 255, 255, 0.08);
   --border-strong: rgba(255, 255, 255, 0.14);
   --line-color: rgba(255, 255, 255, 0.08);
-  --primary: var(--vben-primary);
-  --brand: var(--vben-primary);
-  --brand-strong: var(--vben-primary-hover);
-  --ring: color-mix(in srgb, var(--vben-primary) 40%, transparent);
   --btn-content: color-mix(in oklab, var(--brand) 26%, var(--foreground) 74%);
   --btn-regular-bg: color-mix(in oklab, var(--surface-alt) 82%, var(--brand) 18%);
   --btn-regular-bg-hover: color-mix(in oklab, var(--surface-alt) 68%, var(--brand) 32%);
@@ -318,15 +306,6 @@
   --btn-plain-bg-hover: color-mix(in oklab, var(--surface-alt) 88%, var(--foreground) 12%);
   --btn-plain-bg-active: color-mix(in oklab, var(--surface-alt) 78%, var(--foreground) 22%);
   --btn-card-bg-hover: color-mix(in oklab, var(--surface-alt) 84%, var(--foreground) 10%);
-  --danger-surface: rgba(239, 68, 68, 0.1);
-  --danger-border: rgba(239, 68, 68, 0.2);
-  --danger-foreground: #f87171;
-  --success-surface: rgba(16, 185, 129, 0.1);
-  --success-border: rgba(16, 185, 129, 0.2);
-  --success-foreground: #34d399;
-  --warning-surface: rgba(245, 158, 11, 0.1);
-  --warning-border: rgba(245, 158, 11, 0.2);
-  --warning-foreground: #fbbf24;
   --shadow-ambient: 0 10px 40px rgba(0, 0, 0, 0.3);
   --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.2), 0 1px 0 rgba(255, 255, 255, 0.02);
   --shadow-card-hover: 0 8px 30px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(59, 130, 246, 0.15);

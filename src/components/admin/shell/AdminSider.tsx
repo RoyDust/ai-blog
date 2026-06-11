@@ -54,10 +54,10 @@ export function AdminSider({ pathname, siteName, user }: AdminSiderProps) {
     const isActive = isAdminNavItemActive(pathname, item.href);
     const itemClassName = `flex items-center transition-all duration-200 ${
       isCollapsed ? "justify-center px-0 py-3" : "gap-3 px-3.5 py-2.5"
-    } rounded-lg text-sm font-medium ${
+    } rounded-[var(--radius-control)] text-sm font-medium ${
       isActive
-        ? "bg-[var(--vben-primary)] text-white font-semibold shadow-md shadow-blue-500/20"
-        : "text-[var(--vben-sidebar-text)] hover:bg-[var(--vben-sidebar-hover)] hover:text-white"
+        ? "bg-[var(--admin-sidebar-active)] text-white font-semibold shadow-[0_10px_24px_color-mix(in_oklab,var(--brand)_24%,transparent)]"
+        : "text-[var(--admin-sidebar-text)] hover:bg-[var(--admin-sidebar-hover)] hover:text-white"
     }`;
 
     if (item.disabled) {
@@ -67,7 +67,7 @@ export function AdminSider({ pathname, siteName, user }: AdminSiderProps) {
           aria-label={`${item.label}稍后开放`}
           className={`flex w-full cursor-not-allowed items-center ${
             isCollapsed ? "justify-center px-0 py-3" : "gap-3 px-3.5 py-2.5"
-          } rounded-lg text-sm font-medium text-[var(--vben-sidebar-muted)] opacity-60`}
+          } rounded-[var(--radius-control)] text-sm font-medium text-[var(--admin-sidebar-muted)] opacity-60`}
           disabled
           type="button"
         >
@@ -82,7 +82,7 @@ export function AdminSider({ pathname, siteName, user }: AdminSiderProps) {
         <Icon className="h-5 w-5 shrink-0" />
         {!isCollapsed && <span className="truncate">{item.label}</span>}
         {!isCollapsed && item.badge ? (
-          <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-blue-500 dark:bg-blue-600 px-1.5 text-[0.65rem] font-bold text-white">
+          <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--admin-sidebar-active)] px-1.5 text-[0.65rem] font-bold text-white">
             {item.badge}
           </span>
         ) : null}
@@ -92,15 +92,15 @@ export function AdminSider({ pathname, siteName, user }: AdminSiderProps) {
 
   return (
     <aside
-      className={`hidden sticky top-0 h-screen overflow-hidden border-r border-[var(--vben-sidebar-border)] bg-[var(--vben-sidebar-bg)] lg:flex lg:flex-col transition-all duration-300 ease-in-out ${
+      className={`hidden sticky top-0 h-screen overflow-hidden border-r border-[var(--admin-sidebar-border)] bg-[var(--admin-sidebar-bg)] lg:flex lg:flex-col transition-all duration-300 ease-in-out ${
         isCollapsed ? "w-[64px]" : "w-[224px]"
       }`}
       data-testid="admin-layout-sidebar"
     >
       {/* Brand logo section */}
-      <div className={`transition-all duration-300 ${isCollapsed ? "px-2 py-4" : "px-5 py-5"} flex items-center justify-center border-b border-[var(--vben-sidebar-border)]`}>
+      <div className={`transition-all duration-300 ${isCollapsed ? "px-2 py-4" : "px-5 py-5"} flex items-center justify-center border-b border-[var(--admin-sidebar-border)]`}>
         <Link aria-label={`${siteName} 后台首页`} href="/admin" className={`flex items-center ${isCollapsed ? "justify-center" : "gap-3"} w-full`}>
-          <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[var(--vben-primary)] shadow-md shadow-blue-500/20">
+          <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-[var(--radius-control)] bg-[var(--admin-sidebar-active)] shadow-[0_10px_24px_color-mix(in_oklab,var(--brand)_24%,transparent)]">
             <Image alt="" aria-hidden="true" className="h-full w-full object-cover" height={36} priority src="/icons/icon-192.png" width={36} />
           </span>
           {!isCollapsed && (
@@ -114,7 +114,7 @@ export function AdminSider({ pathname, siteName, user }: AdminSiderProps) {
       {/* Navigation menu */}
       <nav aria-label="Admin navigation" className="flex-1 overflow-y-auto reader-scrollbar-hidden px-2.5 py-4 space-y-1.5">
         {!isCollapsed && (
-          <p className="px-3 pb-2 text-xs font-semibold text-[var(--vben-sidebar-muted)] uppercase tracking-wider">博客后台</p>
+          <p className="px-3 pb-2 text-xs font-semibold text-[var(--admin-sidebar-muted)] uppercase tracking-wider">博客后台</p>
         )}
 
         {mainItems.map(renderNavItem)}
@@ -124,7 +124,7 @@ export function AdminSider({ pathname, siteName, user }: AdminSiderProps) {
           // If collapsed, just render direct shortcut link
           <Link
             href="/admin/ai-news"
-            className={`flex items-center justify-center py-3 rounded-lg text-[var(--vben-sidebar-text)] hover:bg-[var(--vben-sidebar-hover)] hover:text-white transition-all`}
+            className="flex items-center justify-center rounded-[var(--radius-control)] py-3 text-[var(--admin-sidebar-text)] transition-all hover:bg-[var(--admin-sidebar-hover)] hover:text-white"
             title="AI 助手"
           >
             <Sparkles className="h-5 w-5 shrink-0" />
@@ -132,10 +132,10 @@ export function AdminSider({ pathname, siteName, user }: AdminSiderProps) {
         ) : (
           <details className="group/ai" open={isAiActive}>
             <summary
-              className={`flex w-full cursor-pointer list-none items-center gap-3 px-3.5 py-2.5 text-sm font-medium rounded-lg transition-all [&::-webkit-details-marker]:hidden ${
+              className={`flex w-full cursor-pointer list-none items-center gap-3 rounded-[var(--radius-control)] px-3.5 py-2.5 text-sm font-medium transition-all [&::-webkit-details-marker]:hidden ${
                 isAiActive
-                  ? "text-white bg-[var(--vben-sidebar-hover)]"
-                  : "text-[var(--vben-sidebar-text)] hover:bg-[var(--vben-sidebar-hover)] hover:text-white"
+                  ? "bg-[var(--admin-sidebar-hover)] text-white"
+                  : "text-[var(--admin-sidebar-text)] hover:bg-[var(--admin-sidebar-hover)] hover:text-white"
               }`}
             >
               <Sparkles className="h-5 w-5 shrink-0" />
@@ -150,10 +150,10 @@ export function AdminSider({ pathname, siteName, user }: AdminSiderProps) {
                   <Link
                     key={item.href}
                     href={item.href}
-                    className={`block rounded-md px-3 py-2 text-xs transition-colors ${
+                    className={`block rounded-[var(--radius-control)] px-3 py-2 text-xs transition-colors ${
                       isActive
-                        ? "bg-[var(--vben-primary)] text-white font-medium shadow-sm shadow-blue-500/10"
-                        : "text-[var(--vben-sidebar-text)] opacity-75 hover:opacity-100 hover:bg-[var(--vben-sidebar-hover)] hover:text-white"
+                        ? "bg-[var(--admin-sidebar-active)] text-white font-medium shadow-[0_6px_18px_color-mix(in_oklab,var(--brand)_18%,transparent)]"
+                        : "text-[var(--admin-sidebar-text)] opacity-75 hover:bg-[var(--admin-sidebar-hover)] hover:text-white hover:opacity-100"
                     }`}
                   >
                     {item.label}
@@ -165,9 +165,9 @@ export function AdminSider({ pathname, siteName, user }: AdminSiderProps) {
         )}
 
         {systemItems.length ? (
-          <div className="space-y-1.5 border-t border-[var(--vben-sidebar-border)] pt-3.5 mt-3.5">
+          <div className="mt-3.5 space-y-1.5 border-t border-[var(--admin-sidebar-border)] pt-3.5">
             {!isCollapsed && (
-              <p className="px-3 pb-2 text-xs font-semibold text-[var(--vben-sidebar-muted)] uppercase tracking-wider">系统</p>
+              <p className="px-3 pb-2 text-xs font-semibold text-[var(--admin-sidebar-muted)] uppercase tracking-wider">系统</p>
             )}
             {systemItems.map(renderNavItem)}
           </div>
@@ -175,15 +175,15 @@ export function AdminSider({ pathname, siteName, user }: AdminSiderProps) {
       </nav>
 
       {/* User profile dropdown at the bottom */}
-      <div className={`relative border-t border-[var(--vben-sidebar-border)] ${isCollapsed ? "px-2 py-4" : "px-3 py-4"} transition-all duration-300`}>
+      <div className={`relative border-t border-[var(--admin-sidebar-border)] ${isCollapsed ? "px-2 py-4" : "px-3 py-4"} transition-all duration-300`}>
         <DropdownMenu modal={false} open={isAccountMenuOpen} onOpenChange={setIsAccountMenuOpen}>
           <DropdownMenuTrigger asChild>
             <button
               aria-label={`${userLabel} 账号菜单`}
-              className={`flex w-full items-center ${isCollapsed ? "justify-center px-0 py-1" : "gap-3 px-2 py-2"} rounded-lg text-left transition-all hover:bg-[var(--vben-sidebar-hover)]`}
+              className={`flex w-full items-center ${isCollapsed ? "justify-center px-0 py-1" : "gap-3 px-2 py-2"} rounded-[var(--radius-control)] text-left transition-all hover:bg-[var(--admin-sidebar-hover)]`}
               type="button"
             >
-              <span className="relative inline-flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-700 text-sm font-semibold text-white shadow-sm">
+              <span className="relative inline-flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[color-mix(in_oklab,var(--admin-sidebar-bg)_72%,white_28%)] text-sm font-semibold text-white shadow-sm">
                 {user.image ? (
                   <Image alt={`${userLabel} 头像`} className="h-full w-full object-cover" height={36} src={user.image} unoptimized width={36} />
                 ) : (
@@ -194,15 +194,15 @@ export function AdminSider({ pathname, siteName, user }: AdminSiderProps) {
                 <>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold text-white">{userLabel}</p>
-                    <p className="truncate text-xs text-[var(--vben-sidebar-muted)]">{userMeta}</p>
+                    <p className="truncate text-xs text-[var(--admin-sidebar-muted)]">{userMeta}</p>
                   </div>
-                  <ChevronDown className={`h-3.5 w-3.5 text-[var(--vben-sidebar-muted)] transition-transform ${isAccountMenuOpen ? "rotate-180" : ""}`} />
+                  <ChevronDown className={`h-3.5 w-3.5 text-[var(--admin-sidebar-muted)] transition-transform ${isAccountMenuOpen ? "rotate-180" : ""}`} />
                 </>
               )}
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align={isCollapsed ? "center" : "start"} className="w-48" side={isCollapsed ? "right" : "top"}>
-            <DropdownMenuItem asChild className={isSettingsActive ? "bg-blue-50/60 dark:bg-blue-950/30 text-[var(--brand)]" : undefined}>
+            <DropdownMenuItem asChild className={isSettingsActive ? "bg-[color-mix(in_oklab,var(--brand)_10%,var(--surface))] text-[var(--brand)]" : undefined}>
               <Link href="/admin/settings">
                 <Settings className="h-4 w-4" />
                 设置

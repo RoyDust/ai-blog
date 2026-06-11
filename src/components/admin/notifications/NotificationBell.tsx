@@ -35,7 +35,7 @@ const severityMeta = {
   SUCCESS: { icon: CircleCheck, className: "bg-emerald-50 text-emerald-700" },
   WARNING: { icon: AlertCircle, className: "bg-amber-50 text-amber-700" },
   ERROR: { icon: XCircle, className: "bg-rose-50 text-rose-700" },
-  INFO: { icon: Info, className: "bg-sky-50 text-sky-700" },
+  INFO: { icon: Info, className: "bg-[color-mix(in_oklab,var(--brand)_10%,var(--surface))] text-[var(--brand)]" },
 } as const;
 
 function formatUnreadCount(count: number) {

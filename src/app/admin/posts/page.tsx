@@ -166,12 +166,12 @@ const contentTypeFilters: ContentTypeFilter[] = ["all", "non-ai-daily"];
 const pageSizeOptions = [10, 20, 50, 100];
 
 const toneClassName: Record<Tone, string> = {
-  cyan: "border-cyan-200 bg-cyan-50 text-cyan-700",
-  emerald: "border-emerald-200 bg-emerald-50 text-emerald-700",
-  amber: "border-amber-200 bg-amber-50 text-amber-700",
-  rose: "border-rose-200 bg-rose-50 text-rose-700",
-  slate: "border-slate-200 bg-slate-100 text-slate-600",
-  blue: "border-slate-300 bg-white text-slate-700",
+  cyan: "border-[color-mix(in_oklab,var(--brand)_22%,var(--border))] bg-[color-mix(in_oklab,var(--brand)_10%,var(--surface))] text-[var(--brand)]",
+  emerald: "border-[var(--success-border)] bg-[var(--success-surface)] text-[var(--success-foreground)]",
+  amber: "border-[var(--warning-border)] bg-[var(--warning-surface)] text-[var(--warning-foreground)]",
+  rose: "border-[var(--danger-border)] bg-[var(--danger-surface)] text-[var(--danger-foreground)]",
+  slate: "border-[var(--border)] bg-[var(--surface-alt)] text-[var(--text-body)]",
+  blue: "border-[var(--border-strong)] bg-[var(--surface)] text-[var(--foreground)]",
 };
 
 function readPositiveInteger(value: unknown, fallback: number) {
@@ -310,11 +310,11 @@ function PublishToggleTag({
       aria-label={published ? "切换为草稿" : "切换为已发布"}
       className={cn(
         "h-7 gap-1 rounded-md border px-2 text-xs font-medium shadow-none transition-colors",
-        "focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-offset-1",
+        "focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-1",
         toneClassName[published ? "emerald" : "amber"],
         published
-          ? "hover:!border-emerald-300 hover:!bg-emerald-100 hover:!text-emerald-800"
-          : "hover:!border-amber-300 hover:!bg-amber-100 hover:!text-amber-800",
+          ? "hover:!border-[var(--success-border)] hover:!bg-[var(--success-surface)] hover:!text-[var(--success-foreground)]"
+          : "hover:!border-[var(--warning-border)] hover:!bg-[var(--warning-surface)] hover:!text-[var(--warning-foreground)]",
       )}
       disabled={busy}
       onClick={onClick}
@@ -365,16 +365,16 @@ function MetricCard({
           : undefined
       }
       className={cn(
-        "rounded-lg border-slate-200/80 bg-white py-0 shadow-none transition-colors",
-        onClick && "cursor-pointer hover:border-slate-300 hover:bg-slate-50",
-        active && "border-cyan-300 bg-cyan-50/60 ring-2 ring-cyan-200/70",
+        "rounded-lg border-[color-mix(in_oklab,var(--border)_80%,transparent)] bg-[var(--surface)] py-0 shadow-none transition-colors",
+        onClick && "cursor-pointer hover:border-[var(--border-strong)] hover:bg-[var(--surface-alt)]",
+        active && "border-[color-mix(in_oklab,var(--brand)_28%,var(--border))] bg-[color-mix(in_oklab,var(--brand)_8%,var(--surface))] ring-2 ring-[color-mix(in_oklab,var(--brand)_22%,transparent)]",
       )}
     >
       <CardContent className="flex items-center justify-between gap-3 p-3">
         <div className="min-w-0">
-          <p className="text-[11px] font-semibold text-slate-500">{label}</p>
-          <p className="mt-1 font-mono text-xl font-semibold tabular-nums text-slate-950">{valueText}</p>
-          <p className="mt-1 truncate text-xs text-slate-500">{caption}</p>
+          <p className="text-[11px] font-semibold text-[var(--text-muted)]">{label}</p>
+          <p className="mt-1 font-mono text-xl font-semibold tabular-nums text-[var(--foreground)]">{valueText}</p>
+          <p className="mt-1 truncate text-xs text-[var(--text-muted)]">{caption}</p>
         </div>
         <span className={cn("flex size-9 shrink-0 items-center justify-center rounded-lg border", toneClassName[tone])}>
           <Icon className="size-4" />
@@ -399,8 +399,8 @@ function FilterButton({
       className={cn(
         "h-8 rounded-md px-3 text-xs",
         active
-          ? "!border-slate-950 !bg-slate-950 !text-white hover:!bg-slate-800"
-          : "!border-slate-200 !bg-white !text-slate-700 hover:!bg-slate-50",
+          ? "!border-[var(--foreground)] !bg-[var(--foreground)] !text-white hover:!bg-[var(--text-body)]"
+          : "!border-[var(--border)] !bg-[var(--surface)] !text-[var(--foreground)] hover:!bg-[var(--surface-alt)]",
       )}
       onClick={onClick}
       type="button"
@@ -454,7 +454,7 @@ function PaginationBar({
   };
 
   return (
-    <footer className="flex shrink-0 flex-col gap-3 border-t border-slate-200 bg-slate-50/80 px-4 py-3 text-sm text-slate-600 xl:flex-row xl:items-center xl:justify-between">
+    <footer className="flex shrink-0 flex-col gap-3 border-t border-[var(--border)] bg-[var(--surface-alt)]/80 px-4 py-3 text-sm text-[var(--text-body)] xl:flex-row xl:items-center xl:justify-between">
       <p>
         显示第 {firstItem} 到 {lastItem} 条，共 {formatNumber(pagination.total)} 条记录
       </p>
@@ -472,10 +472,10 @@ function PaginationBar({
               }
             }}
           >
-            <SelectTrigger className="h-8 w-[82px] rounded-md !border-slate-200 !bg-white !text-slate-700">
+            <SelectTrigger className="h-8 w-[82px] rounded-md !border-[var(--border)] !bg-[var(--surface)] !text-[var(--foreground)]">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent className="border-slate-200 bg-white text-slate-700">
+            <SelectContent className="border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)]">
               {[10, 20, 50, 100].map((option) => (
                 <SelectItem key={option} value={String(option)}>
                   {option}
@@ -491,7 +491,7 @@ function PaginationBar({
               <PaginationItem>
                 <Button
                   aria-label="上一页"
-                  className="size-8 rounded-md !border-slate-200 !bg-white !text-slate-700 hover:!bg-slate-50"
+                  className="size-8 rounded-md !border-[var(--border)] !bg-[var(--surface)] !text-[var(--foreground)] hover:!bg-[var(--surface-alt)]"
                   disabled={disabled || activePage <= 1}
                   onClick={() => goToPage(activePage - 1)}
                   size="icon-sm"
@@ -508,10 +508,10 @@ function PaginationBar({
                       aria-current={pageItem === activePage ? "page" : undefined}
                       aria-label={`第 ${pageItem} 页`}
                       className={cn(
-                        "size-8 rounded-md !text-slate-700 hover:!bg-slate-50",
+                        "size-8 rounded-md !text-[var(--foreground)] hover:!bg-[var(--surface-alt)]",
                         pageItem === activePage
-                          ? "!bg-slate-950 !text-white hover:!bg-slate-900"
-                          : "!bg-white",
+                          ? "!bg-[var(--foreground)] !text-white hover:!bg-[var(--text-body)]"
+                          : "!bg-[var(--surface)]",
                       )}
                       disabled={disabled || pageItem === activePage}
                       onClick={() => goToPage(pageItem)}
@@ -529,7 +529,7 @@ function PaginationBar({
               <PaginationItem>
                 <Button
                   aria-label="下一页"
-                  className="size-8 rounded-md !border-slate-200 !bg-white !text-slate-700 hover:!bg-slate-50"
+                  className="size-8 rounded-md !border-[var(--border)] !bg-[var(--surface)] !text-[var(--foreground)] hover:!bg-[var(--surface-alt)]"
                   disabled={disabled || activePage >= pagination.totalPages}
                   onClick={() => goToPage(activePage + 1)}
                   size="icon-sm"
@@ -554,7 +554,7 @@ function PaginationBar({
             跳至
             <Input
               aria-label="跳转页码"
-              className="h-8 w-16 rounded-md !bg-white px-2 text-center !text-slate-700"
+              className="h-8 w-16 rounded-md !bg-[var(--surface)] px-2 text-center !text-[var(--foreground)]"
               disabled={disabled}
               inputMode="numeric"
               max={pagination.totalPages}
@@ -564,7 +564,7 @@ function PaginationBar({
               value={jumpValue}
             />
             页
-            <Button className="h-8 rounded-md !border-slate-200 !bg-white !text-slate-700 hover:!bg-slate-50" disabled={disabled} size="sm" type="submit" variant="outline">
+            <Button className="h-8 rounded-md !border-[var(--border)] !bg-[var(--surface)] !text-[var(--foreground)] hover:!bg-[var(--surface-alt)]" disabled={disabled} size="sm" type="submit" variant="outline">
               跳转
             </Button>
           </form>
@@ -899,16 +899,16 @@ export default function AdminPostsPage() {
   return (
     <>
       <TooltipProvider>
-        <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden rounded-lg bg-[#f5f7f4] p-3 text-slate-950">
-          <section className="shrink-0 rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-none">
+        <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden rounded-lg bg-[var(--surface-alt)] p-3 text-[var(--foreground)]">
+          <section className="shrink-0 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-4 py-3 shadow-none">
             <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant="outline" className="h-6 rounded-md border-cyan-200 bg-cyan-50 px-2 text-cyan-700">
+                  <Badge variant="outline" className="h-6 rounded-md border-[color-mix(in_oklab,var(--brand)_22%,var(--border))] bg-[color-mix(in_oklab,var(--brand)_10%,var(--surface))] px-2 text-[var(--brand)]">
                     <Bot className="size-3" />
                     AI OPS
                   </Badge>
-                  <Badge variant="outline" className="h-6 rounded-md border-slate-200 bg-slate-50 px-2 text-slate-600">
+                  <Badge variant="outline" className="h-6 rounded-md border-[var(--border)] bg-[var(--surface-alt)] px-2 text-[var(--text-body)]">
                     当前页 {formatNumber(posts.length)}
                   </Badge>
                   {activeSummaryIds.length > 0 ? (
@@ -919,17 +919,17 @@ export default function AdminPostsPage() {
                   ) : null}
                 </div>
                 <div className="mt-2 flex flex-wrap items-end gap-x-4 gap-y-1">
-                  <h1 className="font-display text-2xl font-semibold tracking-normal text-slate-950">
+                  <h1 className="font-display text-2xl font-semibold tracking-normal text-[var(--foreground)]">
                     AI 内容队列
                   </h1>
-                  <p className="pb-1 text-sm text-slate-500">
+                  <p className="pb-1 text-sm text-[var(--text-muted)]">
                     {formatNumber(pagination.total)} 篇内容
                   </p>
                 </div>
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
-                <Button asChild className="h-8 rounded-md bg-slate-950 text-white hover:bg-slate-800" size="sm">
+                <Button asChild className="h-8 rounded-md bg-[var(--foreground)] text-white hover:bg-[var(--text-body)]" size="sm">
                   <Link href="/admin/posts/new">
                     <PencilLine className="size-4" />
                     新建文章
@@ -983,14 +983,14 @@ export default function AdminPostsPage() {
             />
           </section>
 
-          <Card className="shrink-0 rounded-lg border-slate-200 bg-white py-0 shadow-none">
+          <Card className="shrink-0 rounded-lg border-[var(--border)] bg-[var(--surface)] py-0 shadow-none">
             <CardContent className="flex flex-col gap-3 p-3 xl:flex-row xl:items-center xl:justify-between">
               <div className="flex min-w-0 flex-1 flex-col gap-2 md:flex-row md:items-center">
                 <label className="relative min-w-[240px] flex-1 md:max-w-md">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+                  <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--text-faint)]" />
                   <Input
                     aria-label="搜索文章"
-                    className="h-9 rounded-md !border-slate-200 !bg-slate-50 pl-9 text-sm !text-slate-950 shadow-none placeholder:!text-slate-400"
+                    className="h-9 rounded-md !border-[var(--border)] !bg-[var(--surface-alt)] pl-9 text-sm !text-[var(--foreground)] shadow-none placeholder:!text-[var(--text-faint)]"
                     placeholder="搜索标题或 slug"
                     value={query}
                     onChange={(event) => {
@@ -1012,12 +1012,12 @@ export default function AdminPostsPage() {
               </div>
 
               {hasSelection ? (
-                <div className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5">
-                  <Badge variant="outline" className="h-7 rounded-md border-slate-200 bg-white px-2.5 text-slate-600">
+                <div className="flex flex-wrap items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] px-2 py-1.5">
+                  <Badge variant="outline" className="h-7 rounded-md border-[var(--border)] bg-[var(--surface)] px-2.5 text-[var(--text-body)]">
                     已选 {formatNumber(visibleSelectedIds.length)}
                   </Badge>
                   <Button
-                    className="h-8 rounded-md !border-cyan-200 !bg-cyan-50 px-3 !text-cyan-700 hover:!bg-cyan-100"
+                    className="h-8 rounded-md !border-[color-mix(in_oklab,var(--brand)_22%,var(--border))] !bg-[color-mix(in_oklab,var(--brand)_10%,var(--surface))] px-3 !text-[var(--brand)] hover:!bg-[color-mix(in_oklab,var(--brand)_16%,var(--surface))]"
                     disabled={bulkPublishAction !== null}
                     onClick={() => setBulkAiIds(visibleSelectedIds)}
                     size="sm"
@@ -1028,7 +1028,7 @@ export default function AdminPostsPage() {
                     AI 批量补全
                   </Button>
                   <Button
-                    className="h-8 rounded-md !border-slate-200 !bg-white !text-slate-700 hover:!bg-slate-50"
+                    className="h-8 rounded-md !border-[var(--border)] !bg-[var(--surface)] !text-[var(--foreground)] hover:!bg-[var(--surface-alt)]"
                     disabled={bulkPublishAction !== null}
                     onClick={() => void updateBulkPublish(visibleSelectedIds, true)}
                     size="sm"
@@ -1038,7 +1038,7 @@ export default function AdminPostsPage() {
                     批量发布
                   </Button>
                   <Button
-                    className="h-8 rounded-md !border-slate-200 !bg-white !text-slate-700 hover:!bg-slate-50"
+                    className="h-8 rounded-md !border-[var(--border)] !bg-[var(--surface)] !text-[var(--foreground)] hover:!bg-[var(--surface-alt)]"
                     disabled={bulkPublishAction !== null}
                     onClick={() => void updateBulkPublish(visibleSelectedIds, false)}
                     size="sm"
@@ -1059,21 +1059,21 @@ export default function AdminPostsPage() {
                   </Button>
                 </div>
               ) : (
-                <p className="rounded-lg border border-dashed border-slate-200 px-3 py-2 text-xs text-slate-500">
+                <p className="rounded-lg border border-dashed border-[var(--border)] px-3 py-2 text-xs text-[var(--text-muted)]">
                   勾选文章后显示批量操作
                 </p>
               )}
             </CardContent>
           </Card>
 
-          <Card className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border-slate-200 bg-white py-0 shadow-none">
-            <CardHeader className="shrink-0 gap-0 border-b border-slate-200 px-4 py-3">
+          <Card className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border-[var(--border)] bg-[var(--surface)] py-0 shadow-none">
+            <CardHeader className="shrink-0 gap-0 border-b border-[var(--border)] px-4 py-3">
               <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                 <div className="min-w-0">
-                  <CardTitle className="text-base font-semibold text-slate-950">文章列表</CardTitle>
-                  <p className="mt-1 text-xs text-slate-500">发布状态、AI 摘要和数据上下文</p>
+                  <CardTitle className="text-base font-semibold text-[var(--foreground)]">文章列表</CardTitle>
+                  <p className="mt-1 text-xs text-[var(--text-muted)]">发布状态、AI 摘要和数据上下文</p>
                 </div>
-                <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--text-muted)]">
                   <span className="font-mono tabular-nums">PAGE {formatNumber(pagination.page)} / {formatNumber(pagination.totalPages)}</span>
                   <Separator orientation="vertical" className="hidden h-4 md:block" />
                   <span>{formatNumber(posts.length)} rows</span>
@@ -1083,30 +1083,30 @@ export default function AdminPostsPage() {
 
             <div className="min-h-0 flex-1 overflow-auto" data-testid="admin-data-table-scroll">
               <Table className="min-w-[860px] table-fixed xl:min-w-[1160px] 2xl:min-w-[1220px]">
-                <TableHeader className="sticky top-0 z-10 border-b border-slate-200 bg-[#f8faf8] shadow-[0_1px_0_rgba(15,23,42,0.06)]">
+                <TableHeader className="sticky top-0 z-10 border-b border-[var(--border)] bg-[var(--surface-alt)] shadow-[0_1px_0_rgba(15,23,42,0.06)]">
                   <TableRow className="border-0 hover:bg-transparent">
                     <TableHead className="w-12 px-4">
                       <Checkbox
                         aria-label="选择当前页"
-                        className="!border-slate-300 !bg-white data-[state=checked]:!border-cyan-600 data-[state=checked]:!bg-cyan-600 data-[state=indeterminate]:!border-cyan-600 data-[state=indeterminate]:!bg-cyan-600"
+                        className="!border-[var(--border-strong)] !bg-[var(--surface)] data-[state=checked]:!border-[var(--brand)] data-[state=checked]:!bg-[var(--brand)] data-[state=indeterminate]:!border-[var(--brand)] data-[state=indeterminate]:!bg-[var(--brand)]"
                         checked={headerCheckboxState}
                         disabled={loading || posts.length === 0}
                         onCheckedChange={(checked) => toggleAllCurrentPage(checked === true)}
                       />
                     </TableHead>
-                    <TableHead className="w-[34%] text-xs font-semibold text-slate-500 xl:w-[30%]">标题</TableHead>
-                    <TableHead className="hidden w-[13%] text-xs font-semibold text-slate-500 xl:table-cell">作者</TableHead>
-                    <TableHead className="w-[32%] text-xs font-semibold text-slate-500 xl:w-[24%]">AI 摘要</TableHead>
-                    <TableHead className="w-[148px] text-xs font-semibold text-slate-500">发布</TableHead>
-                    <TableHead className="hidden w-[13%] pl-6 text-xs font-semibold text-slate-500 2xl:table-cell">上下文</TableHead>
-                    <TableHead className="hidden w-[10%] text-xs font-semibold text-slate-500 xl:table-cell">日期</TableHead>
-                    <TableHead className="w-[104px] text-right text-xs font-semibold text-slate-500">操作</TableHead>
+                    <TableHead className="w-[34%] text-xs font-semibold text-[var(--text-muted)] xl:w-[30%]">标题</TableHead>
+                    <TableHead className="hidden w-[13%] text-xs font-semibold text-[var(--text-muted)] xl:table-cell">作者</TableHead>
+                    <TableHead className="w-[32%] text-xs font-semibold text-[var(--text-muted)] xl:w-[24%]">AI 摘要</TableHead>
+                    <TableHead className="w-[148px] text-xs font-semibold text-[var(--text-muted)]">发布</TableHead>
+                    <TableHead className="hidden w-[13%] pl-6 text-xs font-semibold text-[var(--text-muted)] 2xl:table-cell">上下文</TableHead>
+                    <TableHead className="hidden w-[10%] text-xs font-semibold text-[var(--text-muted)] xl:table-cell">日期</TableHead>
+                    <TableHead className="w-[104px] text-right text-xs font-semibold text-[var(--text-muted)]">操作</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {loading ? (
                     Array.from({ length: 6 }, (_, index) => (
-                      <TableRow key={index} className="border-slate-100">
+                      <TableRow key={index} className="border-[var(--border)]">
                         <TableCell className="px-4"><Skeleton className="size-4" /></TableCell>
                         <TableCell><Skeleton className="h-9 w-full" /></TableCell>
                         <TableCell><Skeleton className="h-8 w-24" /></TableCell>
@@ -1149,44 +1149,44 @@ export default function AdminPostsPage() {
                         <TableRow
                           key={row.id}
                           className={cn(
-                            "border-slate-100 transition-colors hover:bg-slate-50/80",
-                            isSelected && "bg-cyan-50/70 hover:bg-cyan-50",
+                            "border-[var(--border)] transition-colors hover:bg-[var(--surface-alt)]/80",
+                            isSelected && "bg-[color-mix(in_oklab,var(--brand)_8%,var(--surface))] hover:bg-[color-mix(in_oklab,var(--brand)_10%,var(--surface))]",
                           )}
                         >
                           <TableCell className="px-4 align-top">
                             <Checkbox
                               aria-label={`选择 ${row.id}`}
-                              className="!border-slate-300 !bg-white data-[state=checked]:!border-cyan-600 data-[state=checked]:!bg-cyan-600"
+                              className="!border-[var(--border-strong)] !bg-[var(--surface)] data-[state=checked]:!border-[var(--brand)] data-[state=checked]:!bg-[var(--brand)]"
                               checked={isSelected}
                               onCheckedChange={(checked) => toggleOne(row.id, checked === true)}
                             />
                           </TableCell>
                           <TableCell className="whitespace-normal align-top">
                             <div className="min-w-0 space-y-1">
-                              <Link className="line-clamp-1 font-medium text-slate-950 hover:text-cyan-700" href={`/admin/posts/${row.id}/edit`}>
+                              <Link className="line-clamp-1 font-medium text-[var(--foreground)] hover:text-[var(--brand)]" href={`/admin/posts/${row.id}/edit`}>
                                 {titleText}
                               </Link>
-                              <p className="line-clamp-1 font-mono text-xs text-slate-500">{slugText}</p>
-                              <p className="line-clamp-1 text-xs text-slate-500 xl:hidden">
+                              <p className="line-clamp-1 font-mono text-xs text-[var(--text-muted)]">{slugText}</p>
+                              <p className="line-clamp-1 text-xs text-[var(--text-muted)] xl:hidden">
                                 {authorName} / {formatDate(row.createdAt)}
                               </p>
                             </div>
                           </TableCell>
                           <TableCell className="hidden whitespace-normal align-top xl:table-cell">
                             <div className="min-w-0">
-                              <p className="truncate text-sm font-medium text-slate-700">{authorName}</p>
+                              <p className="truncate text-sm font-medium text-[var(--foreground)]">{authorName}</p>
                               {authorEmail && authorEmail !== authorName ? (
-                                <p className="mt-1 truncate text-xs text-slate-500">{authorEmail}</p>
+                                <p className="mt-1 truncate text-xs text-[var(--text-muted)]">{authorEmail}</p>
                               ) : null}
                             </div>
                           </TableCell>
                           <TableCell className="whitespace-normal align-top">
                             <div className="max-w-[300px] space-y-1.5">
                               <StatusPill tone={summaryMeta.tone} icon={summaryMeta.icon}>{summaryMeta.label}</StatusPill>
-                              <p className={cn("line-clamp-2 text-xs leading-5 text-slate-500", summaryStatus === "FAILED" && "text-rose-600")}>
+                              <p className={cn("line-clamp-2 text-xs leading-5 text-[var(--text-muted)]", summaryStatus === "FAILED" && "text-[var(--danger-foreground)]")}>
                                 {summaryText}
                               </p>
-                              <div className="flex flex-wrap gap-x-2 gap-y-1 text-[11px] text-slate-500 2xl:hidden">
+                              <div className="flex flex-wrap gap-x-2 gap-y-1 text-[11px] text-[var(--text-muted)] 2xl:hidden">
                                 <span>阅读 {formatNumber(row.viewCount)}</span>
                                 <span>评论 {formatNumber(row._count?.comments)}</span>
                                 <span>点赞 {formatNumber(row._count?.likes)}</span>
@@ -1201,19 +1201,19 @@ export default function AdminPostsPage() {
                             />
                           </TableCell>
                           <TableCell className="hidden whitespace-normal pl-6 align-top 2xl:table-cell">
-                            <div className="grid gap-1 text-xs text-slate-500">
+                            <div className="grid gap-1 text-xs text-[var(--text-muted)]">
                               <span className="flex items-center gap-1.5"><Eye className="size-3.5" />阅读 {formatNumber(row.viewCount)}</span>
                               <span className="flex items-center gap-1.5"><MessageSquare className="size-3.5" />评论 {formatNumber(row._count?.comments)}</span>
                               <span className="flex items-center gap-1.5"><Heart className="size-3.5" />点赞 {formatNumber(row._count?.likes)}</span>
                             </div>
                           </TableCell>
-                          <TableCell className="hidden align-top font-mono text-xs tabular-nums text-slate-500 xl:table-cell">
+                          <TableCell className="hidden align-top font-mono text-xs tabular-nums text-[var(--text-muted)] xl:table-cell">
                             {formatDate(row.createdAt)}
                           </TableCell>
                           <TableCell className="align-top">
                             <div className="flex justify-end gap-1">
                               <IconAction label="编辑">
-                                <Button asChild aria-label="编辑" className="size-8 rounded-md !text-slate-600 hover:!bg-slate-50 hover:!text-cyan-700" size="icon-sm" variant="ghost">
+                                <Button asChild aria-label="编辑" className="size-8 rounded-md !text-[var(--text-body)] hover:!bg-[var(--surface-alt)] hover:!text-[var(--brand)]" size="icon-sm" variant="ghost">
                                   <Link href={`/admin/posts/${row.id}/edit`}>
                                     <PencilLine className="size-4" />
                                   </Link>
@@ -1221,7 +1221,7 @@ export default function AdminPostsPage() {
                               </IconAction>
                               {previewHref ? (
                                 <IconAction label="预览">
-                                  <Button asChild aria-label="预览" className="size-8 rounded-md !text-slate-600 hover:!bg-slate-50 hover:!text-cyan-700" size="icon-sm" variant="ghost">
+                                  <Button asChild aria-label="预览" className="size-8 rounded-md !text-[var(--text-body)] hover:!bg-[var(--surface-alt)] hover:!text-[var(--brand)]" size="icon-sm" variant="ghost">
                                     <Link href={previewHref}>
                                       <Eye className="size-4" />
                                     </Link>
@@ -1229,7 +1229,7 @@ export default function AdminPostsPage() {
                                 </IconAction>
                               ) : (
                                 <IconAction label="缺少 slug">
-                                  <Button aria-label="预览" className="size-8 rounded-md !text-slate-400" disabled size="icon-sm" type="button" variant="ghost">
+                                  <Button aria-label="预览" className="size-8 rounded-md !text-[var(--text-faint)]" disabled size="icon-sm" type="button" variant="ghost">
                                     <Eye className="size-4" />
                                   </Button>
                                 </IconAction>
@@ -1237,7 +1237,7 @@ export default function AdminPostsPage() {
                               <IconAction label="删除">
                                 <Button
                                   aria-label="删除"
-                                  className="size-8 rounded-md !text-rose-600 hover:!bg-rose-50 hover:!text-rose-700"
+                                  className="size-8 rounded-md !text-[var(--danger-foreground)] hover:!bg-[var(--danger-surface)] hover:!text-[var(--danger-foreground)]"
                                   onClick={() => void openDeleteDialog([row.id])}
                                   size="icon-sm"
                                   type="button"

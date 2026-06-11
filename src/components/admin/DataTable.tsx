@@ -114,35 +114,35 @@ export function DataTable<T extends { id: string }>({
   };
 
   const statusClassName = fillHeight
-    ? "flex min-h-0 flex-1 items-center justify-center px-4 py-16 text-center text-sm text-slate-500"
-    : "px-4 py-16 text-center text-sm text-slate-500";
+    ? "flex min-h-0 flex-1 items-center justify-center px-4 py-16 text-center text-sm text-[var(--text-muted)]"
+    : "px-4 py-16 text-center text-sm text-[var(--text-muted)]";
 
   return (
     <Card
       className={cn(
-        "gap-0 overflow-hidden rounded-lg border-slate-200 bg-white py-0 text-slate-950 shadow-none",
+        "gap-0 overflow-hidden rounded-[var(--radius-panel)] border-[var(--border)] bg-[var(--surface)] py-0 text-[var(--foreground)] shadow-none",
         fillHeight && "flex min-h-0 flex-1 flex-col",
       )}
     >
       <section className={cn(fillHeight && "flex min-h-0 flex-1 flex-col")}>
-        <CardHeader className="shrink-0 gap-0 border-b border-slate-200 px-4 py-3">
+        <CardHeader className="shrink-0 gap-0 border-b border-[var(--border)] px-4 py-3">
           <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
             <div className="min-w-0">
-              <CardTitle className="text-base font-semibold text-slate-950">{title}</CardTitle>
-              <p className="mt-1 text-xs text-slate-500">{summary ?? `共 ${totalRows} 条记录`}</p>
+              <CardTitle className="text-base font-semibold text-[var(--foreground)]">{title}</CardTitle>
+              <p className="mt-1 text-xs text-[var(--text-muted)]">{summary ?? `共 ${totalRows} 条记录`}</p>
             </div>
             {densityLabel ? (
-              <span className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600">{densityLabel}</span>
+              <span className="rounded-[var(--radius-control)] border border-[var(--border)] bg-[var(--surface-alt)] px-2.5 py-1 text-xs font-medium text-[var(--text-body)]">{densityLabel}</span>
             ) : null}
           </div>
         </CardHeader>
 
-        {toolbar ? <div className="shrink-0 border-b border-slate-200 bg-white px-4 py-3">{toolbar}</div> : null}
+        {toolbar ? <div className="shrink-0 border-b border-[var(--border)] bg-[var(--surface)] px-4 py-3">{toolbar}</div> : null}
 
         {bulkActions.length > 0 ? (
-          <div className="flex shrink-0 flex-wrap items-center gap-3 border-b border-slate-200 bg-slate-50/80 px-4 py-3">
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">批量操作</span>
-            <span className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-600">已选 {visibleSelectedIds.length} 项</span>
+          <div className="flex shrink-0 flex-wrap items-center gap-3 border-b border-[var(--border)] bg-[var(--surface-alt)]/80 px-4 py-3">
+            <span className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">批量操作</span>
+            <span className="rounded-[var(--radius-control)] border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-xs font-medium text-[var(--text-body)]">已选 {visibleSelectedIds.length} 项</span>
             <div className="flex items-center gap-2">
               {bulkActions.map((action) => (
                 <Button
@@ -153,8 +153,8 @@ export function DataTable<T extends { id: string }>({
                   type="button"
                   variant={action.variant === "danger" ? "destructive" : "outline"}
                   className={cn(
-                    "h-8 rounded-md shadow-none",
-                    action.variant !== "danger" && "!border-slate-200 !bg-white !text-slate-700 hover:!bg-slate-50",
+                    "h-8 rounded-[var(--radius-control)] shadow-none",
+                    action.variant !== "danger" && "!border-[var(--border)] !bg-[var(--surface)] !text-[var(--foreground)] hover:!bg-[var(--surface-alt)]",
                   )}
                 >
                   {action.label}
@@ -171,7 +171,7 @@ export function DataTable<T extends { id: string }>({
         ) : (
           <div className={cn(fillHeight ? "min-h-0 flex-1 overflow-auto" : "overflow-x-auto")} data-testid="admin-data-table-scroll">
             <Table className="min-w-[860px] table-fixed xl:min-w-[1080px]">
-              <TableHeader className={cn("border-b border-slate-200 bg-[#f8faf8] shadow-[0_1px_0_rgba(15,23,42,0.06)]", fillHeight && "sticky top-0 z-10")}>
+              <TableHeader className={cn("border-b border-[var(--border)] bg-[var(--surface-alt)] shadow-[0_1px_0_rgba(15,23,42,0.06)]", fillHeight && "sticky top-0 z-10")}>
                 <TableRow className="border-0 hover:bg-transparent">
                   <TableHead className="w-12 px-4 py-3.5 text-center">
                     <input
@@ -181,11 +181,11 @@ export function DataTable<T extends { id: string }>({
                       type="checkbox"
                       aria-label="选择当前页"
                       aria-checked={isCurrentPagePartiallySelected ? "mixed" : allCurrentPageSelected}
-                      className="size-4 cursor-pointer rounded border-slate-300 bg-white text-cyan-600 focus:ring-cyan-500/25 focus:ring-offset-0"
+                      className="size-4 cursor-pointer rounded border-[var(--border-strong)] bg-[var(--surface)] text-[var(--brand)] focus:ring-[var(--ring)] focus:ring-offset-0"
                     />
                   </TableHead>
                   {columns.map((column) => (
-                    <TableHead key={column.key} className="py-3.5 text-xs font-medium uppercase tracking-wide text-slate-500">
+                    <TableHead key={column.key} className="py-3.5 text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">
                       {column.label}
                     </TableHead>
                   ))}
@@ -198,8 +198,8 @@ export function DataTable<T extends { id: string }>({
                     <TableRow
                       key={row.id}
                       className={cn(
-                        "border-slate-100 transition-colors hover:bg-slate-50/80",
-                        isRowSelected && "bg-cyan-50/70 hover:bg-cyan-50",
+                        "border-[var(--border)] transition-colors hover:bg-[var(--surface-alt)]/80",
+                        isRowSelected && "bg-[color-mix(in_oklab,var(--brand)_8%,var(--surface))] hover:bg-[color-mix(in_oklab,var(--brand)_10%,var(--surface))]",
                       )}
                     >
                       <TableCell className="px-4 py-4 text-center align-top">
@@ -208,11 +208,11 @@ export function DataTable<T extends { id: string }>({
                           onChange={() => toggleOne(row.id)}
                           type="checkbox"
                           aria-label={`选择 ${row.id}`}
-                          className="size-4 cursor-pointer rounded border-slate-300 bg-white text-cyan-600 focus:ring-cyan-500/25 focus:ring-offset-0"
+                          className="size-4 cursor-pointer rounded border-[var(--border-strong)] bg-[var(--surface)] text-[var(--brand)] focus:ring-[var(--ring)] focus:ring-offset-0"
                         />
                       </TableCell>
                       {columns.map((column) => (
-                        <TableCell className={cn("whitespace-normal py-4 align-top text-sm text-slate-600", column.className)} key={column.key}>
+                        <TableCell className={cn("whitespace-normal py-4 align-top text-sm text-[var(--text-body)]", column.className)} key={column.key}>
                           {column.render(row)}
                         </TableCell>
                       ))}

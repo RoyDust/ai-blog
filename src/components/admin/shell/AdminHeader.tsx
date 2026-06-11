@@ -21,7 +21,7 @@ export function AdminHeader() {
         <div className="flex items-center gap-3 min-w-0">
           <button
             onClick={() => setIsCollapsed(!isCollapsed)}
-            className="rounded-lg p-2 hover:bg-[var(--surface-alt)] text-[var(--muted)] hover:text-[var(--foreground)] transition-colors duration-150"
+            className="rounded-[var(--radius-control)] p-2 text-[var(--muted)] transition-colors duration-150 hover:bg-[var(--surface-alt)] hover:text-[var(--foreground)]"
             aria-label={isCollapsed ? "展开侧边栏" : "收起侧边栏"}
             type="button"
           >
@@ -38,7 +38,7 @@ export function AdminHeader() {
           <AdminGlobalSearch />
 
           <Link
-            className="inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-lg bg-[var(--brand)] px-3.5 text-xs font-semibold text-white shadow-sm transition-colors duration-200 hover:bg-[var(--brand-strong)]"
+            className="inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-[var(--radius-control)] bg-[var(--brand)] px-3.5 text-xs font-semibold text-white shadow-sm transition-colors duration-200 hover:bg-[var(--brand-strong)]"
             href="/admin/posts/new"
           >
             <PenLine className="h-3.5 w-3.5" />

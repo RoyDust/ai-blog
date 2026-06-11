@@ -360,17 +360,17 @@ export function AiTaskDetail({ task }: { task: TaskDetail }) {
         </section>
       ) : null}
 
-      <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-        <header className="border-b border-slate-200 px-4 py-3">
-          <h3 className="text-base font-semibold text-slate-950">任务项</h3>
-          <p className="mt-1 text-xs text-slate-500">逐条查看输出、失败原因和应用状态。</p>
+      <section className="overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)]">
+        <header className="border-b border-[var(--border)] px-4 py-3">
+          <h3 className="text-base font-semibold text-[var(--foreground)]">任务项</h3>
+          <p className="mt-1 text-xs text-[var(--text-muted)]">逐条查看输出、失败原因和应用状态。</p>
         </header>
         <div className="overflow-x-auto">
           <Table className="min-w-[980px] table-fixed">
-            <TableHeader className="border-b border-slate-200 bg-[#f8faf8] shadow-[0_1px_0_rgba(15,23,42,0.06)]">
+            <TableHeader className="border-b border-[var(--border)] bg-[var(--surface-alt)] shadow-[0_1px_0_rgba(15,23,42,0.06)]">
               <TableRow className="border-0 hover:bg-transparent">
                 {["文章", "动作", "状态", "输出预览", "错误", "应用", "更新时间"].map((label) => (
-                  <TableHead key={label} className="px-4 py-3.5 text-xs font-medium uppercase tracking-wide text-slate-500">
+                  <TableHead key={label} className="px-4 py-3.5 text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">
                     {label}
                   </TableHead>
                 ))}
@@ -378,23 +378,23 @@ export function AiTaskDetail({ task }: { task: TaskDetail }) {
             </TableHeader>
             <TableBody>
               {items.map((item) => (
-                <TableRow key={item.id} className="border-slate-100 transition-colors hover:bg-slate-50/80">
+                <TableRow key={item.id} className="border-[var(--border)] transition-colors hover:bg-[var(--surface-alt)]/80">
                   <TableCell className="whitespace-normal px-4 py-4 align-top">
                     {item.post ? (
-                      <Link className="font-medium text-slate-950 hover:text-cyan-700" href={`/admin/posts/${item.post.id}/edit`}>
+                      <Link className="font-medium text-[var(--foreground)] hover:text-[var(--brand)]" href={`/admin/posts/${item.post.id}/edit`}>
                         {item.post.title}
                       </Link>
                     ) : task.source === "draft-post" ? (
-                      <span className="text-sm text-slate-500">未保存草稿</span>
+                      <span className="text-sm text-[var(--text-muted)]">未保存草稿</span>
                     ) : (
-                      <span className="text-sm text-slate-500">文章不存在</span>
+                      <span className="text-sm text-[var(--text-muted)]">文章不存在</span>
                     )}
                   </TableCell>
-                  <TableCell className="px-4 py-4 align-top text-sm text-slate-700">{actionLabels[item.action] ?? item.action}</TableCell>
+                  <TableCell className="px-4 py-4 align-top text-sm text-[var(--foreground)]">{actionLabels[item.action] ?? item.action}</TableCell>
                   <TableCell className="px-4 py-4 align-top">
                     <StatusBadge tone={statusTone(item.status)}>{statusLabels[item.status] ?? item.status}</StatusBadge>
                   </TableCell>
-                  <TableCell className="whitespace-normal px-4 py-4 align-top text-sm leading-6 text-slate-500">
+                  <TableCell className="whitespace-normal px-4 py-4 align-top text-sm leading-6 text-[var(--text-muted)]">
                     <span className="line-clamp-3">{renderOutput(item)}</span>
                   </TableCell>
                   <TableCell className="whitespace-normal px-4 py-4 align-top text-sm text-rose-600">
@@ -416,10 +416,10 @@ export function AiTaskDetail({ task }: { task: TaskDetail }) {
                         {applyingItemId === item.id ? "应用中..." : "应用"}
                       </Button>
                     ) : (
-                      <span className="text-sm text-slate-500">-</span>
+                      <span className="text-sm text-[var(--text-muted)]">-</span>
                     )}
                   </TableCell>
-                  <TableCell className="px-4 py-4 align-top text-sm text-slate-500">{formatDate(item.updatedAt)}</TableCell>
+                  <TableCell className="px-4 py-4 align-top text-sm text-[var(--text-muted)]">{formatDate(item.updatedAt)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

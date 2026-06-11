@@ -483,7 +483,7 @@ export default function AdminTopicGuidesPage() {
                     </TableCell>
                     <TableCell className="whitespace-normal align-top">
                       <div className="flex flex-wrap items-center gap-3">
-                        <button type="button" className="text-cyan-700 hover:underline" onClick={() => setForm(guideToForm(guide))}>
+                        <button type="button" className="text-[var(--brand)] hover:underline" onClick={() => setForm(guideToForm(guide))}>
                           编辑
                         </button>
                         {guide.status !== "published" ? (
@@ -496,11 +496,11 @@ export default function AdminTopicGuidesPage() {
                           </button>
                         )}
                         {guide.status !== "archived" ? (
-                          <button type="button" className="text-slate-700 hover:underline" onClick={() => void patchGuideStatus(guide, "archived")}>
+                          <button type="button" className="text-[var(--foreground)] hover:underline" onClick={() => void patchGuideStatus(guide, "archived")}>
                             归档
                           </button>
                         ) : null}
-                        <Link className="text-slate-700 hover:text-cyan-700" href={`/guides/${guide.slug}`}>
+                        <Link className="text-[var(--foreground)] hover:text-[var(--brand)]" href={`/guides/${guide.slug}`}>
                           预览
                         </Link>
                         <button type="button" className="text-rose-600 hover:underline" onClick={() => void deleteGuide(guide)}>

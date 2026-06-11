@@ -105,26 +105,26 @@ export function AiTaskList({
   searchParams?: AiTaskListSearchParams;
 }) {
   return (
-    <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
+    <section className="overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)]">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] px-4 py-3">
         <div>
-          <h2 className="text-base font-semibold text-slate-950">任务记录</h2>
-          <p className="mt-1 text-xs text-slate-500">共 {pagination.total} 个 AI 任务，按最近创建排序。</p>
+          <h2 className="text-base font-semibold text-[var(--foreground)]">任务记录</h2>
+          <p className="mt-1 text-xs text-[var(--text-muted)]">共 {pagination.total} 个 AI 任务，按最近创建排序。</p>
         </div>
-        <span className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600">
+        <span className="rounded-md border border-[var(--border)] bg-[var(--surface-alt)] px-2.5 py-1 text-xs font-medium text-[var(--text-body)]">
           第 {pagination.page} / {pagination.totalPages} 页
         </span>
       </header>
 
       {tasks.length === 0 ? (
-        <p className="px-4 py-12 text-center text-sm text-slate-500">暂无 AI 任务记录</p>
+        <p className="px-4 py-12 text-center text-sm text-[var(--text-muted)]">暂无 AI 任务记录</p>
       ) : (
         <div className="overflow-x-auto">
           <Table className="min-w-[900px] table-fixed">
-            <TableHeader className="border-b border-slate-200 bg-[#f8faf8] shadow-[0_1px_0_rgba(15,23,42,0.06)]">
+            <TableHeader className="border-b border-[var(--border)] bg-[var(--surface-alt)] shadow-[0_1px_0_rgba(15,23,42,0.06)]">
               <TableRow className="border-0 hover:bg-transparent">
                 {["任务", "状态", "进度", "耗时", "创建时间", "最近错误", "操作"].map((label) => (
-                  <TableHead key={label} className="px-4 py-3.5 text-xs font-medium uppercase tracking-wide text-slate-500">
+                  <TableHead key={label} className="px-4 py-3.5 text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">
                     {label}
                   </TableHead>
                 ))}
@@ -132,23 +132,23 @@ export function AiTaskList({
             </TableHeader>
             <TableBody>
               {tasks.map((task) => (
-                <TableRow key={task.id} className="border-slate-100 transition-colors hover:bg-slate-50/80">
+                <TableRow key={task.id} className="border-[var(--border)] transition-colors hover:bg-[var(--surface-alt)]/80">
                   <TableCell className="whitespace-normal px-4 py-4 align-top">
                     <div className="space-y-1">
-                      <p className="font-medium text-slate-950">{taskTypeLabels[task.type] ?? task.type}</p>
-                      <p className="text-xs text-slate-500">{task.source} · {task.modelId ?? "默认模型"}</p>
+                      <p className="font-medium text-[var(--foreground)]">{taskTypeLabels[task.type] ?? task.type}</p>
+                      <p className="text-xs text-[var(--text-muted)]">{task.source} · {task.modelId ?? "默认模型"}</p>
                     </div>
                   </TableCell>
                   <TableCell className="px-4 py-4 align-top">
                     <StatusBadge tone={statusTone(task.status)}>{statusLabels[task.status] ?? task.status}</StatusBadge>
                   </TableCell>
-                  <TableCell className="whitespace-normal px-4 py-4 align-top text-sm text-slate-700">
+                  <TableCell className="whitespace-normal px-4 py-4 align-top text-sm text-[var(--foreground)]">
                     {task.succeededCount}/{task.requestedCount} 成功
                     {task.failedCount > 0 ? <span className="ml-2 text-rose-600">{task.failedCount} 失败</span> : null}
                   </TableCell>
-                  <TableCell className="px-4 py-4 align-top text-sm text-slate-500">{formatDuration(task)}</TableCell>
-                  <TableCell className="px-4 py-4 align-top text-sm text-slate-500">{formatDate(task.createdAt)}</TableCell>
-                  <TableCell className="whitespace-normal px-4 py-4 align-top text-sm text-slate-500">
+                  <TableCell className="px-4 py-4 align-top text-sm text-[var(--text-muted)]">{formatDuration(task)}</TableCell>
+                  <TableCell className="px-4 py-4 align-top text-sm text-[var(--text-muted)]">{formatDate(task.createdAt)}</TableCell>
+                  <TableCell className="whitespace-normal px-4 py-4 align-top text-sm text-[var(--text-muted)]">
                     <span className="line-clamp-2">{task.lastError ?? "-"}</span>
                   </TableCell>
                   <TableCell className="px-4 py-4 align-top">

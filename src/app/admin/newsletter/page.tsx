@@ -98,7 +98,7 @@ function StatCard({
     <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4">
       <div className="flex items-center justify-between gap-3">
         <span className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">{label}</span>
-        <span className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-cyan-50 text-cyan-700">
+        <span className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-[color-mix(in_oklab,var(--brand)_10%,var(--surface))] text-[var(--brand)]">
           <Icon className="h-4 w-4" aria-hidden />
         </span>
       </div>
@@ -212,8 +212,8 @@ export default function AdminNewsletterPage() {
         label: "邮件活动",
         render: (row) => (
           <div className="min-w-0">
-            <p className="font-medium text-slate-950">{row.title}</p>
-            <p className="mt-1 line-clamp-1 text-xs text-slate-500">{row.subject}</p>
+            <p className="font-medium text-[var(--foreground)]">{row.title}</p>
+            <p className="mt-1 line-clamp-1 text-xs text-[var(--text-muted)]">{row.subject}</p>
           </div>
         ),
       },
@@ -230,7 +230,7 @@ export default function AdminNewsletterPage() {
 
           return (
             <div className="flex flex-wrap gap-2 text-xs">
-              <span className="rounded-md bg-slate-100 px-2 py-1 text-slate-600">总计 {stats.total}</span>
+              <span className="rounded-md bg-[var(--surface-alt)] px-2 py-1 text-[var(--text-body)]">总计 {stats.total}</span>
               <span className="rounded-md bg-emerald-50 px-2 py-1 text-emerald-700">成功 {stats.sent}</span>
               <span className="rounded-md bg-rose-50 px-2 py-1 text-rose-700">失败 {stats.failed}</span>
             </div>

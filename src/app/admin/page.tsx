@@ -136,7 +136,11 @@ function Thumbnail({
 }
 
 function Avatar({ name, index }: { name: string; index: number }) {
-  const palettes = ["bg-emerald-100 text-emerald-900", "bg-sky-100 text-sky-900", "bg-amber-100 text-amber-900"];
+  const palettes = [
+    "bg-[var(--success-surface)] text-[var(--success-foreground)]",
+    "bg-[color-mix(in_oklab,var(--brand)_10%,var(--surface))] text-[var(--brand)]",
+    "bg-[var(--warning-surface)] text-[var(--warning-foreground)]",
+  ];
 
   return (
     <span className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${palettes[index % palettes.length]}`}>
@@ -389,8 +393,8 @@ function PopularPostsPanel({ posts, range }: { posts: PopularPostListItem[]; ran
     "bg-[var(--brand)] text-white",
     "bg-[var(--btn-regular-bg-active)] text-[var(--btn-content)]",
     "bg-[var(--surface-alt)] text-[var(--foreground)]",
-    "bg-slate-100 dark:bg-slate-800 text-[var(--muted)]",
-    "bg-slate-100 dark:bg-slate-800 text-[var(--muted)]",
+    "bg-[var(--surface-alt)] text-[var(--muted)]",
+    "bg-[var(--surface-alt)] text-[var(--muted)]",
   ];
 
   return (

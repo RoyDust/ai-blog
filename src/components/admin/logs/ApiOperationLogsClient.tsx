@@ -117,14 +117,14 @@ function formatActor(item: LogItem) {
 }
 
 function statusClassName(success: boolean) {
-  return success ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700";
+  return success ? "bg-[var(--success-surface)] text-[var(--success-foreground)]" : "bg-[var(--danger-surface)] text-[var(--danger-foreground)]";
 }
 
 function methodClassName(method: string) {
-  if (method === "GET") return "bg-sky-50 text-sky-700";
-  if (method === "POST") return "bg-emerald-50 text-emerald-700";
-  if (method === "PATCH") return "bg-amber-50 text-amber-700";
-  if (method === "DELETE") return "bg-rose-50 text-rose-700";
+  if (method === "GET") return "bg-[color-mix(in_oklab,var(--brand)_10%,var(--surface))] text-[var(--brand)]";
+  if (method === "POST") return "bg-[var(--success-surface)] text-[var(--success-foreground)]";
+  if (method === "PATCH") return "bg-[var(--warning-surface)] text-[var(--warning-foreground)]";
+  if (method === "DELETE") return "bg-[var(--danger-surface)] text-[var(--danger-foreground)]";
   return "bg-[var(--surface-alt)] text-[var(--muted)]";
 }
 
@@ -336,38 +336,38 @@ export function ApiOperationLogsClient() {
         </div>
       </section>
 
-      <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-slate-200 bg-white">
-        <div className="shrink-0 border-b border-slate-200 px-4 py-3">
+      <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)]">
+        <div className="shrink-0 border-b border-[var(--border)] px-4 py-3">
           <div>
-            <h2 className="text-base font-semibold text-slate-950">请求记录</h2>
-            <p className="mt-1 text-xs text-slate-500">{payload.summary.totalCount} 条匹配记录</p>
+            <h2 className="text-base font-semibold text-[var(--foreground)]">请求记录</h2>
+            <p className="mt-1 text-xs text-[var(--text-muted)]">{payload.summary.totalCount} 条匹配记录</p>
           </div>
         </div>
 
-        {loading ? <p className="px-5 py-10 text-center text-sm text-slate-500">正在加载接口日志...</p> : null}
+        {loading ? <p className="px-5 py-10 text-center text-sm text-[var(--text-muted)]">正在加载接口日志...</p> : null}
         {!loading && error ? <p className="px-5 py-10 text-center text-sm text-rose-600">{error}</p> : null}
-        {!loading && !error && payload.items.length === 0 ? <p className="px-5 py-10 text-center text-sm text-slate-500">暂无匹配日志。</p> : null}
+        {!loading && !error && payload.items.length === 0 ? <p className="px-5 py-10 text-center text-sm text-[var(--text-muted)]">暂无匹配日志。</p> : null}
 
         {!loading && !error && payload.items.length > 0 ? (
           <>
             <div className="min-h-0 flex-1 overflow-auto">
               <Table className="min-w-[980px] table-fixed">
-                <TableHeader className="sticky top-0 z-10 border-b border-slate-200 bg-[#f8faf8] shadow-[0_1px_0_rgba(15,23,42,0.06)]">
+                <TableHeader className="sticky top-0 z-10 border-b border-[var(--border)] bg-[var(--surface-alt)] shadow-[0_1px_0_rgba(15,23,42,0.06)]">
                   <TableRow className="border-0 hover:bg-transparent">
-                    <TableHead className="w-[120px] text-xs uppercase tracking-wide text-slate-500">时间</TableHead>
-                    <TableHead className="w-[96px] text-xs uppercase tracking-wide text-slate-500">状态</TableHead>
-                    <TableHead className="w-[90px] text-xs uppercase tracking-wide text-slate-500">方法</TableHead>
-                    <TableHead className="text-xs uppercase tracking-wide text-slate-500">路径</TableHead>
-                    <TableHead className="w-[170px] text-xs uppercase tracking-wide text-slate-500">调用方</TableHead>
-                    <TableHead className="w-[90px] text-xs uppercase tracking-wide text-slate-500">耗时</TableHead>
-                    <TableHead className="w-[190px] text-xs uppercase tracking-wide text-slate-500">Request ID</TableHead>
-                    <TableHead className="w-[76px] text-xs uppercase tracking-wide text-slate-500">详情</TableHead>
+                    <TableHead className="w-[120px] text-xs uppercase tracking-wide text-[var(--text-muted)]">时间</TableHead>
+                    <TableHead className="w-[96px] text-xs uppercase tracking-wide text-[var(--text-muted)]">状态</TableHead>
+                    <TableHead className="w-[90px] text-xs uppercase tracking-wide text-[var(--text-muted)]">方法</TableHead>
+                    <TableHead className="text-xs uppercase tracking-wide text-[var(--text-muted)]">路径</TableHead>
+                    <TableHead className="w-[170px] text-xs uppercase tracking-wide text-[var(--text-muted)]">调用方</TableHead>
+                    <TableHead className="w-[90px] text-xs uppercase tracking-wide text-[var(--text-muted)]">耗时</TableHead>
+                    <TableHead className="w-[190px] text-xs uppercase tracking-wide text-[var(--text-muted)]">Request ID</TableHead>
+                    <TableHead className="w-[76px] text-xs uppercase tracking-wide text-[var(--text-muted)]">详情</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {payload.items.map((item) => (
-                    <TableRow key={item.id} className="border-slate-100 transition-colors hover:bg-slate-50/80">
-                      <TableCell className="whitespace-nowrap align-top text-xs text-slate-500">{formatDate(item.createdAt)}</TableCell>
+                    <TableRow key={item.id} className="border-[var(--border)] transition-colors hover:bg-[var(--surface-alt)]/80">
+                      <TableCell className="whitespace-nowrap align-top text-xs text-[var(--text-muted)]">{formatDate(item.createdAt)}</TableCell>
                       <TableCell>
                         <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${statusClassName(item.success)}`}>
                           {item.success ? <CheckCircle2 className="h-3.5 w-3.5" /> : <XCircle className="h-3.5 w-3.5" />}
@@ -376,14 +376,14 @@ export function ApiOperationLogsClient() {
                       </TableCell>
                       <TableCell><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${methodClassName(item.method)}`}>{item.method}</span></TableCell>
                       <TableCell className="whitespace-normal align-top">
-                        <p className="truncate font-medium text-slate-950">{item.path}</p>
-                        <p className="mt-1 truncate text-xs text-slate-500">{item.operation ?? item.route ?? item.scope}</p>
+                        <p className="truncate font-medium text-[var(--foreground)]">{item.path}</p>
+                        <p className="mt-1 truncate text-xs text-[var(--text-muted)]">{item.operation ?? item.route ?? item.scope}</p>
                       </TableCell>
-                      <TableCell className="truncate align-top text-slate-600">{formatActor(item)}</TableCell>
-                      <TableCell className="whitespace-nowrap align-top text-slate-600">{item.durationMs ?? 0} ms</TableCell>
-                      <TableCell className="truncate align-top text-xs text-slate-500">{item.requestId}</TableCell>
+                      <TableCell className="truncate align-top text-[var(--text-body)]">{formatActor(item)}</TableCell>
+                      <TableCell className="whitespace-nowrap align-top text-[var(--text-body)]">{item.durationMs ?? 0} ms</TableCell>
+                      <TableCell className="truncate align-top text-xs text-[var(--text-muted)]">{item.requestId}</TableCell>
                       <TableCell>
-                        <Button aria-label="查看接口日志详情" className="size-8 rounded-md !border-slate-200 !bg-white !text-slate-600 hover:!bg-slate-50" onClick={() => void openDetail(item)} size="icon-sm" type="button" variant="outline">
+                        <Button aria-label="查看接口日志详情" className="size-8 rounded-md !border-[var(--border)] !bg-[var(--surface)] !text-[var(--text-body)] hover:!bg-[var(--surface-alt)]" onClick={() => void openDetail(item)} size="icon-sm" type="button" variant="outline">
                           <Eye className="h-4 w-4" />
                         </Button>
                       </TableCell>

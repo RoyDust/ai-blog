@@ -242,11 +242,11 @@ export default function AdminSeriesPage() {
           </div>
         </form>
 
-        <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
+        <section className="overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)]">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] px-4 py-3">
             <div>
-              <h2 className="text-base font-semibold text-slate-950">系列列表</h2>
-              <p className="mt-1 text-xs text-slate-500">共 {filtered.length} 个可用系列</p>
+              <h2 className="text-base font-semibold text-[var(--foreground)]">系列列表</h2>
+              <p className="mt-1 text-xs text-[var(--text-muted)]">共 {filtered.length} 个可用系列</p>
             </div>
             <input
               aria-label="搜索系列"
@@ -259,39 +259,39 @@ export default function AdminSeriesPage() {
 
           <div className="overflow-x-auto">
             <Table className="min-w-[720px] table-fixed">
-              <TableHeader className="border-b border-slate-200 bg-[#f8faf8] shadow-[0_1px_0_rgba(15,23,42,0.06)]">
+              <TableHeader className="border-b border-[var(--border)] bg-[var(--surface-alt)] shadow-[0_1px_0_rgba(15,23,42,0.06)]">
                 <TableRow className="border-0 hover:bg-transparent">
-                  <TableHead className="w-[52%] px-4 py-3.5 text-xs uppercase tracking-wide text-slate-500">系列</TableHead>
-                  <TableHead className="w-[90px] px-4 py-3.5 text-xs uppercase tracking-wide text-slate-500">文章</TableHead>
-                  <TableHead className="w-[90px] px-4 py-3.5 text-xs uppercase tracking-wide text-slate-500">排序</TableHead>
-                  <TableHead className="px-4 py-3.5 text-xs uppercase tracking-wide text-slate-500">操作</TableHead>
+                  <TableHead className="w-[52%] px-4 py-3.5 text-xs uppercase tracking-wide text-[var(--text-muted)]">系列</TableHead>
+                  <TableHead className="w-[90px] px-4 py-3.5 text-xs uppercase tracking-wide text-[var(--text-muted)]">文章</TableHead>
+                  <TableHead className="w-[90px] px-4 py-3.5 text-xs uppercase tracking-wide text-[var(--text-muted)]">排序</TableHead>
+                  <TableHead className="px-4 py-3.5 text-xs uppercase tracking-wide text-[var(--text-muted)]">操作</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="py-8 text-center text-slate-500">
+                    <TableCell colSpan={4} className="py-8 text-center text-[var(--text-muted)]">
                       正在加载系列...
                     </TableCell>
                   </TableRow>
                 ) : filtered.length > 0 ? (
                   filtered.map((row) => (
-                    <TableRow key={row.id} className="border-slate-100 transition-colors hover:bg-slate-50/80">
+                    <TableRow key={row.id} className="border-[var(--border)] transition-colors hover:bg-[var(--surface-alt)]/80">
                       <TableCell className="whitespace-normal px-4 py-4 align-top">
                         <div className="space-y-1">
-                          <div className="font-medium text-slate-950">{row.title}</div>
-                          <div className="font-mono text-xs text-slate-500">/series/{row.slug}</div>
-                          {row.description ? <p className="line-clamp-2 text-xs leading-5 text-slate-500">{row.description}</p> : null}
+                          <div className="font-medium text-[var(--foreground)]">{row.title}</div>
+                          <div className="font-mono text-xs text-[var(--text-muted)]">/series/{row.slug}</div>
+                          {row.description ? <p className="line-clamp-2 text-xs leading-5 text-[var(--text-muted)]">{row.description}</p> : null}
                         </div>
                       </TableCell>
-                      <TableCell className="px-4 py-4 align-top text-slate-500">{row._count.posts}</TableCell>
-                      <TableCell className="px-4 py-4 align-top text-slate-500">{row.order}</TableCell>
+                      <TableCell className="px-4 py-4 align-top text-[var(--text-muted)]">{row._count.posts}</TableCell>
+                      <TableCell className="px-4 py-4 align-top text-[var(--text-muted)]">{row.order}</TableCell>
                       <TableCell className="whitespace-normal px-4 py-4 align-top">
                         <div className="flex flex-wrap items-center gap-3">
-                          <button type="button" className="text-cyan-700 hover:underline" onClick={() => setForm(toForm(row))}>
+                          <button type="button" className="text-[var(--brand)] hover:underline" onClick={() => setForm(toForm(row))}>
                             编辑
                           </button>
-                          <Link className="text-slate-700 hover:text-cyan-700" href={`/series/${row.slug}`}>
+                          <Link className="text-[var(--foreground)] hover:text-[var(--brand)]" href={`/series/${row.slug}`}>
                             预览
                           </Link>
                           <button type="button" className="text-rose-600 hover:underline" onClick={() => void deleteSeries(row)}>
@@ -303,7 +303,7 @@ export default function AdminSeriesPage() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={4} className="py-8 text-center text-slate-500">
+                    <TableCell colSpan={4} className="py-8 text-center text-[var(--text-muted)]">
                       暂无系列
                     </TableCell>
                   </TableRow>

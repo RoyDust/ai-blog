@@ -39,7 +39,7 @@ const severityMeta = {
   SUCCESS: { icon: CircleCheck, className: "bg-emerald-50 text-emerald-700", label: "成功" },
   WARNING: { icon: AlertCircle, className: "bg-amber-50 text-amber-700", label: "警告" },
   ERROR: { icon: XCircle, className: "bg-rose-50 text-rose-700", label: "错误" },
-  INFO: { icon: Info, className: "bg-sky-50 text-sky-700", label: "信息" },
+  INFO: { icon: Info, className: "bg-[color-mix(in_oklab,var(--brand)_10%,var(--surface))] text-[var(--brand)]", label: "信息" },
 } as const;
 
 /**

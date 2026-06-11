@@ -26,7 +26,7 @@ export function AdminTabsBar() {
               key={tab.href}
               className={`group relative flex h-7 items-center gap-1.5 rounded border px-3 text-xs font-medium transition-all duration-200 cursor-pointer ${
                 isActive
-                  ? "bg-blue-50/60 dark:bg-blue-950/20 text-[var(--brand)] border-blue-200 dark:border-blue-900/40"
+                  ? "border-[color-mix(in_oklab,var(--brand)_24%,var(--border))] bg-[color-mix(in_oklab,var(--brand)_10%,var(--surface))] text-[var(--brand)]"
                   : "bg-[var(--surface-alt)] hover:bg-[var(--surface-contrast)]/30 text-[var(--muted)] hover:text-[var(--foreground)] border-[var(--border)]"
               }`}
             >
@@ -48,7 +48,7 @@ export function AdminTabsBar() {
                     e.preventDefault();
                     closeTab(tab.href);
                   }}
-                  className="rounded-full p-0.5 text-[var(--muted)] hover:bg-slate-200 hover:text-slate-800 dark:hover:bg-slate-800 dark:hover:text-slate-200 transition-colors"
+                  className="rounded-full p-0.5 text-[var(--muted)] transition-colors hover:bg-[var(--surface-contrast)] hover:text-[var(--foreground)]"
                   type="button"
                 >
                   <X className="h-3 w-3" />
