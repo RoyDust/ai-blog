@@ -101,7 +101,8 @@ export function PostsListingClient({ initialPosts, initialPagination, filters }:
           initial="hidden"
           animate="visible"
         >
-          <AnimatePresence mode="popLayout" initial={false}>
+          {/* 不设 initial={false}：presence 首挂载抑制会吞掉容器 stagger 入场 */}
+          <AnimatePresence mode="popLayout">
             {posts.map((post) => (
               <motion.div
                 key={post.id}
