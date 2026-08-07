@@ -6,7 +6,6 @@ const generatePostReview = vi.fn()
 const isAutoPublishableReview = vi.fn()
 const publishAiDraftPost = vi.fn()
 const applyAiNewsPostEnhancements = vi.fn()
-const formatAiNewsPostEnhancementWarning = vi.fn()
 const findFirst = vi.fn()
 const updateManyPost = vi.fn()
 const createAiNewsRun = vi.fn()
@@ -26,7 +25,6 @@ vi.mock("@/lib/ai-review", () => ({
 
 vi.mock("@/lib/ai-news-post-processing", () => ({
   applyAiNewsPostEnhancements,
-  formatAiNewsPostEnhancementWarning,
 }))
 
 vi.mock("@/lib/prisma", () => ({
@@ -59,9 +57,6 @@ describe("ai news aggregation", () => {
     }
     delete process.env.GITHUB_TOKEN
     applyAiNewsPostEnhancements.mockResolvedValue({ post: null, applied: [], skipped: [], failed: [] })
-    formatAiNewsPostEnhancementWarning.mockImplementation((result: { failed?: unknown[] }) =>
-      result.failed?.length ? "AI 辅助处理失败：mock" : null,
-    )
   })
 
   afterEach(() => {
@@ -194,7 +189,7 @@ describe("ai news aggregation", () => {
     expect(draft.content.match(/^## 来源链接/gm)).toHaveLength(1)
   })
 
-  test("creates a draft and auto-publishes when AI review passes", async () => {
+  test("creates, enhances, and publishes AI news without review", async () => {
     const rssFetch = vi.fn().mockResolvedValue({
       ok: true,
       text: async () => `<?xml version="1.0"?><rss><channel><item><title>Anthropic 发布研究</title><link>https://example.com/anthropic</link><description>研究摘要</description><pubDate>Wed, 29 Apr 2026 02:00:00 GMT</pubDate></item></channel></rss>`,
@@ -234,8 +229,6 @@ describe("ai news aggregation", () => {
       skipped: [],
       failed: [],
     })
-    generatePostReview.mockResolvedValueOnce({ verdict: "ready", score: 92, summary: "可以发布", checks: [], suggestions: [] })
-    isAutoPublishableReview.mockReturnValueOnce(true)
     publishAiDraftPost.mockResolvedValueOnce({ id: "post-1", published: true })
 
     const { runDailyAiNews } = await import("@/lib/ai-news")
@@ -256,10 +249,8 @@ describe("ai news aggregation", () => {
       }),
     })
     expect(applyAiNewsPostEnhancements).toHaveBeenCalledWith({ postId: "post-1", modelId: undefined })
-    expect(generatePostReview).toHaveBeenCalledWith(expect.objectContaining({
-      slug: "ai-daily-2026-04-29",
-      coverImage: "https://cdn.example.com/ai-daily-cover.png",
-    }))
+    expect(generatePostReview).not.toHaveBeenCalled()
+    expect(isAutoPublishableReview).not.toHaveBeenCalled()
     expect(publishAiDraftPost).toHaveBeenCalledWith({ postId: "post-1" })
     expect(createAiNewsRun).toHaveBeenCalledWith({
       data: expect.objectContaining({
@@ -270,7 +261,16 @@ describe("ai news aggregation", () => {
     })
     expect(updateAiNewsRun).toHaveBeenCalledWith({
       where: { id: "run-1" },
-      data: expect.objectContaining({ status: "SUCCEEDED", sourceCount: 1, failureCount: 0, postId: "post-1", published: true, reviewScore: 92 }),
+      data: expect.objectContaining({
+        status: "SUCCEEDED",
+        sourceCount: 1,
+        failureCount: 0,
+        postId: "post-1",
+        published: true,
+        reviewVerdict: null,
+        reviewScore: null,
+        reviewSummary: null,
+      }),
     })
     expect(result).toMatchObject({
       operation: "created",
@@ -281,7 +281,7 @@ describe("ai news aggregation", () => {
     })
   })
 
-  test("creates a draft from RSS, Hacker News, and GitHub Releases while recording selection metrics and enforcing publish gates", async () => {
+  test("publishes candidate-pipeline news even when former quality gates are not met", async () => {
     const chatUrl = "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"
     const sourceRows = [
       {
@@ -340,8 +340,6 @@ describe("ai news aggregation", () => {
     findFirst.mockResolvedValueOnce(null)
     updateManyPost.mockResolvedValue({ count: 1 })
     createAdminPost.mockResolvedValueOnce({ id: "post-1", title: "2026-04-29 AI 日报：代理与开源更新", slug: "ai-daily-2026-04-29", published: false })
-    generatePostReview.mockResolvedValueOnce({ verdict: "ready", score: 94, summary: "可以发布", checks: [], suggestions: [] })
-    isAutoPublishableReview.mockReturnValueOnce(true)
     publishAiDraftPost.mockResolvedValueOnce({ id: "post-1", published: true })
 
     const textResponse = (text: string, init: { ok?: boolean; status?: number } = {}) => ({
@@ -455,7 +453,9 @@ describe("ai news aggregation", () => {
         content: expect.stringContaining("https://github.com/vercel/ai/releases/tag/v6.0.0"),
       }),
     })
-    expect(publishAiDraftPost).not.toHaveBeenCalled()
+    expect(generatePostReview).not.toHaveBeenCalled()
+    expect(isAutoPublishableReview).not.toHaveBeenCalled()
+    expect(publishAiDraftPost).toHaveBeenCalledWith({ postId: "post-1" })
     expect(updateAiNewsRun).toHaveBeenCalledWith({
       where: { id: "run-1" },
       data: expect.objectContaining({
@@ -480,9 +480,10 @@ describe("ai news aggregation", () => {
         citationCoverage: 1,
         generationMode: "candidate-pipeline",
         postId: "post-1",
-        published: false,
-        reviewScore: 94,
-        reviewSummary: expect.stringContaining("入选候选少于 6 条"),
+        published: true,
+        reviewVerdict: null,
+        reviewScore: null,
+        reviewSummary: null,
       }),
     })
     expect(updateManyPost).toHaveBeenCalledWith({
@@ -491,12 +492,9 @@ describe("ai news aggregation", () => {
     })
     expect(result).toMatchObject({
       operation: "created",
-      published: false,
+      published: true,
       sourceCount: 4,
-      autoReview: {
-        published: false,
-        summary: expect.stringContaining("未自动发布"),
-      },
+      autoReview: null,
       metrics: {
         rawCandidateCount: 4,
         dedupedCandidateCount: 4,
@@ -540,6 +538,30 @@ describe("ai news aggregation", () => {
     })
   })
 
+  test("publishes an existing unpublished daily AI news post before skipping generation", async () => {
+    findFirst.mockResolvedValueOnce({ id: "post-existing", title: "已存在草稿", slug: "ai-daily-2026-04-29", published: false })
+    publishAiDraftPost.mockResolvedValueOnce({ id: "post-existing", published: true })
+
+    const { runDailyAiNews } = await import("@/lib/ai-news")
+    const result = await runDailyAiNews({
+      authorId: "admin-1",
+      date: new Date("2026-04-29T08:00:00Z"),
+      sources: [{ id: "source", name: "Source", feedUrl: "https://example.com/feed.xml" }],
+      fetchImpl: vi.fn() as unknown as typeof fetch,
+    })
+
+    expect(publishAiDraftPost).toHaveBeenCalledWith({ postId: "post-existing" })
+    expect(updateAiNewsRun).toHaveBeenCalledWith({
+      where: { id: "run-1" },
+      data: expect.objectContaining({ status: "SKIPPED", postId: "post-existing", published: true }),
+    })
+    expect(result).toMatchObject({
+      operation: "skipped",
+      published: true,
+      post: { id: "post-existing", published: true },
+    })
+  })
+
   test("regenerates an existing daily AI news post when requested", async () => {
     const rssFetch = vi.fn().mockResolvedValue({
       ok: true,
@@ -557,9 +579,6 @@ describe("ai news aggregation", () => {
     }) as typeof fetch
     findFirst.mockResolvedValueOnce({ id: "post-existing", title: "旧日报", slug: "ai-daily-2026-04-29", published: true })
     updateAdminPost.mockResolvedValueOnce({ id: "post-existing", slug: "ai-daily-2026-04-29", published: true })
-    generatePostReview.mockResolvedValueOnce({ verdict: "ready", score: 93, summary: "可以发布", checks: [], suggestions: [] })
-    isAutoPublishableReview.mockReturnValueOnce(true)
-
     const { runDailyAiNews } = await import("@/lib/ai-news")
     const result = await runDailyAiNews({
       authorId: "admin-1",
@@ -582,6 +601,8 @@ describe("ai news aggregation", () => {
       }),
     })
     expect(publishAiDraftPost).not.toHaveBeenCalled()
+    expect(generatePostReview).not.toHaveBeenCalled()
+    expect(isAutoPublishableReview).not.toHaveBeenCalled()
     expect(updateAiNewsRun).toHaveBeenCalledWith({
       where: { id: "run-1" },
       data: expect.objectContaining({ status: "SUCCEEDED", postId: "post-existing", postTitle: "2026-04-29 AI 日报：重新生成", published: true }),
@@ -590,47 +611,6 @@ describe("ai news aggregation", () => {
       operation: "regenerated",
       published: true,
       post: { id: "post-existing", slug: "ai-daily-2026-04-29", published: true },
-    })
-  })
-
-  test("records the concrete automatic review failure reason", async () => {
-    const rssFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      text: async () => `<?xml version="1.0"?><rss><channel><item><title>OpenAI 发布新能力</title><link>https://example.com/openai-new</link><description>能力摘要</description><pubDate>Wed, 29 Apr 2026 02:00:00 GMT</pubDate></item></channel></rss>`,
-    })
-    const completionFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        choices: [{ message: { content: JSON.stringify({ title: "2026-04-29 AI 日报", excerpt: "摘要", content: "# 今日摘要\n\n内容" }) } }],
-      }),
-    })
-    const fetchImpl = vi.fn((input: string | URL | Request, init?: RequestInit) => {
-      if (init?.method === "POST") return completionFetch(input, init)
-      return rssFetch(input, init)
-    }) as typeof fetch
-
-    findFirst.mockResolvedValueOnce(null)
-    createAdminPost.mockResolvedValueOnce({ id: "post-1", title: "2026-04-29 AI 日报", slug: "ai-daily-2026-04-29", published: false })
-    generatePostReview.mockRejectedValueOnce(new Error("Review generation returned invalid JSON"))
-
-    const { runDailyAiNews } = await import("@/lib/ai-news")
-    const result = await runDailyAiNews({
-      authorId: "admin-1",
-      date: new Date("2026-04-29T08:00:00Z"),
-      sources: [{ id: "openai", name: "OpenAI", feedUrl: "https://example.com/feed.xml" }],
-      fetchImpl,
-    })
-
-    expect(updateAiNewsRun).toHaveBeenCalledWith({
-      where: { id: "run-1" },
-      data: expect.objectContaining({
-        status: "SUCCEEDED",
-        reviewSummary: "Automatic review failed: Review generation returned invalid JSON",
-      }),
-    })
-    expect(result.autoReview).toEqual({
-      published: false,
-      error: "Automatic review failed: Review generation returned invalid JSON",
     })
   })
 

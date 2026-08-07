@@ -6,7 +6,7 @@
  * 职责：
  * - 手动触发当日 AI 日报生成 / 重生成
  * - 展示可用模型、运行历史、候选新闻与生成结果
- * - 作为人工观察“抓取 → 去重 → 生成 → 审稿 → 发布”流水线的主要界面
+ * - 作为人工观察“抓取 → 去重 → 生成 → 增强 → 发布”流水线的主要界面
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react"
@@ -81,7 +81,6 @@ type RunResult = {
   sourceCount: number
   post?: { id: string; title: string; slug: string; published: boolean }
   generatedBy?: { id: string; name: string; model: string }
-  autoReview?: { verdict?: "ready" | "needs-work"; score?: number; summary?: string; published: boolean; error?: string } | null
   failures?: Array<{ sourceId: string; message: string }>
   metrics?: {
     rawCandidateCount: number
@@ -320,15 +319,11 @@ export default function AdminAiNewsPage() {
       setResult(data.data)
       await loadRunHistory()
       if (data.data.operation === "skipped") {
-        toast.message("今日 AI 日报已存在")
-      } else if (data.data.operation === "regenerated" && data.data.published) {
-        toast.success("AI 日报已重新生成并上线")
+        toast.message("今日 AI 日报已存在并已上线")
       } else if (data.data.operation === "regenerated") {
-        toast.success("AI 日报已重新生成，等待人工检查")
-      } else if (data.data.published) {
-        toast.success("AI 日报已生成并自动上线")
+        toast.success("AI 日报已重新生成并上线")
       } else {
-        toast.success("AI 日报草稿已生成，等待人工检查")
+        toast.success("AI 日报已生成并上线")
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "AI 日报生成失败")
@@ -342,7 +337,7 @@ export default function AdminAiNewsPage() {
       <PageHeader
         eyebrow="AI News"
         title="每日 AI 新闻推送"
-        description="聚合多源候选，筛选高价值 AI 新闻，生成中文日报草稿，并通过 AI 审稿后自动上线。"
+        description="聚合多源候选，筛选高价值 AI 新闻，生成并增强中文日报后直接上线。"
         action={
           <>
             <Button type="button" disabled={running || !selectedModelId} onClick={() => void runNewsGeneration()}>
@@ -355,7 +350,7 @@ export default function AdminAiNewsPage() {
         }
       />
 
-      <WorkspacePanel title="候选策略" description="多源抓取 + 去重评分 + AI 审稿自动上线" className="border border-[var(--border)]">
+      <WorkspacePanel title="候选策略" description="多源抓取 + 去重评分 + 内容增强后直接上线" className="border border-[var(--border)]">
         <div className="grid gap-4 xl:grid-cols-[220px_minmax(280px,360px)_1fr]">
           <label className="space-y-2 text-sm font-medium text-[var(--foreground)]">
             生成日期
@@ -388,7 +383,7 @@ export default function AdminAiNewsPage() {
             </Select>
           </label>
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-muted)] p-4 text-sm text-[var(--muted)]">
-            <p>流程：抓取 RSS/Atom/HN/GitHub → URL 去重 → AI 评分筛选 → 生成 Markdown 日报 → AI 审稿 → 达标自动发布。</p>
+            <p>流程：抓取 RSS/Atom/HN/GitHub → URL 去重 → AI 评分筛选 → 生成 Markdown 日报 → 内容增强 → 直接发布。</p>
             <p className="mt-2">同一天使用固定 slug，重复触发不会重复创建文章。</p>
             <p className="mt-2">重新生成会覆盖同日已存在日报内容，并保留原文章链接。</p>
             <p className="mt-2">
@@ -474,18 +469,6 @@ export default function AdminAiNewsPage() {
                     </Link>
                   ) : null}
                 </div>
-              </div>
-            ) : null}
-
-            {result.autoReview ? (
-              <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-muted)] p-4 text-sm text-[var(--muted)]">
-                {result.autoReview.error ? (
-                  <p>自动审稿失败：{result.autoReview.error}</p>
-                ) : (
-                  <p>
-                    自动审稿：{result.autoReview.verdict} · {result.autoReview.score} 分 · {result.autoReview.summary}
-                  </p>
-                )}
               </div>
             ) : null}
           </div>

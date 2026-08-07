@@ -6,7 +6,7 @@
  * - 规范化、去重、筛选候选内容
  * - 调用模型生成日报草稿
  * - 记录运行状态、质量指标与来源失败信息
- * - 视配置把草稿创建为后台文章，必要时自动发布
+ * - 把生成结果创建为后台文章并直接发布
  *
  * 说明：
  * - 这是“编排层”模块，真正的去重、评分、富化、渲染逻辑拆在子模块中
@@ -29,7 +29,7 @@ import { generateDailyAiNewsEditorialBrief } from "@/lib/ai-news-editorial-compo
 import { calculateCitationCoverage, generateFactCardForCandidate, type AiNewsEnrichedFactCard } from "@/lib/ai-news-enrichment"
 import { fetchAiNewsRawItems } from "@/lib/ai-news-fetchers"
 import { buildDailyAiNewsSlug, dedupeNewsItems, parseNewsFeed, type AiNewsItem, type AiNewsSource } from "@/lib/ai-news-parser"
-import { applyAiNewsPostEnhancements, formatAiNewsPostEnhancementWarning } from "@/lib/ai-news-post-processing"
+import { applyAiNewsPostEnhancements } from "@/lib/ai-news-post-processing"
 import { renderDailyAiNewsMarkdown } from "@/lib/ai-news-renderer"
 import { loadDailyAiNewsSources, loadSelectedDailyAiNewsSources } from "@/lib/ai-news-sources"
 import { scoreAiNewsCandidate, selectScoredCandidates } from "@/lib/ai-news-scoring"
@@ -43,7 +43,6 @@ import type {
   AiNewsSourceFailure,
   AiNewsSourceSnapshot,
 } from "@/lib/ai-news-types"
-import { generatePostReview, isAutoPublishableReview } from "@/lib/ai-review"
 import { prisma } from "@/lib/prisma"
 
 type AiNewsRunTriggerInput = "manual" | "cron"
@@ -517,45 +516,6 @@ function findFactCardForCandidate(
     null
 }
 
-/**
- * Encodes the quality gates that prevent automatic publishing after generation.
- */
-function getDailyAiNewsAutoPublishBlockers({
-  generationMode,
-  selectedCandidateCount,
-  citationCoverage,
-  selectedCandidates,
-  review,
-}: {
-  generationMode: "candidate-pipeline" | "fallback" | "legacy"
-  selectedCandidateCount: number
-  citationCoverage: number | null
-  selectedCandidates: AiNewsScoredCandidate[]
-  review: { verdict: "ready" | "needs-work"; score: number }
-}) {
-  if (generationMode !== "candidate-pipeline") {
-    return []
-  }
-
-  const blockers: string[] = []
-  const severeRiskFlags = new Set(["hallucination", "duplicate"])
-
-  if (selectedCandidateCount < 6) {
-    blockers.push("入选候选少于 6 条")
-  }
-  if ((citationCoverage ?? 0) < 0.9) {
-    blockers.push("引用覆盖率低于 90%")
-  }
-  if (review.verdict !== "ready" || review.score < 88) {
-    blockers.push("审稿结果未达到自动发布门槛")
-  }
-  if (selectedCandidates.some((candidate) => candidate.aiRiskFlags.some((flag) => severeRiskFlags.has(flag.toLowerCase())))) {
-    blockers.push("存在高风险候选标记")
-  }
-
-  return blockers
-}
-
 function serializeSourceFailures(failures: AiNewsSourceFailure[]) {
   return failures.length > 0 ? failures : null
 }
@@ -645,7 +605,7 @@ export async function fetchDailyAiNewsCandidates({
  * 3. 去重、评分、富化、筛选
  * 4. 生成日报草稿
  * 5. 创建或更新后台文章
- * 6. 依据审核结果决定是否自动发布
+ * 6. 完成增强后直接发布
  * 7. 回写运行状态与质量指标
  */
 export async function runDailyAiNews({
@@ -696,6 +656,13 @@ export async function runDailyAiNews({
     })
 
     if (existing && !regenerate) {
+      let published = existing.published
+      if (!published) {
+        await publishAiDraftPost({ postId: existing.id })
+        published = true
+      }
+      const publishedPost = { ...existing, published }
+
       await finishAiNewsRun({
         runId: run.id,
         startedAtMs,
@@ -710,15 +677,15 @@ export async function runDailyAiNews({
           postId: existing.id,
           postTitle: existing.title,
           postSlug: existing.slug,
-          published: existing.published,
+          published,
         },
       })
 
       return {
         operation: "skipped" as const,
         reason: "Daily AI news already exists",
-        published: existing.published,
-        post: existing,
+        published,
+        post: publishedPost,
         sourceCount: 0,
         failures: [],
         run: { id: run.id, status: "SKIPPED" as const },
@@ -866,13 +833,8 @@ export async function runDailyAiNews({
         })
 
     let published = post.published
-    let autoReview:
-      | { verdict: "ready" | "needs-work"; score: number; summary: string; published: boolean; error?: never }
-      | { published: false; error: string; verdict?: never; score?: never; summary?: never }
-      | null = null
     const enhancementResult = await applyAiNewsPostEnhancements({ postId: post.id, modelId })
-    const enhancementWarning = formatAiNewsPostEnhancementWarning(enhancementResult)
-    const reviewPost = enhancementResult.post ?? {
+    const enhancedPost = enhancementResult.post ?? {
       id: post.id,
       title: draft.title,
       slug: draft.slug,
@@ -884,58 +846,12 @@ export async function runDailyAiNews({
       published: post.published,
       coverImage: null,
     }
-    const finalPost = { ...post, ...reviewPost }
+    const finalPost = { ...post, ...enhancedPost }
 
-    try {
-      const review = await generatePostReview({
-        title: reviewPost.title,
-        slug: reviewPost.slug,
-        content: reviewPost.content,
-        coverImage: reviewPost.coverImage ?? undefined,
-      })
-
-      if (review) {
-        const autoPublishBlockers = getDailyAiNewsAutoPublishBlockers({
-          generationMode,
-          selectedCandidateCount,
-          citationCoverage,
-          selectedCandidates,
-          review,
-        })
-
-        if (!published && autoPublishBlockers.length === 0 && isAutoPublishableReview(review)) {
-          await publishAiDraftPost({ postId: post.id })
-          published = true
-        }
-
-        autoReview = {
-          verdict: review.verdict,
-          score: review.score,
-          summary: [
-            review.summary,
-            autoPublishBlockers.length > 0 ? `未自动发布：${autoPublishBlockers.join("；")}` : null,
-            enhancementWarning,
-          ].filter(Boolean).join("；"),
-          published,
-        }
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown review error"
-      autoReview = { published: false, error: `Automatic review failed: ${message}` }
+    if (!published) {
+      await publishAiDraftPost({ postId: post.id })
+      published = true
     }
-
-    const reviewRunData =
-      autoReview && !("error" in autoReview)
-        ? {
-            reviewVerdict: autoReview.verdict,
-            reviewScore: autoReview.score,
-            reviewSummary: autoReview.summary,
-          }
-        : {
-            reviewVerdict: null,
-            reviewScore: null,
-            reviewSummary: autoReview?.error ?? null,
-          }
 
     await finishAiNewsRun({
       runId: run.id,
@@ -956,7 +872,9 @@ export async function runDailyAiNews({
         postTitle: finalPost.title,
         postSlug: finalPost.slug,
         published,
-        ...reviewRunData,
+        reviewVerdict: null,
+        reviewScore: null,
+        reviewSummary: null,
       },
     })
 
@@ -964,7 +882,7 @@ export async function runDailyAiNews({
       operation: existing ? "regenerated" as const : "created" as const,
       published,
       post: { ...finalPost, published },
-      autoReview,
+      autoReview: null,
       sourceCount,
       failures,
       metrics: {
