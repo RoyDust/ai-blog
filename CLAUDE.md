@@ -6,6 +6,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Inkforge 是一个使用 Next.js 16 构建的 AI 内容平台：在博客前台（注册登录、文章、评论、点赞收藏、分类标签、系列、暗黑模式）之上，集成了 AI 写作与选题流水线（摘要 / SEO / 封面生成、AI 新闻自动成文、AI Agent 接入、AI 任务中心）和可观测运营后台（操作日志、站内通知、阅读分析、Newsletter）。
 
+## Agent skills
+
+### Issue tracker
+
+Issues and PRDs are tracked in GitHub Issues for `RoyDust/ai-blog`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Use the default five-label triage vocabulary. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+This is a single-context repo; domain docs are read from root-level `CONTEXT.md` and `docs/adr/` when present. See `docs/agents/domain.md`.
+
 ## 常用命令
 
 ```bash
