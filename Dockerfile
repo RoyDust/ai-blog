@@ -18,6 +18,7 @@ RUN unset HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy all_proxy npm_
  && npm install -g pnpm@10 --registry=https://registry.npmmirror.com/
 RUN unset HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy all_proxy npm_config_proxy npm_config_https_proxy NPM_CONFIG_PROXY NPM_CONFIG_HTTPS_PROXY \
  && pnpm config set registry https://registry.npmmirror.com/ \
+ && pnpm config set @fontsource:registry https://registry.npmjs.org/ \
  && pnpm config set fetch-retries 5 \
  && pnpm config set fetch-retry-factor 2 \
  && pnpm config set fetch-retry-mintimeout 20000 \
@@ -42,7 +43,6 @@ FROM base AS runner
 ENV NODE_ENV=production
 COPY package.json pnpm-lock.yaml ./
 RUN unset HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy all_proxy npm_config_proxy npm_config_https_proxy NPM_CONFIG_PROXY NPM_CONFIG_HTTPS_PROXY \
- && pnpm config set @fontsource:registry https://registry.npmjs.org/ \
  && pnpm install --frozen-lockfile --prod
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
