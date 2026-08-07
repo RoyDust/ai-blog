@@ -105,10 +105,17 @@ const CREATEABLE_SOURCE_TYPES = new Set<AiNewsSourceType>(["RSS", "HACKERNEWS", 
 const BUILT_IN_AI_NEWS_SOURCE_IDS = new Set([
   "openai",
   "anthropic",
+  "google-deepmind",
   "google-ai",
   "meta-ai",
+  "aws-machine-learning",
+  "bair-blog",
+  "mit-ai-news",
+  "simon-willison",
   "hugging-face",
   "techcrunch-ai",
+  "latent-space",
+  "infoq-ai-ml",
   "venturebeat-ai",
   "the-decoder",
   "hackernews-top",
@@ -119,6 +126,7 @@ const BUILT_IN_AI_NEWS_SOURCE_IDS = new Set([
   "github-transformers",
   "github-vllm",
   "github-llama-cpp",
+  "github-ollama",
 ])
 
 const TEST_WINDOW_MS = 48 * 60 * 60 * 1000
