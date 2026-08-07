@@ -116,4 +116,22 @@ describe('getPublishedPostsPage', () => {
       take: 3,
     })
   })
+
+  test('prioritizes non-AI posts while allowing AI posts to fill the home limit', async () => {
+    const { getHomeLatestPosts } = await import('../posts')
+
+    await getHomeLatestPosts(5)
+
+    expect(findMany).toHaveBeenCalledWith({
+      where: { published: true, deletedAt: null },
+      select: expect.objectContaining({ generatedByAiNews: true }),
+      orderBy: [
+        { generatedByAiNews: 'asc' },
+        { featured: 'desc' },
+        { createdAt: 'desc' },
+        { id: 'desc' },
+      ],
+      take: 5,
+    })
+  })
 })

@@ -12,13 +12,12 @@ export const revalidate = 300
 import type { Metadata } from 'next'
 import { HomeAiDailyStrip, HomeLatestPosts } from '@/components/blog'
 import { getBlogSettings } from '@/lib/blog-settings'
-import { POSTS_PAGE_SIZE } from '@/lib/pagination'
-import { getPublishedPostsPage } from '@/lib/posts'
+import { getHomeLatestPosts } from '@/lib/posts'
 import { prisma } from '@/lib/prisma'
 import { buildPageMetadata, buildWebSiteJsonLd } from '@/lib/seo'
 import { JsonLd } from '@/components/seo/JsonLd'
 
-const HOME_LATEST_POST_LIMIT = 10
+const HOME_LATEST_POST_LIMIT = 5
 
 export async function generateMetadata(): Promise<Metadata> {
   const settings = await getBlogSettings()
@@ -36,8 +35,8 @@ export async function generateMetadata(): Promise<Metadata> {
  * 使用 Promise.allSettled 的原因是：即使某一块数据失败，也尽量保住首页其余内容可展示。
  */
 async function getData() {
-  const [postsPageResult, aiDailyResult] = await Promise.allSettled([
-    getPublishedPostsPage({ page: 1, limit: Math.max(POSTS_PAGE_SIZE, 30) }),
+  const [latestPostsResult, aiDailyResult] = await Promise.allSettled([
+    getHomeLatestPosts(HOME_LATEST_POST_LIMIT),
     prisma.post.findMany({
       where: {
         deletedAt: null,
@@ -58,34 +57,25 @@ async function getData() {
     }),
   ])
 
-  if (postsPageResult.status === 'rejected') {
-    console.error('Load home posts error:', postsPageResult.reason)
+  if (latestPostsResult.status === 'rejected') {
+    console.error('Load home posts error:', latestPostsResult.reason)
   }
 
   if (aiDailyResult.status === 'rejected') {
     console.error('Load home AI daily error:', aiDailyResult.reason)
   }
 
-  const postsPage =
-    postsPageResult.status === 'fulfilled'
-      ? postsPageResult.value
-      : {
-          posts: [],
-          pagination: { page: 1, limit: POSTS_PAGE_SIZE, total: 0, totalPages: 0 },
-        }
-
+  const posts = latestPostsResult.status === 'fulfilled' ? latestPostsResult.value : []
   const aiDailyPosts = aiDailyResult.status === 'fulfilled' ? aiDailyResult.value : []
 
   return {
-    ...postsPage,
+    posts,
     aiDailyPosts,
     hasLoadError:
-      postsPageResult.status === 'rejected' ||
+      latestPostsResult.status === 'rejected' ||
       aiDailyResult.status === 'rejected',
   }
 }
-
-type HomePost = Awaited<ReturnType<typeof getData>>['posts'][number]
 
 /**
  * 前台首页入口。
@@ -93,9 +83,6 @@ type HomePost = Awaited<ReturnType<typeof getData>>['posts'][number]
  */
 export default async function Home() {
   const [{ posts, aiDailyPosts, hasLoadError }, settings] = await Promise.all([getData(), getBlogSettings()])
-  const latestPosts = (posts as HomePost[])
-    .filter((post) => !post.generatedByAiNews)
-    .slice(0, HOME_LATEST_POST_LIMIT)
   const websiteJsonLd = buildWebSiteJsonLd({
     siteName: settings.siteName,
     siteUrl: settings.siteUrl,
@@ -115,7 +102,7 @@ export default async function Home() {
       ) : null}
 
       <HomeAiDailyStrip posts={aiDailyPosts} />
-      <HomeLatestPosts posts={latestPosts.length > 0 ? latestPosts : (posts as HomePost[]).slice(0, HOME_LATEST_POST_LIMIT)} />
+      <HomeLatestPosts posts={posts} />
     </div>
   )
 }

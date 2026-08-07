@@ -114,6 +114,23 @@ export async function getFeaturedPosts(limit = 3) {
 }
 
 /**
+ * 获取首页最新文章，优先展示人工文章；数量不足时再用 AI 日报文章补足。
+ */
+export async function getHomeLatestPosts(limit: number) {
+  return prisma.post.findMany({
+    where: { published: true, deletedAt: null },
+    select: getPublicPostSelect(),
+    orderBy: [
+      { generatedByAiNews: 'asc' },
+      { featured: 'desc' },
+      { createdAt: 'desc' },
+      { id: 'desc' },
+    ],
+    take: limit,
+  }) as unknown as Promise<PublicPostRecord[]>
+}
+
+/**
  * 获取已发布文章分页结果。
  * 支持按分类、标签和关键字过滤，供首页、归档页与搜索页复用。
  */

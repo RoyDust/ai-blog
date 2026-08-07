@@ -60,8 +60,19 @@ describe('home reader flow', () => {
   })
 
   test('home shows Fuwari-style AI daily strip and latest feed', async () => {
+    const nonAiPosts = Array.from({ length: 6 }, (_, index) => createPost(index + 4))
+    const mixedPosts = [
+      ...nonAiPosts.slice(0, 4),
+      ...Array.from({ length: 7 }, (_, index) => ({
+        ...createPost(index + 8),
+        generatedByAiNews: true,
+      })),
+    ]
+
     postFindMany
-      .mockResolvedValueOnce(Array.from({ length: 11 }, (_, index) => createPost(index + 4)))
+      .mockImplementationOnce(
+        async (args) => args?.orderBy?.[0]?.generatedByAiNews === 'asc' ? mixedPosts.slice(0, 5) : mixedPosts,
+      )
       .mockResolvedValueOnce([createPost(1), createPost(2), createPost(3)])
 
     const { default: Home } = await import('../(public)/page')
@@ -70,6 +81,15 @@ describe('home reader flow', () => {
 
     expect(screen.getByRole('heading', { name: 'AI 日报' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: '查看全部' })).toHaveAttribute('href', '/series/ai-daily')
+    expect(postFindMany.mock.calls[0]?.[0]).toMatchObject({
+      orderBy: [
+        { generatedByAiNews: 'asc' },
+        { featured: 'desc' },
+        { createdAt: 'desc' },
+        { id: 'desc' },
+      ],
+      take: 5,
+    })
     expect(postFindMany.mock.calls[1]?.[0]?.take).toBe(5)
     expect(screen.getByRole('heading', { name: '最新文章' })).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: '目录预览' })).not.toBeInTheDocument()
@@ -83,9 +103,9 @@ describe('home reader flow', () => {
     const latest = within(latestSection!)
 
     expect(latest.getByRole('heading', { name: 'Test Post 4' })).toBeInTheDocument()
-    expect(latest.getByRole('heading', { name: 'Test Post 13' })).toBeInTheDocument()
-    expect(latest.getAllByRole('article')).toHaveLength(10)
-    expect(latest.queryByRole('heading', { name: 'Test Post 14' })).not.toBeInTheDocument()
+    expect(latest.getByRole('heading', { name: 'Test Post 8' })).toBeInTheDocument()
+    expect(latest.getAllByRole('article')).toHaveLength(5)
+    expect(latest.queryByRole('heading', { name: 'Test Post 9' })).not.toBeInTheDocument()
     expect(latest.queryByRole('heading', { name: 'Test Post 2' })).not.toBeInTheDocument()
     expect(latest.queryByRole('heading', { name: 'Test Post 3' })).not.toBeInTheDocument()
 
