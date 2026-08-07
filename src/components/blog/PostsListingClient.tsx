@@ -97,6 +97,7 @@ export function PostsListingClient({ initialPosts, initialPagination, filters }:
         ))
       ) : posts.length > 0 ? (
         <motion.div
+          className="grid gap-2 md:gap-3"
           variants={postListContainerVariants}
           initial="hidden"
           animate="visible"

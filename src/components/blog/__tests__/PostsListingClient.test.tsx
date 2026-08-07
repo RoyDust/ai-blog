@@ -139,6 +139,7 @@ describe('PostsListingClient', () => {
 
     expect(screen.getAllByText('精选文章')).toHaveLength(2)
     expect(screen.getByTestId('posts-listing')).toHaveClass('reader-section')
+    expect(screen.getByTestId('posts-listing').firstElementChild).toHaveClass('grid', 'gap-2', 'md:gap-3')
 
     // 所有 6 篇文章均已渲染（Motion variants 不限制渲染数量）
     for (const id of ['1', '2', '3', '4', '5', '6']) {
