@@ -56,7 +56,7 @@ export function ArticleToc({ headings }: ArticleTocProps) {
                 href={`#${heading.id}`}
               >
                 <span className="relative mt-2 flex h-2 w-2 shrink-0 items-center justify-center">
-                  <span className="h-2 w-2 rounded-full border border-[var(--accent-sky)] bg-[var(--reader-panel-elevated)] transition-colors group-hover:bg-[var(--accent-warm)]" />
+                  <span className="h-2 w-2 rounded-full border border-[var(--accent-sky)] bg-[var(--reader-panel-elevated)] transition-colors group-hover:bg-[var(--accent-sky)]" />
                   {isActive && (
                     <motion.span
                       layoutId="toc-active-dot"

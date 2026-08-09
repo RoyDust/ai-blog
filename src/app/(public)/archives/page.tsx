@@ -93,7 +93,7 @@ export default async function ArchivesPage() {
                     <article key={post.id} className="reader-feed-card ml-2 p-4">
                       <div className="mb-2 flex flex-wrap items-center gap-3 text-xs text-[var(--text-muted)]">
                         <span className="inline-flex items-center gap-1">
-                          <Clock3 className="h-3.5 w-3.5 text-[var(--accent-warm)]" />
+                          <Clock3 className="h-3.5 w-3.5 text-[var(--accent-sky)]" />
                           {formatDate(new Date(post.createdAt))}
                         </span>
                         {post.category ? (
@@ -103,7 +103,7 @@ export default async function ArchivesPage() {
                         ) : null}
                       </div>
 
-                      <Link href={`/posts/${post.slug}`} className="text-90 text-lg font-semibold leading-snug transition hover:text-[var(--accent-warm)]">
+                      <Link href={`/posts/${post.slug}`} className="text-90 text-lg font-semibold leading-snug transition hover:text-[var(--accent-sky)]">
                         {post.title}
                       </Link>
 

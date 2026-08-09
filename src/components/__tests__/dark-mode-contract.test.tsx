@@ -18,18 +18,21 @@ test('theme toggle uses semantic token-driven icon styling', () => {
   expect(source).not.toMatch(/dark:text-/)
 })
 
-test('theme toggle animates from the icon center with reduced motion fallback', () => {
+test('theme toggle uses a compositor-friendly crossfade with reduced motion fallback', () => {
   const providerSource = readSource('src/components/ThemeProvider.tsx')
   const animationSource = readSource('src/styles/animations.css')
 
   expect(providerSource).toContain('startViewTransition')
-  expect(providerSource).toContain('--theme-transition-x')
-  expect(providerSource).toContain('--theme-transition-y')
-  expect(providerSource).toContain('--theme-transition-radius')
   expect(providerSource).toContain('prefers-reduced-motion: reduce')
-  expect(animationSource).toContain('theme-circle-reveal')
+  expect(providerSource).not.toContain('getTransitionRadius')
+  expect(animationSource).toContain('theme-crossfade-in')
   expect(animationSource).toContain('html.theme-transitioning::view-transition-new(root)')
-  expect(animationSource).toContain('clip-path: circle')
+  expect(animationSource).toContain('overflow-x: clip')
+  expect(animationSource).toContain('html.theme-transitioning *')
+  expect(animationSource).toContain('transition-property: opacity, transform !important')
+  expect(animationSource).toContain('view-transition-name: none !important')
+  expect(animationSource).not.toContain('clip-path: circle')
+  expect(animationSource).not.toContain('filter: blur')
   expect(animationSource).toContain('@media (prefers-reduced-motion: reduce)')
 })
 

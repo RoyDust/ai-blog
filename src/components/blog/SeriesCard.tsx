@@ -52,7 +52,7 @@ export function SeriesCard({ series }: SeriesCardProps) {
 
             <Link
               href={`/series/${series.slug}`}
-              className="text-90 block text-2xl font-black leading-tight transition group-hover:text-[var(--accent-warm)]"
+              className="text-90 block text-2xl font-bold leading-tight transition group-hover:text-[var(--accent-sky)]"
               style={{ viewTransitionName: getSeriesViewTransitionName("title", series.slug) }}
             >
               {series.title}

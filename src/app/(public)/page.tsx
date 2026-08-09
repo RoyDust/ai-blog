@@ -10,7 +10,7 @@ export const revalidate = 300
  */
 
 import type { Metadata } from 'next'
-import { HomeAiDailyStrip, HomeLatestPosts } from '@/components/blog'
+import { HomeAiDailyStrip, HomeEditorialHero, HomeLatestPosts } from '@/components/blog'
 import { getBlogSettings } from '@/lib/blog-settings'
 import { getHomeLatestPosts } from '@/lib/posts'
 import { prisma } from '@/lib/prisma'
@@ -101,8 +101,13 @@ export default async function Home() {
         </section>
       ) : null}
 
+      <HomeEditorialHero
+        post={posts[0] ?? null}
+        siteDescription={settings.siteDescription}
+        siteName={settings.siteName}
+      />
       <HomeAiDailyStrip posts={aiDailyPosts} />
-      <HomeLatestPosts posts={posts} />
+      <HomeLatestPosts posts={posts.slice(1)} />
     </div>
   )
 }

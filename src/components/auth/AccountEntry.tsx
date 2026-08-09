@@ -79,7 +79,7 @@ export function AccountEntry() {
       <>
         <button
           aria-label="登录账号"
-          className="reader-icon-btn text-current hover:text-[var(--accent-warm)]"
+          className="reader-icon-btn text-current hover:text-[var(--accent-sky)]"
           onClick={() => setLoginOpen(true)}
           title="登录账号"
           type="button"
@@ -96,7 +96,7 @@ export function AccountEntry() {
       <DropdownMenu.Trigger asChild>
         <button
           aria-label="账号菜单"
-          className="reader-icon-btn overflow-hidden p-0 text-current hover:text-[var(--accent-warm)]"
+          className="reader-icon-btn overflow-hidden p-0 text-current hover:text-[var(--accent-sky)]"
           title={displayName}
           type="button"
         >

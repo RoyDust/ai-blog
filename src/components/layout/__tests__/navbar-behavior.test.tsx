@@ -25,17 +25,22 @@ beforeEach(() => {
   useSession.mockReturnValue({ data: null, status: "unauthenticated" });
 });
 
-test("navbar renders a reader floating shell with a wide desktop search", () => {
+test("navbar keeps its desktop navigation centered with a flexible search slot", () => {
   const { container } = render(<Navbar />);
 
-  const desktopSearch = Array.from(container.querySelectorAll('input[type="search"][name="q"]')).find((node) =>
-    (node as HTMLInputElement).className.includes("lg:w-36")
-  ) as HTMLInputElement | undefined;
+  const readerNav = container.querySelector(".reader-nav");
+  const searchSlot = container.querySelector(".reader-nav-search");
+  const desktopSearch = container.querySelector('form[role="search"] input[type="search"][name="q"]');
 
-  expect(container.querySelector(".reader-nav")).toBeTruthy();
-  expect(desktopSearch).toBeTruthy();
-  expect(desktopSearch?.className).toContain("lg:w-36");
-  expect(desktopSearch?.className).toContain("xl:w-40");
+  expect(readerNav).toBeTruthy();
+  expect(readerNav?.className).toContain("md:grid");
+  expect(readerNav?.className).toContain("md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]");
+  expect(searchSlot).toBeTruthy();
+  expect(searchSlot?.className).toContain("flex-1");
+  expect(searchSlot?.className).toMatch(
+    /(?:^|\s)(?:md:|lg:|xl:)?max-w-(?:xs|sm|md|\[[^\s]+\])(?:\s|$)/,
+  );
+  expect(searchSlot?.querySelector('input[type="search"][name="q"]')).toBe(desktopSearch);
   expect(desktopSearch?.className).toContain("var(--reader-panel-muted)");
   expect(desktopSearch?.closest("form")?.getAttribute("method")).toBe("get");
   expect(container.querySelector('a[href="/archives"]')).toBeTruthy();

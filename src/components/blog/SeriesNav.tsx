@@ -40,7 +40,7 @@ export function SeriesNav({ series, currentSlug, posts }: SeriesNavProps) {
       </div>
       <div className="h-1 w-full overflow-hidden rounded-full bg-[var(--reader-border)]" aria-hidden="true">
         <div
-          className="h-full rounded-full bg-[var(--accent-warm)] transition-[width] duration-300"
+          className="h-full rounded-full bg-[var(--accent-sky)] transition-[width] duration-300"
           data-testid="series-progress-bar"
           style={{ width: `${progressPercent}%` }}
         />
@@ -56,7 +56,7 @@ export function SeriesNav({ series, currentSlug, posts }: SeriesNavProps) {
                 aria-current={isCurrent ? "page" : undefined}
                 className={
                   isCurrent
-                    ? "flex min-w-0 items-center gap-3 rounded-xl border border-[var(--accent-warm)] bg-[color:color-mix(in_oklab,var(--accent-warm)_14%,transparent)] px-3 py-2 text-sm font-semibold text-[var(--foreground)]"
+                    ? "flex min-w-0 items-center gap-3 rounded-xl border border-[var(--accent-sky)] bg-[color:color-mix(in_oklab,var(--accent-sky)_14%,transparent)] px-3 py-2 text-sm font-semibold text-[var(--foreground)]"
                     : "flex min-w-0 items-center gap-3 rounded-xl border border-transparent px-3 py-2 text-sm text-[var(--text-muted)] transition hover:border-[var(--reader-border)] hover:text-[var(--foreground)]"
                 }
               >

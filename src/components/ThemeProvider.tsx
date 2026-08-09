@@ -4,10 +4,6 @@ import { createContext, useCallback, useContext, useEffect, useRef, useSyncExter
 import { flushSync } from 'react-dom'
 
 type Theme = 'light' | 'dark'
-type ThemeTransitionOrigin = {
-  x: number
-  y: number
-}
 
 type BrowserViewTransition = {
   finished: Promise<void>
@@ -23,15 +19,19 @@ const THEME_CHANGE_EVENT = 'inkforge-theme-change'
 
 const ThemeContext = createContext<{
   theme: Theme
-  toggleTheme: (origin?: ThemeTransitionOrigin) => void
+  toggleTheme: () => void
 }>({
   theme: DEFAULT_THEME,
   toggleTheme: () => {}
 })
 
 function applyTheme(theme: Theme) {
-  document.documentElement.classList.toggle('dark', theme === 'dark')
-  document.documentElement.style.colorScheme = theme
+  const root = document.documentElement
+
+  root.classList.toggle('dark', theme === 'dark')
+  if (root.style.colorScheme !== theme) root.style.colorScheme = theme
+  if (localStorage.getItem(THEME_STORAGE_KEY) === theme) return
+
   localStorage.setItem(THEME_STORAGE_KEY, theme)
   window.dispatchEvent(new Event(THEME_CHANGE_EVENT))
 }
@@ -64,13 +64,6 @@ function subscribeToTheme(onStoreChange: () => void) {
   }
 }
 
-function getTransitionRadius(origin: ThemeTransitionOrigin) {
-  const farthestX = Math.max(origin.x, window.innerWidth - origin.x)
-  const farthestY = Math.max(origin.y, window.innerHeight - origin.y)
-
-  return Math.hypot(farthestX, farthestY)
-}
-
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const theme = useSyncExternalStore(subscribeToTheme, getStoredTheme, getServerThemeSnapshot)
   const hasAppliedInitialThemeRef = useRef(false)
@@ -91,31 +84,38 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     document.documentElement.style.setProperty("--hue", savedHue);
   }, []);
 
-  const toggleTheme = useCallback((origin?: ThemeTransitionOrigin) => {
+  const toggleTheme = useCallback(() => {
     const currentTheme = getStoredTheme()
     const nextTheme = currentTheme === 'light' ? 'dark' : 'light'
     const transitionDocument = document as ViewTransitionDocument
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
-    if (!origin || !transitionDocument.startViewTransition || prefersReducedMotion || isTransitioningRef.current) {
+    if (isTransitioningRef.current) return
+
+    if (!transitionDocument.startViewTransition || prefersReducedMotion) {
       applyTheme(nextTheme)
       return
     }
 
     const root = document.documentElement
-    const radius = getTransitionRadius(origin)
 
     isTransitioningRef.current = true
-    root.style.setProperty('--theme-transition-x', `${origin.x}px`)
-    root.style.setProperty('--theme-transition-y', `${origin.y}px`)
-    root.style.setProperty('--theme-transition-radius', `${radius}px`)
     root.classList.add('theme-transitioning')
 
-    const transition = transitionDocument.startViewTransition(() => {
-      flushSync(() => {
-        applyTheme(nextTheme)
+    let transition: BrowserViewTransition
+
+    try {
+      transition = transitionDocument.startViewTransition(() => {
+        flushSync(() => {
+          applyTheme(nextTheme)
+        })
       })
-    })
+    } catch {
+      isTransitioningRef.current = false
+      root.classList.remove('theme-transitioning')
+      applyTheme(nextTheme)
+      return
+    }
 
     void transition.finished.then(
       () => {

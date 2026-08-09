@@ -30,13 +30,8 @@
 .home-latest-posts-stage > *:nth-child(1) { animation-delay: 50ms; }
 .home-latest-posts-stage > *:nth-child(2) { animation-delay: 120ms; }
 .home-latest-posts-stage > *:nth-child(3) { animation-delay: 190ms; }
-.home-latest-posts-stage > *:nth-child(4) { animation-delay: 260ms; }
-.home-latest-posts-stage > *:nth-child(5) { animation-delay: 330ms; }
-.home-latest-posts-stage > *:nth-child(6) { animation-delay: 400ms; }
-.home-latest-posts-stage > *:nth-child(7) { animation-delay: 470ms; }
-.home-latest-posts-stage > *:nth-child(8) { animation-delay: 540ms; }
-.home-latest-posts-stage > *:nth-child(9) { animation-delay: 610ms; }
-.home-latest-posts-stage > *:nth-child(10) { animation-delay: 680ms; }
+.home-latest-posts-stage > *:nth-child(4) { animation-delay: 240ms; }
+.home-latest-posts-stage > *:nth-child(n + 5) { animation-delay: 240ms; }
 
 @keyframes home-latest-post-card-enter {
   from {
@@ -53,10 +48,10 @@
   position: relative;
   overflow: hidden;
   transition:
-    background-color 180ms ease,
-    border-color 180ms ease,
-    color 180ms ease,
-    transform 140ms cubic-bezier(0.25, 1, 0.5, 1);
+    background-color 140ms cubic-bezier(0.65, 0, 0.35, 1),
+    border-color 140ms cubic-bezier(0.65, 0, 0.35, 1),
+    color 140ms cubic-bezier(0.65, 0, 0.35, 1),
+    transform 120ms cubic-bezier(0.25, 1, 0.5, 1);
 }
 
 .theme-toggle-btn::after {
@@ -64,12 +59,12 @@
   position: absolute;
   inset: 0.45rem;
   border-radius: inherit;
-  background: radial-gradient(circle, color-mix(in oklab, var(--accent-warm) 32%, transparent), transparent 68%);
+  background: radial-gradient(circle, color-mix(in oklab, var(--accent-sky) 28%, transparent), transparent 68%);
   opacity: 0;
   transform: scale(0.35);
   transition:
-    opacity 160ms ease,
-    transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
+    opacity 120ms cubic-bezier(0.25, 1, 0.5, 1),
+    transform 160ms cubic-bezier(0.22, 1, 0.36, 1);
   pointer-events: none;
 }
 
@@ -89,7 +84,7 @@
   width: 1.25rem;
   height: 1.25rem;
   place-items: center;
-  transition: transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform 160ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .theme-toggle-btn:active .theme-toggle-icon-stack {
@@ -100,40 +95,46 @@
   grid-area: 1 / 1;
   transform-origin: center;
   transition:
-    opacity 220ms ease,
-    filter 220ms ease,
-    transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
-  will-change: opacity, transform;
+    opacity 140ms cubic-bezier(0.25, 1, 0.5, 1),
+    transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .theme-toggle-btn[data-theme="light"] .theme-toggle-icon--moon,
 .theme-toggle-btn[data-theme="dark"] .theme-toggle-icon--sun {
   opacity: 1;
-  filter: blur(0);
   transform: rotate(0deg) scale(1);
 }
 
 .theme-toggle-btn[data-theme="light"] .theme-toggle-icon--sun {
   opacity: 0;
-  filter: blur(0.25px);
-  transform: rotate(96deg) scale(0.55);
+  transform: rotate(72deg) scale(0.72);
 }
 
 .theme-toggle-btn[data-theme="dark"] .theme-toggle-icon--moon {
   opacity: 0;
-  filter: blur(0.25px);
-  transform: rotate(-96deg) scale(0.55);
+  transform: rotate(-72deg) scale(0.72);
+}
+
+html.theme-transitioning {
+  overflow-x: clip;
+}
+
+html.theme-transitioning *,
+html.theme-transitioning *::before,
+html.theme-transitioning *::after {
+  transition-property: opacity, transform !important;
+  view-transition-name: none !important;
 }
 
 html.theme-transitioning::view-transition-group(root) {
-  animation-duration: 540ms;
-  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  animation-duration: 200ms;
+  animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1);
 }
 
 html.theme-transitioning::view-transition-old(root),
 html.theme-transitioning::view-transition-new(root) {
-  animation-duration: 540ms;
-  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  animation-duration: 200ms;
+  animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1);
   mix-blend-mode: normal;
 }
 
@@ -142,17 +143,17 @@ html.theme-transitioning::view-transition-old(root) {
 }
 
 html.theme-transitioning::view-transition-new(root) {
-  animation-name: theme-circle-reveal;
+  animation-name: theme-crossfade-in;
   animation-fill-mode: both;
 }
 
-@keyframes theme-circle-reveal {
+@keyframes theme-crossfade-in {
   from {
-    clip-path: circle(0 at var(--theme-transition-x, 50vw) var(--theme-transition-y, 50vh));
+    opacity: 0;
   }
 
   to {
-    clip-path: circle(var(--theme-transition-radius, 150vmax) at var(--theme-transition-x, 50vw) var(--theme-transition-y, 50vh));
+    opacity: 1;
   }
 }
 

@@ -24,7 +24,7 @@ function AdjacentLink({ label, href, title, align = 'left' }: { label: string; h
           {label}
           {align === 'right' ? <ArrowRight className="h-4 w-4" /> : null}
         </p>
-        <h3 className="text-lg font-bold leading-snug text-[var(--foreground)] transition-colors group-hover:text-[var(--accent-warm)]">{title}</h3>
+        <h3 className="text-lg font-bold leading-snug text-[var(--foreground)] transition-colors group-hover:text-[var(--accent-sky)]">{title}</h3>
       </Link>
     </div>
   )

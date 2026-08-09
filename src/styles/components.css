@@ -128,7 +128,6 @@
     background: var(--reader-nav-surface);
     box-shadow: var(--reader-nav-shadow);
     backdrop-filter: var(--reader-nav-backdrop);
-    view-transition-name: reader-nav-frame;
   }
 
   .reader-panel,
@@ -140,7 +139,6 @@
     border: 1px solid var(--reader-border);
     background: var(--reader-panel);
     box-shadow: var(--reader-shadow-normal);
-    border-radius: 1.5rem;
   }
 
   /* 毛玻璃只留给数量少的浮层与面板；列表卡数量多，blur 叠加在低端设备上掉帧 */
@@ -154,11 +152,15 @@
     background: var(--reader-card-bg, var(--reader-panel));
   }
 
-  .reader-panel,
+  .reader-panel {
+    border-radius: var(--radius-panel);
+    overflow: hidden;
+  }
+
   .reader-card,
   .reader-feed-card,
   .reader-feature-card {
-    border-radius: 1.5rem;
+    border-radius: var(--radius-card);
     overflow: hidden;
   }
 
@@ -215,6 +217,65 @@
     box-shadow: none;
   }
 
+  .reader-shell:has(.reader-home-stage) .reader-side-rail .reader-panel--floating {
+    box-shadow: var(--reader-shadow-normal);
+  }
+
+  .reader-shell:has(.reader-home-stage) {
+    --reader-background-height: 46vh;
+    --reader-page-top: clamp(8.5rem, 16vh, 10.25rem);
+  }
+
+  .reader-shell:has(.reader-home-stage)::after {
+    opacity: 0.045;
+  }
+
+  .reader-shell :where(h1, h2, h3, h4, h5, h6, .font-display) {
+    font-synthesis: none;
+  }
+
+  .home-editorial-hero {
+    box-shadow: var(--reader-shadow-normal);
+  }
+
+  .home-primary-cta {
+    display: inline-flex;
+    min-height: 2.75rem;
+    width: fit-content;
+    align-items: center;
+    justify-content: center;
+    gap: 0.625rem;
+    border: 1px solid color-mix(in oklab, var(--accent-sky) 38%, var(--reader-border));
+    border-radius: 0.75rem;
+    background: color-mix(in oklab, var(--accent-sky) 14%, var(--reader-panel-elevated));
+    color: var(--foreground);
+    font-size: 0.875rem;
+    font-weight: 500;
+    padding: 0.625rem 1rem;
+    white-space: nowrap;
+    transition:
+      background-color 180ms ease,
+      border-color 180ms ease,
+      transform 140ms ease;
+  }
+
+  .home-primary-cta:hover {
+    border-color: color-mix(in oklab, var(--accent-sky) 58%, var(--reader-border));
+    background: color-mix(in oklab, var(--accent-sky) 20%, var(--reader-panel-elevated));
+  }
+
+  .home-primary-cta:active {
+    transform: scale(0.98);
+  }
+
+  .home-compact-post {
+    transition: background-color 180ms ease;
+  }
+
+  .home-compact-post:hover {
+    background: color-mix(in oklab, var(--accent-sky) 4%, transparent);
+  }
+
   .reader-layout-frame {
     view-transition-name: reader-layout-frame;
   }
@@ -259,7 +320,6 @@
 
   .reader-feature-card {
     overflow: hidden;
-    border-radius: 1rem;
     background:
       radial-gradient(80% 120% at 90% 10%, color-mix(in oklab, var(--accent-sky) 13%, transparent), transparent 62%),
       var(--reader-panel-elevated);
@@ -336,7 +396,7 @@
     align-items: center;
     gap: 0.625rem;
     font-size: 1.15rem;
-    font-weight: 800;
+    font-weight: 700;
     letter-spacing: -0.01em;
     color: var(--foreground);
   }
@@ -347,6 +407,14 @@
     height: 1.1rem;
     border-radius: 999px;
     background: var(--accent-sky);
+  }
+
+  .reader-section-heading--plain {
+    gap: 0;
+  }
+
+  .reader-section-heading--plain::before {
+    display: none;
   }
 
   .reader-card-action {
@@ -390,6 +458,19 @@
 
     .reader-card-action {
       width: 2.75rem;
+    }
+  }
+
+  @media (max-width: 767px) {
+    .reader-shell:has(.reader-home-stage)::after {
+      position: absolute;
+      inset: 0 0 auto;
+      height: var(--reader-background-height);
+    }
+
+    .reader-shell:has(.reader-home-stage) {
+      --reader-background-height: 36vh;
+      --reader-page-top: clamp(5rem, 12vh, 6.25rem);
     }
   }
 

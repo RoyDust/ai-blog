@@ -19,17 +19,24 @@ test('renders a GET search form targeting the search page', () => {
   expect(button.className).toContain('bg-[var(--primary)]')
 })
 
-test('renders a navbar variant with wide desktop search and native search semantics', () => {
+test('fills its navbar slot without breakpoint width steps and keeps native search semantics', () => {
   const { container } = render(<SearchForm compact appearance="navbar" />)
 
-  const form = container.querySelector('form')
-  const input = within(form as HTMLFormElement).getByRole('searchbox', { name: '搜索站内内容' })
+  const form = screen.getByRole('search')
+  const input = within(form).getByRole('searchbox', { name: '搜索站内内容' })
+  const inputWrapper = input.parentElement
   const button = container.querySelector('button[type="submit"]')
 
   expect(form?.getAttribute('method')).toBe('get')
   expect(form?.getAttribute('action')).toBe('/search')
   expect(input.getAttribute('type')).toBe('search')
-  expect(input.className).toContain('lg:w-36')
-  expect(input.className).toContain('xl:w-40')
+  expect(form.className).toContain('w-full')
+  expect(inputWrapper?.className).toContain('w-full')
+  expect(input.className).toContain('w-full')
+  expect(input.className).not.toMatch(/(?:^|\s)(?:lg|xl|2xl):w-[^\s]+/)
+  expect(input.className).toContain('transition-[background-color,border-color,box-shadow]')
+  expect(input.className).toContain('duration-200')
+  expect(input.className).toContain('ease-out')
+  expect(input.className).not.toMatch(/transition-\[[^\]]*(?:width|max-width)[^\]]*\]/)
   expect(button).toBeNull()
 })

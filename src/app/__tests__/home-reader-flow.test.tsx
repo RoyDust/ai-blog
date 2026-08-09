@@ -34,6 +34,8 @@ describe('home reader flow', () => {
     coverImage: null,
     featured: false,
     createdAt: new Date(Date.UTC(2026, 0, index)),
+    readingTimeMinutes: index + 4,
+    viewCount: index * 10,
     author: { id: `u${index}`, name: 'Author', image: null },
     category: { name: 'Category', slug: 'category' },
     tags: [{ name: 'Tag', slug: 'tag' }],
@@ -59,8 +61,11 @@ describe('home reader flow', () => {
     cleanup()
   })
 
-  test('home shows Fuwari-style AI daily strip and latest feed', async () => {
-    const nonAiPosts = Array.from({ length: 6 }, (_, index) => createPost(index + 4))
+  test('home shows one editorial H1, a lead-story CTA, AI daily, and the compact latest feed', async () => {
+    const nonAiPosts = Array.from({ length: 6 }, (_, index) => ({
+      ...createPost(index + 4),
+      ...(index === 0 ? { coverImage: '/images/test-post-4.jpg' } : {}),
+    }))
     const mixedPosts = [
       ...nonAiPosts.slice(0, 4),
       ...Array.from({ length: 7 }, (_, index) => ({
@@ -78,6 +83,18 @@ describe('home reader flow', () => {
     const { default: Home } = await import('../(public)/page')
     const ui = await Home()
     const { container } = render(ui as React.ReactElement)
+
+    const h1 = screen.getAllByRole('heading', { level: 1 })
+    expect(h1).toHaveLength(1)
+    expect(h1[0]).toHaveTextContent('My Blog')
+
+    const editorialHero = screen.getByTestId('home-editorial-hero')
+    expect(editorialHero).toHaveClass('home-editorial-hero')
+    expect(within(editorialHero).getByRole('link', { name: '阅读精选' })).toHaveAttribute(
+      'href',
+      '/posts/test-post-4',
+    )
+    expect(within(editorialHero).getByRole('img', { name: 'Test Post 4' })).toBeInTheDocument()
 
     expect(screen.getByRole('heading', { name: 'AI 日报' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: '查看全部' })).toHaveAttribute('href', '/series/ai-daily')
@@ -102,9 +119,10 @@ describe('home reader flow', () => {
 
     const latest = within(latestSection!)
 
-    expect(latest.getByRole('heading', { name: 'Test Post 4' })).toBeInTheDocument()
+    expect(latest.queryByRole('heading', { name: 'Test Post 4' })).not.toBeInTheDocument()
+    expect(latest.getByRole('heading', { name: 'Test Post 5' })).toBeInTheDocument()
     expect(latest.getByRole('heading', { name: 'Test Post 8' })).toBeInTheDocument()
-    expect(latest.getAllByRole('article')).toHaveLength(5)
+    expect(latest.getAllByRole('article')).toHaveLength(4)
     expect(latest.queryByRole('heading', { name: 'Test Post 9' })).not.toBeInTheDocument()
     expect(latest.queryByRole('heading', { name: 'Test Post 2' })).not.toBeInTheDocument()
     expect(latest.queryByRole('heading', { name: 'Test Post 3' })).not.toBeInTheDocument()
@@ -121,7 +139,7 @@ describe('home reader flow', () => {
 
   test('home keeps latest feed when only two posts exist', async () => {
     postFindMany
-      .mockResolvedValueOnce([createPost(3), createPost(4)])
+      .mockResolvedValueOnce([{ ...createPost(3), coverImage: '/images/test-post-3.jpg' }, createPost(4)])
       .mockResolvedValueOnce([{ ...createPost(1), slug: 'ai-daily-2026-01-01', generatedByAiNews: true }])
     postCount.mockResolvedValueOnce(2)
 
@@ -130,12 +148,13 @@ describe('home reader flow', () => {
     render(ui as React.ReactElement)
 
     expect(screen.getByRole('link', { name: /Test Post 1/ })).toHaveAttribute('href', '/posts/ai-daily-2026-01-01')
+    expect(screen.getByRole('link', { name: '阅读精选' })).toHaveAttribute('href', '/posts/test-post-3')
     expect(screen.getByRole('heading', { name: '最新文章' })).toBeInTheDocument()
 
     const latestSection = screen.getByRole('heading', { name: '最新文章' }).closest('section')
     expect(latestSection).not.toBeNull()
     const latest = within(latestSection!)
-    expect(latest.getByRole('heading', { name: 'Test Post 3' })).toBeInTheDocument()
+    expect(latest.queryByRole('heading', { name: 'Test Post 3' })).not.toBeInTheDocument()
     expect(latest.getByRole('heading', { name: 'Test Post 4' })).toBeInTheDocument()
   })
 
@@ -160,7 +179,7 @@ describe('home reader flow', () => {
     render(ui as React.ReactElement)
 
     expect(screen.queryByRole('heading', { name: 'AI 日报' })).not.toBeInTheDocument()
-    expect(screen.getAllByRole('heading', { name: 'Test Post 1' }).length).toBeGreaterThan(0)
+    expect(within(screen.getByTestId('home-editorial-hero')).getByText('Test Post 1')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: '最新文章' })).toBeInTheDocument()
   })
 
@@ -173,6 +192,8 @@ describe('home reader flow', () => {
     const ui = await Home()
     render(ui as React.ReactElement)
 
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
+    expect(screen.queryByRole('link', { name: '阅读精选' })).not.toBeInTheDocument()
     expect(screen.getByRole('heading', { name: '最新文章' })).toBeInTheDocument()
     expect(screen.getByText('最新文章区会保留当前位置，避免首页在空数据时突然塌陷。')).toBeInTheDocument()
   })

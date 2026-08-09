@@ -90,7 +90,7 @@ export function ArticleHero({
 
           <div className="space-y-4">
             <h1
-              className="font-display text-4xl font-extrabold leading-tight text-white md:text-5xl lg:text-6xl"
+              className="font-display text-4xl font-bold leading-tight text-white md:text-5xl lg:text-6xl"
               style={{ viewTransitionName: getPostViewTransitionName("title", slug) }}
             >
               {title}

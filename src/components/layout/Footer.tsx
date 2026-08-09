@@ -25,7 +25,7 @@ export function Footer({
         <div className="reader-panel p-5 md:p-6">
           <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
             <div className="max-w-xl space-y-2">
-              <p className="ui-kicker text-[var(--accent-warm)]">{siteName}</p>
+              <p className="ui-kicker">{siteName}</p>
               <p className="text-75 text-sm leading-7">
                 {siteDescription}
               </p>

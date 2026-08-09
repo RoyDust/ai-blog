@@ -31,16 +31,16 @@ export default function ContactPage() {
 
       <aside className="reader-panel h-fit space-y-5 p-5" aria-label="联系说明">
         <div className="flex items-center gap-2">
-          <MessageSquareText aria-hidden="true" className="h-5 w-5 text-[var(--accent-cyan)]" />
+          <MessageSquareText aria-hidden="true" className="h-5 w-5 text-[var(--accent-sky)]" />
           <h2 className="font-display text-lg font-semibold text-[var(--foreground)]">适合发来的内容</h2>
         </div>
         <ul className="space-y-3 text-sm leading-6 text-[var(--text-body)]">
           <li className="flex gap-2">
-            <Send aria-hidden="true" className="mt-1 h-4 w-4 shrink-0 text-[var(--accent-warm)]" />
+            <Send aria-hidden="true" className="mt-1 h-4 w-4 shrink-0 text-[var(--accent-sky)]" />
             内容合作、项目交流、技术问题或文章反馈。
           </li>
           <li className="flex gap-2">
-            <Mail aria-hidden="true" className="mt-1 h-4 w-4 shrink-0 text-[var(--accent-warm)]" />
+            <Mail aria-hidden="true" className="mt-1 h-4 w-4 shrink-0 text-[var(--accent-sky)]" />
             表单只会唤起本地邮件客户端，不会把内容保存到服务器。
           </li>
         </ul>

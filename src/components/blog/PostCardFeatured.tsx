@@ -99,7 +99,7 @@ export function PostCardFeatured({ post }: PostCardFeaturedProps) {
             />
             <Link
               href={`/posts/${post.slug}`}
-              className="inline-flex w-fit items-center gap-2 rounded-full border border-[color:color-mix(in_oklab,var(--accent-warm)_38%,var(--reader-border))] bg-[color:color-mix(in_oklab,var(--accent-warm)_16%,transparent)] px-4 py-2 text-sm font-semibold text-[color:color-mix(in_oklab,var(--accent-warm)_80%,var(--foreground)_20%)] transition hover:border-[color:color-mix(in_oklab,var(--accent-warm)_58%,var(--reader-border))] hover:bg-[color:color-mix(in_oklab,var(--accent-warm)_22%,transparent)]"
+              className="inline-flex w-fit items-center gap-2 rounded-full border border-[color:color-mix(in_oklab,var(--accent-sky)_38%,var(--reader-border))] bg-[color:color-mix(in_oklab,var(--accent-sky)_16%,transparent)] px-4 py-2 text-sm font-semibold text-[color:color-mix(in_oklab,var(--accent-sky)_80%,var(--foreground)_20%)] transition hover:border-[color:color-mix(in_oklab,var(--accent-sky)_58%,var(--reader-border))] hover:bg-[color:color-mix(in_oklab,var(--accent-sky)_22%,transparent)]"
             >
               继续阅读
               <ArrowRight aria-hidden="true" className="h-4 w-4" />

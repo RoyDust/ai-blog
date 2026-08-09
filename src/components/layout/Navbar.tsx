@@ -14,7 +14,7 @@ import { HuePicker } from "@/components/ui/HuePicker";
 import { useScrollHide } from "@/hooks/useScrollHide";
 import { cn } from "@/lib/cn";
 import { LayoutGroup, motion } from "motion/react";
-import { panelTransition } from "@/components/motion/transitions";
+import { headerResizeTransition, panelTransition } from "@/components/motion/transitions";
 
 const navLinks = [
   { name: "首页", href: "/", icon: Home },
@@ -63,18 +63,29 @@ export function Navbar({ siteName = "My Blog" }: NavbarProps) {
       id="navbar"
       className={`onload-animation sticky top-0 z-50 px-3 pt-[var(--reader-nav-offset)] pb-2 transition-transform duration-300 sm:px-4 ${isHidden ? "-translate-y-full" : "translate-y-0"}`}
     >
-      <div className="reader-nav relative mx-auto flex h-[var(--reader-nav-height)] w-full max-w-[var(--page-width)] items-center justify-between gap-2 px-3 sm:gap-3 sm:px-4">
-        <Link
-          href="/"
-          className="reader-link inline-flex h-10 shrink-0 items-center gap-2 rounded-lg px-2 text-sm font-bold text-[var(--foreground)] transition-colors hover:bg-accent-sky-10 focus-visible:bg-accent-sky-14"
-        >
-          <span className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-lg border border-accent-sky-34 bg-accent-sky-16">
-            <Image alt="" aria-hidden="true" className="h-full w-full object-cover" height={28} priority src="/icons/icon-192.png" width={28} />
-          </span>
-          <span className="min-w-0 truncate text-[0.92rem] tracking-normal">{siteName}</span>
-        </Link>
+      <motion.div
+        layout
+        transition={headerResizeTransition}
+        className="reader-nav relative mx-auto flex h-[var(--reader-nav-height)] w-full max-w-[var(--page-width)] items-center justify-between gap-2 px-3 sm:gap-3 sm:px-4 md:grid md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]"
+      >
+        <motion.div layout="position" transition={headerResizeTransition} className="min-w-0 justify-self-start">
+          <Link
+            href="/"
+            className="reader-link inline-flex h-10 min-w-0 max-w-full shrink-0 items-center gap-2 rounded-lg px-2 text-sm font-bold text-[var(--foreground)] transition-colors hover:bg-accent-sky-10 focus-visible:bg-accent-sky-14"
+          >
+            <span className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-lg border border-accent-sky-34 bg-accent-sky-16">
+              <Image alt="" aria-hidden="true" className="h-full w-full object-cover" height={28} priority src="/icons/icon-192.png" width={28} />
+            </span>
+            <span className="min-w-0 truncate text-[0.92rem] tracking-normal">{siteName}</span>
+          </Link>
+        </motion.div>
 
-        <nav className="hidden min-w-0 items-center justify-center md:flex" aria-label="Primary">
+        <motion.nav
+          layout="position"
+          transition={headerResizeTransition}
+          className="hidden min-w-0 items-center justify-center justify-self-center md:flex"
+          aria-label="Primary"
+        >
           <LayoutGroup id="reader-nav">
             <div className="flex items-center gap-1">
               {navLinks.map((link) => {
@@ -103,48 +114,54 @@ export function Navbar({ siteName = "My Blog" }: NavbarProps) {
               })}
             </div>
           </LayoutGroup>
-        </nav>
+        </motion.nav>
 
-        <div className="flex min-w-0 items-center justify-end gap-1 sm:gap-2">
-          <div className="hidden min-w-0 flex-1 lg:flex lg:max-w-sm lg:justify-end">
+        <div className="flex min-w-0 items-center justify-end gap-1 sm:gap-2 md:w-full md:justify-self-end">
+          <motion.div
+            layout="size"
+            transition={headerResizeTransition}
+            className="reader-nav-search hidden min-w-0 flex-1 lg:flex lg:max-w-[18rem] lg:justify-end"
+          >
             <SearchForm appearance="navbar" compact placeholder="搜索" />
-          </div>
+          </motion.div>
 
-          <Link
-            href="/search"
-            aria-label="搜索"
-            title="搜索"
-            className="reader-icon-btn lg:hidden"
-          >
-            <Search className="h-5 w-5" />
-          </Link>
+          <motion.div layout="position" transition={headerResizeTransition} className="flex shrink-0 items-center gap-1 sm:gap-2">
+            <Link
+              href="/search"
+              aria-label="搜索"
+              title="搜索"
+              className="reader-icon-btn lg:hidden"
+            >
+              <Search className="h-5 w-5" />
+            </Link>
 
-          <button
-            aria-label="主题设置"
-            aria-expanded={showHuePicker}
-            className="reader-icon-btn hidden sm:inline-flex"
-            onClick={() => setShowHuePicker(!showHuePicker)}
-            type="button"
-          >
-            <Palette className="h-5 w-5" />
-          </button>
+            <button
+              aria-label="主题设置"
+              aria-expanded={showHuePicker}
+              className="reader-icon-btn hidden sm:inline-flex"
+              onClick={() => setShowHuePicker(!showHuePicker)}
+              type="button"
+            >
+              <Palette className="h-5 w-5" />
+            </button>
 
-          <span className="hidden sm:flex">
-            <ThemeToggle />
-          </span>
+            <span className="hidden sm:flex">
+              <ThemeToggle />
+            </span>
 
-          <AccountEntry />
+            <AccountEntry />
 
-          <button
-            aria-label="菜单"
-            aria-expanded={showMobileMenu}
-            aria-controls="mobile-reader-menu"
-            className="reader-icon-btn md:hidden"
-            onClick={() => setShowMobileMenu(!showMobileMenu)}
-            type="button"
-          >
-            <Menu className="h-5 w-5" />
-          </button>
+            <button
+              aria-label="菜单"
+              aria-expanded={showMobileMenu}
+              aria-controls="mobile-reader-menu"
+              className="reader-icon-btn md:hidden"
+              onClick={() => setShowMobileMenu(!showMobileMenu)}
+              type="button"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+          </motion.div>
         </div>
 
         <motion.div
@@ -181,9 +198,8 @@ export function Navbar({ siteName = "My Blog" }: NavbarProps) {
             <button
               type="button"
               className="reader-link flex h-11 w-full items-center justify-start gap-3 rounded-xl border-t border-[var(--reader-border)] px-4 text-sm font-semibold text-[var(--text-body)] transition-colors hover:bg-accent-sky-12 hover:text-[var(--foreground)] sm:hidden"
-              onClick={(event) => {
-                const rect = event.currentTarget.getBoundingClientRect();
-                toggleTheme({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
+              onClick={() => {
+                toggleTheme();
                 setShowMobileMenu(false);
               }}
               tabIndex={showMobileMenu ? undefined : -1}
@@ -209,7 +225,7 @@ export function Navbar({ siteName = "My Blog" }: NavbarProps) {
         </motion.div>
 
         <HuePicker isOpen={showHuePicker} />
-      </div>
+      </motion.div>
     </div>
   );
 }

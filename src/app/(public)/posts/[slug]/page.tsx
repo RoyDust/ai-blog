@@ -462,7 +462,7 @@ export async function renderArticlePage({ slug, includeDraft = false }: { slug: 
                 title={post.title}
               />
               <Link
-                className="inline-flex h-11 items-center justify-center rounded-full border border-[color:color-mix(in_oklab,var(--accent-warm)_58%,var(--reader-border))] bg-[color-mix(in_oklab,var(--accent-warm)_88%,black_12%)] px-4 text-sm font-semibold text-[color-mix(in_oklab,var(--foreground)_12%,white_88%)] transition hover:bg-[var(--accent-warm)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+                className="inline-flex h-11 items-center justify-center rounded-full border border-[color:color-mix(in_oklab,var(--accent-sky)_58%,var(--reader-border))] bg-[color-mix(in_oklab,var(--accent-sky)_88%,black_12%)] px-4 text-sm font-semibold text-[color-mix(in_oklab,var(--foreground)_12%,white_88%)] transition hover:bg-[var(--accent-sky)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
                 href="#comments"
               >
                 发表评论

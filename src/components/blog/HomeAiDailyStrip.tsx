@@ -1,9 +1,5 @@
-"use client";
-
 import Link from "next/link";
-import { ArrowRight, Sparkles } from "lucide-react";
-import { motion } from "motion/react";
-import { listContainerVariants, revealVariants } from "@/components/motion/variants";
+import { ArrowRight, CalendarDays } from "lucide-react";
 
 interface AiDailyItem {
   id: string;
@@ -18,15 +14,19 @@ interface HomeAiDailyStripProps {
   posts: AiDailyItem[];
 }
 
-function formatTime(value: Date | string | null | undefined, index: number) {
+function formatDailyDate(value: Date | string | null | undefined) {
   if (!value) {
-    return `${String(8 + index).padStart(2, "0")}:30`;
+    return "近期";
   }
 
-  return new Date(value).toLocaleTimeString("zh-CN", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "近期";
+  }
+
+  return date.toLocaleDateString("zh-CN", {
+    month: "2-digit",
+    day: "2-digit",
   });
 }
 
@@ -43,38 +43,41 @@ export function HomeAiDailyStrip({ posts }: HomeAiDailyStripProps) {
     <section className="reader-panel p-4 sm:p-5" aria-labelledby="home-ai-daily-title">
       <div className="mb-4 flex items-center justify-between gap-4">
         <h2 id="home-ai-daily-title" className="reader-section-heading">
-          <Sparkles className="h-5 w-5 text-[var(--accent-sky)]" aria-hidden="true" />
           AI 日报
         </h2>
-        <Link href="/series/ai-daily" className="reader-link inline-flex shrink-0 items-center gap-1 text-xs font-bold">
+        <Link
+          href="/series/ai-daily"
+          className="reader-link inline-flex min-h-11 shrink-0 items-center gap-1 rounded-lg px-2 text-xs font-bold text-[color:color-mix(in_oklab,var(--accent-sky)_66%,var(--foreground)_34%)]"
+        >
           查看全部
           <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
         </Link>
       </div>
 
-      <motion.div
-        className="grid gap-3 md:grid-cols-5"
-        variants={listContainerVariants}
-        initial="hidden"
-        animate="visible"
+      <ol
+        aria-label="AI 日报列表"
+        className="reader-scrollbar-hidden -mx-1 flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain px-1 pb-1 md:mx-0 md:grid md:grid-cols-5 md:overflow-visible md:px-0 md:pb-0"
       >
-        {posts.slice(0, 5).map((post, index) => (
-          <motion.div key={post.id} variants={revealVariants}>
+        {posts.slice(0, 5).map((post) => (
+          <li
+            className="min-w-[82%] snap-start border-l border-[var(--reader-border)] pl-3 first:border-l-0 first:pl-0 md:min-w-0"
+            key={post.id}
+          >
             <Link
               href={`/posts/${post.slug}`}
-              className="group min-w-0 border-t border-[var(--reader-border)] pt-3 md:border-t-0 md:border-l md:pt-0 md:pl-3 first:md:border-l-0 first:md:pl-0"
+              className="group block h-full min-w-0 py-1"
             >
-              <span className="mb-2 flex items-center gap-2 text-[0.72rem] font-semibold tabular-nums text-[var(--text-muted)]">
-                <span className="h-2 w-2 rounded-full bg-[var(--accent-sky)] shadow-[0_0_0_4px_color-mix(in_oklab,var(--accent-sky)_12%,transparent)]" />
-                {formatTime(post.publishedAt ?? post.createdAt, index)}
+              <span className="mb-2 flex items-center gap-1.5 text-[0.72rem] font-medium tabular-nums text-[var(--text-muted)]">
+                <CalendarDays aria-hidden="true" className="h-3.5 w-3.5 text-[var(--accent-sky)]" />
+                {formatDailyDate(post.publishedAt ?? post.createdAt)}
               </span>
-              <span className="line-clamp-2 text-xs font-semibold leading-5 text-[var(--text-body)] transition group-hover:text-[var(--foreground)]">
+              <span className="line-clamp-2 text-xs font-medium leading-5 text-[var(--text-body)] transition-colors group-hover:text-[var(--foreground)]">
                 {trimDailyTitle(post.title)}
               </span>
             </Link>
-          </motion.div>
+          </li>
         ))}
-      </motion.div>
+      </ol>
     </section>
   );
 }

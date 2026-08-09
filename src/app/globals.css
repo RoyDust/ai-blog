@@ -39,9 +39,29 @@ html.dark {
   color-scheme: dark;
 }
 
+html:has(.reader-home-stage) {
+  --reader-background-height: 46vh;
+  --reader-background-fade-start: 20vh;
+  --reader-background-fade-end: 37vh;
+  --reader-page-top: clamp(8.5rem, 16vh, 10.25rem);
+}
+
 @supports not (scrollbar-gutter: stable) {
   html {
     overflow-y: scroll;
+  }
+}
+
+@media (max-width: 767px) {
+  html {
+    background-attachment: scroll;
+  }
+
+  html:has(.reader-home-stage) {
+    --reader-background-height: 36vh;
+    --reader-background-fade-start: 14vh;
+    --reader-background-fade-end: 27vh;
+    --reader-page-top: clamp(5rem, 12vh, 6.25rem);
   }
 }
 
@@ -203,19 +223,17 @@ body {
     animation-duration: 220ms;
   }
 
-  ::view-transition-group(reader-layout-frame),
-  ::view-transition-group(reader-nav-frame) {
+  ::view-transition-group(reader-layout-frame) {
     animation-duration: var(--reader-route-layout-duration);
     animation-timing-function: var(--reader-route-layout-ease);
   }
 
   ::view-transition-old(reader-layout-frame),
-  ::view-transition-new(reader-layout-frame),
-  ::view-transition-old(reader-nav-frame),
-  ::view-transition-new(reader-nav-frame) {
+  ::view-transition-new(reader-layout-frame) {
     animation-duration: var(--reader-route-layout-duration);
     animation-timing-function: var(--reader-route-layout-ease);
   }
+
 }
 
 @media (prefers-reduced-motion: reduce) {

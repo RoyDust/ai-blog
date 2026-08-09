@@ -17,13 +17,13 @@ const headerVariants = {
   },
   reader: {
     root: "flex flex-col gap-3 md:flex-row md:items-end md:justify-between",
-    eyebrow: "ui-kicker text-[var(--accent-warm)]",
+    eyebrow: "ui-kicker",
     title: "font-display text-2xl font-bold tracking-normal text-[var(--foreground)] md:text-3xl",
     description: "max-w-[42rem] text-sm leading-7 text-[var(--text-body)]",
   },
   compact: {
     root: "flex flex-col gap-2",
-    eyebrow: "ui-kicker text-[var(--accent-warm)]",
+    eyebrow: "ui-kicker",
     title: "font-display text-xl font-bold tracking-normal text-[var(--foreground)]",
     description: "max-w-[34rem] text-sm leading-7 text-[var(--text-body)]",
   },

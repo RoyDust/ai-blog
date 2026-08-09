@@ -24,7 +24,7 @@ export function SearchForm({
   return (
     <form
       action={action}
-      className={`flex items-center gap-2 ${compact ? '' : 'w-full'} ${isNavbar ? 'justify-end' : ''}`}
+      className={`flex items-center gap-2 ${compact && !isNavbar ? '' : 'w-full'} ${isNavbar ? 'justify-end' : ''}`}
       method="get"
       role="search"
     >
@@ -33,11 +33,11 @@ export function SearchForm({
       </label>
 
       {isNavbar ? (
-        <div className="group relative w-full lg:w-auto">
+        <div className="group relative w-full">
           <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)] transition-colors duration-200 group-focus-within:text-[var(--accent-sky)]" />
           <input
             aria-label={inputLabel}
-            className="ui-ring h-9 w-full rounded-lg border border-[var(--reader-border)] bg-[color:color-mix(in_oklab,var(--reader-panel-muted)_62%,transparent)] pr-3 pl-9 text-[0.78rem] text-[var(--foreground)] placeholder:text-[var(--text-muted)] shadow-[inset_0_1px_0_color-mix(in_oklab,var(--foreground)_6%,transparent)] transition-[width,background-color,border-color,box-shadow] duration-200 ease-out focus-visible:border-[color:color-mix(in_oklab,var(--accent-sky)_38%,var(--reader-border))] focus-visible:bg-[var(--reader-panel-elevated)] focus-visible:ring-2 focus-visible:ring-[color:color-mix(in_oklab,var(--accent-sky)_22%,transparent)] lg:w-36 xl:w-40 2xl:w-44"
+            className="ui-ring h-9 w-full rounded-lg border border-[var(--reader-border)] bg-[color:color-mix(in_oklab,var(--reader-panel-muted)_62%,transparent)] pr-3 pl-9 text-[0.78rem] text-[var(--foreground)] placeholder:text-[var(--text-muted)] shadow-[inset_0_1px_0_color-mix(in_oklab,var(--foreground)_6%,transparent)] transition-[background-color,border-color,box-shadow] duration-200 ease-out focus-visible:border-[color:color-mix(in_oklab,var(--accent-sky)_38%,var(--reader-border))] focus-visible:bg-[var(--reader-panel-elevated)] focus-visible:ring-2 focus-visible:ring-[color:color-mix(in_oklab,var(--accent-sky)_22%,transparent)]"
             defaultValue={defaultValue}
             id="site-search-input"
             name="q"

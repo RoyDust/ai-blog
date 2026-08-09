@@ -96,7 +96,7 @@ export function PostCard({ post }: PostCardProps) {
 
         <Link href={`/posts/${post.slug}`} className="block min-w-0">
           <h3
-            className="text-90 line-clamp-2 text-lg font-extrabold leading-snug transition-colors group-hover:text-accent-sky-82 md:text-xl"
+            className="text-90 line-clamp-2 text-lg font-semibold leading-snug transition-colors group-hover:text-accent-sky-82 md:text-xl"
             style={{ viewTransitionName: getPostViewTransitionName("title", post.slug) }}
           >
             {post.title}

@@ -3,6 +3,7 @@ export const motionEase = {
   outQuart: [0.25, 1, 0.5, 1] as const,
   outQuint: [0.22, 1, 0.36, 1] as const,
   outExpo:  [0.16, 1, 0.3, 1] as const,
+  inOut:    [0.65, 0, 0.35, 1] as const,
 };
 
 // ── Duration tokens (tween) ──────────────────────────────────────────────────
@@ -11,6 +12,7 @@ export const motionDuration = {
   fast:     0.18,
   base:     0.24,
   panel:    0.28,
+  resize:   0.48,
   entrance: 0.42,
 };
 
@@ -49,4 +51,9 @@ export const revealTransition = {
 export const panelTransition = {
   duration: motionDuration.panel,
   ease: motionEase.outQuint,
+};
+
+export const headerResizeTransition = {
+  duration: motionDuration.resize,
+  ease: motionEase.inOut,
 };

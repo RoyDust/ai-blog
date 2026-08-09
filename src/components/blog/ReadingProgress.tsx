@@ -16,7 +16,7 @@ export function ReadingProgress() {
       role="progressbar"
     >
       <motion.div
-        className="h-full origin-left bg-(--accent-warm) shadow-[0_0_12px_color-mix(in_oklab,var(--accent-warm)_50%,transparent)]"
+        className="h-full origin-left bg-(--accent-sky) shadow-[0_0_12px_color-mix(in_oklab,var(--accent-sky)_42%,transparent)]"
         style={{ scaleX }}
       />
     </div>

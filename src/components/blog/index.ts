@@ -5,6 +5,7 @@ export { PostCardFeatured } from "./PostCardFeatured";
 export { FilterBar } from "./FilterBar";
 export { HomeLatestPosts } from "./HomeLatestPosts";
 export { HomeAiDailyStrip } from "./HomeAiDailyStrip";
+export { HomeEditorialHero } from "./HomeEditorialHero";
 export { PopularPostsWidget } from "./PopularPostsWidget";
 export { PostsListingClient } from "./PostsListingClient";
 export { ArticleHero } from "./ArticleHero";

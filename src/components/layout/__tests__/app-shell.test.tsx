@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test, vi } from "vitest";
 import { AppShell } from "@/components/layout/AppShell";
+import { headerResizeTransition, motionDuration, motionEase } from "@/components/motion/transitions";
 
 vi.mock("next-auth/react", () => ({
   getSession: vi.fn(),
@@ -64,20 +65,46 @@ describe("app shell", () => {
     expect(source).not.toContain(".reader-shell:has(.reader-home-stage) .reader-side-rail {\n    margin-top:");
   });
 
-  test("route changes use named view transitions instead of layout property transitions", () => {
+  test("route changes keep content view transitions and use layout projection for the persistent navbar", () => {
     const source = readFileSync(join(process.cwd(), "src/styles/components.css"), "utf8");
     const globalsSource = readFileSync(join(process.cwd(), "src/app/globals.css"), "utf8");
+    const navbarSource = readFileSync(join(process.cwd(), "src/components/layout/Navbar.tsx"), "utf8");
+    const motionSource = readFileSync(join(process.cwd(), "src/components/motion/transitions.ts"), "utf8");
+    const motionProviderSource = readFileSync(join(process.cwd(), "src/components/motion/BlogMotionProvider.tsx"), "utf8");
 
     expect(source).toContain(".reader-nav");
     expect(source).toContain(".reader-layout-frame");
-    expect(source).toContain("view-transition-name: reader-nav-frame;");
     expect(source).toContain("view-transition-name: reader-layout-frame;");
-    expect(source).not.toMatch(/transition-property:\s*[^;]*(max-width|width|flex-basis)/);
-    expect(globalsSource).toContain("::view-transition-group(reader-nav-frame)");
-    expect(globalsSource).toContain("animation-duration: var(--reader-route-layout-duration);");
-    expect(globalsSource).toContain("animation-timing-function: var(--reader-route-layout-ease);");
-    expect(globalsSource.indexOf("::view-transition-old(reader-nav-frame)")).toBeGreaterThan(
-      globalsSource.indexOf("::view-transition-old(*)"),
+    expect(source).not.toContain("view-transition-name: reader-nav-frame;");
+    expect(source).not.toContain("view-transition-name: reader-nav-search;");
+    expect(`${source}\n${globalsSource}`).not.toMatch(
+      /transition(?:-property)?\s*:\s*[^;]*\b(?:max-width|width)\b[^;]*;/,
     );
+    expect(globalsSource).toContain("::view-transition-group(reader-layout-frame)");
+    expect(globalsSource).not.toContain("::view-transition-group(reader-nav-frame)");
+    expect(globalsSource).not.toContain("::view-transition-group(reader-nav-search)");
+    expect(globalsSource).toMatch(
+      /@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?::view-transition-group\(\*\),[\s\S]*?::view-transition-old\(\*\),[\s\S]*?::view-transition-new\(\*\)\s*\{[\s\S]*?animation:\s*none !important;/,
+    );
+    expect(navbarSource).toMatch(
+      /<motion\.div\s+layout\s+transition=\{headerResizeTransition\}\s+className="reader-nav\s/,
+    );
+    expect(navbarSource).not.toMatch(
+      /<motion\.div\s+layout="size"\s+transition=\{headerResizeTransition\}\s+className="reader-nav\s/,
+    );
+    expect(navbarSource).toContain('layout="size"');
+    expect(navbarSource).toContain('layout="position"');
+    expect(navbarSource).toContain("headerResizeTransition");
+    expect(motionSource).toContain("export const headerResizeTransition");
+    expect(motionProviderSource).toContain('<MotionConfig reducedMotion="user"');
+  });
+
+  test("header resizing uses a slower symmetric layout curve", () => {
+    expect(motionDuration.resize).toBe(0.48);
+    expect(motionEase.inOut).toEqual([0.65, 0, 0.35, 1]);
+    expect(headerResizeTransition).toEqual({
+      duration: motionDuration.resize,
+      ease: motionEase.inOut,
+    });
   });
 });

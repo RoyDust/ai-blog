@@ -171,7 +171,7 @@ export function Sidebar({
           maxHeight: "calc(100vh - var(--sidebar-sticky-top, 0px) - 1.75rem)",
         }}
       >
-        <section aria-label="作者资料" className="reader-panel p-4 text-center">
+        <section aria-label="作者资料" className="reader-panel reader-panel--floating p-4 text-center">
           <div className="mx-auto mb-3 flex h-20 w-20 items-center justify-center rounded-full border border-[var(--reader-border-strong)] bg-[color:color-mix(in_oklab,var(--accent-sky)_18%,var(--reader-panel-elevated))] text-xl font-bold text-[var(--foreground)] shadow-[var(--reader-shadow)]">
             {profile.avatar ? (
               <FallbackImage alt={profile.name} className="rounded-full object-cover" height={80} loading="eager" src={profile.avatar} width={80} />
@@ -328,7 +328,7 @@ export function Sidebar({
 
             <section className="reader-panel p-5" aria-labelledby="sidebar-monthly-goal-title">
               <div className="mb-4 flex items-center gap-2">
-                <Target className="h-5 w-5 text-[var(--accent-warm)]" aria-hidden="true" />
+                <Target className="h-5 w-5 text-[var(--accent-sky)]" aria-hidden="true" />
                 <h3 id="sidebar-monthly-goal-title" className="text-sm font-medium text-[var(--text-body)]">
                   本月阅读目标
                 </h3>
@@ -346,7 +346,7 @@ export function Sidebar({
               </div>
               <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[color:color-mix(in_oklab,var(--foreground)_10%,transparent)]">
                 <div
-                  className="h-full rounded-full bg-[color:color-mix(in_oklab,var(--accent-warm)_82%,var(--accent-sky)_18%)]"
+                  className="h-full rounded-full bg-[var(--accent-sky)]"
                   style={{ width: `${displayedReadingStats.monthlyProgress}%` }}
                 />
               </div>
