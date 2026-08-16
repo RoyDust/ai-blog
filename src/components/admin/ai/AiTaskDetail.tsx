@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { StatusBadge } from "@/components/admin/primitives/StatusBadge";
 import { Button } from "@/components/admin/ui";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/shadcn/ui/table";
-import { getApiErrorMessage } from "@/lib/admin-api-client";
+import { apiMutate, toErrorMessage } from "@/lib/client-api";
 
 type TaskItem = {
   id: string;
@@ -241,17 +241,12 @@ export function AiTaskDetail({ task }: { task: TaskDetail }) {
 
     setRetrying(true);
     try {
-      const response = await fetch(`/api/admin/ai/tasks/${task.id}/retry`, { method: "POST" });
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        throw new Error(getApiErrorMessage(data, "重试任务失败"));
-      }
+      const data = await apiMutate<{ success?: boolean; data?: { id: string } }>(`/api/admin/ai/tasks/${task.id}/retry`, { method: "POST" });
 
       toast.success("已创建失败项重试任务");
-      router.push(`/admin/ai/tasks/${data.data.id}`);
+      router.push(`/admin/ai/tasks/${data.data?.id ?? task.id}`);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "重试任务失败");
+      toast.error(toErrorMessage(error, "重试任务失败"));
     } finally {
       setRetrying(false);
     }
@@ -265,22 +260,16 @@ export function AiTaskDetail({ task }: { task: TaskDetail }) {
   async function applyItem(itemId: string) {
     setApplyingItemId(itemId);
     try {
-      const response = await fetch("/api/admin/ai/actions/apply", {
+      await apiMutate("/api/admin/ai/actions/apply", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ itemId }),
       });
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        throw new Error(getApiErrorMessage(data, "应用建议失败"));
-      }
 
       setItems((current) => current.map((item) => (item.id === itemId ? { ...item, applied: true } : item)));
       toast.success("AI 建议已应用");
       router.refresh();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "应用建议失败");
+      toast.error(toErrorMessage(error, "应用建议失败"));
     } finally {
       setApplyingItemId(null);
     }

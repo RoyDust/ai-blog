@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type SetStateAction } from "react";
 import { toast } from "sonner";
+import useSWR from "swr";
 
 import type { DeleteImpactItem } from "@/components/admin/DeleteImpactDialog";
-import { getApiErrorMessage } from "@/lib/admin-api-client";
+import { apiFetcher, apiMutate, ApiRequestError, handleGlobalSwrError, toErrorMessage } from "@/lib/client-api";
 
 type DeleteDialogState = {
   open: boolean;
@@ -51,9 +52,17 @@ type UseTaxonomyRowsOptions<Row extends { id: string }> = {
   serverPagination?: boolean;
 };
 
+type TaxonomyResponse<Row> = {
+  success?: boolean;
+  data?: Row[];
+  pagination?: PaginationState;
+};
+
 /**
  * Shared list lifecycle for category/tag managers.
- * Handles loading, local filtering, delete preview, and optimistic row removal after delete.
+ *
+ * SWR 内核：列表请求由 key（URL）驱动，本地筛选与删除预览/确认走 apiMutate；
+ * `setRows` 保留函数式更新 API，作为对 SWR 缓存的乐观写入（revalidate: false）。
  */
 export function useTaxonomyRows<Row extends { id: string }>({
   deleteError,
@@ -67,70 +76,80 @@ export function useTaxonomyRows<Row extends { id: string }>({
   previewRetryError,
   serverPagination = false,
 }: UseTaxonomyRowsOptions<Row>) {
-  const [rows, setRows] = useState<Row[]>([]);
   const [query, setQueryValue] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
-  const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(defaultPagination.limit);
-  const [pagination, setPagination] = useState<PaginationState>(defaultPagination);
   const [deleteDialog, setDeleteDialog] = useState<DeleteDialogState>(initialDeleteDialog);
 
-  const load = useCallback(async () => {
-    try {
-      const params = new URLSearchParams();
+  // 服务端分页模式下输入防抖（setState 在定时器回调中）
+  const debounceTimerRef = useRef<number | null>(null);
+  const setQuery = useCallback(
+    (value: string) => {
+      setQueryValue(value);
       if (serverPagination) {
-        params.set("page", String(page));
-        params.set("limit", String(pageSize));
-        const keyword = debouncedQuery.trim();
-        if (keyword) params.set("q", keyword);
-      }
-
-      const url = serverPagination ? `${endpoint}?${params.toString()}` : endpoint;
-      const res = await fetch(url);
-      const data = await res.json();
-      if (data.success) {
-        setRows(data.data);
-        if (serverPagination) {
-          const nextPagination = data.pagination ?? {
-            page,
-            limit: pageSize,
-            total: data.data.length,
-            totalPages: Math.max(1, Math.ceil(data.data.length / pageSize)),
-          };
-          setPagination(nextPagination);
-          if (nextPagination.page !== page) {
-            setPage(nextPagination.page);
-          }
+        setPage(1);
+        if (debounceTimerRef.current !== null) {
+          window.clearTimeout(debounceTimerRef.current);
         }
-        return;
+        debounceTimerRef.current = window.setTimeout(() => {
+          setDebouncedQuery(value);
+        }, 300);
       }
-
-      toast.error(getApiErrorMessage(data, listError));
-      setRows([]);
-      if (serverPagination) {
-        setPagination({ ...defaultPagination, limit: pageSize });
-      }
-    } catch {
-      toast.error(listRetryError);
-      setRows([]);
-      if (serverPagination) {
-        setPagination({ ...defaultPagination, limit: pageSize });
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, [debouncedQuery, endpoint, listError, listRetryError, page, pageSize, serverPagination]);
+    },
+    [serverPagination],
+  );
 
   useEffect(() => {
-    if (!serverPagination) return;
-    const timer = setTimeout(() => setDebouncedQuery(query), 300);
-    return () => clearTimeout(timer);
-  }, [query, serverPagination]);
+    return () => {
+      if (debounceTimerRef.current !== null) {
+        window.clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, []);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  const listUrl = useMemo(() => {
+    if (!serverPagination) return endpoint;
+
+    const params = new URLSearchParams({
+      page: String(page),
+      limit: String(pageSize),
+    });
+    const keyword = debouncedQuery.trim();
+    if (keyword) params.set("q", keyword);
+    return `${endpoint}?${params.toString()}`;
+  }, [debouncedQuery, endpoint, page, pageSize, serverPagination]);
+
+  const {
+    data: rowsResponse,
+    isLoading,
+    mutate,
+  } = useSWR<TaxonomyResponse<Row>>(listUrl, apiFetcher, {
+    keepPreviousData: true,
+    revalidateOnMount: true,
+    onError: (swrError, key) => {
+      handleGlobalSwrError(swrError, key);
+      toast.error(swrError instanceof ApiRequestError ? toErrorMessage(swrError, listError) : listRetryError);
+    },
+  });
+
+  const rows = useMemo(() => (Array.isArray(rowsResponse?.data) ? rowsResponse.data : []), [rowsResponse]);
+  const pagination = useMemo(
+    () =>
+      rowsResponse?.pagination ?? {
+        ...defaultPagination,
+        limit: pageSize,
+        total: rows.length,
+        totalPages: Math.max(1, Math.ceil(rows.length / pageSize)),
+      },
+    [pageSize, rows.length, rowsResponse],
+  );
+  const loading = isLoading;
+
+  // 服务端校正页码时同步回状态（渲染期条件调整）
+  if (rowsResponse?.pagination && rowsResponse.pagination.page !== page) {
+    setPage(rowsResponse.pagination.page);
+  }
 
   const filtered = useMemo(() => {
     if (serverPagination) return rows;
@@ -139,24 +158,29 @@ export function useTaxonomyRows<Row extends { id: string }>({
     return rows.filter((row) => filterRow(row, keyword));
   }, [filterRow, query, rows, serverPagination]);
 
-  const setQuery = useCallback(
-    (value: string) => {
-      setQueryValue(value);
-      if (serverPagination) {
-        setPage(1);
-      }
+  // 兼容函数式更新：作为对 SWR 缓存的乐观写入（不改远端，revalidate: false）
+  const setRows = useCallback(
+    (updater: SetStateAction<Row[]>) => {
+      void mutate(
+        (current) => {
+          const currentRows = Array.isArray(current?.data) ? current.data : [];
+          const nextRows = typeof updater === "function" ? (updater as (prev: Row[]) => Row[])(currentRows) : updater;
+          return { ...(current ?? { success: true }), data: nextRows };
+        },
+        { revalidate: false },
+      );
     },
-    [serverPagination],
+    [mutate],
   );
 
   const openDeleteDialog = useCallback(
     async (ids: string[]) => {
       try {
         const params = new URLSearchParams({ preview: "delete", ids: ids.join(",") });
-        const res = await fetch(`${endpoint}?${params.toString()}`);
-        const data = await res.json();
-        if (!data.success) {
-          toast.error(getApiErrorMessage(data, previewError));
+        const data = await apiMutate<{ success?: boolean; data?: DeleteDialogState }>(`${endpoint}?${params.toString()}`);
+
+        if (!data.success || !data.data) {
+          toast.error(toErrorMessage(data, previewError));
           return;
         }
 
@@ -182,27 +206,26 @@ export function useTaxonomyRows<Row extends { id: string }>({
       setDeleteDialog((prev) => ({ ...prev, submitting: true }));
       const ids = deleteDialog.ids;
       const params = new URLSearchParams({ ids: ids.join(",") });
-      const res = await fetch(`${endpoint}?${params.toString()}`, { method: "DELETE" });
-      const data = await res.json();
+      await apiMutate(`${endpoint}?${params.toString()}`, { method: "DELETE" });
 
-      if (data.success) {
-        if (serverPagination) {
-          void load();
-        } else {
-          setRows((prev) => prev.filter((item) => !ids.includes(item.id)));
-        }
-        setDeleteDialog(initialDeleteDialog);
-        toast.success(deleteSuccess(ids.length));
-        return;
+      if (serverPagination) {
+        void mutate();
+      } else {
+        void mutate(
+          (current) => {
+            const currentRows = Array.isArray(current?.data) ? current.data : [];
+            return { ...(current ?? { success: true }), data: currentRows.filter((item) => !ids.includes(item.id)) };
+          },
+          { revalidate: false },
+        );
       }
-
-      toast.error(getApiErrorMessage(data, deleteError));
-    } catch {
-      toast.error(deleteRetryError);
+      setDeleteDialog(initialDeleteDialog);
+      toast.success(deleteSuccess(ids.length));
+    } catch (error) {
+      toast.error(error instanceof ApiRequestError ? toErrorMessage(error, deleteError) : deleteRetryError);
+      setDeleteDialog((prev) => ({ ...prev, submitting: false }));
     }
-
-    setDeleteDialog((prev) => ({ ...prev, submitting: false }));
-  }, [deleteDialog.ids, deleteError, deleteRetryError, deleteSuccess, endpoint, load, serverPagination]);
+  }, [deleteDialog.ids, deleteError, deleteRetryError, deleteSuccess, endpoint, mutate, serverPagination]);
 
   return {
     closeDeleteDialog,
@@ -213,7 +236,9 @@ export function useTaxonomyRows<Row extends { id: string }>({
     openDeleteDialog,
     pagination,
     query,
-    reload: load,
+    reload: () => {
+      void mutate();
+    },
     rows,
     setPage,
     setPageSize,

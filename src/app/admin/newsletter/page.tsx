@@ -1,15 +1,20 @@
 "use client";
 
-import { type ComponentType, type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { type ComponentType, useCallback, useMemo, useState } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { MailCheck, RefreshCcw, Send, Users } from "lucide-react";
+import { useForm } from "react-hook-form";
 import { toast } from "sonner";
+import useSWR from "swr";
+import { z } from "zod";
 
 import { DataTable, type DataColumn } from "@/components/admin/DataTable";
 import { PageHeader } from "@/components/admin/primitives/PageHeader";
 import { StatusBadge } from "@/components/admin/primitives/StatusBadge";
 import { WorkspacePanel } from "@/components/admin/primitives/WorkspacePanel";
 import { Button, Input, Textarea } from "@/components/admin/ui";
-import { getApiErrorMessage } from "@/lib/admin-api-client";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/shadcn/ui/form";
+import { apiFetcher, apiMutate, handleGlobalSwrError, toErrorMessage } from "@/lib/client-api";
 
 type CampaignStatus = "DRAFT" | "SENDING" | "SENT" | "PARTIAL_FAILED" | "FAILED";
 
@@ -57,6 +62,13 @@ const initialForm: CampaignForm = {
   intro: "",
   postIds: "",
 };
+
+const campaignFormSchema = z.object({
+  title: z.string().trim().min(1, "请输入活动名称"),
+  subject: z.string().trim().min(1, "请输入邮件主题"),
+  intro: z.string(),
+  postIds: z.string(),
+});
 
 const statusMeta: Record<CampaignStatus, { label: string; tone: "neutral" | "success" | "warning" | "danger" }> = {
   DRAFT: { label: "草稿", tone: "neutral" },
@@ -109,101 +121,82 @@ function StatCard({
 }
 
 export default function AdminNewsletterPage() {
-  const [campaigns, setCampaigns] = useState<CampaignRow[]>([]);
-  const [subscriberStats, setSubscriberStats] = useState<SubscriberStats>(emptySubscriberStats);
-  const [form, setForm] = useState<CampaignForm>(initialForm);
-  const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
   const [busyCampaignId, setBusyCampaignId] = useState<string | null>(null);
+  const campaignForm = useForm<CampaignForm>({
+    resolver: zodResolver(campaignFormSchema),
+    defaultValues: initialForm,
+  });
 
-  const loadNewsletterData = useCallback(async (options: { silent?: boolean } = {}) => {
+  const {
+    data: campaignsResponse,
+    isLoading: campaignsLoading,
+    mutate: mutateCampaigns,
+  } = useSWR<{ success?: boolean; data?: CampaignRow[] }>(
+    "/api/admin/newsletter/campaigns?page=1&limit=20",
+    apiFetcher,
+    {
+      revalidateOnMount: true,
+      onError: (swrError, key) => {
+        handleGlobalSwrError(swrError, key);
+        toast.error(toErrorMessage(swrError, "邮件活动加载失败"));
+      },
+    },
+  );
+
+  const {
+    data: subscribersResponse,
+    isLoading: subscribersLoading,
+  } = useSWR<{ success?: boolean; stats?: SubscriberStats }>(
+    "/api/admin/newsletter/subscribers?status=all&limit=5",
+    apiFetcher,
+    {
+      revalidateOnMount: true,
+      onError: (swrError, key) => {
+        handleGlobalSwrError(swrError, key);
+        toast.error(toErrorMessage(swrError, "订阅者数据加载失败"));
+      },
+    },
+  );
+
+  const campaigns = campaignsResponse?.data ?? [];
+  const subscriberStats = subscribersResponse?.stats ?? emptySubscriberStats;
+  const loading = campaignsLoading || subscribersLoading;
+
+  async function createCampaign(values: CampaignForm) {
     try {
-      if (!options.silent) {
-        setLoading(true);
-      }
-
-      const [campaignsResponse, subscribersResponse] = await Promise.all([
-        fetch("/api/admin/newsletter/campaigns?page=1&limit=20"),
-        fetch("/api/admin/newsletter/subscribers?status=all&limit=5"),
-      ]);
-      const [campaignsPayload, subscribersPayload] = await Promise.all([
-        campaignsResponse.json().catch(() => ({})),
-        subscribersResponse.json().catch(() => ({})),
-      ]);
-
-      if (!campaignsResponse.ok || !campaignsPayload?.success) {
-        throw new Error(getApiErrorMessage(campaignsPayload, "邮件活动加载失败"));
-      }
-      if (!subscribersResponse.ok || !subscribersPayload?.success) {
-        throw new Error(getApiErrorMessage(subscribersPayload, "订阅者数据加载失败"));
-      }
-
-      setCampaigns(Array.isArray(campaignsPayload.data) ? campaignsPayload.data : []);
-      setSubscriberStats(subscribersPayload.stats ?? emptySubscriberStats);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Newsletter 数据加载失败");
-      setCampaigns([]);
-      setSubscriberStats(emptySubscriberStats);
-    } finally {
-      if (!options.silent) {
-        setLoading(false);
-      }
-    }
-  }, []);
-
-  useEffect(() => {
-    void loadNewsletterData();
-  }, [loadNewsletterData]);
-
-  async function createCampaign(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    try {
-      setSubmitting(true);
-      const response = await fetch("/api/admin/newsletter/campaigns", {
+      await apiMutate("/api/admin/newsletter/campaigns", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title: form.title,
-          subject: form.subject,
-          intro: form.intro,
-          postIds: parsePostIds(form.postIds),
+          title: values.title,
+          subject: values.subject,
+          intro: values.intro,
+          postIds: parsePostIds(values.postIds),
         }),
       });
-      const payload = await response.json().catch(() => ({}));
-
-      if (!response.ok || !payload?.success) {
-        throw new Error(getApiErrorMessage(payload, "邮件活动创建失败"));
-      }
 
       toast.success("邮件活动草稿已创建");
-      setForm(initialForm);
-      await loadNewsletterData({ silent: true });
+      campaignForm.reset(initialForm);
+      void mutateCampaigns();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "邮件活动创建失败");
-    } finally {
-      setSubmitting(false);
+      toast.error(toErrorMessage(error, "邮件活动创建失败"));
     }
   }
 
   const runCampaignAction = useCallback(async (campaignId: string, action: "send" | "retry" | "recover") => {
     try {
       setBusyCampaignId(campaignId);
-      const response = await fetch(`/api/admin/newsletter/campaigns/${campaignId}/${action}`, { method: "POST" });
-      const payload = await response.json().catch(() => ({}));
-
-      if (!response.ok || !payload?.success) {
-        throw new Error(getApiErrorMessage(payload, action === "send" ? "邮件发送失败" : action === "retry" ? "失败重试失败" : "发送状态恢复失败"));
-      }
+      await apiMutate(`/api/admin/newsletter/campaigns/${campaignId}/${action}`, { method: "POST" });
 
       toast.success(action === "send" ? "邮件发送任务已执行" : action === "retry" ? "失败收件人已重试" : "发送状态已恢复");
-      await loadNewsletterData({ silent: true });
+      void mutateCampaigns();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : action === "send" ? "邮件发送失败" : action === "retry" ? "失败重试失败" : "发送状态恢复失败");
+      toast.error(
+        toErrorMessage(error, action === "send" ? "邮件发送失败" : action === "retry" ? "失败重试失败" : "发送状态恢复失败"),
+      );
     } finally {
       setBusyCampaignId(null);
     }
-  }, [loadNewsletterData]);
+  }, [mutateCampaigns]);
 
   const columns = useMemo<DataColumn<CampaignRow>[]>(
     () => [
@@ -312,39 +305,67 @@ export default function AdminNewsletterPage() {
           description="输入文章 ID 后生成一个可发送的草稿。"
           fillHeight={false}
         >
-          <form className="space-y-4" onSubmit={createCampaign}>
-            <Input
-              label="活动名称"
-              onChange={(event) => setForm((prev) => ({ ...prev, title: event.target.value }))}
-              placeholder="本周精选"
-              required
-              value={form.title}
-            />
-            <Input
-              label="邮件主题"
-              onChange={(event) => setForm((prev) => ({ ...prev, subject: event.target.value }))}
-              placeholder="本周值得读的文章"
-              required
-              value={form.subject}
-            />
-            <Textarea
-              label="开场说明"
-              onChange={(event) => setForm((prev) => ({ ...prev, intro: event.target.value }))}
-              placeholder="写给订阅者的一段简短导语"
-              value={form.intro}
-            />
-            <Input
-              label="文章 ID"
-              helperText="用逗号或换行分隔多个已发布文章 ID。"
-              onChange={(event) => setForm((prev) => ({ ...prev, postIds: event.target.value }))}
-              placeholder="post-1, post-2"
-              value={form.postIds}
-            />
-            <Button disabled={submitting} type="submit">
-              <MailCheck className="h-4 w-4" aria-hidden />
-              创建草稿
-            </Button>
-          </form>
+          <Form {...campaignForm}>
+            <form className="space-y-4" onSubmit={campaignForm.handleSubmit(createCampaign)}>
+              <FormField
+                control={campaignForm.control}
+                name="title"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>活动名称</FormLabel>
+                    <FormControl>
+                      <Input placeholder="本周精选" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={campaignForm.control}
+                name="subject"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>邮件主题</FormLabel>
+                    <FormControl>
+                      <Input placeholder="本周值得读的文章" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={campaignForm.control}
+                name="intro"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>开场说明</FormLabel>
+                    <FormControl>
+                      <Textarea placeholder="写给订阅者的一段简短导语" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={campaignForm.control}
+                name="postIds"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>文章 ID</FormLabel>
+                    <FormControl>
+                      <Input placeholder="post-1, post-2" {...field} />
+                    </FormControl>
+                    <FormDescription>用逗号或换行分隔多个已发布文章 ID。</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <Button disabled={campaignForm.formState.isSubmitting} type="submit">
+                <MailCheck className="h-4 w-4" aria-hidden />
+                {campaignForm.formState.isSubmitting ? "创建中..." : "创建草稿"}
+              </Button>
+            </form>
+          </Form>
         </WorkspacePanel>
 
         <DataTable

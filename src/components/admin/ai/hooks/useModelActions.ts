@@ -1,8 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import useSWR from "swr";
 
-import { readApiJson } from "@/lib/admin-api-client";
+import { apiFetcher, apiMutate, toErrorMessage } from "@/lib/client-api";
 import type { PublicAiModelOption } from "@/lib/ai-models";
 
 import type { Capability, ModelFormState } from "./useModelForm";
@@ -14,6 +15,11 @@ const capabilityLabels: Record<Capability, string> = {
 
 type UseModelActionsOptions = {
   onSaveSuccess: () => void;
+};
+
+type ModelsResponse = {
+  success: true;
+  data: PublicAiModelOption[];
 };
 
 /**
@@ -43,8 +49,11 @@ export function useModelActions(
   initialModels: PublicAiModelOption[],
   { onSaveSuccess }: UseModelActionsOptions,
 ) {
-  const [models, setModels] = useState(initialModels);
-  const [saving, setSaving] = useState(false);
+  const { data, mutate } = useSWR<ModelsResponse>("/api/admin/ai/models", apiFetcher, {
+    fallbackData: { success: true, data: initialModels },
+    revalidateOnMount: false,
+  });
+  const models = data?.data ?? initialModels;
   const [testingId, setTestingId] = useState<string | null>(null);
   const [switchingId, setSwitchingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -60,41 +69,32 @@ export function useModelActions(
     [models],
   );
 
-  const refreshModels = async () => {
-    const data = await readApiJson<{ data?: unknown }>(await fetch("/api/admin/ai/models"));
-    setModels(Array.isArray(data.data) ? data.data : []);
-  };
-
   const clearFeedback = () => {
     setError("");
     setMessage("");
   };
 
   const saveModel = async (form: ModelFormState) => {
-    setSaving(true);
     clearFeedback();
 
     try {
-      const response = form.id
-        ? await fetch(`/api/admin/ai/models/${form.id}`, {
+      if (form.id) {
+        await apiMutate(`/api/admin/ai/models/${form.id}`, {
             method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(buildModelPayload(form)),
-          })
-        : await fetch("/api/admin/ai/models", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
             body: JSON.stringify(buildModelPayload(form)),
           });
+      } else {
+        await apiMutate("/api/admin/ai/models", {
+            method: "POST",
+            body: JSON.stringify(buildModelPayload(form)),
+          });
+      }
 
-      await readApiJson(response);
-      await refreshModels();
+      await mutate();
       onSaveSuccess();
       setMessage(form.id ? "模型已更新。" : "模型已创建。");
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "保存失败");
-    } finally {
-      setSaving(false);
+      setError(toErrorMessage(submitError, "保存失败"));
     }
   };
 
@@ -106,11 +106,11 @@ export function useModelActions(
     clearFeedback();
 
     try {
-      await readApiJson(await fetch(`/api/admin/ai/models/${model.id}`, { method: "DELETE" }));
-      await refreshModels();
+      await apiMutate(`/api/admin/ai/models/${model.id}`, { method: "DELETE" });
+      await mutate();
       setMessage("模型已删除。");
     } catch (deleteError) {
-      setError(deleteError instanceof Error ? deleteError.message : "删除失败");
+      setError(toErrorMessage(deleteError, "删除失败"));
     } finally {
       setDeletingId(null);
     }
@@ -121,14 +121,14 @@ export function useModelActions(
     clearFeedback();
 
     try {
-      const data = await readApiJson<{ data?: { message?: string } }>(
-        await fetch(`/api/admin/ai/models/${model.id}/test`, { method: "POST" }),
-      );
-      await refreshModels();
-      setMessage(data.data?.message || "模型测试通过。");
+      const result = await apiMutate<{ data?: { message?: string } }>(`/api/admin/ai/models/${model.id}/test`, {
+        method: "POST",
+      });
+      await mutate();
+      setMessage(result.data?.message || "模型测试通过。");
     } catch (testError) {
-      await refreshModels().catch(() => undefined);
-      setError(testError instanceof Error ? testError.message : "模型测试失败");
+      await mutate().catch(() => undefined);
+      setError(toErrorMessage(testError, "模型测试失败"));
     } finally {
       setTestingId(null);
     }
@@ -141,17 +141,14 @@ export function useModelActions(
     clearFeedback();
 
     try {
-      await readApiJson(
-        await fetch("/api/admin/ai/models/default", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ modelId: model.id, capability }),
-        }),
-      );
-      await refreshModels();
+      await apiMutate("/api/admin/ai/models/default", {
+        method: "POST",
+        body: JSON.stringify({ modelId: model.id, capability }),
+      });
+      await mutate();
       setMessage(`已将${capabilityLabels[capability]}切换为「${model.name}」。`);
     } catch (switchError) {
-      setError(switchError instanceof Error ? switchError.message : "切换模型失败");
+      setError(toErrorMessage(switchError, "切换模型失败"));
     } finally {
       setSwitchingId(null);
     }
@@ -161,7 +158,6 @@ export function useModelActions(
     models,
     defaultSummaryModel,
     defaultCoverModel,
-    saving,
     testingId,
     switchingId,
     deletingId,

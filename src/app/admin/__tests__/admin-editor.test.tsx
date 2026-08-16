@@ -1,4 +1,5 @@
 ﻿import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { SWRConfig, mutate as clearSwrCache } from 'swr'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import AdminPostEditPage from '../posts/[id]/edit/page'
 
@@ -9,7 +10,8 @@ vi.mock('next/navigation', () => ({
   useSearchParams: () => new URLSearchParams(''),
 }))
 
-beforeEach(() => {
+beforeEach(async () => {
+  await clearSwrCache(() => true, undefined, { revalidate: false })
   Element.prototype.scrollIntoView = vi.fn()
 })
 
@@ -20,6 +22,14 @@ afterEach(() => {
 
 async function waitForMetadataInspector() {
   await screen.findByText('分类、标签与封面图')
+}
+
+function renderEditPage() {
+  return render(
+    <SWRConfig value={{ provider: () => new Map(), dedupingInterval: 0 }}>
+      <AdminPostEditPage />
+    </SWRConfig>
+  )
 }
 
 describe('admin editor', () => {
@@ -43,7 +53,7 @@ describe('admin editor', () => {
       })
     )
 
-    render(<AdminPostEditPage />)
+    renderEditPage()
 
     expect(await screen.findByText('发布设置')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '保存草稿' })).toBeInTheDocument()
@@ -73,7 +83,7 @@ describe('admin editor', () => {
       })
     )
 
-    render(<AdminPostEditPage />)
+    renderEditPage()
 
     await waitForMetadataInspector()
 
@@ -101,7 +111,7 @@ describe('admin editor', () => {
       })
     )
 
-    render(<AdminPostEditPage />)
+    renderEditPage()
 
     expect(await screen.findByText('发布状态')).toBeInTheDocument()
     expect(screen.getAllByText('草稿').length).toBeGreaterThan(0)
@@ -129,7 +139,7 @@ describe('admin editor', () => {
       })
     )
 
-    render(<AdminPostEditPage />)
+    renderEditPage()
 
     const titleInput = await screen.findByLabelText('标题')
     fireEvent.change(titleInput, { target: { value: '如何用 Next.js 做一个现代博客' } })
@@ -157,7 +167,7 @@ describe('admin editor', () => {
       })
     )
 
-    render(<AdminPostEditPage />)
+    renderEditPage()
 
     const titleInput = await screen.findByLabelText('标题')
     const slugInput = screen.getByLabelText('Slug')
@@ -195,7 +205,7 @@ describe('admin editor', () => {
         })
     )
 
-    render(<AdminPostEditPage />)
+    renderEditPage()
 
     await waitForMetadataInspector()
 
@@ -230,7 +240,7 @@ describe('admin editor', () => {
 
     vi.stubGlobal('fetch', fetchMock)
 
-    render(<AdminPostEditPage />)
+    renderEditPage()
 
     await waitForMetadataInspector()
 
@@ -283,7 +293,7 @@ describe('admin editor', () => {
 
     vi.stubGlobal('fetch', fetchMock)
 
-    render(<AdminPostEditPage />)
+    renderEditPage()
 
     await waitForMetadataInspector()
 

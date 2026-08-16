@@ -1,12 +1,22 @@
 "use client";
 
-import type { FormEvent, ReactNode } from "react";
+import type { ReactNode } from "react";
 import { CheckCircle2, ImageIcon, KeyRound, Network, Pencil, Plus, RadioTower, Sparkles, TestTube2, Trash2 } from "lucide-react";
 
 import { WorkspacePanel } from "@/components/admin/primitives/WorkspacePanel";
 import { StatusBadge } from "@/components/admin/primitives/StatusBadge";
 import { Button } from "@/components/admin/ui";
-import { Input } from "@/components/admin/ui";
+import { Checkbox } from "@/components/shadcn/ui/checkbox";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/shadcn/ui/form";
+import { Input } from "@/components/shadcn/ui/input";
+import { Textarea } from "@/components/shadcn/ui/textarea";
 import type { PublicAiModelOption } from "@/lib/ai-models";
 
 import { useModelActions } from "./hooks/useModelActions";
@@ -118,12 +128,14 @@ function CapabilityDefaultCard({
  * Form state and server mutations are split into hooks so this component stays focused on layout.
  */
 export function AiModelManager({ initialModels }: { initialModels: PublicAiModelOption[] }) {
-  const { form, startCreate, startEdit, resetForm, updateFormField, toggleCapability } = useModelForm();
+  const { form, methods, startCreate, startEdit, resetForm, toggleCapability } = useModelForm();
+  const { formState } = methods;
+  const { isSubmitting } = formState;
+  const capabilities = form?.capabilities ?? [];
   const {
     models,
     defaultSummaryModel,
     defaultCoverModel,
-    saving,
     testingId,
     switchingId,
     deletingId,
@@ -135,12 +147,9 @@ export function AiModelManager({ initialModels }: { initialModels: PublicAiModel
     setDefaultModel,
   } = useModelActions(initialModels, { onSaveSuccess: resetForm });
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!form) return;
-
-    await saveModel(form);
-  };
+  const handleSubmit = methods.handleSubmit(async (values) => {
+    await saveModel({ ...values });
+  });
 
   return (
     <div className="space-y-5">
@@ -300,112 +309,166 @@ export function AiModelManager({ initialModels }: { initialModels: PublicAiModel
           description="保存后可立即测试连接；编辑已有模型时，API Key 留空会保留原值。"
           className="border border-[var(--border)]"
         >
-          <form className="space-y-4" onSubmit={(event) => void handleSubmit(event)}>
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-              <Input
-                label="模型名称"
-                value={form.name}
-                onChange={(event) => updateFormField("name", event.target.value)}
-                required
-              />
-              <Input
-                label="模型 ID"
-                placeholder="qwen3.5-flash / wan2.6-t2i"
-                value={form.model}
-                onChange={(event) => updateFormField("model", event.target.value)}
-                required
-              />
-              <Input
-                label="Base URL"
-                placeholder="https://api.openai.com/v1"
-                value={form.baseUrl}
-                onChange={(event) => updateFormField("baseUrl", event.target.value)}
-                required
-              />
-              <Input
-                label="Request Path"
-                placeholder="/chat/completions / /images/generations"
-                value={form.requestPath}
-                onChange={(event) => updateFormField("requestPath", event.target.value)}
-                required
-              />
-              <Input
-                label={form.id ? "API Key（留空保持不变）" : "API Key"}
-                type="password"
-                value={form.apiKey}
-                onChange={(event) => updateFormField("apiKey", event.target.value)}
-              />
-            </div>
+          <Form {...methods}>
+            <form className="space-y-4" onSubmit={handleSubmit}>
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                <FormField
+                  control={methods.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>模型名称</FormLabel>
+                      <FormControl><Input {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={methods.control}
+                  name="model"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>模型 ID</FormLabel>
+                      <FormControl><Input placeholder="qwen3.5-flash / wan2.6-t2i" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={methods.control}
+                  name="baseUrl"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Base URL</FormLabel>
+                      <FormControl><Input placeholder="https://api.openai.com/v1" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={methods.control}
+                  name="requestPath"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Request Path</FormLabel>
+                      <FormControl><Input placeholder="/chat/completions / /images/generations" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={methods.control}
+                  name="apiKey"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{form.id ? "API Key（留空保持不变）" : "API Key"}</FormLabel>
+                      <FormControl><Input type="password" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
 
-            <label className="block text-sm font-medium text-[var(--foreground)]" htmlFor="ai-model-description">
-              描述
-            </label>
-            <textarea
-              id="ai-model-description"
-              className="ui-ring min-h-24 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-sm text-[var(--foreground)] placeholder:text-[var(--muted)] focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
-              value={form.description}
-              onChange={(event) => updateFormField("description", event.target.value)}
-            />
+              <FormField
+                control={methods.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>描述</FormLabel>
+                    <FormControl><Textarea className="min-h-24" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            <div className="grid gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-alt)] p-4 lg:grid-cols-3">
-              <label className="flex items-center gap-2 text-sm text-[var(--foreground)]">
-                <input
-                  checked={form.enabled}
-                  className="ui-checkbox h-4 w-4"
-                  type="checkbox"
-                  onChange={(event) => updateFormField("enabled", event.target.checked)}
+              <div className="grid gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-alt)] p-4 lg:grid-cols-3">
+                <FormField
+                  control={methods.control}
+                  name="enabled"
+                  render={({ field }) => (
+                    <FormItem className="flex items-center gap-2">
+                      <FormControl>
+                        <Checkbox checked={field.value} onCheckedChange={(checked) => field.onChange(checked === true)} />
+                      </FormControl>
+                      <FormLabel className="font-normal">启用模型</FormLabel>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-                启用模型
-              </label>
-              <label className="flex items-center gap-2 text-sm text-[var(--foreground)]">
-                <input
-                  checked={form.capabilities.includes("post-summary")}
-                  className="ui-checkbox h-4 w-4"
-                  type="checkbox"
-                  onChange={(event) => toggleCapability("post-summary", event.target.checked)}
+                <FormField
+                  control={methods.control}
+                  name="capabilities"
+                  render={() => (
+                    <FormItem className="lg:col-span-2">
+                      <FormLabel>模型能力</FormLabel>
+                      <FormControl>
+                        <div className="grid gap-3 sm:grid-cols-2" role="group">
+                          <label className="flex items-center gap-2 text-sm text-[var(--foreground)]">
+                            <Checkbox
+                              checked={capabilities.includes("post-summary")}
+                              onCheckedChange={(checked) => toggleCapability("post-summary", checked === true)}
+                            />
+                            文章摘要能力
+                          </label>
+                          <label className="flex items-center gap-2 text-sm text-[var(--foreground)]">
+                            <Checkbox
+                              checked={capabilities.includes("cover-image")}
+                              onCheckedChange={(checked) => toggleCapability("cover-image", checked === true)}
+                            />
+                            封面生图能力
+                          </label>
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-                文章摘要能力
-              </label>
-              <label className="flex items-center gap-2 text-sm text-[var(--foreground)]">
-                <input
-                  checked={form.capabilities.includes("cover-image")}
-                  className="ui-checkbox h-4 w-4"
-                  type="checkbox"
-                  onChange={(event) => toggleCapability("cover-image", event.target.checked)}
+                <FormField
+                  control={methods.control}
+                  name="isDefaultForSummary"
+                  render={({ field }) => (
+                    <FormItem className="flex items-center gap-2">
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value}
+                          disabled={!capabilities.includes("post-summary")}
+                          onCheckedChange={(checked) => field.onChange(checked === true)}
+                        />
+                      </FormControl>
+                      <FormLabel className="font-normal">设为文章摘要默认</FormLabel>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-                封面生图能力
-              </label>
-              <label className="flex items-center gap-2 text-sm text-[var(--foreground)]">
-                <input
-                  checked={form.isDefaultForSummary}
-                  className="ui-checkbox h-4 w-4"
-                  disabled={!form.capabilities.includes("post-summary")}
-                  type="checkbox"
-                  onChange={(event) => updateFormField("isDefaultForSummary", event.target.checked)}
+                <FormField
+                  control={methods.control}
+                  name="isDefaultForCoverImage"
+                  render={({ field }) => (
+                    <FormItem className="flex items-center gap-2">
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value}
+                          disabled={!capabilities.includes("cover-image")}
+                          onCheckedChange={(checked) => field.onChange(checked === true)}
+                        />
+                      </FormControl>
+                      <FormLabel className="font-normal">设为封面生图默认</FormLabel>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-                设为文章摘要默认
-              </label>
-              <label className="flex items-center gap-2 text-sm text-[var(--foreground)]">
-                <input
-                  checked={form.isDefaultForCoverImage}
-                  className="ui-checkbox h-4 w-4"
-                  disabled={!form.capabilities.includes("cover-image")}
-                  type="checkbox"
-                  onChange={(event) => updateFormField("isDefaultForCoverImage", event.target.checked)}
-                />
-                设为封面生图默认
-              </label>
-            </div>
+              </div>
 
-            <div className="flex flex-wrap justify-end gap-2">
-              <Button type="button" variant="outline" onClick={resetForm} className="rounded-lg">
-                取消
-              </Button>
-              <Button disabled={saving} type="submit" className="rounded-lg">
-                {saving ? "保存中..." : "保存模型"}
-              </Button>
-            </div>
-          </form>
+              <div className="flex flex-wrap justify-end gap-2">
+                <Button type="button" variant="outline" onClick={resetForm} className="rounded-lg">
+                  取消
+                </Button>
+                <Button disabled={isSubmitting} type="submit" className="rounded-lg">
+                  {isSubmitting ? "保存中..." : "保存模型"}
+                </Button>
+              </div>
+            </form>
+          </Form>
         </WorkspacePanel>
       ) : null}
     </div>

@@ -1,5 +1,6 @@
 ﻿import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { afterEach, describe, expect, test, vi } from 'vitest'
+import { SWRConfig, mutate as clearSwrCache } from 'swr'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import AdminCreatePostPage from '../posts/new/page'
 
 vi.mock('next/navigation', () => ({
@@ -11,6 +12,10 @@ vi.mock('next/navigation', () => ({
   usePathname: () => '/admin/posts/new',
   useSearchParams: () => new URLSearchParams(''),
 }))
+
+beforeEach(async () => {
+  await clearSwrCache(() => true, undefined, { revalidate: false })
+})
 
 afterEach(() => {
   cleanup()
@@ -28,8 +33,21 @@ describe('admin create post', () => {
     fireEvent.click(await screen.findByRole('option', { name }))
   }
 
+  function renderCreatePage() {
+    return render(
+      <SWRConfig value={{ provider: () => new Map(), dedupingInterval: 0 }}>
+        <AdminCreatePostPage />
+      </SWRConfig>
+    )
+  }
+
+  function getFetchPath(input: RequestInfo | URL) {
+    const raw = input instanceof Request ? input.url : String(input)
+    return raw.startsWith('http') ? new URL(raw).pathname : raw
+  }
+
   test('renders new post workspace in admin style', async () => {
-    render(<AdminCreatePostPage />)
+    renderCreatePage()
 
     expect(screen.getByRole('heading', { name: '新建文章' })).toBeInTheDocument()
     const workspace = screen.getByRole('heading', { name: '新建文章' }).closest('form')
@@ -54,7 +72,7 @@ describe('admin create post', () => {
   })
 
   test('auto-generates a max-60 pinyin slug from Chinese title', () => {
-    render(<AdminCreatePostPage />)
+    renderCreatePage()
 
     fireEvent.change(screen.getByLabelText('标题'), {
       target: { value: '如何用 Next.js 做一个现代博客' },
@@ -64,7 +82,7 @@ describe('admin create post', () => {
   })
 
   test('keeps manual slug after user edits it', () => {
-    render(<AdminCreatePostPage />)
+    renderCreatePage()
 
     fireEvent.change(screen.getByLabelText('标题'), {
       target: { value: '如何用 Next.js 做一个现代博客' },
@@ -97,7 +115,7 @@ describe('admin create post', () => {
         })
     )
 
-    render(<AdminCreatePostPage />)
+    renderCreatePage()
 
     await openMetadataDialog()
 
@@ -107,27 +125,28 @@ describe('admin create post', () => {
   })
 
   test('submits selected category and tag ids when creating post', async () => {
-    const fetchMock = vi.fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ data: [{ id: 'cat-1', name: '前端', slug: 'frontend' }] }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ data: [{ id: 'tag-1', name: 'React', slug: 'react' }, { id: 'tag-2', name: 'Next.js', slug: 'nextjs' }] }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ success: true, data: [] }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ success: true, data: { slug: 'ru-he-yong-next-js' } }),
-      })
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
+      void _init
+      const url = getFetchPath(input)
+
+      if (url === '/api/categories') {
+        return { ok: true, json: async () => ({ data: [{ id: 'cat-1', name: '前端', slug: 'frontend' }] }) }
+      }
+      if (url === '/api/tags') {
+        return { ok: true, json: async () => ({ data: [{ id: 'tag-1', name: 'React', slug: 'react' }, { id: 'tag-2', name: 'Next.js', slug: 'nextjs' }] }) }
+      }
+      if (url === '/api/admin/series') {
+        return { ok: true, json: async () => ({ success: true, data: [] }) }
+      }
+      if (url === '/api/admin/posts') {
+        return { ok: true, json: async () => ({ success: true, data: { slug: 'ru-he-yong-next-js' } }) }
+      }
+      throw new Error(`Unhandled fetch ${url}`)
+    })
 
     vi.stubGlobal('fetch', fetchMock)
 
-    render(<AdminCreatePostPage />)
+    renderCreatePage()
 
     fireEvent.change(screen.getByLabelText('标题'), {
       target: { value: '如何用 Next.js' },
@@ -144,19 +163,59 @@ describe('admin create post', () => {
     fireEvent.click(screen.getByRole('button', { name: '保存草稿' }))
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(4)
+      expect(fetchMock).toHaveBeenCalledWith('/api/admin/posts', expect.anything())
     })
 
-    const fourthCall = fetchMock.mock.calls[3]
-    expect(fourthCall[0]).toBe('/api/admin/posts')
-    expect(fourthCall[1]).toMatchObject({
+    const saveCall = fetchMock.mock.calls.find(([url]) => url === '/api/admin/posts') as
+      | [RequestInfo | URL, RequestInit]
+      | undefined
+    expect(saveCall?.[1]).toMatchObject({
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
     })
-    expect(JSON.parse(String(fourthCall[1]?.body))).toMatchObject({
+    expect(JSON.parse(String(saveCall?.[1]?.body))).toMatchObject({
       categoryId: 'cat-1',
       tagIds: ['tag-1', 'tag-2'],
     })
+  })
+
+  test('shows localized network error when creating post fails before a response', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
+      void _init
+      const url = getFetchPath(input)
+
+      if (url === '/api/categories') {
+        return { ok: true, json: async () => ({ data: [{ id: 'cat-1', name: '前端', slug: 'frontend' }] }) }
+      }
+      if (url === '/api/tags') {
+        return { ok: true, json: async () => ({ data: [{ id: 'tag-1', name: 'React', slug: 'react' }] }) }
+      }
+      if (url === '/api/admin/series') {
+        return { ok: true, json: async () => ({ success: true, data: [] }) }
+      }
+      if (url === '/api/admin/posts') {
+        throw new TypeError('Failed to fetch')
+      }
+      throw new Error(`Unhandled fetch ${url}`)
+    })
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    renderCreatePage()
+
+    fireEvent.change(screen.getByLabelText('标题'), {
+      target: { value: '如何用 Next.js' },
+    })
+    fireEvent.change(screen.getByLabelText('内容'), {
+      target: { value: '# Hello' },
+    })
+
+    await openMetadataDialog()
+    await screen.findByRole('checkbox', { name: 'React' })
+    fireEvent.click(screen.getByRole('button', { name: '保存草稿' }))
+
+    expect(await screen.findByText('网络异常，请检查网络连接后重试')).toBeInTheDocument()
+    expect(screen.queryByText('Failed to fetch')).not.toBeInTheDocument()
   })
 
 
@@ -207,7 +266,7 @@ describe('admin create post', () => {
 
     vi.stubGlobal('fetch', fetchMock)
 
-    render(<AdminCreatePostPage />)
+    renderCreatePage()
 
     fireEvent.change(screen.getByLabelText('内容'), {
       target: { value: '# 正文\n\n这是一篇关于 Next.js 和 AI 写作体验的文章。' },
@@ -272,35 +331,39 @@ describe('admin create post', () => {
       categoryId: 'cat-1',
       tagIds: ['tag-1', 'tag-2'],
     }
-    const fetchMock = vi.fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ data: [{ id: 'cat-1', name: '前端', slug: 'frontend' }] }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ data: [{ id: 'tag-1', name: 'React', slug: 'react' }, { id: 'tag-2', name: 'Next.js', slug: 'nextjs' }] }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ success: true, data: [] }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          success: true,
-          data: {
-            taskId: 'task-1',
-            modelId: 'model-1',
-            articleInfo,
-            items: [],
-          },
-        }),
-      })
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
+      void _init
+      const url = getFetchPath(input)
+
+      if (url === '/api/categories') {
+        return { ok: true, json: async () => ({ data: [{ id: 'cat-1', name: '前端', slug: 'frontend' }] }) }
+      }
+      if (url === '/api/tags') {
+        return { ok: true, json: async () => ({ data: [{ id: 'tag-1', name: 'React', slug: 'react' }, { id: 'tag-2', name: 'Next.js', slug: 'nextjs' }] }) }
+      }
+      if (url === '/api/admin/series') {
+        return { ok: true, json: async () => ({ success: true, data: [] }) }
+      }
+      if (url === '/api/admin/ai/actions/article-info') {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              taskId: 'task-1',
+              modelId: 'model-1',
+              articleInfo,
+              items: [],
+            },
+          }),
+        }
+      }
+      throw new Error(`Unhandled fetch ${url}`)
+    })
 
     vi.stubGlobal('fetch', fetchMock)
 
-    render(<AdminCreatePostPage />)
+    renderCreatePage()
 
     fireEvent.change(screen.getByLabelText('标题'), {
       target: { value: originalTitle },
@@ -353,7 +416,7 @@ describe('admin create post', () => {
 
     vi.stubGlobal('fetch', fetchMock)
 
-    render(<AdminCreatePostPage />)
+    renderCreatePage()
 
     fireEvent.change(screen.getByLabelText('标题'), {
       target: { value: '短文' },
@@ -382,7 +445,7 @@ describe('admin create post', () => {
       })
     )
 
-    render(<AdminCreatePostPage />)
+    renderCreatePage()
 
     expect(screen.getByText('标签：未选择')).toBeInTheDocument()
     expect(screen.getByText('分类：未选择')).toBeInTheDocument()

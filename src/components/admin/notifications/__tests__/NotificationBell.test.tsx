@@ -68,7 +68,7 @@ describe("NotificationBell", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /全部已读/ }));
 
-    await waitFor(() => expect(fetch).toHaveBeenCalledWith("/api/admin/notifications/read-all", { method: "POST" }));
+    await waitFor(() => expect(fetch).toHaveBeenCalledWith("/api/admin/notifications/read-all", expect.objectContaining({ method: "POST" })));
     expect(screen.getAllByText("全部已读").length).toBeGreaterThan(0);
   });
 });

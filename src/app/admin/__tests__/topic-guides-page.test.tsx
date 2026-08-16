@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import React from "react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
+import { SWRConfig, mutate as clearSwrCache } from "swr";
 
 vi.mock("sonner", () => ({
   toast: {
@@ -40,7 +41,8 @@ const postsPayload = [
 ];
 
 describe("admin topic guides page", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    await clearSwrCache(() => true, undefined, { revalidate: false });
     vi.clearAllMocks();
   });
 
@@ -51,7 +53,7 @@ describe("admin topic guides page", () => {
 
     try {
       const { default: AdminTopicGuidesPage } = await import("../topic-guides/page");
-      render(<AdminTopicGuidesPage />);
+      renderWithSWR(<AdminTopicGuidesPage />);
 
       expect(await screen.findByRole("heading", { name: "专题导读" })).toBeInTheDocument();
       expect(screen.getByText("工程入门")).toBeInTheDocument();
@@ -70,7 +72,7 @@ describe("admin topic guides page", () => {
 
     try {
       const { default: AdminTopicGuidesPage } = await import("../topic-guides/page");
-      render(<AdminTopicGuidesPage />);
+      renderWithSWR(<AdminTopicGuidesPage />);
 
       await screen.findByText("First Post");
       fireEvent.change(screen.getByLabelText("标题"), { target: { value: "New Guide" } });
@@ -97,6 +99,61 @@ describe("admin topic guides page", () => {
     }
   });
 
+  test("shows Chinese field errors and does not submit invalid guide form", async () => {
+    const fetchMock = mockFetch();
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = fetchMock as typeof fetch;
+
+    try {
+      const { default: AdminTopicGuidesPage } = await import("../topic-guides/page");
+      renderWithSWR(<AdminTopicGuidesPage />);
+
+      await screen.findByText("First Post");
+      fireEvent.click(screen.getByRole("button", { name: "创建专题" }));
+
+      expect(await screen.findByText("请输入专题标题")).toBeInTheDocument();
+      expect(screen.getByText("请输入 slug")).toBeInTheDocument();
+      expect(fetchMock).not.toHaveBeenCalledWith("/api/admin/topic-guides", expect.objectContaining({ method: "POST" }));
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  test("disables the submit button while guide creation is pending", async () => {
+    let resolveCreate: (response: Response) => void = () => undefined;
+    const createResponse = new Promise<Response>((resolve) => {
+      resolveCreate = resolve;
+    });
+    const fetchMock = mockFetch((input, init) => {
+      if (String(input) === "/api/admin/topic-guides" && init?.method === "POST") {
+        return createResponse;
+      }
+
+      return undefined;
+    });
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = fetchMock as typeof fetch;
+
+    try {
+      const { default: AdminTopicGuidesPage } = await import("../topic-guides/page");
+      renderWithSWR(<AdminTopicGuidesPage />);
+
+      await screen.findByText("First Post");
+      fireEvent.change(screen.getByLabelText("标题"), { target: { value: "New Guide" } });
+      fireEvent.change(screen.getByLabelText("Slug"), { target: { value: "new-guide" } });
+      fireEvent.click(screen.getByRole("button", { name: "创建专题" }));
+
+      const pendingButton = await screen.findByRole("button", { name: "保存中..." });
+      expect(pendingButton).toBeDisabled();
+
+      resolveCreate(jsonResponse({ success: true, data: { ...guidesPayload[0], id: "guide-2" } }));
+
+      await waitFor(() => expect(screen.getByRole("button", { name: "创建专题" })).not.toBeDisabled());
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   test("can publish and archive a guide", async () => {
     const fetchMock = mockFetch();
     const originalFetch = globalThis.fetch;
@@ -104,7 +161,7 @@ describe("admin topic guides page", () => {
 
     try {
       const { default: AdminTopicGuidesPage } = await import("../topic-guides/page");
-      render(<AdminTopicGuidesPage />);
+      renderWithSWR(<AdminTopicGuidesPage />);
 
       await screen.findByText("工程入门");
       fireEvent.click(screen.getByRole("button", { name: "发布" }));
@@ -132,8 +189,23 @@ describe("admin topic guides page", () => {
   });
 });
 
-function mockFetch() {
+function renderWithSWR(ui: React.ReactElement) {
+  return render(
+    <SWRConfig value={{ provider: () => new Map(), dedupingInterval: 0 }}>
+      {ui}
+    </SWRConfig>,
+  );
+}
+
+function mockFetch(
+  override?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response> | Response | undefined,
+) {
   return vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const overrideResponse = override?.(input, init);
+    if (overrideResponse) {
+      return overrideResponse;
+    }
+
     const url = String(input);
 
     if (url.startsWith("/api/admin/posts")) {

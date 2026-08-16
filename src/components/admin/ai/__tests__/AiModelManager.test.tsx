@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { mutate as clearSwrCache } from "swr";
 
 import type { PublicAiModelOption } from "@/lib/ai-models";
 
@@ -53,12 +54,32 @@ const databaseModel: PublicAiModelOption = {
   lastTestMessage: null,
 };
 
+beforeEach(async () => {
+  await clearSwrCache(() => true, undefined, { revalidate: false });
+});
+
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
 });
 
 describe("AiModelManager", () => {
+  test("associates field validation errors with the model form controls", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<AiModelManager initialModels={[environmentModel]} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "新增模型" }));
+    fireEvent.change(screen.getByLabelText("描述"), { target: { value: "x".repeat(501) } });
+    fireEvent.click(screen.getByRole("button", { name: "保存模型" }));
+
+    expect(await screen.findByText("描述最多 500 字")).toBeInTheDocument();
+    expect(screen.getByLabelText("描述")).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByLabelText("描述")).toHaveAccessibleDescription("描述最多 500 字");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   test("preserves request path when editing a model", async () => {
     const coverModel: PublicAiModelOption = {
       ...databaseModel,

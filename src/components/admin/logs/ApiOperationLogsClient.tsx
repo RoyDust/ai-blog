@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { CheckCircle2, Eye, RefreshCw, Search, Trash2, XCircle } from "lucide-react";
+import useSWR from "swr";
 
 import { AdminPagination } from "@/components/admin/primitives/AdminPagination";
 import {
@@ -27,7 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/shadcn/ui/select";
-import { readApiJson } from "@/lib/admin-api-client";
+import { apiFetcher, apiMutate, toErrorMessage } from "@/lib/client-api";
 
 type LogItem = {
   id: string;
@@ -70,6 +71,8 @@ type LogPayload = {
   };
 };
 
+type LogsResponse = { success?: boolean; data?: LogPayload };
+
 const rangeOptions = [
   { value: "1", label: "24 小时" },
   { value: "7", label: "7 天" },
@@ -90,6 +93,13 @@ const scopeOptions = ["", "admin", "public", "auth", "ai", "cron", "analytics", 
 const allFilterValue = "__all__";
 const defaultPageSize = 40;
 const selectTriggerClassName = "h-10 w-full rounded-xl border-[var(--border)] bg-[var(--surface)] px-3 text-sm font-medium text-[var(--foreground)] shadow-none";
+
+const EMPTY_PAYLOAD: LogPayload = {
+  items: [],
+  nextCursor: null,
+  pagination: { page: 1, limit: defaultPageSize, total: 0, totalPages: 1 },
+  summary: { totalCount: 0, failedCount: 0, successCount: 0 },
+};
 
 function filterValue(value: string) {
   return value || allFilterValue;
@@ -149,16 +159,7 @@ export function ApiOperationLogsClient() {
   const [includeSelf, setIncludeSelf] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(defaultPageSize);
-  const [payload, setPayload] = useState<LogPayload>({
-    items: [],
-    nextCursor: null,
-    pagination: { page: 1, limit: defaultPageSize, total: 0, totalPages: 1 },
-    summary: { totalCount: 0, failedCount: 0, successCount: 0 },
-  });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [selectedLog, setSelectedLog] = useState<LogItem | null>(null);
-  const [detailLoading, setDetailLoading] = useState(false);
   const [purging, setPurging] = useState(false);
 
   const buildLogsUrl = useCallback((pageNumber: number) => {
@@ -171,63 +172,44 @@ export function ApiOperationLogsClient() {
     return `/api/admin/logs?${params.toString()}`;
   }, [includeSelf, method, pageSize, query, range, scope, status]);
 
-  const loadLogs = useCallback(async (pageNumber = page) => {
-    try {
-      setLoading(true);
-      setError(null);
-      const response = await fetch(buildLogsUrl(pageNumber), { cache: "no-store" });
-      const data = await readApiJson<{ success?: boolean; data?: LogPayload }>(response, "接口日志加载失败");
-      const nextPayload = data.data;
-      if (!nextPayload) {
-        throw new Error("接口日志加载失败");
-      }
-      setPayload(nextPayload);
-      if (nextPayload.pagination.page !== pageNumber) {
-        setPage(nextPayload.pagination.page);
-      }
-    } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "接口日志加载失败");
-    } finally {
-      setLoading(false);
-    }
-  }, [buildLogsUrl, page]);
+  // 列表数据：URL 即 SWR key，筛选/翻页自动重取；keepPreviousData 保证切换时不闪空
+  const {
+    data: logsResponse,
+    error: listError,
+    isLoading,
+    isValidating,
+    mutate,
+  } = useSWR<LogsResponse>(buildLogsUrl(page), apiFetcher, { keepPreviousData: true });
 
-  useEffect(() => {
-    void loadLogs(page);
-  }, [loadLogs, page]);
+  const payload = logsResponse?.data ?? EMPTY_PAYLOAD;
+  const errorMessage = toErrorMessage(listError, "接口日志加载失败");
 
-  const openDetail = useCallback(async (item: LogItem) => {
-    setSelectedLog(item);
-    setDetailLoading(true);
-    try {
-      const response = await fetch(`/api/admin/logs/${item.id}`, { cache: "no-store" });
-      const data = await readApiJson<{ success?: boolean; data?: LogItem }>(response, "接口日志详情加载失败");
-      if (data.data) {
-        setSelectedLog(data.data);
-      }
-    } catch (detailError) {
-      setError(detailError instanceof Error ? detailError.message : "接口日志详情加载失败");
-    } finally {
-      setDetailLoading(false);
-    }
-  }, []);
+  // 详情：选中条目时才请求（条件 key）
+  const {
+    data: detailResponse,
+    error: detailError,
+    isLoading: detailLoading,
+  } = useSWR<{ success?: boolean; data?: LogItem }>(
+    selectedLog ? `/api/admin/logs/${selectedLog.id}` : null,
+    apiFetcher,
+  );
+  const detailLog = detailResponse?.data ?? selectedLog;
 
   const purgeOldLogs = useCallback(async () => {
+    setPurging(true);
     try {
-      setPurging(true);
-      setError(null);
-      await readApiJson(await fetch("/api/admin/logs/purge", {
+      await apiMutate("/api/admin/logs/purge", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ retentionDays: 30 }),
-      }), "接口日志清理失败");
-      await loadLogs();
+      });
+      await mutate();
     } catch (purgeError) {
-      setError(purgeError instanceof Error ? purgeError.message : "接口日志清理失败");
+      // 清理失败保留在按钮重试语义内，不污染列表错误态
+      void purgeError;
     } finally {
       setPurging(false);
     }
-  }, [loadLogs]);
+  }, [mutate]);
 
   const pagination = payload.pagination;
 
@@ -326,8 +308,8 @@ export function ApiOperationLogsClient() {
               }} type="checkbox" />
               显示自身
             </label>
-            <Button aria-label="刷新接口日志" onClick={() => void loadLogs()} size="icon" type="button" variant="outline">
-              <RefreshCw className="h-4 w-4" />
+            <Button aria-label="刷新接口日志" disabled={isValidating} onClick={() => void mutate()} size="icon" type="button" variant="outline">
+              <RefreshCw className={`h-4 w-4 ${isValidating ? "animate-spin" : ""}`} />
             </Button>
             <Button aria-label="清理旧日志" disabled={purging} onClick={() => void purgeOldLogs()} size="icon" type="button" variant="outline">
               <Trash2 className="h-4 w-4" />
@@ -344,11 +326,11 @@ export function ApiOperationLogsClient() {
           </div>
         </div>
 
-        {loading ? <p className="px-5 py-10 text-center text-sm text-[var(--text-muted)]">正在加载接口日志...</p> : null}
-        {!loading && error ? <p className="px-5 py-10 text-center text-sm text-rose-600">{error}</p> : null}
-        {!loading && !error && payload.items.length === 0 ? <p className="px-5 py-10 text-center text-sm text-[var(--text-muted)]">暂无匹配日志。</p> : null}
+        {isLoading ? <p className="px-5 py-10 text-center text-sm text-[var(--text-muted)]">正在加载接口日志...</p> : null}
+        {!isLoading && listError ? <p className="px-5 py-10 text-center text-sm text-rose-600">{errorMessage}</p> : null}
+        {!isLoading && !listError && payload.items.length === 0 ? <p className="px-5 py-10 text-center text-sm text-[var(--text-muted)]">暂无匹配日志。</p> : null}
 
-        {!loading && !error && payload.items.length > 0 ? (
+        {!isLoading && !listError && payload.items.length > 0 ? (
           <>
             <div className="min-h-0 flex-1 overflow-auto">
               <Table className="min-w-[980px] table-fixed">
@@ -383,7 +365,7 @@ export function ApiOperationLogsClient() {
                       <TableCell className="whitespace-nowrap align-top text-[var(--text-body)]">{item.durationMs ?? 0} ms</TableCell>
                       <TableCell className="truncate align-top text-xs text-[var(--text-muted)]">{item.requestId}</TableCell>
                       <TableCell>
-                        <Button aria-label="查看接口日志详情" className="size-8 rounded-md !border-[var(--border)] !bg-[var(--surface)] !text-[var(--text-body)] hover:!bg-[var(--surface-alt)]" onClick={() => void openDetail(item)} size="icon-sm" type="button" variant="outline">
+                        <Button aria-label="查看接口日志详情" className="size-8 rounded-md !border-[var(--border)] !bg-[var(--surface)] !text-[var(--text-body)] hover:!bg-[var(--surface-alt)]" onClick={() => void setSelectedLog(item)} size="icon-sm" type="button" variant="outline">
                           <Eye className="h-4 w-4" />
                         </Button>
                       </TableCell>
@@ -395,7 +377,7 @@ export function ApiOperationLogsClient() {
             {pagination.total > 0 ? (
               <AdminPagination
                 className="shrink-0"
-                disabled={loading}
+                disabled={isValidating}
                 itemLabel="条记录"
                 onPageChange={setPage}
                 onPageSizeChange={(nextPageSize) => {
@@ -417,38 +399,39 @@ export function ApiOperationLogsClient() {
         <DialogContent className="max-w-4xl">
           <DialogHeader>
             <DialogTitle>接口日志详情</DialogTitle>
-            <DialogDescription>{selectedLog ? `${selectedLog.method} ${selectedLog.path}` : ""}</DialogDescription>
+            <DialogDescription>{detailLog ? `${detailLog.method} ${detailLog.path}` : ""}</DialogDescription>
           </DialogHeader>
-          {selectedLog ? (
+          {detailLog ? (
             <div className="max-h-[70dvh] space-y-4 overflow-y-auto px-6 py-5">
               {detailLoading ? <p className="text-sm text-[var(--muted)]">正在加载详情...</p> : null}
+              {detailError ? <p className="text-sm text-rose-600">{toErrorMessage(detailError, "接口日志详情加载失败")}</p> : null}
               <div className="grid gap-3 md:grid-cols-3">
-                <div><p className="text-xs text-[var(--muted)]">Request ID</p><p className="mt-1 break-all text-sm">{selectedLog.requestId}</p></div>
-                <div><p className="text-xs text-[var(--muted)]">Operation</p><p className="mt-1 text-sm">{selectedLog.operation ?? "未标记"}</p></div>
-                <div><p className="text-xs text-[var(--muted)]">Actor</p><p className="mt-1 text-sm">{formatActor(selectedLog)}</p></div>
+                <div><p className="text-xs text-[var(--muted)]">Request ID</p><p className="mt-1 break-all text-sm">{detailLog.requestId}</p></div>
+                <div><p className="text-xs text-[var(--muted)]">Operation</p><p className="mt-1 text-sm">{detailLog.operation ?? "未标记"}</p></div>
+                <div><p className="text-xs text-[var(--muted)]">Actor</p><p className="mt-1 text-sm">{formatActor(detailLog)}</p></div>
               </div>
-              {selectedLog.errorMessage ? (
+              {detailLog.errorMessage ? (
                 <div className="rounded-xl bg-rose-50 p-3 text-sm text-rose-700">
-                  <p className="font-medium">{selectedLog.errorName ?? "Error"}</p>
-                  <p className="mt-1">{selectedLog.errorMessage}</p>
+                  <p className="font-medium">{detailLog.errorName ?? "Error"}</p>
+                  <p className="mt-1">{detailLog.errorMessage}</p>
                 </div>
               ) : null}
               <div className="grid gap-4 lg:grid-cols-2">
                 <section>
                   <h3 className="mb-2 text-sm font-semibold">Query</h3>
-                  <JsonBlock value={selectedLog.query} />
+                  <JsonBlock value={detailLog.query} />
                 </section>
                 <section>
                   <h3 className="mb-2 text-sm font-semibold">Request Body</h3>
-                  <JsonBlock value={selectedLog.requestBody} />
+                  <JsonBlock value={detailLog.requestBody} />
                 </section>
                 <section>
                   <h3 className="mb-2 text-sm font-semibold">Metadata</h3>
-                  <JsonBlock value={selectedLog.metadata} />
+                  <JsonBlock value={detailLog.metadata} />
                 </section>
                 <section>
                   <h3 className="mb-2 text-sm font-semibold">User Agent</h3>
-                  <p className="rounded-xl bg-[var(--surface-alt)] p-3 text-xs leading-5 text-[var(--foreground)]">{selectedLog.userAgent ?? "无"}</p>
+                  <p className="rounded-xl bg-[var(--surface-alt)] p-3 text-xs leading-5 text-[var(--foreground)]">{detailLog.userAgent ?? "无"}</p>
                 </section>
               </div>
             </div>

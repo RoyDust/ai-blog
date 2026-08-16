@@ -9,9 +9,10 @@
  * - 作为人工观察“抓取 → 去重 → 生成 → 增强 → 发布”流水线的主要界面
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 import Link from "next/link"
 import { toast } from "sonner"
+import useSWR from "swr"
 
 import { PageHeader } from "@/components/admin/primitives/PageHeader"
 import { StatusBadge } from "@/components/admin/primitives/StatusBadge"
@@ -26,7 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/shadcn/ui/select"
-import { getApiErrorMessage } from "@/lib/admin-api-client"
+import { apiFetcher, apiMutate, toErrorMessage } from "@/lib/client-api"
 import type { PublicAiModelOption } from "@/lib/ai-models"
 
 type RunHistoryItem = {
@@ -155,17 +156,36 @@ function runSourceSummary(run: Pick<RunHistoryItem, "sourceSnapshotJson">) {
  */
 export default function AdminAiNewsPage() {
   const [date, setDate] = useState(todayInputValue())
-  const [models, setModels] = useState<PublicAiModelOption[]>([])
   const [selectedModelId, setSelectedModelId] = useState("")
-  const [modelsLoading, setModelsLoading] = useState(false)
-  const [modelsError, setModelsError] = useState<string | null>(null)
   const [running, setRunning] = useState(false)
   const [result, setResult] = useState<RunResult | null>(null)
-  const [runs, setRuns] = useState<RunHistoryItem[]>([])
-  const [runsLoading, setRunsLoading] = useState(false)
-  const [runsError, setRunsError] = useState<string | null>(null)
   const [candidateStates, setCandidateStates] = useState<Record<string, CandidateState>>({})
   const aiNewsSources = useAiNewsSources()
+
+  const {
+    data: runsResponse,
+    isLoading: runsLoading,
+    error: runsError,
+    mutate: mutateRuns,
+  } = useSWR<{ success?: boolean; data?: RunHistoryItem[] }>("/api/admin/ai-news/run", apiFetcher, {
+    revalidateOnMount: true,
+  });
+
+  const {
+    data: modelsResponse,
+    isLoading: modelsLoading,
+    error: modelsError,
+  } = useSWR<{ success?: boolean; data?: PublicAiModelOption[] }>("/api/admin/ai/models", apiFetcher, {
+    revalidateOnMount: true,
+  });
+
+  const runs = useMemo(() => (Array.isArray(runsResponse?.data) ? runsResponse.data : []), [runsResponse?.data]);
+  const models = useMemo(() => (Array.isArray(modelsResponse?.data) ? modelsResponse.data : []), [modelsResponse?.data]);
+
+  // 自动选择默认模型（渲染期条件调整）
+  if (!selectedModelId && models.length > 0) {
+    setSelectedModelId(getDefaultNewsModel(models)?.id ?? "");
+  }
 
   const selectedModel = useMemo(
     () => models.find((model) => model.id === selectedModelId) ?? null,
@@ -176,52 +196,6 @@ export default function AdminAiNewsPage() {
     () => models.filter((model) => model.status === "ready" && model.capabilities.includes("post-summary")),
     [models],
   )
-
-  /**
-   * 加载 AI 日报运行历史，用于展示近几次生成结果与漏斗指标。
-   */
-  const loadRunHistory = useCallback(async () => {
-    setRunsLoading(true)
-    setRunsError(null)
-    try {
-      const response = await fetch("/api/admin/ai-news/run")
-      const data = await response.json()
-
-      if (!response.ok || !data.success) {
-        throw new Error(getApiErrorMessage(data, "AI 日报生成失败"))
-      }
-
-      setRuns(Array.isArray(data.data) ? data.data : [])
-    } catch (error) {
-      setRunsError(error instanceof Error ? error.message : "运行记录加载失败")
-    } finally {
-      setRunsLoading(false)
-    }
-  }, [])
-
-  /**
-   * 加载可用于日报生成的模型列表，并自动选择默认模型。
-   */
-  const loadModels = useCallback(async () => {
-    setModelsLoading(true)
-    setModelsError(null)
-    try {
-      const response = await fetch("/api/admin/ai/models")
-      const data = await response.json()
-
-      if (!response.ok || !data.success) {
-        throw new Error(getApiErrorMessage(data, "AI 日报生成失败"))
-      }
-
-      const nextModels = Array.isArray(data.data) ? data.data : []
-      setModels(nextModels)
-      setSelectedModelId((current) => current || getDefaultNewsModel(nextModels)?.id || "")
-    } catch (error) {
-      setModelsError(error instanceof Error ? error.message : "模型列表加载失败")
-    } finally {
-      setModelsLoading(false)
-    }
-  }, [])
 
   /**
    * 展开或收起某次运行的候选新闻列表。
@@ -252,12 +226,9 @@ export default function AdminAiNewsPage() {
     }
 
     try {
-      const response = await fetch(`/api/admin/ai-news/candidates?runId=${encodeURIComponent(runId)}`)
-      const data = await response.json()
-
-      if (!response.ok || !data.success) {
-        throw new Error(getApiErrorMessage(data, "AI 日报生成失败"))
-      }
+      const data = await apiFetcher<{ success?: boolean; data?: RunCandidateItem[] }>(
+        `/api/admin/ai-news/candidates?runId=${encodeURIComponent(runId)}`,
+      )
 
       setCandidateStates((states) => ({
         ...states,
@@ -274,17 +245,12 @@ export default function AdminAiNewsPage() {
         [runId]: {
           expanded: true,
           loading: false,
-          error: error instanceof Error ? error.message : "候选列表加载失败",
+          error: toErrorMessage(error, "候选列表加载失败"),
           data: null,
         },
       }))
     }
   }, [candidateStates])
-
-  useEffect(() => {
-    void loadRunHistory()
-    void loadModels()
-  }, [loadModels, loadRunHistory])
 
   /**
    * 手动执行 AI 日报生成。
@@ -305,28 +271,22 @@ export default function AdminAiNewsPage() {
       const sourcePayload = aiNewsSources.sourceMode === "selected"
         ? { sourceMode: "selected", sourceIds: aiNewsSources.selectedSourceIds }
         : {}
-      const response = await fetch("/api/admin/ai-news/run", {
+      const data = await apiMutate<{ success?: boolean; data?: RunResult }>("/api/admin/ai-news/run", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ date, modelId: selectedModelId, ...(regenerate ? { regenerate: true } : {}), ...sourcePayload }),
       })
-      const data = await response.json()
 
-      if (!response.ok || !data.success) {
-        throw new Error(getApiErrorMessage(data, "AI 日报生成失败"))
-      }
-
-      setResult(data.data)
-      await loadRunHistory()
-      if (data.data.operation === "skipped") {
+      setResult(data.data ?? null)
+      void mutateRuns()
+      if (data.data?.operation === "skipped") {
         toast.message("今日 AI 日报已存在并已上线")
-      } else if (data.data.operation === "regenerated") {
+      } else if (data.data?.operation === "regenerated") {
         toast.success("AI 日报已重新生成并上线")
       } else {
         toast.success("AI 日报已生成并上线")
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "AI 日报生成失败")
+      toast.error(toErrorMessage(error, "AI 日报生成失败"))
     } finally {
       setRunning(false)
     }

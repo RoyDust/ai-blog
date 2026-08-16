@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Images, Search } from "lucide-react";
+import useSWR from "swr";
 
 import { Button, FallbackImage, Modal } from "@/components/admin/ui";
-import { readApiJson } from "@/lib/admin-api-client";
+import { apiFetcher, toErrorMessage } from "@/lib/client-api";
 import type { CoverAsset, CoverAssetListResponse } from "./types";
 
 type CoverPickerProps = {
@@ -22,62 +23,55 @@ type CoverPickerProps = {
 export function CoverPicker({ selectedAssetId, onSelect, buttonLabel = "从图库选择" }: CoverPickerProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [imageKindFilter, setImageKindFilter] = useState<"all" | "uploaded" | "ai-generated">("all");
-  const [assets, setAssets] = useState<CoverAsset[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+
+  // 搜索词 250ms 防抖（setState 只发生在事件回调与定时器回调中）
+  const debounceTimerRef = useRef<number | null>(null);
+  const handleQueryChange = (value: string) => {
+    setQuery(value);
+
+    if (debounceTimerRef.current !== null) {
+      window.clearTimeout(debounceTimerRef.current);
+    }
+
+    debounceTimerRef.current = window.setTimeout(() => {
+      setDebouncedQuery(value);
+    }, value ? 250 : 0);
+  };
 
   useEffect(() => {
-    if (!open) return;
-
-    let active = true;
-
-    /**
-     * 弹窗打开后按当前搜索词加载图库。
-     *
-     * active 标记用于忽略已关闭弹窗或新搜索触发后的过期请求结果。
-     */
-    const load = async () => {
-      setLoading(true);
-      setError("");
-
-      try {
-        const params = new URLSearchParams({ status: "active", limit: "50" });
-        if (query.trim()) {
-          params.set("q", query.trim());
-        }
-        if (imageKindFilter === "uploaded") {
-          params.set("source", "upload");
-          params.set("generatedByAi", "false");
-        } else if (imageKindFilter === "ai-generated") {
-          params.set("generatedByAi", "true");
-        }
-        const data = await readApiJson(await fetch(`/api/admin/covers?${params.toString()}`), "封面图库加载失败");
-
-        if (!active) return;
-        const payload = data.data as CoverAssetListResponse;
-        setAssets(Array.isArray(payload.items) ? payload.items : []);
-      } catch (err) {
-        if (!active) return;
-        setError(err instanceof Error ? err.message : "封面图库加载失败");
-        setAssets([]);
-      } finally {
-        if (active) {
-          setLoading(false);
-        }
+    return () => {
+      if (debounceTimerRef.current !== null) {
+        window.clearTimeout(debounceTimerRef.current);
       }
     };
+  }, []);
 
-    // 输入搜索词时做轻量防抖，避免每次按键都打到图库接口。
-    const timer = window.setTimeout(() => {
-      void load();
-    }, query ? 250 : 0);
+  const coverParams = useMemo(() => {
+    const params = new URLSearchParams({ status: "active", limit: "50" });
+    const keyword = debouncedQuery.trim();
+    if (keyword) {
+      params.set("q", keyword);
+    }
+    if (imageKindFilter === "uploaded") {
+      params.set("source", "upload");
+      params.set("generatedByAi", "false");
+    } else if (imageKindFilter === "ai-generated") {
+      params.set("generatedByAi", "true");
+    }
+    return params.toString();
+  }, [debouncedQuery, imageKindFilter]);
 
-    return () => {
-      active = false;
-      window.clearTimeout(timer);
-    };
-  }, [imageKindFilter, open, query]);
+  // 弹窗打开时按当前筛选加载图库；过期结果由 SWR 的 key 机制自动隔离
+  const { data, error: loadError, isLoading } = useSWR<{ success?: boolean; data?: CoverAssetListResponse }>(
+    open ? `/api/admin/covers?${coverParams}` : null,
+    apiFetcher,
+    { keepPreviousData: true },
+  );
+
+  const assets = useMemo(() => data?.data?.items ?? [], [data?.data?.items]);
+  const errorMessage = loadError ? toErrorMessage(loadError, "封面图库加载失败") : "";
 
   const selected = useMemo(() => assets.find((asset) => asset.id === selectedAssetId), [assets, selectedAssetId]);
 
@@ -97,7 +91,7 @@ export function CoverPicker({ selectedAssetId, onSelect, buttonLabel = "从图�
               className="ui-ring w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] py-2 pl-9 pr-3 text-sm text-[var(--foreground)] placeholder:text-[var(--muted)] focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
               placeholder="搜索标题、URL、标签"
               value={query}
-              onChange={(event) => setQuery(event.target.value)}
+              onChange={(event) => handleQueryChange(event.target.value)}
             />
           </label>
           {selected ? <span className="text-sm text-[var(--muted)]">当前：{selected.title || selected.url}</span> : null}
@@ -120,11 +114,11 @@ export function CoverPicker({ selectedAssetId, onSelect, buttonLabel = "从图�
           ))}
         </div>
 
-        {error ? <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p> : null}
-        {loading ? <p className="py-10 text-center text-sm text-[var(--muted)]">正在加载封面...</p> : null}
-        {!loading && assets.length === 0 ? <p className="py-10 text-center text-sm text-[var(--muted)]">图库暂无可用封面。</p> : null}
+        {errorMessage ? <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{errorMessage}</p> : null}
+        {isLoading ? <p className="py-10 text-center text-sm text-[var(--muted)]">正在加载封面...</p> : null}
+        {!isLoading && assets.length === 0 ? <p className="py-10 text-center text-sm text-[var(--muted)]">图库暂无可用封面。</p> : null}
 
-        {!loading && assets.length > 0 ? (
+        {!isLoading && assets.length > 0 ? (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {assets.map((asset) => (
               <button

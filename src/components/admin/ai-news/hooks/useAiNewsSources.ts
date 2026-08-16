@@ -1,8 +1,9 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
+import useSWR from "swr"
 
-import { readApiJson } from "@/lib/admin-api-client"
+import { apiFetcher, apiMutate, handleGlobalSwrError, toErrorMessage } from "@/lib/client-api"
 
 import type { AiNewsSourceFormState, AiNewsSourcePagination, AiNewsSourceSummary, AiNewsSourceTestResult, PublicAiNewsSource } from "../types"
 
@@ -44,20 +45,53 @@ function sourcePayload(form: AiNewsSourceFormState) {
 }
 
 export function useAiNewsSources() {
-  const [sources, setSources] = useState<PublicAiNewsSource[]>([])
   const [selectedSourceIds, setSelectedSourceIds] = useState<string[]>([])
   const [sourceMode, setSourceMode] = useState<SourceMode>("default")
   const [query, setQueryValue] = useState("")
   const [category, setCategoryValue] = useState("all")
   const [pagination, setPagination] = useState<AiNewsSourcePagination>(defaultPagination)
-  const [summary, setSummary] = useState<AiNewsSourceSummary>(defaultSummary)
-  const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [testingId, setTestingId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [message, setMessage] = useState("")
   const [error, setError] = useState("")
   const [testResults, setTestResults] = useState<Record<string, AiNewsSourceTestResult>>({})
+
+  const sourcesUrl = useMemo(() => {
+    const params = new URLSearchParams({
+      page: String(pagination.page),
+      limit: String(pagination.limit),
+    })
+    if (query.trim()) params.set("q", query.trim())
+    if (category !== "all") params.set("category", category)
+    return `/api/admin/ai-news/sources?${params.toString()}`
+  }, [category, pagination.limit, pagination.page, query])
+
+  const {
+    data: sourcesResponse,
+    isLoading,
+    mutate: mutateSources,
+  } = useSWR<{
+    data?: PublicAiNewsSource[]
+    pagination?: AiNewsSourcePagination
+    summary?: AiNewsSourceSummary
+  }>(sourcesUrl, apiFetcher, {
+    keepPreviousData: true,
+    revalidateOnMount: true,
+    onError: (swrError, key) => {
+      handleGlobalSwrError(swrError, key)
+      setError(toErrorMessage(swrError, "来源加载失败"))
+    },
+  })
+
+  const sources = useMemo(() => (Array.isArray(sourcesResponse?.data) ? sourcesResponse.data : []), [sourcesResponse?.data])
+  const summary = sourcesResponse?.summary ?? defaultSummary
+  const loading = isLoading
+
+  // 首次加载后默认选中启用的来源（渲染期条件调整，与旧实现一致：空选择时回落到启用集）
+  if (selectedSourceIds.length === 0 && summary.enabledSourceIds.length > 0) {
+    setSelectedSourceIds(summary.enabledSourceIds)
+  }
 
   const selectedSources = useMemo(
     () => sources.filter((source) => selectedSourceIds.includes(source.id)),
@@ -68,44 +102,6 @@ export function useAiNewsSources() {
     setMessage("")
     setError("")
   }
-
-  const loadSources = useCallback(async () => {
-    setLoading(true)
-    setError("")
-
-    try {
-      const params = new URLSearchParams({
-        page: String(pagination.page),
-        limit: String(pagination.limit),
-      })
-      if (query.trim()) params.set("q", query.trim())
-      if (category !== "all") params.set("category", category)
-
-      const data = await readApiJson<{
-        data?: PublicAiNewsSource[]
-        pagination?: AiNewsSourcePagination
-        summary?: AiNewsSourceSummary
-      }>(await fetch(`/api/admin/ai-news/sources?${params.toString()}`), "来源加载失败")
-      const nextSources = Array.isArray(data.data) ? data.data : []
-      const nextPagination = data.pagination ?? { ...defaultPagination, limit: pagination.limit }
-      const nextSummary = data.summary ?? defaultSummary
-      setSources(nextSources)
-      setPagination(nextPagination)
-      setSummary(nextSummary)
-      setSelectedSourceIds((current) => {
-        return current.length > 0 ? current : nextSummary.enabledSourceIds
-      })
-    } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "来源加载失败")
-      setPagination((current) => ({ ...defaultPagination, limit: current.limit }))
-    } finally {
-      setLoading(false)
-    }
-  }, [category, pagination.limit, pagination.page, query])
-
-  useEffect(() => {
-    void loadSources()
-  }, [loadSources])
 
   const toggleSourceSelection = (sourceId: string) => {
     setSelectedSourceIds((current) =>
@@ -140,23 +136,17 @@ export function useAiNewsSources() {
     clearFeedback()
 
     try {
-      const response = form.id
-        ? await fetch(`/api/admin/ai-news/sources/${encodeURIComponent(form.id)}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(sourcePayload(form)),
-          })
-        : await fetch("/api/admin/ai-news/sources", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(sourcePayload(form)),
-          })
-
-      await readApiJson(response, "来源保存失败")
-      await loadSources()
+      await apiMutate(
+        form.id ? `/api/admin/ai-news/sources/${encodeURIComponent(form.id)}` : "/api/admin/ai-news/sources",
+        {
+          method: form.id ? "PATCH" : "POST",
+          body: JSON.stringify(sourcePayload(form)),
+        },
+      )
+      void mutateSources()
       setMessage(form.id ? "来源已更新。" : "来源已创建。")
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : "来源保存失败")
+      setError(toErrorMessage(saveError, "来源保存失败"))
       throw saveError
     } finally {
       setSaving(false)
@@ -167,21 +157,17 @@ export function useAiNewsSources() {
     clearFeedback()
 
     try {
-      await readApiJson(
-        await fetch(`/api/admin/ai-news/sources/${encodeURIComponent(source.id)}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ enabled: !source.enabled }),
-        }),
-        "来源启停失败",
-      )
+      await apiMutate(`/api/admin/ai-news/sources/${encodeURIComponent(source.id)}`, {
+        method: "PATCH",
+        body: JSON.stringify({ enabled: !source.enabled }),
+      })
       if (source.enabled) {
         setSelectedSourceIds((current) => current.filter((id) => id !== source.id))
       }
-      await loadSources()
+      void mutateSources()
       setMessage(!source.enabled ? "来源已启用。" : "来源已停用。")
     } catch (toggleError) {
-      setError(toggleError instanceof Error ? toggleError.message : "来源启停失败")
+      setError(toErrorMessage(toggleError, "来源启停失败"))
     }
   }
 
@@ -193,12 +179,12 @@ export function useAiNewsSources() {
     clearFeedback()
 
     try {
-      await readApiJson(await fetch(`/api/admin/ai-news/sources/${encodeURIComponent(source.id)}`, { method: "DELETE" }), "来源删除失败")
+      await apiMutate(`/api/admin/ai-news/sources/${encodeURIComponent(source.id)}`, { method: "DELETE" })
       setSelectedSourceIds((current) => current.filter((id) => id !== source.id))
-      await loadSources()
+      void mutateSources()
       setMessage("来源已删除。")
     } catch (deleteError) {
-      setError(deleteError instanceof Error ? deleteError.message : "来源删除失败")
+      setError(toErrorMessage(deleteError, "来源删除失败"))
     } finally {
       setDeletingId(null)
     }
@@ -209,18 +195,18 @@ export function useAiNewsSources() {
     clearFeedback()
 
     try {
-      const data = await readApiJson<{ data?: AiNewsSourceTestResult }>(
-        await fetch(`/api/admin/ai-news/sources/${encodeURIComponent(source.id)}/test`, { method: "POST" }),
-        "来源测试失败",
+      const data = await apiMutate<{ data?: AiNewsSourceTestResult }>(
+        `/api/admin/ai-news/sources/${encodeURIComponent(source.id)}/test`,
+        { method: "POST" },
       )
       if (data.data) {
         setTestResults((current) => ({ ...current, [source.id]: data.data as AiNewsSourceTestResult }))
         setMessage(data.data.message)
       }
-      await loadSources()
+      void mutateSources()
     } catch (testError) {
-      setError(testError instanceof Error ? testError.message : "来源测试失败")
-      await loadSources().catch(() => undefined)
+      setError(toErrorMessage(testError, "来源测试失败"))
+      void mutateSources()
     } finally {
       setTestingId(null)
     }
@@ -236,17 +222,16 @@ export function useAiNewsSources() {
     try {
       await Promise.all(
         problemSources.map((source) =>
-          fetch(`/api/admin/ai-news/sources/${encodeURIComponent(source.id)}`, {
+          apiMutate(`/api/admin/ai-news/sources/${encodeURIComponent(source.id)}`, {
             method: "PATCH",
-            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ enabled: false }),
-          }).then((response) => readApiJson(response, "批量停用失败")),
+          }),
         ),
       )
-      await loadSources()
+      void mutateSources()
       setMessage("已停用有健康提醒的来源。")
     } catch (batchError) {
-      setError(batchError instanceof Error ? batchError.message : "批量停用失败")
+      setError(toErrorMessage(batchError, "批量停用失败"))
     } finally {
       setSaving(false)
     }
@@ -276,7 +261,9 @@ export function useAiNewsSources() {
     setPageSize,
     toggleSourceSelection,
     selectEnabledSources,
-    loadSources,
+    loadSources: () => {
+      void mutateSources();
+    },
     saveSource,
     toggleSourceEnabled,
     deleteSource,

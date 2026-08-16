@@ -1,16 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import type { FormEvent } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
 import { toast } from "sonner";
+import useSWR from "swr";
+import { z } from "zod";
 
 import { PageHeader } from "@/components/admin/primitives/PageHeader";
 import { StatusBadge } from "@/components/admin/primitives/StatusBadge";
 import { WorkspacePanel } from "@/components/admin/primitives/WorkspacePanel";
 import { Button } from "@/components/admin/ui";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/shadcn/ui/form";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/shadcn/ui/table";
-import { getApiErrorMessage } from "@/lib/admin-api-client";
+import { apiFetcher, apiMutate, handleGlobalSwrError, toErrorMessage } from "@/lib/client-api";
 
 type GuideStatus = "draft" | "published" | "archived";
 
@@ -69,6 +73,16 @@ const emptyForm: GuideFormState = {
   notesByPostId: {},
 };
 
+const guideFormSchema = z.object({
+  id: z.string(),
+  title: z.string().trim().min(1, "请输入专题标题"),
+  slug: z.string().trim().min(1, "请输入 slug").regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "slug 只能使用小写英文、数字和连字符"),
+  description: z.string(),
+  status: z.enum(["draft", "published", "archived"]),
+  selectedPostIds: z.array(z.string()),
+  notesByPostId: z.record(z.string(), z.string()),
+});
+
 const statusLabels: Record<GuideStatus, string> = {
   draft: "草稿",
   published: "已发布",
@@ -116,56 +130,47 @@ function moveItem(items: string[], id: string, direction: -1 | 1) {
 }
 
 export default function AdminTopicGuidesPage() {
-  const [guides, setGuides] = useState<AdminGuideRow[]>([]);
-  const [postOptions, setPostOptions] = useState<AdminPostOption[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
   const [query, setQuery] = useState("");
-  const [form, setForm] = useState<GuideFormState>(emptyForm);
+  const guideForm = useForm<GuideFormState>({
+    resolver: zodResolver(guideFormSchema),
+    defaultValues: emptyForm,
+  });
+  const editingGuideId = guideForm.watch("id");
+  const selectedPostIds = guideForm.watch("selectedPostIds");
+  const notesByPostId = guideForm.watch("notesByPostId");
 
-  async function fetchGuides() {
-    try {
-      const response = await fetch("/api/admin/topic-guides");
-      const payload = await response.json();
+  const {
+    data: guidesResponse,
+    isLoading: guidesLoading,
+    mutate: mutateGuides,
+  } = useSWR<{ success?: boolean; data?: AdminGuideRow[] }>("/api/admin/topic-guides", apiFetcher, {
+    revalidateOnMount: true,
+    onError: (swrError, key) => {
+      handleGlobalSwrError(swrError, key);
+      toast.error(toErrorMessage(swrError, "专题导读加载失败，请稍后重试"));
+    },
+  });
 
-      if (!payload.success) {
-        toast.error(getApiErrorMessage(payload, "专题导读加载失败"));
-        setGuides([]);
-        return;
-      }
+  const {
+    data: postsResponse,
+    isLoading: optionsLoading,
+  } = useSWR<{ success?: boolean; data?: AdminPostOption[] }>("/api/admin/posts?status=published&limit=50", apiFetcher, {
+    revalidateOnMount: true,
+  });
 
-      setGuides(payload.data);
-    } catch {
-      toast.error("专题导读加载失败，请稍后重试");
-      setGuides([]);
-    }
-  }
-
-  async function fetchPostOptions() {
-    try {
-      const response = await fetch("/api/admin/posts?status=published&limit=50");
-      const payload = await response.json();
-
-      if (!payload.success) {
-        setPostOptions([]);
-        return;
-      }
-
-      setPostOptions(payload.data.map((post: AdminPostOption) => ({
+  const guides = useMemo(() => guidesResponse?.data ?? [], [guidesResponse?.data]);
+  const postOptions = useMemo(
+    () =>
+      (postsResponse?.data ?? []).map((post: AdminPostOption) => ({
         id: post.id,
         title: post.title,
         slug: post.slug,
         published: post.published,
         deletedAt: post.deletedAt,
-      })));
-    } catch {
-      setPostOptions([]);
-    }
-  }
-
-  useEffect(() => {
-    void Promise.all([fetchGuides(), fetchPostOptions()]).finally(() => setLoading(false));
-  }, []);
+      })),
+    [postsResponse?.data],
+  );
+  const loading = guidesLoading || optionsLoading;
 
   const filteredGuides = useMemo(() => {
     const keyword = query.trim().toLowerCase();
@@ -173,106 +178,74 @@ export default function AdminTopicGuidesPage() {
     return guides.filter((guide) => guide.title.toLowerCase().includes(keyword) || guide.slug.toLowerCase().includes(keyword));
   }, [guides, query]);
 
-  const selectedPosts = form.selectedPostIds
+  const selectedPosts = selectedPostIds
     .map((postId) => postOptions.find((post) => post.id === postId) ?? guides.flatMap((guide) => guide.posts).find((item) => item.post.id === postId)?.post)
     .filter((post): post is AdminPostOption => Boolean(post));
 
   function togglePost(post: AdminPostOption) {
-    setForm((prev) => {
-      if (prev.selectedPostIds.includes(post.id)) {
-        const { [post.id]: _removed, ...notesByPostId } = prev.notesByPostId;
-        void _removed;
-        return {
-          ...prev,
-          selectedPostIds: prev.selectedPostIds.filter((id) => id !== post.id),
-          notesByPostId,
-        };
-      }
+    if (selectedPostIds.includes(post.id)) {
+      const { [post.id]: _removed, ...nextNotesByPostId } = notesByPostId;
+      void _removed;
+      guideForm.setValue("selectedPostIds", selectedPostIds.filter((id) => id !== post.id), { shouldDirty: true });
+      guideForm.setValue("notesByPostId", nextNotesByPostId, { shouldDirty: true });
+      return;
+    }
 
-      return {
-        ...prev,
-        selectedPostIds: [...prev.selectedPostIds, post.id],
-        notesByPostId: { ...prev.notesByPostId, [post.id]: "" },
-      };
-    });
+    guideForm.setValue("selectedPostIds", [...selectedPostIds, post.id], { shouldDirty: true });
+    guideForm.setValue("notesByPostId", { ...notesByPostId, [post.id]: "" }, { shouldDirty: true });
   }
 
-  async function submitGuide(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setSubmitting(true);
-
-    const posts = form.selectedPostIds.map((postId) => ({
+  async function submitGuide(values: GuideFormState) {
+    const posts = values.selectedPostIds.map((postId) => ({
       postId,
-      note: form.notesByPostId[postId] ?? "",
+      note: values.notesByPostId[postId] ?? "",
     }));
 
     try {
-      const response = await fetch(form.id ? `/api/admin/topic-guides/${form.id}` : "/api/admin/topic-guides", {
-        method: form.id ? "PATCH" : "POST",
-        headers: { "Content-Type": "application/json" },
+      await apiMutate(values.id ? `/api/admin/topic-guides/${values.id}` : "/api/admin/topic-guides", {
+        method: values.id ? "PATCH" : "POST",
         body: JSON.stringify({
-          title: form.title,
-          slug: form.slug,
-          description: form.description,
-          status: form.status,
+          title: values.title,
+          slug: values.slug,
+          description: values.description,
+          status: values.status,
           posts,
         }),
       });
-      const payload = await response.json();
 
-      if (!payload.success) {
-        toast.error(getApiErrorMessage(payload, form.id ? "更新专题导读失败" : "创建专题导读失败"));
-        return;
-      }
-
-      toast.success(form.id ? "专题导读已更新" : "专题导读已创建");
-      setForm(emptyForm);
-      await fetchGuides();
-    } catch {
-      toast.error(form.id ? "更新专题导读失败，请稍后重试" : "创建专题导读失败，请稍后重试");
-    } finally {
-      setSubmitting(false);
+      toast.success(values.id ? "专题导读已更新" : "专题导读已创建");
+      guideForm.reset(emptyForm);
+      void mutateGuides();
+    } catch (error) {
+      toast.error(toErrorMessage(error, values.id ? "更新专题导读失败，请稍后重试" : "创建专题导读失败，请稍后重试"));
     }
   }
 
   async function patchGuideStatus(guide: AdminGuideRow, status: GuideStatus) {
     try {
-      const response = await fetch(`/api/admin/topic-guides/${guide.id}`, {
+      await apiMutate(`/api/admin/topic-guides/${guide.id}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
       });
-      const payload = await response.json();
-
-      if (!payload.success) {
-        toast.error(getApiErrorMessage(payload, "专题状态更新失败"));
-        return;
-      }
 
       toast.success("专题状态已更新");
-      await fetchGuides();
-    } catch {
-      toast.error("专题状态更新失败，请稍后重试");
+      void mutateGuides();
+    } catch (error) {
+      toast.error(toErrorMessage(error, "专题状态更新失败，请稍后重试"));
     }
   }
 
   async function deleteGuide(guide: AdminGuideRow) {
     try {
-      const response = await fetch(`/api/admin/topic-guides/${guide.id}`, { method: "DELETE" });
-      const payload = await response.json();
-
-      if (!payload.success) {
-        toast.error(getApiErrorMessage(payload, "删除专题导读失败"));
-        return;
-      }
+      await apiMutate(`/api/admin/topic-guides/${guide.id}`, { method: "DELETE" });
 
       toast.success("专题导读已删除");
-      if (form.id === guide.id) {
-        setForm(emptyForm);
+      if (guideForm.getValues("id") === guide.id) {
+        guideForm.reset(emptyForm);
       }
-      setGuides((prev) => prev.filter((item) => item.id !== guide.id));
-    } catch {
-      toast.error("删除专题导读失败，请稍后重试");
+      void mutateGuides();
+    } catch (error) {
+      toast.error(toErrorMessage(error, "删除专题导读失败，请稍后重试"));
     }
   }
 
@@ -292,81 +265,111 @@ export default function AdminTopicGuidesPage() {
       />
 
       <section className="grid gap-6 xl:grid-cols-[420px_minmax(0,1fr)]">
-        <WorkspacePanel title={form.id ? "编辑专题" : "新建专题"} description="选择已发布文章后，可用上移/下移调整阅读顺序。" fillHeight={false}>
-          <form onSubmit={submitGuide} className="space-y-4">
-            <label className="block space-y-1 text-sm">
-              <span className="font-medium text-[var(--foreground)]">标题</span>
-              <input
-                required
-                className="ui-ring w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm"
-                value={form.title}
-                onChange={(event) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    title: event.target.value,
-                    slug: prev.slug ? prev.slug : toSlug(event.target.value),
-                  }))
-                }
-              />
-            </label>
-
-            <label className="block space-y-1 text-sm">
-              <span className="font-medium text-[var(--foreground)]">Slug</span>
-              <input
-                required
-                pattern="[a-z0-9]+(-[a-z0-9]+)*"
-                className="ui-ring w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm"
-                value={form.slug}
-                onChange={(event) => setForm((prev) => ({ ...prev, slug: toSlug(event.target.value) }))}
-              />
-            </label>
-
-            <label className="block space-y-1 text-sm">
-              <span className="font-medium text-[var(--foreground)]">描述</span>
-              <textarea
-                className="ui-ring min-h-24 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm"
-                value={form.description}
-                onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
-              />
-            </label>
-
-            <label className="block space-y-1 text-sm">
-              <span className="font-medium text-[var(--foreground)]">状态</span>
-              <select
-                className="ui-ring w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm"
-                value={form.status}
-                onChange={(event) => setForm((prev) => ({ ...prev, status: event.target.value as GuideStatus }))}
-              >
-                <option value="draft">草稿</option>
-                <option value="published">发布</option>
-                <option value="archived">归档</option>
-              </select>
-            </label>
-
-            <div className="space-y-3">
-              <div>
-                <h3 className="text-sm font-semibold text-[var(--foreground)]">选择文章</h3>
-                <p className="mt-1 text-xs text-[var(--muted)]">只从已发布文章列表选择，公开页仍会再次过滤草稿和已删除文章。</p>
-              </div>
-              <div className="max-h-56 space-y-2 overflow-y-auto rounded-xl border border-[var(--border)] p-2">
-                {postOptions.length > 0 ? postOptions.map((post) => (
-                  <label key={post.id} className="flex cursor-pointer items-start gap-2 rounded-lg px-2 py-2 text-sm hover:bg-[var(--surface-muted)]">
-                    <input
-                      type="checkbox"
-                      className="mt-1"
-                      checked={form.selectedPostIds.includes(post.id)}
-                      onChange={() => togglePost(post)}
-                    />
-                    <span className="min-w-0">
-                      <span className="block truncate font-medium text-[var(--foreground)]">{post.title}</span>
-                      <span className="block truncate font-mono text-xs text-[var(--muted)]">/posts/{post.slug}</span>
-                    </span>
-                  </label>
-                )) : (
-                  <p className="px-2 py-4 text-sm text-[var(--muted)]">暂无可选文章</p>
+        <WorkspacePanel title={editingGuideId ? "编辑专题" : "新建专题"} description="选择已发布文章后，可用上移/下移调整阅读顺序。" fillHeight={false}>
+          <Form {...guideForm}>
+            <form onSubmit={guideForm.handleSubmit(submitGuide)} className="space-y-4">
+              <FormField
+                control={guideForm.control}
+                name="title"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>标题</FormLabel>
+                    <FormControl>
+                      <input
+                        className="ui-ring w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm"
+                        {...field}
+                        onChange={(event) => {
+                          field.onChange(event);
+                          if (!guideForm.getValues("slug")) {
+                            guideForm.setValue("slug", toSlug(event.target.value), { shouldValidate: true });
+                          }
+                        }}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
                 )}
-              </div>
-            </div>
+              />
+
+              <FormField
+                control={guideForm.control}
+                name="slug"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Slug</FormLabel>
+                    <FormControl>
+                      <input
+                        className="ui-ring w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm"
+                        {...field}
+                        onChange={(event) => field.onChange(toSlug(event.target.value))}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={guideForm.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>描述</FormLabel>
+                    <FormControl>
+                      <textarea className="ui-ring min-h-24 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={guideForm.control}
+                name="status"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>状态</FormLabel>
+                    <FormControl>
+                      <select className="ui-ring w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm" {...field}>
+                        <option value="draft">草稿</option>
+                        <option value="published">发布</option>
+                        <option value="archived">归档</option>
+                      </select>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={guideForm.control}
+                name="selectedPostIds"
+                render={() => (
+                  <FormItem>
+                    <FormLabel>选择文章</FormLabel>
+                    <FormDescription>只从已发布文章列表选择，公开页仍会再次过滤草稿和已删除文章。</FormDescription>
+                    <div className="max-h-56 space-y-2 overflow-y-auto rounded-xl border border-[var(--border)] p-2">
+                      {postOptions.length > 0 ? postOptions.map((post) => (
+                        <label key={post.id} className="flex cursor-pointer items-start gap-2 rounded-lg px-2 py-2 text-sm hover:bg-[var(--surface-muted)]">
+                          <input
+                            type="checkbox"
+                            className="mt-1"
+                            checked={selectedPostIds.includes(post.id)}
+                            onChange={() => togglePost(post)}
+                          />
+                          <span className="min-w-0">
+                            <span className="block truncate font-medium text-[var(--foreground)]">{post.title}</span>
+                            <span className="block truncate font-mono text-xs text-[var(--muted)]">/posts/{post.slug}</span>
+                          </span>
+                        </label>
+                      )) : (
+                        <p className="px-2 py-4 text-sm text-[var(--muted)]">暂无可选文章</p>
+                      )}
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
             {selectedPosts.length > 0 ? (
               <div className="space-y-2">
@@ -383,7 +386,7 @@ export default function AdminTopicGuidesPage() {
                           size="sm"
                           type="button"
                           variant="outline"
-                          onClick={() => setForm((prev) => ({ ...prev, selectedPostIds: moveItem(prev.selectedPostIds, post.id, -1) }))}
+                          onClick={() => guideForm.setValue("selectedPostIds", moveItem(selectedPostIds, post.id, -1), { shouldDirty: true })}
                           disabled={index === 0}
                         >
                           上移
@@ -392,7 +395,7 @@ export default function AdminTopicGuidesPage() {
                           size="sm"
                           type="button"
                           variant="outline"
-                          onClick={() => setForm((prev) => ({ ...prev, selectedPostIds: moveItem(prev.selectedPostIds, post.id, 1) }))}
+                          onClick={() => guideForm.setValue("selectedPostIds", moveItem(selectedPostIds, post.id, 1), { shouldDirty: true })}
                           disabled={index === selectedPosts.length - 1}
                         >
                           下移
@@ -403,12 +406,9 @@ export default function AdminTopicGuidesPage() {
                       aria-label={`${post.title} 导读备注`}
                       className="ui-ring mt-2 min-h-16 w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm"
                       placeholder="这篇文章在专题中的阅读提示"
-                      value={form.notesByPostId[post.id] ?? ""}
+                      value={notesByPostId[post.id] ?? ""}
                       onChange={(event) =>
-                        setForm((prev) => ({
-                          ...prev,
-                          notesByPostId: { ...prev.notesByPostId, [post.id]: event.target.value },
-                        }))
+                        guideForm.setValue("notesByPostId", { ...notesByPostId, [post.id]: event.target.value }, { shouldDirty: true })
                       }
                     />
                   </div>
@@ -417,16 +417,17 @@ export default function AdminTopicGuidesPage() {
             ) : null}
 
             <div className="flex flex-wrap gap-2">
-              <Button disabled={submitting} size="sm" type="submit">
-                {form.id ? "保存专题" : "创建专题"}
+              <Button disabled={guideForm.formState.isSubmitting} size="sm" type="submit">
+                {guideForm.formState.isSubmitting ? "保存中..." : editingGuideId ? "保存专题" : "创建专题"}
               </Button>
-              {form.id ? (
-                <Button disabled={submitting} size="sm" type="button" variant="outline" onClick={() => setForm(emptyForm)}>
+              {editingGuideId ? (
+                <Button disabled={guideForm.formState.isSubmitting} size="sm" type="button" variant="outline" onClick={() => guideForm.reset(emptyForm)}>
                   取消编辑
                 </Button>
               ) : null}
             </div>
-          </form>
+            </form>
+          </Form>
         </WorkspacePanel>
 
         <WorkspacePanel
@@ -483,7 +484,7 @@ export default function AdminTopicGuidesPage() {
                     </TableCell>
                     <TableCell className="whitespace-normal align-top">
                       <div className="flex flex-wrap items-center gap-3">
-                        <button type="button" className="text-[var(--brand)] hover:underline" onClick={() => setForm(guideToForm(guide))}>
+                        <button type="button" className="text-[var(--brand)] hover:underline" onClick={() => guideForm.reset(guideToForm(guide))}>
                           编辑
                         </button>
                         {guide.status !== "published" ? (

@@ -1,10 +1,23 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { afterEach, describe, expect, test, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import { SWRConfig, mutate as clearSwrCache } from 'swr'
 import AdminCommentsPage from '../comments/page'
+
+function renderCommentsPage() {
+  return render(
+    <SWRConfig value={{ provider: () => new Map(), dedupingInterval: 0 }}>
+      <AdminCommentsPage />
+    </SWRConfig>,
+  )
+}
 
 afterEach(() => {
   vi.unstubAllGlobals()
   window.localStorage.clear()
+})
+
+beforeEach(async () => {
+  await clearSwrCache(() => true, undefined, { revalidate: false })
 })
 
 describe('admin comments page', () => {
@@ -12,6 +25,7 @@ describe('admin comments page', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue({
+        ok: true,
         json: async () => ({
           success: true,
           data: [
@@ -31,7 +45,7 @@ describe('admin comments page', () => {
       }),
     )
 
-    render(<AdminCommentsPage />)
+    renderCommentsPage()
 
     expect(await screen.findByText('评论收件箱')).toBeInTheDocument()
     expect(globalThis.fetch).toHaveBeenCalledWith('/api/admin/comments?page=1&limit=10')
@@ -55,7 +69,7 @@ describe('admin comments page', () => {
       }),
     )
 
-    render(<AdminCommentsPage />)
+    renderCommentsPage()
 
     await waitFor(() => {
       expect(screen.getByText('暂无评论')).toBeInTheDocument()
@@ -73,6 +87,7 @@ describe('admin comments page', () => {
       }),
     )
     const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
       json: async () => ({
         success: true,
         data: [],
@@ -82,7 +97,7 @@ describe('admin comments page', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
 
-    render(<AdminCommentsPage />)
+    renderCommentsPage()
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith('/api/admin/comments?page=4&limit=20&q=spam&status=REJECTED')
@@ -93,6 +108,7 @@ describe('admin comments page', () => {
 
   test('does not fire a fetch per keystroke while typing in search', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
       json: async () => ({
         success: true,
         data: [],
@@ -102,7 +118,7 @@ describe('admin comments page', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
 
-    render(<AdminCommentsPage />)
+    renderCommentsPage()
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(1)
@@ -120,6 +136,7 @@ describe('admin comments page', () => {
 
   test('keeps the comments shell visible when switching filters after an empty result', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
       json: async () => ({
         success: true,
         data: [],
@@ -129,7 +146,7 @@ describe('admin comments page', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
 
-    render(<AdminCommentsPage />)
+    renderCommentsPage()
 
     await screen.findByText('暂无评论')
 
@@ -143,6 +160,7 @@ describe('admin comments page', () => {
   test('approves a comment with optimistic update and silent refetch', async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce({
+        ok: true,
         json: async () => ({
           success: true,
           data: [{
@@ -159,9 +177,11 @@ describe('admin comments page', () => {
         }),
       })
       .mockResolvedValueOnce({
+        ok: true,
         json: async () => ({ success: true }),
       })
       .mockResolvedValueOnce({
+        ok: true,
         json: async () => ({
           success: true,
           data: [{
@@ -179,7 +199,7 @@ describe('admin comments page', () => {
       })
     vi.stubGlobal('fetch', fetchMock)
 
-    render(<AdminCommentsPage />)
+    renderCommentsPage()
 
     // PENDING row hint visible after initial load
     await screen.findByText('待你决策')

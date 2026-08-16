@@ -13,9 +13,11 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useDeferredValue, useMemo, useState, type ReactNode } from "react";
+import useSWR from "swr";
 
 import { adminNavItems } from "@/components/admin/shell/config";
+import { apiFetcher, toErrorMessage } from "@/lib/client-api";
 import {
   ADMIN_SEARCH_MIN_QUERY_LENGTH,
   EMPTY_ADMIN_SEARCH_REMOTE_RESULTS,
@@ -121,12 +123,27 @@ export function AdminGlobalSearch() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const [remoteResults, setRemoteResults] = useState<AdminSearchRemoteResults>(EMPTY_ADMIN_SEARCH_REMOTE_RESULTS);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [shortcutLabel, setShortcutLabel] = useState("Ctrl K");
 
-  const normalizedQuery = normalizeAdminSearchQuery(query);
+  // useDeferredValue 提供可中断的输入延迟，替代手写 180ms 防抖
+  const deferredQuery = useDeferredValue(query);
+  const normalizedQuery = normalizeAdminSearchQuery(deferredQuery);
+  const shouldFetchRemote = open && normalizedQuery.length >= ADMIN_SEARCH_MIN_QUERY_LENGTH;
+
+  const {
+    data: searchResponse,
+    error: searchError,
+    isLoading: searchLoading,
+  } = useSWR<AdminSearchResponse>(
+    shouldFetchRemote ? `/api/admin/search?q=${encodeURIComponent(normalizedQuery)}` : null,
+    apiFetcher,
+    { keepPreviousData: true },
+  );
+
+  const remoteResults: AdminSearchRemoteResults = searchResponse?.data.results ?? EMPTY_ADMIN_SEARCH_REMOTE_RESULTS;
+  const loading = shouldFetchRemote && searchLoading;
+  const searchErrorMessage = searchError ? toErrorMessage(searchError, "搜索暂时不可用") : null;
+
   const navigationResults = useMemo(
     () => navigationItems.filter((item) => matchesNavigationItem(item, normalizedQuery)).slice(0, normalizedQuery ? 8 : 6),
     [normalizedQuery],
@@ -136,6 +153,7 @@ export function AdminGlobalSearch() {
 
   useEffect(() => {
     const isMac = /Mac|iPhone|iPad|iPod/.test(window.navigator.platform);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 一次性客户端平台探测（SSR 安全初始化），不依赖任何响应式值，无级联渲染
     setShortcutLabel(isMac ? "⌘K" : "Ctrl K");
   }, []);
 
@@ -150,47 +168,6 @@ export function AdminGlobalSearch() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
-
-  useEffect(() => {
-    if (!open || normalizedQuery.length < ADMIN_SEARCH_MIN_QUERY_LENGTH) {
-      setRemoteResults(EMPTY_ADMIN_SEARCH_REMOTE_RESULTS);
-      setLoading(false);
-      setError(null);
-      return;
-    }
-
-    const controller = new AbortController();
-    const timeout = window.setTimeout(async () => {
-      setLoading(true);
-      setError(null);
-
-      try {
-        const response = await fetch(`/api/admin/search?q=${encodeURIComponent(normalizedQuery)}`, {
-          signal: controller.signal,
-        });
-
-        if (!response.ok) {
-          throw new Error("Search request failed");
-        }
-
-        const payload = (await response.json()) as AdminSearchResponse;
-        setRemoteResults(payload.data.results);
-      } catch (searchError) {
-        if (searchError instanceof DOMException && searchError.name === "AbortError") return;
-        setRemoteResults(EMPTY_ADMIN_SEARCH_REMOTE_RESULTS);
-        setError("搜索暂时不可用");
-      } finally {
-        if (!controller.signal.aborted) {
-          setLoading(false);
-        }
-      }
-    }, 180);
-
-    return () => {
-      window.clearTimeout(timeout);
-      controller.abort();
-    };
-  }, [open, normalizedQuery]);
 
   function selectHref(href: string) {
     setOpen(false);
@@ -278,7 +255,7 @@ export function AdminGlobalSearch() {
               {renderRemoteGroup("comments", remoteResults.comments)}
 
               {loading ? <div className="px-4 py-6 text-center text-sm text-[var(--muted)]">搜索中...</div> : null}
-              {error ? <div className="px-4 py-6 text-center text-sm text-rose-600">{error}</div> : null}
+              {searchErrorMessage ? <div className="px-4 py-6 text-center text-sm text-rose-600">{searchErrorMessage}</div> : null}
               {showEmptyState ? <div className="px-4 py-6 text-center text-sm text-[var(--muted)]">没有匹配结果</div> : null}
             </Command.List>
           </Command>

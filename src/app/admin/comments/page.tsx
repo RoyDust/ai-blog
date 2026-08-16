@@ -1,14 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import useSWR from "swr";
 import { DataTable, type DataColumn } from "@/components/admin/DataTable";
 import { DeleteImpactDialog, type DeleteImpactItem } from "@/components/admin/DeleteImpactDialog";
 import { PageHeader } from "@/components/admin/primitives/PageHeader";
 import { StatusBadge } from "@/components/admin/primitives/StatusBadge";
 import { Toolbar } from "@/components/admin/primitives/Toolbar";
 import { getApiErrorMessage } from "@/lib/admin-api-client";
+import { apiFetcher, apiMutate, handleGlobalSwrError, toErrorMessage } from "@/lib/client-api";
 import { CheckCircle2, Clock, MessageSquare, XCircle } from "lucide-react";
 
 type CommentStatus = "APPROVED" | "PENDING" | "REJECTED" | "SPAM";
@@ -66,13 +68,6 @@ type CommentStats = {
   approved: number;
   rejected: number;
   spam: number;
-};
-
-const emptyPagination: PaginationState = {
-  page: 1,
-  limit: defaultPageSize,
-  total: 0,
-  totalPages: 1,
 };
 
 const emptyStats: CommentStats = {
@@ -210,132 +205,111 @@ function StatsCard({ label, value, icon: Icon, scheme, hint, onClick, active }: 
 }
 
 export default function AdminCommentsPage() {
-  const [comments, setComments] = useState<CommentRow[]>([]);
-  const [pagination, setPagination] = useState<PaginationState>(emptyPagination);
-  const [stats, setStats] = useState<CommentStats>(emptyStats);
-  const [loading, setLoading] = useState(true);
-  const [hasLoaded, setHasLoaded] = useState(false);
-  const [query, setQuery] = useState("");
-  const [debouncedQuery, setDebouncedQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<CommentStatusFilter>("ALL");
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(defaultPageSize);
+  const [initialMemory] = useState(readCommentsFilterMemory);
+  const [query, setQuery] = useState(initialMemory.query);
+  const [debouncedQuery, setDebouncedQuery] = useState(initialMemory.query);
+  const [statusFilter, setStatusFilter] = useState<CommentStatusFilter>(initialMemory.statusFilter);
+  const [page, setPage] = useState(initialMemory.page);
+  const [pageSize, setPageSize] = useState(initialMemory.pageSize);
   const [deleteDialog, setDeleteDialog] = useState<DeleteDialogState>(initialDeleteDialog);
-  const [filtersRestored, setFiltersRestored] = useState(false);
 
-  const fetchComments = useCallback(async (options: { silent?: boolean } = {}) => {
-    if (!filtersRestored) {
-      return;
+  // 300ms 防抖：setState 只发生在事件回调与定时器回调中（不在 effect 体内）
+  const debounceTimerRef = useRef<number | null>(null);
+  const handleQueryChange = (value: string) => {
+    setQuery(value);
+    setPage(1);
+
+    if (debounceTimerRef.current !== null) {
+      window.clearTimeout(debounceTimerRef.current);
     }
 
-    try {
-      if (!options.silent) {
-        setLoading(true);
-      }
-      const params = new URLSearchParams({
-        page: String(page),
-        limit: String(pageSize),
-      });
-      const keyword = debouncedQuery.trim();
-      if (keyword) params.set("q", keyword);
-      if (statusFilter !== "ALL") params.set("status", statusFilter);
+    debounceTimerRef.current = window.setTimeout(() => {
+      setDebouncedQuery(value);
+    }, 300);
+  };
 
-      const res = await fetch(`/api/admin/comments?${params.toString()}`);
-      const data = await res.json();
-      if (data?.success && Array.isArray(data.data)) {
-        const nextPagination = data.pagination ?? {
-          page,
-          limit: pageSize,
-          total: data.data.length,
-          totalPages: Math.max(1, Math.ceil(data.data.length / pageSize)),
-        };
-        setComments(data.data);
-        setPagination(nextPagination);
-        setStats(data.stats ?? emptyStats);
-        if (nextPagination.page !== page) {
-          setPage(nextPagination.page);
-        }
-        return;
-      }
-
-      toast.error(getApiErrorMessage(data, "评论列表加载失败"));
-      setComments([]);
-      setPagination({ ...emptyPagination, limit: pageSize });
-      setStats(emptyStats);
-    } catch {
-      toast.error("评论列表加载失败，请稍后重试");
-      setComments([]);
-      setPagination({ ...emptyPagination, limit: pageSize });
-      setStats(emptyStats);
-    } finally {
-      setHasLoaded(true);
-      if (!options.silent) {
-        setLoading(false);
-      }
-    }
-  }, [debouncedQuery, filtersRestored, page, pageSize, statusFilter]);
-
+  // 卸载时清理未触发的防抖定时器（纯清理，无 setState）
   useEffect(() => {
-    const saved = readCommentsFilterMemory();
-    setQuery(saved.query);
-    setDebouncedQuery(saved.query);
-    setStatusFilter(saved.statusFilter);
-    setPage(saved.page);
-    setPageSize(saved.pageSize);
-    setFiltersRestored(true);
+    return () => {
+      if (debounceTimerRef.current !== null) {
+        window.clearTimeout(debounceTimerRef.current);
+      }
+    };
   }, []);
 
-  useEffect(() => {
-    if (!filtersRestored) {
-      return;
-    }
+  const buildCommentsUrl = (pageNumber: number) => {
+    const params = new URLSearchParams({
+      page: String(pageNumber),
+      limit: String(pageSize),
+    });
+    const keyword = debouncedQuery.trim();
+    if (keyword) params.set("q", keyword);
+    if (statusFilter !== "ALL") params.set("status", statusFilter);
+    return `/api/admin/comments?${params.toString()}`;
+  };
 
+  const {
+    data: commentsResponse,
+    isLoading,
+    isValidating,
+    mutate: mutateComments,
+  } = useSWR<{ success?: boolean; data?: CommentRow[]; pagination?: PaginationState; stats?: CommentStats }>(
+    buildCommentsUrl(page),
+    apiFetcher,
+    {
+      keepPreviousData: true,
+      revalidateOnMount: true,
+      onError: (swrError, key) => {
+        handleGlobalSwrError(swrError, key);
+        toast.error(toErrorMessage(swrError, "评论列表加载失败，请稍后重试"));
+      },
+    },
+  );
+
+  const comments = commentsResponse?.data ?? [];
+  const pagination = commentsResponse?.pagination ?? {
+    page,
+    limit: pageSize,
+    total: comments.length,
+    totalPages: Math.max(1, Math.ceil(comments.length / pageSize)),
+  };
+  const stats = commentsResponse?.stats ?? emptyStats;
+  const loading = isLoading || isValidating;
+
+  // 服务端校正页码时同步回状态（渲染期条件调整，仅在真实响应到达后）
+  if (commentsResponse?.pagination && commentsResponse.pagination.page !== page) {
+    setPage(commentsResponse.pagination.page);
+  }
+
+  // 筛选记忆持久化（纯副作用，无 setState）
+  useEffect(() => {
     writeCommentsFilterMemory({
       query,
       statusFilter,
       page,
       pageSize,
     });
-  }, [filtersRestored, page, pageSize, query, statusFilter]);
-
-  useEffect(() => {
-    const timer = setTimeout(() => setDebouncedQuery(query), 300);
-    return () => clearTimeout(timer);
-  }, [query]);
-
-  useEffect(() => {
-    void fetchComments();
-  }, [fetchComments]);
+  }, [page, pageSize, query, statusFilter]);
 
   async function updateStatuses(ids: string[], status: CommentStatus) {
     try {
-      const res = await fetch("/api/admin/comments", {
+      await apiMutate("/api/admin/comments", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ids, status }),
       });
-      const data = await res.json();
-
-      if (data?.success) {
-        setComments((prev) => prev.map((item) => (ids.includes(item.id) ? { ...item, status } : item)));
-        toast.success(ids.length > 1 ? `已更新 ${ids.length} 条评论状态` : "评论状态已更新");
-        void fetchComments({ silent: true });
-        return;
-      }
-
-      toast.error(getApiErrorMessage(data, "评论状态更新失败"));
-    } catch {
-      toast.error("评论状态更新失败，请稍后重试");
+      toast.success(ids.length > 1 ? `已更新 ${ids.length} 条评论状态` : "评论状态已更新");
+      void mutateComments();
+    } catch (error) {
+      toast.error(toErrorMessage(error, "评论状态更新失败，请稍后重试"));
     }
   }
 
   async function openDeleteDialog(ids: string[]) {
     try {
       const params = new URLSearchParams({ preview: "delete", ids: ids.join(",") });
-      const res = await fetch(`/api/admin/comments?${params.toString()}`);
-      const data = await res.json();
+      const data = await apiMutate<{ success: boolean; data?: DeleteDialogState }>(`/api/admin/comments?${params.toString()}`);
 
-      if (!data.success) {
+      if (!data.success || !data.data) {
         toast.error(getApiErrorMessage(data, "删除影响预览加载失败"));
         return;
       }
@@ -348,8 +322,8 @@ export default function AdminCommentsPage() {
         impacts: data.data.impacts,
         submitting: false,
       });
-    } catch {
-      toast.error("删除影响预览加载失败，请稍后重试");
+    } catch (error) {
+      toast.error(toErrorMessage(error, "删除影响预览加载失败，请稍后重试"));
     }
   }
 
@@ -357,22 +331,15 @@ export default function AdminCommentsPage() {
     try {
       setDeleteDialog((prev) => ({ ...prev, submitting: true }));
       const params = new URLSearchParams({ ids: deleteDialog.ids.join(",") });
-      const res = await fetch(`/api/admin/comments?${params.toString()}`, { method: "DELETE" });
-      const data = await res.json();
+      await apiMutate(`/api/admin/comments?${params.toString()}`, { method: "DELETE" });
 
-      if (data.success) {
-        setDeleteDialog(initialDeleteDialog);
-        toast.success(deleteDialog.ids.length > 1 ? `已隐藏 ${deleteDialog.ids.length} 条评论` : "评论已隐藏");
-        void fetchComments({ silent: true });
-        return;
-      }
-
-      toast.error(getApiErrorMessage(data, "隐藏评论失败"));
-    } catch {
-      toast.error("隐藏评论失败，请稍后重试");
+      setDeleteDialog(initialDeleteDialog);
+      toast.success(deleteDialog.ids.length > 1 ? `已隐藏 ${deleteDialog.ids.length} 条评论` : "评论已隐藏");
+      void mutateComments();
+    } catch (error) {
+      toast.error(toErrorMessage(error, "隐藏评论失败，请稍后重试"));
+      setDeleteDialog((prev) => ({ ...prev, submitting: false }));
     }
-
-    setDeleteDialog((prev) => ({ ...prev, submitting: false }));
   }
 
   const columns: DataColumn<CommentRow>[] = [
@@ -440,10 +407,7 @@ export default function AdminCommentsPage() {
               id="admin-comments-search"
               placeholder="搜索评论内容或文章标题"
               value={query}
-              onChange={(event) => {
-                setQuery(event.target.value);
-                setPage(1);
-              }}
+              onChange={(event) => handleQueryChange(event.target.value)}
               className="ui-ring w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--foreground)] placeholder:text-[var(--muted)] focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
             />
           </div>
@@ -472,10 +436,7 @@ export default function AdminCommentsPage() {
     />
   );
 
-  if (loading && !hasLoaded) return <p className="py-20 text-center text-[var(--muted)]">加载中...</p>;
-
-  return (
-    <>
+  return (    <>
       <div className="space-y-6">
         <PageHeader
           eyebrow="Moderation"

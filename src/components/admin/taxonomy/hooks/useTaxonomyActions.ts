@@ -3,7 +3,7 @@
 import { useCallback, type Dispatch, type SetStateAction } from "react";
 import { toast } from "sonner";
 
-import { getApiErrorMessage } from "@/lib/admin-api-client";
+import { apiMutate, ApiRequestError, toErrorMessage } from "@/lib/client-api";
 
 type TaxonomyForm = {
   id: string;
@@ -47,17 +47,10 @@ export function useTaxonomyActions<Row extends { id: string }, Form extends Taxo
       const isEditing = Boolean(form.id);
 
       try {
-        const res = await fetch(endpoint, {
+        const data = await apiMutate<{ success?: boolean; data?: unknown }>(endpoint, {
           method: isEditing ? "PATCH" : "POST",
-          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(isEditing ? { id: form.id, ...payload } : payload),
         });
-        const data = await res.json();
-
-        if (!data.success) {
-          toast.error(getApiErrorMessage(data, isEditing ? messages.updateError : messages.createError));
-          return;
-        }
 
         if (isEditing) {
           setRows((prev) => prev.map((item) => (item.id === form.id ? { ...item, ...payload } : item)));
@@ -68,8 +61,12 @@ export function useTaxonomyActions<Row extends { id: string }, Form extends Taxo
         resetForm();
         toast.success(isEditing ? messages.updateSuccess : messages.createSuccess);
         void onSaved?.();
-      } catch {
-        toast.error(isEditing ? messages.updateRetryError : messages.createRetryError);
+      } catch (error) {
+        toast.error(
+          error instanceof ApiRequestError
+            ? toErrorMessage(error, isEditing ? messages.updateError : messages.createError)
+            : toErrorMessage(error, isEditing ? messages.updateRetryError : messages.createRetryError),
+        );
       }
     },
     [buildCreatedRow, buildPayload, endpoint, messages, onSaved, resetForm, setRows],

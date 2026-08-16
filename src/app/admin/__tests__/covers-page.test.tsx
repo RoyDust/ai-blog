@@ -1,7 +1,16 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, test, vi } from "vitest";
+import { SWRConfig } from "swr";
 
 import AdminCoversPage from "../covers/page";
+
+function renderCoversPage() {
+  return render(
+    <SWRConfig value={{ provider: () => new Map(), dedupingInterval: 0 }}>
+      <AdminCoversPage />
+    </SWRConfig>,
+  );
+}
 
 afterEach(() => {
   cleanup();
@@ -19,7 +28,7 @@ describe("admin covers page", () => {
       }),
     }));
 
-    render(<AdminCoversPage />);
+    renderCoversPage();
 
     expect(screen.getByRole("heading", { name: "封面图库" })).toBeInTheDocument();
     expect(screen.getByText("上传封面")).toBeInTheDocument();
@@ -48,7 +57,7 @@ describe("admin covers page", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<AdminCoversPage />);
+    renderCoversPage();
 
     await screen.findByRole("heading", { name: "封面图库" });
     expect(fetchMock).toHaveBeenCalledWith("/api/admin/covers?page=2&limit=48&q=tech&status=active&source=upload&generatedByAi=false");

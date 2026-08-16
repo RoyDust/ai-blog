@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { afterEach, describe, expect, test, vi } from 'vitest'
+import { SWRConfig, mutate as clearSwrCache } from 'swr'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import AdminPostEditPage from '../posts/[id]/edit/page'
 
 const router = { push: vi.fn(), back: vi.fn(), replace: vi.fn() }
@@ -12,6 +13,10 @@ vi.mock('next/navigation', () => ({
   useSearchParams: () => searchParams,
 }))
 
+beforeEach(async () => {
+  await clearSwrCache(() => true, undefined, { revalidate: false })
+})
+
 afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
@@ -20,6 +25,14 @@ afterEach(() => {
   router.replace.mockReset()
   searchParams = new URLSearchParams('')
 })
+
+function renderEditPage() {
+  return render(
+    <SWRConfig value={{ provider: () => new Map(), dedupingInterval: 0 }}>
+      <AdminPostEditPage />
+    </SWRConfig>
+  )
+}
 
 describe('editor publish flow', () => {
   test('keeps publishing inspector sections mounted even with legacy ?panel=', async () => {
@@ -46,7 +59,7 @@ describe('editor publish flow', () => {
       })
     )
 
-    render(<AdminPostEditPage />)
+    renderEditPage()
 
     expect(await screen.findByText('发布设置')).toBeInTheDocument()
     expect(screen.getByText('发布清单')).toBeInTheDocument()
@@ -75,7 +88,7 @@ describe('editor publish flow', () => {
       })
     )
 
-    render(<AdminPostEditPage />)
+    renderEditPage()
 
     expect(await screen.findByText('分类、标签与封面图')).toBeInTheDocument()
 
@@ -109,7 +122,7 @@ describe('editor publish flow', () => {
 
     vi.stubGlobal('fetch', fetchMock)
 
-    render(<AdminPostEditPage />)
+    renderEditPage()
 
     fireEvent.click(await screen.findByRole('button', { name: '发布文章' }))
 
@@ -155,7 +168,7 @@ describe('editor publish flow', () => {
 
     vi.stubGlobal('fetch', fetchMock)
 
-    render(<AdminPostEditPage />)
+    renderEditPage()
 
     fireEvent.change(await screen.findByLabelText('定时发布时间'), {
       target: { value: '2099-01-01T10:30' },
@@ -226,7 +239,7 @@ describe('editor publish flow', () => {
 
     vi.stubGlobal('fetch', fetchMock)
 
-    render(<AdminPostEditPage />)
+    renderEditPage()
 
     expect(await screen.findByDisplayValue('旧标题')).toBeInTheDocument()
     await screen.findByRole('checkbox', { name: 'React' })
@@ -313,7 +326,7 @@ describe('editor publish flow', () => {
 
     vi.stubGlobal('fetch', fetchMock)
 
-    render(<AdminPostEditPage />)
+    renderEditPage()
 
     expect(await screen.findByDisplayValue('旧标题')).toBeInTheDocument()
     await screen.findByRole('checkbox', { name: 'React' })
@@ -386,7 +399,7 @@ describe('editor publish flow', () => {
 
     vi.stubGlobal('fetch', fetchMock)
 
-    render(<AdminPostEditPage />)
+    renderEditPage()
 
     expect(await screen.findByDisplayValue('旧标题')).toBeInTheDocument()
     await screen.findByRole('checkbox', { name: 'React' })

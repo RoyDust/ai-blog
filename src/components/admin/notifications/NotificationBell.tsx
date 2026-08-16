@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertCircle, Bell, CheckCheck, CircleCheck, Info, Inbox, XCircle } from "lucide-react";
+import useSWR from "swr";
 
 import {
   DropdownMenu,
@@ -11,7 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/admin/ui";
-import { readApiJson } from "@/lib/admin-api-client";
+import { apiFetcher, apiMutate, handleGlobalSwrError, toErrorMessage } from "@/lib/client-api";
 
 type NotificationItem = {
   id: string;
@@ -60,18 +61,6 @@ function formatRelativeTime(value: string) {
 }
 
 /**
- * 解析通知接口响应，并把缺少 data 的成功响应也视作异常。
- */
-async function parseNotificationResponse(response: Response) {
-  const payload = await readApiJson<{ success?: boolean; data?: NotificationPayload }>(response, "通知加载失败");
-  if (!payload.data) {
-    throw new Error("通知加载失败");
-  }
-
-  return payload.data;
-}
-
-/**
  * 后台顶部栏通知入口。
  *
  * 负责轮询最近通知、展示未读数、标记已读，以及按通知 actionUrl 跳转。
@@ -80,44 +69,32 @@ export function NotificationBell() {
   const router = useRouter();
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const label = useMemo(() => (unreadCount > 0 ? `通知，${unreadCount} 条未读` : "通知"), [unreadCount]);
 
   /**
-   * 拉取顶部铃铛只需要的最近通知。
-   *
-   * 使用 no-store 保证管理后台看到的是最新未读状态，而不是 Next/browser 缓存。
+   * 铃铛数据的请求与轮询交给 SWR（30s refreshInterval + 焦点重验证），
+   * onSuccess 把数据同步进本地状态：已读操作需要本地乐观更新（接口的 GET
+   * 响应可能滞后于 PATCH 结果），沿用原有的"PATCH 返回校准 + 本地翻转"语义。
    */
-  const loadNotifications = useCallback(async () => {
-    try {
-      setError(null);
-      const data = await parseNotificationResponse(await fetch("/api/admin/notifications?limit=8", { cache: "no-store" }));
-      setItems(data.items);
-      setUnreadCount(data.unreadCount);
-    } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "通知加载失败");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void loadNotifications();
-
-    const timer = window.setInterval(() => {
-      void loadNotifications();
-    }, 30_000);
-    const handleFocus = () => void loadNotifications();
-
-    window.addEventListener("focus", handleFocus);
-
-    return () => {
-      window.clearInterval(timer);
-      window.removeEventListener("focus", handleFocus);
-    };
-  }, [loadNotifications]);
+  const { isLoading, mutate } = useSWR<{ success?: boolean; data?: NotificationPayload }>(
+    "/api/admin/notifications?limit=8",
+    apiFetcher,
+    {
+      refreshInterval: 30_000,
+      revalidateOnFocus: true,
+      onSuccess: (data) => {
+        setItems(data?.data?.items ?? []);
+        setUnreadCount(data?.data?.unreadCount ?? 0);
+      },
+      onError: (loadError, key) => {
+        handleGlobalSwrError(loadError, key);
+        setError(toErrorMessage(loadError, "通知加载失败"));
+      },
+    },
+  );
+  const loading = isLoading;
 
   /**
    * 标记指定通知为已读，并用接口返回的 unreadCount 校准本地角标。
@@ -127,19 +104,15 @@ export function NotificationBell() {
       return;
     }
 
-    const response = await fetch("/api/admin/notifications", {
+    const payload = await apiMutate<{ success?: boolean; data?: { unreadCount: number } }>("/api/admin/notifications", {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "read", ids }),
     });
-    const payload = await readApiJson<{ success?: boolean; data?: { unreadCount: number } }>(response, "通知状态更新失败");
-    if (!payload.data) {
-      throw new Error("通知状态更新失败");
-    }
 
-    setUnreadCount(payload.data.unreadCount);
+    setUnreadCount(payload.data?.unreadCount ?? unreadCount);
     setItems((current) => current.map((item) => (ids.includes(item.id) ? { ...item, readAt: item.readAt ?? new Date().toISOString() } : item)));
-  }, []);
+    void mutate();
+  }, [mutate, unreadCount]);
 
   /**
    * 批量标记所有通知已读。
@@ -147,16 +120,20 @@ export function NotificationBell() {
    * 失败时保留当前列表状态并显示错误，避免误导用户以为远端状态已更新。
    */
   const markAllRead = useCallback(async () => {
-    const response = await fetch("/api/admin/notifications/read-all", { method: "POST" });
-    const payload = await readApiJson<{ success?: boolean; data?: { unreadCount: number } }>(response, "通知状态更新失败").catch(() => null);
-    if (!payload?.data) {
-      setError("通知状态更新失败");
-      return;
-    }
+    try {
+      const payload = await apiMutate<{ success?: boolean; data?: { unreadCount: number } }>("/api/admin/notifications/read-all", { method: "POST" });
+      if (!payload.data) {
+        setError("通知状态更新失败");
+        return;
+      }
 
-    setUnreadCount(payload.data.unreadCount);
-    setItems((current) => current.map((item) => ({ ...item, readAt: item.readAt ?? new Date().toISOString() })));
-  }, []);
+      setUnreadCount(payload.data.unreadCount);
+      setItems((current) => current.map((item) => ({ ...item, readAt: item.readAt ?? new Date().toISOString() })));
+      void mutate();
+    } catch {
+      setError("通知状态更新失败");
+    }
+  }, [mutate]);
 
   /**
    * 打开单条通知。
@@ -181,7 +158,7 @@ export function NotificationBell() {
   );
 
   return (
-    <DropdownMenu onOpenChange={(open) => open && void loadNotifications()}>
+    <DropdownMenu onOpenChange={(open) => open && void mutate()}>
       <DropdownMenuTrigger asChild>
         <button
           aria-label={label}

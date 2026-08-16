@@ -1,6 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useForm, useWatch } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 
 export type PostFormData = {
   title: string;
@@ -18,6 +21,24 @@ export type PostFormData = {
   published: boolean;
   featured: boolean;
 };
+
+const postFormSchema = z.object({
+  // title/slug/content 与服务端 parsePostInput 的必填规则对齐（canSubmit 同时门禁提交）
+  title: z.string().min(1, "标题不能为空"),
+  slug: z.string().min(1, "slug 不能为空"),
+  content: z.string().min(1, "内容不能为空"),
+  excerpt: z.string(),
+  seoDescription: z.string(),
+  coverImage: z.string(),
+  coverAssetId: z.string(),
+  categoryId: z.string(),
+  tagIds: z.array(z.string()),
+  seriesId: z.string(),
+  seriesOrder: z.number(),
+  scheduledAt: z.string(),
+  published: z.boolean(),
+  featured: z.boolean(),
+});
 
 export const emptyFormData: PostFormData = {
   title: "",
@@ -61,18 +82,41 @@ type UsePostFormOptions = {
   onDraftLoaded?: (draft: PostFormData) => void;
 };
 
+type SetFormDataArg = PostFormData | ((prev: PostFormData) => PostFormData);
+
 /**
  * Owns article form state plus create-mode local draft persistence.
- * Edit-mode loading stays in AdminPostWorkspace because it depends on the route post id.
+ *
+ * 实现：React Hook Form + Zod 作为唯一数据源。`formData` 由 `useWatch`
+ * 派生；`setFormData` 兼容函数式更新（getValues + reset 包装），消费方
+ * AdminPostWorkspace 的全部调用点无需改动。草稿恢复与 450ms 防抖保存语义保留。
  */
 export function usePostForm(mode: "create" | "edit", draftKey: string | null, options: UsePostFormOptions = {}) {
+  const methods = useForm<PostFormData>({
+    resolver: zodResolver(postFormSchema),
+    defaultValues: emptyFormData,
+  });
+  const { control, getValues, reset } = methods;
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
-  const [formData, setFormData] = useState<PostFormData>(emptyFormData);
   const { onDraftLoaded } = options;
+
+  const formData = useWatch({ control }) as PostFormData;
 
   const canSubmit = useMemo(
     () => formData.title.trim().length > 0 && formData.slug.trim().length > 0 && formData.content.trim().length > 0,
     [formData],
+  );
+
+  // 注意：setFormData 必须保持引用稳定——消费方 AdminPostWorkspace 的编辑加载
+  // effect 依赖它，身份变化会导致加载 effect 反复重跑。getValues/reset 由 RHF
+  // 内部 useCallback 稳定。
+  const setFormData = useCallback(
+    (updater: SetFormDataArg) => {
+      const prev = getValues();
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      reset(next);
+    },
+    [getValues, reset],
   );
 
   useEffect(() => {
@@ -86,7 +130,7 @@ export function usePostForm(mode: "create" | "edit", draftKey: string | null, op
     try {
       const parsed = normalizeDraft(JSON.parse(raw));
       timer = window.setTimeout(() => {
-        setFormData(parsed);
+        reset(parsed);
         onDraftLoaded?.(parsed);
       }, 0);
     } catch {
@@ -98,7 +142,7 @@ export function usePostForm(mode: "create" | "edit", draftKey: string | null, op
         window.clearTimeout(timer);
       }
     };
-  }, [draftKey, mode, onDraftLoaded]);
+  }, [draftKey, mode, onDraftLoaded, reset]);
 
   useEffect(() => {
     if (mode !== "create" || !draftKey) return;

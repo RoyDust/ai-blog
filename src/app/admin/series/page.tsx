@@ -1,14 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import type { FormEvent } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
+import useSWR from "swr";
+import { z } from "zod";
 
 import { PageHeader } from "@/components/admin/primitives/PageHeader";
 import { Button } from "@/components/admin/ui";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/shadcn/ui/form";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/shadcn/ui/table";
-import { getApiErrorMessage } from "@/lib/admin-api-client";
+import { apiFetcher, apiMutate, handleGlobalSwrError, toErrorMessage } from "@/lib/client-api";
 
 interface SeriesRow {
   id: string;
@@ -41,6 +45,15 @@ const emptyForm: SeriesFormState = {
   order: "0",
 };
 
+const seriesFormSchema = z.object({
+  id: z.string(),
+  title: z.string().trim().min(1, "请输入系列标题"),
+  slug: z.string().trim().min(1, "请输入 slug").regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "slug 只能使用小写英文、数字和连字符"),
+  description: z.string(),
+  coverImage: z.string().trim().refine((value) => !value || URL.canParse(value), "请输入有效的封面 URL"),
+  order: z.string().trim().refine((value) => /^\d+$/.test(value), "排序必须是非负整数"),
+});
+
 function toForm(row: SeriesRow): SeriesFormState {
   return {
     id: row.id,
@@ -61,35 +74,27 @@ function toSlug(value: string) {
 }
 
 export default function AdminSeriesPage() {
-  const [series, setSeries] = useState<SeriesRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [form, setForm] = useState<SeriesFormState>(emptyForm);
   const [query, setQuery] = useState("");
+  const seriesForm = useForm<SeriesFormState>({
+    resolver: zodResolver(seriesFormSchema),
+    defaultValues: emptyForm,
+  });
+  const editingSeriesId = useWatch({ control: seriesForm.control, name: "id" });
 
-  async function fetchSeries() {
-    try {
-      const response = await fetch("/api/admin/series");
-      const payload = await response.json();
+  const {
+    data: seriesResponse,
+    isLoading,
+    mutate,
+  } = useSWR<{ success?: boolean; data?: SeriesRow[] }>("/api/admin/series", apiFetcher, {
+    revalidateOnMount: true,
+    onError: (swrError, key) => {
+      handleGlobalSwrError(swrError, key);
+      toast.error(toErrorMessage(swrError, "系列列表加载失败，请稍后重试"));
+    },
+  });
 
-      if (!payload.success) {
-        toast.error(getApiErrorMessage(payload, "系列列表加载失败"));
-        setSeries([]);
-        return;
-      }
-
-      setSeries(payload.data);
-    } catch {
-      toast.error("系列列表加载失败，请稍后重试");
-      setSeries([]);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    void fetchSeries();
-  }, []);
+  const series = useMemo(() => seriesResponse?.data ?? [], [seriesResponse?.data]);
+  const loading = isLoading;
 
   const filtered = useMemo(() => {
     const keyword = query.trim().toLowerCase();
@@ -97,58 +102,40 @@ export default function AdminSeriesPage() {
     return series.filter((item) => item.title.toLowerCase().includes(keyword) || item.slug.toLowerCase().includes(keyword));
   }, [query, series]);
 
-  async function submitSeries(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setSubmitting(true);
-
+  async function submitSeries(values: SeriesFormState) {
     try {
-      const response = await fetch("/api/admin/series", {
-        method: form.id ? "PATCH" : "POST",
-        headers: { "Content-Type": "application/json" },
+      await apiMutate("/api/admin/series", {
+        method: values.id ? "PATCH" : "POST",
         body: JSON.stringify({
-          id: form.id || undefined,
-          title: form.title,
-          slug: form.slug,
-          description: form.description,
-          coverImage: form.coverImage,
-          order: Number(form.order || 0),
+          id: values.id || undefined,
+          title: values.title,
+          slug: values.slug,
+          description: values.description,
+          coverImage: values.coverImage,
+          order: Number(values.order || 0),
         }),
       });
-      const payload = await response.json();
 
-      if (!payload.success) {
-        toast.error(getApiErrorMessage(payload, form.id ? "更新系列失败" : "创建系列失败"));
-        return;
-      }
-
-      toast.success(form.id ? "系列已更新" : "系列已创建");
-      setForm(emptyForm);
-      await fetchSeries();
-    } catch {
-      toast.error(form.id ? "更新系列失败，请稍后重试" : "创建系列失败，请稍后重试");
-    } finally {
-      setSubmitting(false);
+      toast.success(values.id ? "系列已更新" : "系列已创建");
+      seriesForm.reset(emptyForm);
+      void mutate();
+    } catch (error) {
+      toast.error(toErrorMessage(error, values.id ? "更新系列失败，请稍后重试" : "创建系列失败，请稍后重试"));
     }
   }
 
   async function deleteSeries(row: SeriesRow) {
     try {
       const params = new URLSearchParams({ id: row.id });
-      const response = await fetch(`/api/admin/series?${params.toString()}`, { method: "DELETE" });
-      const payload = await response.json();
-
-      if (!payload.success) {
-        toast.error(getApiErrorMessage(payload, "隐藏系列失败"));
-        return;
-      }
+      await apiMutate(`/api/admin/series?${params.toString()}`, { method: "DELETE" });
 
       toast.success("系列已隐藏");
-      if (form.id === row.id) {
-        setForm(emptyForm);
+      if (seriesForm.getValues("id") === row.id) {
+        seriesForm.reset(emptyForm);
       }
-      setSeries((prev) => prev.filter((item) => item.id !== row.id));
-    } catch {
-      toast.error("隐藏系列失败，请稍后重试");
+      void mutate();
+    } catch (error) {
+      toast.error(toErrorMessage(error, "隐藏系列失败，请稍后重试"));
     }
   }
 
@@ -168,79 +155,108 @@ export default function AdminSeriesPage() {
       />
 
       <section className="grid gap-6 xl:grid-cols-[380px_minmax(0,1fr)]">
-        <form onSubmit={submitSeries} className="ui-surface space-y-4 rounded-xl p-5 shadow-[var(--shadow-card)]">
-          <div>
-            <h2 className="font-display text-lg font-semibold text-[var(--foreground)]">{form.id ? "编辑系列" : "新建系列"}</h2>
-            <p className="mt-1 text-sm text-[var(--muted)]">slug 只能使用小写英文、数字和连字符。</p>
-          </div>
+        <Form {...seriesForm}>
+          <form onSubmit={seriesForm.handleSubmit(submitSeries)} className="ui-surface space-y-4 rounded-xl p-5 shadow-[var(--shadow-card)]">
+            <div>
+              <h2 className="font-display text-lg font-semibold text-[var(--foreground)]">{editingSeriesId ? "编辑系列" : "新建系列"}</h2>
+              <p className="mt-1 text-sm text-[var(--muted)]">slug 只能使用小写英文、数字和连字符。</p>
+            </div>
 
-          <label className="block space-y-1 text-sm">
-            <span className="font-medium text-[var(--foreground)]">标题</span>
-            <input
-              required
-              className="ui-ring w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm"
-              value={form.title}
-              onChange={(event) =>
-                setForm((prev) => ({
-                  ...prev,
-                  title: event.target.value,
-                  slug: prev.slug ? prev.slug : toSlug(event.target.value),
-                }))
-              }
+            <FormField
+              control={seriesForm.control}
+              name="title"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>标题</FormLabel>
+                  <FormControl>
+                    <input
+                      className="ui-ring w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm"
+                      {...field}
+                      onChange={(event) => {
+                        field.onChange(event);
+                        if (!seriesForm.getValues("slug")) {
+                          seriesForm.setValue("slug", toSlug(event.target.value), { shouldValidate: true });
+                        }
+                      }}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </label>
 
-          <label className="block space-y-1 text-sm">
-            <span className="font-medium text-[var(--foreground)]">Slug</span>
-            <input
-              required
-              pattern="[a-z0-9]+(-[a-z0-9]+)*"
-              className="ui-ring w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm"
-              value={form.slug}
-              onChange={(event) => setForm((prev) => ({ ...prev, slug: toSlug(event.target.value) }))}
+            <FormField
+              control={seriesForm.control}
+              name="slug"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Slug</FormLabel>
+                  <FormControl>
+                    <input
+                      className="ui-ring w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm"
+                      {...field}
+                      onChange={(event) => field.onChange(toSlug(event.target.value))}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </label>
 
-          <label className="block space-y-1 text-sm">
-            <span className="font-medium text-[var(--foreground)]">描述</span>
-            <textarea
-              className="ui-ring min-h-24 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm"
-              value={form.description}
-              onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
+            <FormField
+              control={seriesForm.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>描述</FormLabel>
+                  <FormControl>
+                    <textarea className="ui-ring min-h-24 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </label>
 
-          <label className="block space-y-1 text-sm">
-            <span className="font-medium text-[var(--foreground)]">封面 URL</span>
-            <input
-              className="ui-ring w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm"
-              value={form.coverImage}
-              onChange={(event) => setForm((prev) => ({ ...prev, coverImage: event.target.value }))}
+            <FormField
+              control={seriesForm.control}
+              name="coverImage"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>封面 URL</FormLabel>
+                  <FormControl>
+                    <input className="ui-ring w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </label>
 
-          <label className="block space-y-1 text-sm">
-            <span className="font-medium text-[var(--foreground)]">排序</span>
-            <input
-              min={0}
-              type="number"
-              className="ui-ring w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm"
-              value={form.order}
-              onChange={(event) => setForm((prev) => ({ ...prev, order: event.target.value }))}
+            <FormField
+              control={seriesForm.control}
+              name="order"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>排序</FormLabel>
+                  <FormControl>
+                    <input min={0} type="number" className="ui-ring w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </label>
 
-          <div className="flex flex-wrap gap-2">
-            <Button disabled={submitting} size="sm" type="submit">
-              {form.id ? "保存修改" : "创建系列"}
-            </Button>
-            {form.id ? (
-              <Button disabled={submitting} size="sm" type="button" variant="outline" onClick={() => setForm(emptyForm)}>
-                取消编辑
+            <div className="flex flex-wrap gap-2">
+              <Button disabled={seriesForm.formState.isSubmitting} size="sm" type="submit">
+                {seriesForm.formState.isSubmitting ? "保存中..." : editingSeriesId ? "保存修改" : "创建系列"}
               </Button>
-            ) : null}
-          </div>
-        </form>
+              {editingSeriesId ? (
+                <Button disabled={seriesForm.formState.isSubmitting} size="sm" type="button" variant="outline" onClick={() => seriesForm.reset(emptyForm)}>
+                  取消编辑
+                </Button>
+              ) : null}
+            </div>
+          </form>
+        </Form>
 
         <section className="overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)]">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] px-4 py-3">
@@ -288,7 +304,7 @@ export default function AdminSeriesPage() {
                       <TableCell className="px-4 py-4 align-top text-[var(--text-muted)]">{row.order}</TableCell>
                       <TableCell className="whitespace-normal px-4 py-4 align-top">
                         <div className="flex flex-wrap items-center gap-3">
-                          <button type="button" className="text-[var(--brand)] hover:underline" onClick={() => setForm(toForm(row))}>
+                          <button type="button" className="text-[var(--brand)] hover:underline" onClick={() => seriesForm.reset(toForm(row))}>
                             编辑
                           </button>
                           <Link className="text-[var(--foreground)] hover:text-[var(--brand)]" href={`/series/${row.slug}`}>

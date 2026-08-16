@@ -1,13 +1,17 @@
 "use client";
 
-import { type FormEvent, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
+import { useForm, useWatch } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { FileText, Globe2, HardDrive, ImageIcon, Mail, ShieldCheck, Target, UserRound } from "lucide-react";
 import { PageHeader } from "@/components/admin/primitives/PageHeader";
 import { WorkspacePanel } from "@/components/admin/primitives/WorkspacePanel";
 import { Button, ImageCropUploadDialog, Input, Textarea } from "@/components/admin/ui";
 import { GitHubBinding } from "@/components/admin/settings/GitHubBinding";
-import { getApiErrorMessage } from "@/lib/admin-api-client";
+import { Form, FormField, FormItem, FormMessage } from "@/components/shadcn/ui/form";
+import { apiMutate, toErrorMessage } from "@/lib/client-api";
 
 type SettingsUser = {
   id: string;
@@ -72,6 +76,74 @@ interface AdminSettingsClientProps {
 
 type SettingsTabId = "account" | "site" | "publicProfile" | "reading" | "newsletter" | "about" | "logs";
 
+const profileSchema = z.object({
+  name: z.string().trim().min(1, "请输入显示名称").max(80, "显示名称最多 80 字"),
+  email: z.string().trim().email("请输入有效的邮箱地址"),
+  image: z.string(),
+});
+
+type ProfileFormValues = z.infer<typeof profileSchema>;
+
+const logSettingsSchema = z.object({
+  maxStorageMb: z.number().int("必须是整数").min(1, "日志大小限制必须在 1 到 512 MB 之间").max(512, "日志大小限制必须在 1 到 512 MB 之间"),
+});
+
+type LogSettingsFormValues = z.infer<typeof logSettingsSchema>;
+
+const blogSiteFormSchema = z.object({
+  siteName: z.string().trim().min(1, "请输入博客名称"),
+  siteDescription: z.string(),
+  siteUrl: z.string().trim().min(1, "请输入站点地址"),
+  locale: z.string().trim().min(1, "请输入默认语言"),
+  appearance: z.object({ backgroundImageUrl: z.string() }),
+});
+
+const blogProfileFormSchema = z.object({
+  profile: z.object({
+    subtitle: z.string(),
+    tagline: z.string(),
+    bio: z.string(),
+    intro: z.string(),
+    githubUrl: z.string(),
+    twitterUrl: z.string(),
+  }),
+});
+
+const blogReadingFormSchema = z.object({
+  reading: z.object({ monthlyGoal: z.number().int().min(1, "每月目标篇数至少 1").max(999, "每月目标篇数最多 999") }),
+});
+
+const blogNewsletterFormSchema = z.object({
+  newsletter: z.object({
+    enabled: z.boolean(),
+    provider: z.enum(["none", "log"]),
+    fromEmail: z.string(),
+    replyTo: z.string(),
+  }),
+});
+
+const blogAboutFormSchema = z.object({
+  about: z.object({
+    aboutTitle: z.string(),
+    aboutParagraphs: z.array(z.string()),
+    nowTitle: z.string(),
+    nowItems: z.array(z.string()),
+    highlights: z.array(z.object({ title: z.string(), description: z.string() })),
+    stackTitle: z.string(),
+    stack: z.array(z.object({ title: z.string(), description: z.string() })),
+    contactTitle: z.string(),
+    contactDescription: z.string(),
+  }),
+});
+
+const blogSettingsFormSchema = blogSiteFormSchema
+  .merge(blogProfileFormSchema)
+  .merge(blogReadingFormSchema)
+  .merge(blogNewsletterFormSchema)
+  .merge(blogAboutFormSchema);
+
+type BlogSettingsFormValues = z.infer<typeof blogSettingsFormSchema>;
+
 const settingsTabs = [
   { id: "account", label: "账号资料", description: "登录身份", icon: UserRound },
   { id: "site", label: "站点基础", description: "头部与页脚", icon: Globe2 },
@@ -99,175 +171,116 @@ function toCssImageUrl(value: string) {
 }
 
 export function AdminSettingsClient({ user, blogSettings, operationLogSettings }: AdminSettingsClientProps) {
-  const [profile, setProfile] = useState({
-    name: user.name ?? "",
-    email: user.email,
-    image: user.image ?? "",
+  const profileForm = useForm<ProfileFormValues>({
+    resolver: zodResolver(profileSchema),
+    defaultValues: { name: user.name ?? "", email: user.email, image: user.image ?? "" },
   });
-  const [blogDraft, setBlogDraft] = useState(blogSettings);
-  const [logSettings, setLogSettings] = useState(operationLogSettings);
-  const [logDraft, setLogDraft] = useState({ maxStorageMb: String(operationLogSettings.maxStorageMb) });
-  const [activeTab, setActiveTab] = useState<SettingsTabId>("account");
-  const [savingProfile, setSavingProfile] = useState(false);
-  const [savingBlogSettings, setSavingBlogSettings] = useState(false);
-  const [savingLogSettings, setSavingLogSettings] = useState(false);
+  const profile = useWatch({ control: profileForm.control }) as ProfileFormValues;
 
+  const blogForm = useForm<BlogSettingsFormValues>({
+    resolver: zodResolver(blogSettingsFormSchema),
+    defaultValues: blogSettings,
+  });
+  const blogDraft = useWatch({ control: blogForm.control }) as BlogSettingsFormValues;
+
+  const [logSettings, setLogSettings] = useState(operationLogSettings);
+  const [activeTab, setActiveTab] = useState<SettingsTabId>("account");
+
+  const logForm = useForm<LogSettingsFormValues>({
+    resolver: zodResolver(logSettingsSchema),
+    defaultValues: { maxStorageMb: operationLogSettings.maxStorageMb },
+  });
   const initial = (profile.name || profile.email || "A").slice(0, 1).toUpperCase();
   const usagePercent =
     logSettings.maxStorageBytes > 0
       ? Math.min(Math.round((logSettings.currentStorageBytes / logSettings.maxStorageBytes) * 100), 100)
       : 0;
 
-  const saveProfile = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setSavingProfile(true);
-
+  const saveProfile = profileForm.handleSubmit(async (values) => {
     try {
-      const response = await fetch("/api/users/me", {
+      const data = await apiMutate<{ data?: ProfileFormValues }>("/api/users/me", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: profile.name,
-          email: profile.email,
-          image: profile.image.trim() || null,
+          name: values.name,
+          email: values.email,
+          image: values.image.trim() || null,
         }),
       });
-      const data = await response.json();
 
-      if (!response.ok) {
-        toast.error(getApiErrorMessage(data, "个人信息保存失败"));
-        return;
+      if (data.data) {
+        profileForm.reset({
+          name: data.data.name ?? "",
+          email: data.data.email,
+          image: data.data.image ?? "",
+        });
       }
-
-      setProfile({
-        name: data.data.name ?? "",
-        email: data.data.email,
-        image: data.data.image ?? "",
-      });
       toast.success("个人信息已保存");
-    } catch {
-      toast.error("个人信息保存失败，请稍后重试");
-    } finally {
-      setSavingProfile(false);
+    } catch (error) {
+      toast.error(toErrorMessage(error, "个人信息保存失败，请稍后重试"));
     }
-  };
+  });
 
-  const saveLogSettings = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const maxStorageMb = Number(logDraft.maxStorageMb);
-
-    if (!Number.isFinite(maxStorageMb) || maxStorageMb < 1 || maxStorageMb > 512) {
-      toast.error("日志大小限制必须在 1 到 512 MB 之间");
-      return;
-    }
-
-    setSavingLogSettings(true);
-
+  const saveLogSettings = logForm.handleSubmit(async (values) => {
     try {
-      const response = await fetch("/api/admin/settings/operation-logs", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ maxStorageMb }),
-      });
-      const data = await response.json().catch(() => ({}));
+      const data = await apiMutate<{ success?: boolean; data?: OperationLogSettings & { deletedCount?: number } }>(
+        "/api/admin/settings/operation-logs",
+        {
+          method: "PATCH",
+          body: JSON.stringify({ maxStorageMb: values.maxStorageMb }),
+        },
+      );
 
-      if (!response.ok || data?.success === false) {
-        toast.error(getApiErrorMessage(data, "日志设置保存失败"));
-        return;
+      setLogSettings(data.data ?? logSettings);
+      if (data.data) {
+        logForm.reset({ maxStorageMb: data.data.maxStorageMb });
       }
-
-      setLogSettings(data.data);
-      setLogDraft({ maxStorageMb: String(data.data.maxStorageMb) });
-      toast.success(data.data.deletedCount > 0 ? `日志设置已保存，已清理 ${data.data.deletedCount} 条旧日志` : "日志设置已保存");
-    } catch {
-      toast.error("日志设置保存失败，请稍后重试");
-    } finally {
-      setSavingLogSettings(false);
+      toast.success(data.data?.deletedCount ? `日志设置已保存，已清理 ${data.data.deletedCount} 条旧日志` : "日志设置已保存");
+    } catch (error) {
+      toast.error(toErrorMessage(error, "日志设置保存失败，请稍后重试"));
     }
-  };
+  });
 
-  const saveBlogSettings = async (event: FormEvent<HTMLFormElement>, payload: Partial<BlogSettingsDraft>) => {
-    event.preventDefault();
-    setSavingBlogSettings(true);
-
+  const saveBlogSettings = async (payload: Partial<BlogSettingsDraft>) => {
     try {
-      const response = await fetch("/api/admin/settings/blog", {
+      const data = await apiMutate<{ success?: boolean; data?: BlogSettingsDraft }>("/api/admin/settings/blog", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const data = await response.json().catch(() => ({}));
 
-      if (!response.ok || data?.success === false) {
-        toast.error(getApiErrorMessage(data, "博客配置保存失败"));
-        return;
+      if (data.data) {
+        blogForm.reset(data.data);
       }
-
-      setBlogDraft(data.data);
       toast.success("博客配置已保存");
-    } catch {
-      toast.error("博客配置保存失败，请稍后重试");
-    } finally {
-      setSavingBlogSettings(false);
+    } catch (error) {
+      toast.error(toErrorMessage(error, "博客配置保存失败，请稍后重试"));
     }
   };
 
-  const updatePublicProfileDraft = (nextProfile: Partial<BlogSettingsDraft["profile"]>) => {
-    setBlogDraft((value) => ({
-      ...value,
-      profile: { ...value.profile, ...nextProfile },
-    }));
-  };
+  const saveSiteSettings = blogForm.handleSubmit((values) =>
+    saveBlogSettings({
+      siteName: values.siteName,
+      siteDescription: values.siteDescription,
+      siteUrl: values.siteUrl,
+      locale: values.locale,
+      appearance: values.appearance,
+    }),
+  );
 
-  const saveSiteSettings = (event: FormEvent<HTMLFormElement>) =>
-    saveBlogSettings(event, {
-      siteName: blogDraft.siteName,
-      siteDescription: blogDraft.siteDescription,
-      siteUrl: blogDraft.siteUrl,
-      locale: blogDraft.locale,
-      appearance: blogDraft.appearance,
-    });
+  const savePublicProfileSettings = blogForm.handleSubmit((values) =>
+    saveBlogSettings({ profile: values.profile }),
+  );
 
-  const savePublicProfileSettings = (event: FormEvent<HTMLFormElement>) =>
-    saveBlogSettings(event, { profile: blogDraft.profile });
+  const saveReadingSettings = blogForm.handleSubmit((values) =>
+    saveBlogSettings({ reading: values.reading }),
+  );
 
-  const saveReadingSettings = (event: FormEvent<HTMLFormElement>) =>
-    saveBlogSettings(event, { reading: blogDraft.reading });
+  const saveNewsletterSettings = blogForm.handleSubmit((values) =>
+    saveBlogSettings({ newsletter: values.newsletter }),
+  );
 
-  const saveNewsletterSettings = (event: FormEvent<HTMLFormElement>) =>
-    saveBlogSettings(event, { newsletter: blogDraft.newsletter });
-
-  const updateNewsletterDraft = (nextNewsletter: Partial<BlogSettingsDraft["newsletter"]>) => {
-    setBlogDraft((value) => ({
-      ...value,
-      newsletter: { ...value.newsletter, ...nextNewsletter },
-    }));
-  };
-
-  const saveAboutSettings = (event: FormEvent<HTMLFormElement>) =>
-    saveBlogSettings(event, { about: blogDraft.about });
-
-  const updateAboutDraft = (nextAbout: Partial<BlogSettingsDraft["about"]>) => {
-    setBlogDraft((value) => ({
-      ...value,
-      about: { ...value.about, ...nextAbout },
-    }));
-  };
-
-  const updateAboutCard = (
-    group: "highlights" | "stack",
-    index: number,
-    field: "title" | "description",
-    nextValue: string,
-  ) => {
-    setBlogDraft((value) => ({
-      ...value,
-      about: {
-        ...value.about,
-        [group]: value.about[group].map((item, itemIndex) => (itemIndex === index ? { ...item, [field]: nextValue } : item)),
-      },
-    }));
-  };
+  const saveAboutSettings = blogForm.handleSubmit((values) =>
+    saveBlogSettings({ about: values.about }),
+  );
 
   return (
     <div className="space-y-5">
@@ -321,14 +334,15 @@ export function AdminSettingsClient({ user, blogSettings, operationLogSettings }
         >
           {activeTab === "account" ? (
             <WorkspacePanel title="个人信息" description="用于后台账号展示，也会影响作者署名的默认显示。">
-              <form className="space-y-5" onSubmit={saveProfile}>
+              <Form {...profileForm}>
+              <form className="space-y-5" noValidate onSubmit={saveProfile}>
                 <div className="flex items-center gap-4 rounded-xl border border-[var(--border)] bg-[var(--surface-alt)] p-4">
                   <ImageCropUploadDialog
                     currentImage={profile.image}
                     fallbackText={initial}
                     outputFileName={`avatar-${user.id}.webp`}
                     onUploaded={(url) => {
-                      setProfile((value) => ({ ...value, image: url }));
+                      profileForm.setValue("image", url, { shouldDirty: true, shouldValidate: true });
                       toast.success("头像已裁切上传，保存个人信息后生效");
                     }}
                   />
@@ -340,64 +354,103 @@ export function AdminSettingsClient({ user, blogSettings, operationLogSettings }
                 </div>
 
                 <div className="grid gap-4 md:grid-cols-2">
-                  <Input
-                    label="显示名称"
-                    onChange={(event) => setProfile((value) => ({ ...value, name: event.target.value }))}
-                    placeholder="例如 Inkforge"
-                    value={profile.name}
+                  <FormField
+                    control={profileForm.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <Input
+                          label="显示名称"
+                          onChange={field.onChange}
+                          placeholder="例如 Inkforge"
+                          value={field.value}
+                        />
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
-                  <Input
-                    label="邮箱"
-                    onChange={(event) => setProfile((value) => ({ ...value, email: event.target.value }))}
-                    placeholder="admin@example.com"
-                    type="email"
-                    value={profile.email}
+                  <FormField
+                    control={profileForm.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <Input
+                          label="邮箱"
+                          onChange={field.onChange}
+                          placeholder="admin@example.com"
+                          type="email"
+                          value={field.value}
+                        />
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
                 </div>
 
-                <Input
-                  helperText="可手动填写远程图片 URL，也可以点击头像裁切上传。留空会移除头像。"
-                  label="头像 URL"
-                  onChange={(event) => setProfile((value) => ({ ...value, image: event.target.value }))}
-                  placeholder="https://example.com/avatar.png"
-                  value={profile.image}
+                <FormField
+                  control={profileForm.control}
+                  name="image"
+                  render={({ field }) => (
+                    <FormItem>
+                      <Input
+                        helperText="可手动填写远程图片 URL，也可以点击头像裁切上传。留空会移除头像。"
+                        label="头像 URL"
+                        onChange={field.onChange}
+                        placeholder="https://example.com/avatar.png"
+                        value={field.value}
+                      />
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
 
                 <GitHubBinding initialLinked={user.githubLinked} />
 
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-sm text-[var(--muted)]">角色：{user.role === "ADMIN" ? "管理员" : user.role}</p>
-                  <Button disabled={savingProfile} type="submit">
-                    {savingProfile ? "保存中..." : "保存个人信息"}
+                  <Button disabled={profileForm.formState.isSubmitting} type="submit">
+                    {profileForm.formState.isSubmitting ? "保存中..." : "保存个人信息"}
                   </Button>
                 </div>
               </form>
+              </Form>
             </WorkspacePanel>
           ) : null}
 
           {activeTab === "site" ? (
+          <Form {...blogForm}>
           <form className="space-y-5" onSubmit={saveSiteSettings}>
             <WorkspacePanel title="博客配置" description="同步控制前台头部品牌、底部说明、SEO 信息和机器可读入口。">
               <div className="space-y-4">
-                <Input
-                  label="博客名称"
-                  onChange={(event) => setBlogDraft((value) => ({ ...value, siteName: event.target.value }))}
-                  value={blogDraft.siteName}
+                <FormField
+                  control={blogForm.control}
+                  name="siteName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <Input label="博客名称" onChange={field.onChange} value={field.value} />
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
                 <Textarea
                   label="站点描述"
-                  onChange={(event) => setBlogDraft((value) => ({ ...value, siteDescription: event.target.value }))}
+                  onChange={(event) => blogForm.setValue("siteDescription", event.target.value, { shouldDirty: true, shouldValidate: true })}
                   value={blogDraft.siteDescription}
                 />
                 <div className="grid gap-4 md:grid-cols-2">
-                  <Input
-                    label="站点地址"
-                    onChange={(event) => setBlogDraft((value) => ({ ...value, siteUrl: event.target.value }))}
-                    value={blogDraft.siteUrl}
+                  <FormField
+                    control={blogForm.control}
+                    name="siteUrl"
+                    render={({ field }) => (
+                      <FormItem>
+                        <Input label="站点地址" onChange={field.onChange} value={field.value} />
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
                   <Input
                     label="默认语言"
-                    onChange={(event) => setBlogDraft((value) => ({ ...value, locale: event.target.value }))}
+                    onChange={(event) => blogForm.setValue("locale", event.target.value, { shouldDirty: true, shouldValidate: true })}
                     value={blogDraft.locale}
                   />
                 </div>
@@ -406,13 +459,10 @@ export function AdminSettingsClient({ user, blogSettings, operationLogSettings }
                     helperText="支持站内路径或 http(s) 图片 URL；留空会恢复默认夜景背景。"
                     label="前台背景图 URL"
                     onChange={(event) =>
-                      setBlogDraft((value) => ({
-                        ...value,
-                        appearance: {
-                          ...value.appearance,
-                          backgroundImageUrl: event.target.value,
-                        },
-                      }))
+                      blogForm.setValue("appearance.backgroundImageUrl", event.target.value, {
+                        shouldDirty: true,
+                        shouldValidate: true,
+                      })
                     }
                     placeholder="/images/fuwari-night-city-bg.svg"
                     value={blogDraft.appearance.backgroundImageUrl}
@@ -433,100 +483,107 @@ export function AdminSettingsClient({ user, blogSettings, operationLogSettings }
                   这些字段会同步到前台导航左侧品牌、页脚说明、站点标题、SEO 描述、RSS、站点地图、默认语言和前台顶部背景。
                 </div>
                 <div className="flex justify-end">
-                  <Button disabled={savingBlogSettings} type="submit" variant="outline">
-                    {savingBlogSettings ? "保存中..." : "保存博客配置"}
+                  <Button disabled={blogForm.formState.isSubmitting} type="submit" variant="outline">
+                    {blogForm.formState.isSubmitting ? "保存中..." : "保存博客配置"}
                   </Button>
                 </div>
               </div>
             </WorkspacePanel>
           </form>
+          </Form>
           ) : null}
 
           {activeTab === "publicProfile" ? (
+          <Form {...blogForm}>
           <form className="space-y-5" onSubmit={savePublicProfileSettings}>
             <WorkspacePanel title="公开个人信息栏" description="同步控制前台左侧作者资料卡和关于页头部介绍。">
               <div className="space-y-4">
                 <div className="grid gap-4 md:grid-cols-2">
                   <Input
                     label="作者副标题"
-                    onChange={(event) => updatePublicProfileDraft({ subtitle: event.target.value })}
+                    onChange={(event) => blogForm.setValue("profile.subtitle", event.target.value, { shouldDirty: true, shouldValidate: true })}
                     value={blogDraft.profile.subtitle}
                   />
                   <Input
                     label="作者标语"
-                    onChange={(event) => updatePublicProfileDraft({ tagline: event.target.value })}
+                    onChange={(event) => blogForm.setValue("profile.tagline", event.target.value, { shouldDirty: true, shouldValidate: true })}
                     value={blogDraft.profile.tagline}
                   />
                 </div>
                 <Textarea
                   label="作者简介"
-                  onChange={(event) => updatePublicProfileDraft({ bio: event.target.value })}
+                  onChange={(event) => blogForm.setValue("profile.bio", event.target.value, { shouldDirty: true, shouldValidate: true })}
                   value={blogDraft.profile.bio}
                 />
                 <Textarea
                   label="作者介绍"
-                  onChange={(event) => updatePublicProfileDraft({ intro: event.target.value })}
+                  onChange={(event) => blogForm.setValue("profile.intro", event.target.value, { shouldDirty: true, shouldValidate: true })}
                   value={blogDraft.profile.intro}
                 />
                 <div className="grid gap-4 md:grid-cols-2">
                   <Input
                     label="GitHub 链接"
-                    onChange={(event) => updatePublicProfileDraft({ githubUrl: event.target.value })}
+                    onChange={(event) => blogForm.setValue("profile.githubUrl", event.target.value, { shouldDirty: true, shouldValidate: true })}
                     value={blogDraft.profile.githubUrl}
                   />
                   <Input
                     label="Twitter / X 链接"
-                    onChange={(event) => updatePublicProfileDraft({ twitterUrl: event.target.value })}
+                    onChange={(event) => blogForm.setValue("profile.twitterUrl", event.target.value, { shouldDirty: true, shouldValidate: true })}
                     value={blogDraft.profile.twitterUrl}
                   />
                 </div>
                 <div className="flex justify-end">
-                  <Button disabled={savingBlogSettings} type="submit" variant="outline">
-                    {savingBlogSettings ? "保存中..." : "保存博客配置"}
+                  <Button disabled={blogForm.formState.isSubmitting} type="submit" variant="outline">
+                    {blogForm.formState.isSubmitting ? "保存中..." : "保存博客配置"}
                   </Button>
                 </div>
               </div>
             </WorkspacePanel>
           </form>
+          </Form>
           ) : null}
 
           {activeTab === "reading" ? (
+          <Form {...blogForm}>
           <form className="space-y-5" onSubmit={saveReadingSettings}>
             <WorkspacePanel title="阅读目标" description="前台登录用户侧栏会使用真实阅读记录，并按这里配置的目标计算本月进度。">
               <div className="space-y-4">
-                <Input
-                  helperText="只影响目标值；已读篇数、阅读时长和连续阅读天数来自真实访问记录。"
-                  label="每月目标篇数"
-                  min={1}
-                  max={999}
-                  onChange={(event) =>
-                    setBlogDraft((value) => ({
-                      ...value,
-                      reading: {
-                        ...value.reading,
-                        monthlyGoal: Number(event.target.value) || 1,
-                      },
-                    }))
-                  }
-                  rightSlot={<span className="px-2 text-sm font-medium text-[var(--muted)]">篇</span>}
-                  step="1"
-                  type="number"
-                  value={blogDraft.reading.monthlyGoal}
+                <FormField
+                  control={blogForm.control}
+                  name="reading.monthlyGoal"
+                  render={({ field }) => (
+                    <FormItem>
+                      <Input
+                        helperText="只影响目标值；已读篇数、阅读时长和连续阅读天数来自真实访问记录。"
+                        label="每月目标篇数"
+                        min={1}
+                        max={999}
+                        onChange={(event) => field.onChange(Number(event.target.value) || 1)}
+                        rightSlot={<span className="px-2 text-sm font-medium text-[var(--muted)]">篇</span>}
+                        step="1"
+                        type="number"
+                        value={field.value}
+                      />
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
                 <div className="rounded-xl border border-dashed border-[var(--border)] bg-[var(--surface-alt)] p-4 text-sm text-[var(--muted)]">
                   未登录访客不会看到前台阅读统计和本月阅读目标。
                 </div>
                 <div className="flex justify-end">
-                  <Button disabled={savingBlogSettings} type="submit" variant="outline">
-                    {savingBlogSettings ? "保存中..." : "保存阅读目标"}
+                  <Button disabled={blogForm.formState.isSubmitting} type="submit" variant="outline">
+                    {blogForm.formState.isSubmitting ? "保存中..." : "保存阅读目标"}
                   </Button>
                 </div>
               </div>
             </WorkspacePanel>
           </form>
+          </Form>
           ) : null}
 
           {activeTab === "newsletter" ? (
+          <Form {...blogForm}>
           <form className="space-y-5" onSubmit={saveNewsletterSettings}>
             <WorkspacePanel title="邮件订阅" description="控制前台 Newsletter 订阅基础开关和本地日志发送器。">
               <div className="space-y-4">
@@ -534,7 +591,7 @@ export function AdminSettingsClient({ user, blogSettings, operationLogSettings }
                   <input
                     checked={blogDraft.newsletter.enabled}
                     className="h-4 w-4"
-                    onChange={(event) => updateNewsletterDraft({ enabled: event.target.checked })}
+                    onChange={(event) => blogForm.setValue("newsletter.enabled", event.target.checked, { shouldDirty: true, shouldValidate: true })}
                     type="checkbox"
                   />
                   <span>
@@ -546,12 +603,17 @@ export function AdminSettingsClient({ user, blogSettings, operationLogSettings }
                   <Input
                     helperText="当前只支持 none 和 log；真实邮件供应商会在后续批次接入。"
                     label="发送器"
-                    onChange={(event) => updateNewsletterDraft({ provider: event.target.value === "log" ? "log" : "none" })}
+                    onChange={(event) =>
+                      blogForm.setValue("newsletter.provider", event.target.value === "log" ? "log" : "none", {
+                        shouldDirty: true,
+                        shouldValidate: true,
+                      })
+                    }
                     value={blogDraft.newsletter.provider}
                   />
                   <Input
                     label="发件邮箱"
-                    onChange={(event) => updateNewsletterDraft({ fromEmail: event.target.value })}
+                    onChange={(event) => blogForm.setValue("newsletter.fromEmail", event.target.value, { shouldDirty: true, shouldValidate: true })}
                     placeholder="news@example.com"
                     type="email"
                     value={blogDraft.newsletter.fromEmail}
@@ -559,45 +621,47 @@ export function AdminSettingsClient({ user, blogSettings, operationLogSettings }
                 </div>
                 <Input
                   label="回复邮箱"
-                  onChange={(event) => updateNewsletterDraft({ replyTo: event.target.value })}
+                  onChange={(event) => blogForm.setValue("newsletter.replyTo", event.target.value, { shouldDirty: true, shouldValidate: true })}
                   placeholder="reply@example.com"
                   type="email"
                   value={blogDraft.newsletter.replyTo}
                 />
                 <div className="flex justify-end">
-                  <Button disabled={savingBlogSettings} type="submit" variant="outline">
-                    {savingBlogSettings ? "保存中..." : "保存订阅设置"}
+                  <Button disabled={blogForm.formState.isSubmitting} type="submit" variant="outline">
+                    {blogForm.formState.isSubmitting ? "保存中..." : "保存订阅设置"}
                   </Button>
                 </div>
               </div>
             </WorkspacePanel>
           </form>
+          </Form>
           ) : null}
 
           {activeTab === "about" ? (
+          <Form {...blogForm}>
           <form className="space-y-5" onSubmit={saveAboutSettings}>
             <WorkspacePanel title="关于页面内容" description="同步控制 /about 页面中的介绍、动态、亮点、技术栈和联系文案。">
               <div className="space-y-5">
                 <Input
                   label="关于模块标题"
-                  onChange={(event) => updateAboutDraft({ aboutTitle: event.target.value })}
+                  onChange={(event) => blogForm.setValue("about.aboutTitle", event.target.value, { shouldDirty: true, shouldValidate: true })}
                   value={blogDraft.about.aboutTitle}
                 />
                 <Textarea
                   helperText="每行一段，最多保存 4 段。"
                   label="关于模块段落"
-                  onChange={(event) => updateAboutDraft({ aboutParagraphs: fromMultiline(event.target.value) })}
+                  onChange={(event) => blogForm.setValue("about.aboutParagraphs", fromMultiline(event.target.value), { shouldDirty: true, shouldValidate: true })}
                   value={toMultiline(blogDraft.about.aboutParagraphs)}
                 />
                 <Input
                   label="动态模块标题"
-                  onChange={(event) => updateAboutDraft({ nowTitle: event.target.value })}
+                  onChange={(event) => blogForm.setValue("about.nowTitle", event.target.value, { shouldDirty: true, shouldValidate: true })}
                   value={blogDraft.about.nowTitle}
                 />
                 <Textarea
                   helperText="每行一条，最多保存 6 条。"
                   label="动态条目"
-                  onChange={(event) => updateAboutDraft({ nowItems: fromMultiline(event.target.value) })}
+                  onChange={(event) => blogForm.setValue("about.nowItems", fromMultiline(event.target.value), { shouldDirty: true, shouldValidate: true })}
                   value={toMultiline(blogDraft.about.nowItems)}
                 />
                 <div className="space-y-4 rounded-xl border border-[var(--border)] p-4">
@@ -606,12 +670,12 @@ export function AdminSettingsClient({ user, blogSettings, operationLogSettings }
                     <div className="grid gap-3 md:grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)]" key={`highlight-${index}`}>
                       <Input
                         label={`亮点 ${index + 1} 标题`}
-                        onChange={(event) => updateAboutCard("highlights", index, "title", event.target.value)}
+                        onChange={(event) => blogForm.setValue(`about.highlights.${index}.title`, event.target.value, { shouldDirty: true, shouldValidate: true })}
                         value={item.title}
                       />
                       <Input
                         label={`亮点 ${index + 1} 描述`}
-                        onChange={(event) => updateAboutCard("highlights", index, "description", event.target.value)}
+                        onChange={(event) => blogForm.setValue(`about.highlights.${index}.description`, event.target.value, { shouldDirty: true, shouldValidate: true })}
                         value={item.description}
                       />
                     </div>
@@ -619,7 +683,7 @@ export function AdminSettingsClient({ user, blogSettings, operationLogSettings }
                 </div>
                 <Input
                   label="技术栈标题"
-                  onChange={(event) => updateAboutDraft({ stackTitle: event.target.value })}
+                  onChange={(event) => blogForm.setValue("about.stackTitle", event.target.value, { shouldDirty: true, shouldValidate: true })}
                   value={blogDraft.about.stackTitle}
                 />
                 <div className="space-y-4 rounded-xl border border-[var(--border)] p-4">
@@ -628,12 +692,12 @@ export function AdminSettingsClient({ user, blogSettings, operationLogSettings }
                     <div className="grid gap-3 md:grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)]" key={`stack-${index}`}>
                       <Input
                         label={`技术栈 ${index + 1} 标题`}
-                        onChange={(event) => updateAboutCard("stack", index, "title", event.target.value)}
+                        onChange={(event) => blogForm.setValue(`about.stack.${index}.title`, event.target.value, { shouldDirty: true, shouldValidate: true })}
                         value={item.title}
                       />
                       <Input
                         label={`技术栈 ${index + 1} 描述`}
-                        onChange={(event) => updateAboutCard("stack", index, "description", event.target.value)}
+                        onChange={(event) => blogForm.setValue(`about.stack.${index}.description`, event.target.value, { shouldDirty: true, shouldValidate: true })}
                         value={item.description}
                       />
                     </div>
@@ -641,37 +705,48 @@ export function AdminSettingsClient({ user, blogSettings, operationLogSettings }
                 </div>
                 <Input
                   label="联系模块标题"
-                  onChange={(event) => updateAboutDraft({ contactTitle: event.target.value })}
+                  onChange={(event) => blogForm.setValue("about.contactTitle", event.target.value, { shouldDirty: true, shouldValidate: true })}
                   value={blogDraft.about.contactTitle}
                 />
                 <Textarea
                   label="联系模块描述"
-                  onChange={(event) => updateAboutDraft({ contactDescription: event.target.value })}
+                  onChange={(event) => blogForm.setValue("about.contactDescription", event.target.value, { shouldDirty: true, shouldValidate: true })}
                   value={blogDraft.about.contactDescription}
                 />
                 <div className="flex justify-end">
-                  <Button disabled={savingBlogSettings} type="submit" variant="outline">
-                    {savingBlogSettings ? "保存中..." : "保存博客配置"}
+                  <Button disabled={blogForm.formState.isSubmitting} type="submit" variant="outline">
+                    {blogForm.formState.isSubmitting ? "保存中..." : "保存博客配置"}
                   </Button>
                 </div>
               </div>
             </WorkspacePanel>
           </form>
+          </Form>
           ) : null}
 
           {activeTab === "logs" ? (
           <WorkspacePanel title="日志设置" description="控制后台接口日志表的总占用，超过上限后优先清理最旧日志。">
-            <form className="space-y-4" onSubmit={saveLogSettings}>
-              <Input
-                helperText="默认 10 MB。保存后会立即按新上限裁剪旧日志，保留最新记录。"
-                label="日志大小限制"
-                min={1}
-                max={512}
-                onChange={(event) => setLogDraft({ maxStorageMb: event.target.value })}
-                rightSlot={<span className="px-2 text-sm font-medium text-[var(--muted)]">MB</span>}
-                step="1"
-                type="number"
-                value={logDraft.maxStorageMb}
+            <Form {...logForm}>
+            <form className="space-y-4" noValidate onSubmit={saveLogSettings}>
+              <FormField
+                control={logForm.control}
+                name="maxStorageMb"
+                render={({ field }) => (
+                  <FormItem>
+                    <Input
+                      helperText="默认 10 MB。保存后会立即按新上限裁剪旧日志，保留最新记录。"
+                      label="日志大小限制"
+                      min={1}
+                      max={512}
+                      onChange={(event) => field.onChange(Number(event.target.value) || 1)}
+                      rightSlot={<span className="px-2 text-sm font-medium text-[var(--muted)]">MB</span>}
+                      step="1"
+                      type="number"
+                      value={field.value}
+                    />
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
 
               <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-alt)] p-4">
@@ -688,11 +763,12 @@ export function AdminSettingsClient({ user, blogSettings, operationLogSettings }
               </div>
 
               <div className="flex justify-end">
-                <Button disabled={savingLogSettings} type="submit">
-                  {savingLogSettings ? "保存中..." : "保存日志设置"}
+                <Button disabled={logForm.formState.isSubmitting} type="submit">
+                  {logForm.formState.isSubmitting ? "保存中..." : "保存日志设置"}
                 </Button>
               </div>
             </form>
+            </Form>
           </WorkspacePanel>
           ) : null}
         </div>

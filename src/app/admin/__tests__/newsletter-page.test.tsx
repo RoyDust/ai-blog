@@ -1,7 +1,13 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, test, vi } from "vitest";
+import type React from "react";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { SWRConfig, mutate as clearSwrCache } from "swr";
 
 import AdminNewsletterPage from "../newsletter/page";
+
+beforeEach(async () => {
+  await clearSwrCache(() => true, undefined, { revalidate: false });
+});
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -67,7 +73,7 @@ describe("admin newsletter page", () => {
     const fetchMock = createFetchMock();
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<AdminNewsletterPage />);
+    renderWithSWR(<AdminNewsletterPage />);
 
     expect(await screen.findByText("邮件运营")).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith("/api/admin/newsletter/campaigns?page=1&limit=20");
@@ -110,7 +116,7 @@ describe("admin newsletter page", () => {
       });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<AdminNewsletterPage />);
+    renderWithSWR(<AdminNewsletterPage />);
 
     await screen.findByText("本周精选");
     fireEvent.change(screen.getByLabelText("活动名称"), { target: { value: "新活动" } });
@@ -130,4 +136,63 @@ describe("admin newsletter page", () => {
       }));
     });
   });
+
+  test("shows Chinese field errors and does not submit invalid campaign form", async () => {
+    const fetchMock = createFetchMock();
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderWithSWR(<AdminNewsletterPage />);
+
+    await screen.findByText("本周精选");
+    fireEvent.click(screen.getByRole("button", { name: /创建草稿/ }));
+
+    expect(await screen.findByText("请输入活动名称")).toBeInTheDocument();
+    expect(screen.getByText("请输入邮件主题")).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalledWith("/api/admin/newsletter/campaigns", expect.objectContaining({ method: "POST" }));
+  });
+
+  test("disables the create button while campaign submission is pending", async () => {
+    let resolveCreate: (response: Response) => void = () => undefined;
+    const createResponse = new Promise<Response>((resolve) => {
+      resolveCreate = resolve;
+    });
+    const fetchMock = createFetchMock().mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input) === "/api/admin/newsletter/campaigns" && init?.method === "POST") {
+        return createResponse;
+      }
+
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ success: true, data: [], stats: emptyStatsForTest }),
+      } as Response);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderWithSWR(<AdminNewsletterPage />);
+
+    await screen.findByText("本周精选");
+    fireEvent.change(screen.getByLabelText("活动名称"), { target: { value: "新活动" } });
+    fireEvent.change(screen.getByLabelText("邮件主题"), { target: { value: "新主题" } });
+    fireEvent.click(screen.getByRole("button", { name: /创建草稿/ }));
+
+    const pendingButton = await screen.findByRole("button", { name: /创建中/ });
+    expect(pendingButton).toBeDisabled();
+
+    resolveCreate({
+      ok: true,
+      json: async () => ({ success: true, data: { id: "campaign-3", status: "DRAFT" } }),
+    } as Response);
+
+    await waitFor(() => expect(screen.getByRole("button", { name: /创建草稿/ })).not.toBeDisabled());
+  });
 });
+
+const emptyStatsForTest = { total: 0, pending: 0, verified: 0, unsubscribed: 0 };
+
+function renderWithSWR(ui: React.ReactElement) {
+  return render(
+    <SWRConfig value={{ provider: () => new Map(), dedupingInterval: 0 }}>
+      {ui}
+    </SWRConfig>,
+  );
+}

@@ -1,6 +1,19 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
-import { afterEach, describe, expect, test, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest"
+import { SWRConfig, mutate as clearSwrCache } from "swr"
 import AdminAiNewsPage from "../ai-news/page"
+
+function renderAiNewsPage() {
+  return render(
+    <SWRConfig value={{ provider: () => new Map(), dedupingInterval: 0 }}>
+      <AdminAiNewsPage />
+    </SWRConfig>,
+  )
+}
+
+beforeEach(async () => {
+  await clearSwrCache(() => true, undefined, { revalidate: false })
+})
 
 vi.mock("sonner", () => ({
   toast: {
@@ -148,7 +161,7 @@ describe("admin AI news page", () => {
     })
     vi.stubGlobal("fetch", fetchMock)
 
-    render(<AdminAiNewsPage />)
+    renderAiNewsPage()
 
     expect(await screen.findByText("当前模型：日报模型（qwen-news）。")).toBeInTheDocument()
     fireEvent.change(screen.getByLabelText("生成日期"), { target: { value: "2026-04-29" } })
@@ -206,7 +219,7 @@ describe("admin AI news page", () => {
     })
     vi.stubGlobal("fetch", fetchMock)
 
-    render(<AdminAiNewsPage />)
+    renderAiNewsPage()
 
     expect(await screen.findByText("当前模型：日报模型（qwen-news）。")).toBeInTheDocument()
     fireEvent.change(screen.getByLabelText("生成日期"), { target: { value: "2026-04-29" } })
@@ -261,7 +274,7 @@ describe("admin AI news page", () => {
     })
     vi.stubGlobal("fetch", fetchMock)
 
-    render(<AdminAiNewsPage />)
+    renderAiNewsPage()
 
     expect(await screen.findByText("OpenAI Blog")).toBeInTheDocument()
     fireEvent.click(screen.getByRole("button", { name: "选中来源" }))
@@ -316,7 +329,7 @@ describe("admin AI news page", () => {
     })
     vi.stubGlobal("fetch", fetchMock)
 
-    render(<AdminAiNewsPage />)
+    renderAiNewsPage()
 
     expect(await screen.findByRole("heading", { name: "运行记录" })).toBeInTheDocument()
     expect(await screen.findByText("生成失败")).toBeInTheDocument()
@@ -395,7 +408,7 @@ describe("admin AI news page", () => {
     })
     vi.stubGlobal("fetch", fetchMock)
 
-    render(<AdminAiNewsPage />)
+    renderAiNewsPage()
 
     fireEvent.click(await screen.findByRole("button", { name: "展开候选" }))
 

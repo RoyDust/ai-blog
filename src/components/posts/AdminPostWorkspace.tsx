@@ -14,11 +14,12 @@
  * - 最后进入 EditorWorkspace、PublishChecklist、PostAiWorkspace 等子面板
  */
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { CalendarClock, LoaderCircle, Sparkles } from "lucide-react";
+import useSWR from "swr";
 
 import { PostAiWorkspace } from "@/components/admin/ai/PostAiWorkspace";
 import { CoverPicker } from "@/components/admin/covers/CoverPicker";
@@ -33,6 +34,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/shadcn/ui/select";
+import { apiFetcher, apiMutate, toErrorMessage } from "@/lib/client-api";
 
 import { EditorWorkspace } from "./EditorWorkspace";
 import { useAiActions, type AiArticleInfoPreview } from "./hooks/useAiActions";
@@ -70,6 +72,41 @@ type WorkspaceMode = "create" | "edit";
 type AdminPostWorkspaceProps = {
   mode: WorkspaceMode;
   postId?: string;
+};
+
+type ApiListResponse<T> = {
+  success?: boolean;
+  data?: T[];
+};
+
+type AdminPostResponse = {
+  success?: boolean;
+  data?: {
+    id?: string;
+    title?: string | null;
+    slug?: string | null;
+    content?: string | null;
+    excerpt?: string | null;
+    seoDescription?: string | null;
+    coverImage?: string | null;
+    coverAssetId?: string | null;
+    categoryId?: string | null;
+    tags?: PostTag[];
+    seriesId?: string | null;
+    seriesOrder?: number | null;
+    scheduledAt?: string | Date | null;
+    published?: boolean | null;
+    featured?: boolean | null;
+  };
+};
+
+type SavePostResponse = {
+  success?: boolean;
+  data?: {
+    id?: string | null;
+    slug?: string | null;
+    published?: boolean | null;
+  };
 };
 
 const uncategorizedValue = "__uncategorized__";
@@ -247,10 +284,10 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
   const canUseAiWorkspace = isEditMode ? Boolean(postId) : true;
   const draftKey = mode === "create" ? "author:draft:new" : null;
 
-  const [loading, setLoading] = useState(isEditMode);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [aiWorkspaceOpen, setAiWorkspaceOpen] = useState(false);
+  const [hydratedPostId, setHydratedPostId] = useState<string | null>(null);
   const {
     applySlugChange,
     applyTitleChange,
@@ -261,9 +298,30 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
   const { canSubmit, formData, saveStatus, setFormData } = usePostForm(mode, draftKey, {
     onDraftLoaded: syncSlugManualState,
   });
-  const [categories, setCategories] = useState<CategoryOption[]>([]);
-  const [tags, setTags] = useState<TagOption[]>([]);
-  const [series, setSeries] = useState<SeriesOption[]>([]);
+  const postDetailKey = isEditMode && postId ? `/api/admin/posts/${postId}` : null;
+  const { data: categoriesPayload } = useSWR<ApiListResponse<CategoryOption>>("/api/categories", apiFetcher, {
+    keepPreviousData: true,
+    revalidateOnMount: true,
+  });
+  const { data: tagsPayload } = useSWR<ApiListResponse<TagOption>>("/api/tags", apiFetcher, {
+    keepPreviousData: true,
+    revalidateOnMount: true,
+  });
+  const { data: seriesPayload } = useSWR<ApiListResponse<SeriesOption>>("/api/admin/series", apiFetcher, {
+    keepPreviousData: true,
+    revalidateOnMount: true,
+  });
+  const {
+    data: postPayload,
+    error: postLoadError,
+    isLoading: isPostLoading,
+  } = useSWR<AdminPostResponse>(postDetailKey, apiFetcher, {
+    keepPreviousData: true,
+    revalidateOnMount: true,
+  });
+  const categories = Array.isArray(categoriesPayload?.data) ? categoriesPayload.data : [];
+  const tags = Array.isArray(tagsPayload?.data) ? tagsPayload.data : [];
+  const series = Array.isArray(seriesPayload?.data) ? seriesPayload.data : [];
   const { coverFileInputRef, coverUploadError, handleCoverUpload, isCoverUploading } = useCoverUpload(({ coverAssetId, coverImage }) =>
     setFormData((prev) => ({ ...prev, coverImage, coverAssetId })),
   );
@@ -291,105 +349,35 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
     tags,
   });
 
-  useEffect(() => {
-    let active = true;
+  const loadedPost = postPayload?.data;
+  if (isEditMode && postId && loadedPost && hydratedPostId !== postId) {
+    const loadedSeriesOrder =
+      typeof loadedPost.seriesOrder === "number" && Number.isInteger(loadedPost.seriesOrder)
+        ? loadedPost.seriesOrder
+        : 0;
 
-    async function loadTaxonomy() {
-      try {
-        const [categoriesResponse, tagsResponse] = await Promise.all([fetch("/api/categories"), fetch("/api/tags")]);
-        const [categoriesJson, tagsJson] = await Promise.all([categoriesResponse.json(), tagsResponse.json()]);
-
-        if (!active) return;
-
-        setCategories(Array.isArray(categoriesJson?.data) ? categoriesJson.data : []);
-        setTags(Array.isArray(tagsJson?.data) ? tagsJson.data : []);
-      } catch {
-        if (!active) return;
-        setCategories([]);
-        setTags([]);
-      }
-    }
-
-    void loadTaxonomy();
-
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    let active = true;
-
-    async function loadSeries() {
-      try {
-        const response = await fetch("/api/admin/series");
-        const json = await response.json();
-
-        if (!active) return;
-        setSeries(Array.isArray(json?.data) ? json.data : []);
-      } catch {
-        if (!active) return;
-        setSeries([]);
-      }
-    }
-
-    void loadSeries();
-
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!isEditMode || !postId) return;
-
-    let active = true;
-
-    async function loadPost() {
-      try {
-        const response = await fetch(`/api/admin/posts/${postId}`);
-        const data = await response.json();
-
-        if (!response.ok || !data.success) {
-          throw new Error(data.error || "加载失败");
-        }
-
-        if (!active) return;
-
-        setFormData({
-          title: data.data.title ?? "",
-          slug: data.data.slug ?? "",
-          content: data.data.content ?? "",
-          excerpt: data.data.excerpt ?? "",
-          seoDescription: data.data.seoDescription ?? "",
-          coverImage: data.data.coverImage ?? "",
-          coverAssetId: data.data.coverAssetId ?? "",
-          categoryId: data.data.categoryId ?? "",
-          tagIds: Array.isArray(data.data.tags) ? data.data.tags.map((tag: PostTag) => tag.id) : [],
-          seriesId: data.data.seriesId ?? "",
-          seriesOrder: Number.isInteger(data.data.seriesOrder) ? data.data.seriesOrder : 0,
-          scheduledAt: toDateTimeLocalValue(data.data.scheduledAt),
-          published: Boolean(data.data.published),
-          featured: Boolean(data.data.featured),
-        });
-        syncSlugManualState({
-          title: data.data.title ?? "",
-          slug: data.data.slug ?? "",
-        });
-      } catch (loadError) {
-        if (!active) return;
-        setError(loadError instanceof Error ? loadError.message : "加载失败");
-      } finally {
-        if (active) setLoading(false);
-      }
-    }
-
-    void loadPost();
-
-    return () => {
-      active = false;
-    };
-  }, [isEditMode, postId, setFormData, syncSlugManualState]);
+    setHydratedPostId(postId);
+    setFormData({
+      title: loadedPost.title ?? "",
+      slug: loadedPost.slug ?? "",
+      content: loadedPost.content ?? "",
+      excerpt: loadedPost.excerpt ?? "",
+      seoDescription: loadedPost.seoDescription ?? "",
+      coverImage: loadedPost.coverImage ?? "",
+      coverAssetId: loadedPost.coverAssetId ?? "",
+      categoryId: loadedPost.categoryId ?? "",
+      tagIds: Array.isArray(loadedPost.tags) ? loadedPost.tags.map((tag: PostTag) => tag.id) : [],
+      seriesId: loadedPost.seriesId ?? "",
+      seriesOrder: loadedSeriesOrder,
+      scheduledAt: toDateTimeLocalValue(loadedPost.scheduledAt),
+      published: Boolean(loadedPost.published),
+      featured: Boolean(loadedPost.featured),
+    });
+    syncSlugManualState({
+      title: loadedPost.title ?? "",
+      slug: loadedPost.slug ?? "",
+    });
+  }
 
   /**
    * 统一处理“保存草稿”和“发布文章”两个提交意图。
@@ -422,16 +410,10 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
         published,
         scheduledAt: intent === "publish" || intent === "draft" ? null : scheduledAt || null,
       };
-      const response = await fetch(isEditMode ? `/api/admin/posts/${postId}` : "/api/admin/posts", {
+      const data = await apiMutate<SavePostResponse>(isEditMode ? `/api/admin/posts/${postId}` : "/api/admin/posts", {
         method: isEditMode ? "PATCH" : "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        throw new Error(data.error || (isEditMode ? "保存失败" : "Failed to create post"));
-      }
 
       if (draftKey) {
         localStorage.removeItem(draftKey);
@@ -439,7 +421,7 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
 
       router.push(resolvePostRoute(data.data ?? {}, postId, payload.slug));
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : isEditMode ? "保存失败" : "Something went wrong");
+      setError(toErrorMessage(submitError, isEditMode ? "保存失败" : "创建文章失败"));
     } finally {
       setSaving(false);
     }
@@ -698,10 +680,11 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
     />
   ) : null;
 
-  if (loading) {
+  if (isEditMode && isPostLoading) {
     return <p className="py-20 text-center text-[var(--muted)]">加载中...</p>;
   }
 
+  const visibleError = error || (postLoadError ? toErrorMessage(postLoadError, "加载失败") : "");
   const previewHref = formData.published && formData.slug.trim() ? `/posts/${formData.slug.trim()}` : null;
   const articleInfoPreviewRows = articleInfoPreview ? getArticleInfoPreviewRows({ categories, preview: articleInfoPreview, tags }) : [];
   const saveStatusLabel = isEditMode
@@ -760,7 +743,7 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
         </div>
       </header>
 
-      {error ? <p className="rounded-xl border border-rose-300 bg-rose-50 p-3 text-sm text-rose-700">{error}</p> : null}
+      {visibleError ? <p className="rounded-xl border border-rose-300 bg-rose-50 p-3 text-sm text-rose-700">{visibleError}</p> : null}
 
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-y-auto xl:grid-cols-[minmax(0,1fr)_320px] xl:grid-rows-[minmax(0,1fr)] xl:overflow-hidden">
         <EditorWorkspace

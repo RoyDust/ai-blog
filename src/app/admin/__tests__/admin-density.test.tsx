@@ -1,9 +1,14 @@
 import { render, screen, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { mutate as clearSwrCache } from "swr";
 import AdminPostsPage from "../posts/page";
 
 afterEach(() => {
   vi.unstubAllGlobals();
+});
+
+beforeEach(async () => {
+  await clearSwrCache(() => true, undefined, { revalidate: false });
 });
 
 describe("admin density", () => {
@@ -11,6 +16,7 @@ describe("admin density", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({
+        ok: true,
         json: async () => ({
           success: true,
           data: [

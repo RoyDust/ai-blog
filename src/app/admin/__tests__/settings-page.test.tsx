@@ -1,10 +1,12 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import React from "react";
-import { describe, expect, test, vi } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 
-const { getBlogSettingsMock, getServerSessionMock, userFindUniqueMock } = vi.hoisted(() => ({
+const { getBlogSettingsMock, getServerSessionMock, toastErrorMock, toastSuccessMock, userFindUniqueMock } = vi.hoisted(() => ({
   getBlogSettingsMock: vi.fn(),
   getServerSessionMock: vi.fn(),
+  toastErrorMock: vi.fn(),
+  toastSuccessMock: vi.fn(),
   userFindUniqueMock: vi.fn(),
 }));
 
@@ -34,8 +36,8 @@ vi.mock("@/lib/seo", () => ({
 
 vi.mock("sonner", () => ({
   toast: {
-    error: vi.fn(),
-    success: vi.fn(),
+    error: toastErrorMock,
+    success: toastSuccessMock,
   },
 }));
 
@@ -78,6 +80,10 @@ const configuredBlogSettings = {
 };
 
 describe("admin settings page", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   test("renders persisted blog settings and profile settings from the current user", async () => {
     getServerSessionMock.mockResolvedValueOnce({ user: { id: "user-1", role: "ADMIN" } });
     getBlogSettingsMock.mockResolvedValueOnce(configuredBlogSettings);
@@ -255,6 +261,76 @@ describe("admin settings page", () => {
       });
       expect(requestBody.profile).toBeUndefined();
       expect(requestBody.about).toBeUndefined();
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  test("shows inline field validation and blocks account submit before the request", async () => {
+    getServerSessionMock.mockResolvedValueOnce({ user: { id: "user-1", role: "ADMIN" } });
+    getBlogSettingsMock.mockResolvedValueOnce(configuredBlogSettings);
+    userFindUniqueMock.mockResolvedValueOnce({
+      id: "user-1",
+      name: "RoyDust",
+      email: "roy@example.com",
+      image: "https://example.com/avatar.png",
+      role: "ADMIN",
+    });
+
+    const fetchMock = vi.fn();
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = fetchMock as typeof fetch;
+
+    try {
+      const { default: AdminSettingsPage } = await import("../settings/page");
+      const ui = await AdminSettingsPage();
+
+      render(ui as React.ReactElement);
+
+      fireEvent.change(screen.getByLabelText("显示名称"), { target: { value: "" } });
+      fireEvent.click(screen.getByRole("button", { name: "保存个人信息" }));
+
+      expect(await screen.findByText("请输入显示名称")).toBeInTheDocument();
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(toastErrorMock).not.toHaveBeenCalled();
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  test("uses request-level toast for account save failures", async () => {
+    getServerSessionMock.mockResolvedValueOnce({ user: { id: "user-1", role: "ADMIN" } });
+    getBlogSettingsMock.mockResolvedValueOnce(configuredBlogSettings);
+    userFindUniqueMock.mockResolvedValueOnce({
+      id: "user-1",
+      name: "RoyDust",
+      email: "roy@example.com",
+      image: "https://example.com/avatar.png",
+      role: "ADMIN",
+    });
+
+    const fetchMock = vi.fn(async () =>
+      Promise.resolve({
+        ok: false,
+        json: () => Promise.resolve({ error: "Internal server error" }),
+      } as Response),
+    );
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = fetchMock as typeof fetch;
+
+    try {
+      const { default: AdminSettingsPage } = await import("../settings/page");
+      const ui = await AdminSettingsPage();
+
+      render(ui as React.ReactElement);
+
+      fireEvent.click(screen.getByRole("button", { name: "保存个人信息" }));
+
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+        "/api/users/me",
+        expect.objectContaining({ method: "PATCH" }),
+      ));
+      await waitFor(() => expect(toastErrorMock).toHaveBeenCalledWith("服务器内部错误，请稍后重试"));
     } finally {
       globalThis.fetch = originalFetch;
     }

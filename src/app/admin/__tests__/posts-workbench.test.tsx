@@ -1,10 +1,23 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { SWRConfig, mutate as clearSwrCache } from "swr";
 import AdminPostsPage from "../posts/page";
+
+function renderPostsPage() {
+  return render(
+    <SWRConfig value={{ provider: () => new Map(), dedupingInterval: 0 }}>
+      <AdminPostsPage />
+    </SWRConfig>,
+  );
+}
 
 afterEach(() => {
   vi.unstubAllGlobals();
   window.localStorage.clear();
+});
+
+beforeEach(async () => {
+  await clearSwrCache(() => true, undefined, { revalidate: false });
 });
 
 describe("posts workbench", () => {
@@ -12,6 +25,7 @@ describe("posts workbench", () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({
+        ok: true,
         json: async () => ({
           success: true,
           data: [
@@ -30,6 +44,7 @@ describe("posts workbench", () => {
         }),
       })
       .mockResolvedValueOnce({
+        ok: true,
         json: async () => ({
           success: true,
           data: [
@@ -48,12 +63,14 @@ describe("posts workbench", () => {
         }),
       })
       .mockResolvedValueOnce({
+        ok: true,
         json: async () => ({
           success: true,
           data: { id: "1", published: true },
         }),
       })
       .mockResolvedValueOnce({
+        ok: true,
         json: async () => ({
           success: true,
           data: [
@@ -74,7 +91,7 @@ describe("posts workbench", () => {
 
     vi.stubGlobal("fetch", fetchMock);
 
-    const { container } = render(<AdminPostsPage />);
+    const { container } = renderPostsPage();
 
     await waitFor(() => {
       expect(screen.getByRole("heading", { name: "AI 内容队列" })).toBeInTheDocument();
@@ -123,6 +140,7 @@ describe("posts workbench", () => {
     );
 
     const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
       json: async () => ({
         success: true,
         data: [],
@@ -132,7 +150,7 @@ describe("posts workbench", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<AdminPostsPage />);
+    renderPostsPage();
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith("/api/admin/posts?page=3&limit=20&q=gateway&status=published&type=non-ai-daily");
@@ -181,7 +199,7 @@ describe("posts workbench", () => {
 
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<AdminPostsPage />);
+    renderPostsPage();
 
     await waitFor(() => {
       expect(screen.getByText("AI Draft")).toBeInTheDocument();
@@ -203,6 +221,16 @@ describe("posts workbench", () => {
       apply: true,
     });
     expect(await screen.findByText("查看详情")).toHaveAttribute("href", "/admin/ai/tasks/task-1");
+    await waitFor(() => {
+      const resumeCall = fetchMock.mock.calls.find(([url]) =>
+        String(url).startsWith("/api/admin/ai/batch?resume=1&taskId=task-1"),
+      );
+      expect(resumeCall?.[1]).toEqual(
+        expect.objectContaining({
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+    });
   });
 
   test("batch publishes selected draft posts without republishing already published rows", async () => {
@@ -248,7 +276,7 @@ describe("posts workbench", () => {
 
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<AdminPostsPage />);
+    renderPostsPage();
 
     await waitFor(() => {
       expect(screen.getByText("Draft Post")).toBeInTheDocument();

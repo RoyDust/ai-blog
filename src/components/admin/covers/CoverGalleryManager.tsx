@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Wand2 } from "lucide-react";
 import { toast } from "sonner";
+import useSWR from "swr";
 
 import { AdminPagination } from "@/components/admin/primitives/AdminPagination";
 import { PageHeader } from "@/components/admin/primitives/PageHeader";
@@ -16,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/shadcn/ui/select";
-import { readApiJson } from "@/lib/admin-api-client";
+import { apiFetcher, apiMutate, handleGlobalSwrError, toErrorMessage } from "@/lib/client-api";
 import { CoverAssetForm } from "./CoverAssetForm";
 import { CoverAssetGrid } from "./CoverAssetGrid";
 import { CoverUploadDropzone } from "./CoverUploadDropzone";
@@ -92,24 +93,19 @@ function writeCoverGalleryMemory(value: CoverGalleryMemory) {
  * 所有持久化写入都通过 /api/admin/covers 系列接口完成。
  */
 export function CoverGalleryManager() {
-  const [assets, setAssets] = useState<CoverAsset[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<CoverStatusFilter>("all");
-  const [imageKindFilter, setImageKindFilter] = useState<CoverImageKindFilter>("all");
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(24);
+  const [initialMemory] = useState(readCoverGalleryMemory);
+  const [query, setQuery] = useState(initialMemory.query);
+  const [statusFilter, setStatusFilter] = useState<CoverStatusFilter>(initialMemory.statusFilter);
+  const [imageKindFilter, setImageKindFilter] = useState<CoverImageKindFilter>(initialMemory.imageKindFilter);
+  const [page, setPage] = useState(initialMemory.page);
+  const [pageSize, setPageSize] = useState(initialMemory.pageSize);
   const [editing, setEditing] = useState<CoverAsset | null>(null);
   const [randomizing, setRandomizing] = useState(false);
-  const [filtersRestored, setFiltersRestored] = useState(false);
 
   /**
-   * 将页面筛选状态转换成图库查询参数。
-   *
-   * loadAssets 依赖这个 memo，因此筛选变化会自然触发重新拉取。
+   * 将页面筛选状态转换成图库查询 URL（作为 SWR key，筛选变化自然触发重取）。
    */
-  const params = useMemo(() => {
+  const coverUrl = useMemo(() => {
     const next = new URLSearchParams({ page: String(page), limit: String(pageSize) });
     if (query.trim()) next.set("q", query.trim());
     if (statusFilter !== "all") next.set("status", statusFilter);
@@ -119,51 +115,28 @@ export function CoverGalleryManager() {
     } else if (imageKindFilter === "ai-generated") {
       next.set("generatedByAi", "true");
     }
-    return next;
+    return `/api/admin/covers?${next.toString()}`;
   }, [imageKindFilter, page, pageSize, query, statusFilter]);
 
-  /**
-   * 拉取当前筛选下的封面资产列表。
-   *
-   * 失败时清空本地列表，避免界面继续展示已经与筛选条件不匹配的旧数据。
-   */
-  const loadAssets = useCallback(async () => {
-    if (!filtersRestored) {
-      return;
-    }
+  const {
+    data,
+    isLoading,
+    mutate,
+  } = useSWR<{ data?: CoverAssetListResponse }>(coverUrl, apiFetcher, {
+    keepPreviousData: true,
+    revalidateOnMount: true,
+    onError: (swrError, key) => {
+      handleGlobalSwrError(swrError, key);
+      toast.error(toErrorMessage(swrError, "封面图库加载失败"));
+    },
+  });
 
-    setLoading(true);
+  const assets = useMemo(() => data?.data?.items ?? [], [data?.data?.items]);
+  const total = data?.data?.total ?? 0;
+  const loading = isLoading;
 
-    try {
-      const data = await readApiJson<{ data?: CoverAssetListResponse }>(await fetch(`/api/admin/covers?${params.toString()}`), "封面图库加载失败");
-
-      const payload = data.data as CoverAssetListResponse;
-      setAssets(Array.isArray(payload.items) ? payload.items : []);
-      setTotal(Number(payload.total ?? 0));
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "封面图库加载失败");
-      setAssets([]);
-      setTotal(0);
-    } finally {
-      setLoading(false);
-    }
-  }, [filtersRestored, params]);
-
+  // 筛选记忆持久化（纯副作用，无 setState）
   useEffect(() => {
-    const saved = readCoverGalleryMemory();
-    setQuery(saved.query);
-    setStatusFilter(saved.statusFilter);
-    setImageKindFilter(saved.imageKindFilter);
-    setPage(saved.page);
-    setPageSize(saved.pageSize);
-    setFiltersRestored(true);
-  }, []);
-
-  useEffect(() => {
-    if (!filtersRestored) {
-      return;
-    }
-
     writeCoverGalleryMemory({
       query,
       statusFilter,
@@ -171,29 +144,36 @@ export function CoverGalleryManager() {
       page,
       pageSize,
     });
-  }, [filtersRestored, imageKindFilter, page, pageSize, query, statusFilter]);
-
-  useEffect(() => {
-    void loadAssets();
-  }, [loadAssets]);
+  }, [imageKindFilter, page, pageSize, query, statusFilter]);
 
   /**
-   * 编辑弹窗保存后，就地替换当前页中的对应卡片。
-   *
-   * 资产仍在可见页内，只是字段更新，无需重新拉取，避免列表闪烁。
+   * 编辑弹窗保存后，就地替换当前页中的对应卡片（乐观更新，不重取）。
    */
   const patchAsset = (asset: CoverAsset) => {
-    setAssets((prev) => prev.map((item) => (item.id === asset.id ? asset : item)));
+    void mutate(
+      (current) => {
+        if (!current?.data) {
+          return current;
+        }
+
+        return {
+          ...current,
+          data: {
+            ...current.data,
+            items: current.data.items.map((item) => (item.id === asset.id ? asset : item)),
+          },
+        };
+      },
+      { revalidate: false },
+    );
   };
 
   /**
    * 上传或外链新增成功后回到第一页并刷新。
-   *
-   * 新资产按创建时间倒序排在最前，跳到第一页才能看到它；分页下不能再做本地乐观插入。
    */
   const handleCreated = () => {
     if (page === 1) {
-      void loadAssets();
+      void mutate();
     } else {
       setPage(1);
     }
@@ -201,48 +181,43 @@ export function CoverGalleryManager() {
 
   /**
    * 归档图库资产。
-   *
-   * 后端只把资产标记为归档，不会清空已经使用该封面的文章引用。
    */
   const archiveAsset = async (asset: CoverAsset) => {
     const confirmed = window.confirm(`归档封面“${asset.title || asset.url}”？已使用的文章不会被清空。`);
     if (!confirmed) return;
 
     try {
-      await readApiJson(await fetch(`/api/admin/covers/${asset.id}`, { method: "DELETE" }), "归档失败");
+      await apiMutate(`/api/admin/covers/${asset.id}`, { method: "DELETE" });
       toast.success("封面已归档");
 
       if (assets.length === 1 && page > 1) {
         setPage((prev) => prev - 1);
       } else {
-        void loadAssets();
+        void mutate();
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "归档失败");
+      toast.error(toErrorMessage(error, "归档失败"));
     }
   };
 
   /**
    * 批量给已发布且缺少封面的文章随机补齐封面。
-   *
-   * 该动作会修改文章数据，所以只由管理页显式按钮触发，并在完成后刷新图库状态。
    */
   const randomizeMissingPosts = async () => {
     setRandomizing(true);
 
     try {
-      const data = await readApiJson<{ data?: { updated?: number; skippedReason?: string } }>(await fetch("/api/admin/covers/randomize-posts", {
+      const data = await apiMutate<{ data?: { updated?: number; skippedReason?: string } }>("/api/admin/covers/randomize-posts", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ publishedOnly: true }),
-      }), "随机补齐失败");
+      });
 
       const updated = Number(data.data?.updated ?? 0);
       const skippedReason = data.data?.skippedReason;
       toast.success(skippedReason === "NO_ACTIVE_COVERS" ? "暂无可用封面" : `已补齐 ${updated} 篇文章封面`);
-      void loadAssets();
+      void mutate();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "随机补齐失败");
+      toast.error(toErrorMessage(error, "随机补齐失败"));
     } finally {
       setRandomizing(false);
     }

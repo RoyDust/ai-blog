@@ -1,15 +1,20 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useCallback } from "react";
+import { useForm, useWatch } from "react-hook-form";
+import { z } from "zod";
 import { DataTable, type DataColumn } from "@/components/admin/DataTable";
 import { DeleteImpactDialog } from "@/components/admin/DeleteImpactDialog";
 import { EntityFormShell } from "@/components/admin/forms/EntityFormShell";
 import { FilterBar } from "@/components/admin/FilterBar";
 import { PageHeader } from "@/components/admin/primitives/PageHeader";
-import { Button, Input } from "@/components/admin/ui";
+import { Button } from "@/components/admin/ui";
 import { useTaxonomyActions } from "@/components/admin/taxonomy/hooks/useTaxonomyActions";
 import { useTaxonomyRows } from "@/components/admin/taxonomy/hooks/useTaxonomyRows";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/shadcn/ui/form";
+import { Input } from "@/components/shadcn/ui/input";
 
 type TabId = "categories" | "tags";
 
@@ -108,8 +113,32 @@ interface TagRow {
   _count: { posts: number };
 }
 
+const categoryDefaults = { id: "", name: "", slug: "", description: "" };
+const tagDefaults = { id: "", name: "", slug: "", color: "#0f766e" };
+
+const categorySchema = z.object({
+  id: z.string(),
+  name: z.string().trim().min(1, "分类名称不能为空"),
+  slug: z.string().trim().min(1, "Slug 不能为空"),
+  description: z.string(),
+});
+
+const tagSchema = z.object({
+  id: z.string(),
+  name: z.string().trim().min(1, "标签名称不能为空"),
+  slug: z.string().trim().min(1, "Slug 不能为空"),
+  color: z.string().trim().min(1, "请选择标签颜色"),
+});
+
+type CategoryFormValues = z.infer<typeof categorySchema>;
+type TagFormValues = z.infer<typeof tagSchema>;
+
 function CategoriesManager() {
-  const [form, setForm] = useState({ id: "", name: "", slug: "", description: "" });
+  const form = useForm<CategoryFormValues>({
+    resolver: zodResolver(categorySchema),
+    defaultValues: categoryDefaults,
+  });
+  const editingId = useWatch({ control: form.control, name: "id" });
   const { closeDeleteDialog, confirmDelete, deleteDialog, filtered, loading, openDeleteDialog, pagination, query, reload, setPage, setPageSize, setQuery, setRows } =
     useTaxonomyRows<CategoryRow>({
       deleteError: "隐藏分类失败",
@@ -125,7 +154,7 @@ function CategoriesManager() {
     });
   const { save } = useTaxonomyActions({
     buildCreatedRow: (data) => ({ ...(data as CategoryRow), _count: { posts: 0 } }),
-    buildPayload: (value: typeof form) => ({ name: value.name, slug: value.slug, description: value.description }),
+    buildPayload: (value: CategoryFormValues) => ({ name: value.name, slug: value.slug, description: value.description }),
     endpoint: "/api/admin/categories",
     messages: {
       createError: "创建分类失败",
@@ -136,7 +165,7 @@ function CategoriesManager() {
       updateSuccess: "分类已保存",
     },
     onSaved: reload,
-    resetForm: () => setForm({ id: "", name: "", slug: "", description: "" }),
+    resetForm: () => form.reset(categoryDefaults),
     setRows,
   });
 
@@ -153,7 +182,7 @@ function CategoriesManager() {
         <div className="flex gap-3 text-sm">
           <button
             className="text-[var(--primary)] hover:underline"
-            onClick={() => setForm({ id: row.id, name: row.name, slug: row.slug, description: row.description ?? "" })}
+            onClick={() => form.reset({ id: row.id, name: row.name, slug: row.slug, description: row.description ?? "" })}
             type="button"
           >
             编辑
@@ -165,11 +194,6 @@ function CategoriesManager() {
       ),
     },
   ];
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    await save(form);
-  }
 
   return (
     <>
@@ -200,25 +224,67 @@ function CategoriesManager() {
               title="分类列表"
             />
 
-            <EntityFormShell title={form.id ? "编辑分类" : "新增分类"} description="名称、Slug 和说明集中在右侧编辑，减少页面跳转。">
-              <form className="space-y-4" onSubmit={handleSubmit}>
-                <Input
-                  label="名称"
-                  required
-                  value={form.name}
-                  onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value, slug: generateSlug(e.target.value) }))}
-                />
-                <Input label="Slug" required value={form.slug} onChange={(e) => setForm((prev) => ({ ...prev, slug: e.target.value }))} />
-                <Input label="说明" value={form.description} onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))} />
-                <div className="flex gap-2">
-                  <Button type="submit">{form.id ? "保存修改" : "新增分类"}</Button>
-                  {form.id ? (
-                    <Button type="button" variant="outline" onClick={() => setForm({ id: "", name: "", slug: "", description: "" })}>
-                      取消
+            <EntityFormShell title={editingId ? "编辑分类" : "新增分类"} description="名称、Slug 和说明集中在右侧编辑，减少页面跳转。">
+              <Form {...form}>
+                <form className="space-y-4" onSubmit={form.handleSubmit(save)}>
+                  <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>名称</FormLabel>
+                        <FormControl>
+                          <Input
+                            aria-required="true"
+                            {...field}
+                            onChange={(event) => {
+                              field.onChange(event);
+                              form.setValue("slug", generateSlug(event.target.value), { shouldDirty: true, shouldValidate: form.formState.isSubmitted });
+                            }}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="slug"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Slug</FormLabel>
+                        <FormControl>
+                          <Input aria-required="true" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="description"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>说明</FormLabel>
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <div className="flex gap-2">
+                    <Button type="submit" disabled={form.formState.isSubmitting}>
+                      {editingId ? "保存修改" : "新增分类"}
                     </Button>
-                  ) : null}
-                </div>
-              </form>
+                    {editingId ? (
+                      <Button type="button" variant="outline" onClick={() => form.reset(categoryDefaults)} disabled={form.formState.isSubmitting}>
+                        取消
+                      </Button>
+                    ) : null}
+                  </div>
+                </form>
+              </Form>
             </EntityFormShell>
           </div>
         )}
@@ -243,7 +309,12 @@ function CategoriesManager() {
 const defaultColors = ["#0f766e", "#2563eb", "#7c3aed", "#db2777", "#ea580c", "#16a34a"];
 
 function TagsManager() {
-  const [form, setForm] = useState({ id: "", name: "", slug: "", color: defaultColors[0] });
+  const form = useForm<TagFormValues>({
+    resolver: zodResolver(tagSchema),
+    defaultValues: tagDefaults,
+  });
+  const editingId = useWatch({ control: form.control, name: "id" });
+  const selectedColor = useWatch({ control: form.control, name: "color" });
   const { closeDeleteDialog, confirmDelete, deleteDialog, filtered, loading, openDeleteDialog, pagination, query, reload, setPage, setPageSize, setQuery, setRows } =
     useTaxonomyRows<TagRow>({
       deleteError: "隐藏标签失败",
@@ -259,7 +330,7 @@ function TagsManager() {
     });
   const { save } = useTaxonomyActions({
     buildCreatedRow: (data) => ({ ...(data as TagRow), _count: { posts: 0 } }),
-    buildPayload: (value: typeof form) => ({ name: value.name, slug: value.slug, color: value.color }),
+    buildPayload: (value: TagFormValues) => ({ name: value.name, slug: value.slug, color: value.color }),
     endpoint: "/api/admin/tags",
     messages: {
       createError: "创建标签失败",
@@ -270,7 +341,7 @@ function TagsManager() {
       updateSuccess: "标签已保存",
     },
     onSaved: reload,
-    resetForm: () => setForm({ id: "", name: "", slug: "", color: defaultColors[0] }),
+    resetForm: () => form.reset(tagDefaults),
     setRows,
   });
 
@@ -295,7 +366,7 @@ function TagsManager() {
         <div className="flex gap-3 text-sm">
           <button
             className="text-[var(--primary)] hover:underline"
-            onClick={() => setForm({ id: row.id, name: row.name, slug: row.slug, color: row.color || defaultColors[0] })}
+            onClick={() => form.reset({ id: row.id, name: row.name, slug: row.slug, color: row.color || defaultColors[0] })}
             type="button"
           >
             编辑
@@ -307,11 +378,6 @@ function TagsManager() {
       ),
     },
   ];
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    await save(form);
-  }
 
   return (
     <>
@@ -342,40 +408,80 @@ function TagsManager() {
               title="标签列表"
             />
 
-            <EntityFormShell title={form.id ? "编辑标签" : "新增标签"} description="颜色与名称在右侧集中编辑，减少来回跳转。">
-              <form className="space-y-4" onSubmit={handleSubmit}>
-                <Input
-                  label="名称"
-                  required
-                  value={form.name}
-                  onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value, slug: generateSlug(e.target.value) }))}
-                />
-                <Input label="Slug" required value={form.slug} onChange={(e) => setForm((prev) => ({ ...prev, slug: e.target.value }))} />
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-[var(--foreground)]">颜色</label>
-                  <div className="flex flex-wrap gap-2 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3">
-                    {defaultColors.map((color) => (
-                      <button
-                        key={color}
-                        className={`h-9 w-9 rounded-full border-2 transition ${
-                          form.color === color ? "border-[var(--foreground)] scale-105" : "border-transparent"
-                        }`}
-                        onClick={() => setForm((prev) => ({ ...prev, color }))}
-                        style={{ backgroundColor: color }}
-                        type="button"
-                      />
-                    ))}
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <Button type="submit">{form.id ? "保存修改" : "新增标签"}</Button>
-                  {form.id ? (
-                    <Button type="button" variant="outline" onClick={() => setForm({ id: "", name: "", slug: "", color: defaultColors[0] })}>
-                      取消
+            <EntityFormShell title={editingId ? "编辑标签" : "新增标签"} description="颜色与名称在右侧集中编辑，减少来回跳转。">
+              <Form {...form}>
+                <form className="space-y-4" onSubmit={form.handleSubmit(save)}>
+                  <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>名称</FormLabel>
+                        <FormControl>
+                          <Input
+                            aria-required="true"
+                            {...field}
+                            onChange={(event) => {
+                              field.onChange(event);
+                              form.setValue("slug", generateSlug(event.target.value), { shouldDirty: true, shouldValidate: form.formState.isSubmitted });
+                            }}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="slug"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Slug</FormLabel>
+                        <FormControl>
+                          <Input aria-required="true" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="color"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>颜色</FormLabel>
+                        <FormControl>
+                          <div className="flex flex-wrap gap-2 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3">
+                            {defaultColors.map((color) => (
+                              <button
+                                key={color}
+                                aria-label={`选择颜色 ${color}`}
+                                className={`h-9 w-9 rounded-full border-2 transition ${
+                                  selectedColor === color ? "scale-105 border-[var(--foreground)]" : "border-transparent"
+                                }`}
+                                onClick={() => field.onChange(color)}
+                                style={{ backgroundColor: color }}
+                                type="button"
+                              />
+                            ))}
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <div className="flex gap-2">
+                    <Button type="submit" disabled={form.formState.isSubmitting}>
+                      {editingId ? "保存修改" : "新增标签"}
                     </Button>
-                  ) : null}
-                </div>
-              </form>
+                    {editingId ? (
+                      <Button type="button" variant="outline" onClick={() => form.reset(tagDefaults)} disabled={form.formState.isSubmitting}>
+                        取消
+                      </Button>
+                    ) : null}
+                  </div>
+                </form>
+              </Form>
             </EntityFormShell>
           </div>
         )}
