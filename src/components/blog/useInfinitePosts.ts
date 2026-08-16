@@ -1,6 +1,9 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
+import useSWRInfinite from 'swr/infinite'
+
+import { apiFetcher, toErrorMessage } from '@/lib/client-api'
 
 interface PaginationState {
   page: number
@@ -22,137 +25,134 @@ interface UseInfinitePostsOptions<T extends { id: string }> {
   loadFirstPageOnMount?: boolean
 }
 
+type InfinitePostsKey = readonly [scope: string, resetKey: string, url: string]
+const initialPageKey = '__initial_posts_page__'
+
+/**
+ * 前台文章无限滚动（useSWRInfinite 内核）。
+ *
+ * 对外 API 与旧实现保持一致：首屏可由 RSC 提供；筛选变化时由 SWR key
+ * 隔离缓存并重置分页；IntersectionObserver 只负责请求下一页。
+ */
 export function useInfinitePosts<T extends { id: string }>({
   initialPosts,
   initialPagination,
   buildUrl,
-  resetKey,
+  resetKey = '',
   loadFirstPageOnMount = false,
 }: UseInfinitePostsOptions<T>) {
-  const [posts, setPosts] = useState(initialPosts)
-  const [pagination, setPagination] = useState(initialPagination)
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const loadedPagesRef = useRef(new Set<number>(initialPagination.page > 0 ? [initialPagination.page] : []))
-  const observerTargetRef = useRef<HTMLDivElement | null>(null)
-  const requestIdRef = useRef(0)
-
-  const fetchPage = useCallback(
-    async ({ page, mode }: { page: number; mode: 'replace' | 'append' }) => {
-      const requestId = ++requestIdRef.current
-
-      if (mode === 'replace') {
-        loadedPagesRef.current = new Set()
-        setPosts([])
-        setPagination((currentPagination) => ({
-          page: 0,
-          limit: currentPagination.limit,
-          total: 0,
-          totalPages: 0,
-        }))
-      }
-
-      setIsLoading(true)
-      setError(null)
-
-      try {
-        const response = await fetch(buildUrl(page))
-
-        if (!response.ok) {
-          throw new Error('Failed to load posts')
-        }
-
-        const payload = (await response.json()) as PaginatedResponse<T>
-
-        if (requestId !== requestIdRef.current) {
-          return
-        }
-
-        setPosts((currentPosts) => {
-          if (mode === 'replace') {
-            return payload.data
-          }
-
-          const seenIds = new Set(currentPosts.map((post) => post.id))
-          const nextPosts = payload.data.filter((post) => !seenIds.has(post.id))
-          return [...currentPosts, ...nextPosts]
-        })
-        setPagination(payload.pagination)
-
-        if (mode === 'replace') {
-          loadedPagesRef.current = new Set([payload.pagination.page])
-        } else {
-          loadedPagesRef.current.add(page)
-        }
-      } catch {
-        if (mode === 'append') {
-          loadedPagesRef.current.delete(page)
-        }
-
-        if (requestId === requestIdRef.current) {
-          setError('加载更多文章失败，请稍后重试。')
-        }
-      } finally {
-        if (requestId === requestIdRef.current) {
-          setIsLoading(false)
-        }
-      }
-    },
-    [buildUrl],
+  const cacheScope = useId()
+  const [propsVersion, setPropsVersion] = useState(0)
+  const [previousProps, setPreviousProps] = useState<{ posts: T[]; page: number; total: number; resetKey: string }>({
+    posts: initialPosts,
+    page: initialPagination.page,
+    total: initialPagination.total,
+    resetKey,
+  })
+  const initialPage = useMemo<PaginatedResponse<T>>(
+    () => ({ data: initialPosts, pagination: initialPagination }),
+    [initialPosts, initialPagination],
   )
 
-  useEffect(() => {
-    if (loadFirstPageOnMount) {
-      void fetchPage({ page: 1, mode: 'replace' })
-      return
+  if (
+    previousProps.posts !== initialPosts ||
+    previousProps.page !== initialPagination.page ||
+    previousProps.total !== initialPagination.total ||
+    previousProps.resetKey !== resetKey
+  ) {
+    setPreviousProps({
+      posts: initialPosts,
+      page: initialPagination.page,
+      total: initialPagination.total,
+      resetKey,
+    })
+    setPropsVersion((value) => value + 1)
+  }
+
+  const getKey = useCallback(
+    (pageIndex: number, previousPageData: PaginatedResponse<T> | null): InfinitePostsKey | null => {
+      if (previousPageData && previousPageData.pagination.page >= previousPageData.pagination.totalPages) {
+        return null
+      }
+
+      if (!loadFirstPageOnMount && pageIndex === 0) {
+        return [cacheScope, `${resetKey}:${propsVersion}`, initialPageKey]
+      }
+
+      const page = loadFirstPageOnMount ? pageIndex + 1 : initialPagination.page + pageIndex
+      return [cacheScope, `${resetKey}:${propsVersion}`, buildUrl(page)]
+    },
+    [buildUrl, cacheScope, initialPagination.page, loadFirstPageOnMount, propsVersion, resetKey],
+  )
+  const fetchPage = useCallback(
+    ([, , url]: InfinitePostsKey) => {
+      if (url === initialPageKey) {
+        return Promise.resolve(initialPage)
+      }
+
+      return apiFetcher<PaginatedResponse<T>>(url)
+    },
+    [initialPage],
+  )
+
+  const {
+    data,
+    error,
+    isLoading,
+    isValidating,
+    mutate,
+    setSize,
+  } = useSWRInfinite<PaginatedResponse<T>, Error, typeof getKey>(
+    getKey,
+    fetchPage,
+    {
+      fallbackData: loadFirstPageOnMount ? undefined : [initialPage],
+      keepPreviousData: false,
+      parallel: false,
+      persistSize: false,
+      revalidateFirstPage: false,
+      revalidateOnFocus: false,
+      revalidateOnMount: loadFirstPageOnMount,
+    },
+  )
+
+  const pages = useMemo(() => data ?? [], [data])
+  const latestPagination = pages[pages.length - 1]?.pagination ?? initialPagination
+  const hasNextPage = latestPagination.page < latestPagination.totalPages
+
+  const posts = useMemo(() => {
+    const seenIds = new Set<string>()
+    const merged: T[] = []
+
+    for (const page of pages) {
+      for (const post of page.data) {
+        if (!seenIds.has(post.id)) {
+          seenIds.add(post.id)
+          merged.push(post)
+        }
+      }
     }
 
-    setPosts(initialPosts)
-    setPagination({
-      page: initialPagination.page,
-      limit: initialPagination.limit,
-      total: initialPagination.total,
-      totalPages: initialPagination.totalPages,
-    })
-    setIsLoading(false)
-    setError(null)
-    loadedPagesRef.current = new Set(initialPagination.page > 0 ? [initialPagination.page] : [])
-  }, [
-    fetchPage,
-    initialPosts,
-    initialPagination.page,
-    initialPagination.limit,
-    initialPagination.total,
-    initialPagination.totalPages,
-    loadFirstPageOnMount,
-    resetKey,
-  ])
+    return merged
+  }, [pages])
 
-  const hasNextPage = useMemo(
-    () => pagination.page < pagination.totalPages,
-    [pagination.page, pagination.totalPages],
-  )
+  const observerTargetRef = useRef<HTMLDivElement | null>(null)
+  const errorMessage = error ? toErrorMessage(error, '加载更多文章失败，请稍后重试。') : null
 
   const loadNextPage = useCallback(async () => {
-    if (!hasNextPage || isLoading) {
+    if (error) {
+      await mutate()
       return
     }
 
-    const nextPage = pagination.page + 1
-
-    if (loadedPagesRef.current.has(nextPage)) {
+    if (!hasNextPage || isLoading || isValidating) {
       return
     }
 
-    loadedPagesRef.current.add(nextPage)
-    await fetchPage({ page: nextPage, mode: 'append' })
-  }, [fetchPage, hasNextPage, isLoading, pagination.page])
+    await setSize((currentSize) => currentSize + 1)
+  }, [error, hasNextPage, isLoading, isValidating, mutate, setSize])
 
   useEffect(() => {
-    if (!hasNextPage || isLoading) {
-      return
-    }
-
     const target = observerTargetRef.current
 
     if (!target || typeof IntersectionObserver === 'undefined') {
@@ -173,13 +173,13 @@ export function useInfinitePosts<T extends { id: string }>({
     return () => {
       observer.disconnect()
     }
-  }, [hasNextPage, isLoading, loadNextPage])
+  }, [loadNextPage])
 
   return {
     posts,
-    pagination,
-    isLoading,
-    error,
+    pagination: latestPagination,
+    isLoading: isLoading || isValidating,
+    error: errorMessage,
     hasNextPage,
     observerTargetRef,
     loadNextPage,

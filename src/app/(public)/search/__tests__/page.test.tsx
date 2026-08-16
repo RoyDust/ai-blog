@@ -1,8 +1,19 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { beforeEach, expect, test, vi } from 'vitest'
+import { SWRConfig, mutate as clearSwrCache } from 'swr'
 import SearchPage from '../page'
 
 const routeState = vi.hoisted(() => ({ search: 'q=搜索' }))
+
+function renderSearchPage() {
+  return render(
+    <SWRConfig value={{ provider: () => new Map(), dedupingInterval: 0 }}>
+      <SearchPage />
+    </SWRConfig>,
+  )
+}
 
 vi.mock('next/navigation', () => ({
   useSearchParams: () => new URLSearchParams(routeState.search),
@@ -22,9 +33,10 @@ const post = {
   _count: { comments: 2, likes: 4 },
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   routeState.search = 'q=搜索'
   vi.restoreAllMocks()
+  await clearSwrCache(() => true, undefined, { revalidate: false })
 })
 
 test('search page preserves search result content snippet without requesting AI automatically', async () => {
@@ -36,7 +48,7 @@ test('search page preserves search result content snippet without requesting AI 
     }),
   } as Response)
 
-  const { container } = render(<SearchPage />)
+  const { container } = renderSearchPage()
 
   await waitFor(() => {
     expect(fetchMock).toHaveBeenCalledWith('/api/search?q=%E6%90%9C%E7%B4%A2')
@@ -65,7 +77,7 @@ test('search page requests AI summary only after the explicit button is clicked'
       }),
     } as Response)
 
-  render(<SearchPage />)
+  renderSearchPage()
 
   await waitFor(() => {
     expect(screen.getByRole('button', { name: 'AI 搜索摘要' })).toBeEnabled()
@@ -74,7 +86,10 @@ test('search page requests AI summary only after the explicit button is clicked'
   fireEvent.click(screen.getByRole('button', { name: 'AI 搜索摘要' }))
 
   await waitFor(() => {
-    expect(fetchMock).toHaveBeenCalledWith('/api/search?q=%E6%90%9C%E7%B4%A2&ai=1')
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/search?q=%E6%90%9C%E7%B4%A2&ai=1',
+      expect.objectContaining({ headers: { 'Content-Type': 'application/json' } }),
+    )
     expect(screen.getByText('AI 建议先看搜索体验优化，再看实现细节。')).toBeInTheDocument()
   })
 })
@@ -86,9 +101,18 @@ test('search page does not call the API for too-short queries', () => {
     json: async () => ({ success: true, data: [] }),
   } as Response)
 
-  render(<SearchPage />)
+  renderSearchPage()
 
   expect(fetchMock).not.toHaveBeenCalled()
   expect(screen.getByRole('button', { name: 'AI 搜索摘要' })).toBeDisabled()
   expect(screen.getByText('至少输入 2 个字符再搜索')).toBeInTheDocument()
+})
+
+test('search page uses the shared SWR data layer and apiMutate for AI summary', () => {
+  const source = readFileSync(join(process.cwd(), 'src/app/(public)/search/SearchPageClient.tsx'), 'utf8')
+
+  expect(source).toContain('useSWR')
+  expect(source).toContain('apiFetcher')
+  expect(source).toContain('apiMutate')
+  expect(source).not.toContain('fetch(')
 })

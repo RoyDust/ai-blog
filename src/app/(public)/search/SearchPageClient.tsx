@@ -3,8 +3,10 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Loader2, Sparkles } from "lucide-react";
+import useSWR from "swr";
 import { SearchForm } from "@/components/search/SearchForm";
 import { SearchResultCard } from "@/components/search/SearchResultCard";
+import { apiFetcher, apiMutate, toErrorMessage } from "@/lib/client-api";
 
 const SEARCH_MIN_QUERY_LENGTH = 2;
 const SEARCH_DEBOUNCE_MS = 300;
@@ -27,13 +29,6 @@ interface Post {
   _count: { comments: number; likes: number };
 }
 
-interface SearchResultState {
-  query: string;
-  posts: Post[];
-  error: string | null;
-  status: "idle" | "loading" | "ready" | "error";
-}
-
 interface AiSummaryState {
   query: string;
   summary: string | null;
@@ -41,8 +36,30 @@ interface AiSummaryState {
   status: "idle" | "loading" | "ready" | "error";
 }
 
+interface SearchResponse {
+  success?: boolean;
+  data?: Post[];
+  ai?: { summary?: string | null };
+}
+
 function countQueryCharacters(value: string) {
   return Array.from(value).length;
+}
+
+function useDebouncedValue(value: string, delayMs: number) {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setDebouncedValue(value);
+    }, delayMs);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [delayMs, value]);
+
+  return debouncedValue;
 }
 
 function SearchContent() {
@@ -50,70 +67,35 @@ function SearchContent() {
   const query = searchParams.get("q")?.trim() || "";
   const hasQuery = query.length > 0;
   const hasSearchableQuery = countQueryCharacters(query) >= SEARCH_MIN_QUERY_LENGTH;
+  const debouncedQuery = useDebouncedValue(query, SEARCH_DEBOUNCE_MS);
+  const activeSearchQuery = hasSearchableQuery && countQueryCharacters(debouncedQuery) >= SEARCH_MIN_QUERY_LENGTH ? debouncedQuery : "";
+  const searchKey = activeSearchQuery ? `/api/search?q=${encodeURIComponent(activeSearchQuery)}` : null;
   const latestQueryRef = useRef(query);
-  const [result, setResult] = useState<SearchResultState>({
-    query: "",
-    posts: [],
-    error: null,
-    status: "idle",
-  });
   const [aiSummary, setAiSummary] = useState<AiSummaryState>({
     query: "",
     summary: null,
     error: null,
     status: "idle",
   });
+  const {
+    data: searchResponse,
+    error: searchError,
+    isLoading: isSearchLoading,
+    mutate: mutateSearch,
+  } = useSWR<SearchResponse>(searchKey, apiFetcher, {
+    keepPreviousData: false,
+    revalidateOnMount: true,
+  });
 
   useEffect(() => {
     latestQueryRef.current = query;
   }, [query]);
 
-  useEffect(() => {
-    if (!hasQuery) {
-      setResult({ query: "", posts: [], error: null, status: "idle" });
-      setAiSummary({ query: "", summary: null, error: null, status: "idle" });
-      return;
-    }
-
-    if (!hasSearchableQuery) {
-      setResult({ query, posts: [], error: null, status: "idle" });
-      setAiSummary({ query, summary: null, error: null, status: "idle" });
-      return;
-    }
-
-    let alive = true;
-    const timer = window.setTimeout(() => {
-      setResult({ query, posts: [], error: null, status: "loading" });
-      setAiSummary({ query, summary: null, error: null, status: "idle" });
-
-      fetch(`/api/search?q=${encodeURIComponent(query)}`)
-        .then(async (res) => {
-          const data = await res.json();
-          if (!res.ok || !data.success) {
-            throw new Error(data.error || "搜索失败");
-          }
-          return data;
-        })
-        .then((data) => {
-          if (alive) {
-            setResult({ query, posts: Array.isArray(data.data) ? data.data : [], error: null, status: "ready" });
-          }
-        })
-        .catch((requestError: Error) => {
-          if (alive) {
-            setResult({ query, posts: [], error: requestError.message, status: "error" });
-          }
-        });
-    }, SEARCH_DEBOUNCE_MS);
-
-    return () => {
-      alive = false;
-      window.clearTimeout(timer);
-    };
-  }, [hasQuery, hasSearchableQuery, query]);
-
   async function requestAiSummary() {
-    if (!hasSearchableQuery || result.query !== query || result.status !== "ready" || result.posts.length === 0 || aiSummary.status === "loading") {
+    const currentPosts = Array.isArray(searchResponse?.data) ? searchResponse.data : [];
+    const isResolvedForCurrentQuery = activeSearchQuery === query && !searchError && !isSearchLoading;
+
+    if (!hasSearchableQuery || !isResolvedForCurrentQuery || currentPosts.length === 0 || aiSummary.status === "loading") {
       return;
     }
 
@@ -121,11 +103,7 @@ function SearchContent() {
     setAiSummary({ query: requestQuery, summary: null, error: null, status: "loading" });
 
     try {
-      const res = await fetch(`/api/search?q=${encodeURIComponent(requestQuery)}&ai=1`);
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || "AI 摘要生成失败");
-      }
+      const data = await apiMutate<SearchResponse>(`/api/search?q=${encodeURIComponent(requestQuery)}&ai=1`);
 
       if (latestQueryRef.current !== requestQuery) {
         return;
@@ -133,7 +111,7 @@ function SearchContent() {
 
       const summary = typeof data.ai?.summary === "string" ? data.ai.summary.trim() : "";
       if (Array.isArray(data.data)) {
-        setResult({ query: requestQuery, posts: data.data, error: null, status: "ready" });
+        void mutateSearch({ ...data, data: data.data }, { revalidate: false });
       }
 
       setAiSummary({
@@ -150,18 +128,19 @@ function SearchContent() {
       setAiSummary({
         query: requestQuery,
         summary: null,
-        error: requestError instanceof Error ? requestError.message : "AI 摘要生成失败",
+        error: toErrorMessage(requestError, "AI 摘要生成失败"),
         status: "error",
       });
     }
   }
 
-  const isResolvedForQuery = result.query === query && result.status === "ready";
-  const visiblePosts = hasSearchableQuery && isResolvedForQuery ? result.posts : [];
+  const searchPosts = Array.isArray(searchResponse?.data) ? searchResponse.data : [];
+  const isResolvedForQuery = activeSearchQuery === query && !searchError && !isSearchLoading;
+  const visiblePosts = hasSearchableQuery && isResolvedForQuery ? searchPosts : [];
   const visibleAiSummary = hasSearchableQuery && aiSummary.query === query && aiSummary.status === "ready" ? aiSummary.summary : null;
   const visibleAiError = hasSearchableQuery && aiSummary.query === query && aiSummary.status === "error" ? aiSummary.error : null;
-  const visibleError = hasSearchableQuery && result.query === query && result.status === "error" ? result.error : null;
-  const visibleLoading = hasSearchableQuery && (result.query !== query || result.status === "loading");
+  const visibleError = hasSearchableQuery && activeSearchQuery === query && searchError ? toErrorMessage(searchError, "搜索失败") : null;
+  const visibleLoading = hasSearchableQuery && !visibleError && (activeSearchQuery !== query || isSearchLoading);
   const isAiLoading = aiSummary.query === query && aiSummary.status === "loading";
   const canRequestAiSummary = hasSearchableQuery && isResolvedForQuery && visiblePosts.length > 0 && !isAiLoading;
 

@@ -3,9 +3,10 @@
 import NextLink from "next/link";
 import { useSession } from "next-auth/react";
 import { ArrowRight, BarChart3, Folder, Github, Link2, Mail, Tags, Target } from "lucide-react";
-import { useEffect, useState } from "react";
+import useSWR from "swr";
 import { PopularPostsWidget, type PopularPost } from "@/components/blog/PopularPostsWidget";
 import { FallbackImage } from "@/components/ui";
+import { apiFetcher } from "@/lib/client-api";
 import { PUBLIC_PROFILE_FALLBACK, type PublicProfile, type PublicProfileLinkKind } from "@/lib/public-profile-data";
 import type { UserReadingStats } from "@/lib/reading-stats";
 
@@ -31,7 +32,21 @@ type TagItem = {
   _count?: { posts?: number };
 };
 
+type ApiListResponse<T> = {
+  success?: boolean;
+  data?: T[];
+};
+
+type ReadingStatsResponse = {
+  success?: boolean;
+  data?: UserReadingStats | null;
+};
+
 const categoryDotColors = ["var(--accent-sky)", "var(--accent-warm)", "var(--accent-cyan)", "var(--text-faint)"];
+const emptyCategoriesResponse: ApiListResponse<CategoryItem> = { success: true, data: [] };
+const emptyTagsResponse: ApiListResponse<TagItem> = { success: true, data: [] };
+const emptyPopularPostsResponse: ApiListResponse<PopularPost> = { success: true, data: [] };
+const emptyReadingStatsResponse: ReadingStatsResponse = { success: true, data: null };
 
 function SidebarCategorySkeleton() {
   return (
@@ -79,84 +94,29 @@ export function Sidebar({
   readingStats?: UserReadingStats | null;
 }) {
   const { status } = useSession();
-  const [categories, setCategories] = useState<CategoryItem[]>([]);
-  const [tags, setTags] = useState<TagItem[]>([]);
-  const [popularPosts, setPopularPosts] = useState<PopularPost[]>([]);
-  const [readingStats, setReadingStats] = useState<UserReadingStats | null>(initialReadingStats);
-  const [isTaxonomyLoading, setIsTaxonomyLoading] = useState(true);
-  const [isPopularPostsLoading, setIsPopularPostsLoading] = useState(true);
+  const { data: categoriesResponse, isLoading: isCategoriesLoading } = useSWR<ApiListResponse<CategoryItem>>("/api/categories", apiFetcher, {
+    fallbackData: emptyCategoriesResponse,
+  });
+  const { data: tagsResponse, isLoading: isTagsLoading } = useSWR<ApiListResponse<TagItem>>("/api/tags", apiFetcher, {
+    fallbackData: emptyTagsResponse,
+  });
+  const { data: popularPostsResponse, isLoading: isPopularPostsLoading } = useSWR<ApiListResponse<PopularPost>>(
+    "/api/posts/popular",
+    apiFetcher,
+    {
+      fallbackData: emptyPopularPostsResponse,
+    },
+  );
+  const readingStatsKey = !initialReadingStats && status === "authenticated" ? "/api/users/me/reading-stats" : null;
+  const { data: readingStatsResponse } = useSWR<ReadingStatsResponse>(readingStatsKey, apiFetcher, {
+    fallbackData: emptyReadingStatsResponse,
+  });
 
-  useEffect(() => {
-    let isMounted = true;
-
-    const loadTaxonomy = async () => {
-      const readApiJson = async (url: string) => {
-        try {
-          const response = await fetch(url);
-          return await response.json();
-        } catch {
-          return null;
-        }
-      };
-
-      const [categoriesJson, tagsJson, popularJson] = await Promise.all([
-        readApiJson("/api/categories"),
-        readApiJson("/api/tags"),
-        readApiJson("/api/posts/popular"),
-      ]);
-
-      if (!isMounted) return;
-
-      setCategories(Array.isArray(categoriesJson?.data) ? categoriesJson.data : []);
-      setTags(Array.isArray(tagsJson?.data) ? tagsJson.data : []);
-      setPopularPosts(Array.isArray(popularJson?.data) ? popularJson.data : []);
-      setIsTaxonomyLoading(false);
-      setIsPopularPostsLoading(false);
-    };
-
-    void loadTaxonomy();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (initialReadingStats || status === "loading") {
-      return;
-    }
-
-    if (status === "unauthenticated") {
-      return;
-    }
-
-    let isMounted = true;
-
-    const loadReadingStats = async () => {
-      try {
-        const response = await fetch("/api/users/me/reading-stats");
-        if (!response.ok) {
-          return;
-        }
-
-        const json = await response.json();
-        if (isMounted) {
-          setReadingStats(json?.data ?? null);
-        }
-      } catch {
-        if (isMounted) {
-          setReadingStats(null);
-        }
-      }
-    };
-
-    void loadReadingStats();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [initialReadingStats, status]);
-
+  const categories = Array.isArray(categoriesResponse?.data) ? categoriesResponse.data : [];
+  const tags = Array.isArray(tagsResponse?.data) ? tagsResponse.data : [];
+  const popularPosts = Array.isArray(popularPostsResponse?.data) ? popularPostsResponse.data : [];
+  const readingStats = initialReadingStats ?? readingStatsResponse?.data ?? null;
+  const isTaxonomyLoading = isCategoriesLoading || isTagsLoading;
   const topCategories = categories.slice(0, 4);
   const topTags = tags.slice(0, 10);
   const displayedReadingStats = status === "unauthenticated" && !initialReadingStats ? null : readingStats;

@@ -1,10 +1,15 @@
 import { render, waitFor } from "@testing-library/react";
-import { expect, test, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { beforeEach, expect, test, vi } from "vitest";
+import { mutate as clearSwrCache } from "swr";
 import { Sidebar } from "@/components/layout/Sidebar";
 import type { PublicProfile } from "@/lib/public-profile-data";
 
+const sessionState = vi.hoisted(() => ({ status: "unauthenticated" as "authenticated" | "loading" | "unauthenticated" }));
+
 vi.mock("next-auth/react", () => ({
-  useSession: () => ({ data: null, status: "unauthenticated" }),
+  useSession: () => ({ data: sessionState.status === "authenticated" ? { user: { id: "user-1" } } : null, status: sessionState.status }),
 }));
 
 const profile: PublicProfile = {
@@ -30,6 +35,12 @@ const readingStats = {
   monthlyGoal: 10,
   monthlyProgress: 40,
 };
+
+beforeEach(async () => {
+  sessionState.status = "unauthenticated";
+  vi.restoreAllMocks();
+  await clearSwrCache(() => true, undefined, { revalidate: false });
+});
 
 test("sidebar loads categories from the public api route", async () => {
   const fetchMock = vi.spyOn(global, "fetch").mockImplementation((input: RequestInfo | URL) => {
@@ -110,12 +121,10 @@ test("sidebar loads categories from the public api route", async () => {
   expect(getByText("2h")).toBeInTheDocument();
   expect(getByText("3天")).toBeInTheDocument();
   expect(getByText("40%")).toBeInTheDocument();
-
-  fetchMock.mockRestore();
 });
 
 test("sidebar hides reading data panels when no user stats are provided", () => {
-  const fetchMock = vi.spyOn(global, "fetch").mockResolvedValue(
+  vi.spyOn(global, "fetch").mockResolvedValue(
     new Response(JSON.stringify({ success: true, data: [] }), { status: 200 }),
   );
 
@@ -123,6 +132,44 @@ test("sidebar hides reading data panels when no user stats are provided", () => 
 
   expect(queryByRole("heading", { name: "阅读统计" })).not.toBeInTheDocument();
   expect(queryByRole("heading", { name: "本月阅读目标" })).not.toBeInTheDocument();
+});
 
-  fetchMock.mockRestore();
+test("sidebar loads reading stats only for authenticated readers", async () => {
+  sessionState.status = "authenticated";
+  const fetchMock = vi.spyOn(global, "fetch").mockImplementation((input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url.endsWith("/api/users/me/reading-stats")) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            success: true,
+            data: readingStats,
+          }),
+          { status: 200 },
+        ),
+      );
+    }
+
+    return Promise.resolve(new Response(JSON.stringify({ success: true, data: [] }), { status: 200 }));
+  });
+
+  const { getByRole, getByText } = render(<Sidebar profile={profile} />);
+
+  await waitFor(() => {
+    expect(fetchMock).toHaveBeenCalledWith("/api/users/me/reading-stats");
+  });
+
+  expect(getByRole("heading", { name: "阅读统计" })).toBeInTheDocument();
+  expect(getByText("8")).toBeInTheDocument();
+  expect(getByText("2h")).toBeInTheDocument();
+  expect(getByText("3天")).toBeInTheDocument();
+});
+
+test("sidebar uses SWR keys instead of effect-driven fetch state machines", () => {
+  const source = readFileSync(join(process.cwd(), "src/components/layout/Sidebar.tsx"), "utf8");
+
+  expect(source).toContain("useSWR");
+  expect(source).toContain("apiFetcher");
+  expect(source).not.toContain("useEffect");
+  expect(source).not.toContain("fetch(");
 });

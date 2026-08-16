@@ -1,6 +1,7 @@
 import React from 'react'
 import { render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
+import { SWRConfig, mutate as clearSwrCache } from 'swr'
 
 import { PostsListingClient } from '../PostsListingClient'
 
@@ -38,10 +39,20 @@ function createPost(id: string) {
   }
 }
 
+function SwrTestProvider({ children }: { children: React.ReactNode }) {
+  return <SWRConfig value={{ provider: () => new Map(), dedupingInterval: 0 }}>{children}</SWRConfig>
+}
+
+function renderListing(ui: React.ReactElement) {
+  return render(ui, { wrapper: SwrTestProvider })
+}
+
 describe('PostsListingClient', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     currentSearchParams = new URLSearchParams()
     vi.restoreAllMocks()
+    // SWR 全局缓存在用例间共享，逐用例清空保证独立性（需等待清空完成）
+    await clearSwrCache(() => true, undefined, { revalidate: false })
   })
 
   test('shows skeleton cards before the first page resolves', async () => {
@@ -66,7 +77,7 @@ describe('PostsListingClient', () => {
 
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => deferred.promise))
 
-    render(
+    renderListing(
       <PostsListingClient
         initialPagination={{ page: 0, limit: 10, total: 0, totalPages: 0 }}
         initialPosts={[]}
@@ -126,7 +137,7 @@ describe('PostsListingClient', () => {
       }),
     )
 
-    render(
+    renderListing(
       <PostsListingClient
         initialPagination={{ page: 0, limit: 10, total: 0, totalPages: 0 }}
         initialPosts={[]}
@@ -179,7 +190,7 @@ describe('PostsListingClient', () => {
         .mockImplementationOnce(() => deferred.promise),
     )
 
-    const { rerender } = render(
+    const { rerender } = renderListing(
       <PostsListingClient
         initialPagination={{ page: 0, limit: 10, total: 0, totalPages: 0 }}
         initialPosts={[]}
@@ -242,7 +253,7 @@ describe('PostsListingClient', () => {
       }),
     )
 
-    render(
+    renderListing(
       <PostsListingClient
         filters={{ category: 'frontend', tag: 'nextjs', search: 'react server' }}
         initialPagination={{ page: 0, limit: 12, total: 0, totalPages: 0 }}

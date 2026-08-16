@@ -3,7 +3,9 @@
 import type { Session } from "next-auth";
 import { getSession, signIn } from "next-auth/react";
 import Link from "next/link";
-import type { FormEvent } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
 import { useState } from "react";
 import { ArrowRight, Github, KeyRound, LockKeyhole, Mail, ShieldCheck, Sparkles } from "lucide-react";
 
@@ -66,6 +68,13 @@ const errorMessages: Record<string, string> = {
   Configuration: "GitHub 登录暂未正确配置，请联系管理员。",
 };
 
+const loginSchema = z.object({
+  email: z.string().trim().email("请输入有效的邮箱地址"),
+  password: z.string().min(1, "请输入密码"),
+});
+
+type LoginFormValues = z.infer<typeof loginSchema>;
+
 export function LoginForm({
   mode = "page",
   callbackUrl = "/admin",
@@ -76,29 +85,33 @@ export function LoginForm({
   onSuccess,
 }: LoginFormProps) {
   const formCopy = { ...loginFormCopyByMode[mode], ...copy };
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<LoginFormValues>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: { email: "", password: "" },
+  });
+  const [submitError, setSubmitError] = useState("");
   const helperMessage = authError ? errorMessages[authError] ?? "登录失败，请稍后重试。" : "";
   const isDialog = mode === "dialog";
   const HeaderIcon = isDialog ? Sparkles : ShieldCheck;
 
-  const handleSubmit = async (event: FormEvent) => {
-    event.preventDefault();
-    setError("");
-    setIsLoading(true);
+  const handleCredentialsLogin = async (values: LoginFormValues) => {
+    setSubmitError("");
 
     try {
       const result = await signIn("credentials", {
-        email,
-        password,
+        email: values.email,
+        password: values.password,
         redirect: false,
         callbackUrl,
       });
 
       if (result?.error) {
-        throw new Error(result.error);
+        setSubmitError(result.error);
+        return;
       }
 
       const session = await getSession();
@@ -117,11 +130,9 @@ export function LoginForm({
         return;
       }
 
-      window.location.href = getPostLoginRedirect(session?.user?.role, callbackUrl);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "登录失败，请稍后重试");
-    } finally {
-      setIsLoading(false);
+      window.location.assign(getPostLoginRedirect(session?.user?.role, callbackUrl));
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : "登录失败，请稍后重试");
     }
   };
 
@@ -186,47 +197,45 @@ export function LoginForm({
       </div>
 
       <div className="px-5 py-5 sm:px-6 sm:py-6">
-        {error ? (
+        {submitError ? (
           <div className="ui-alert-danger mb-4 rounded-2xl px-4 py-3">
-            <p className="text-sm">{error}</p>
+            <p className="text-sm">{submitError}</p>
           </div>
         ) : null}
 
-        {!error && helperMessage ? (
+        {!submitError && helperMessage ? (
           <div className="ui-alert-danger mb-4 rounded-2xl px-4 py-3">
             <p className="text-sm">{helperMessage}</p>
           </div>
         ) : null}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit(handleCredentialsLogin)} className="space-y-4" noValidate>
           <Input
             type="email"
             label="邮箱"
             placeholder="admin@example.com"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
             autoComplete="email"
+            error={errors.email?.message}
             leftSlot={isDialog ? <Mail className="h-4 w-4" aria-hidden="true" /> : undefined}
             className={cn(
               isDialog &&
                 "h-12 rounded-2xl border-[var(--reader-border)] bg-[color:color-mix(in_oklab,var(--reader-panel-elevated)_60%,transparent)] text-sm shadow-[inset_0_1px_0_color-mix(in_oklab,var(--foreground)_6%,transparent)] placeholder:text-[var(--text-muted)] focus-visible:border-[color:color-mix(in_oklab,var(--accent-sky)_38%,var(--reader-border))] focus-visible:ring-[color:color-mix(in_oklab,var(--accent-sky)_22%,transparent)]",
             )}
-            required
+            {...register("email")}
           />
 
           <Input
             type="password"
             label="密码"
             placeholder="输入账号密码"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
             autoComplete="current-password"
+            error={errors.password?.message}
             leftSlot={isDialog ? <KeyRound className="h-4 w-4" aria-hidden="true" /> : undefined}
             className={cn(
               isDialog &&
                 "h-12 rounded-2xl border-[var(--reader-border)] bg-[color:color-mix(in_oklab,var(--reader-panel-elevated)_60%,transparent)] text-sm shadow-[inset_0_1px_0_color-mix(in_oklab,var(--foreground)_6%,transparent)] placeholder:text-[var(--text-muted)] focus-visible:border-[color:color-mix(in_oklab,var(--accent-sky)_38%,var(--reader-border))] focus-visible:ring-[color:color-mix(in_oklab,var(--accent-sky)_22%,transparent)]",
             )}
-            required
+            {...register("password")}
           />
 
           <Button
@@ -235,10 +244,10 @@ export function LoginForm({
               "w-full gap-2",
               isDialog ? "h-12 rounded-2xl text-sm shadow-[0_12px_26px_color-mix(in_oklab,var(--primary)_24%,transparent)] hover:-translate-y-0.5" : "py-2.5",
             )}
-            disabled={isLoading}
+            disabled={isSubmitting}
           >
             <LockKeyhole className="h-4 w-4" aria-hidden="true" />
-            {isLoading ? formCopy.submittingLabel : formCopy.submitLabel}
+            {isSubmitting ? formCopy.submittingLabel : formCopy.submitLabel}
             <ArrowRight className="h-4 w-4" aria-hidden="true" />
           </Button>
         </form>
