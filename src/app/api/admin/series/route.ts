@@ -1,6 +1,6 @@
 import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 import { requireAdminSession } from "@/lib/api-auth";
-import { isPrismaConflictError, NotFoundError, ValidationError, toErrorResponse } from "@/lib/api-errors";
+import { NotFoundError, ValidationError, toErrorResponse } from "@/lib/api-errors";
 import { revalidatePublicContent } from "@/lib/cache";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
@@ -122,9 +122,6 @@ async function POSTHandler(request: Request) {
 
     return NextResponse.json({ success: true, data: series });
   } catch (error) {
-    if (isPrismaConflictError(error)) {
-      return NextResponse.json({ error: "Series slug already exists" }, { status: 409 });
-    }
     return toErrorResponse(error);
   }
 }
@@ -159,9 +156,6 @@ async function PATCHHandler(request: Request) {
 
     return NextResponse.json({ success: true, data: series });
   } catch (error) {
-    if (isPrismaConflictError(error)) {
-      return NextResponse.json({ error: "Series slug already exists" }, { status: 409 });
-    }
     return toErrorResponse(error, "Failed to update series");
   }
 }

@@ -11,7 +11,7 @@ import { getOptionalSummaryFieldsForExcerpt } from "@/lib/post-summary-status"
  * 文章详情 API（按 slug 访问）。
  *
  * 这里同时承担三类职责：
- * - GET：返回公开文章详情，并累加浏览量
+ * - GET：返回公开文章详情（纯读，浏览量由 analytics 信标统一累加）
  * - PATCH：作者或管理员更新文章内容，并刷新受影响的公共页面缓存
  * - DELETE：软删除文章，避免直接物理删除历史数据
  *
@@ -23,9 +23,10 @@ import { getOptionalSummaryFieldsForExcerpt } from "@/lib/post-summary-status"
 /**
  * 返回已发布文章的公开详情。
  *
- * 副作用：
+ * 说明：
  * - 读取文章、作者、分类、标签、评论与点赞数量
- * - 成功返回后会把 viewCount +1
+ * - 纯读接口：浏览量只由 analytics 信标（/api/analytics/visit）累加，
+ *   避免同一 PV 在两个入口重复计数
  */
 async function GETHandler(
   request: Request,
@@ -66,16 +67,8 @@ async function GETHandler(
     })
 
     if (!post) {
-      return NextResponse.json(
-        { error: "Post not found" },
-        { status: 404 }
-      )
+      throw new NotFoundError("Post not found")
     }
-
-    await prisma.post.update({
-      where: { id: post.id },
-      data: { viewCount: { increment: 1 } }
-    })
 
     return NextResponse.json({
       success: true,
@@ -83,10 +76,7 @@ async function GETHandler(
     })
   } catch (error) {
     console.error("Get post error:", error)
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    )
+    return toErrorResponse(error)
   }
 }
 

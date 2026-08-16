@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 import { requireAdminSession } from "@/lib/api-auth";
-import { isPrismaConflictError, toErrorResponse } from "@/lib/api-errors";
+import { toErrorResponse } from "@/lib/api-errors";
 import { getAdminTopicGuideById, softDeleteTopicGuide, updateTopicGuide } from "@/lib/topic-guides";
 
 type RouteContext = {
@@ -29,9 +29,6 @@ async function PATCHHandler(request: Request, { params }: RouteContext) {
 
     return NextResponse.json({ success: true, data: guide });
   } catch (error) {
-    if (isPrismaConflictError(error)) {
-      return NextResponse.json({ error: "Topic guide slug already exists" }, { status: 409 });
-    }
     return toErrorResponse(error, "Failed to update topic guide");
   }
 }

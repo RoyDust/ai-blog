@@ -28,10 +28,7 @@ async function GETHandler(request: Request) {
     })
   } catch (error) {
     console.error("Get posts error:", error)
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    )
+    return toErrorResponse(error)
   }
 }
 

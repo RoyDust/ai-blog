@@ -1,29 +1,16 @@
 import { withApiOperationLogging } from "@/lib/api-operation-log-route";
-import { toErrorResponse, UnauthorizedError } from "@/lib/api-errors"
+import { toErrorResponse } from "@/lib/api-errors"
 import { revalidatePublicContent } from "@/lib/cache"
 import { resolvePostCoverInput, touchCoverAssetUsage } from "@/lib/cover-assets"
+import { requireInternalSecret } from "@/lib/internal-secrets"
 import { prisma } from "@/lib/prisma"
 import { NextResponse } from "next/server"
 
-function getConfiguredCronSecret() {
-  return (
-    process.env.PUBLISH_SCHEDULED_CRON_SECRET?.trim() ||
-    process.env.CRON_SECRET?.trim() ||
-    process.env.AI_NEWS_CRON_SECRET?.trim()
-  )
-}
-
 function requireCronSecret(request: Request) {
-  const configuredSecret = getConfiguredCronSecret()
-  if (!configuredSecret) {
-    throw new Error("PUBLISH_SCHEDULED_CRON_SECRET or CRON_SECRET is not configured")
-  }
-
-  const authorization = request.headers.get("authorization") ?? ""
-  const token = authorization.match(/^Bearer\s+(.+)$/i)?.[1]?.trim()
-  if (token !== configuredSecret) {
-    throw new UnauthorizedError()
-  }
+  requireInternalSecret(request, {
+    secretName: "PUBLISH_SCHEDULED_CRON_SECRET",
+    envKeys: ["PUBLISH_SCHEDULED_CRON_SECRET", "CRON_SECRET", "AI_NEWS_CRON_SECRET"],
+  })
 }
 
 async function POSTHandler(request: Request) {

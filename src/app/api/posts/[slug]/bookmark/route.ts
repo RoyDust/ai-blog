@@ -1,6 +1,7 @@
 import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 import { NextResponse } from "next/server"
-import { toErrorResponse } from "@/lib/api-errors"
+import { NotFoundError, toErrorResponse } from "@/lib/api-errors"
+import { requireSession } from "@/lib/api-auth"
 import { prisma } from "@/lib/prisma"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
@@ -16,13 +17,7 @@ async function POSTHandler(
       return NextResponse.json({ error: "Too many requests" }, { status: 429 })
     }
 
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      )
-    }
+    const session = await requireSession()
 
     const { slug } = await params
 
@@ -31,10 +26,7 @@ async function POSTHandler(
     })
 
     if (!post) {
-      return NextResponse.json(
-        { error: "Post not found" },
-        { status: 404 }
-      )
+      throw new NotFoundError("Post not found")
     }
 
     const existingBookmark = await prisma.bookmark.findUnique({
@@ -86,10 +78,7 @@ async function GETHandler(
     })
 
     if (!post) {
-      return NextResponse.json(
-        { error: "Post not found" },
-        { status: 404 }
-      )
+      throw new NotFoundError("Post not found")
     }
 
     const bookmarkCount = await prisma.bookmark.count({

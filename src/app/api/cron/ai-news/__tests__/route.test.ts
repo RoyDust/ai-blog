@@ -189,8 +189,8 @@ describe("POST /api/cron/ai-news", () => {
     const response = await POST(authedRequest("http://localhost/api/cron/ai-news"))
     const payload = await response.json()
 
-    expect(response.status).toBe(500)
-    expect(payload).toEqual({ error: "AI_NEWS_CRON_SECRET is not configured" })
+    expect(response.status).toBe(503)
+    expect(payload).toEqual({ error: "Internal service secret is not configured" })
     expect(findFirstUser).not.toHaveBeenCalled()
   })
 })

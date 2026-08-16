@@ -3,22 +3,14 @@ import { NextResponse } from "next/server"
 
 import { runDailyAiNews } from "@/lib/ai-news"
 import { notifyDailyAiNewsFailure, notifyDailyAiNewsSuccess } from "@/lib/ai-news-notifications"
-import { toErrorResponse, UnauthorizedError, ValidationError } from "@/lib/api-errors"
+import { toErrorResponse, ValidationError } from "@/lib/api-errors"
+import { requireInternalSecret } from "@/lib/internal-secrets"
 import { prisma } from "@/lib/prisma"
 
 const activeRuns = new Set<string>()
 
 function requireCronSecret(request: Request) {
-  const configuredSecret = process.env.AI_NEWS_CRON_SECRET?.trim()
-  if (!configuredSecret) {
-    throw new Error("AI_NEWS_CRON_SECRET is not configured")
-  }
-
-  const authorization = request.headers.get("authorization") ?? ""
-  const token = authorization.match(/^Bearer\s+(.+)$/i)?.[1]?.trim()
-  if (token !== configuredSecret) {
-    throw new UnauthorizedError()
-  }
+  requireInternalSecret(request, { secretName: "AI_NEWS_CRON_SECRET", envKeys: ["AI_NEWS_CRON_SECRET"] })
 }
 
 function parseRunDate(request: Request) {

@@ -62,6 +62,20 @@ describe("POST /api/cron/publish-scheduled", () => {
     expect(transaction).not.toHaveBeenCalled()
   })
 
+  test("fails closed when no scheduled-publish secret is configured", async () => {
+    delete process.env.PUBLISH_SCHEDULED_CRON_SECRET
+    delete process.env.CRON_SECRET
+    delete process.env.AI_NEWS_CRON_SECRET
+
+    const { POST } = await import("../route")
+    const response = await POST(authedRequest())
+    const payload = await response.json()
+
+    expect(response.status).toBe(503)
+    expect(payload).toEqual({ error: "Internal service secret is not configured" })
+    expect(transaction).not.toHaveBeenCalled()
+  })
+
   test("returns an empty summary when no posts are due", async () => {
     findMany.mockResolvedValueOnce([])
 

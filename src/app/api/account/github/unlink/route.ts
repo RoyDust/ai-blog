@@ -1,9 +1,8 @@
 import { withApiOperationLogging } from "@/lib/api-operation-log-route";
-import { getServerSession } from "next-auth";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { toErrorResponse } from "@/lib/api-errors";
-import { authOptions } from "@/lib/auth";
+import { requireSession } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
 
 function normalizeOrigin(value: string | undefined | null) {
@@ -43,10 +42,7 @@ async function POSTHandler(request: Request) {
       return NextResponse.json({ error: "非法请求来源" }, { status: 403 });
     }
 
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "未登录" }, { status: 401 });
-    }
+    const session = await requireSession();
 
     const [user, githubAccount, otherAccountsCount] = await Promise.all([
       prisma.user.findUnique({

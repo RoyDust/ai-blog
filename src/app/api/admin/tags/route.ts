@@ -3,7 +3,7 @@ import { NextResponse } from "next/server"
 import type { Prisma } from "@prisma/client"
 
 import { requireAdminSession } from "@/lib/api-auth"
-import { isPrismaConflictError, NotFoundError, toErrorResponse } from "@/lib/api-errors"
+import { NotFoundError, toErrorResponse } from "@/lib/api-errors"
 import { buildAdminListPagination, getAdminListSkip, parseAdminListPagination } from "@/lib/admin-list-pagination"
 import { prisma } from "@/lib/prisma"
 import { parseIdList, parseTaxonomyInput } from "@/lib/validation"
@@ -76,9 +76,6 @@ async function POSTHandler(request: Request) {
 
     return NextResponse.json({ success: true, data: tag })
   } catch (error) {
-    if (isPrismaConflictError(error)) {
-      return NextResponse.json({ error: "Tag name or slug already exists" }, { status: 409 })
-    }
     return toErrorResponse(error)
   }
 }
@@ -99,9 +96,6 @@ async function PATCHHandler(request: Request) {
 
     return NextResponse.json({ success: true, data: tag })
   } catch (error) {
-    if (isPrismaConflictError(error)) {
-      return NextResponse.json({ error: "Tag name or slug already exists" }, { status: 409 })
-    }
     return toErrorResponse(error, "Failed to update tag")
   }
 }

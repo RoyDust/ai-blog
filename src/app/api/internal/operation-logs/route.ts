@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 
-import { isValidOperationLogIngestSecret } from "@/lib/api-operation-log-ingest-secret";
+import {
+  isValidOperationLogIngestSecret,
+  resolveOperationLogIngestSecret,
+} from "@/lib/api-operation-log-ingest-secret";
+import { INTERNAL_SECRET_NOT_CONFIGURED_MESSAGE } from "@/lib/internal-secrets";
 import {
   createApiOperationLog,
   hashIp,
@@ -40,8 +44,13 @@ function queryFromPayload(value: unknown) {
 }
 
 export async function POST(request: Request) {
+  // 密钥未配置（仅生产可能发生）：503，明确区分"配置缺失"与"密钥错误"。
+  if (!resolveOperationLogIngestSecret()) {
+    return NextResponse.json({ error: INTERNAL_SECRET_NOT_CONFIGURED_MESSAGE }, { status: 503 });
+  }
+
   if (!isValidOperationLogIngestSecret(request.headers.get("x-operation-log-ingest-secret"))) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const body = (await request.json().catch(() => ({}))) as InternalOperationLogPayload;

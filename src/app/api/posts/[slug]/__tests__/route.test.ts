@@ -47,5 +47,7 @@ describe("GET /api/posts/[slug]", () => {
         },
       }),
     }));
+    // 浏览量只由 analytics 信标累加，详情 GET 必须是纯读。
+    expect(update).not.toHaveBeenCalled();
   });
 });

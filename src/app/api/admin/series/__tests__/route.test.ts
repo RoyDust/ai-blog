@@ -81,6 +81,20 @@ describe("/api/admin/series", () => {
     expect(revalidatePublicContent).toHaveBeenCalledWith({ seriesSlug: "series" });
   });
 
+  test("returns the shared field-specific message for an active slug conflict", async () => {
+    create.mockRejectedValueOnce({ code: "P2002", meta: { target: ["slug"] } });
+
+    const { POST } = await import("../route");
+    const response = await POST(new Request("http://localhost/api/admin/series", {
+      method: "POST",
+      body: JSON.stringify({ title: "Series", slug: "series", order: 0 }),
+    }));
+    const payload = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(payload).toEqual({ error: "该 slug 已被使用，请更换后再试" });
+  });
+
   test("updates a series and invalidates old and new public paths", async () => {
     findFirst.mockResolvedValueOnce({ id: "s1", slug: "old-series" });
     update.mockResolvedValueOnce({ id: "s1", title: "Series", slug: "new-series" });
