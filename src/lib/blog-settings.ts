@@ -1,3 +1,5 @@
+import { cache } from "react";
+
 import { ApiError, ValidationError } from "@/lib/api-errors";
 import { prisma } from "@/lib/prisma";
 import { PUBLIC_PROFILE_CONTENT_FALLBACK, type PublicProfileContent } from "@/lib/public-profile-data";
@@ -413,7 +415,7 @@ function hasRawSettingsWriter(client: unknown): client is RawSettingsWriter {
   return typeof (client as { $executeRawUnsafe?: unknown }).$executeRawUnsafe === "function";
 }
 
-export async function getBlogSettings(): Promise<BlogSettings> {
+async function readBlogSettingsFromStorage(): Promise<BlogSettings> {
   const client = prisma;
   if (!hasRawSettingsReader(client)) {
     return getDefaultBlogSettings();
@@ -435,6 +437,16 @@ export async function getBlogSettings(): Promise<BlogSettings> {
     return getDefaultBlogSettings();
   }
 }
+
+/**
+ * 读取站点级配置，请求级去重。
+ *
+ * 用 React cache() 包裹：在 RSC / Route Handler 的请求作用域内，
+ * root layout、(public) layout、generateMetadata 与页面主体的多次调用
+ * 共享同一次查询，消除单次渲染内的重复 SQL；
+ * 在无请求作用域（单测、脚本）下 cache() 退化为普通调用，不影响现有测试。
+ */
+export const getBlogSettings: () => Promise<BlogSettings> = cache(readBlogSettingsFromStorage);
 
 export async function updateBlogSettings(input: unknown): Promise<BlogSettings> {
   const currentSettings = await getBlogSettings();

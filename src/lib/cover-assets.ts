@@ -174,11 +174,10 @@ export async function listCoverAssets(input: {
 export async function createCoverAsset(input: CoverAssetInput) {
   assertQiniuCoverAsset(input)
 
-  const existing = await prisma.coverAsset.findUnique({ where: { url: input.url } })
-  if (existing) {
-    if (existing.deletedAt) {
-      return prisma.coverAsset.update({
-        where: { id: existing.id },
+  const reviveDeletedAsset = async (deleted: { id: string }) => {
+    try {
+      return await prisma.coverAsset.update({
+        where: { id: deleted.id },
         data: {
           key: input.key,
           provider: input.provider,
@@ -199,9 +198,34 @@ export async function createCoverAsset(input: CoverAssetInput) {
           deletedAt: null,
         },
       })
-    }
+    } catch (error) {
+      if (!isPrismaConflictError(error)) {
+        throw error
+      }
 
+      // 并发窗口：复活期间另一请求已创建/复活出 active 记录 → 直接复用。
+      const active = await prisma.coverAsset.findFirst({ where: { url: input.url, deletedAt: null } })
+      if (active) {
+        return active
+      }
+
+      throw error
+    }
+  }
+
+  // active 行重复：直接复用。URL 唯一性由部分唯一索引保证（仅 active 行）。
+  const existing = await prisma.coverAsset.findFirst({ where: { url: input.url, deletedAt: null } })
+  if (existing) {
     return existing
+  }
+
+  // 软删后重建同 URL 资源：复活最近一条软删记录，保留"重建即复活"语义。
+  const deleted = await prisma.coverAsset.findFirst({
+    where: { url: input.url, deletedAt: { not: null } },
+    orderBy: { deletedAt: "desc" },
+  })
+  if (deleted) {
+    return reviveDeletedAsset(deleted)
   }
 
   try {
@@ -231,9 +255,18 @@ export async function createCoverAsset(input: CoverAssetInput) {
       throw error
     }
 
-    const duplicate = await prisma.coverAsset.findUnique({ where: { url: input.url } })
+    const duplicate = await prisma.coverAsset.findFirst({ where: { url: input.url, deletedAt: null } })
     if (duplicate) {
       return duplicate
+    }
+
+    // 并发窗口：冲突记录在检查期间被软删 → 复活它而非报错。
+    const deletedOnRace = await prisma.coverAsset.findFirst({
+      where: { url: input.url, deletedAt: { not: null } },
+      orderBy: { deletedAt: "desc" },
+    })
+    if (deletedOnRace) {
+      return reviveDeletedAsset(deletedOnRace)
     }
 
     throw new ConflictError("Cover asset already exists")

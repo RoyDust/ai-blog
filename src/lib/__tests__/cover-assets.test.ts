@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 const findManyCoverAssets = vi.fn();
 const countCoverAssets = vi.fn();
 const findFirstCoverAsset = vi.fn();
-const findUniqueCoverAsset = vi.fn();
 const createCoverAssetRecord = vi.fn();
 const updateCoverAssetRecord = vi.fn();
 const findManyPosts = vi.fn();
@@ -16,7 +15,6 @@ vi.mock("@/lib/prisma", () => ({
       findMany: findManyCoverAssets,
       count: countCoverAssets,
       findFirst: findFirstCoverAsset,
-      findUnique: findUniqueCoverAsset,
       create: createCoverAssetRecord,
       update: updateCoverAssetRecord,
     },
@@ -51,7 +49,7 @@ describe("cover asset service", () => {
       url: "https://cdn.example.com/covers/a.jpg",
       deletedAt: null,
     };
-    findUniqueCoverAsset.mockResolvedValueOnce(existing);
+    findFirstCoverAsset.mockResolvedValueOnce(existing);
 
     const { createCoverAsset } = await import("../cover-assets");
     const result = await createCoverAsset({
@@ -64,6 +62,33 @@ describe("cover asset service", () => {
     });
 
     expect(result).toBe(existing);
+    expect(createCoverAssetRecord).not.toHaveBeenCalled();
+  });
+
+  test("revives a soft-deleted record when recreating the same cover URL", async () => {
+    const deleted = {
+      id: "cover-9",
+      url: "https://cdn.example.com/covers/a.jpg",
+      deletedAt: new Date("2026-08-01"),
+    };
+    findFirstCoverAsset.mockResolvedValueOnce(null).mockResolvedValueOnce(deleted);
+    updateCoverAssetRecord.mockResolvedValueOnce({ id: "cover-9", deletedAt: null });
+
+    const { createCoverAsset } = await import("../cover-assets");
+    const result = await createCoverAsset({
+      url: "https://cdn.example.com/covers/a.jpg",
+      key: "covers/a.jpg",
+      provider: "qiniu",
+      source: "upload",
+      status: "active",
+      tags: [],
+    });
+
+    expect(result).toEqual({ id: "cover-9", deletedAt: null });
+    expect(updateCoverAssetRecord).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: "cover-9" },
+      data: expect.objectContaining({ deletedAt: null }),
+    }));
     expect(createCoverAssetRecord).not.toHaveBeenCalled();
   });
 
@@ -81,7 +106,7 @@ describe("cover asset service", () => {
   });
 
   test("marks AI source covers as AI-generated on create", async () => {
-    findUniqueCoverAsset.mockResolvedValueOnce(null);
+    findFirstCoverAsset.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
     createCoverAssetRecord.mockResolvedValueOnce({ id: "cover-ai" });
 
     const { createCoverAsset } = await import("../cover-assets");

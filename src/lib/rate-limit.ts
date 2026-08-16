@@ -43,6 +43,7 @@ const analyticsLimiter = createMemoryRateLimiter({ limit: 30, windowMs: 60_000 }
 const interactionLimiter = createMemoryRateLimiter({ limit: 20, windowMs: 60_000 })
 const uploadLimiter = createMemoryRateLimiter({ limit: 10, windowMs: 60_000 })
 const aiCoverLimiter = createMemoryRateLimiter({ limit: 5, windowMs: 60_000 })
+const internalFailureLimiter = createMemoryRateLimiter({ limit: 10, windowMs: 60_000 })
 
 async function checkDatabaseRateLimit(key: string, limit: number, windowMs: number): Promise<RateLimitResult> {
   const { prisma } = await import("@/lib/prisma")
@@ -179,4 +180,16 @@ export function checkUploadRateLimit(request: Request) {
  */
 export function checkAiCoverRateLimit(request: Request) {
   return checkRateLimit(request, 'ai-cover', { limit: 5, windowMs: 60_000 })
+}
+
+/**
+ * 内部接口（/api/cron、/api/internal）密钥校验失败限流，用于减缓 Bearer 爆破。
+ *
+ * 设计说明：
+ * - 仅在密钥不匹配时计费，合法调用（GitHub Actions 约 6 次/分）不受影响；
+ * - 固定使用内存限流器：middleware 层不应引入数据库依赖，单实例部署下
+ *   足够把爆破速率压到每秒若干次以下。
+ */
+export function checkInternalFailureRateLimit(request: Request) {
+  return internalFailureLimiter.check(getRateLimitKey(request, 'internal'))
 }

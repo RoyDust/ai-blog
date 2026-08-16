@@ -61,6 +61,92 @@ export function isPrismaConflictError(error: unknown) {
 }
 
 /**
+ * P2002 冲突字段的可读提示映射。
+ * 配合软删除部分唯一索引使用：部分唯一索引下 P2002 只发生在 active 行之间，
+ * 这里给出用户可操作的文案，而不是裸的 "Conflict"。
+ */
+const UNIQUE_FIELD_HINTS: Array<{ field: string; message: string }> = [
+  { field: "slug", message: "该 slug 已被使用，请更换后再试" },
+  { field: "name", message: "该名称已被使用，请更换后再试" },
+  { field: "url", message: "该资源地址已存在" },
+  { field: "email", message: "该邮箱已被使用" },
+]
+
+/**
+ * 从 Prisma P2002 错误中提取冲突字段名。
+ *
+ * 两种来源：
+ * - meta.target（经典形态）；
+ * - Prisma 7 driver adapter 下（部分唯一索引等引擎无法映射的约束），
+ *   target 为空、字段藏在 meta.driverAdapterError.cause.constraint.fields 中
+ *   ——2026-08-15 已用真实库探针验证该形态。
+ */
+export function getPrismaConflictTarget(error: unknown): string[] {
+  if (typeof error !== "object" || error === null) {
+    return []
+  }
+
+  const meta = "meta" in error ? (error as { meta?: unknown }).meta : undefined
+  if (!meta || typeof meta !== "object") {
+    return []
+  }
+
+  const toFieldList = (value: unknown) =>
+    Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+
+  const target = (meta as { target?: unknown }).target
+  const targetFields = toFieldList(target)
+  if (targetFields.length > 0) {
+    return targetFields
+  }
+
+  const driverError = (meta as { driverAdapterError?: unknown }).driverAdapterError
+  if (driverError && typeof driverError === "object") {
+    const cause = (driverError as { cause?: unknown }).cause
+    if (cause && typeof cause === "object") {
+      const constraint = (cause as { constraint?: unknown }).constraint
+      if (constraint && typeof constraint === "object") {
+        return toFieldList((constraint as { fields?: unknown }).fields)
+      }
+    }
+  }
+
+  return []
+}
+
+/**
+ * 根据冲突字段返回可公开的用户提示；无法识别时返回 null。
+ *
+ * 优先从 meta.target 解析；部分唯一索引（如 posts_slug_active_unique）由迁移 SQL
+ * 手写创建，Prisma 客户端可能无法反推 target 字段，此时退而解析错误消息中的
+ * 约束名（`*_active_unique`）或字段列表（`fields: (\`slug\`)`）。
+ */
+export function getPrismaConflictMessage(error: unknown): string | null {
+  const target = getPrismaConflictTarget(error)
+
+  for (const hint of UNIQUE_FIELD_HINTS) {
+    if (target.includes(hint.field)) {
+      return hint.message
+    }
+  }
+
+  const message =
+    typeof error === "object" && error !== null && "message" in error && typeof error.message === "string"
+      ? error.message
+      : "";
+
+  if (message) {
+    for (const hint of UNIQUE_FIELD_HINTS) {
+      if (message.includes(`\`${hint.field}\``) || message.includes(`${hint.field}_active_unique`)) {
+        return hint.message;
+      }
+    }
+  }
+
+  return null
+}
+
+/**
  * 识别 Prisma schema 未同步导致的运行时错误。
  */
 export function isPrismaMissingSchemaError(error: unknown) {
@@ -106,7 +192,8 @@ export function toErrorResponse(error: unknown, fallbackMessage = "Internal serv
   }
 
   if (isPrismaConflictError(error)) {
-    return NextResponse.json({ error: "Conflict" }, { status: 409 })
+    const message = getPrismaConflictMessage(error)
+    return NextResponse.json({ error: message ?? "Conflict" }, { status: 409 })
   }
 
   if (isPrismaMissingSchemaError(error)) {

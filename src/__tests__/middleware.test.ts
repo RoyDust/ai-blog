@@ -11,7 +11,7 @@ vi.mock('next-auth/jwt', () => ({
   getToken,
 }))
 
-import { middleware } from '../../middleware'
+import { config, middleware } from '../../middleware'
 
 describe('admin middleware', () => {
   const originalNextAuthSecret = process.env.NEXTAUTH_SECRET
@@ -23,6 +23,8 @@ describe('admin middleware', () => {
     vi.unstubAllEnvs()
     process.env.NEXTAUTH_SECRET = originalNextAuthSecret
     process.env.AUTH_SECRET = originalAuthSecret
+    vi.stubEnv('NODE_ENV', 'test')
+    delete process.env.OPERATION_LOG_INGEST_SECRET
   })
 
   test('falls back to AUTH_SECRET when NEXTAUTH_SECRET is absent', async () => {
@@ -133,7 +135,8 @@ describe('admin middleware', () => {
     expect(fetchMock).toHaveBeenCalledWith(new URL('/api/internal/operation-logs', request.url), expect.objectContaining({
       method: 'POST',
       headers: expect.objectContaining({
-        'x-operation-log-ingest-secret': 'auth-secret',
+        // 非生产环境使用专用 dev 回退密钥；不再复用 AUTH_SECRET。
+        'x-operation-log-ingest-secret': 'development-operation-log-ingest',
       }),
     }))
     expect(body).toEqual(expect.objectContaining({
@@ -146,6 +149,29 @@ describe('admin middleware', () => {
       errorMessage: 'Unauthorized',
       ip: '203.0.113.10',
     }))
+  })
+
+  test('skips denied-log recording in production without a dedicated ingest secret', async () => {
+    process.env.NEXTAUTH_SECRET = 'auth-secret'
+    vi.stubEnv('NODE_ENV', 'production')
+    delete process.env.OPERATION_LOG_INGEST_SECRET
+    getToken.mockResolvedValueOnce(null)
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ success: true })))
+    vi.stubGlobal('fetch', fetchMock)
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    const waitUntil = vi.fn((promise: Promise<unknown>) => promise)
+
+    const request = new NextRequest('http://localhost/api/admin/posts')
+    const response = await middleware(request, { waitUntil } as never)
+
+    expect(response.status).toBe(401)
+    expect(waitUntil).not.toHaveBeenCalled()
+    expect(fetchMock).not.toHaveBeenCalled()
+    // lib 层 fail-loud：生产缺配时发出一次告警，避免审计日志静默丢失。
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.stringContaining('OPERATION_LOG_INGEST_SECRET is not configured'),
+    )
+    errorSpy.mockRestore()
   })
 
   test('returns json 403 for non-admin admin api requests', async () => {
@@ -176,5 +202,173 @@ describe('rate limit key contract', () => {
     const request = new Request('http://localhost/api/search')
 
     expect(getRateLimitKey(request, 'upload')).toBe('upload:anonymous')
+  })
+})
+
+describe('internal api middleware gateway', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.unstubAllGlobals()
+    vi.unstubAllEnvs()
+    vi.stubEnv('NODE_ENV', 'test')
+    delete process.env.OPERATION_LOG_INGEST_SECRET
+    delete process.env.AI_NEWS_CRON_SECRET
+    delete process.env.PUBLISH_SCHEDULED_CRON_SECRET
+    delete process.env.CRON_SECRET
+  })
+
+  test('matcher covers cron and internal api prefixes', () => {
+    expect(config.matcher).toEqual(
+      expect.arrayContaining(['/api/cron/:path*', '/api/internal/:path*']),
+    )
+  })
+
+  test('rejects cron requests without a valid bearer secret', async () => {
+    process.env.AI_NEWS_CRON_SECRET = 'cron-secret'
+
+    const request = new NextRequest('http://localhost/api/cron/ai-news', {
+      headers: { authorization: 'Bearer wrong', 'x-forwarded-for': '203.0.113.11' },
+    })
+    const response = await middleware(request)
+    const payload = await response.json()
+
+    expect(response.status).toBe(401)
+    expect(payload).toEqual({ error: 'Unauthorized' })
+    expect(response.headers.get('x-request-id')).toBeTruthy()
+    expect(getToken).not.toHaveBeenCalled()
+  })
+
+  test('allows cron requests with the correct bearer secret', async () => {
+    process.env.AI_NEWS_CRON_SECRET = 'cron-secret'
+
+    const request = new NextRequest('http://localhost/api/cron/ai-news', {
+      headers: { authorization: 'Bearer cron-secret' },
+    })
+    const response = await middleware(request)
+
+    expect(response.status).toBe(200)
+    expect(getToken).not.toHaveBeenCalled()
+  })
+
+  test('fails closed with 503 when a cron secret is not configured', async () => {
+    const request = new NextRequest('http://localhost/api/cron/ai-news', {
+      headers: { authorization: 'Bearer anything' },
+    })
+    const response = await middleware(request)
+    const payload = await response.json()
+
+    expect(response.status).toBe(503)
+    expect(payload).toEqual({ error: 'Internal service secret is not configured' })
+  })
+
+  test('fails closed with 503 for unregistered cron prefixes', async () => {
+    process.env.AI_NEWS_CRON_SECRET = 'cron-secret'
+
+    const request = new NextRequest('http://localhost/api/cron/unknown-endpoint', {
+      headers: { authorization: 'Bearer cron-secret' },
+    })
+    const response = await middleware(request)
+    const payload = await response.json()
+
+    expect(response.status).toBe(503)
+    expect(payload).toEqual({ error: 'Internal endpoint is not registered' })
+  })
+
+  test('does not treat a registered path prefix collision as an exact registration', async () => {
+    process.env.AI_NEWS_CRON_SECRET = 'cron-secret'
+
+    const request = new NextRequest('http://localhost/api/cron/ai-news-extra', {
+      headers: { authorization: 'Bearer cron-secret' },
+    })
+    const response = await middleware(request)
+    const payload = await response.json()
+
+    expect(response.status).toBe(503)
+    expect(payload).toEqual({ error: 'Internal endpoint is not registered' })
+  })
+
+  test('records denied cron attempts through waitUntil', async () => {
+    process.env.AI_NEWS_CRON_SECRET = 'cron-secret'
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ success: true })))
+    vi.stubGlobal('fetch', fetchMock)
+    const waitUntil = vi.fn((promise: Promise<unknown>) => promise)
+
+    const request = new NextRequest('http://localhost/api/cron/publish-scheduled', {
+      headers: { authorization: 'Bearer wrong', 'x-forwarded-for': '203.0.113.12' },
+    })
+    const response = await middleware(request, { waitUntil } as never)
+    const pendingLog = waitUntil.mock.calls[0]?.[0] as Promise<unknown>
+    await pendingLog
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body)
+
+    expect(response.status).toBe(401)
+    expect(body).toEqual(expect.objectContaining({
+      path: '/api/cron/publish-scheduled',
+      scope: 'cron',
+      operation: 'middleware.cronApiDenied',
+      statusCode: 401,
+    }))
+  })
+
+  test('does not write back logs when internal ingest requests are denied (no self-loop)', async () => {
+    process.env.OPERATION_LOG_INGEST_SECRET = 'ingest-secret'
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ success: true })))
+    vi.stubGlobal('fetch', fetchMock)
+    const waitUntil = vi.fn((promise: Promise<unknown>) => promise)
+
+    const request = new NextRequest('http://localhost/api/internal/operation-logs', {
+      method: 'POST',
+      headers: { 'x-operation-log-ingest-secret': 'wrong', 'x-forwarded-for': '203.0.113.13' },
+    })
+    const response = await middleware(request, { waitUntil } as never)
+    const payload = await response.json()
+
+    expect(response.status).toBe(401)
+    expect(payload).toEqual({ error: 'Unauthorized' })
+    expect(waitUntil).not.toHaveBeenCalled()
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  test('allows internal ingest requests with the correct secret', async () => {
+    process.env.OPERATION_LOG_INGEST_SECRET = 'ingest-secret'
+
+    const request = new NextRequest('http://localhost/api/internal/operation-logs', {
+      method: 'POST',
+      headers: { 'x-operation-log-ingest-secret': 'ingest-secret' },
+    })
+    const response = await middleware(request)
+
+    expect(response.status).toBe(200)
+  })
+
+  test('lets internal ingest through to the handler when production secret is missing (handler returns 503)', async () => {
+    vi.stubEnv('NODE_ENV', 'production')
+
+    const request = new NextRequest('http://localhost/api/internal/operation-logs', {
+      method: 'POST',
+      headers: { 'x-operation-log-ingest-secret': 'anything' },
+    })
+    const response = await middleware(request)
+
+    expect(response.status).toBe(200)
+  })
+
+  test('throttles repeated failed internal attempts with 429', async () => {
+    process.env.AI_NEWS_CRON_SECRET = 'cron-secret'
+
+    let lastStatus = 0
+    for (let attempt = 1; attempt <= 11; attempt++) {
+      const request = new NextRequest('http://localhost/api/cron/ai-news', {
+        headers: { authorization: 'Bearer wrong', 'x-forwarded-for': '203.0.113.99' },
+      })
+      const response = await middleware(request)
+      lastStatus = response.status
+
+      if (attempt <= 10) {
+        expect(response.status).toBe(401)
+      }
+    }
+
+    expect(lastStatus).toBe(429)
   })
 })

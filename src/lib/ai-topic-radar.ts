@@ -365,7 +365,7 @@ export async function createDraftFromTopic(topicId: string, authorId: string) {
   let slug = baseSlug
   let suffix = 2
 
-  while (await prisma.post.findUnique({ where: { slug }, select: { id: true } })) {
+  while (await prisma.post.findFirst({ where: { slug, deletedAt: null }, select: { id: true } })) {
     slug = slugWithSuffix(baseSlug, suffix)
     suffix += 1
   }

@@ -149,7 +149,7 @@ model User {
 model Post {
   id                 String            @id @default(cuid())
   title              String
-  slug               String            @unique
+  slug               String
   content            String            @db.Text
   excerpt            String?
   seoTitle           String?
@@ -204,13 +204,15 @@ model Post {
   @@index([summaryStatus])
   @@index([summaryJobId])
   @@index([seoGeneratedAt])
+  // slug 的唯一性由部分唯一索引保证（仅 active 行，见迁移 soft_delete_partial_unique_indexes）
+  @@index([slug])
   @@map("posts")
 }
 
 model Series {
   id          String    @id @default(cuid())
   title       String
-  slug        String    @unique
+  slug        String
   description String?   @db.Text
   coverImage  String?
   order       Int       @default(0)
@@ -221,6 +223,7 @@ model Series {
   posts Post[]
 
   @@index([deletedAt, order])
+  @@index([slug])
   @@map("series")
 }
 
@@ -364,7 +367,7 @@ model SystemSetting {
 
 model CoverAsset {
   id          String    @id @default(cuid())
-  url         String    @unique
+  url         String
   key         String?
   provider    String    @default("qiniu")
   source      String    @default("upload")
@@ -393,6 +396,7 @@ model CoverAsset {
   @@index([source, createdAt])
   @@index([generatedByAi, createdAt])
   @@index([deletedAt])
+  @@index([url])
   @@map("cover_assets")
 }
 
@@ -688,8 +692,8 @@ model NotificationRecipient {
 
 model Category {
   id          String    @id @default(cuid())
-  name        String    @unique
-  slug        String    @unique
+  name        String
+  slug        String
   description String?
   deletedAt   DateTime?
   createdAt   DateTime  @default(now())
@@ -697,13 +701,14 @@ model Category {
   posts Post[]
 
   @@index([deletedAt])
+  @@index([slug])
   @@map("categories")
 }
 
 model Tag {
   id        String    @id @default(cuid())
-  name      String    @unique
-  slug      String    @unique
+  name      String
+  slug      String
   color     String?
   deletedAt DateTime?
   createdAt DateTime  @default(now())
@@ -711,6 +716,7 @@ model Tag {
   posts Post[]
 
   @@index([deletedAt])
+  @@index([slug])
   @@map("tags")
 }
 
@@ -742,7 +748,7 @@ model Comment {
 model TopicGuide {
   id          String    @id @default(cuid())
   title       String
-  slug        String    @unique
+  slug        String
   description String?   @db.Text
   status      String    @default("draft")
   createdAt   DateTime  @default(now())
@@ -753,6 +759,7 @@ model TopicGuide {
 
   @@index([status, createdAt])
   @@index([deletedAt])
+  @@index([slug])
   @@map("topic_guides")
 }
 

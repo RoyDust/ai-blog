@@ -17,7 +17,7 @@ const mocks = vi.hoisted(() => ({
       upsert: vi.fn(),
     },
     post: {
-      findUnique: vi.fn(),
+      findFirst: vi.fn(),
     },
   },
 }))
@@ -136,7 +136,7 @@ describe("ai topic radar scoring", () => {
         sourceType: "RSS",
       },
     ])
-    mocks.prisma.post.findUnique.mockResolvedValueOnce(null)
+    mocks.prisma.post.findFirst.mockResolvedValueOnce(null)
     mocks.createAdminPost.mockResolvedValueOnce({ id: "post-1", title: "AI Agent 工程化", slug: "ai-agent-gong-cheng-hua", published: false })
     mocks.prisma.aiTopic.update.mockResolvedValueOnce({ id: "topic-1", status: "DRAFTED", postId: "post-1" })
 
