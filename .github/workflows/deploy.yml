@@ -72,13 +72,16 @@ jobs:
       - name: Generate Prisma client
         run: pnpm prisma generate
 
-      - name: Sync Prisma schema for build database
-        run: pnpm prisma db push
+      - name: Apply Prisma migrations for build database
+        run: pnpm prisma migrate deploy
 
       - name: Build
         run: pnpm build
 
       - name: Write production env file locally
+        # APP_ENV_FILE 须包含 OPERATION_LOG_INGEST_SECRET（缺配时被拒管理请求日志静默丢失）、
+        # PUBLISH_SCHEDULED_CRON_SECRET / CRON_SECRET（定时发布接口密钥链）等内部密钥。
+        # 详见 docs/deployment/security-hardening-runbook.md 第 1、5 节。
         run: |
           cat > app.env <<'EOF'
           ${{ secrets.APP_ENV_FILE }}

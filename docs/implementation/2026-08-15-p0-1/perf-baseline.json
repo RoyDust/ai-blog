@@ -1,0 +1,281 @@
+{
+  "label": "baseline",
+  "baseURL": "http://127.0.0.1:3000",
+  "createdAt": "2026-08-14T19:48:53.811Z",
+  "runs": 3,
+  "pages": {
+    "home": {
+      "url": "http://127.0.0.1:3000/",
+      "median": {
+        "wallMs": 931,
+        "ttfb": 7,
+        "domContentLoaded": 32,
+        "loadEvent": 320,
+        "firstContentfulPaint": 272,
+        "requestCount": 110,
+        "transferSize": 24013788,
+        "jsTransfer": 314457
+      },
+      "runs": [
+        {
+          "wallMs": 970,
+          "navError": null,
+          "requestCount": 77,
+          "ttfb": 8,
+          "domContentLoaded": 32,
+          "loadEvent": 354,
+          "resourceCount": 68,
+          "transferSize": 23873564,
+          "jsTransfer": 313332,
+          "firstContentfulPaint": 288
+        },
+        {
+          "wallMs": 931,
+          "navError": null,
+          "requestCount": 110,
+          "ttfb": 7,
+          "domContentLoaded": 32,
+          "loadEvent": 320,
+          "resourceCount": 106,
+          "transferSize": 24013788,
+          "jsTransfer": 314457,
+          "firstContentfulPaint": 272
+        },
+        {
+          "wallMs": 893,
+          "navError": null,
+          "requestCount": 110,
+          "ttfb": 6,
+          "domContentLoaded": 25,
+          "loadEvent": 284,
+          "resourceCount": 107,
+          "transferSize": 24015238,
+          "jsTransfer": 314457,
+          "firstContentfulPaint": 260
+        }
+      ]
+    },
+    "posts": {
+      "url": "http://127.0.0.1:3000/posts",
+      "median": {
+        "wallMs": 1402,
+        "ttfb": 500,
+        "domContentLoaded": 533,
+        "loadEvent": 790,
+        "firstContentfulPaint": 720,
+        "requestCount": 95,
+        "transferSize": 24027414,
+        "jsTransfer": 313886
+      },
+      "runs": [
+        {
+          "wallMs": 1289,
+          "navError": null,
+          "requestCount": 95,
+          "ttfb": 394,
+          "domContentLoaded": 415,
+          "loadEvent": 667,
+          "resourceCount": 89,
+          "transferSize": 24034245,
+          "jsTransfer": 320719,
+          "firstContentfulPaint": 600
+        },
+        {
+          "wallMs": 1402,
+          "navError": null,
+          "requestCount": 78,
+          "ttfb": 500,
+          "domContentLoaded": 533,
+          "loadEvent": 790,
+          "resourceCount": 69,
+          "transferSize": 23950945,
+          "jsTransfer": 312761,
+          "firstContentfulPaint": 720
+        },
+        {
+          "wallMs": 1459,
+          "navError": null,
+          "requestCount": 95,
+          "ttfb": 534,
+          "domContentLoaded": 568,
+          "loadEvent": 854,
+          "resourceCount": 88,
+          "transferSize": 24027414,
+          "jsTransfer": 313886,
+          "firstContentfulPaint": 752
+        }
+      ]
+    },
+    "about": {
+      "url": "http://127.0.0.1:3000/about",
+      "median": {
+        "wallMs": 923,
+        "ttfb": 6,
+        "domContentLoaded": 34,
+        "loadEvent": 295,
+        "firstContentfulPaint": 272,
+        "requestCount": 68,
+        "transferSize": 23692624,
+        "jsTransfer": 306464
+      },
+      "runs": [
+        {
+          "wallMs": 924,
+          "navError": null,
+          "requestCount": 68,
+          "ttfb": 6,
+          "domContentLoaded": 34,
+          "loadEvent": 303,
+          "resourceCount": 64,
+          "transferSize": 23692624,
+          "jsTransfer": 306464,
+          "firstContentfulPaint": 272
+        },
+        {
+          "wallMs": 902,
+          "navError": null,
+          "requestCount": 68,
+          "ttfb": 5,
+          "domContentLoaded": 35,
+          "loadEvent": 287,
+          "resourceCount": 65,
+          "transferSize": 23696204,
+          "jsTransfer": 306464,
+          "firstContentfulPaint": 268
+        },
+        {
+          "wallMs": 923,
+          "navError": null,
+          "requestCount": 68,
+          "ttfb": 6,
+          "domContentLoaded": 33,
+          "loadEvent": 295,
+          "resourceCount": 64,
+          "transferSize": 23692623,
+          "jsTransfer": 306464,
+          "firstContentfulPaint": 276
+        }
+      ]
+    },
+    "postDetail": {
+      "url": "http://127.0.0.1:3000/posts/codex-wen-ding-shi-yong-yu-fang-feng-zhi-nan-cong-dai-li-dao",
+      "median": {
+        "wallMs": 941,
+        "ttfb": 6,
+        "domContentLoaded": 32,
+        "loadEvent": 328,
+        "firstContentfulPaint": 252,
+        "requestCount": 58,
+        "transferSize": 23958239,
+        "jsTransfer": 306499
+      },
+      "runs": [
+        {
+          "wallMs": 927,
+          "navError": null,
+          "requestCount": 64,
+          "ttfb": 5,
+          "domContentLoaded": 33,
+          "loadEvent": 318,
+          "resourceCount": 54,
+          "transferSize": 23967305,
+          "jsTransfer": 306499,
+          "firstContentfulPaint": 268
+        },
+        {
+          "wallMs": 944,
+          "navError": null,
+          "requestCount": 57,
+          "ttfb": 7,
+          "domContentLoaded": 32,
+          "loadEvent": 331,
+          "resourceCount": 46,
+          "transferSize": 23958239,
+          "jsTransfer": 306499,
+          "firstContentfulPaint": 236
+        },
+        {
+          "wallMs": 941,
+          "navError": null,
+          "requestCount": 58,
+          "ttfb": 6,
+          "domContentLoaded": 31,
+          "loadEvent": 328,
+          "resourceCount": 46,
+          "transferSize": 23958239,
+          "jsTransfer": 306499,
+          "firstContentfulPaint": 252
+        }
+      ]
+    }
+  },
+  "scenarios": {
+    "postsScroll": {
+      "median": {
+        "wallMs": 8627,
+        "apiRequestsBeforeScroll": 1,
+        "apiRequestsTotal": 4
+      },
+      "distinctApiUrls": [
+        "http://127.0.0.1:3000/api/posts/popular",
+        "http://127.0.0.1:3000/api/posts?page=2&limit=10",
+        "http://127.0.0.1:3000/api/posts?page=3&limit=10",
+        "http://127.0.0.1:3000/api/posts?page=4&limit=10"
+      ],
+      "runs": [
+        {
+          "wallMs": 8983,
+          "apiRequestsBeforeScroll": 1,
+          "apiRequestsTotal": 4,
+          "distinctApiUrls": [
+            "http://127.0.0.1:3000/api/posts/popular",
+            "http://127.0.0.1:3000/api/posts?page=2&limit=10",
+            "http://127.0.0.1:3000/api/posts?page=3&limit=10",
+            "http://127.0.0.1:3000/api/posts?page=4&limit=10"
+          ]
+        },
+        {
+          "wallMs": 8627,
+          "apiRequestsBeforeScroll": 1,
+          "apiRequestsTotal": 4,
+          "distinctApiUrls": [
+            "http://127.0.0.1:3000/api/posts/popular",
+            "http://127.0.0.1:3000/api/posts?page=2&limit=10",
+            "http://127.0.0.1:3000/api/posts?page=3&limit=10",
+            "http://127.0.0.1:3000/api/posts?page=4&limit=10"
+          ]
+        },
+        {
+          "wallMs": 8625,
+          "apiRequestsBeforeScroll": 1,
+          "apiRequestsTotal": 4,
+          "distinctApiUrls": [
+            "http://127.0.0.1:3000/api/posts/popular",
+            "http://127.0.0.1:3000/api/posts?page=2&limit=10",
+            "http://127.0.0.1:3000/api/posts?page=3&limit=10",
+            "http://127.0.0.1:3000/api/posts?page=4&limit=10"
+          ]
+        }
+      ]
+    }
+  },
+  "api": {
+    "postsList": {
+      "medianMs": 326,
+      "runs": [
+        {
+          "ms": 326,
+          "status": 200
+        },
+        {
+          "ms": 318,
+          "status": 200
+        },
+        {
+          "ms": 326,
+          "status": 200
+        }
+      ]
+    }
+  }
+}

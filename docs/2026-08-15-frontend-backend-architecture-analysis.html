@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Inkforge 前后端架构完整分析报告 · 2026-08-15</title>
+<style>
+  :root {
+    --bg: #f6f6f2;
+    --paper: #ffffff;
+    --ink: #17181c;
+    --ink-soft: #4a4e58;
+    --muted: #8a8f9a;
+    --line: #e4e4dd;
+    --line-strong: #d2d2c9;
+    --accent: #3b5bdb;
+    --accent-soft: #eef1fd;
+    --p0: #c92a2a;
+    --p0-soft: #fdf0f0;
+    --p0-line: #f3caca;
+    --p1: #c96a00;
+    --p1-soft: #fdf6ea;
+    --p1-line: #f0d9ae;
+    --p2: #5c677d;
+    --p2-soft: #f2f4f7;
+    --p2-line: #d8dde5;
+    --good: #2f9e44;
+    --good-soft: #eef8f0;
+    --good-line: #c6e5cc;
+    --mono: "JetBrains Mono", "SF Mono", "Cascadia Code", Consolas, "Courier New", monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+    --serif: "Songti SC", "Noto Serif SC", "STSong", Georgia, serif;
+    --radius: 12px;
+    --shadow-sm: 0 1px 2px rgba(20, 22, 30, 0.05);
+    --shadow-md: 0 4px 16px rgba(20, 22, 30, 0.07);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.75;
+    font-size: 15px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ---------- top progress bar ---------- */
+  #progress {
+    position: fixed; top: 0; left: 0; height: 3px; width: 0;
+    background: linear-gradient(90deg, var(--accent), #7048e8);
+    z-index: 100; transition: width .1s linear;
+  }
+
+  /* ---------- nav ---------- */
+  nav {
+    position: sticky; top: 0; z-index: 50;
+    background: rgba(246, 246, 242, 0.88);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--line);
+  }
+  nav .inner {
+    max-width: 1120px; margin: 0 auto; padding: 0 28px;
+    display: flex; align-items: center; gap: 22px; height: 54px;
+    overflow-x: auto; white-space: nowrap; scrollbar-width: none;
+  }
+  nav .inner::-webkit-scrollbar { display: none; }
+  nav .brand {
+    font-weight: 700; font-size: 14px; letter-spacing: .02em;
+    display: flex; align-items: center; gap: 8px; color: var(--ink);
+    text-decoration: none;
+  }
+  nav .brand .dot {
+    width: 9px; height: 9px; border-radius: 3px; background: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  nav a.lnk {
+    color: var(--ink-soft); text-decoration: none; font-size: 13.5px;
+    padding: 4px 2px; border-bottom: 2px solid transparent; transition: color .15s;
+  }
+  nav a.lnk:hover, nav a.lnk.active { color: var(--ink); border-bottom-color: var(--accent); }
+
+  /* ---------- layout ---------- */
+  main { max-width: 1120px; margin: 0 auto; padding: 0 28px 96px; }
+  section { margin-top: 72px; }
+  section > .sec-head { margin-bottom: 28px; }
+  .sec-kicker {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 12px; font-weight: 700; letter-spacing: .14em;
+    color: var(--accent); text-transform: uppercase;
+  }
+  .sec-kicker::before { content: ""; width: 22px; height: 2px; background: var(--accent); }
+  h2.sec-title { font-size: 26px; font-weight: 800; letter-spacing: -.01em; margin-top: 6px; }
+  .sec-desc { color: var(--ink-soft); margin-top: 8px; max-width: 760px; }
+
+  /* ---------- hero ---------- */
+  .hero {
+    padding: 76px 0 0;
+  }
+  .hero .tag {
+    display: inline-flex; gap: 8px; align-items: center;
+    font-size: 12.5px; font-weight: 600; color: var(--accent);
+    background: var(--accent-soft); border: 1px solid #d8dffb;
+    padding: 5px 12px; border-radius: 999px; margin-bottom: 22px;
+  }
+  .hero h1 {
+    font-size: clamp(30px, 4.6vw, 46px);
+    font-weight: 850; letter-spacing: -.02em; line-height: 1.18;
+  }
+  .hero .subtitle {
+    margin-top: 18px; font-size: 16.5px; color: var(--ink-soft); max-width: 820px;
+  }
+  .hero .meta {
+    margin-top: 26px; display: flex; flex-wrap: wrap; gap: 10px;
+    font-size: 12.5px; color: var(--muted);
+  }
+  .hero .meta span {
+    border: 1px solid var(--line-strong); border-radius: 999px; padding: 4px 12px;
+    background: var(--paper);
+  }
+
+  /* verdict banner */
+  .verdict {
+    margin-top: 40px;
+    background: linear-gradient(135deg, #17181c, #24262e);
+    color: #f2f3f5; border-radius: var(--radius);
+    padding: 30px 34px; position: relative; overflow: hidden;
+  }
+  .verdict::after {
+    content: ""; position: absolute; right: -70px; top: -70px; width: 240px; height: 240px;
+    background: radial-gradient(circle, rgba(59, 91, 219, .35), transparent 70%);
+  }
+  .verdict .v-label {
+    font-size: 11.5px; font-weight: 700; letter-spacing: .18em; color: #8ea2f0; text-transform: uppercase;
+  }
+  .verdict .v-text { margin-top: 10px; font-size: 18.5px; font-weight: 700; line-height: 1.65; }
+  .verdict .v-text em {
+    font-style: normal; color: #ffd43b;
+    border-bottom: 2px solid rgba(255, 212, 59, .4); padding-bottom: 1px;
+  }
+
+  /* ---------- stat cards ---------- */
+  .stats {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 14px; margin-top: 18px;
+  }
+  .stat {
+    background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 18px 20px; box-shadow: var(--shadow-sm);
+  }
+  .stat .num { font-size: 26px; font-weight: 800; letter-spacing: -.02em; color: var(--ink); }
+  .stat .num small { font-size: 14px; font-weight: 600; color: var(--muted); margin-left: 2px; }
+  .stat .lbl { margin-top: 2px; font-size: 12.5px; color: var(--ink-soft); }
+
+  /* ---------- architecture diagram ---------- */
+  .arch {
+    background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 30px; box-shadow: var(--shadow-sm); overflow-x: auto;
+  }
+  .arch-layer {
+    border: 1.5px solid var(--line-strong); border-radius: 10px;
+    padding: 14px 18px; margin-bottom: 12px; position: relative;
+    background: #fcfcfa;
+  }
+  .arch-layer:last-child { margin-bottom: 0; }
+  .arch-layer .l-name { font-weight: 750; font-size: 14px; }
+  .arch-layer .l-sub { font-size: 12.5px; color: var(--ink-soft); margin-top: 2px; }
+  .arch-layer .l-sub code {
+    font-family: var(--mono); font-size: 11.5px; background: var(--accent-soft);
+    color: var(--accent); padding: 1px 6px; border-radius: 4px;
+  }
+  .arch-layer.core { border-color: var(--accent); background: var(--accent-soft); }
+  .arch-layer.core .l-name { color: #233a9e; }
+  .arch-layer.db { border-style: dashed; }
+  .arch-arrow {
+    text-align: center; color: var(--muted); font-size: 12px;
+    margin: -6px 0; position: relative; z-index: 2;
+  }
+  .arch-arrow::after { content: "↓"; display: block; margin-top: -6px; }
+  .arch-note {
+    display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px;
+  }
+  .arch-note span {
+    font-size: 12px; color: var(--ink-soft); border: 1px dashed var(--line-strong);
+    border-radius: 999px; padding: 3px 12px; background: #fcfcfa;
+  }
+
+  /* ---------- cards (strengths) ---------- */
+  .cards {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px;
+  }
+  .card {
+    background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 20px 22px; box-shadow: var(--shadow-sm); position: relative;
+    transition: transform .15s, box-shadow .15s;
+  }
+  .card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+  .card .idx {
+    font-family: var(--mono); font-size: 11.5px; font-weight: 700; color: var(--accent);
+    background: var(--accent-soft); border-radius: 6px; padding: 2px 8px; display: inline-block;
+  }
+  .card h4 { font-size: 15.5px; font-weight: 750; margin-top: 10px; line-height: 1.5; }
+  .card p { font-size: 13.5px; color: var(--ink-soft); margin-top: 8px; }
+  .card code {
+    font-family: var(--mono); font-size: 11.5px; background: #f1f2f0; color: var(--ink-soft);
+    padding: 1px 5px; border-radius: 4px;
+  }
+
+  /* ---------- issue groups ---------- */
+  .issue-group { margin-top: 34px; }
+  .issue-group:first-child { margin-top: 0; }
+  .group-head {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 16px;
+  }
+  .group-head .g-badge {
+    font-weight: 800; font-size: 13px; letter-spacing: .04em; padding: 5px 14px;
+    border-radius: 999px; color: #fff;
+  }
+  .g-badge.p0 { background: var(--p0); }
+  .g-badge.p1 { background: var(--p1); }
+  .g-badge.p2 { background: var(--p2); }
+  .group-head .g-title { font-size: 15px; font-weight: 700; color: var(--ink); }
+  .group-head .g-count { font-size: 12.5px; color: var(--muted); margin-left: auto; }
+
+  .issue {
+    background: var(--paper); border: 1px solid var(--line); border-left: 4px solid var(--p2);
+    border-radius: 10px; padding: 20px 24px; margin-bottom: 14px; box-shadow: var(--shadow-sm);
+  }
+  .issue.p0 { border-left-color: var(--p0); }
+  .issue.p1 { border-left-color: var(--p1); }
+  .issue h4 { font-size: 15.5px; font-weight: 750; line-height: 1.5; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+  .issue h4 .id {
+    font-family: var(--mono); font-size: 11.5px; font-weight: 700; flex-shrink: 0;
+    padding: 2px 7px; border-radius: 5px;
+  }
+  .issue.p0 h4 .id { background: var(--p0-soft); color: var(--p0); border: 1px solid var(--p0-line); }
+  .issue.p1 h4 .id { background: var(--p1-soft); color: var(--p1); border: 1px solid var(--p1-line); }
+  .issue.p2 h4 .id { background: var(--p2-soft); color: var(--p2); border: 1px solid var(--p2-line); }
+  .issue .body { font-size: 13.5px; color: var(--ink-soft); margin-top: 8px; }
+  .issue .body ul { margin: 6px 0 0 18px; }
+  .issue .body li { margin-top: 3px; }
+  .issue .body code {
+    font-family: var(--mono); font-size: 11.5px; background: #f1f2f0; color: #3a3f4b;
+    padding: 1px 6px; border-radius: 4px;
+  }
+  .issue .suggest {
+    margin-top: 12px; font-size: 13.5px; background: var(--accent-soft);
+    border: 1px solid #d8dffb; border-radius: 8px; padding: 10px 14px; color: #27304f;
+  }
+  .issue .suggest b { color: #233a9e; }
+
+  /* ---------- roadmap ---------- */
+  .roadmap { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+  .phase {
+    background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 24px; box-shadow: var(--shadow-sm); position: relative; overflow: hidden;
+  }
+  .phase::before {
+    content: ""; position: absolute; top: 0; left: 0; right: 0; height: 4px;
+  }
+  .phase.f1::before { background: linear-gradient(90deg, var(--p0), var(--p1)); }
+  .phase.f2::before { background: linear-gradient(90deg, var(--accent), #7048e8); }
+  .phase.f3::before { background: linear-gradient(90deg, var(--good), #20c997); }
+  .phase .ph-tag { font-size: 11.5px; font-weight: 800; letter-spacing: .12em; color: var(--muted); text-transform: uppercase; }
+  .phase h4 { font-size: 17px; font-weight: 800; margin-top: 6px; }
+  .phase .ph-dur { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+  .phase ol { margin: 14px 0 0 18px; font-size: 13.5px; color: var(--ink-soft); }
+  .phase ol li { margin-top: 6px; }
+  .phase ol code {
+    font-family: var(--mono); font-size: 11.5px; background: #f1f2f0; color: var(--accent);
+    padding: 1px 5px; border-radius: 4px;
+  }
+  .avoid {
+    margin-top: 16px; background: var(--p2-soft); border: 1px solid var(--p2-line);
+    border-radius: var(--radius); padding: 20px 24px;
+  }
+  .avoid h4 { font-size: 15.5px; font-weight: 750; color: #3a4152; }
+  .avoid ul { margin: 8px 0 0 18px; font-size: 13.5px; color: var(--ink-soft); }
+  .avoid li { margin-top: 4px; }
+
+  /* ---------- drift ---------- */
+  .drift { display: grid; gap: 12px; }
+  .drift-item {
+    background: var(--paper); border: 1px solid var(--line); border-radius: 10px;
+    padding: 16px 20px; display: flex; gap: 14px; align-items: flex-start; box-shadow: var(--shadow-sm);
+  }
+  .drift-item .n {
+    font-family: var(--mono); font-weight: 700; color: var(--p1); font-size: 13px;
+    background: var(--p1-soft); border: 1px solid var(--p1-line); border-radius: 6px;
+    width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .drift-item .txt { font-size: 13.5px; color: var(--ink-soft); }
+  .drift-item .txt b { color: var(--ink); }
+  .drift-item .txt code {
+    font-family: var(--mono); font-size: 11.5px; background: #f1f2f0; color: #3a3f4b;
+    padding: 1px 6px; border-radius: 4px;
+  }
+
+  /* ---------- legend & footer ---------- */
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 10px; }
+  .legend span { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--ink-soft); }
+  .legend .sw { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+  footer {
+    border-top: 1px solid var(--line); margin-top: 88px; padding: 28px 0 8px;
+    color: var(--muted); font-size: 12.5px; display: flex; flex-wrap: wrap; gap: 14px; justify-content: space-between;
+  }
+  footer code { font-family: var(--mono); font-size: 11.5px; }
+
+  @media (max-width: 640px) {
+    main { padding: 0 18px 72px; }
+    nav .inner { padding: 0 18px; }
+    .hero h1 { font-size: 27px; }
+    .verdict .v-text { font-size: 16px; }
+    .arch { padding: 18px; }
+  }
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<nav>
+  <div class="inner">
+    <a class="brand" href="#top"><span class="dot"></span>Inkforge 架构分析</a>
+    <a class="lnk" href="#overview">总体评价</a>
+    <a class="lnk" href="#arch">架构现状</a>
+    <a class="lnk" href="#strengths">优点</a>
+    <a class="lnk" href="#issues">问题清单</a>
+    <a class="lnk" href="#roadmap">路线图</a>
+    <a class="lnk" href="#drift">文档漂移</a>
+    <a class="lnk" href="#progress-section">整改进展</a>
+  </div>
+</nav>
+
+<main id="top">
+
+  <!-- ================= HERO ================= -->
+  <div class="hero">
+    <div class="tag">📐 架构评审报告 · Architecture Review</div>
+    <h1>Inkforge 前后端架构<br />完整分析报告</h1>
+    <p class="subtitle">
+      对 Next.js 16 AI 内容平台的渲染层、业务层、数据层、安全与部署链路的一次完整代码级评审：
+      基线勘察 + 三个并行子代理深挖 + 关键结论交叉核验，全程只读。
+    </p>
+    <div class="meta">
+      <span>📅 2026-08-15</span>
+      <span>🧭 范围：src/lib · src/app · src/components · prisma · 部署链路</span>
+      <span>🔗 延续：2026-05-10 标杆对照分析（产品视角）</span>
+    </div>
+
+    <div class="verdict">
+      <div class="v-label">总体结论 · One-liner</div>
+      <div class="v-text">
+        核心读写链路健康 —— 服务端/渲染层设计优秀，<em>客户端工程化</em>与<em>生产安全基线</em>
+        是下一阶段的主要矛盾。
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= STATS ================= -->
+  <section id="overview">
+    <div class="sec-head">
+      <span class="sec-kicker">Codebase at a glance</span>
+      <h2 class="sec-title">代码库规模速览</h2>
+      <p class="sec-desc">规模与质量指标全景：模块边界清晰、无上帝模块失控，测试文化扎实。</p>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="num">161</div><div class="lbl">业务模块（src/lib，90+ 域）</div></div>
+      <div class="stat"><div class="num">277</div><div class="lbl">路由文件（src/app）</div></div>
+      <div class="stat"><div class="num">266</div><div class="lbl">组件文件（src/components）</div></div>
+      <div class="stat"><div class="num">86</div><div class="lbl">Route Handlers</div></div>
+      <div class="stat"><div class="num">43</div><div class="lbl">数据模型 / 枚举</div></div>
+      <div class="stat"><div class="num">109</div><div class="lbl">schema 索引/唯一约束（+131 条迁移 SQL 索引）</div></div>
+      <div class="stat"><div class="num">254</div><div class="lbl">Vitest 测试文件（955 用例）</div></div>
+      <div class="stat"><div class="num">21<small>%</small></div><div class="lbl">客户端组件占比（146/697）</div></div>
+      <div class="stat"><div class="num">843</div><div class="lbl">最大 lib 模块行数（ai-news-run-flow）</div></div>
+      <div class="stat"><div class="num">4</div><div class="lbl">GitHub Actions 工作流</div></div>
+    </div>
+  </section>
+
+  <!-- ================= ARCH ================= -->
+  <section id="arch">
+    <div class="sec-head">
+      <span class="sec-kicker">Architecture</span>
+      <h2 class="sec-title">总体分层与调用关系</h2>
+      <p class="sec-desc">薄 route + 厚 lib 范式：公共页 RSC 直查 Prisma，客户端写操作走 Route Handler，AI Agent 经 Bearer token 接入。</p>
+    </div>
+    <div class="arch">
+      <div class="arch-layer">
+        <div class="l-name">🌐 浏览器</div>
+        <div class="l-sub">公共前台（RSC 直查）&nbsp;·&nbsp; 运营后台 <code>admin/</code>（两种模式并存）&nbsp;·&nbsp; 外部 AI Agent 客户端</div>
+      </div>
+      <div class="arch-arrow"></div>
+      <div class="arch-layer core">
+        <div class="l-name">🛡️ middleware.ts — 统一权限边界</div>
+        <div class="l-sub">拦截 <code>/admin/*</code> 与 <code>/api/admin/*</code>：JWT + <code>role=ADMIN</code> 校验，被拒请求回写操作日志</div>
+      </div>
+      <div class="arch-arrow"></div>
+      <div class="arch-layer">
+        <div class="l-name">📡 src/app/api — 86 个 Route Handler（薄）</div>
+        <div class="l-sub"><code>/api/public</code> · <code>/api/admin</code> · <code>/api/ai</code> · <code>/api/cron</code> · <code>/api/internal</code></div>
+      </div>
+      <div class="arch-arrow"></div>
+      <div class="arch-layer core">
+        <div class="l-name">🧩 src/lib — 业务逻辑层（厚）</div>
+        <div class="l-sub">
+          内容 <code>posts / taxonomy / ai-authoring</code> · AI 流水线 <code>ai-news-* / ai-tasks / post-summary*</code>
+          · 运营 <code>newsletter* / notifications / analytics</code> · 基础设施 <code>prisma / cache / rate-limit / api-errors</code>
+        </div>
+      </div>
+      <div class="arch-arrow"></div>
+      <div class="arch-layer db">
+        <div class="l-name">🗄️ Prisma 7（@prisma/adapter-pg 共享单例）→ PostgreSQL</div>
+        <div class="l-sub">热重载复用 · 构建期缺库安全降级 · 连接池签名轮换 · 软删除（deletedAt）</div>
+      </div>
+      <div class="arch-note">
+        <span>无 Server Actions：客户端写操作统一走 Route Handler</span>
+        <span>公共页 ISR：revalidate = 300s + 按路径精确失效</span>
+        <span>错误契约：语义化错误 + toErrorResponse 统一落出</span>
+        <span>部署：CI 三重门禁 + Docker + SSH/rsync 软链零停机发布</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= STRENGTHS ================= -->
+  <section id="strengths">
+    <div class="sec-head">
+      <span class="sec-kicker">Strengths</span>
+      <h2 class="sec-title">应继续保持的工程决策</h2>
+      <p class="sec-desc">八项超出同类项目平均水平的工程实践，是后续演进的地基。</p>
+    </div>
+    <div class="cards">
+      <div class="card"><span class="idx">01</span><h4>薄 route + 厚 lib 分层纪律</h4><p>81 个 handler 大多是“鉴权 → 校验 → 调 lib → 统一错误”，业务按域前缀组织，模块图清晰、无上帝模块。</p></div>
+      <div class="card"><span class="idx">02</span><h4>Prisma 单例设计精巧</h4><p>dev 热重载复用、按 <code>Prisma.ModelName</code> 校验委托、构建期缺 <code>DATABASE_URL</code> 时返回不可用代理、连接池参数变化自动换池。</p></div>
+      <div class="card"><span class="idx">03</span><h4>契约测试文化</h4><p>缓存配置、API 错误格式、CSP、暗黑模式等横切行为均有契约测试兜底，防止重构破坏约定。</p></div>
+      <div class="card"><span class="idx">04</span><h4>缓存失效机制完整</h4><p><code>revalidatePublicContent</code> 同时处理新旧 slug/分类/标签/系列的路径清理，少见的“写后精确失效”完整实现。</p></div>
+      <div class="card"><span class="idx">05</span><h4>RSC 边界与 React 19 利用</h4><p>首页 <code>Promise.allSettled</code> 局部降级、文章页 <code>use()</code> 消费 Promise、<code>getPublicPostSelect()</code> 统一数据形状。</p></div>
+      <div class="card"><span class="idx">06</span><h4>安全细节的亮点</h4><p>AI token 哈希 + scope + 吊销、模型 API key AES-256-GCM 加密入库、SQL 全参数化、IP 哈希、日志脱敏、<code>timingSafeEqual</code>。</p></div>
+      <div class="card"><span class="idx">07</span><h4>数据模型索引充分</h4><p>146 处索引/唯一约束覆盖列表查询、软删过滤、去重等热点，schema 是“想过的”。</p></div>
+      <div class="card"><span class="idx">08</span><h4>部署链路稳健</h4><p>先 <code>migrate deploy</code> 再起新容器、镜像预构建失败回退、零停机软链切换；CI 用独立 PostgreSQL 跑真实构建。</p></div>
+    </div>
+  </section>
+
+  <!-- ================= ISSUES ================= -->
+  <section id="issues">
+    <div class="sec-head">
+      <span class="sec-kicker">Findings</span>
+      <h2 class="sec-title">问题清单</h2>
+      <p class="sec-desc">按严重程度分级（P0 高风险高收益 / P1 中风险 / P2 长期项），每条附文件与行号证据，均经交叉核验。</p>
+      <div class="legend">
+        <span><span class="sw" style="background:var(--p0)"></span>P0 · 高风险</span>
+        <span><span class="sw" style="background:var(--p1)"></span>P1 · 中风险</span>
+        <span><span class="sw" style="background:var(--p2)"></span>P2 · 长期项</span>
+      </div>
+    </div>
+
+    <!-- ===== P0 ===== -->
+    <div class="issue-group">
+      <div class="group-head">
+        <span class="g-badge p0">P0</span>
+        <span class="g-title">高风险 / 高收益 —— 建议近期处理</span>
+        <span class="g-count">6 项</span>
+      </div>
+
+      <div class="issue p0">
+        <h4><span class="id">P0-1</span>表单与数据层缺少统一抽象（前端工程化债）</h4>
+        <div class="body">
+          文档宣称“表单用 React Hook Form + Zod”，实际全项目仅 <code>ContactForm.tsx</code> 一处使用；<code>lib/validation.ts</code> 是手写校验层；登录/注册/文章编辑器全部手写 <code>useState</code>。
+          <ul>
+            <li>客户端无请求库：无 SWR/React Query，<code>admin/posts/page.tsx</code> 单文件 <b>1250+ 行</b>整页 <code>use client</code>，15+ 状态内联</li>
+            <li><code>useInfinitePosts.ts</code> 用 <code>requestIdRef</code> 手写防竞态</li>
+          </ul>
+        </div>
+        <div class="suggest"><b>建议：</b>① 引入轻量数据请求层（SWR 或基于 <code>admin-api-client.ts</code> 的 <code>useApiQuery</code>）；② 拆分巨型页面（hook + 表格/工具栏子组件）；③ 表单统一迁移 RHF+Zod，或修正文档承认手写校验层现状。</div>
+      </div>
+
+      <div class="issue p0">
+        <h4><span class="id">P0-2</span>软删除 × 唯一约束冲突（数据模型级缺陷）</h4>
+        <div class="body">
+          <code>Post.slug</code>、<code>Series.slug</code>、<code>Category.name/slug</code>、<code>Tag.name/slug</code> 均为 <code>@unique</code>（schema.prisma:152,213,691-692,705-706），软删只写 <code>deletedAt</code>。
+          软删后重建同名条目必然触发 P2002，用户只看到 409 “Conflict”，且无法与真冲突区分。
+        </div>
+        <div class="suggest"><b>建议：</b>① 迁移为部分唯一索引（<code>WHERE "deletedAt" IS NULL</code>）；② 或软删时改写 slug（追加 <code>-deleted-&lt;id&gt;</code>）；③ 至少把该场景的 P2002 映射为“该名称已被历史内容占用”的明确提示。</div>
+      </div>
+
+      <div class="issue p0">
+        <h4><span class="id">P0-3</span>cron / internal 接口防护面薄弱（后端安全）</h4>
+        <div class="body">
+          <ul>
+            <li><code>middleware.ts</code> matcher 不覆盖 <code>/api/cron</code> 与 <code>/api/internal</code>（middleware.ts:119-121），保护全靠各 handler 自检</li>
+            <li>cron secret 是非常量时间比较（<code>token !== configuredSecret</code>），而 newsletter 已用 <code>timingSafeEqual</code> —— 同一目标两种实现</li>
+            <li>内部日志密钥未配置时回退到 <code>AUTH_SECRET</code>（api-operation-log-ingest-secret.ts:6），会话签名密钥与内部接口密钥复用</li>
+          </ul>
+        </div>
+        <div class="suggest"><b>建议：</b>① 统一 <code>crypto.timingSafeEqual</code>；② 独立 <code>OPERATION_LOG_INGEST_SECRET</code>，去掉 AUTH_SECRET 回退；③ 纳入 middleware 统一防护或抽共享 <code>requireInternalSecret()</code>；④ 生产密钥缺失时快速失败而非静默降级。</div>
+      </div>
+
+      <div class="issue p0">
+        <h4><span class="id">P0-4</span>生产安全基线：TLS / HSTS / CSP / Cookie（基建）</h4>
+        <div class="body">
+          <ul>
+            <li>依据 .env 与 CI 配置，<code>NEXTAUTH_URL</code> / <code>NEXT_PUBLIC_SITE_URL</code> 为 http；<code>security-headers.ts</code> 无 HSTS、CSP 无 <code>upgrade-insecure-requests</code></li>
+            <li><code>auth-cookies.ts:5-16</code> 在 http 配置下不给会话 cookie 加 Secure —— 若接入层未终结 TLS，会话 token 明文传输</li>
+            <li>CSP 实为 <code>script-src 'unsafe-inline'</code>（dev 加 unsafe-eval）、<code>img-src http: https:</code>，XSS 纵深防御被削弱</li>
+          </ul>
+        </div>
+        <div class="suggest"><b>建议：</b>① 全站 HTTPS（nginx/caddy 终结），同步把 URL 改为 https 使 Secure cookie 生效；② 安全头加 HSTS 与 <code>upgrade-insecure-requests</code>；③ 中长期用 nonce/hash 方案去掉 unsafe-inline，img/connect 收敛白名单。</div>
+      </div>
+
+      <div class="issue p0">
+        <h4><span class="id">P0-5</span>密钥卫生（基建）</h4>
+        <div class="body">
+          本地 <code>.env</code> 含真实生产密钥（DB/GitHub/七牛/DashScope）；<code>AI_NEWS_CRON_SECRET</code> 为可猜测的固定字符串；<code>NEXTAUTH_SECRET</code> 未替换为强随机值；
+          <code>.gitignore</code> 只挡 <code>.env</code>（第 40 行），<code>.env.local</code> 等变体未被忽略。
+        </div>
+        <div class="suggest"><b>建议：</b>① 轮换全部真实密钥（cron secret 改强随机，半小时即可完成）；② <code>.gitignore</code> 改为 <code>.env*</code> + <code>!.env.example</code>；③ 把 <code>auth-secret.ts</code> 的占位符检测推广到其他密钥。</div>
+      </div>
+
+      <div class="issue p0">
+        <h4><span class="id">P0-6</span>鉴权 / 校验 / 错误处理入口不一致（后端一致性）</h4>
+        <div class="body">
+          <ul>
+            <li>bookmark 路由用 <code>getServerSession</code> 手写鉴权绕过 <code>requireSession</code>（bookmark/route.ts:19-25），丢失操作日志 actor 登记</li>
+            <li><code>api/posts/route.ts:30-35</code>、<code>api/posts/[slug]/route.ts:68-72,84-90</code> 手拼 404/500 JSON，绕过 <code>toErrorResponse</code></li>
+            <li>全项目 18 处 <code>console.error</code> 吞错，无 requestId 贯穿（<code>x-request-id</code> 只在 middleware 拒绝路径存在）</li>
+          </ul>
+        </div>
+        <div class="suggest"><b>建议：</b>① 所有 route 统一走 <code>requireSession</code> + 语义化错误 + <code>toErrorResponse</code>；② 用 <code>withApiOperationLogging</code> 统一生成 requestId 并透出到错误日志。</div>
+      </div>
+    </div>
+
+    <!-- ===== P1 ===== -->
+    <div class="issue-group">
+      <div class="group-head">
+        <span class="g-badge p1">P1</span>
+        <span class="g-title">中风险 —— 建议中期处理</span>
+        <span class="g-count">10 项</span>
+      </div>
+
+      <div class="issue p1">
+        <h4><span class="id">P1-1</span><code>getBlogSettings()</code> 无渲染级去重</h4>
+        <div class="body">44 处调用点；root layout 单文件调用两次（app/layout.tsx:44,94）、文章页 generateMetadata + 页面主体各一次——每页渲染 3~5 次相同 <code>$queryRawUnsafe</code>，仅靠 ISR 缓解。</div>
+        <div class="suggest"><b>建议：</b>用 React <code>cache()</code>（或 <code>unstable_cache</code>）包裹，同一请求内去重，成本极低。</div>
+      </div>
+
+      <div class="issue p1">
+        <h4><span class="id">P1-2</span>多套 UI 体系并存（前端）</h4>
+        <div class="body"><code>components/shadcn/ui</code>（60+ 组件）、自定义 <code>components/ui</code>、<code>components/admin/ui</code>、<code>components/admin/primitives</code> 四层共存；登录用自定义 Button/Input，后台用 shadcn 同名组件，视觉与行为割裂。</div>
+        <div class="suggest"><b>建议：</b>定单一 shadcn 体系，逐步迁移自定义 <code>ui/</code> 的少量封装，删除重复实现。</div>
+      </div>
+
+      <div class="issue p1">
+        <h4><span class="id">P1-3</span>AI 新闻源抓取无超时 / 重试（后端可靠性）</h4>
+        <div class="body"><code>runDailyAiNews</code> 注入的 <code>fetchImpl</code> 就是裸 fetch（ai-news-run-flow.ts:569,619），<code>ai-news-fetchers.ts</code> 抓取路径无 AbortSignal。一个挂起的 RSS 源可让整次日报无限期卡住；GitHub Actions 轮询 45×10s 超时后，运行仍在服务器后台悬挂。同类：DashScope 轮询固定 24×5s 无退避。</div>
+        <div class="suggest"><b>建议：</b>source fetch 统一加 <code>AbortSignal.timeout(15~30s)</code> + 有限重试 + 每源独立失败记录；轮询加指数退避。</div>
+      </div>
+
+      <div class="issue p1">
+        <h4><span class="id">P1-4</span>浏览量双计（数据准确性）</h4>
+        <div class="body"><code>viewCount</code> 在两个入口分别 +1：客户端 analytics 信标（api/analytics/visit/route.ts:83）与详情 API GET（api/posts/[slug]/route.ts:75-78）。当前架构下文章页大概率同时触发两者，单次阅读浏览量 +2。</div>
+        <div class="suggest"><b>建议：</b>明确唯一计数入口（建议只留 analytics 信标 + 去重），详情 GET 改为纯读；存量偏差可用 VisitLog 重建。</div>
+      </div>
+
+      <div class="issue p1">
+        <h4><span class="id">P1-5</span>Markdown 渲染无显式 sanitize（前端安全纵深）</h4>
+        <div class="body">文章页与编辑器预览的 <code>react-markdown</code> 仅配 <code>remark-gfm/rehype-highlight</code>，无 <code>rehype-sanitize</code>、无 <code>urlTransform</code>（javascript: 链接过滤）、外链无 <code>rel="nofollow noopener"</code>。</div>
+        <div class="suggest"><b>建议：</b>加 rehype-sanitize + 自定义 urlTransform + 外链 rel 处理；编辑器预览与正文共用同一渲染管线。</div>
+      </div>
+
+      <div class="issue p1">
+        <h4><span class="id">P1-6</span>限流键可伪造 + 内存限流无淘汰（后端）</h4>
+        <div class="body"><code>getRateLimitKey</code> 直接取 <code>x-forwarded-for</code> 首个 IP（rate-limit.ts:128-132），若代理未清洗该头可伪造绕过；<code>createMemoryRateLimiter</code> 的 Map 无淘汰（生产默认走数据库驱动，风险降级）。</div>
+        <div class="suggest"><b>建议：</b>在可信代理层统一覆写/丢弃非信任 x-forwarded-for；内存限流加定期清理或上限。</div>
+      </div>
+
+      <div class="issue p1">
+        <h4><span class="id">P1-7</span>Docker 构建与 ISR / DB 依赖冲突（基建）</h4>
+        <div class="body">公共页 <code>revalidate=300</code> 会静态预渲染，文章页 <code>generateStaticParams</code> 触库（失败吞错返回 []）；但 Dockerfile 构建期只传 NEXTAUTH_URL/SITE_URL，无 DATABASE_URL——构建产物与 CI（带 DB）不一致，文章页在 Docker 构建下退化为纯动态。</div>
+        <div class="suggest"><b>建议：</b>① 明确“构建期不触库”约定并文档化（CI 同步做一次无 DB 构建验证）；② 或改用 <code>output: 'standalone'</code> + 运行时 DB；③ <code>generateStaticParams</code> 显式注释退化行为。</div>
+      </div>
+
+      <div class="issue p1">
+        <h4><span class="id">P1-8</span>环境变量文档缺失（基建）</h4>
+        <div class="body"><code>.env.example</code> 缺 <code>AI_NEWS_CRON_SECRET</code>、<code>OPERATION_LOG_INGEST_SECRET</code>、<code>RATE_LIMIT_DRIVER</code>、<code>AI_MODEL_SECRET_KEY</code>、<code>DATABASE_POOL_MAX</code>、<code>NEXT_IMAGE_ALLOW_LOCAL_IP</code>、<code>NEWSLETTER_*</code> 等十余项实际使用变量（已在代码中核验）。</div>
+        <div class="suggest"><b>建议：</b>补齐并分组注释；可加契约测试断言“代码引用的 env 键 ⊆ .env.example”（符合项目测试文化）。</div>
+      </div>
+
+      <div class="issue p1">
+        <h4><span class="id">P1-9</span>交互接口 check-then-act 竞态（后端）</h4>
+        <div class="body">bookmark/like 的 toggle 是“查存在→删除/新建”两步（bookmark/route.ts:40-64、like/route.ts:27-44），并发双击可产生 P2002（被兜底为 409）或双写窗口；点赞只绑 browserId 从未用 userId（like/route.ts:29-30），登录用户清 cookie 即丢赞。</div>
+        <div class="suggest"><b>建议：</b>用 upsert/deleteMany 原子化或捕获 P2002 幂等处理；点赞对登录用户可绑定 userId（属产品决策，需确认有意为之）。</div>
+      </div>
+
+      <div class="issue p1">
+        <h4><span class="id">P1-10</span>AI 任务计数 N+1 与串行重算（后端性能）</h4>
+        <div class="body">每完成一个任务 item 就调用 <code>refreshAiTaskCounts</code> 全量 findMany+update（ai-tasks.ts:330-352）；<code>post-summary-jobs.ts:218-292</code> 批量摘要串行且每篇重算——20 篇批量 = 20 次全表重算。</div>
+        <div class="suggest"><b>建议：</b>完成时统一刷新一次，计数改为事务内 <code>groupBy</code> 原子重算；批量重算移出循环。</div>
+      </div>
+    </div>
+
+    <!-- ===== P2 ===== -->
+    <div class="issue-group">
+      <div class="group-head">
+        <span class="g-badge p2">P2</span>
+        <span class="g-title">低风险 / 长期项</span>
+        <span class="g-count">9 项</span>
+      </div>
+
+      <div class="issue p2">
+        <h4><span class="id">P2-1</span>E2E 覆盖极薄且不进 CI</h4>
+        <div class="body"><code>e2e/</code> 仅 3 文件 4 用例（reader 浏览、author 重定向、admin 重定向），登录/评论/上传/AI 关键路径无覆盖；<code>ci.yml</code> 不跑 <code>test:e2e</code>。</div>
+      </div>
+      <div class="issue p2">
+        <h4><span class="id">P2-2</span>死依赖未裁剪</h4>
+        <div class="body"><code>embla-carousel-react</code>、<code>react-resizable-panels</code> 及部分 shadcn 组件（carousel/resizable/menubar/hover-card）无业务调用。</div>
+      </div>
+      <div class="issue p2">
+        <h4><span class="id">P2-3</span>viewTransition 全站生效</h4>
+        <div class="body"><code>globals.css</code> <code>navigation: auto</code> + 620ms 布局帧时长对 admin/auth 等交互页也触发；slug 派生的 <code>view-transition-name</code> 在同页重复 slug 时可能冲突。</div>
+      </div>
+      <div class="issue p2">
+        <h4><span class="id">P2-4</span>后台两种数据模式并存</h4>
+        <div class="body">categories/tags/taxonomy/ai/settings 为 RSC 直查，posts/comments/ai-news/newsletter/series/topic-guides 为整页 <code>use client</code> 自 fetch——建议统一为“RSC 取数 + 客户端增强”，与 P0-1 合并推进。</div>
+      </div>
+      <div class="issue p2">
+        <h4><span class="id">P2-5</span>工程门禁缺口</h4>
+        <div class="body">无独立 typecheck/Prettier 脚本与 .prettierrc；eslint 忽略 <code>scripts/*.cjs</code>；无 <code>engines</code>/<code>packageManager</code> 字段。</div>
+      </div>
+      <div class="issue p2">
+        <h4><span class="id">P2-6</span>可观测性近乎空白</h4>
+        <div class="body">无 Sentry/APM/日志聚合，仅散落 console.error；建议至少接入 Sentry + 结构化日志（requestId 贯穿已在 P0-6 铺垫）。</div>
+      </div>
+      <div class="issue p2">
+        <h4><span class="id">P2-7</span>构建产物未瘦身</h4>
+        <div class="body">非 standalone，runner 镜像装全量 prod 依赖并拷贝 src/tsconfig；recharts/react-markdown 等重型依赖未 next/dynamic 按需加载；CJK 字体（Noto Serif SC 700+900）首屏体积需评估子集化。</div>
+      </div>
+      <div class="issue p2">
+        <h4><span class="id">P2-8</span>细节卫生</h4>
+        <div class="body"><code>rate_limit_entries</code> 是 schema 外裸表（仅存在于迁移 SQL，无 model），<code>prisma db pull</code> 或新成员维护时易产生认知错位；生产 IP 硬编码于 daily-ai-news.yml:20 等；dev 硬编码回退密钥（anonymous-actor.ts、api-operation-log-ingest-secret.ts:3）。</div>
+      </div>
+      <div class="issue p2">
+        <h4><span class="id">P2-9</span>任务调度为进程内存态，多实例/重启不安全</h4>
+        <div class="body">日报 <code>activeRuns</code> Set（cron/ai-news/route.ts:9）与摘要任务队列（post-summary-jobs.ts:26,45）在进程内存中，重启丢运行态、多实例可重复执行；<code>AiNewsRun.runDate</code> 无 DB 唯一约束。扩缩容前需改为 DB 驱动状态机（status 状态机 + ON CONFLICT 守卫）。同层风险：taxonomy/posts 按关系 <code>_count</code> 排序，大表下慢查询。</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= ROADMAP ================= -->
+  <section id="roadmap">
+    <div class="sec-head">
+      <span class="sec-kicker">Roadmap</span>
+      <h2 class="sec-title">优化路线图</h2>
+      <p class="sec-desc">按依赖关系与投入产出比排定的三阶段推进顺序。</p>
+    </div>
+    <div class="roadmap">
+      <div class="phase f1">
+        <div class="ph-tag">Phase 1</div>
+        <h4>安全与正确性</h4>
+        <div class="ph-dur">1~2 周 · 不依赖大重构</div>
+        <ol>
+          <li>P0-5 密钥轮换 + .gitignore 修正（半小时，立即做）</li>
+          <li>P0-4 HTTPS + HSTS + CSP 收紧 + Secure cookie</li>
+          <li>P0-3 cron/internal 防护统一</li>
+          <li>P0-2 软删除唯一约束方案决策与迁移</li>
+          <li>P1-4 浏览量单计数 + P1-6 限流键清洗</li>
+        </ol>
+      </div>
+      <div class="phase f2">
+        <div class="ph-tag">Phase 2</div>
+        <h4>客户端工程化</h4>
+        <div class="ph-dur">2~4 周 · 收益最大的一笔投入</div>
+        <ol>
+          <li>P0-1 数据请求层（SWR）+ 巨型组件拆分 + 表单统一</li>
+          <li>P1-2 UI 体系收敛 + P2-4 后台数据模式统一</li>
+          <li>P1-1 <code>getBlogSettings</code> 加 cache()（半小时）</li>
+          <li>P1-7 构建/ISR 契约文档化 + P2-7 动态加载与字体优化</li>
+        </ol>
+      </div>
+      <div class="phase f3">
+        <div class="ph-tag">Phase 3</div>
+        <h4>可靠性与纵深</h4>
+        <div class="ph-dur">持续</div>
+        <ol>
+          <li>P1-3 新闻源超时/重试 + P1-9 原子化交互接口</li>
+          <li>P1-5 Markdown sanitize + P0-6 错误/鉴权入口收口</li>
+          <li>P2-1 E2E 扩充并入 CI、P2-5 门禁补齐</li>
+          <li>P2-6 可观测性接入（Sentry/结构化日志）</li>
+        </ol>
+      </div>
+    </div>
+    <div class="avoid">
+      <h4>⛔ 暂不建议做的事</h4>
+      <ul>
+        <li><b>大改技术栈</b>（换 ORM、换认证、迁移出 App Router）：当前核心链路健康，收益不抵风险。</li>
+        <li><b>微服务 / 拆分部署</b>：单实例 + 数据库限流对当前流量绰绰有余，先补监控再谈扩缩容。</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ================= DRIFT ================= -->
+  <section id="drift">
+    <div class="sec-head">
+      <span class="sec-kicker">Doc Drift</span>
+      <h2 class="sec-title">文档一致性提醒（已解决）</h2>
+      <p class="sec-desc">2026-08-15 晚复核：三处历史漂移均已解决。</p>
+    </div>
+    <div class="drift">
+      <div class="drift-item">
+        <div class="n">1</div>
+        <div class="txt"><b>“入参校验用 Zod”</b> → ✅ 已解决：文档改为“服务端手写校验层 + 客户端 Zod UX 校验”，与代码一致。</div>
+      </div>
+      <div class="drift-item">
+        <div class="n">2</div>
+        <div class="txt"><b>“表单用 React Hook Form + Zod”</b> → ✅ 已解决：LoginForm / register 等表单已迁移 RHF+Zod，文档黄金参考已更新。</div>
+      </div>
+      <div class="drift-item">
+        <div class="n">3</div>
+        <div class="txt"><b>“完整模板见 .env.example”</b> → ✅ 已解决：模板已补齐全部变量，并有 <code>env-example-contract.test.ts</code> 防回退。</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= PROGRESS ================= -->
+  <section id="progress-section">
+    <div class="sec-head">
+      <span class="sec-kicker">Progress</span>
+      <h2 class="sec-title">整改进展（阶段一）</h2>
+      <p class="sec-desc">2026-08-15 晚复核状态；完整待办与运维步骤见 <code>docs/deployment/security-hardening-runbook.md</code>。</p>
+    </div>
+    <div class="drift">
+      <div class="drift-item"><div class="n" style="background:var(--good-soft);border-color:var(--good-line);color:var(--good)">✓</div>
+        <div class="txt"><b>P0-2 软删除×唯一约束</b> — 已上线生效：迁移 2026-08-15 应用到生产，8 个部分唯一索引 + P2002 探针双重验证。</div></div>
+      <div class="drift-item"><div class="n" style="background:var(--good-soft);border-color:var(--good-line);color:var(--good)">✓</div>
+        <div class="txt"><b>P0-3 / P0-6 / P1-1 / P1-4 / P1-8</b> — 已实施：内部密钥统一防护、鉴权错误收口、getBlogSettings 请求级去重、浏览量单计数、env 文档补齐。</div></div>
+      <div class="drift-item"><div class="n" style="background:var(--p1-soft);border-color:var(--p1-line);color:var(--p1)">⚠</div>
+        <div class="txt"><b>P0-4 / P0-5 运维侧</b> — 仓库侧完成：HSTS 已下发；TLS 启用与剩余密钥轮换待运维执行（图片主机尚无 https 为阻断项）。</div></div>
+      <div class="drift-item"><div class="n" style="background:var(--good-soft);border-color:var(--good-line);color:var(--good)">✓</div>
+        <div class="txt"><b>审查闭环</b> — 三轮对抗性审查完成（8 问题修复 → Grok 4.6 通过 → 全任务有条件通过）；全量验证 254 文件 / 955 用例全绿。</div></div>
+    </div>
+  </section>
+
+  <footer>
+    <span>Inkforge 前后端架构完整分析报告 · 2026-08-15</span>
+    <span>原始文档：<code>docs/2026-08-15-frontend-backend-architecture-analysis.md</code></span>
+  </footer>
+</main>
+
+<script>
+  // 顶部阅读进度条
+  const bar = document.getElementById('progress');
+  const onScroll = () => {
+    const h = document.documentElement;
+    const max = h.scrollHeight - h.clientHeight;
+    bar.style.width = (max > 0 ? (h.scrollTop / max) * 100 : 0) + '%';
+  };
+  document.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+
+  // 导航滚动高亮（scroll-spy）
+  const links = Array.from(document.querySelectorAll('nav a.lnk'));
+  const sections = links
+    .map(a => document.querySelector(a.getAttribute('href')))
+    .filter(Boolean);
+  const spy = () => {
+    let current = null;
+    for (const sec of sections) {
+      if (sec.getBoundingClientRect().top <= 120) current = sec.id;
+    }
+    links.forEach(a => {
+      a.classList.toggle('active', a.getAttribute('href') === '#' + current);
+    });
+  };
+  document.addEventListener('scroll', spy, { passive: true });
+  spy();
+</script>
+</body>
+</html>

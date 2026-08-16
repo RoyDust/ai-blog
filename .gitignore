@@ -37,7 +37,9 @@ yarn-error.log*
 .pnpm-debug.log*
 
 # env files (can opt-in for committing if needed)
-.env
+# 只允许提交 .env.example 模板，其余变体（.env.local / .env.production / .env.test 等）一律忽略
+.env*
+!.env.example
 
 # vercel
 .vercel
@@ -60,3 +62,9 @@ next-env.d.ts
 /.opencode/
 /.sisyphus/
 /tasks/
+
+# agent/dev-server log artifacts (parallel sessions)
+.audit-*.log
+.codex-*.log
+.dev-server*.log
+.impeccable/

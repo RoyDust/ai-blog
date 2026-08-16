@@ -55,8 +55,8 @@ jobs:
       - name: Generate Prisma client
         run: pnpm prisma generate
 
-      - name: Sync Prisma schema for CI database
-        run: pnpm prisma db push
+      - name: Apply Prisma migrations for CI database
+        run: pnpm prisma migrate deploy
 
       - name: Lint
         run: pnpm lint
