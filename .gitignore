@@ -67,4 +67,6 @@ next-env.d.ts
 .audit-*.log
 .codex-*.log
 .dev-server*.log
+.dsh-dev-server.log
+.dsh-dev-server.pid
 .impeccable/

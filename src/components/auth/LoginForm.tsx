@@ -63,9 +63,21 @@ const loginFormCopyByMode: Record<LoginFormMode, LoginFormCopy> = {
 
 const errorMessages: Record<string, string> = {
   "not-admin": "当前不是管理员账号，请切换到拥有后台权限的账号。",
+  "auth-secret-missing": "认证服务配置异常，请联系管理员。",
   OAuthAccountNotLinked: "该邮箱已注册，请先使用邮箱密码登录，然后在设置页绑定 GitHub。",
   GitHubEmailRequired: "GitHub 未返回可用邮箱，请在 GitHub 账号中添加并验证邮箱后重试。",
   Configuration: "GitHub 登录暂未正确配置，请联系管理员。",
+  OAuthSignin: "发起 GitHub 登录时出错，请重试；若持续失败请联系管理员。",
+  OAuthCallback: "GitHub 登录回调校验失败，请重试；若持续失败请联系管理员。",
+  OAuthCreateAccount: "创建 GitHub 账号时出错，请重试。",
+  EmailCreateAccount: "创建账号时出错，请重试。",
+  Callback: "登录回调处理失败，请重试。",
+  EmailSignin: "邮箱登录链接无效或已过期，请重新发起登录。",
+  CredentialsSignin: "邮箱或密码错误，请重试。",
+  SessionRequired: "登录状态已失效，请重新登录。",
+  AccessDenied: "登录被拒绝，请检查账号权限。",
+  Verification: "验证链接无效或已过期，请重新发起。",
+  Default: "登录失败，请稍后重试。",
 };
 
 const loginSchema = z.object({
@@ -110,7 +122,7 @@ export function LoginForm({
       });
 
       if (result?.error) {
-        setSubmitError(result.error);
+        setSubmitError(errorMessages[result.error] ?? result.error);
         return;
       }
 

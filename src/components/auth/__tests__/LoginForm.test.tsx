@@ -91,7 +91,19 @@ describe("LoginForm", () => {
     fireEvent.change(screen.getByLabelText("密码"), { target: { value: "wrong-password" } });
     fireEvent.click(screen.getByRole("button", { name: /^登录$/ }));
 
-    expect(await screen.findByText("CredentialsSignin")).toBeInTheDocument();
+    expect(await screen.findByText("邮箱或密码错误，请重试。")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "登录账号" })).toBeInTheDocument();
+  });
+
+  test("maps standard NextAuth error codes to Chinese copy", () => {
+    render(<LoginForm mode="dialog" authError="OAuthCallback" />);
+
+    expect(screen.getByText(/GitHub 登录回调校验失败/)).toBeInTheDocument();
+  });
+
+  test("falls back to generic copy for unknown error codes", () => {
+    render(<LoginForm mode="dialog" authError="SomeUnknownError" />);
+
+    expect(screen.getByText("登录失败，请稍后重试。")).toBeInTheDocument();
   });
 });
