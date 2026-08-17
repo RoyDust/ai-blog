@@ -183,7 +183,7 @@ function StatsCard({ label, value, icon: Icon, scheme, hint, onClick, active }: 
         <dt className="text-xs font-semibold text-[var(--muted)] tracking-wide uppercase">
           {label}
         </dt>
-        <span className={`inline-flex h-8 w-8 items-center justify-center rounded-lg ${schemeStyles.bg} ${schemeStyles.text} ${schemeStyles.border} border transition-all duration-300 group-hover:scale-110 shadow-sm`}>
+        <span className={`inline-flex h-8 w-8 items-center justify-center rounded-lg ${schemeStyles.bg} ${schemeStyles.text} ${schemeStyles.border} border shadow-sm`}>
           <Icon className="h-4.5 w-4.5" aria-hidden />
         </span>
       </div>
@@ -191,15 +191,10 @@ function StatsCard({ label, value, icon: Icon, scheme, hint, onClick, active }: 
         {typeof value === "number" ? value.toLocaleString("zh-CN") : value}
       </dd>
       {hint ? (
-        <p className="mt-2 text-[10px] font-medium text-[var(--muted)] border-t border-[var(--border)] pt-1.5">
+        <p className="mt-2 text-xs font-medium text-[var(--muted)] border-t border-[var(--border)] pt-1.5">
           {hint}
         </p>
-      ) : (
-        <p className="mt-2 text-[10px] font-medium text-emerald-500 border-t border-[var(--border)] pt-1.5 flex items-center gap-1">
-          <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
-          运行正常
-        </p>
-      )}
+      ) : null}
     </div>
   );
 }
@@ -250,6 +245,7 @@ export default function AdminCommentsPage() {
 
   const {
     data: commentsResponse,
+    error: commentsError,
     isLoading,
     isValidating,
     mutate: mutateComments,
@@ -276,8 +272,9 @@ export default function AdminCommentsPage() {
   const stats = commentsResponse?.stats ?? emptyStats;
   const loading = isLoading || isValidating;
 
-  // 服务端校正页码时同步回状态（渲染期条件调整，仅在真实响应到达后）
-  if (commentsResponse?.pagination && commentsResponse.pagination.page !== page) {
+  // 服务端校正页码时同步回状态（渲染期条件调整，仅在真实响应到达后；
+  // keepPreviousData 下旧响应会先于新响应出现，isValidating 期间不校正，避免翻页被旧页码拉回）
+  if (commentsResponse?.pagination && !isValidating && commentsResponse.pagination.page !== page) {
     setPage(commentsResponse.pagination.page);
   }
 
@@ -495,28 +492,41 @@ export default function AdminCommentsPage() {
           />
         </div>
 
-        <DataTable
-          title="治理队列"
-          summary="在一个视图里完成审核、驳回与隐藏操作。"
-          toolbar={triageToolbar}
-          columns={columns}
-          rows={comments}
-          emptyText="暂无评论"
-          isLoading={loading}
-          loadingLabel="正在加载评论队列..."
-          pagination={pagination}
-          onPageChange={setPage}
-          onPageSizeChange={(nextPageSize) => {
-            setPageSize(nextPageSize);
-            setPage(1);
-          }}
-          bulkActions={[
-            { label: "批量通过", onClick: (ids) => void updateStatuses(ids, "APPROVED") },
-            { label: "批量设为待审核", onClick: (ids) => void updateStatuses(ids, "PENDING") },
-            { label: "批量驳回", variant: "danger", onClick: (ids) => void updateStatuses(ids, "REJECTED") },
-            { label: "批量隐藏", variant: "danger", onClick: (ids) => void openDeleteDialog(ids) },
-          ]}
-        />
+        {commentsError ? (
+          <div role="status" className="flex flex-col items-center justify-center gap-3 rounded-lg border border-[var(--danger-border)] bg-[var(--danger-surface)] px-6 py-10 text-center">
+            <p className="text-sm font-medium text-[var(--danger-foreground)]">评论列表加载失败，请稍后重试</p>
+            <button
+              type="button"
+              className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-1.5 text-sm text-[var(--foreground)] transition-colors hover:bg-[var(--surface-alt)]"
+              onClick={() => void mutateComments()}
+            >
+              重试
+            </button>
+          </div>
+        ) : (
+          <DataTable
+            title="治理队列"
+            summary="在一个视图里完成审核、驳回与隐藏操作。"
+            toolbar={triageToolbar}
+            columns={columns}
+            rows={comments}
+            emptyText="暂无评论"
+            isLoading={loading}
+            loadingLabel="正在加载评论队列..."
+            pagination={pagination}
+            onPageChange={setPage}
+            onPageSizeChange={(nextPageSize) => {
+              setPageSize(nextPageSize);
+              setPage(1);
+            }}
+            bulkActions={[
+              { label: "批量通过", onClick: (ids) => void updateStatuses(ids, "APPROVED") },
+              { label: "批量设为待审核", onClick: (ids) => void updateStatuses(ids, "PENDING") },
+              { label: "批量驳回", variant: "danger", onClick: (ids) => void updateStatuses(ids, "REJECTED") },
+              { label: "批量隐藏", variant: "danger", onClick: (ids) => void openDeleteDialog(ids) },
+            ]}
+          />
+        )}
       </div>
 
       <DeleteImpactDialog

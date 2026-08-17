@@ -113,7 +113,7 @@ function Thumbnail({
   placeholder?: string;
 }) {
   return (
-    <div className={`${className} relative shrink-0 overflow-hidden rounded-lg border border-[var(--border)] bg-[linear-gradient(135deg,#f4f1ea,#d7e6dc)]`}>
+    <div className={`${className} relative shrink-0 overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface-alt)]`}>
       {src ? (
         <FallbackImage
           alt={label}
@@ -188,7 +188,7 @@ function DashboardMetric({
         {typeof value === "number" ? value.toLocaleString("zh-CN") : value}
       </dd>
       {hint ? (
-        <p className="mt-2 text-[10px] font-medium text-[var(--muted)] border-t border-[var(--border)] pt-1.5">
+        <p className="mt-2 text-xs font-medium text-[var(--muted)] border-t border-[var(--border)] pt-1.5">
           {hint}
         </p>
       ) : null}
@@ -280,7 +280,6 @@ function VisitTrendPanel({ stats }: { stats: DashboardStats["visits"] }) {
         </div>
       }
       className="min-h-[430px]"
-      reveal={false}
     >
       <dl className="grid grid-cols-2 gap-3 pt-2 sm:grid-cols-4">
         <DashboardMetric label="区间 PV" value={summary.totalPv} />
@@ -310,7 +309,6 @@ function ReadingStatsPanel({ stats }: { stats: DashboardStats["reading"] }) {
       title="阅读统计"
       actions={<PanelMetaPill>近 {stats.range} 天</PanelMetaPill>}
       className="min-h-[300px]"
-      reveal={false}
     >
       <dl className="grid grid-cols-2 gap-3">
         <DashboardMetric label="有效阅读" value={stats.summary.qualifiedEvents} icon={BookOpenCheck} />
@@ -336,7 +334,6 @@ function EngagementStatsPanel({ stats }: { stats: DashboardStats["engagement"] }
       title="互动统计"
       actions={<PanelMetaPill>近 {stats.range} 天</PanelMetaPill>}
       className="min-h-[300px]"
-      reveal={false}
     >
       <dl className="grid grid-cols-3 gap-3">
         <DashboardMetric label="总互动" value={stats.summary.total} />
@@ -351,12 +348,12 @@ function EngagementStatsPanel({ stats }: { stats: DashboardStats["engagement"] }
 
 function RecentDraftsPanel({ drafts }: { drafts: DraftListItem[] }) {
   return (
-    <WorkspacePanel title="最近草稿" className="min-h-[430px]" reveal={false}>
+    <WorkspacePanel title="最近草稿" className="min-h-[430px]">
       <div className="flex-1 flex flex-col justify-between">
         {drafts.length > 0 ? (
           <div className="divide-y divide-[var(--border)]">
             {drafts.slice(0, 3).map((post) => (
-              <article key={post.id} className="group py-4 first:pt-0 transition-transform duration-200 ease-out hover:translate-x-1">
+              <article key={post.id} className="group py-4 first:pt-0 transition-colors duration-200 hover:bg-[var(--surface-alt)]">
                 <div className="flex min-w-0 items-center gap-2">
                   <h3 className={`truncate text-base font-semibold text-[var(--foreground)] ${dashboardTitleHoverClassName}`}>{post.title}</h3>
                   <StatusBadge tone="warning">草稿</StatusBadge>
@@ -392,7 +389,6 @@ function PendingCommentsPanel({ comments, count }: { comments: PendingCommentLis
       title="待审评论"
       actions={<PanelMetaPill>{count}</PanelMetaPill>}
       className="min-h-[460px]"
-      reveal={false}
     >
       <div className="flex-1 flex flex-col justify-between">
         <div className="divide-y divide-[var(--border)]">
@@ -401,7 +397,7 @@ function PendingCommentsPanel({ comments, count }: { comments: PendingCommentLis
               const authorName = comment.authorLabel || comment.author?.name || comment.author?.email || "匿名访客";
 
               return (
-                <article key={comment.id} className="group flex gap-4 py-5 first:pt-0 transition-transform duration-200 ease-out hover:translate-x-1">
+                <article key={comment.id} className="group flex gap-4 py-5 first:pt-0 transition-colors duration-200 hover:bg-[var(--surface-alt)]">
                   <Avatar name={authorName} index={index} />
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
@@ -449,13 +445,12 @@ function PopularPostsPanel({ posts, range }: { posts: PopularPostListItem[]; ran
       title="热门文章"
       actions={<PanelMetaPill>近 {range} 天</PanelMetaPill>}
       className="min-h-[460px]"
-      reveal={false}
     >
       <div className="flex-1 flex flex-col justify-between">
         {posts.length > 0 ? (
           <div className="divide-y divide-[var(--border)]">
             {posts.slice(0, 5).map((post, index) => (
-              <article key={post.id} className="flex items-center gap-4 py-4 first:pt-0 transition-transform duration-200 ease-out hover:translate-x-1">
+              <article key={post.id} className="flex items-center gap-4 py-4 first:pt-0 transition-colors duration-200 hover:bg-[var(--surface-alt)]">
                 <span className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${rankTone[index] ?? rankTone[4]}`}>
                   {index + 1}
                 </span>
@@ -530,7 +525,7 @@ export default async function AdminPage({ searchParams }: { searchParams?: Promi
 
       <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border)] pt-5 text-sm text-[var(--muted)]">
         <p>© 2024 {blogSettings.siteName} · 记录与分享技术、生活与思考。</p>
-        <p>版本 1.0.0 · 帮助文档 ↗</p>
+        <p>版本 1.0.0 · Ctrl+K 全局搜索</p>
       </footer>
     </div>
   );

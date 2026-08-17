@@ -40,5 +40,9 @@ describe("AdminPagination", () => {
 
     expect(onPageChange).toHaveBeenNthCalledWith(1, 2);
     expect(onPageChange).toHaveBeenNthCalledWith(2, 3);
+    // 客户端路径渲染为按钮而非跳转链接，翻页不会触发整页刷新
+    expect(screen.queryByRole("link", { name: "下一页" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "第 2 页" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "第 2 页" })).toBeInTheDocument();
   });
 });

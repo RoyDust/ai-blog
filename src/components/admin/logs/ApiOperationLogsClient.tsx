@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { CheckCircle2, Eye, RefreshCw, Search, Trash2, XCircle } from "lucide-react";
+import { CheckCircle2, Eye, RefreshCw, Search, SearchX, Trash2, XCircle } from "lucide-react";
+import { toast } from "sonner";
 import useSWR from "swr";
 
 import { AdminPagination } from "@/components/admin/primitives/AdminPagination";
@@ -12,7 +13,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/admin/ui";
+import { ConfirmDialog } from "@/components/admin/ui/confirm-dialog";
 import { Button } from "@/components/shadcn/ui/button";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/shadcn/ui/empty";
 import {
   Table,
   TableBody,
@@ -161,6 +170,7 @@ export function ApiOperationLogsClient() {
   const [pageSize, setPageSize] = useState(defaultPageSize);
   const [selectedLog, setSelectedLog] = useState<LogItem | null>(null);
   const [purging, setPurging] = useState(false);
+  const [purgeDialogOpen, setPurgeDialogOpen] = useState(false);
 
   const buildLogsUrl = useCallback((pageNumber: number) => {
     const params = new URLSearchParams({ range, limit: String(pageSize), page: String(pageNumber) });
@@ -203,9 +213,10 @@ export function ApiOperationLogsClient() {
         body: JSON.stringify({ retentionDays: 30 }),
       });
       await mutate();
+      toast.success("已清理 30 天前的操作日志");
+      setPurgeDialogOpen(false);
     } catch (purgeError) {
-      // 清理失败保留在按钮重试语义内，不污染列表错误态
-      void purgeError;
+      toast.error(toErrorMessage(purgeError, "清理操作日志失败"));
     } finally {
       setPurging(false);
     }
@@ -222,11 +233,11 @@ export function ApiOperationLogsClient() {
         </div>
         <div className="ui-surface rounded-2xl px-4 py-3">
           <p className="text-xs font-medium uppercase text-[var(--muted)]">成功</p>
-          <p className="mt-2 text-2xl font-semibold text-emerald-700">{payload.summary.successCount}</p>
+          <p className="mt-2 text-2xl font-semibold text-[var(--success-foreground)]">{payload.summary.successCount}</p>
         </div>
         <div className="ui-surface rounded-2xl px-4 py-3">
           <p className="text-xs font-medium uppercase text-[var(--muted)]">失败</p>
-          <p className="mt-2 text-2xl font-semibold text-rose-700">{payload.summary.failedCount}</p>
+          <p className="mt-2 text-2xl font-semibold text-[var(--danger-foreground)]">{payload.summary.failedCount}</p>
         </div>
       </section>
 
@@ -311,7 +322,7 @@ export function ApiOperationLogsClient() {
             <Button aria-label="刷新接口日志" disabled={isValidating} onClick={() => void mutate()} size="icon" type="button" variant="outline">
               <RefreshCw className={`h-4 w-4 ${isValidating ? "animate-spin" : ""}`} />
             </Button>
-            <Button aria-label="清理旧日志" disabled={purging} onClick={() => void purgeOldLogs()} size="icon" type="button" variant="outline">
+            <Button aria-label="清理旧日志" disabled={purging} onClick={() => setPurgeDialogOpen(true)} size="icon" type="button" variant="outline">
               <Trash2 className="h-4 w-4" />
             </Button>
           </div>
@@ -328,7 +339,17 @@ export function ApiOperationLogsClient() {
 
         {isLoading ? <p className="px-5 py-10 text-center text-sm text-[var(--text-muted)]">正在加载接口日志...</p> : null}
         {!isLoading && listError ? <p className="px-5 py-10 text-center text-sm text-rose-600">{errorMessage}</p> : null}
-        {!isLoading && !listError && payload.items.length === 0 ? <p className="px-5 py-10 text-center text-sm text-[var(--text-muted)]">暂无匹配日志。</p> : null}
+        {!isLoading && !listError && payload.items.length === 0 ? (
+          <Empty className="border-0" role="status">
+            <EmptyMedia variant="icon">
+              <SearchX className="size-5" />
+            </EmptyMedia>
+            <EmptyHeader>
+              <EmptyTitle>暂无匹配日志</EmptyTitle>
+              <EmptyDescription>调整筛选条件后重新查询，或等待新的接口请求产生日志。</EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        ) : null}
 
         {!isLoading && !listError && payload.items.length > 0 ? (
           <>
@@ -438,6 +459,18 @@ export function ApiOperationLogsClient() {
           ) : null}
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        cancelLabel="取消"
+        confirmLabel="确认清理"
+        description="将删除 30 天前的操作日志记录，删除后不可恢复。"
+        onConfirm={() => void purgeOldLogs()}
+        onOpenChange={setPurgeDialogOpen}
+        open={purgeDialogOpen}
+        submitting={purging}
+        title="清理旧日志"
+        tone="danger"
+      />
     </div>
   );
 }

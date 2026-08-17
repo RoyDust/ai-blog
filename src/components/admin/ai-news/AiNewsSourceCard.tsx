@@ -63,7 +63,7 @@ export function AiNewsSourceCard({
           aria-pressed={selected}
           aria-label={`${selected ? "取消选择" : "选择"} ${source.name}`}
           onClick={onToggleSelected}
-          className={`mt-1 flex h-5 w-5 items-center justify-center rounded border text-[10px] transition ${
+          className={`mt-1 flex h-6 w-6 items-center justify-center rounded border text-xs transition ${
             selected ? "border-[var(--brand)] bg-[var(--brand)] text-white" : "border-[var(--border-strong)] bg-[var(--surface-alt)]"
           }`}
         >

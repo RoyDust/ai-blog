@@ -9,16 +9,21 @@ import {
   DialogTitle,
 } from "@/components/shadcn/ui/dialog";
 
-export interface ModalProps {
+type ModalBaseProps = {
   isOpen: boolean;
   onClose: () => void;
-  title?: string;
   children: ReactNode;
   size?: "sm" | "md" | "lg" | "xl" | "2xl" | "3xl" | "4xl";
   showCloseButton?: boolean;
   panelClassName?: string;
   contentClassName?: string;
-}
+};
+
+/**
+ * 标题与可访问名称至少提供其一：title 渲染可见标题；无 title 时 ariaLabel
+ * 作为 sr-only 标题。两者皆缺在类型层即被禁止，避免产生无名 dialog。
+ */
+export type ModalProps = ModalBaseProps & ({ title: string; ariaLabel?: string } | { title?: never; ariaLabel: string });
 
 const sizes = {
   sm: "max-w-sm",
@@ -30,14 +35,16 @@ const sizes = {
   "4xl": "max-w-4xl",
 };
 
-function Modal({ isOpen, onClose, title, children, size = "md", showCloseButton = true, panelClassName, contentClassName }: ModalProps) {
+function Modal({ isOpen, onClose, title, ariaLabel, children, size = "md", showCloseButton = true, panelClassName, contentClassName }: ModalProps) {
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent aria-describedby={undefined} className={cn(sizes[size], panelClassName)} showCloseButton={showCloseButton}>
-        {(title || showCloseButton) ? (
-          <DialogHeader className={cn(!title && "sr-only")}>
-            {title ? <DialogTitle>{title}</DialogTitle> : <DialogTitle>弹窗</DialogTitle>}
+        {title ? (
+          <DialogHeader>
+            <DialogTitle>{title}</DialogTitle>
           </DialogHeader>
+        ) : ariaLabel ? (
+          <DialogTitle className="sr-only">{ariaLabel}</DialogTitle>
         ) : null}
         <div className={cn("max-h-[calc(100dvh-7rem)] overflow-y-auto px-6 py-4", contentClassName)}>{children}</div>
       </DialogContent>

@@ -10,6 +10,7 @@ import { PageHeader } from "@/components/admin/primitives/PageHeader";
 import { Toolbar } from "@/components/admin/primitives/Toolbar";
 import { WorkspacePanel } from "@/components/admin/primitives/WorkspacePanel";
 import { Button, Modal } from "@/components/admin/ui";
+import { ConfirmDialog } from "@/components/admin/ui/confirm-dialog";
 import {
   Select,
   SelectContent,
@@ -101,6 +102,8 @@ export function CoverGalleryManager() {
   const [pageSize, setPageSize] = useState(initialMemory.pageSize);
   const [editing, setEditing] = useState<CoverAsset | null>(null);
   const [randomizing, setRandomizing] = useState(false);
+  const [archivingAsset, setArchivingAsset] = useState<CoverAsset | null>(null);
+  const [archiving, setArchiving] = useState(false);
 
   /**
    * 将页面筛选状态转换成图库查询 URL（作为 SWR key，筛选变化自然触发重取）。
@@ -180,15 +183,20 @@ export function CoverGalleryManager() {
   };
 
   /**
-   * 归档图库资产。
+   * 归档图库资产：先弹确认弹窗，确认后再执行归档请求。
    */
-  const archiveAsset = async (asset: CoverAsset) => {
-    const confirmed = window.confirm(`归档封面“${asset.title || asset.url}”？已使用的文章不会被清空。`);
-    if (!confirmed) return;
+  const archiveAsset = (asset: CoverAsset) => {
+    setArchivingAsset(asset);
+  };
 
+  const confirmArchive = async () => {
+    if (!archivingAsset) return;
+
+    setArchiving(true);
     try {
-      await apiMutate(`/api/admin/covers/${asset.id}`, { method: "DELETE" });
+      await apiMutate(`/api/admin/covers/${archivingAsset.id}`, { method: "DELETE" });
       toast.success("封面已归档");
+      setArchivingAsset(null);
 
       if (assets.length === 1 && page > 1) {
         setPage((prev) => prev - 1);
@@ -197,6 +205,8 @@ export function CoverGalleryManager() {
       }
     } catch (error) {
       toast.error(toErrorMessage(error, "归档失败"));
+    } finally {
+      setArchiving(false);
     }
   };
 
@@ -336,6 +346,20 @@ export function CoverGalleryManager() {
           }}
         />
       </Modal>
+
+      <ConfirmDialog
+        cancelLabel="取消"
+        confirmLabel="确认归档"
+        description={archivingAsset ? `归档封面“${archivingAsset.title || archivingAsset.url}”？已使用的文章不会被清空。` : ""}
+        onConfirm={confirmArchive}
+        onOpenChange={(open) => {
+          if (!open) setArchivingAsset(null);
+        }}
+        open={Boolean(archivingAsset)}
+        submitting={archiving}
+        title="归档封面"
+        tone="danger"
+      />
     </div>
   );
 }

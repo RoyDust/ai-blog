@@ -5,7 +5,7 @@
  *
  * 职责：
  * - 提供文本编辑与实时预览双栏体验
- * - 提供常用 Markdown 片段快捷插入
+ * - 提供常用 Markdown 片段的光标/选区插入
  * - 支持图片选择上传与粘贴上传，并自动写回 Markdown 图片语法
  */
 
@@ -40,12 +40,19 @@ const snippets: Array<{ label: string; icon: typeof Heading2; snippet: Snippet }
 ];
 
 /**
- * 在当前内容末尾拼接一个预设 Markdown 片段。
- * 该编辑器当前走的是轻量插入策略，不做复杂富文本选区变换。
+ * 在指定选区位置插入预设 Markdown 片段：
+ * - 有选区：用成对标记（before/after）包裹选中文本
+ * - 无选区：在光标处插入标记，并把光标放到成对标记中间
+ * 返回插入后的完整内容与应恢复的光标/选区位置。
  */
-function insertSnippet(value: string, snippet: Snippet) {
+function insertSnippetAt(value: string, snippet: Snippet, selectionStart: number, selectionEnd: number) {
   const after = snippet.after ?? "";
-  return `${value}${snippet.before}${after}`;
+  const selected = value.slice(selectionStart, selectionEnd);
+  const nextValue = `${value.slice(0, selectionStart)}${snippet.before}${selected}${after}${value.slice(selectionEnd)}`;
+  const caretStart = selectionStart + snippet.before.length;
+  const caretEnd = caretStart + selected.length;
+
+  return { value: nextValue, caretStart, caretEnd };
 }
 
 function getImageAltText(filename: string) {
@@ -132,6 +139,36 @@ export function MarkdownEditor({
       start: textarea.selectionStart,
       end: textarea.selectionEnd,
     };
+  };
+
+  /**
+   * 在光标处/选区位置插入格式标记：
+   * 读取 textarea 的 selectionStart/End，选中文本则用成对标记包裹，
+   * 无选区则在光标处插入并把光标置于标记中间；onChange 提交后聚焦 textarea 并恢复选区。
+   */
+  const applySnippet = (snippet: Snippet) => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const { value: nextValue, caretStart, caretEnd } = insertSnippetAt(value, snippet, start, end);
+
+    onChange(nextValue);
+
+    requestAnimationFrame(() => {
+      const nextTextarea = textareaRef.current;
+      if (!nextTextarea) return;
+
+      nextTextarea.focus();
+      if (start !== end) {
+        // 选中文本被包裹后，仍保持原文本处于选中状态
+        nextTextarea.setSelectionRange(caretStart, caretEnd);
+      } else {
+        // 无选区：光标置于成对标记中间
+        nextTextarea.setSelectionRange(caretStart, caretStart);
+      }
+    });
   };
 
   /**
@@ -237,7 +274,7 @@ export function MarkdownEditor({
               type="button"
               title={item.label}
               className="ui-btn rounded-lg border border-transparent px-2 py-1 text-xs text-[var(--muted)] hover:border-[var(--border)] hover:bg-[var(--surface)] hover:text-[var(--foreground)]"
-              onClick={() => onChange(insertSnippet(value, item.snippet))}
+              onClick={() => applySnippet(item.snippet)}
             >
               <span className="inline-flex items-center gap-1">
                 <Icon className="h-3.5 w-3.5" />

@@ -56,7 +56,7 @@ export function AdminSider({ pathname, siteName, user }: AdminSiderProps) {
       isCollapsed ? "justify-center px-0 py-3" : "gap-3 px-3.5 py-2.5"
     } rounded-[var(--radius-control)] text-sm font-medium ${
       isActive
-        ? "bg-[var(--admin-sidebar-active)] text-white font-semibold shadow-[0_10px_24px_color-mix(in_oklab,var(--brand)_24%,transparent)]"
+        ? "bg-[var(--admin-sidebar-active)] text-white font-semibold"
         : "text-[var(--admin-sidebar-text)] hover:bg-[var(--admin-sidebar-hover)] hover:text-white"
     }`;
 
@@ -100,7 +100,7 @@ export function AdminSider({ pathname, siteName, user }: AdminSiderProps) {
       {/* Brand logo section */}
       <div className={`transition-all duration-300 ${isCollapsed ? "px-2 py-4" : "px-5 py-5"} flex items-center justify-center border-b border-[var(--admin-sidebar-border)]`}>
         <Link aria-label={`${siteName} 后台首页`} href="/admin" className={`flex items-center ${isCollapsed ? "justify-center" : "gap-3"} w-full`}>
-          <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-[var(--radius-control)] bg-[var(--admin-sidebar-active)] shadow-[0_10px_24px_color-mix(in_oklab,var(--brand)_24%,transparent)]">
+          <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-[var(--radius-control)] bg-[var(--admin-sidebar-active)]">
             <Image alt="" aria-hidden="true" className="h-full w-full object-cover" height={36} priority src="/icons/icon-192.png" width={36} />
           </span>
           {!isCollapsed && (
@@ -152,7 +152,7 @@ export function AdminSider({ pathname, siteName, user }: AdminSiderProps) {
                     href={item.href}
                     className={`block rounded-[var(--radius-control)] px-3 py-2 text-xs transition-colors ${
                       isActive
-                        ? "bg-[var(--admin-sidebar-active)] text-white font-medium shadow-[0_6px_18px_color-mix(in_oklab,var(--brand)_18%,transparent)]"
+                        ? "bg-[var(--admin-sidebar-active)] text-white font-medium"
                         : "text-[var(--admin-sidebar-text)] opacity-75 hover:bg-[var(--admin-sidebar-hover)] hover:text-white hover:opacity-100"
                     }`}
                   >

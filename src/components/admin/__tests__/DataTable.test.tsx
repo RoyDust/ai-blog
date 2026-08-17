@@ -12,6 +12,8 @@ const rows = Array.from({ length: 12 }, (_, index) => ({
   name: `Row ${index + 1}`,
 }));
 
+const emptyRows: Array<{ id: string; name: string }> = [];
+
 describe("DataTable", () => {
   test("selects only the current page from the header checkbox", () => {
     const onBulk = vi.fn();
@@ -46,7 +48,7 @@ describe("DataTable", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("checkbox", { name: "选择 1" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "选择第 1 行" }));
 
     const headerCheckbox = screen.getByRole("checkbox", { name: "选择当前页" }) as HTMLInputElement;
     expect(headerCheckbox).not.toBeChecked();
@@ -119,5 +121,66 @@ describe("DataTable", () => {
     expect(scrollContainer).toHaveClass("min-h-0", "flex-1", "overflow-auto");
     expect(tableHeader).toHaveClass("sticky", "top-0");
     expect(pagination).toHaveClass("shrink-0");
+  });
+
+  test("labels row checkboxes with 1-based row numbers", () => {
+    render(
+      <DataTable
+        columns={[{ key: "name", label: "名称", render: (row) => row.name }]}
+        emptyText="暂无数据"
+        pageSize={10}
+        rows={rows}
+        title="测试表格"
+      />,
+    );
+
+    expect(screen.getByRole("checkbox", { name: "选择第 1 行" })).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "选择第 10 行" })).toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: "选择第 11 行" })).not.toBeInTheDocument();
+  });
+
+  test("renders a custom emptyState inside role=status when provided", () => {
+    render(
+      <DataTable
+        columns={[{ key: "name", label: "名称", render: (row) => row.name }]}
+        emptyState={<div>自定义空态</div>}
+        emptyText="暂无数据"
+        rows={emptyRows}
+        title="测试表格"
+      />,
+    );
+
+    expect(screen.getByRole("status")).toHaveTextContent("自定义空态");
+    expect(screen.queryByText("暂无数据")).not.toBeInTheDocument();
+  });
+
+  test("renders the default Empty component for empty rows inside role=status", () => {
+    render(
+      <DataTable
+        columns={[{ key: "name", label: "名称", render: (row) => row.name }]}
+        emptyText="暂无数据"
+        rows={emptyRows}
+        title="测试表格"
+      />,
+    );
+
+    const status = screen.getByRole("status");
+    expect(status.querySelector('[data-slot="empty"]')).toBeInTheDocument();
+    expect(screen.getByText("暂无数据")).toBeInTheDocument();
+  });
+
+  test("announces the loading state via role=status", () => {
+    render(
+      <DataTable
+        columns={[{ key: "name", label: "名称", render: (row) => row.name }]}
+        emptyText="暂无数据"
+        isLoading
+        loadingLabel="加载中..."
+        rows={emptyRows}
+        title="测试表格"
+      />,
+    );
+
+    expect(screen.getByRole("status")).toHaveTextContent("加载中...");
   });
 });

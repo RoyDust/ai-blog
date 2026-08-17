@@ -90,7 +90,7 @@ function SearchItem({
       onSelect={() => onSelect(href)}
       className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-left outline-none transition-colors data-[selected=true]:bg-[var(--surface-alt)]"
     >
-      <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-[var(--brand)]">
+      <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--success-surface)] text-[var(--brand)]">
         <Icon className="h-4 w-4" aria-hidden="true" />
       </span>
       <span className="min-w-0 flex-1">
@@ -151,11 +151,12 @@ export function AdminGlobalSearch() {
   const remoteResultCount = countRemoteResults(remoteResults);
   const showEmptyState = normalizedQuery.length >= ADMIN_SEARCH_MIN_QUERY_LENGTH && navigationResults.length === 0 && remoteResultCount === 0 && !loading;
 
-  useEffect(() => {
-    const isMac = /Mac|iPhone|iPad|iPod/.test(window.navigator.platform);
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- 一次性客户端平台探测（SSR 安全初始化），不依赖任何响应式值，无级联渲染
-    setShortcutLabel(isMac ? "⌘K" : "Ctrl K");
-  }, []);
+  // 渲染期条件调整：SSR/首帧输出 "Ctrl K" 与 hydration 一致，客户端随后切换到平台专属快捷键
+  const detectedShortcutLabel =
+    typeof window !== "undefined" && /Mac|iPhone|iPad|iPod/.test(window.navigator.platform) ? "⌘K" : "Ctrl K";
+  if (detectedShortcutLabel !== shortcutLabel) {
+    setShortcutLabel(detectedShortcutLabel);
+  }
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {

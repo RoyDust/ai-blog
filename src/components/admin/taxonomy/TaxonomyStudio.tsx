@@ -81,7 +81,7 @@ export function TaxonomyStudio() {
 
   return (
     <div className="space-y-4">
-      <PageHeader eyebrow="Structure" title="分类与标签" description="统一维护分类结构与标签归类。" />
+      <PageHeader eyebrow="内容" title="分类与标签" description="统一维护分类结构与标签归类。" />
 
       <div className="ui-surface flex flex-wrap items-center gap-2 rounded-full p-2">
         <TabButton active={activeTab === "categories"} label="分类" onClick={() => goToTab("categories")} />

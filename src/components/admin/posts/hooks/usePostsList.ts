@@ -47,6 +47,19 @@ export interface DeleteDialogState {
   submitting: boolean;
 }
 
+export interface PublishDialogState {
+  open: boolean;
+  row: PostRow | null;
+  submitting: boolean;
+}
+
+export interface BulkPublishDialogState {
+  open: boolean;
+  ids: string[];
+  count: number;
+  submitting: boolean;
+}
+
 export type PaginationState = {
   page: number;
   limit: number;
@@ -85,6 +98,19 @@ export const initialDeleteDialog: DeleteDialogState = {
   title: "",
   description: "",
   impacts: [],
+  submitting: false,
+};
+
+export const initialPublishDialog: PublishDialogState = {
+  open: false,
+  row: null,
+  submitting: false,
+};
+
+export const initialBulkPublishDialog: BulkPublishDialogState = {
+  open: false,
+  ids: [],
+  count: 0,
   submitting: false,
 };
 
@@ -170,6 +196,8 @@ export function usePostsList() {
   const [bulkAiIds, setBulkAiIds] = useState<string[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [deleteDialog, setDeleteDialog] = useState<DeleteDialogState>(initialDeleteDialog);
+  const [publishDialog, setPublishDialog] = useState<PublishDialogState>(initialPublishDialog);
+  const [bulkPublishDialog, setBulkPublishDialog] = useState<BulkPublishDialogState>(initialBulkPublishDialog);
 
   const buildPostsUrl = useCallback(
     (pageNumber: number) => {
@@ -210,8 +238,9 @@ export function usePostsList() {
   };
   const stats = postsResponse?.stats ?? emptyStats;
 
-  // 服务端校正页码时同步回状态（渲染期条件调整，仅在真实响应到达后）
-  if (postsResponse?.pagination && postsResponse.pagination.page !== page) {
+  // 服务端校正页码时同步回状态（渲染期条件调整，仅在真实响应到达后；
+  // keepPreviousData 下旧响应会先于新响应出现，isValidating 期间不校正，避免翻页被旧页码拉回）
+  if (postsResponse?.pagination && !isValidating && postsResponse.pagination.page !== page) {
     setPage(postsResponse.pagination.page);
   }
 
@@ -348,13 +377,98 @@ export function usePostsList() {
     }
   }
 
-  async function updateBulkPublish(ids: string[], published: boolean) {
+  /**
+   * 行级发布入口：仅「发布」方向挂起确认（nextPublished === true），
+   * 「转草稿」方向保持一键调用并 toast 反馈。
+   */
+  function requestTogglePublish(row: PostRow) {
+    if (busyRowIds.includes(row.id)) {
+      return;
+    }
+
+    const nextPublished = !row.published;
+    if (!nextPublished) {
+      void togglePublish(row);
+      return;
+    }
+
+    setPublishDialog({ open: true, row, submitting: false });
+  }
+
+  async function confirmTogglePublish() {
+    const row = publishDialog.row;
+    if (!row || publishDialog.submitting) {
+      return;
+    }
+
+    setPublishDialog((prev) => ({ ...prev, submitting: true }));
+    try {
+      await togglePublish(row);
+    } finally {
+      setPublishDialog(initialPublishDialog);
+    }
+  }
+
+  function cancelTogglePublish() {
+    if (publishDialog.submitting) {
+      return;
+    }
+    setPublishDialog(initialPublishDialog);
+  }
+
+  /**
+   * 批量发布入口：发布方向先弹确认（展示受影响篇数），转草稿方向直接调用。
+   */
+  function requestBulkPublish(ids: string[], published: boolean) {
     if (bulkPublishAction) {
       return;
     }
 
     const targetRows = posts.filter((post) => ids.includes(post.id) && post.published !== published);
     const targetIds = targetRows.map((post) => post.id);
+
+    if (targetIds.length === 0) {
+      toast.info(published ? "所选文章已全部发布" : "所选文章已全部是草稿");
+      return;
+    }
+
+    if (!published) {
+      void updateBulkPublish(ids, false);
+      return;
+    }
+
+    setBulkPublishDialog({ open: true, ids: targetIds, count: targetIds.length, submitting: false });
+  }
+
+  async function confirmBulkPublish() {
+    if (bulkPublishAction || bulkPublishDialog.submitting) {
+      return;
+    }
+
+    setBulkPublishDialog((prev) => ({ ...prev, submitting: true }));
+    try {
+      await updateBulkPublish(bulkPublishDialog.ids, true, true);
+    } finally {
+      setBulkPublishDialog(initialBulkPublishDialog);
+    }
+  }
+
+  function cancelBulkPublish() {
+    if (bulkPublishDialog.submitting) {
+      return;
+    }
+    setBulkPublishDialog(initialBulkPublishDialog);
+  }
+
+  async function updateBulkPublish(ids: string[], published: boolean, useFrozenIds = false) {
+    if (bulkPublishAction) {
+      return;
+    }
+
+    // 确认弹窗打开期间列表可能被 SWR 刷新：确认后必须提交弹窗中冻结的 ids，
+    // 否则用户确认的篇数与实际请求的篇数会漂移（只缩不扩）。
+    const targetRows = useFrozenIds ? [] : posts.filter((post) => ids.includes(post.id) && post.published !== published);
+    const targetIds = useFrozenIds ? ids : targetRows.map((post) => post.id);
 
     if (targetIds.length === 0) {
       toast.info(published ? "所选文章已全部发布" : "所选文章已全部是草稿");
@@ -414,6 +528,8 @@ export function usePostsList() {
     summaryReadyCount,
     deleteDialog,
     setDeleteDialog,
+    publishDialog,
+    bulkPublishDialog,
     mutateList,
     syncSummaryJobs,
     toggleAllCurrentPage,
@@ -421,7 +537,13 @@ export function usePostsList() {
     openDeleteDialog,
     confirmDelete,
     togglePublish,
+    requestTogglePublish,
+    confirmTogglePublish,
+    cancelTogglePublish,
     updateBulkPublish,
+    requestBulkPublish,
+    confirmBulkPublish,
+    cancelBulkPublish,
     handleStatusFilter,
     handleContentTypeFilter,
     setPage,

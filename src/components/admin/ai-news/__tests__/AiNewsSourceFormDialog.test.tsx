@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import { AiNewsSourceFormDialog } from "../AiNewsSourceFormDialog";
@@ -185,5 +185,34 @@ describe("AiNewsSourceFormDialog", () => {
     );
 
     expect(screen.getByLabelText("来源名称")).toHaveValue("新来源");
+  });
+
+  test("按「基本信息」与「抓取与校验」两组渲染字段", () => {
+    render(
+      <AiNewsSourceFormDialog
+        open
+        source={null}
+        saving={false}
+        onOpenChange={vi.fn()}
+        onSubmit={vi.fn()}
+      />,
+    );
+
+    const basicGroup = screen.getByRole("group", { name: "基本信息" });
+    const fetchGroup = screen.getByRole("group", { name: "抓取与校验" });
+
+    expect(basicGroup).toBeInTheDocument();
+    expect(fetchGroup).toBeInTheDocument();
+
+    // 基本信息组包含基础字段与启用开关
+    expect(within(basicGroup).getByLabelText("来源名称")).toBeInTheDocument();
+    expect(within(basicGroup).getByLabelText("来源 URL")).toBeInTheDocument();
+    expect(within(basicGroup).getByLabelText("主页 URL")).toBeInTheDocument();
+    expect(within(basicGroup).getByLabelText("权重")).toBeInTheDocument();
+    expect(within(basicGroup).getByLabelText("默认参与日报")).toBeInTheDocument();
+
+    // 抓取与校验组包含抓取/校验相关字段
+    expect(within(fetchGroup).getByLabelText("抓取上限")).toBeInTheDocument();
+    expect(within(fetchGroup).getByLabelText("最小分数")).toBeInTheDocument();
   });
 });

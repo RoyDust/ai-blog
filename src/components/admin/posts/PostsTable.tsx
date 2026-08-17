@@ -30,6 +30,8 @@ import {
 } from "@/components/shadcn/ui/table";
 import { cn } from "@/lib/utils";
 
+import { AdminPagination } from "@/components/admin/primitives/AdminPagination";
+
 import { getSummaryStatus, type PaginationState, type PostRow } from "./hooks/usePostsList";
 import {
   fallbackText,
@@ -38,7 +40,6 @@ import {
   getPreviewHref,
   getSummaryMeta,
   IconAction,
-  PaginationBar,
   placeholder,
   PublishToggleTag,
   StatusPill,
@@ -53,7 +54,7 @@ export function PostsTable({
   headerCheckboxState,
   onToggleAll,
   onToggleOne,
-  onTogglePublish,
+  onRequestTogglePublish,
   onOpenDelete,
   onPageChange,
   onPageSizeChange,
@@ -66,7 +67,7 @@ export function PostsTable({
   headerCheckboxState: boolean | "indeterminate";
   onToggleAll: (checked: boolean) => void;
   onToggleOne: (id: string, checked: boolean) => void;
-  onTogglePublish: (row: PostRow) => void;
+  onRequestTogglePublish: (row: PostRow) => void;
   onOpenDelete: (ids: string[]) => void;
   onPageChange: (page: number) => void;
   onPageSizeChange: (pageSize: number) => void;
@@ -80,9 +81,9 @@ export function PostsTable({
             <p className="mt-1 text-xs text-[var(--text-muted)]">发布状态、AI 摘要和数据上下文</p>
           </div>
           <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--text-muted)]">
-            <span className="font-mono tabular-nums">PAGE {formatNumber(pagination.page)} / {formatNumber(pagination.totalPages)}</span>
+            <span className="font-mono tabular-nums">第 {formatNumber(pagination.page)} / {formatNumber(pagination.totalPages)} 页</span>
             <Separator orientation="vertical" className="hidden h-4 md:block" />
-            <span>{formatNumber(posts.length)} rows</span>
+            <span>{formatNumber(posts.length)} 条记录</span>
           </div>
         </div>
       </CardHeader>
@@ -202,7 +203,7 @@ export function PostsTable({
                     <TableCell className="whitespace-normal align-top">
                       <PublishToggleTag
                         busy={busyRowIds.includes(row.id)}
-                        onClick={() => onTogglePublish(row)}
+                        onRequestTogglePublish={() => onRequestTogglePublish(row)}
                         published={row.published}
                       />
                     </TableCell>
@@ -263,11 +264,15 @@ export function PostsTable({
       </div>
 
       {!loading && posts.length > 0 ? (
-        <PaginationBar
+        <AdminPagination
           disabled={loading}
+          itemLabel="条记录"
           onPageChange={onPageChange}
           onPageSizeChange={onPageSizeChange}
-          pagination={pagination}
+          page={pagination.page}
+          pageSize={pagination.limit}
+          total={pagination.total}
+          totalPages={pagination.totalPages}
         />
       ) : null}
     </Card>

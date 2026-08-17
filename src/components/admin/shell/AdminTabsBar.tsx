@@ -32,7 +32,7 @@ export function AdminTabsBar() {
             >
               {/* Vben signature dot for active tab */}
               {isActive && (
-                <span className="h-1.5 w-1.5 rounded-full bg-[var(--brand)] animate-pulse" />
+                <span className="h-1.5 w-1.5 rounded-full bg-[var(--brand)]" />
               )}
 
               <Link href={tab.href} className="whitespace-nowrap">

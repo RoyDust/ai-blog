@@ -25,6 +25,11 @@ export type AdminNavItem = {
   badge?: string;
 };
 
+export type AdminBreadcrumb = {
+  label: string;
+  href: string;
+};
+
 export const ADMIN_AI_GROUP_LABEL = "AI 助手";
 
 function hasPathSegment(pathname: string, href: string) {
@@ -64,7 +69,11 @@ function resolveMatch(pathname: string) {
     return {
       currentLabel: "新建文章",
       currentGroup: "主导航",
-      crumbs: ["后台", "主导航", "新建文章"],
+      crumbs: [
+        { label: "后台", href: "/admin" },
+        { label: "文章", href: "/admin/posts" },
+        { label: "新建文章", href: pathname },
+      ],
     };
   }
 
@@ -73,7 +82,11 @@ function resolveMatch(pathname: string) {
     return {
       currentLabel: "编辑文章",
       currentGroup: "主导航",
-      crumbs: ["后台", "主导航", "编辑文章"],
+      crumbs: [
+        { label: "后台", href: "/admin" },
+        { label: "文章", href: "/admin/posts" },
+        { label: "编辑文章", href: pathname },
+      ],
     };
   }
 
@@ -81,7 +94,10 @@ function resolveMatch(pathname: string) {
     return {
       currentLabel: "设置",
       currentGroup: "账号",
-      crumbs: ["后台", "账号", "设置"],
+      crumbs: [
+        { label: "后台", href: "/admin" },
+        { label: "设置", href: pathname },
+      ],
     };
   }
 
@@ -89,7 +105,10 @@ function resolveMatch(pathname: string) {
     return {
       currentLabel: "通知中心",
       currentGroup: "后台",
-      crumbs: ["后台", "通知中心"],
+      crumbs: [
+        { label: "后台", href: "/admin" },
+        { label: "通知中心", href: pathname },
+      ],
     };
   }
 
@@ -101,14 +120,17 @@ function resolveMatch(pathname: string) {
     return {
       currentLabel: "管理后台",
       currentGroup: "主导航",
-      crumbs: ["后台"],
+      crumbs: [{ label: "后台", href: "/admin" }],
     };
   }
 
   return {
     currentLabel: activeItem.label,
     currentGroup: activeItem.group,
-    crumbs: ["后台", activeItem.group, activeItem.label],
+    crumbs: [
+      { label: "后台", href: "/admin" },
+      { label: activeItem.label, href: activeItem.href },
+    ],
   };
 }
 

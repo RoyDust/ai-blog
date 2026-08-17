@@ -125,6 +125,9 @@ describe('editor publish flow', () => {
     renderEditPage()
 
     fireEvent.click(await screen.findByRole('button', { name: '发布文章' }))
+    expect(await screen.findByRole('heading', { name: '确认发布文章' })).toBeInTheDocument()
+    expect(screen.getByText('发布后立即对读者可见。')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '确认发布' }))
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(5)
@@ -174,6 +177,7 @@ describe('editor publish flow', () => {
       target: { value: '2099-01-01T10:30' },
     })
     fireEvent.click(screen.getByRole('button', { name: '定时发布' }))
+    expect(screen.queryByRole('heading', { name: '确认发布文章' })).not.toBeInTheDocument()
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(5)
@@ -418,4 +422,47 @@ describe('editor publish flow', () => {
     expect(screen.getByText('部分字段生成失败：Slug。请确认预览后应用其他可用结果。')).toBeInTheDocument()
   })
 
+  test('cancelling publish confirmation does not submit', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ data: [] }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ data: [] }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ success: true, data: [] }) })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: {
+            id: '1',
+            title: 'Post 1',
+            slug: 'post-1',
+            content: '# Hello',
+            excerpt: 'Excerpt',
+            coverImage: '',
+            categoryId: '',
+            tags: [],
+            published: false,
+          },
+        }),
+      })
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    renderEditPage()
+
+    fireEvent.click(await screen.findByRole('button', { name: '发布文章' }))
+    expect(await screen.findByRole('heading', { name: '确认发布文章' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '取消' }))
+
+    await waitFor(() => {
+      expect(screen.queryByRole('heading', { name: '确认发布文章' })).not.toBeInTheDocument()
+    })
+    expect(fetchMock).toHaveBeenCalledTimes(4)
+    expect(
+      fetchMock.mock.calls.some(
+        ([url, options]) =>
+          String(url) === '/api/admin/posts/1' && (options as { method?: string } | undefined)?.method === 'PATCH',
+      ),
+    ).toBe(false)
+  })
 })

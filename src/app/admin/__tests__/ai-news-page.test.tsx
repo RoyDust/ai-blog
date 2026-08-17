@@ -224,6 +224,8 @@ describe("admin AI news page", () => {
     expect(await screen.findByText("当前模型：日报模型（qwen-news）。")).toBeInTheDocument()
     fireEvent.change(screen.getByLabelText("生成日期"), { target: { value: "2026-04-29" } })
     fireEvent.click(screen.getByRole("button", { name: "重新生成今日日报" }))
+    expect(await screen.findByRole("heading", { name: "重新生成今日 AI 日报" })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole("button", { name: "确认重新生成" }))
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(

@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertCircle, Bell, CheckCheck, CircleCheck, Info, Inbox, XCircle } from "lucide-react";
+import { toast } from "sonner";
 import useSWR from "swr";
 
 import {
@@ -33,9 +34,9 @@ type NotificationPayload = {
 };
 
 const severityMeta = {
-  SUCCESS: { icon: CircleCheck, className: "bg-emerald-50 text-emerald-700" },
-  WARNING: { icon: AlertCircle, className: "bg-amber-50 text-amber-700" },
-  ERROR: { icon: XCircle, className: "bg-rose-50 text-rose-700" },
+  SUCCESS: { icon: CircleCheck, className: "bg-[var(--success-surface)] text-[var(--success-foreground)]" },
+  WARNING: { icon: AlertCircle, className: "bg-[var(--warning-surface)] text-[var(--warning-foreground)]" },
+  ERROR: { icon: XCircle, className: "bg-[var(--danger-surface)] text-[var(--danger-foreground)]" },
   INFO: { icon: Info, className: "bg-[color-mix(in_oklab,var(--brand)_10%,var(--surface))] text-[var(--brand)]" },
 } as const;
 
@@ -124,14 +125,16 @@ export function NotificationBell() {
       const payload = await apiMutate<{ success?: boolean; data?: { unreadCount: number } }>("/api/admin/notifications/read-all", { method: "POST" });
       if (!payload.data) {
         setError("通知状态更新失败");
+        toast.error("通知状态更新失败");
         return;
       }
 
       setUnreadCount(payload.data.unreadCount);
       setItems((current) => current.map((item) => ({ ...item, readAt: item.readAt ?? new Date().toISOString() })));
       void mutate();
-    } catch {
+    } catch (error) {
       setError("通知状态更新失败");
+      toast.error(toErrorMessage(error, "通知状态更新失败"));
     }
   }, [mutate]);
 
@@ -151,7 +154,8 @@ export function NotificationBell() {
           router.push(item.actionUrl);
         }
       } catch (openError) {
-        setError(openError instanceof Error ? openError.message : "通知状态更新失败");
+        setError(toErrorMessage(openError, "通知状态更新失败"));
+        toast.error(toErrorMessage(openError, "通知状态更新失败"));
       }
     },
     [markRead, router],
@@ -167,7 +171,7 @@ export function NotificationBell() {
         >
           <Bell className="h-5 w-5" />
           {unreadCount > 0 ? (
-            <span className="absolute -right-1 -top-1 inline-flex min-w-5 items-center justify-center rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white ring-2 ring-[var(--surface)]">
+            <span aria-hidden="true" className="absolute -right-1 -top-1 inline-flex min-w-6 items-center justify-center rounded-full bg-[var(--danger-foreground)] px-1.5 py-0.5 text-xs font-bold leading-none text-[var(--surface)] ring-2 ring-[var(--surface)]">
               {formatUnreadCount(unreadCount)}
             </span>
           ) : null}
@@ -192,7 +196,7 @@ export function NotificationBell() {
 
         <div className="max-h-[420px] overflow-y-auto p-2">
           {loading ? <p className="px-3 py-8 text-center text-sm text-[var(--muted)]">正在加载通知...</p> : null}
-          {!loading && error ? <p className="px-3 py-8 text-center text-sm text-rose-600">{error}</p> : null}
+          {!loading && error ? <p className="px-3 py-8 text-center text-sm text-[var(--danger-foreground)]">{error}</p> : null}
           {!loading && !error && items.length === 0 ? (
             <div className="px-3 py-8 text-center text-sm text-[var(--muted)]">
               <Inbox className="mx-auto mb-2 h-6 w-6" />
@@ -207,6 +211,7 @@ export function NotificationBell() {
                 return (
                   <DropdownMenuItem
                     key={item.id}
+                    aria-label={item.readAt ? item.title : `${item.title}，未读`}
                     className="items-start gap-3 rounded-xl px-3 py-3"
                     onSelect={(event) => {
                       event.preventDefault();
@@ -219,7 +224,7 @@ export function NotificationBell() {
                     <span className="min-w-0 flex-1">
                       <span className="flex min-w-0 items-start gap-2">
                         <span className="line-clamp-1 flex-1 text-sm font-semibold text-[var(--foreground)]">{item.title}</span>
-                        {!item.readAt ? <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-rose-500" aria-label="未读" /> : null}
+                        {!item.readAt ? <span aria-hidden="true" className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[var(--danger-foreground)]" /> : null}
                       </span>
                       {item.body ? <span className="mt-1 line-clamp-2 block text-xs leading-5 text-[var(--muted)]">{item.body}</span> : null}
                       <span className="mt-1 block text-xs text-[var(--muted)]">{formatRelativeTime(item.createdAt)}</span>

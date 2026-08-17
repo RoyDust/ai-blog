@@ -65,6 +65,7 @@ describe("NotificationBell", () => {
 
     fireEvent.keyDown(trigger, { key: "ArrowDown" });
     expect(await screen.findByText("AI 任务失败")).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "AI 任务失败，未读" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /全部已读/ }));
 

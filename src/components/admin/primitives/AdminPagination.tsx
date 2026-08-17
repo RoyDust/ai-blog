@@ -1,6 +1,6 @@
 "use client";
 
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { buttonVariants } from "@/components/admin/ui";
@@ -88,10 +88,13 @@ export function AdminPagination({
   const canPaginate = totalPages > 1;
   const canChoosePageSize = pageSizeOptions.length > 1;
   const [jumpValue, setJumpValue] = useState(String(activePage));
-
-  useEffect(() => {
+  // 渲染期条件调整（AGENTS.md 允许的模式）：外部页码变化时同步跳转输入框，不在 effect 内 setState；
+  // 用 state 记忆上次页码而非 ref（react-hooks/refs 禁止渲染期访问 ref）
+  const [lastActivePage, setLastActivePage] = useState(activePage);
+  if (lastActivePage !== activePage) {
+    setLastActivePage(activePage);
     setJumpValue(String(activePage));
-  }, [activePage]);
+  }
 
   const buildHref = (targetPage: number, nextPageSize = pageSize) => {
     if (!hrefBase) return null;

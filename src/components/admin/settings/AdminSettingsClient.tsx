@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type KeyboardEvent } from "react";
 import { toast } from "sonner";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -282,10 +282,34 @@ export function AdminSettingsClient({ user, blogSettings, operationLogSettings }
     saveBlogSettings({ about: values.about }),
   );
 
+  const handleTablistKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (settingsTabs.length === 0) return;
+    const currentIndex = settingsTabs.findIndex((tab) => tab.id === activeTab);
+    if (currentIndex === -1) return;
+
+    let nextIndex: number;
+    if (event.key === "ArrowRight") {
+      nextIndex = (currentIndex + 1) % settingsTabs.length;
+    } else if (event.key === "ArrowLeft") {
+      nextIndex = (currentIndex - 1 + settingsTabs.length) % settingsTabs.length;
+    } else if (event.key === "Home") {
+      nextIndex = 0;
+    } else if (event.key === "End") {
+      nextIndex = settingsTabs.length - 1;
+    } else {
+      return;
+    }
+
+    event.preventDefault();
+    const nextTab = settingsTabs[nextIndex];
+    setActiveTab(nextTab.id);
+    document.getElementById(`settings-tab-${nextTab.id}`)?.focus();
+  };
+
   return (
     <div className="space-y-5">
       <PageHeader
-        eyebrow="Account"
+        eyebrow="账号"
         title="设置"
         description="集中管理管理员资料、博客展示信息和后台运行策略。"
       />
@@ -295,6 +319,7 @@ export function AdminSettingsClient({ user, blogSettings, operationLogSettings }
           <div
             aria-label="设置分类"
             className="inline-flex min-w-full gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-1"
+            onKeyDown={handleTablistKeyDown}
             role="tablist"
           >
             {settingsTabs.map((tab) => {
@@ -314,6 +339,7 @@ export function AdminSettingsClient({ user, blogSettings, operationLogSettings }
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   role="tab"
+                  tabIndex={isActive ? 0 : -1}
                   type="button"
                 >
                   <Icon className="h-4 w-4 shrink-0" />

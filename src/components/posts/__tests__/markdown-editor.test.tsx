@@ -49,6 +49,77 @@ describe("markdown editor", () => {
     expect(container.querySelector("pre code")?.className).toContain("hljs");
   });
 
+  test("wraps the selected text with bold markers and restores the selection", async () => {
+    function Wrapper() {
+      const [value, setValue] = useState("hello world");
+      return <MarkdownEditor value={value} onChange={setValue} />;
+    }
+
+    render(<Wrapper />);
+    const textarea = screen.getByRole("textbox") as HTMLTextAreaElement;
+    textarea.focus();
+    textarea.setSelectionRange(6, 11);
+    fireEvent.select(textarea);
+
+    fireEvent.click(screen.getByRole("button", { name: /加粗/ }));
+
+    await waitFor(() => {
+      expect(textarea).toHaveValue("hello **world**");
+    });
+    await waitFor(() => {
+      expect(textarea.selectionStart).toBe(8);
+      expect(textarea.selectionEnd).toBe(13);
+    });
+    expect(textarea).toHaveFocus();
+  });
+
+  test("inserts paired markers at the cursor and places the caret between them", async () => {
+    function Wrapper() {
+      const [value, setValue] = useState("hello world");
+      return <MarkdownEditor value={value} onChange={setValue} />;
+    }
+
+    render(<Wrapper />);
+    const textarea = screen.getByRole("textbox") as HTMLTextAreaElement;
+    textarea.focus();
+    textarea.setSelectionRange(5, 5);
+    fireEvent.select(textarea);
+
+    fireEvent.click(screen.getByRole("button", { name: /加粗/ }));
+
+    await waitFor(() => {
+      expect(textarea).toHaveValue("hello**** world");
+    });
+    await waitFor(() => {
+      expect(textarea.selectionStart).toBe(7);
+      expect(textarea.selectionEnd).toBe(7);
+    });
+    expect(textarea).toHaveFocus();
+  });
+
+  test("inserts a heading prefix at the cursor and keeps the caret after the marker", async () => {
+    function Wrapper() {
+      const [value, setValue] = useState("hello world");
+      return <MarkdownEditor value={value} onChange={setValue} />;
+    }
+
+    render(<Wrapper />);
+    const textarea = screen.getByRole("textbox") as HTMLTextAreaElement;
+    textarea.focus();
+    textarea.setSelectionRange(6, 6);
+    fireEvent.select(textarea);
+
+    fireEvent.click(screen.getByRole("button", { name: /二级标题/ }));
+
+    await waitFor(() => {
+      expect(textarea).toHaveValue("hello ## world");
+    });
+    await waitFor(() => {
+      expect(textarea.selectionStart).toBe(9);
+      expect(textarea.selectionEnd).toBe(9);
+    });
+  });
+
   test("renders qiniu image upload trigger and hides plain image button", () => {
     render(<MarkdownEditor value="" onChange={vi.fn()} />);
 

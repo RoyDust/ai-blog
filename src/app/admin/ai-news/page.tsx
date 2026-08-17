@@ -18,6 +18,7 @@ import { PageHeader } from "@/components/admin/primitives/PageHeader"
 import { StatusBadge } from "@/components/admin/primitives/StatusBadge"
 import { WorkspacePanel } from "@/components/admin/primitives/WorkspacePanel"
 import { Button } from "@/components/admin/ui"
+import { ConfirmDialog } from "@/components/admin/ui/confirm-dialog"
 import { AiNewsSourcePanel } from "@/components/admin/ai-news/AiNewsSourcePanel"
 import { useAiNewsSources } from "@/components/admin/ai-news/hooks/useAiNewsSources"
 import {
@@ -160,6 +161,7 @@ export default function AdminAiNewsPage() {
   const [running, setRunning] = useState(false)
   const [result, setResult] = useState<RunResult | null>(null)
   const [candidateStates, setCandidateStates] = useState<Record<string, CandidateState>>({})
+  const [regenerateConfirmOpen, setRegenerateConfirmOpen] = useState(false)
   const aiNewsSources = useAiNewsSources()
 
   const {
@@ -256,14 +258,14 @@ export default function AdminAiNewsPage() {
    * 手动执行 AI 日报生成。
    * regenerate=true 时表示强制重生成当日内容，而不是命中“已存在则跳过”的幂等逻辑。
    */
-  async function runNewsGeneration(regenerate = false) {
+  async function runNewsGeneration(regenerate = false): Promise<boolean> {
     if (!selectedModelId) {
       toast.error("请选择可用模型")
-      return
+      return false
     }
     if (aiNewsSources.sourceMode === "selected" && aiNewsSources.selectedSourceIds.length === 0) {
       toast.error("至少选择一个来源")
-      return
+      return false
     }
 
     setRunning(true)
@@ -285,8 +287,10 @@ export default function AdminAiNewsPage() {
       } else {
         toast.success("AI 日报已生成并上线")
       }
+      return true
     } catch (error) {
       toast.error(toErrorMessage(error, "AI 日报生成失败"))
+      return false
     } finally {
       setRunning(false)
     }
@@ -303,11 +307,27 @@ export default function AdminAiNewsPage() {
             <Button type="button" disabled={running || !selectedModelId} onClick={() => void runNewsGeneration()}>
               {running ? "生成中..." : "生成今日 AI 日报"}
             </Button>
-            <Button type="button" variant="outline" disabled={running || !selectedModelId} onClick={() => void runNewsGeneration(true)}>
+            <Button type="button" variant="outline" disabled={running || !selectedModelId} onClick={() => setRegenerateConfirmOpen(true)}>
               重新生成今日日报
             </Button>
           </>
         }
+      />
+
+      <ConfirmDialog
+        cancelLabel="取消"
+        confirmLabel="确认重新生成"
+        description="重新生成会覆盖当日已生成内容，并保留原文章链接。"
+        onConfirm={async () => {
+          const ok = await runNewsGeneration(true)
+          // 仅成功后关闭：失败保留弹窗可原地重试
+          if (ok) setRegenerateConfirmOpen(false)
+        }}
+        onOpenChange={setRegenerateConfirmOpen}
+        open={regenerateConfirmOpen}
+        submitting={running}
+        title="重新生成今日 AI 日报"
+        tone="danger"
       />
 
       <WorkspacePanel title="候选策略" description="多源抓取 + 去重评分 + 内容增强后直接上线" className="border border-[var(--border)]">
@@ -354,7 +374,7 @@ export default function AdminAiNewsPage() {
                 当前模型：{selectedModel.name}（{selectedModel.model}）。
               </p>
             ) : null}
-            {modelsError ? <p className="mt-2 text-red-600">{modelsError}</p> : null}
+            {modelsError ? <p className="mt-2 text-[var(--danger-foreground)]">{modelsError}</p> : null}
           </div>
         </div>
       </WorkspacePanel>
@@ -441,7 +461,7 @@ export default function AdminAiNewsPage() {
         className="border border-[var(--border)]"
       >
         <div className="space-y-3">
-          {runsError ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{runsError}</p> : null}
+          {runsError ? <p className="rounded-2xl border border-[var(--danger-border)] bg-[var(--danger-surface)] p-3 text-sm text-[var(--danger-foreground)]">{runsError}</p> : null}
           {!runsError && runs.length === 0 ? <p className="text-sm text-[var(--muted)]">暂无运行记录。</p> : null}
 
           {runs.map((run) => {
@@ -463,7 +483,7 @@ export default function AdminAiNewsPage() {
                   </Button>
                 </div>
 
-                {run.error ? <p className="mt-3 text-sm text-red-600">{run.error}</p> : null}
+                {run.error ? <p className="mt-3 text-sm text-[var(--danger-foreground)]">{run.error}</p> : null}
                 {typeof run.reviewScore === "number" ? <p className="mt-2 text-sm text-[var(--muted)]">审稿得分 {run.reviewScore}</p> : null}
 
                 {run.postId || run.postSlug ? (
@@ -484,7 +504,7 @@ export default function AdminAiNewsPage() {
                 {candidates?.expanded ? (
                   <div className="mt-4 space-y-3 border-t border-[var(--border)] pt-4">
                     {candidates.loading ? <p className="text-sm text-[var(--muted)]">候选加载中...</p> : null}
-                    {candidates.error ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{candidates.error}</p> : null}
+                    {candidates.error ? <p className="rounded-2xl border border-[var(--danger-border)] bg-[var(--danger-surface)] p-3 text-sm text-[var(--danger-foreground)]">{candidates.error}</p> : null}
                     {!candidates.loading && !candidates.error && candidates.data?.length === 0 ? (
                       <p className="text-sm text-[var(--muted)]">暂无候选。</p>
                     ) : null}

@@ -6,7 +6,11 @@ describe("admin shell config", () => {
     expect(getAdminPathMeta("/admin/posts/new")).toEqual({
       currentLabel: "新建文章",
       currentGroup: "主导航",
-      crumbs: ["后台", "主导航", "新建文章"],
+      crumbs: [
+        { label: "后台", href: "/admin" },
+        { label: "文章", href: "/admin/posts" },
+        { label: "新建文章", href: "/admin/posts/new" },
+      ],
     });
   });
 
@@ -14,7 +18,10 @@ describe("admin shell config", () => {
     expect(getAdminPathMeta("/admin/taxonomy")).toEqual({
       currentLabel: "分类",
       currentGroup: "主导航",
-      crumbs: ["后台", "主导航", "分类"],
+      crumbs: [
+        { label: "后台", href: "/admin" },
+        { label: "分类", href: "/admin/taxonomy" },
+      ],
     });
   });
 
@@ -22,7 +29,10 @@ describe("admin shell config", () => {
     expect(getAdminPathMeta("/admin/ai/models")).toEqual({
       currentLabel: "模型配置",
       currentGroup: "AI 助手",
-      crumbs: ["后台", "AI 助手", "模型配置"],
+      crumbs: [
+        { label: "后台", href: "/admin" },
+        { label: "模型配置", href: "/admin/ai/models" },
+      ],
     });
   });
 
@@ -30,7 +40,10 @@ describe("admin shell config", () => {
     expect(getAdminPathMeta("/admin/ai/interfaces")).toEqual({
       currentLabel: "AI 接口",
       currentGroup: "AI 助手",
-      crumbs: ["后台", "AI 助手", "AI 接口"],
+      crumbs: [
+        { label: "后台", href: "/admin" },
+        { label: "AI 接口", href: "/admin/ai/interfaces" },
+      ],
     });
   });
 
@@ -38,7 +51,10 @@ describe("admin shell config", () => {
     expect(getAdminPathMeta("/admin/covers")).toEqual({
       currentLabel: "媒体库",
       currentGroup: "主导航",
-      crumbs: ["后台", "主导航", "媒体库"],
+      crumbs: [
+        { label: "后台", href: "/admin" },
+        { label: "媒体库", href: "/admin/covers" },
+      ],
     });
   });
 
@@ -46,7 +62,10 @@ describe("admin shell config", () => {
     expect(getAdminPathMeta("/admin/ai/tasks")).toEqual({
       currentLabel: "AI 任务",
       currentGroup: "AI 助手",
-      crumbs: ["后台", "AI 助手", "AI 任务"],
+      crumbs: [
+        { label: "后台", href: "/admin" },
+        { label: "AI 任务", href: "/admin/ai/tasks" },
+      ],
     });
   });
 
@@ -54,7 +73,10 @@ describe("admin shell config", () => {
     expect(getAdminPathMeta("/admin/ai-news")).toEqual({
       currentLabel: "AI 日报",
       currentGroup: "AI 助手",
-      crumbs: ["后台", "AI 助手", "AI 日报"],
+      crumbs: [
+        { label: "后台", href: "/admin" },
+        { label: "AI 日报", href: "/admin/ai-news" },
+      ],
     });
   });
 
@@ -62,17 +84,26 @@ describe("admin shell config", () => {
     expect(getAdminPathMeta("/admin/newsletter")).toEqual({
       currentLabel: "邮件运营",
       currentGroup: "主导航",
-      crumbs: ["后台", "主导航", "邮件运营"],
+      crumbs: [
+        { label: "后台", href: "/admin" },
+        { label: "邮件运营", href: "/admin/newsletter" },
+      ],
     });
     expect(getAdminPathMeta("/admin/topic-guides")).toEqual({
       currentLabel: "专题导读",
       currentGroup: "主导航",
-      crumbs: ["后台", "主导航", "专题导读"],
+      crumbs: [
+        { label: "后台", href: "/admin" },
+        { label: "专题导读", href: "/admin/topic-guides" },
+      ],
     });
     expect(getAdminPathMeta("/admin/ai/topics")).toEqual({
       currentLabel: "选题雷达",
       currentGroup: "AI 助手",
-      crumbs: ["后台", "AI 助手", "选题雷达"],
+      crumbs: [
+        { label: "后台", href: "/admin" },
+        { label: "选题雷达", href: "/admin/ai/topics" },
+      ],
     });
   });
 
@@ -100,7 +131,10 @@ describe("admin shell config", () => {
     expect(getAdminPathMeta("/admin/logs")).toEqual({
       currentLabel: "接口日志",
       currentGroup: "系统",
-      crumbs: ["后台", "系统", "接口日志"],
+      crumbs: [
+        { label: "后台", href: "/admin" },
+        { label: "接口日志", href: "/admin/logs" },
+      ],
     });
   });
 
@@ -109,7 +143,10 @@ describe("admin shell config", () => {
     expect(getAdminPathMeta("/admin/settings")).toEqual({
       currentLabel: "设置",
       currentGroup: "账号",
-      crumbs: ["后台", "账号", "设置"],
+      crumbs: [
+        { label: "后台", href: "/admin" },
+        { label: "设置", href: "/admin/settings" },
+      ],
     });
   });
 
@@ -118,7 +155,10 @@ describe("admin shell config", () => {
     expect(getAdminPathMeta("/admin/notifications")).toEqual({
       currentLabel: "通知中心",
       currentGroup: "后台",
-      crumbs: ["后台", "通知中心"],
+      crumbs: [
+        { label: "后台", href: "/admin" },
+        { label: "通知中心", href: "/admin/notifications" },
+      ],
     });
   });
 
@@ -142,13 +182,20 @@ describe("admin shell config", () => {
     expect(getAdminPathMeta("/admin/posts/post-1/edit")).toEqual({
       currentLabel: "编辑文章",
       currentGroup: "主导航",
-      crumbs: ["后台", "主导航", "编辑文章"],
+      crumbs: [
+        { label: "后台", href: "/admin" },
+        { label: "文章", href: "/admin/posts" },
+        { label: "编辑文章", href: "/admin/posts/post-1/edit" },
+      ],
     });
 
     expect(getAdminPathMeta("/admin/posts/edit")).toEqual({
       currentLabel: "文章",
       currentGroup: "主导航",
-      crumbs: ["后台", "主导航", "文章"],
+      crumbs: [
+        { label: "后台", href: "/admin" },
+        { label: "文章", href: "/admin/posts" },
+      ],
     });
   });
 });

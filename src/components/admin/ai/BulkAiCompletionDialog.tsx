@@ -5,7 +5,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 
 import { Button, Modal } from "@/components/admin/ui";
-import { getApiErrorMessage } from "@/lib/admin-api-client";
+import { apiMutate, toErrorMessage } from "@/lib/client-api";
 
 type AiBatchAction = "summary" | "seo-description" | "tags" | "category" | "cover-image";
 type AiBatchMode = "missing-only" | "overwrite" | "suggest-only";
@@ -42,7 +42,7 @@ export function BulkAiCompletionDialog({
 }) {
   const [actions, setActions] = useState<AiBatchAction[]>(["summary", "seo-description"]);
   const [mode, setMode] = useState<AiBatchMode>("missing-only");
-  const [applySafeFields, setApplySafeFields] = useState(true);
+  const [applySafeFields, setApplySafeFields] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [taskId, setTaskId] = useState<string | null>(null);
   const safeApplyDisabled = useMemo(() => !actions.some((action) => action === "summary" || action === "seo-description" || action === "cover-image"), [actions]);
@@ -68,28 +68,25 @@ export function BulkAiCompletionDialog({
     setTaskId(null);
 
     try {
-      const response = await fetch("/api/admin/ai/batch", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          postIds: selectedIds,
-          actions,
-          mode,
-          apply: applySafeFields && !safeApplyDisabled,
-        }),
-      });
-      const data = await response.json();
+      const data = await apiMutate<{ success?: boolean; data?: { id: string | number; items?: unknown[] } }>(
+        "/api/admin/ai/batch",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            postIds: selectedIds,
+            actions,
+            mode,
+            apply: applySafeFields && !safeApplyDisabled,
+          }),
+        },
+      );
 
-      if (!response.ok || !data.success) {
-        throw new Error(getApiErrorMessage(data, "AI 批量补全启动失败"));
-      }
-
-      const nextTaskId = String(data.data.id);
+      const nextTaskId = String(data.data?.id);
       setTaskId(nextTaskId);
       onStarted?.(nextTaskId);
-      toast.success(data.data.items?.length > 0 ? "AI 批量补全已开始" : "没有需要补全的文章项");
+      toast.success(data.data?.items && data.data.items.length > 0 ? "AI 批量补全已开始" : "没有需要补全的文章项");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "AI 批量补全启动失败");
+      toast.error(toErrorMessage(error, "AI 批量补全启动失败"));
     } finally {
       setSubmitting(false);
     }
@@ -167,7 +164,7 @@ export function BulkAiCompletionDialog({
         </label>
 
         {taskId ? (
-          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+          <div className="rounded-2xl border border-[var(--success-border)] bg-[var(--success-surface)] px-4 py-3 text-sm text-[var(--success-foreground)]">
             任务已创建：
             <Link className="font-medium underline" href={`/admin/ai/tasks/${taskId}`}>
               查看详情

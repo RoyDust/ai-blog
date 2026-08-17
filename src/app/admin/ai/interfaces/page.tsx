@@ -36,7 +36,7 @@ const audienceMeta: Record<
   agent: {
     title: "Agent 可调用接口",
     description: "面向外部 AI agent 的稳定写作接口，可用 AI Token 鉴权。",
-    badgeClassName: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    badgeClassName: "border-[var(--success-border)] bg-[var(--success-surface)] text-[var(--success-foreground)]",
   },
   admin: {
     title: "后台内部 AI 接口",
@@ -46,7 +46,7 @@ const audienceMeta: Record<
   cron: {
     title: "定时任务接口",
     description: "由服务端计划任务调用，不提供给普通 agent 直接使用。",
-    badgeClassName: "border-amber-200 bg-amber-50 text-amber-700",
+    badgeClassName: "border-[var(--warning-border)] bg-[var(--warning-surface)] text-[var(--warning-foreground)]",
   },
 };
 
@@ -60,7 +60,7 @@ function InterfaceCard({ baseUrl, item }: { baseUrl: string; item: AiInterfaceCa
   const canOpenDirectly = item.methods.includes("GET") && item.auth === "公开";
 
   return (
-    <article className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[0_18px_34px_-32px_rgba(15,23,42,0.45)]">
+    <article className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
@@ -149,7 +149,7 @@ export default async function AdminAiInterfacesPage() {
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="ui-surface rounded-2xl p-5">
           <div className="flex items-center gap-3">
-            <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+            <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--success-surface)] text-[var(--success-foreground)]">
               <Bot className="h-5 w-5" />
             </span>
             <div>
@@ -171,7 +171,7 @@ export default async function AdminAiInterfacesPage() {
         </div>
         <div className="ui-surface rounded-2xl p-5">
           <div className="flex items-center gap-3">
-            <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-700">
+            <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--warning-surface)] text-[var(--warning-foreground)]">
               <Route className="h-5 w-5" />
             </span>
             <div>

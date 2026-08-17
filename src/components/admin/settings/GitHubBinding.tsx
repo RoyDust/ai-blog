@@ -4,7 +4,8 @@ import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { toast } from "sonner";
 import { Button } from "@/components/admin/ui";
-import { getApiErrorMessage } from "@/lib/admin-api-client";
+import { ConfirmDialog } from "@/components/admin/ui/confirm-dialog";
+import { apiMutate, toErrorMessage } from "@/lib/client-api";
 
 type GitHubBindingProps = {
   initialLinked: boolean;
@@ -20,6 +21,7 @@ export function GitHubBinding({ initialLinked }: GitHubBindingProps) {
   const [linked, setLinked] = useState(initialLinked);
   const [linking, setLinking] = useState(false);
   const [unlinking, setUnlinking] = useState(false);
+  const [unlinkConfirmOpen, setUnlinkConfirmOpen] = useState(false);
 
   const handleLink = async () => {
     setLinking(true);
@@ -28,31 +30,27 @@ export function GitHubBinding({ initialLinked }: GitHubBindingProps) {
     });
   };
 
-  const handleUnlink = async () => {
-    if (!window.confirm("确定要解除 GitHub 绑定吗？")) return;
-
+  const handleUnlink = async (): Promise<boolean> => {
     setUnlinking(true);
     try {
-      const response = await fetch("/api/account/github/unlink", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-
-      const data = await response.json().catch(() => ({}));
-
-      if (!response.ok) {
-        toast.error(getApiErrorMessage(data, "解除绑定失败"));
-        return;
-      }
+      await apiMutate("/api/account/github/unlink", { method: "POST" });
 
       setLinked(false);
       toast.success("GitHub 已解除绑定");
-    } catch {
-      toast.error("解除绑定失败，请稍后重试");
+      return true;
+    } catch (error) {
+      toast.error(toErrorMessage(error, "解除绑定失败"));
+      return false;
     } finally {
       setUnlinking(false);
+    }
+  };
+
+  const confirmUnlink = async () => {
+    const unlinked = await handleUnlink();
+    // 仅成功后关闭弹窗：失败保留弹窗可原地重试
+    if (unlinked) {
+      setUnlinkConfirmOpen(false);
     }
   };
 
@@ -71,7 +69,7 @@ export function GitHubBinding({ initialLinked }: GitHubBindingProps) {
       </div>
 
       {linked ? (
-        <Button type="button" variant="outline" onClick={handleUnlink} disabled={unlinking}>
+        <Button type="button" variant="outline" onClick={() => setUnlinkConfirmOpen(true)} disabled={unlinking}>
           {unlinking ? "解除中..." : "解除 GitHub 绑定"}
         </Button>
       ) : (
@@ -79,6 +77,18 @@ export function GitHubBinding({ initialLinked }: GitHubBindingProps) {
           {linking ? "跳转中..." : "绑定 GitHub 账号"}
         </Button>
       )}
+
+      <ConfirmDialog
+        cancelLabel="取消"
+        confirmLabel="确认解绑"
+        description="确定要解除 GitHub 绑定吗？解绑后将无法使用 GitHub 登录。"
+        onConfirm={confirmUnlink}
+        onOpenChange={setUnlinkConfirmOpen}
+        open={unlinkConfirmOpen}
+        submitting={unlinking}
+        title="解除 GitHub 绑定"
+        tone="danger"
+      />
     </div>
   );
 }

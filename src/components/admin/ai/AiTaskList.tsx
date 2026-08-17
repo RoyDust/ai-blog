@@ -1,8 +1,10 @@
 import Link from "next/link";
+import { ListChecks } from "lucide-react";
 
 import { AdminPagination } from "@/components/admin/primitives/AdminPagination";
 import { StatusBadge } from "@/components/admin/primitives/StatusBadge";
 import { Button } from "@/components/admin/ui";
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/shadcn/ui/empty";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/shadcn/ui/table";
 
 type Task = {
@@ -117,7 +119,15 @@ export function AiTaskList({
       </header>
 
       {tasks.length === 0 ? (
-        <p className="px-4 py-12 text-center text-sm text-[var(--text-muted)]">暂无 AI 任务记录</p>
+        <Empty className="border-0" role="status">
+          <EmptyMedia variant="icon">
+            <ListChecks className="size-5" />
+          </EmptyMedia>
+          <EmptyHeader>
+            <EmptyTitle>暂无 AI 任务记录</EmptyTitle>
+            <EmptyDescription>去文章列表选择内容并运行 AI 任务后，记录会出现在这里。</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : (
         <div className="overflow-x-auto">
           <Table className="min-w-[900px] table-fixed">

@@ -27,6 +27,7 @@ import type { CoverAsset } from "@/components/admin/covers/types";
 import { StatusBadge } from "@/components/admin/primitives/StatusBadge";
 import { WorkspacePanel } from "@/components/admin/primitives/WorkspacePanel";
 import { Button, Input, Modal } from "@/components/admin/ui";
+import { ConfirmDialog } from "@/components/admin/ui/confirm-dialog";
 import {
   Select,
   SelectContent,
@@ -288,6 +289,7 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
   const [error, setError] = useState("");
   const [aiWorkspaceOpen, setAiWorkspaceOpen] = useState(false);
   const [hydratedPostId, setHydratedPostId] = useState<string | null>(null);
+const [publishConfirmOpen, setPublishConfirmOpen] = useState(false);
   const {
     applySlugChange,
     applyTitleChange,
@@ -383,21 +385,15 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
    * 统一处理“保存草稿”和“发布文章”两个提交意图。
    *
    * 通过 submitter.name/value 判断用户点击的按钮，再把最终 published 状态写入文章接口。
+   * intent === "publish" 时先弹 ConfirmDialog 确认，确认后复用同一提交逻辑。
    */
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const performSubmit = async (intent: "publish" | "draft" | "schedule" | null) => {
     if (!canSubmit) return;
 
     setSaving(true);
     setError("");
 
     try {
-      const nativeEvent = event.nativeEvent as unknown as { submitter?: HTMLElement | null };
-      const submitter = nativeEvent.submitter;
-      const intent =
-        submitter instanceof HTMLButtonElement && submitter.getAttribute("name") === "intent"
-          ? submitter.value
-          : null;
       const scheduledAt = formData.scheduledAt.trim();
 
       if (intent === "schedule" && !scheduledAt) {
@@ -425,6 +421,32 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!canSubmit) return;
+
+    const nativeEvent = event.nativeEvent as unknown as { submitter?: HTMLElement | null };
+    const submitter = nativeEvent.submitter;
+    const intent: "publish" | "draft" | "schedule" | null =
+      submitter instanceof HTMLButtonElement && submitter.getAttribute("name") === "intent"
+        ? (submitter.value as "publish" | "draft" | "schedule")
+        : null;
+
+    // 无 submitter 的提交（如键盘 Enter）intent 为 null，此时若表单已被切到「已发布」，
+    // 最终 published 仍为 true——同样必须走发布确认，不能绕过。
+    const willPublish = intent === "publish" || (intent === null && formData.published === true);
+    if (willPublish) {
+      setPublishConfirmOpen(true);
+      return;
+    }
+
+    await performSubmit(intent);
+  };
+
+  const confirmPublishSubmit = () => {
+    void performSubmit("publish");
   };
 
   /**
@@ -1011,6 +1033,17 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
           </div>
         </Modal>
       ) : null}
+
+      <ConfirmDialog
+        cancelLabel="取消"
+        confirmLabel="确认发布"
+        description="发布后立即对读者可见。"
+        onConfirm={confirmPublishSubmit}
+        onOpenChange={setPublishConfirmOpen}
+        open={publishConfirmOpen}
+        submitting={saving}
+        title="确认发布文章"
+      />
     </form>
   );
 }

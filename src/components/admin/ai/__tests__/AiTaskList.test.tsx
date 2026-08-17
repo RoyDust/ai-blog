@@ -47,4 +47,17 @@ describe("AiTaskList", () => {
       "/admin/ai/tasks?page=3&status=FAILED&type=post-summary&limit=20",
     );
   });
+
+  test("renders a teaching empty state when there are no tasks", () => {
+    render(
+      <AiTaskList
+        tasks={[]}
+        pagination={{ page: 1, limit: 20, total: 0, totalPages: 1 }}
+        searchParams={{}}
+      />,
+    );
+
+    expect(screen.getByRole("status")).toHaveTextContent("暂无 AI 任务记录");
+    expect(screen.getByText(/去文章列表选择内容并运行 AI 任务/)).toBeInTheDocument();
+  });
 });

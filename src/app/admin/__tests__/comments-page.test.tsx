@@ -56,6 +56,7 @@ describe('admin comments page', () => {
     expect(screen.getByRole('button', { name: '已隐藏' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '批量通过' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '通过' })).toBeInTheDocument()
+    expect(screen.queryByText('运行正常')).not.toBeInTheDocument()
   })
 
   test('does not crash when admin comments api returns an empty non-json response', async () => {
@@ -72,8 +73,9 @@ describe('admin comments page', () => {
     renderCommentsPage()
 
     await waitFor(() => {
-      expect(screen.getByText('暂无评论')).toBeInTheDocument()
+      expect(screen.getByText('评论列表加载失败，请稍后重试')).toBeInTheDocument()
     })
+    expect(screen.queryByText('暂无评论')).not.toBeInTheDocument()
   })
 
   test('restores cached comment filters after refresh before loading comments', async () => {

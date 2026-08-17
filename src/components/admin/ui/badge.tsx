@@ -9,9 +9,9 @@ type Tone = "neutral" | "success" | "warning" | "danger";
 
 const toneClassNames: Record<Tone, string> = {
   neutral: "border-border bg-secondary text-secondary-foreground",
-  success: "border-emerald-200 bg-emerald-50 text-emerald-700",
-  warning: "border-amber-200 bg-amber-50 text-amber-700",
-  danger: "border-rose-200 bg-rose-50 text-rose-700",
+  success: "border-[var(--success-border)] bg-[var(--success-surface)] text-[var(--success-foreground)]",
+  warning: "border-[var(--warning-border)] bg-[var(--warning-surface)] text-[var(--warning-foreground)]",
+  danger: "border-[var(--danger-border)] bg-[var(--danger-surface)] text-[var(--danger-foreground)]",
 };
 
 export type BadgeProps = Omit<

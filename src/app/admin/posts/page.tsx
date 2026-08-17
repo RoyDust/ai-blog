@@ -12,6 +12,7 @@ import Link from "next/link";
 import { Bot, Clock3, Eye, FileText, Loader2, PencilLine, Search, Send, Sparkles, WandSparkles } from "lucide-react";
 
 import { DeleteImpactDialog } from "@/components/admin/DeleteImpactDialog";
+import { ConfirmDialog } from "@/components/admin/ui/confirm-dialog";
 import { BulkAiCompletionDialog } from "@/components/admin/ai/BulkAiCompletionDialog";
 import { Badge } from "@/components/shadcn/ui/badge";
 import { Button } from "@/components/shadcn/ui/button";
@@ -56,14 +57,21 @@ export default function AdminPostsPage() {
     summaryReadyCount,
     deleteDialog,
     setDeleteDialog,
+    publishDialog,
+    bulkPublishDialog,
     mutateList,
     syncSummaryJobs,
     toggleAllCurrentPage,
     toggleOne,
     openDeleteDialog,
     confirmDelete,
-    togglePublish,
-    updateBulkPublish,
+    requestTogglePublish,
+    confirmTogglePublish,
+    cancelTogglePublish,
+    requestBulkPublish,
+  updateBulkPublish,
+    confirmBulkPublish,
+    cancelBulkPublish,
     handleStatusFilter,
     handleContentTypeFilter,
     setPage,
@@ -80,7 +88,7 @@ export default function AdminPostsPage() {
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge variant="outline" className="h-6 rounded-md border-[color-mix(in_oklab,var(--brand)_22%,var(--border))] bg-[color-mix(in_oklab,var(--brand)_10%,var(--surface))] px-2 text-[var(--brand)]">
                     <Bot className="size-3" />
-                    AI OPS
+                    AI 运维
                   </Badge>
                   <Badge variant="outline" className="h-6 rounded-md border-[var(--border)] bg-[var(--surface-alt)] px-2 text-[var(--text-body)]">
                     当前页 {formatNumber(posts.length)}
@@ -204,7 +212,7 @@ export default function AdminPostsPage() {
                   <Button
                     className="h-8 rounded-md !border-[var(--border)] !bg-[var(--surface)] !text-[var(--foreground)] hover:!bg-[var(--surface-alt)]"
                     disabled={bulkPublishAction !== null}
-                    onClick={() => void updateBulkPublish(visibleSelectedIds, true)}
+                    onClick={() => requestBulkPublish(visibleSelectedIds, true)}
                     size="sm"
                     type="button"
                     variant="outline"
@@ -252,7 +260,7 @@ export default function AdminPostsPage() {
             }}
             onToggleAll={toggleAllCurrentPage}
             onToggleOne={toggleOne}
-            onTogglePublish={(row) => void togglePublish(row)}
+            onRequestTogglePublish={(row) => requestTogglePublish(row)}
             pagination={pagination}
             posts={posts}
             visibleSelectedIds={visibleSelectedIds}
@@ -269,6 +277,42 @@ export default function AdminPostsPage() {
         open={deleteDialog.open}
         submitting={deleteDialog.submitting}
         title={deleteDialog.title}
+      />
+
+      <ConfirmDialog
+        cancelLabel="取消"
+        confirmLabel="确认发布"
+        description="发布后立即对读者可见。"
+        onConfirm={confirmTogglePublish}
+        onOpenChange={(open) => {
+          if (!open) cancelTogglePublish();
+        }}
+        open={publishDialog.open}
+        submitting={publishDialog.submitting}
+        title="确认发布文章"
+      />
+
+      <ConfirmDialog
+        cancelLabel="取消"
+        confirmLabel="确认批量发布"
+        description="发布后立即对读者可见。"
+        impacts={
+          <div className="space-y-2">
+            <p>本次将发布 {formatNumber(bulkPublishDialog.count)} 篇文章，发布后立即对读者可见。</p>
+            {bulkPublishDialog.count > 5 ? (
+              <p className="font-medium text-[var(--warning-foreground)]">
+                本次批量发布超过 5 篇，请再次确认后执行。
+              </p>
+            ) : null}
+          </div>
+        }
+        onConfirm={confirmBulkPublish}
+        onOpenChange={(open) => {
+          if (!open) cancelBulkPublish();
+        }}
+        open={bulkPublishDialog.open}
+        submitting={bulkPublishDialog.submitting}
+        title="确认批量发布"
       />
 
       <BulkAiCompletionDialog

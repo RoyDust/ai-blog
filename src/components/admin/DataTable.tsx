@@ -2,9 +2,11 @@
 
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Inbox } from "lucide-react";
 import { Button } from "@/components/shadcn/ui/button";
 import { Card, CardHeader, CardTitle } from "@/components/shadcn/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/shadcn/ui/table";
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/shadcn/ui/empty";
 import { AdminPagination } from "@/components/admin/primitives/AdminPagination";
 import { cn } from "@/lib/utils";
 
@@ -20,6 +22,7 @@ interface DataTableProps<T extends { id: string }> {
   rows: T[];
   columns: DataColumn<T>[];
   emptyText: string;
+  emptyState?: ReactNode;
   summary?: string;
   toolbar?: ReactNode;
   isLoading?: boolean;
@@ -49,6 +52,7 @@ export function DataTable<T extends { id: string }>({
   rows,
   columns,
   emptyText,
+  emptyState,
   summary,
   toolbar,
   isLoading = false,
@@ -116,6 +120,9 @@ export function DataTable<T extends { id: string }>({
   const statusClassName = fillHeight
     ? "flex min-h-0 flex-1 items-center justify-center px-4 py-16 text-center text-sm text-[var(--text-muted)]"
     : "px-4 py-16 text-center text-sm text-[var(--text-muted)]";
+  const emptyStateClassName = fillHeight
+    ? "flex min-h-0 flex-1 items-center justify-center px-4 py-8"
+    : "flex items-center justify-center px-4 py-8";
 
   return (
     <Card
@@ -165,9 +172,20 @@ export function DataTable<T extends { id: string }>({
         ) : null}
 
         {isLoading ? (
-          <p className={statusClassName}>{loadingLabel}</p>
+          <p className={statusClassName} role="status">{loadingLabel}</p>
         ) : rows.length === 0 ? (
-          <p className={statusClassName}>{emptyText}</p>
+          <div className={emptyStateClassName} role="status">
+            {emptyState ?? (
+              <Empty className="border-0">
+                <EmptyMedia variant="icon">
+                  <Inbox className="size-5" />
+                </EmptyMedia>
+                <EmptyHeader>
+                  <EmptyTitle>{emptyText}</EmptyTitle>
+                </EmptyHeader>
+              </Empty>
+            )}
+          </div>
         ) : (
           <div className={cn(fillHeight ? "min-h-0 flex-1 overflow-auto" : "overflow-x-auto")} data-testid="admin-data-table-scroll">
             <Table className="min-w-[860px] table-fixed xl:min-w-[1080px]">
@@ -192,8 +210,9 @@ export function DataTable<T extends { id: string }>({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {paginatedRows.map((row) => {
+                {paginatedRows.map((row, rowIndex) => {
                   const isRowSelected = visibleSelectedIds.includes(row.id);
+                  const rowNumber = (activePage - 1) * pageSize + rowIndex + 1;
                   return (
                     <TableRow
                       key={row.id}
@@ -207,7 +226,7 @@ export function DataTable<T extends { id: string }>({
                           checked={isRowSelected}
                           onChange={() => toggleOne(row.id)}
                           type="checkbox"
-                          aria-label={`选择 ${row.id}`}
+                          aria-label={`选择第 ${rowNumber} 行`}
                           className="size-4 cursor-pointer rounded border-[var(--border-strong)] bg-[var(--surface)] text-[var(--brand)] focus:ring-[var(--ring)] focus:ring-offset-0"
                         />
                       </TableCell>

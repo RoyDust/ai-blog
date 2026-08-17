@@ -39,6 +39,8 @@ const categories = ["official", "industry", "developer", "community", "github-re
 const adminInputClassName = "rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--foreground)]"
 const adminLabelClassName = "text-sm font-medium text-[var(--foreground)]"
 const adminMessageClassName = "text-xs text-rose-500"
+const adminFieldsetClassName = "space-y-4 rounded-xl border border-[var(--border)] p-4"
+const adminLegendClassName = "px-2 text-sm font-semibold text-[var(--foreground)]"
 
 const aiNewsSourceFormSchema = z
   .object({
@@ -170,180 +172,189 @@ export function AiNewsSourceFormDialog({
 
         <Form {...form}>
           <form className="space-y-4" noValidate onSubmit={form.handleSubmit(handleSubmit)}>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <FormField
-                control={form.control}
-                name="type"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className={adminLabelClassName}>来源类型</FormLabel>
-                    <FormControl>
-                      <select
-                        className={adminInputClassName}
-                        disabled={Boolean(sourceId)}
-                        value={field.value}
-                        onChange={(event) => field.onChange(event.target.value as AiNewsSourceType)}
-                      >
-                        {sourceTypes.map((type) => (
-                          <option key={type.value} value={type.value}>{type.label}</option>
-                        ))}
-                      </select>
-                    </FormControl>
-                    <FormMessage className={adminMessageClassName} />
-                  </FormItem>
-                )}
-              />
+            <fieldset className={adminFieldsetClassName}>
+              <legend className={adminLegendClassName}>基本信息</legend>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <FormField
+                  control={form.control}
+                  name="type"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className={adminLabelClassName}>来源类型</FormLabel>
+                      <FormControl>
+                        <select
+                          className={adminInputClassName}
+                          disabled={Boolean(sourceId)}
+                          value={field.value}
+                          onChange={(event) => field.onChange(event.target.value as AiNewsSourceType)}
+                        >
+                          {sourceTypes.map((type) => (
+                            <option key={type.value} value={type.value}>{type.label}</option>
+                          ))}
+                        </select>
+                      </FormControl>
+                      <FormMessage className={adminMessageClassName} />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className={adminLabelClassName}>来源名称</FormLabel>
+                      <FormControl>
+                        <Input className={adminInputClassName} {...field} />
+                      </FormControl>
+                      <FormMessage className={adminMessageClassName} />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="url"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className={adminLabelClassName}>{sourceType === "GITHUB_RELEASES" ? "仓库 URL" : "来源 URL"}</FormLabel>
+                      <FormControl>
+                        <Input
+                          className={adminInputClassName}
+                          placeholder={sourceType === "GITHUB_RELEASES" ? "https://github.com/vercel/ai" : "https://example.com/feed.xml"}
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage className={adminMessageClassName} />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="homepage"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className={adminLabelClassName}>主页 URL</FormLabel>
+                      <FormControl>
+                        <Input className={adminInputClassName} {...field} />
+                      </FormControl>
+                      <FormMessage className={adminMessageClassName} />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="category"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className={adminLabelClassName}>分类</FormLabel>
+                      <FormControl>
+                        <select className={adminInputClassName} {...field}>
+                          <option value="">未分类</option>
+                          {categories.map((category) => (
+                            <option key={category} value={category}>{category}</option>
+                          ))}
+                        </select>
+                      </FormControl>
+                      <FormMessage className={adminMessageClassName} />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="weight"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className={adminLabelClassName}>权重</FormLabel>
+                      <FormControl>
+                        <Input className={adminInputClassName} max={200} min={0} type="number" {...field} />
+                      </FormControl>
+                      <FormMessage className={adminMessageClassName} />
+                    </FormItem>
+                  )}
+                />
+              </div>
 
               <FormField
                 control={form.control}
-                name="name"
+                name="enabled"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className={adminLabelClassName}>来源名称</FormLabel>
-                    <FormControl>
-                      <Input className={adminInputClassName} {...field} />
-                    </FormControl>
-                    <FormMessage className={adminMessageClassName} />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="url"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className={adminLabelClassName}>{sourceType === "GITHUB_RELEASES" ? "仓库 URL" : "来源 URL"}</FormLabel>
-                    <FormControl>
-                      <Input
-                        className={adminInputClassName}
-                        placeholder={sourceType === "GITHUB_RELEASES" ? "https://github.com/vercel/ai" : "https://example.com/feed.xml"}
-                        {...field}
+                    <label className="flex items-center gap-2 text-sm font-medium text-[var(--foreground)]">
+                      <input
+                        checked={field.value}
+                        className="ui-checkbox h-4 w-4"
+                        type="checkbox"
+                        onChange={(event) => field.onChange(event.target.checked)}
                       />
-                    </FormControl>
+                      默认参与日报
+                    </label>
                     <FormMessage className={adminMessageClassName} />
                   </FormItem>
                 )}
               />
-              <FormField
-                control={form.control}
-                name="homepage"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className={adminLabelClassName}>主页 URL</FormLabel>
-                    <FormControl>
-                      <Input className={adminInputClassName} {...field} />
-                    </FormControl>
-                    <FormMessage className={adminMessageClassName} />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="category"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className={adminLabelClassName}>分类</FormLabel>
-                    <FormControl>
-                      <select className={adminInputClassName} {...field}>
-                        <option value="">未分类</option>
-                        {categories.map((category) => (
-                          <option key={category} value={category}>{category}</option>
-                        ))}
-                      </select>
-                    </FormControl>
-                    <FormMessage className={adminMessageClassName} />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="weight"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className={adminLabelClassName}>权重</FormLabel>
-                    <FormControl>
-                      <Input className={adminInputClassName} max={200} min={0} type="number" {...field} />
-                    </FormControl>
-                    <FormMessage className={adminMessageClassName} />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="fetchLimit"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className={adminLabelClassName}>抓取上限</FormLabel>
-                    <FormControl>
-                      <Input className={adminInputClassName} max={100} min={1} type="number" {...field} />
-                    </FormControl>
-                    <FormMessage className={adminMessageClassName} />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="minScore"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className={adminLabelClassName}>最小分数</FormLabel>
-                    <FormControl>
-                      <Input className={adminInputClassName} min={0} type="number" {...field} />
-                    </FormControl>
-                    <FormMessage className={adminMessageClassName} />
-                  </FormItem>
-                )}
-              />
-              {isHackerNews ? (
-                <>
-                  <FormField
-                    control={form.control}
-                    name="commentLimit"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className={adminLabelClassName}>评论条数</FormLabel>
-                        <FormControl>
-                          <Input className={adminInputClassName} max={20} min={0} type="number" {...field} />
-                        </FormControl>
-                        <FormMessage className={adminMessageClassName} />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="commentTextMaxLength"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className={adminLabelClassName}>评论截断长度</FormLabel>
-                        <FormControl>
-                          <Input className={adminInputClassName} max={2000} min={80} type="number" {...field} />
-                        </FormControl>
-                        <FormMessage className={adminMessageClassName} />
-                      </FormItem>
-                    )}
-                  />
-                </>
-              ) : null}
-            </div>
+            </fieldset>
 
-            <FormField
-              control={form.control}
-              name="enabled"
-              render={({ field }) => (
-                <FormItem>
-                  <label className="flex items-center gap-2 text-sm font-medium text-[var(--foreground)]">
-                    <input
-                      checked={field.value}
-                      className="ui-checkbox h-4 w-4"
-                      type="checkbox"
-                      onChange={(event) => field.onChange(event.target.checked)}
+            <fieldset className={adminFieldsetClassName}>
+              <legend className={adminLegendClassName}>抓取与校验</legend>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <FormField
+                  control={form.control}
+                  name="fetchLimit"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className={adminLabelClassName}>抓取上限</FormLabel>
+                      <FormControl>
+                        <Input className={adminInputClassName} max={100} min={1} type="number" {...field} />
+                      </FormControl>
+                      <FormMessage className={adminMessageClassName} />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="minScore"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className={adminLabelClassName}>最小分数</FormLabel>
+                      <FormControl>
+                        <Input className={adminInputClassName} min={0} type="number" {...field} />
+                      </FormControl>
+                      <FormMessage className={adminMessageClassName} />
+                    </FormItem>
+                  )}
+                />
+                {isHackerNews ? (
+                  <>
+                    <FormField
+                      control={form.control}
+                      name="commentLimit"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className={adminLabelClassName}>评论条数</FormLabel>
+                          <FormControl>
+                            <Input className={adminInputClassName} max={20} min={0} type="number" {...field} />
+                          </FormControl>
+                          <FormMessage className={adminMessageClassName} />
+                        </FormItem>
+                      )}
                     />
-                    默认参与日报
-                  </label>
-                  <FormMessage className={adminMessageClassName} />
-                </FormItem>
-              )}
-            />
+                    <FormField
+                      control={form.control}
+                      name="commentTextMaxLength"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className={adminLabelClassName}>评论截断长度</FormLabel>
+                          <FormControl>
+                            <Input className={adminInputClassName} max={2000} min={80} type="number" {...field} />
+                          </FormControl>
+                          <FormMessage className={adminMessageClassName} />
+                        </FormItem>
+                      )}
+                    />
+                  </>
+                ) : null}
+              </div>
+            </fieldset>
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>取消</Button>

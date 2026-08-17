@@ -49,7 +49,7 @@ describe("BulkAiCompletionDialog", () => {
       postIds: ["post-1", "post-2"],
       actions: ["summary", "seo-description"],
       mode: "missing-only",
-      apply: true,
+      apply: false,
     });
     expect(screen.getByLabelText(/AI 生成封面/)).toBeInTheDocument();
     expect(onStarted).toHaveBeenCalledWith("task-1");
@@ -76,6 +76,35 @@ describe("BulkAiCompletionDialog", () => {
     expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toMatchObject({
       postIds: ["post-1"],
       actions: ["summary", "seo-description", "cover-image"],
+      apply: false,
+    });
+  });
+
+  test("auto-apply is off by default and requires manual opt-in", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        success: true,
+        data: { id: "task-3", items: [{ id: "item-3" }] },
+      }),
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<BulkAiCompletionDialog open selectedIds={["post-1"]} onClose={vi.fn()} />);
+
+    const autoApplyCheckbox = screen.getByRole("checkbox", { name: /自动应用摘要、SEO 描述和封面/ });
+    expect(autoApplyCheckbox).not.toBeChecked();
+
+    fireEvent.click(autoApplyCheckbox);
+    fireEvent.click(screen.getByRole("button", { name: "开始补全" }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalled();
+    });
+
+    expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toMatchObject({
+      postIds: ["post-1"],
       apply: true,
     });
   });

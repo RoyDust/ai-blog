@@ -45,7 +45,7 @@ export function DeleteImpactDialog({
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <p className="text-xs uppercase tracking-[0.18em] text-rose-500">Danger Zone</p>
+          <p className="text-xs uppercase tracking-[0.18em] text-rose-500">危险操作</p>
           <AlertDialogTitle className="mt-2">{title}</AlertDialogTitle>
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>

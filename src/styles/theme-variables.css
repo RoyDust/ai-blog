@@ -247,7 +247,7 @@
   --foreground: #0f172a;
   --text-body: #334155;
   --text-muted: #64748b;
-  --text-faint: #94a3b8;
+  --text-faint: #64748b;
   --muted: var(--text-muted);
   --border: rgba(15, 23, 42, 0.06);
   --border-strong: rgba(15, 23, 42, 0.12);
