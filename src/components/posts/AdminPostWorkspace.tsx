@@ -8,67 +8,43 @@
  * - 协调编辑器、AI 辅助、封面管理、发布检查等多个子面板
  * - 管理本地草稿恢复、slug 自动生成、封面上传、保存状态等复杂交互
  *
- * 阅读建议：
- * - 先看 AdminPostWorkspace 入口，理解主要状态与模式切换
- * - 再看 usePostForm / resolvePostRoute 这两个辅助边界
- * - 最后进入 EditorWorkspace、PublishChecklist、PostAiWorkspace 等子面板
+ * 结构（2026-08 拆分）：
+ * - WorkspaceHeader：顶栏（返回/标题/提交动作）
+ * - PublishSettingsPanel：「发布设置」面板内容
+ * - MetadataEditor：「分类、标签与封面图」面板内容
+ * - ArticleInfoPreviewModal：一键 AI 生成结果确认弹窗
+ * - AiFieldButton：字段级 AI 动作按钮（编辑器右侧槽位复用）
+ * 主组件只保留状态编排、数据拉取与布局装配。
  */
 
 import { useState } from "react";
-import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { CalendarClock, LoaderCircle, Sparkles } from "lucide-react";
 import useSWR from "swr";
 
 import { PostAiWorkspace } from "@/components/admin/ai/PostAiWorkspace";
-import { CoverPicker } from "@/components/admin/covers/CoverPicker";
-import type { CoverAsset } from "@/components/admin/covers/types";
-import { StatusBadge } from "@/components/admin/primitives/StatusBadge";
 import { WorkspacePanel } from "@/components/admin/primitives/WorkspacePanel";
-import { Button, Input, Modal } from "@/components/admin/ui";
+import { Modal } from "@/components/admin/ui";
 import { ConfirmDialog } from "@/components/admin/ui/confirm-dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/shadcn/ui/select";
 import { apiFetcher, apiMutate, toErrorMessage } from "@/lib/client-api";
 
+import { AiFieldButton } from "./AiFieldButton";
+import { ArticleInfoPreviewModal } from "./ArticleInfoPreviewModal";
 import { EditorWorkspace } from "./EditorWorkspace";
-import { useAiActions, type AiArticleInfoPreview } from "./hooks/useAiActions";
+import { useAiActions } from "./hooks/useAiActions";
 import { useCoverUpload } from "./hooks/useCoverUpload";
 import { usePostForm } from "./hooks/usePostForm";
 import { useSlugDerive } from "./hooks/useSlugDerive";
+import { MetadataEditor } from "./MetadataEditor";
 import { PublishChecklist } from "./PublishChecklist";
-
-type CategoryOption = {
-  id: string;
-  name: string;
-  slug: string;
-};
-
-type TagOption = {
-  id: string;
-  name: string;
-  slug: string;
-};
-
-type SeriesOption = {
-  id: string;
-  title: string;
-  slug: string;
-};
+import { PublishSettingsPanel } from "./PublishSettingsPanel";
+import { WorkspaceHeader } from "./WorkspaceHeader";
+import type { CategoryOption, SeriesOption, TagOption, WorkspaceMode } from "./workspace-types";
 
 type PostTag = {
   id: string;
   name: string;
   slug: string;
 };
-
-type WorkspaceMode = "create" | "edit";
 
 type AdminPostWorkspaceProps = {
   mode: WorkspaceMode;
@@ -110,61 +86,6 @@ type SavePostResponse = {
   };
 };
 
-const uncategorizedValue = "__uncategorized__";
-const noSeriesValue = "__no_series__";
-const articleInfoActionLabels: Record<string, string> = {
-  slug: "Slug",
-  summary: "摘要",
-  "seo-description": "SEO 描述",
-  category: "分类",
-  tags: "标签",
-};
-const adminSelectTriggerClassName = "w-full rounded-xl border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm text-[var(--foreground)] shadow-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]";
-const adminSelectContentClassName = "rounded-xl border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)]";
-const AiCoverGenerator = dynamic(
-  () => import("@/components/admin/covers/AiCoverGenerator").then((mod) => mod.AiCoverGenerator),
-  {
-    ssr: false,
-    loading: () => (
-      <Button type="button" size="sm" variant="outline" disabled>
-        AI 封面加载中
-      </Button>
-    ),
-  },
-);
-
-/**
- * 字段级 AI 动作按钮。
- *
- * 用统一的图标、loading 和禁用态包装标题、slug、分类、标签、摘要等小型 AI 补全入口。
- */
-function AiFieldButton({
-  disabled,
-  label,
-  loading,
-  onClick,
-}: {
-  disabled?: boolean;
-  label: string;
-  loading?: boolean;
-  onClick: () => void;
-}) {
-  const Icon = loading ? LoaderCircle : Sparkles;
-
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      title={label}
-      className="ui-ring inline-flex h-8 w-8 items-center justify-center rounded-md bg-transparent text-[var(--brand)] transition-colors hover:bg-[var(--surface-alt)] disabled:cursor-not-allowed disabled:opacity-45"
-      disabled={disabled || loading}
-      onClick={onClick}
-    >
-      <Icon className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-    </button>
-  );
-}
-
 /**
  * 根据文章当前状态决定保存成功后的跳转目标。
  * - 已发布：优先跳到前台文章页
@@ -197,76 +118,6 @@ function toDateTimeLocalValue(value: string | Date | null | undefined) {
   return offsetDate.toISOString().slice(0, 16);
 }
 
-function formatPreviewValue(value: string) {
-  return value.trim() || "未设置";
-}
-
-function getQualityTone(status?: string) {
-  if (status === "ok") return "success";
-  if (status === "danger") return "danger";
-  return "warning";
-}
-
-function getTagNames(ids: string[], tags: TagOption[]) {
-  return ids.map((id) => tags.find((tag) => tag.id === id)?.name ?? id);
-}
-
-function getArticleInfoPreviewRows({
-  categories,
-  preview,
-  tags,
-}: {
-  categories: CategoryOption[];
-  preview: AiArticleInfoPreview;
-  tags: TagOption[];
-}) {
-  const currentTagIds = preview.original.tagIds;
-  const nextTagIds = Array.isArray(preview.suggestion.tagIds) ? preview.suggestion.tagIds : [];
-  const addedTags = nextTagIds.filter((id) => !currentTagIds.includes(id));
-  const removedTags = currentTagIds.filter((id) => !nextTagIds.includes(id));
-  const keptTags = nextTagIds.filter((id) => currentTagIds.includes(id));
-
-  return [
-    {
-      key: "slug",
-      label: "Slug",
-      current: formatPreviewValue(preview.original.slug),
-      next: preview.fields.slug ? formatPreviewValue(preview.suggestion.slug ?? "") : "保留原值",
-      change: preview.fields.slug ? (preview.original.slug ? "将替换" : "将补全") : "不覆盖",
-    },
-    {
-      key: "excerpt",
-      label: "摘要",
-      current: formatPreviewValue(preview.original.excerpt),
-      next: preview.fields.excerpt ? formatPreviewValue(preview.suggestion.excerpt ?? "") : "保留原值",
-      change: preview.fields.excerpt ? (preview.original.excerpt ? "将替换" : "将补全") : "不覆盖",
-    },
-    {
-      key: "seoDescription",
-      label: "SEO 描述",
-      current: formatPreviewValue(preview.original.seoDescription),
-      next: preview.fields.seoDescription ? formatPreviewValue(preview.suggestion.seoDescription ?? "") : "保留原值",
-      change: preview.fields.seoDescription ? (preview.original.seoDescription ? "将替换" : "将补全") : "不覆盖",
-    },
-    {
-      key: "category",
-      label: "分类",
-      current: categories.find((category) => category.id === preview.original.categoryId)?.name ?? "未选择",
-      next: preview.fields.categoryId ? categories.find((category) => category.id === preview.suggestion.categoryId)?.name ?? "未匹配" : "保留原值",
-      change: preview.fields.categoryId ? (preview.original.categoryId ? "将替换" : "将补全") : "不覆盖",
-    },
-    {
-      key: "tags",
-      label: "标签",
-      current: getTagNames(currentTagIds, tags).join("、") || "未选择",
-      next: preview.fields.tagIds ? getTagNames(nextTagIds, tags).join("、") || "未匹配" : "保留原值",
-      change: preview.fields.tagIds
-        ? [`新增 ${addedTags.length}`, `保留 ${keptTags.length}`, `移除 ${removedTags.length}`].join(" / ")
-        : "不覆盖",
-    },
-  ];
-}
-
 /**
  * 后台文章编辑工作台。
  *
@@ -289,7 +140,7 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
   const [error, setError] = useState("");
   const [aiWorkspaceOpen, setAiWorkspaceOpen] = useState(false);
   const [hydratedPostId, setHydratedPostId] = useState<string | null>(null);
-const [publishConfirmOpen, setPublishConfirmOpen] = useState(false);
+  const [publishConfirmOpen, setPublishConfirmOpen] = useState(false);
   const {
     applySlugChange,
     applyTitleChange,
@@ -450,222 +301,6 @@ const [publishConfirmOpen, setPublishConfirmOpen] = useState(false);
   };
 
   /**
-   * 右侧发布元数据编辑区。
-   *
-   * 这里集中维护分类、标签、封面、摘要和 SEO 描述；这些字段会随主表单一起提交。
-   */
-  const metadataEditor = (
-    <div className="space-y-4">
-        {metadataError ? <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{metadataError}</p> : null}
-
-        <div className="rounded-2xl border border-[color-mix(in_oklab,var(--brand)_18%,var(--border)_82%)] bg-[color-mix(in_oklab,var(--brand)_5%,var(--surface)_95%)] p-3">
-          <div className="flex flex-col gap-3">
-            <div className="min-w-0 space-y-1">
-              <p className="text-sm font-semibold text-[var(--foreground)]">一键 AI 生成信息</p>
-              <p className="text-xs leading-5 text-[var(--muted)]">保留标题和正文，覆盖 Slug、摘要、SEO、分类和标签。</p>
-            </div>
-            <Button
-              type="button"
-              size="sm"
-              className="w-full"
-              disabled={isCompletingMetadata || !formData.content.trim()}
-              onClick={() => void handleGenerateAllArticleInfo()}
-            >
-              {isGeneratingAllMetadata ? (
-                <LoaderCircle className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />
-              ) : (
-                <Sparkles className="mr-1 h-4 w-4" aria-hidden="true" />
-              )}
-              {isGeneratingAllMetadata ? "生成中..." : "一键 AI 生成"}
-            </Button>
-            {canUseAiWorkspace ? (
-              <Button type="button" size="sm" variant="outline" className="w-full" onClick={() => setAiWorkspaceOpen(true)}>
-                <Sparkles className="mr-1 h-4 w-4" aria-hidden="true" />
-                打开 AI 辅助
-              </Button>
-            ) : null}
-            {lastArticleInfoTaskId ? (
-              <Link className="text-xs font-medium text-[var(--brand)] hover:underline" href={`/admin/ai/tasks/${lastArticleInfoTaskId}`}>
-                查看最近 AI 任务
-              </Link>
-            ) : null}
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <div className="flex items-center justify-between gap-3">
-            <label className="block text-sm font-medium text-[var(--foreground)]" htmlFor={`${mode}-post-category`}>
-              分类
-            </label>
-            <AiFieldButton
-              label="AI 选择分类"
-              loading={metadataPendingField === "category"}
-              disabled={isCompletingMetadata || !formData.content.trim()}
-              onClick={() => handleGenerateMetadata("category")}
-            />
-          </div>
-          <Select
-            value={formData.categoryId || uncategorizedValue}
-            onValueChange={(value) => setFormData((prev) => ({ ...prev, categoryId: value === uncategorizedValue ? "" : value }))}
-          >
-            <SelectTrigger id={`${mode}-post-category`} className={adminSelectTriggerClassName}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className={adminSelectContentClassName}>
-              <SelectItem value={uncategorizedValue}>未分类</SelectItem>
-              {categories.map((category) => (
-                <SelectItem key={category.id} value={category.id}>
-                  {category.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-2" role="group" aria-labelledby={`${mode}-post-tags-label`}>
-          <div className="flex items-center justify-between gap-3">
-            <p id={`${mode}-post-tags-label`} className="text-sm font-medium text-[var(--foreground)]">标签</p>
-            <AiFieldButton
-              label="AI 选择标签"
-              loading={metadataPendingField === "tags"}
-              disabled={isCompletingMetadata || !formData.content.trim()}
-              onClick={() => handleGenerateMetadata("tags")}
-            />
-          </div>
-          <div className="grid gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 sm:grid-cols-2 xl:grid-cols-1">
-            {tags.length === 0 ? <p className="text-sm text-[var(--muted)]">暂无可选标签</p> : null}
-            {tags.map((tag) => {
-              const inputId = `${mode}-post-tag-${tag.id}`;
-              const checked = formData.tagIds.includes(tag.id);
-
-              return (
-                <label key={tag.id} htmlFor={inputId} className="flex items-center gap-2 text-sm text-[var(--foreground)]">
-                  <input
-                    id={inputId}
-                    type="checkbox"
-                    className="h-4 w-4 rounded border-[var(--border)]"
-                    checked={checked}
-                    onChange={(event) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        tagIds: event.target.checked ? [...prev.tagIds, tag.id] : prev.tagIds.filter((id) => id !== tag.id),
-                      }))
-                    }
-                  />
-                  {tag.name}
-                </label>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_8rem] xl:grid-cols-1">
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-[var(--foreground)]" htmlFor={`${mode}-post-series`}>
-              所属系列
-            </label>
-            <Select
-              value={formData.seriesId || noSeriesValue}
-              onValueChange={(value) => setFormData((prev) => ({ ...prev, seriesId: value === noSeriesValue ? "" : value }))}
-            >
-              <SelectTrigger id={`${mode}-post-series`} className={adminSelectTriggerClassName}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className={adminSelectContentClassName}>
-                <SelectItem value={noSeriesValue}>不归入系列</SelectItem>
-                {series.map((item) => (
-                  <SelectItem key={item.id} value={item.id}>
-                    {item.title}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <Input
-            label="系列排序"
-            min={0}
-            type="number"
-            value={String(formData.seriesOrder)}
-            onChange={(event) =>
-              setFormData((prev) => ({
-                ...prev,
-                seriesOrder: Math.max(0, Number.parseInt(event.target.value, 10) || 0),
-              }))
-            }
-          />
-        </div>
-
-        <Input
-          label="封面图 URL"
-          placeholder="https://example.com/cover.jpg"
-          value={formData.coverImage}
-          onChange={(event) => setFormData((prev) => ({ ...prev, coverImage: event.target.value, coverAssetId: "" }))}
-        />
-
-        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-alt)] p-4">
-          <div className="flex flex-wrap items-center gap-3">
-            <input
-              ref={coverFileInputRef}
-              accept="image/*"
-              className="hidden"
-              id={`${mode}-cover-upload`}
-              type="file"
-              onChange={handleCoverUpload}
-            />
-            <Button type="button" size="sm" onClick={() => coverFileInputRef.current?.click()} disabled={isCoverUploading}>
-              {isCoverUploading ? "上传中..." : "上传并保存到图库"}
-            </Button>
-            <CoverPicker
-              selectedAssetId={formData.coverAssetId}
-              onSelect={(asset: CoverAsset) => setFormData((prev) => ({ ...prev, coverImage: asset.url, coverAssetId: asset.id }))}
-            />
-            <AiCoverGenerator
-              title={formData.title}
-              excerpt={formData.excerpt}
-              content={formData.content}
-              onGenerated={(asset: CoverAsset) => setFormData((prev) => ({ ...prev, coverImage: asset.url, coverAssetId: asset.id }))}
-            />
-            <p className="text-sm text-[var(--muted)]">选择图片后自动回填封面地址。</p>
-          </div>
-          {coverUploadError ? <p className="mt-2 text-sm text-rose-500">{coverUploadError}</p> : null}
-        </div>
-        <div className="space-y-2">
-          <Input
-            label="摘要"
-            placeholder="文章摘要（可选）"
-            rightSlot={
-              <AiFieldButton
-                label="AI 生成摘要"
-                loading={isSummarizing}
-                disabled={!formData.content.trim()}
-                onClick={handleGenerateSummary}
-              />
-            }
-            value={formData.excerpt}
-            onChange={(event) => setFormData((prev) => ({ ...prev, excerpt: event.target.value }))}
-          />
-          <p className="text-sm text-[var(--muted)]">基于当前正文生成适合列表页与 SEO 展示的简短摘要。</p>
-          {summaryError ? <p className="text-sm text-rose-500">{summaryError}</p> : null}
-        </div>
-
-        <div className="space-y-2">
-          <label className="block text-sm font-medium text-[var(--foreground)]" htmlFor={`${mode}-post-seo-description`}>
-            SEO 描述
-          </label>
-          <textarea
-            id={`${mode}-post-seo-description`}
-            className="ui-ring min-h-36 w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-sm leading-6 text-[var(--foreground)] placeholder:text-[var(--muted)] focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
-            placeholder="搜索结果和分享卡片优先使用的描述"
-            value={formData.seoDescription}
-            onChange={(event) => setFormData((prev) => ({ ...prev, seoDescription: event.target.value }))}
-          />
-          <p className="text-sm text-[var(--muted)]">为空时前台元数据会继续回退到文章摘要。</p>
-        </div>
-    </div>
-  );
-
-  /**
    * AI 辅助工作区的输入桥接。
    *
    * 编辑模式直接绑定 postId；新建模式传入尚未落库的草稿字段，便于 AI 先生成可回填结果。
@@ -708,7 +343,6 @@ const [publishConfirmOpen, setPublishConfirmOpen] = useState(false);
 
   const visibleError = error || (postLoadError ? toErrorMessage(postLoadError, "加载失败") : "");
   const previewHref = formData.published && formData.slug.trim() ? `/posts/${formData.slug.trim()}` : null;
-  const articleInfoPreviewRows = articleInfoPreview ? getArticleInfoPreviewRows({ categories, preview: articleInfoPreview, tags }) : [];
   const saveStatusLabel = isEditMode
     ? "手动保存"
     : saveStatus === "saving"
@@ -716,54 +350,20 @@ const [publishConfirmOpen, setPublishConfirmOpen] = useState(false);
       : saveStatus === "saved"
         ? "本地草稿已保存"
         : "本地草稿待保存";
+  const hasContent = formData.content.trim() !== "";
 
   return (
     <form className="flex h-full min-h-0 flex-col gap-4 overflow-hidden" onSubmit={handleSubmit}>
-      <header className="ui-surface rounded-2xl px-4 py-3">
-        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-          <div className="min-w-0">
-            <button
-              type="button"
-              className="text-sm font-medium text-[var(--muted)] hover:text-[var(--foreground)]"
-              onClick={() => (isEditMode ? router.back() : router.push("/admin/posts"))}
-            >
-              ← 返回文章
-            </button>
-            <div className="mt-2 flex flex-wrap items-center gap-3">
-              <h1 className="font-display text-xl font-semibold text-[var(--foreground)]">
-                {isEditMode ? "编辑文章" : "新建文章"}
-              </h1>
-              <StatusBadge tone={formData.published ? "success" : "warning"}>{formData.published ? "已发布" : "草稿"}</StatusBadge>
-              <span className="text-sm text-[var(--muted)]">{saveStatusLabel}</span>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            {previewHref ? (
-              <Link
-                className="ui-btn ui-ring inline-flex items-center justify-center rounded-xl border border-[var(--border)] px-3 py-1.5 text-sm font-medium text-[var(--foreground)] hover:bg-[var(--surface-alt)]"
-                href={previewHref}
-                target="_blank"
-              >
-                预览
-              </Link>
-            ) : (
-              <Button type="button" disabled size="sm" variant="outline" title="草稿暂不支持前台预览">
-                预览
-              </Button>
-            )}
-            <Button type="submit" disabled={saving || !canSubmit} size="sm" name="intent" value="draft" variant="outline">
-              保存草稿
-            </Button>
-            <Button type="submit" disabled={saving || !canSubmit || !formData.scheduledAt.trim()} size="sm" name="intent" value="schedule" variant="outline">
-              定时发布
-            </Button>
-            <Button type="submit" disabled={saving || !canSubmit} size="sm" name="intent" value="publish">
-              {saving ? "提交中..." : "发布文章"}
-            </Button>
-          </div>
-        </div>
-      </header>
+      <WorkspaceHeader
+        isEditMode={isEditMode}
+        published={formData.published}
+        saveStatusLabel={saveStatusLabel}
+        saving={saving}
+        canSubmit={canSubmit}
+        previewHref={previewHref}
+        scheduledAt={formData.scheduledAt}
+        onBack={() => (isEditMode ? router.back() : router.push("/admin/posts"))}
+      />
 
       {visibleError ? <p className="rounded-xl border border-rose-300 bg-rose-50 p-3 text-sm text-rose-700">{visibleError}</p> : null}
 
@@ -781,7 +381,7 @@ const [publishConfirmOpen, setPublishConfirmOpen] = useState(false);
             <AiFieldButton
               label="AI 补全 Slug"
               loading={metadataPendingField === "slug"}
-              disabled={isCompletingMetadata || (!formData.title.trim() && !formData.content.trim())}
+              disabled={isCompletingMetadata || (!formData.title.trim() && !hasContent)}
               onClick={() => handleGenerateMetadata("slug")}
             />
           }
@@ -790,7 +390,7 @@ const [publishConfirmOpen, setPublishConfirmOpen] = useState(false);
             <AiFieldButton
               label="AI 补全标题"
               loading={metadataPendingField === "title"}
-              disabled={isCompletingMetadata || !formData.content.trim()}
+              disabled={isCompletingMetadata || !hasContent}
               onClick={() => handleGenerateMetadata("title")}
             />
           }
@@ -803,95 +403,25 @@ const [publishConfirmOpen, setPublishConfirmOpen] = useState(false);
 
         <aside className="flex min-h-0 flex-col gap-3 overflow-y-auto pr-1 xl:h-full xl:max-h-full">
           <WorkspacePanel title="发布设置" description="保存、发布和前台展示相关设置。" className="rounded-2xl" fillHeight={false}>
-            <div className="space-y-4">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0 space-y-1">
-                  <p className="text-sm font-medium text-[var(--foreground)]">发布状态</p>
-                  <p className="text-sm text-[var(--muted)]">{isEditMode ? "切换后通过保存或发布提交。" : saveStatusLabel}</p>
-                </div>
-                <StatusBadge tone={formData.published ? "success" : "warning"}>{formData.published ? "已发布" : "草稿"}</StatusBadge>
-              </div>
-
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={formData.published ? "outline" : "primary"}
-                  disabled={!formData.published}
-                  onClick={() => setFormData((prev) => ({ ...prev, published: false, scheduledAt: "" }))}
-                >
-                  保持草稿
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={formData.published ? "primary" : "outline"}
-                  disabled={formData.published}
-                  onClick={() => setFormData((prev) => ({ ...prev, published: true, scheduledAt: "" }))}
-                >
-                  切换为已发布
-                </Button>
-              </div>
-
-              <div className="space-y-3 border-t border-[var(--border)] pt-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 space-y-1">
-                    <p className="text-sm font-medium text-[var(--foreground)]">精选状态</p>
-                    <p className="text-sm text-[var(--muted)]">最多 3 篇精选文章会展示在前台。</p>
-                  </div>
-                  <StatusBadge tone={formData.featured ? "success" : "neutral"}>{formData.featured ? "精选" : "普通"}</StatusBadge>
-                </div>
-
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={formData.featured ? "outline" : "primary"}
-                    disabled={!formData.featured}
-                    onClick={() => setFormData((prev) => ({ ...prev, featured: false }))}
-                  >
-                    取消精选
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={formData.featured ? "primary" : "outline"}
-                    disabled={formData.featured}
-                    onClick={() => setFormData((prev) => ({ ...prev, featured: true }))}
-                  >
-                    设为精选
-                  </Button>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Input
-                  label="定时发布时间"
-                  type="datetime-local"
-                  value={formData.scheduledAt}
-                  onChange={(event) => setFormData((prev) => ({ ...prev, scheduledAt: event.target.value, published: false }))}
-                />
-                <p className="flex items-center gap-1 text-xs text-[var(--muted)]">
-                  <CalendarClock className="h-3.5 w-3.5" />
-                  留空则使用“发布文章”立即发布；填写未来时间后点击“定时发布”。
-                </p>
-              </div>
-
-              <label className="flex items-center justify-between gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface-alt)] px-3 py-2 text-sm">
-                <span className="text-[var(--foreground)]">允许评论</span>
-                <input type="checkbox" disabled className="h-4 w-4 rounded border-[var(--border)]" />
-              </label>
-              <p className="text-xs text-[var(--muted)]">静态开关，当前文章接口没有评论开关字段。</p>
-
-              <div className="space-y-2 rounded-xl border border-[var(--border)] bg-[var(--surface-alt)] p-3 text-sm text-[var(--muted)]">
-                <p>永久链接：{formData.slug ? `/posts/${formData.slug}` : "未生成"}</p>
-                <p>分类：{categories.find((category) => category.id === formData.categoryId)?.name ?? "未选择"}</p>
-                <p>标签：{formData.tagIds.length > 0 ? `${formData.tagIds.length} 个` : "未选择"}</p>
-                <p>系列：{series.find((item) => item.id === formData.seriesId)?.title ?? "未选择"}</p>
-                <p>排程：{formData.scheduledAt ? formData.scheduledAt.replace("T", " ") : "未设置"}</p>
-                <p>封面图：{formData.coverImage ? "已设置" : "未设置"}</p>
-              </div>
-            </div>
+            <PublishSettingsPanel
+              isEditMode={isEditMode}
+              saveStatusLabel={saveStatusLabel}
+              published={formData.published}
+              featured={formData.featured}
+              scheduledAt={formData.scheduledAt}
+              slug={formData.slug}
+              categoryId={formData.categoryId}
+              tagCount={formData.tagIds.length}
+              seriesId={formData.seriesId}
+              coverImage={formData.coverImage}
+              categories={categories}
+              series={series}
+              onKeepDraft={() => setFormData((prev) => ({ ...prev, published: false, scheduledAt: "" }))}
+              onSwitchPublished={() => setFormData((prev) => ({ ...prev, published: true, scheduledAt: "" }))}
+              onUnfeature={() => setFormData((prev) => ({ ...prev, featured: false }))}
+              onFeature={() => setFormData((prev) => ({ ...prev, featured: true }))}
+              onScheduledAtChange={(value) => setFormData((prev) => ({ ...prev, scheduledAt: value, published: false }))}
+            />
           </WorkspacePanel>
 
           <WorkspacePanel title="发布清单" description="发布前检查标题、正文、SEO 与封面。" className="rounded-2xl" fillHeight={false}>
@@ -907,9 +437,45 @@ const [publishConfirmOpen, setPublishConfirmOpen] = useState(false);
           </WorkspacePanel>
 
           <WorkspacePanel title="分类、标签与封面图" description="这些字段会随保存或发布提交。" className="rounded-2xl" fillHeight={false}>
-            {metadataEditor}
+            <MetadataEditor
+              mode={mode}
+              formData={formData}
+              hasContent={hasContent}
+              canUseAiWorkspace={canUseAiWorkspace}
+              categories={categories}
+              tags={tags}
+              series={series}
+              metadataError={metadataError}
+              metadataPendingField={metadataPendingField}
+              isCompletingMetadata={isCompletingMetadata}
+              isGeneratingAllMetadata={isGeneratingAllMetadata}
+              lastArticleInfoTaskId={lastArticleInfoTaskId}
+              isSummarizing={isSummarizing}
+              summaryError={summaryError}
+              coverUploadError={coverUploadError}
+              isCoverUploading={isCoverUploading}
+              coverInputRef={coverFileInputRef}
+              onGenerateAll={() => void handleGenerateAllArticleInfo()}
+              onOpenAiWorkspace={() => setAiWorkspaceOpen(true)}
+              onGenerateMetadata={handleGenerateMetadata}
+              onGenerateSummary={() => void handleGenerateSummary()}
+              onCategoryChange={(value) => setFormData((prev) => ({ ...prev, categoryId: value }))}
+              onTagToggle={(tagId, checked) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  tagIds: checked ? [...prev.tagIds, tagId] : prev.tagIds.filter((id) => id !== tagId),
+                }))
+              }
+              onSeriesChange={(value) => setFormData((prev) => ({ ...prev, seriesId: value }))}
+              onSeriesOrderChange={(value) => setFormData((prev) => ({ ...prev, seriesOrder: value }))}
+              onCoverUrlChange={(value) => setFormData((prev) => ({ ...prev, coverImage: value, coverAssetId: "" }))}
+              onCoverUpload={handleCoverUpload}
+              onCoverUploadClick={() => coverFileInputRef.current?.click()}
+              onCoverAssetSelect={(asset) => setFormData((prev) => ({ ...prev, coverImage: asset.url, coverAssetId: asset.id }))}
+              onExcerptChange={(value) => setFormData((prev) => ({ ...prev, excerpt: value }))}
+              onSeoDescriptionChange={(value) => setFormData((prev) => ({ ...prev, seoDescription: value }))}
+            />
           </WorkspacePanel>
-
         </aside>
       </div>
 
@@ -926,112 +492,13 @@ const [publishConfirmOpen, setPublishConfirmOpen] = useState(false);
       ) : null}
 
       {articleInfoPreview ? (
-        <Modal
-          isOpen={Boolean(articleInfoPreview)}
+        <ArticleInfoPreviewModal
+          preview={articleInfoPreview}
+          categories={categories}
+          tags={tags}
           onClose={dismissArticleInfoPreview}
-          title="确认一键 AI 生成结果"
-          size="3xl"
-          contentClassName="space-y-4 px-4 py-4 sm:px-6"
-        >
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-[var(--foreground)]">
-                {articleInfoPreview.partial ? "部分字段可用" : "生成结果待确认"}
-              </p>
-              <p className="mt-1 text-xs text-[var(--muted)]">标题和正文不会被覆盖；不覆盖项会保留当前表单值。</p>
-            </div>
-            <Link className="text-sm font-medium text-[var(--brand)] hover:underline" href={articleInfoPreview.taskHref}>
-              查看 AI 任务
-            </Link>
-          </div>
-
-          <div className="space-y-2 sm:hidden">
-            {articleInfoPreviewRows.map((row) => (
-              <div key={row.key} className="rounded-xl border border-[var(--border)] bg-[var(--surface-alt)] px-3 py-3">
-                <div className="flex items-start justify-between gap-3">
-                  <span className="text-sm font-semibold text-[var(--foreground)]">{row.label}</span>
-                  <span className="shrink-0 text-xs font-medium text-[var(--brand)]">{row.change}</span>
-                </div>
-                <div className="mt-3 grid gap-2">
-                  <div className="min-w-0">
-                    <p className="text-xs font-medium text-[var(--muted)]">当前</p>
-                    <p className="mt-1 break-words text-sm leading-6 text-[var(--muted)]">{row.current}</p>
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-xs font-medium text-[var(--muted)]">AI 建议</p>
-                    <p className="mt-1 break-words text-sm leading-6 text-[var(--foreground)]">{row.next}</p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="hidden overflow-hidden rounded-2xl border border-[var(--border)] sm:block">
-            <div className="grid grid-cols-[6rem_minmax(0,1fr)_minmax(0,1fr)_7rem] gap-0 border-b border-[var(--border)] bg-[var(--surface-alt)] text-xs font-semibold text-[var(--muted)]">
-              <span className="px-3 py-2">字段</span>
-              <span className="px-3 py-2">当前</span>
-              <span className="px-3 py-2">AI 建议</span>
-              <span className="px-3 py-2">变化</span>
-            </div>
-            <div className="divide-y divide-[var(--border)]">
-              {articleInfoPreviewRows.map((row) => (
-                <div key={row.key} className="grid grid-cols-[6rem_minmax(0,1fr)_minmax(0,1fr)_7rem] gap-0 text-sm">
-                  <span className="px-3 py-3 font-medium text-[var(--foreground)]">{row.label}</span>
-                  <span className="min-w-0 break-words px-3 py-3 text-[var(--muted)]">{row.current}</span>
-                  <span className="min-w-0 break-words px-3 py-3 text-[var(--foreground)]">{row.next}</span>
-                  <span className="px-3 py-3 text-xs font-medium text-[var(--brand)]">{row.change}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {articleInfoPreview.quality ? (
-            <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-alt)] p-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-sm font-medium text-[var(--foreground)]">质量评分</p>
-                <StatusBadge tone={(articleInfoPreview.quality.score ?? 0) >= 80 ? "success" : "warning"}>
-                  {articleInfoPreview.quality.score ?? "-"} / 100
-                </StatusBadge>
-              </div>
-              <div className="mt-3 grid gap-2">
-                {(articleInfoPreview.quality.checks ?? []).map((check) => (
-                  <div key={check.key || check.label} className="flex items-start justify-between gap-3 rounded-xl bg-[var(--surface)] px-3 py-2">
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-[var(--foreground)]">{check.label}</p>
-                      <p className="mt-1 text-xs leading-5 text-[var(--muted)]">{check.message}</p>
-                    </div>
-                    <StatusBadge tone={getQualityTone(check.status)}>{check.status === "danger" ? "阻止" : check.status === "ok" ? "通过" : "注意"}</StatusBadge>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : null}
-
-          {articleInfoPreview.failures.length > 0 ? (
-            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-              {articleInfoPreview.failures.map((failure) => articleInfoActionLabels[failure.action] ?? failure.action).join("、")} 生成失败，其余字段可确认应用。
-            </div>
-          ) : null}
-
-          {articleInfoPreview.metrics.length > 0 ? (
-            <p className="text-xs text-[var(--muted)]">
-              耗时：
-              {articleInfoPreview.metrics
-                .filter((metric) => metric.action)
-                .map((metric) => `${articleInfoActionLabels[metric.action] ?? metric.action} ${metric.durationMs}ms`)
-                .join(" / ")}
-            </p>
-          ) : null}
-
-          <div className="flex flex-wrap justify-end gap-2">
-            <Button type="button" variant="outline" onClick={dismissArticleInfoPreview}>
-              取消
-            </Button>
-            <Button type="button" onClick={applyArticleInfoPreview}>
-              应用这些结果
-            </Button>
-          </div>
-        </Modal>
+          onApply={applyArticleInfoPreview}
+        />
       ) : null}
 
       <ConfirmDialog

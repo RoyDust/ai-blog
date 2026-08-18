@@ -15,6 +15,7 @@ vi.mock("@/components/admin/ui/image-crop-upload-dialog", () => ({
 }));
 
 import { AdminSettingsClient } from "../AdminSettingsClient";
+import type { BlogSettingsDraft } from "../settings-shared";
 
 const user = {
   id: "user-1",
@@ -25,7 +26,7 @@ const user = {
   githubLinked: false,
 };
 
-const blogSettings = {
+const blogSettings: BlogSettingsDraft = {
   siteName: "Inkforge",
   siteDescription: "站点描述",
   siteUrl: "https://example.com",

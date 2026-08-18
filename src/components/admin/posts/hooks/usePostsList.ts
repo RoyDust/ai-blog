@@ -18,6 +18,7 @@ import useSWR from "swr";
 
 import { apiFetcher, apiMutate, handleGlobalSwrError, toErrorMessage } from "@/lib/client-api";
 import { getApiErrorMessage } from "@/lib/admin-api-client";
+import { readPositiveInteger, useFilterMemory } from "@/hooks/useFilterMemory";
 import { getSummaryStatusForExcerpt, isActiveSummaryStatus, type PostSummaryStatus } from "@/lib/post-summary-status";
 import type { DeleteImpactItem } from "@/components/admin/DeleteImpactDialog";
 
@@ -136,42 +137,24 @@ export const emptyStats: PostStats = {
 const postsFilterMemoryKey = "admin:posts:list-filters";
 const SUMMARY_POLL_INTERVAL_MS = 2500;
 
-function readPositiveInteger(value: unknown, fallback: number) {
-  const number = Number(value);
-  return Number.isInteger(number) && number > 0 ? number : fallback;
-}
+const fallbackPostsFilterMemory: PostsFilterMemory = {
+  query: "",
+  statusFilter: "all",
+  contentTypeFilter: "all",
+  page: 1,
+  pageSize: defaultPageSize,
+};
 
-function readPostsFilterMemory(): PostsFilterMemory {
-  if (typeof window === "undefined") {
-    return { query: "", statusFilter: "all", contentTypeFilter: "all", page: 1, pageSize: defaultPageSize };
-  }
+function validatePostsFilterMemory(parsed: Partial<PostsFilterMemory>, fallback: PostsFilterMemory): PostsFilterMemory {
+  const nextPageSize = readPositiveInteger(parsed.pageSize, fallback.pageSize);
 
-  try {
-    const parsed = JSON.parse(window.localStorage.getItem(postsFilterMemoryKey) ?? "{}") as Partial<PostsFilterMemory>;
-    const nextPageSize = readPositiveInteger(parsed.pageSize, defaultPageSize);
-
-    return {
-      query: typeof parsed.query === "string" ? parsed.query : "",
-      statusFilter: statusFilters.includes(parsed.statusFilter as StatusFilter) ? (parsed.statusFilter as StatusFilter) : "all",
-      contentTypeFilter: contentTypeFilters.includes(parsed.contentTypeFilter as ContentTypeFilter) ? (parsed.contentTypeFilter as ContentTypeFilter) : "all",
-      page: readPositiveInteger(parsed.page, 1),
-      pageSize: pageSizeOptions.includes(nextPageSize) ? nextPageSize : defaultPageSize,
-    };
-  } catch {
-    return { query: "", statusFilter: "all", contentTypeFilter: "all", page: 1, pageSize: defaultPageSize };
-  }
-}
-
-function writePostsFilterMemory(value: PostsFilterMemory) {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  try {
-    window.localStorage.setItem(postsFilterMemoryKey, JSON.stringify(value));
-  } catch {
-    // localStorage can be unavailable in private or constrained browser contexts.
-  }
+  return {
+    query: typeof parsed.query === "string" ? parsed.query : fallback.query,
+    statusFilter: statusFilters.includes(parsed.statusFilter as StatusFilter) ? (parsed.statusFilter as StatusFilter) : fallback.statusFilter,
+    contentTypeFilter: contentTypeFilters.includes(parsed.contentTypeFilter as ContentTypeFilter) ? (parsed.contentTypeFilter as ContentTypeFilter) : fallback.contentTypeFilter,
+    page: readPositiveInteger(parsed.page, fallback.page),
+    pageSize: pageSizeOptions.includes(nextPageSize) ? nextPageSize : fallback.pageSize,
+  };
 }
 
 export function getSummaryStatus(post: PostRow): PostSummaryStatus {
@@ -184,7 +167,7 @@ export function getSummaryStatus(post: PostRow): PostSummaryStatus {
 
 export function usePostsList() {
   // 筛选记忆用惰性初始化读入，免去"先空载后恢复"的两段式状态
-  const [initialMemory] = useState(readPostsFilterMemory);
+  const { initialMemory, persist } = useFilterMemory<PostsFilterMemory>(postsFilterMemoryKey, fallbackPostsFilterMemory, validatePostsFilterMemory);
   const [query, setQuery] = useState(initialMemory.query);
   const deferredQuery = useDeferredValue(query);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(initialMemory.statusFilter);
@@ -246,14 +229,14 @@ export function usePostsList() {
 
   // 筛选记忆持久化（纯副作用，无 setState）
   useEffect(() => {
-    writePostsFilterMemory({
+    persist({
       query,
       statusFilter,
       contentTypeFilter,
       page,
       pageSize,
     });
-  }, [contentTypeFilter, page, pageSize, query, statusFilter]);
+  }, [contentTypeFilter, page, pageSize, persist, query, statusFilter]);
 
   const activeSummaryIds = useMemo(
     () => posts.filter((post) => isActiveSummaryStatus(getSummaryStatus(post))).map((post) => post.id),

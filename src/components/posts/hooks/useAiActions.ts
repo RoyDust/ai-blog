@@ -61,7 +61,7 @@ const articleInfoActionLabels: Record<string, string> = {
 const ONE_CLICK_MIN_CONTENT_CHARS = 20;
 const ARTICLE_INFO_CACHE_MS = 60_000;
 
-type AiMetadataSingleField = "title" | "slug" | "category" | "tags";
+export type AiMetadataSingleField = "title" | "slug" | "category" | "tags";
 export type AiMetadataField = "all" | AiMetadataSingleField;
 
 type UseAiActionsOptions = {

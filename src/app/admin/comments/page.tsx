@@ -11,6 +11,7 @@ import { StatusBadge } from "@/components/admin/primitives/StatusBadge";
 import { Toolbar } from "@/components/admin/primitives/Toolbar";
 import { getApiErrorMessage } from "@/lib/admin-api-client";
 import { apiFetcher, apiMutate, handleGlobalSwrError, toErrorMessage } from "@/lib/client-api";
+import { readPositiveInteger, useFilterMemory } from "@/hooks/useFilterMemory";
 import { CheckCircle2, Clock, MessageSquare, XCircle } from "lucide-react";
 
 type CommentStatus = "APPROVED" | "PENDING" | "REJECTED" | "SPAM";
@@ -86,48 +87,22 @@ type CommentsFilterMemory = {
   pageSize: number;
 };
 
-function readPositiveInteger(value: unknown, fallback: number) {
-  const number = Number(value);
-  return Number.isInteger(number) && number > 0 ? number : fallback;
-}
+const fallbackCommentsFilterMemory: CommentsFilterMemory = {
+  query: "",
+  statusFilter: "ALL",
+  page: 1,
+  pageSize: defaultPageSize,
+};
 
-function readCommentsFilterMemory(): CommentsFilterMemory {
-  const fallback: CommentsFilterMemory = {
-    query: "",
-    statusFilter: "ALL",
-    page: 1,
-    pageSize: defaultPageSize,
+function validateCommentsFilterMemory(parsed: Partial<CommentsFilterMemory>, fallback: CommentsFilterMemory): CommentsFilterMemory {
+  const nextPageSize = readPositiveInteger(parsed.pageSize, fallback.pageSize);
+
+  return {
+    query: typeof parsed.query === "string" ? parsed.query : fallback.query,
+    statusFilter: commentStatusFilters.includes(parsed.statusFilter as CommentStatusFilter) ? (parsed.statusFilter as CommentStatusFilter) : fallback.statusFilter,
+    page: readPositiveInteger(parsed.page, fallback.page),
+    pageSize: pageSizeOptions.includes(nextPageSize) ? nextPageSize : fallback.pageSize,
   };
-
-  if (typeof window === "undefined") {
-    return fallback;
-  }
-
-  try {
-    const parsed = JSON.parse(window.localStorage.getItem(commentsFilterMemoryKey) ?? "{}") as Partial<CommentsFilterMemory>;
-    const nextPageSize = readPositiveInteger(parsed.pageSize, fallback.pageSize);
-
-    return {
-      query: typeof parsed.query === "string" ? parsed.query : fallback.query,
-      statusFilter: commentStatusFilters.includes(parsed.statusFilter as CommentStatusFilter) ? (parsed.statusFilter as CommentStatusFilter) : fallback.statusFilter,
-      page: readPositiveInteger(parsed.page, fallback.page),
-      pageSize: pageSizeOptions.includes(nextPageSize) ? nextPageSize : fallback.pageSize,
-    };
-  } catch {
-    return fallback;
-  }
-}
-
-function writeCommentsFilterMemory(value: CommentsFilterMemory) {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  try {
-    window.localStorage.setItem(commentsFilterMemoryKey, JSON.stringify(value));
-  } catch {
-    // localStorage can be unavailable in private or constrained browser contexts.
-  }
 }
 
 interface StatsCardProps {
@@ -200,7 +175,7 @@ function StatsCard({ label, value, icon: Icon, scheme, hint, onClick, active }: 
 }
 
 export default function AdminCommentsPage() {
-  const [initialMemory] = useState(readCommentsFilterMemory);
+  const { initialMemory, persist } = useFilterMemory<CommentsFilterMemory>(commentsFilterMemoryKey, fallbackCommentsFilterMemory, validateCommentsFilterMemory);
   const [query, setQuery] = useState(initialMemory.query);
   const [debouncedQuery, setDebouncedQuery] = useState(initialMemory.query);
   const [statusFilter, setStatusFilter] = useState<CommentStatusFilter>(initialMemory.statusFilter);
@@ -280,13 +255,13 @@ export default function AdminCommentsPage() {
 
   // 筛选记忆持久化（纯副作用，无 setState）
   useEffect(() => {
-    writeCommentsFilterMemory({
+    persist({
       query,
       statusFilter,
       page,
       pageSize,
     });
-  }, [page, pageSize, query, statusFilter]);
+  }, [page, pageSize, persist, query, statusFilter]);
 
   async function updateStatuses(ids: string[], status: CommentStatus) {
     try {
