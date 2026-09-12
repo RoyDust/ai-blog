@@ -15,17 +15,9 @@ Inkforge 不是只渲染 Markdown 的主题模板，而是把*有阅读质感的
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Database-336791?logo=postgresql)](https://www.postgresql.org/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-v4-38BDF8?logo=tailwindcss)](https://tailwindcss.com/)
 
-[在线预览](http://47.98.167.32) · [架构说明](./ARCHITECTURE.md) · [部署指南](./docs/deployment/github-actions-manual-deploy.md)
+[在线预览](http://47.98.167.32) · [部署指南](./docs/deployment/github-actions-manual-deploy.md)
 
 </div>
-
-## 预览
-
-截图位先预留，后续把图片放进 `docs/assets/readme/` 后替换这里即可。
-
-| 阅读首页 | 文章详情 | AI 任务中心 |
-| --- | --- | --- |
-| `docs/assets/readme/public-home.png` | `docs/assets/readme/post-detail.png` | `docs/assets/readme/admin-ai-tasks.png` |
 
 ## Inkforge 是什么
 
@@ -171,7 +163,7 @@ pnpm ai-news:check  # 检查 AI 新闻流水线就绪状态
 ├─ src/lib             # 认证、Prisma、SEO、AI（摘要/新闻/封面/任务）、限流、日志、订阅等能力
 ├─ prisma              # 数据模型与迁移
 ├─ scripts             # 数据初始化与运维脚本（seed、AI Token、就绪检查等）
-├─ docs                # 设计、实施、部署与规划文档
+├─ docs                # 维护文档与历史归档
 ├─ deploy              # Nginx 等部署配置
 └─ .github/workflows   # CI / Deploy 工作流
 ```
@@ -227,12 +219,13 @@ pnpm build
 
 ## 文档
 
-- [ARCHITECTURE.md](./ARCHITECTURE.md)
-- [清理审查](./docs/plans/2026-06-04-project-cleanup-audit.md)
-- [历史项目文档](./docs/archive/PROJECT_DOCS.md)
-- [历史测试报告](./docs/archive/TEST_REPORT.md)
-- [服务器执行清单](./docs/deployment/server-execution-checklist.md)
-- [HTTPS / HTTP2 部署记录](./docs/deployment/https-http2-roydust-top.md)
+- [文档索引](./docs/README.md)
+- [产品说明](./PRODUCT.md)
+- [仓库协作约定](./AGENTS.md)
+- [AI 写作 API](./docs/integrations/ai-authoring-api.md)
+- [部署指南](./docs/deployment/github-actions-manual-deploy.md)
+- [安全加固运行手册](./docs/deployment/security-hardening-runbook.md)
+- [历史文档](./docs/archive/)
 
 ## License
 

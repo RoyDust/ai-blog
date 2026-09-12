@@ -111,7 +111,8 @@ Next.js 16 (App Router, 开启 viewTransition 实验特性) + React 19 + TypeScr
 ## 文档
 
 - `README.md` — 功能总览、环境变量表、部署说明（最新）
-- `docs/plans/`、`docs/implementation/` — 历史设计与实施文档，按日期命名
+- `docs/README.md` — 文档索引与维护入口
+- `docs/implementation/` — 当前实施记录；已完成的设计、计划与审查材料统一放在 `docs/archive/`
 - `docs/integrations/ai-authoring-api.md` — AI 写作 API 对接文档
-- `ARCHITECTURE.md` 是项目初期 (2026-03) 的设计稿，与现状有偏差（如 NextAuth 版本、目录结构），以代码为准
+- 当前架构以 `src/app`、`src/components`、`src/lib` 和 README 中的项目结构为准
 - `AGENTS.md` 是给 Codex 的同类说明文件，更新本文件时注意两者是否需要同步

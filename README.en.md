@@ -15,17 +15,9 @@ Inkforge is not a display-only Markdown theme. It packs a *polished blog fronten
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Database-336791?logo=postgresql)](https://www.postgresql.org/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-v4-38BDF8?logo=tailwindcss)](https://tailwindcss.com/)
 
-[Live Demo](http://47.98.167.32) · [Architecture](./ARCHITECTURE.md) · [Deployment Guide](./docs/deployment/github-actions-manual-deploy.md)
+[Live Demo](http://47.98.167.32) · [Deployment Guide](./docs/deployment/github-actions-manual-deploy.md)
 
 </div>
-
-## Preview
-
-Screenshots are placeholders for now. Drop images into `docs/assets/readme/` and replace the paths below.
-
-| Reading Home | Post Detail | AI Task Center |
-| --- | --- | --- |
-| `docs/assets/readme/public-home.png` | `docs/assets/readme/post-detail.png` | `docs/assets/readme/admin-ai-tasks.png` |
 
 ## What Inkforge Is
 
@@ -171,7 +163,7 @@ See [.env.example](./.env.example) for the full template. The most common variab
 ├─ src/lib             # Auth, Prisma, SEO, AI (summary/news/cover/tasks), rate limiting, logging, subscriptions
 ├─ prisma              # Data model and migrations
 ├─ scripts             # Data seeding and ops scripts (seed, AI token, readiness checks)
-├─ docs                # Design, implementation, deployment, and planning docs
+├─ docs                # Maintained documentation and archived project history
 ├─ deploy              # Deployment support files such as Nginx config
 └─ .github/workflows   # CI / Deploy workflows
 ```
@@ -227,12 +219,13 @@ Coverage spans public reading flows, post detail, search, RSS, SEO metadata, adm
 
 ## Docs
 
-- [ARCHITECTURE.md](./ARCHITECTURE.md)
-- [Cleanup Audit](./docs/plans/2026-06-04-project-cleanup-audit.md)
-- [Archived Project Docs](./docs/archive/PROJECT_DOCS.md)
-- [Archived Test Report](./docs/archive/TEST_REPORT.md)
-- [Server Execution Checklist](./docs/deployment/server-execution-checklist.md)
-- [HTTPS / HTTP2 Deployment Notes](./docs/deployment/https-http2-roydust-top.md)
+- [Documentation index](./docs/README.md)
+- [Product brief](./PRODUCT.md)
+- [Repository instructions](./AGENTS.md)
+- [AI authoring API](./docs/integrations/ai-authoring-api.md)
+- [Deployment guide](./docs/deployment/github-actions-manual-deploy.md)
+- [Security hardening runbook](./docs/deployment/security-hardening-runbook.md)
+- [Archived documentation](./docs/archive/)
 
 ## License
 

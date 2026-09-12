@@ -62,6 +62,7 @@ next-env.d.ts
 /.opencode/
 /.sisyphus/
 /tasks/
+/plan/
 
 # agent/dev-server log artifacts (parallel sessions)
 .audit-*.log
