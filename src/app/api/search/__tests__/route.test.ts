@@ -1,14 +1,14 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
 const findMany = vi.fn()
-const count = vi.fn()
+const queryRaw = vi.fn()
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     post: {
       findMany,
-      count,
     },
+    $queryRaw: queryRaw,
   },
 }))
 
@@ -33,7 +33,7 @@ describe('GET /api/search', () => {
     vi.resetModules()
     vi.unstubAllGlobals()
     findMany.mockReset()
-    count.mockReset()
+    queryRaw.mockReset()
     process.env = { ...originalEnv }
   })
 
@@ -43,6 +43,7 @@ describe('GET /api/search', () => {
   })
 
   test('searches published posts across related fields', async () => {
+    queryRaw.mockResolvedValue([{ total: 1, items: [{ id: 'p1', score: 31, hitFields: ['title', 'excerpt', 'content', 'author', 'category', 'tags'] }] }])
     findMany.mockResolvedValue([
       {
         id: 'p1',
@@ -57,7 +58,6 @@ describe('GET /api/search', () => {
         _count: { comments: 0, likes: 0 },
       },
     ])
-    count.mockResolvedValue(1)
 
     const { GET } = await import('../route')
     const response = await GET(new Request('http://localhost/api/search?q=react&page=1&limit=12'))
@@ -66,28 +66,10 @@ describe('GET /api/search', () => {
     expect(response.status).toBe(200)
     expect(payload.success).toBe(true)
     expect(payload.pagination.total).toBe(1)
-    expect(findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: {
-          published: true,
-          deletedAt: null,
-          OR: [
-            { title: { contains: 'react', mode: 'insensitive' } },
-            { excerpt: { contains: 'react', mode: 'insensitive' } },
-            { content: { contains: 'react', mode: 'insensitive' } },
-            { author: { name: { contains: 'react', mode: 'insensitive' } } },
-            { category: { name: { contains: 'react', mode: 'insensitive' } } },
-            { tags: { some: { name: { contains: 'react', mode: 'insensitive' } } } },
-          ],
-        },
-        include: expect.objectContaining({
-          _count: { select: { comments: { where: { deletedAt: null, status: 'APPROVED' } }, likes: true } },
-        }),
-        orderBy: [{ createdAt: 'desc' }],
-        skip: 0,
-        take: 12,
-      }),
-    )
+    expect(payload.data[0].searchMeta).toEqual({
+      score: 31,
+      hitFields: ['title', 'excerpt', 'content', 'author', 'category', 'tags'],
+    })
   })
 
   test('returns 400 when q is missing', async () => {
@@ -108,7 +90,7 @@ describe('GET /api/search', () => {
     expect(response.status).toBe(400)
     expect(payload).toEqual({ error: 'Query must be at least 2 characters' })
     expect(findMany).not.toHaveBeenCalled()
-    expect(count).not.toHaveBeenCalled()
+    expect(queryRaw).not.toHaveBeenCalled()
   })
 
   test('returns 400 when q exceeds the public search maximum', async () => {
@@ -119,12 +101,12 @@ describe('GET /api/search', () => {
     expect(response.status).toBe(400)
     expect(payload).toEqual({ error: 'Query must be at most 200 characters' })
     expect(findMany).not.toHaveBeenCalled()
-    expect(count).not.toHaveBeenCalled()
+    expect(queryRaw).not.toHaveBeenCalled()
   })
 
   test('normalizes invalid page and limit values through shared pagination validation', async () => {
+    queryRaw.mockResolvedValue([{ total: 0, items: [] }])
     findMany.mockResolvedValue([])
-    count.mockResolvedValue(0)
 
     const { GET } = await import('../route')
     const response = await GET(new Request('http://localhost/api/search?q=react&page=-9&limit=500'))
@@ -137,17 +119,31 @@ describe('GET /api/search', () => {
       total: 0,
       totalPages: 0,
     })
-    expect(findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        skip: 0,
-        take: 50,
-      }),
-    )
+    expect(findMany).not.toHaveBeenCalled()
   })
 
-  test('sorts title matches before body-only matches and returns hit fields', async () => {
+  test('preserves the database global order and returns hit fields', async () => {
+    queryRaw.mockResolvedValue([
+      {
+        total: 2,
+        items: [
+          { id: 'p1', score: 12, hitFields: ['title'] },
+          { id: 'p2', score: 4, hitFields: ['content'] },
+        ],
+      },
+    ])
     findMany.mockResolvedValue([
       {
+        ...searchPost,
+        id: 'p1',
+        title: 'React 搜索体验优化',
+        slug: 'react-search-experience',
+        excerpt: null,
+        content: '正文',
+        createdAt: new Date('2026-03-08T00:00:00Z'),
+      },
+      {
+        ...searchPost,
         id: 'p2',
         title: '前端工程实践',
         slug: 'frontend-engineering',
@@ -160,9 +156,7 @@ describe('GET /api/search', () => {
         tags: [{ name: '工程化', slug: 'engineering' }],
         _count: { comments: 0, likes: 0 },
       },
-      searchPost,
     ])
-    count.mockResolvedValue(2)
 
     const { GET } = await import('../route')
     const response = await GET(new Request('http://localhost/api/search?q=react'))
@@ -170,14 +164,16 @@ describe('GET /api/search', () => {
 
     expect(response.status).toBe(200)
     expect(payload.data[0].slug).toBe('react-search-experience')
-    expect(payload.data[0].searchMeta.hitFields).toContain('title')
-    expect(payload.data[1].searchMeta.hitFields).toContain('content')
-    expect(payload.data[0].searchMeta.score).toBeGreaterThan(payload.data[1].searchMeta.score)
+    expect(payload.data.map((item: { slug: string }) => item.slug)).toEqual([
+      'react-search-experience',
+      'frontend-engineering',
+    ])
+    expect(payload.data[0].searchMeta).toEqual({ score: 12, hitFields: ['title'] })
+    expect(payload.data[1].searchMeta).toEqual({ score: 4, hitFields: ['content'] })
   })
 
   test('returns the public error contract without leaking internal details on failures', async () => {
-    findMany.mockRejectedValueOnce(new Error('database exploded with internals'))
-    count.mockResolvedValueOnce(0)
+    queryRaw.mockRejectedValueOnce(new Error('database exploded with internals'))
 
     const { GET } = await import('../route')
     const response = await GET(new Request('http://localhost/api/search?q=react'))
@@ -190,6 +186,15 @@ describe('GET /api/search', () => {
 
   test('adds AI search summary and reorders candidates when requested', async () => {
     process.env.DASHSCOPE_API_KEY = 'test-api-key'
+    queryRaw.mockResolvedValue([
+      {
+        total: 2,
+        items: [
+          { id: 'p1', score: 12, hitFields: ['title'] },
+          { id: 'p2', score: 12, hitFields: ['title'] },
+        ],
+      },
+    ])
     findMany.mockResolvedValue([
       searchPost,
       {
@@ -206,7 +211,6 @@ describe('GET /api/search', () => {
         _count: { comments: 0, likes: 0 },
       },
     ])
-    count.mockResolvedValue(2)
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue({
@@ -238,8 +242,8 @@ describe('GET /api/search', () => {
 
   test('reuses cached AI search summaries for the same ranked candidates', async () => {
     process.env.DASHSCOPE_API_KEY = 'test-api-key'
+    queryRaw.mockResolvedValue([{ total: 1, items: [{ id: 'p1', score: 12, hitFields: ['title'] }] }])
     findMany.mockResolvedValue([searchPost])
-    count.mockResolvedValue(1)
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -260,10 +264,25 @@ describe('GET /api/search', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
+  test('keeps ordinary search results when AI enhancement fails', async () => {
+    process.env.DASHSCOPE_API_KEY = 'test-api-key'
+    queryRaw.mockResolvedValue([{ total: 1, items: [{ id: 'p1', score: 12, hitFields: ['title'] }] }])
+    findMany.mockResolvedValue([searchPost])
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('upstream timeout')))
+
+    const { GET } = await import('../route')
+    const response = await GET(new Request('http://localhost/api/search?q=搜索&ai=1'))
+    const payload = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(payload.data).toHaveLength(1)
+    expect(payload.ai).toBeUndefined()
+  })
+
   test('rate-limits uncached AI search summary requests by client', async () => {
     process.env.DASHSCOPE_API_KEY = 'test-api-key'
+    queryRaw.mockImplementation(async () => [{ total: 1, items: [{ id: 'p1', score: 12, hitFields: ['title'] }] }])
     findMany.mockResolvedValue([searchPost])
-    count.mockResolvedValue(1)
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({

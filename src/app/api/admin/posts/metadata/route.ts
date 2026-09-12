@@ -6,17 +6,8 @@ import { toErrorResponse, ValidationError } from "@/lib/api-errors"
 import { AI_AUTHORING_LIMITS } from "@/lib/ai-contract"
 import { generatePostSlug } from "@/lib/slug"
 import { getCategoryDirectory, getTagDirectory } from "@/lib/taxonomy"
-
-type DashScopePayload = {
-  choices?: Array<{
-    message?: {
-      content?: string | Array<{ text?: string; type?: string }>
-    }
-  }>
-  error?: {
-    message?: string
-  }
-}
+import { getAiModelForCapability } from "@/lib/ai-models"
+import { createCompletionClientForModel } from "@/lib/openai-compatible-completion-client"
 
 type MetadataCandidate = {
   title?: unknown
@@ -33,24 +24,6 @@ const metadataFields = new Set<MetadataField>(["all", "title", "slug", "category
 type TaxonomyItem = {
   name: string
   slug: string
-}
-
-function extractCompletionText(payload: DashScopePayload) {
-  const content = payload.choices?.[0]?.message?.content
-
-  if (typeof content === "string") {
-    return content.trim()
-  }
-
-  if (Array.isArray(content)) {
-    return content
-      .map((item) => item.text?.trim())
-      .filter(Boolean)
-      .join("\n")
-      .trim()
-  }
-
-  return ""
 }
 
 function stripJsonFence(value: string) {
@@ -228,45 +201,28 @@ async function POSTHandler(request: Request) {
       throw new ValidationError("Article content is required")
     }
 
-    const apiKey = process.env.DASHSCOPE_API_KEY
-    if (!apiKey) {
-      return NextResponse.json({ error: "DASHSCOPE_API_KEY is not configured" }, { status: 500 })
-    }
-
     const [categories, tags] = await Promise.all([
       field === "all" || field === "category" ? getCategoryDirectory() : Promise.resolve([]),
       field === "all" || field === "tags" ? getTagDirectory() : Promise.resolve([]),
     ])
     const categorySlugs: Set<string> = new Set(categories.map((category: { slug: string }) => category.slug))
     const tagSlugs: Set<string> = new Set(tags.map((tag: { slug: string }) => tag.slug))
-    const baseUrl = process.env.DASHSCOPE_BASE_URL ?? "https://dashscope.aliyuncs.com/compatible-mode/v1"
-    const model = process.env.DASHSCOPE_MODEL ?? "qwen3.5-flash"
+
+    const aiModel = await getAiModelForCapability("post-summary")
+    if (!aiModel?.apiKey) {
+      return NextResponse.json({ error: "AI model is not configured" }, { status: 500 })
+    }
     const prompt = buildPrompt({ categories, content: content ?? "", field, tags, title: titleInput })
 
-    const response = await fetch(`${baseUrl}/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model,
-        messages: [
-          { role: "system", content: "你是一个严谨的中文博客编辑，只返回可解析 JSON。" },
-          { role: "user", content: prompt },
-        ],
-        temperature: 0.2,
-        max_tokens: getMaxTokens(field),
-      }),
+    const client = createCompletionClientForModel(aiModel)
+    const result = await client.completeText([
+      { role: "system", content: "你是一个严谨的中文博客编辑，只返回可解析 JSON。" },
+      { role: "user", content: prompt },
+    ], {
+      strategy: "interactive-completion",
+      bodyExtensions: { temperature: 0.2, max_tokens: getMaxTokens(field) },
     })
-
-    const payload = (await response.json()) as DashScopePayload
-
-    if (!response.ok) {
-      return NextResponse.json({ error: payload.error?.message || "Metadata generation failed" }, { status: 502 })
-    }
-
-    const candidate = parseCandidate(extractCompletionText(payload))
+    const candidate = parseCandidate(result.text)
 
     if (field === "title") {
       const title = truncate(readOptionalString(candidate.title) || titleInput, AI_AUTHORING_LIMITS.titleMaxLength)

@@ -1,3 +1,4 @@
+import { createCompletionClientForModel } from "@/lib/openai-compatible-completion-client"
 /**
  * AI 日报去重模块。
  *
@@ -386,18 +387,29 @@ export async function semanticDedupeCandidates({
   if (candidates.length < 2 || !aiModel?.apiKey) return urlDuplicateMap
 
   try {
-    const response = await fetchImpl(`${aiModel.baseUrl}${aiModel.requestPath}`, {
+    const messages = [
+      { role: "system", content: "You are a conservative deduplication assistant. Return valid JSON only." },
+      { role: "user", content: buildSemanticDedupePrompt(candidates) },
+    ] as const
+
+    if (fetchImpl === fetch) {
+      const client = createCompletionClientForModel(aiModel)
+      const result = await client.completeText(messages, {
+        strategy: "interactive-completion",
+        bodyExtensions: { temperature: 0, max_tokens: 1200 },
+      })
+      return parseDuplicateMap(result.text, candidates)
+    }
+
+    const response = await fetchImpl(aiModel.baseUrl + aiModel.requestPath, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${aiModel.apiKey}`,
+        Authorization: "Bearer " + aiModel.apiKey,
       },
       body: JSON.stringify({
         model: aiModel.model,
-        messages: [
-          { role: "system", content: "You are a conservative deduplication assistant. Return valid JSON only." },
-          { role: "user", content: buildSemanticDedupePrompt(candidates) },
-        ],
+        messages,
         temperature: 0,
         max_tokens: 1200,
       }),

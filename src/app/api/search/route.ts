@@ -4,30 +4,21 @@ import { withApiOperationLogging } from "@/lib/api-operation-log-route";
  *
  * 职责：
  * - 对已发布文章做全文 / 分类 / 标签 / 作者维度的站内检索
- * - 计算基础相关性分数并排序
+ * - 委托搜索域模块完成全局相关性排序、统计与分页
  * - 在用户显式请求时调用 AI 生成搜索摘要与推荐顺序
  * - 处理搜索与 AI 搜索的独立限流
  */
 import { NextResponse } from "next/server"
 import { toErrorResponse } from "@/lib/api-errors"
-import { prisma } from "@/lib/prisma"
 import { checkAiSearchRateLimit, checkSearchRateLimit } from "@/lib/rate-limit"
+import { searchPublicPosts } from "@/lib/public-search"
+import { getAiModelForCapability } from "@/lib/ai-models"
+import { createCompletionClientForModel } from "@/lib/openai-compatible-completion-client"
 import { clampPagination } from "@/lib/validation"
 
 const SEARCH_MIN_QUERY_LENGTH = 2
 const SEARCH_MAX_QUERY_LENGTH = 200
 const AI_SEARCH_CACHE_TTL_MS = 5 * 60_000
-
-type DashScopePayload = {
-  choices?: Array<{
-    message?: {
-      content?: string | Array<{ text?: string; type?: string }>
-    }
-  }>
-  error?: {
-    message?: string
-  }
-}
 
 type SearchPostCandidate = {
   id: string
@@ -46,72 +37,8 @@ type AiSearchResult = {
 
 const aiSearchCache = new Map<string, { expiresAt: number; value: AiSearchResult }>()
 
-function contains(source: string | null | undefined, query: string) {
-  return source?.toLowerCase().includes(query) ?? false
-}
-
 function countQueryCharacters(query: string) {
   return Array.from(query).length
-}
-
-function getSearchMeta(
-  post: {
-    title?: string | null
-    excerpt?: string | null
-    content?: string | null
-    author?: { name?: string | null } | null
-    category?: { name?: string | null } | null
-    tags?: Array<{ name?: string | null }>
-  },
-  query: string,
-) {
-  const hitFields: string[] = []
-  let score = 0
-
-  if (contains(post.title, query)) {
-    hitFields.push('title')
-    score += 12
-  }
-  if (contains(post.excerpt, query)) {
-    hitFields.push('excerpt')
-    score += 8
-  }
-  if (contains(post.content, query)) {
-    hitFields.push('content')
-    score += 4
-  }
-  if (contains(post.author?.name, query)) {
-    hitFields.push('author')
-    score += 3
-  }
-  if (contains(post.category?.name, query)) {
-    hitFields.push('category')
-    score += 2
-  }
-  if (post.tags?.some((tag) => contains(tag.name, query))) {
-    hitFields.push('tags')
-    score += 2
-  }
-
-  return { score, hitFields }
-}
-
-function extractCompletionText(payload: DashScopePayload) {
-  const content = payload.choices?.[0]?.message?.content
-
-  if (typeof content === 'string') {
-    return content.trim()
-  }
-
-  if (Array.isArray(content)) {
-    return content
-      .map((item) => item.text?.trim())
-      .filter(Boolean)
-      .join('\n')
-      .trim()
-  }
-
-  return ''
 }
 
 function stripJsonFence(value: string) {
@@ -193,14 +120,13 @@ function reorderByAiSlugs<T extends { slug: string }>(items: T[], rankedSlugs: s
 }
 
 async function generateAiSearchResult({ query, items }: { query: string; items: SearchPostCandidate[] }) {
-  const apiKey = process.env.DASHSCOPE_API_KEY
+  const aiModel = await getAiModelForCapability("post-summary")
+  const apiKey = aiModel?.apiKey
 
   if (!apiKey || items.length === 0) {
     return null
   }
 
-  const baseUrl = process.env.DASHSCOPE_BASE_URL ?? 'https://dashscope.aliyuncs.com/compatible-mode/v1'
-  const model = process.env.DASHSCOPE_MODEL ?? 'qwen3.5-flash'
   const candidates = items.slice(0, 8).map((item, index) => ({
     index: index + 1,
     slug: item.slug,
@@ -218,35 +144,25 @@ async function generateAiSearchResult({ query, items }: { query: string; items: 
     `候选文章：${JSON.stringify(candidates)}`,
   ].join('\n\n')
 
-  const response = await fetch(`${baseUrl}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model,
-      messages: [
-        { role: 'system', content: '你是站内搜索助手，输出必须是可解析 JSON。' },
-        { role: 'user', content: prompt },
-      ],
-      temperature: 0.2,
-      max_tokens: 420,
-    }),
-  })
+  try {
+    const client = createCompletionClientForModel(aiModel)
+    const result = await client.completeText([
+      { role: "system", content: "你是站内搜索助手，输出必须是可解析 JSON。" },
+      { role: "user", content: prompt },
+    ], {
+      strategy: "interactive-completion",
+      bodyExtensions: { temperature: 0.2, max_tokens: 420 },
+    })
+    const parsed = parseAiSearchPayload(result.text)
 
-  if (!response.ok) {
+    if (!parsed.summary) {
+      return null
+    }
+
+    return parsed
+  } catch {
     return null
   }
-
-  const payload = (await response.json()) as DashScopePayload
-  const parsed = parseAiSearchPayload(extractCompletionText(payload))
-
-  if (!parsed.summary) {
-    return null
-  }
-
-  return parsed
 }
 
 /**
@@ -261,7 +177,6 @@ async function GETHandler(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const query = searchParams.get('q')?.trim() ?? ''
-    const normalizedQuery = query.toLowerCase()
     const aiRequested = searchParams.get('ai') === '1'
 
     if (!query) {
@@ -286,47 +201,13 @@ async function GETHandler(request: Request) {
       limit: searchParams.get('limit'),
     })
 
-    const where: NonNullable<Parameters<typeof prisma.post.findMany>[0]>['where'] = {
-      published: true,
-      deletedAt: null,
-      OR: [
-        { title: { contains: query, mode: 'insensitive' } },
-        { excerpt: { contains: query, mode: 'insensitive' } },
-        { content: { contains: query, mode: 'insensitive' } },
-        { author: { name: { contains: query, mode: 'insensitive' } } },
-        { category: { name: { contains: query, mode: 'insensitive' } } },
-        { tags: { some: { name: { contains: query, mode: 'insensitive' } } } },
-      ],
-    }
+    const { items: searchItems, total } = await searchPublicPosts({
+      query,
+      page,
+      limit,
+    })
 
-    const [items, total] = await Promise.all([
-      prisma.post.findMany({
-        where,
-        include: {
-          author: { select: { id: true, name: true, image: true } },
-          category: true,
-          tags: { where: { deletedAt: null } },
-          _count: { select: { comments: { where: { deletedAt: null, status: 'APPROVED' } }, likes: true } },
-        },
-        orderBy: [{ createdAt: 'desc' }],
-        skip: (page - 1) * limit,
-        take: limit,
-      }),
-      prisma.post.count({ where }),
-    ])
-
-    let rankedItems = items
-      .map((item: (typeof items)[number]) => ({
-        ...item,
-        searchMeta: getSearchMeta(item, normalizedQuery),
-      }))
-      .sort((left: ((typeof items)[number] & { searchMeta: ReturnType<typeof getSearchMeta> }), right: ((typeof items)[number] & { searchMeta: ReturnType<typeof getSearchMeta> })) => {
-        if (right.searchMeta.score !== left.searchMeta.score) {
-          return right.searchMeta.score - left.searchMeta.score
-        }
-
-        return new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()
-      })
+    let rankedItems = searchItems
 
     let ai: AiSearchResult | null = null
 

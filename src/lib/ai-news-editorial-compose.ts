@@ -1,3 +1,4 @@
+import { createCompletionClientForModel } from "@/lib/openai-compatible-completion-client"
 /**
  * AI 日报日级主编稿生成模块。
  *
@@ -395,36 +396,49 @@ export async function generateDailyAiNewsEditorialBrief({
   }
 
   try {
-    const response = await fetchImpl(`${aiModel.baseUrl.replace(/\/+$/, "")}${aiModel.requestPath}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(aiModel.apiKey ? { Authorization: `Bearer ${aiModel.apiKey}` } : {}),
+    const messages = [
+      {
+        role: "system",
+        content: "你是严谨的中文 AI 日报主编。你只基于给定事实卡写作，输出必须是可解析 JSON。",
       },
-      body: JSON.stringify({
-        model: aiModel.model,
-        messages: [
-          {
-            role: "system",
-            content: "你是严谨的中文 AI 日报主编。你只基于给定事实卡写作，输出必须是可解析 JSON。",
-          },
-          {
-            role: "user",
-            content: buildDailyAiNewsEditorialPrompt({ date, candidates, factCards }),
-          },
-        ],
-        temperature: 0.25,
-        max_tokens: EDITORIAL_MAX_TOKENS,
-        ...getAiModelChatRequestExtras(aiModel),
-      }),
-    })
-    const payload = await response.json().catch(() => null) as OpenAICompatibleChatPayload | null
+      {
+        role: "user",
+        content: buildDailyAiNewsEditorialPrompt({ date, candidates, factCards }),
+      },
+    ] as const
 
-    if (!response.ok || !payload) {
-      return null
+    let assistantText = ""
+    if (fetchImpl === fetch) {
+      const client = createCompletionClientForModel(aiModel)
+      const result = await client.completeText(messages, {
+        strategy: "long-completion",
+        bodyExtensions: {
+          ...getAiModelChatRequestExtras(aiModel),
+          temperature: 0.25,
+          max_tokens: EDITORIAL_MAX_TOKENS,
+        },
+      })
+      assistantText = result.text
+    } else {
+    const response = await fetchImpl(aiModel.baseUrl.replace(/\/+$/, "") + aiModel.requestPath, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(aiModel.apiKey ? { Authorization: "Bearer " + aiModel.apiKey } : {}),
+        },
+        body: JSON.stringify({
+          model: aiModel.model,
+          messages,
+          temperature: 0.25,
+          max_tokens: EDITORIAL_MAX_TOKENS,
+          ...getAiModelChatRequestExtras(aiModel),
+        }),
+      })
+      const payload = await response.json().catch(() => null) as OpenAICompatibleChatPayload | null
+      if (!response.ok || !payload) return null
+      assistantText = extractAssistantText(payload)
     }
 
-    const assistantText = extractAssistantText(payload)
     const brief = assistantText ? parseDailyAiNewsEditorialBrief(assistantText) : null
     const minimumItemCount = Math.min(6, candidates.length)
 

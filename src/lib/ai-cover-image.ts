@@ -1,3 +1,4 @@
+import { readResponseBodyBounded, readResponseBytesBounded } from "@/lib/external-reliability"
 import type { CoverAssetRecord } from "@/lib/cover-assets";
 import { createCoverAsset } from "@/lib/cover-assets";
 import { ValidationError } from "@/lib/api-errors";
@@ -47,6 +48,17 @@ const sizeMap: Record<AiCoverSize, string> = {
   "1:1": "1024x1024",
 };
 
+const IMAGE_RESPONSE_MAX_BYTES = 20 * 1024 * 1024
+const IMAGE_JSON_MAX_BYTES = 2 * 1024 * 1024
+
+async function readImageJson(response: Response): Promise<ImageGenerationPayload> {
+  try {
+    const raw = await readResponseBodyBounded(response, { maxBytes: IMAGE_JSON_MAX_BYTES })
+    return JSON.parse(raw) as ImageGenerationPayload
+  } catch {
+    return {}
+  }
+}
 const dashScopeSizeMap: Record<AiCoverSize, string> = {
   "16:9": "1280*720",
   "4:3": "1024*768",
@@ -91,7 +103,11 @@ function parseGeneratedImage(payload: ImageGenerationPayload) {
 
 async function imageToBuffer(image: { type: "url" | "base64"; value: string }) {
   if (image.type === "base64") {
-    return { buffer: Buffer.from(image.value, "base64"), contentType: "image/png" };
+    const buffer = Buffer.from(image.value, "base64");
+    if (buffer.byteLength > IMAGE_RESPONSE_MAX_BYTES) {
+      throw new Error("Generated image is too large");
+    }
+    return { buffer, contentType: "image/png" };
   }
 
   const response = await fetch(image.value, { signal: AbortSignal.timeout(60_000) });
@@ -100,7 +116,7 @@ async function imageToBuffer(image: { type: "url" | "base64"; value: string }) {
   }
 
   return {
-    buffer: Buffer.from(await response.arrayBuffer()),
+    buffer: Buffer.from(await readResponseBytesBounded(response, { maxBytes: IMAGE_RESPONSE_MAX_BYTES })),
     contentType: response.headers.get("content-type") || "image/png",
   };
 }
@@ -122,7 +138,7 @@ async function pollDashScopeImageTask(model: AiModelOption, taskId: string) {
       headers: { Authorization: `Bearer ${model.apiKey}` },
       signal: AbortSignal.timeout(30_000),
     });
-    const payload = (await response.json().catch(() => ({}))) as ImageGenerationPayload;
+    const payload = await readImageJson(response);
     if (!response.ok) {
       throw new Error(payload.error?.message || payload.message || `Image task polling failed with HTTP ${response.status}`);
     }
@@ -163,7 +179,7 @@ async function callDashScopeNativeImageModel(model: AiModelOption, prompt: strin
     signal: AbortSignal.timeout(90_000),
   });
 
-  const payload = (await response.json().catch(() => ({}))) as ImageGenerationPayload;
+  const payload = await readImageJson(response);
   if (!response.ok) {
     throw new Error(payload.error?.message || payload.message || `Image generation failed with HTTP ${response.status}`);
   }
@@ -195,7 +211,7 @@ async function callOpenAICompatibleImageModel(model: AiModelOption, prompt: stri
     signal: AbortSignal.timeout(90_000),
   });
 
-  const payload = (await response.json().catch(() => ({}))) as ImageGenerationPayload;
+  const payload = await readImageJson(response);
   if (!response.ok) {
     throw new Error(payload.error?.message || payload.message || `Image generation failed with HTTP ${response.status}`);
   }

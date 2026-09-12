@@ -11,17 +11,8 @@
  * - 后台发布检查与 AI 日报自动上线流程都会复用这里的判断逻辑
  */
 import { ValidationError } from "@/lib/api-errors"
-
-type DashScopePayload = {
-  choices?: Array<{
-    message?: {
-      content?: string | Array<{ text?: string; type?: string }>
-    }
-  }>
-  error?: {
-    message?: string
-  }
-}
+import { getAiModelForCapability } from "@/lib/ai-models"
+import { createCompletionClientForModel } from "@/lib/openai-compatible-completion-client"
 
 export type ReviewCheckStatus = "pass" | "warn" | "fail"
 export type ReviewVerdict = "ready" | "needs-work"
@@ -33,7 +24,6 @@ export type PostReviewReport = {
   checks: Array<{ label: string; status: ReviewCheckStatus; detail: string }>
   suggestions: string[]
 }
-
 type ReviewCandidate = {
   verdict?: unknown
   score?: unknown
@@ -47,24 +37,6 @@ export type PostReviewInput = {
   slug: string
   content: string
   coverImage?: string | null
-}
-
-function extractCompletionText(payload: DashScopePayload) {
-  const content = payload.choices?.[0]?.message?.content
-
-  if (typeof content === "string") {
-    return content.trim()
-  }
-
-  if (Array.isArray(content)) {
-    return content
-      .map((item) => item.text?.trim())
-      .filter(Boolean)
-      .join("\n")
-      .trim()
-  }
-
-  return ""
 }
 
 function stripJsonFence(value: string) {
@@ -243,17 +215,16 @@ export async function generatePostReview(
     throw new ValidationError("Title, slug and content are required")
   }
 
-  const apiKey = process.env.DASHSCOPE_API_KEY
+  const aiModel = await getAiModelForCapability("post-summary")
+  const apiKey = aiModel?.apiKey
   if (!apiKey) {
     if (options.requireConfigured) {
-      throw new Error("DASHSCOPE_API_KEY is not configured")
+      throw new Error("AI model is not configured")
     }
 
     return null
   }
 
-  const baseUrl = process.env.DASHSCOPE_BASE_URL ?? "https://dashscope.aliyuncs.com/compatible-mode/v1"
-  const model = process.env.DASHSCOPE_MODEL ?? "qwen3.5-flash"
   const reviewDate = new Date().toISOString().slice(0, 10)
   const prompt = [
     "请对这篇准备发布的博客文章做发布前审稿。",
@@ -268,30 +239,15 @@ export async function generatePostReview(
     `文章内容：\n${content.slice(0, 14_000)}`,
   ].join("\n\n")
 
-  const response = await fetch(`${baseUrl}/chat/completions`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model,
-      messages: [
-        { role: "system", content: "你是严谨的中文博客主编，输出必须是可解析 JSON。" },
-        { role: "user", content: prompt },
-      ],
-      temperature: 0.2,
-      max_tokens: 1400,
-    }),
+  const client = createCompletionClientForModel(aiModel!)
+  const result = await client.completeText([
+    { role: "system", content: "你是严谨的中文博客主编，输出必须是可解析 JSON。" },
+    { role: "user", content: prompt },
+  ], {
+    strategy: "long-completion",
+    bodyExtensions: { temperature: 0.2, max_tokens: 1400 },
   })
-
-  const payload = (await response.json()) as DashScopePayload
-
-  if (!response.ok) {
-    throw new Error(payload.error?.message || "Review generation failed")
-  }
-
-  const candidate = parseCandidate(extractCompletionText(payload))
+  const candidate = parseCandidate(result.text)
   const score = clampScore(candidate.score)
   const summary = readString(candidate.summary)
 
