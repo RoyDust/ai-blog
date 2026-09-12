@@ -112,7 +112,7 @@ describe("ai post actions", () => {
       "https://compat.example/v1/chat/completions",
       expect.objectContaining({
         method: "POST",
-        headers: expect.objectContaining({ Authorization: "Bearer secret" }),
+        headers: expect.objectContaining({ authorization: "Bearer secret" }),
       }),
     );
   });

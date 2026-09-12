@@ -99,7 +99,7 @@ describe("admin post metadata route", () => {
       expect.stringContaining("dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"),
       expect.objectContaining({
         method: "POST",
-        headers: expect.objectContaining({ Authorization: "Bearer test-api-key" }),
+        headers: expect.objectContaining({ authorization: "Bearer test-api-key" }),
       })
     );
     expect(payload).toMatchObject({

@@ -1,3 +1,4 @@
+import { createCompletionClientForModel } from "@/lib/openai-compatible-completion-client"
 /**
  * AI 日报候选富化模块。
  *
@@ -408,6 +409,27 @@ export async function generateFactCardForCandidate({
   fetchImpl = fetch,
 }: GenerateFactCardForCandidateInput): Promise<AiNewsEnrichedFactCard> {
   try {
+    const messages = [
+      {
+        role: "system",
+        content: "You write grounded AI news fact cards. Return strict JSON only and never invent citations.",
+      },
+      {
+        role: "user",
+        content: buildFactCardPrompt(candidate),
+      },
+    ] as const
+
+    if (fetchImpl === fetch) {
+      const client = createCompletionClientForModel(aiModel)
+      const result = await client.completeText(messages, {
+        strategy: "interactive-completion",
+        bodyExtensions: { temperature: 0.2, max_tokens: FACT_CARD_MAX_TOKENS },
+      })
+      const card = parseFactCardResponse(result.text)
+      return card ? validateFactCardCitations(card, candidate) : fallbackFactCard(candidate, "AI fact card response was not valid JSON")
+    }
+
     const requestPath = aiModel.requestPath ?? "/chat/completions"
     const response = await fetchImpl(`${aiModel.baseUrl.replace(/\/+$/, "")}${requestPath}`, {
       method: "POST",

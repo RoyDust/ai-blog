@@ -114,7 +114,7 @@ describe("ai news aggregation", () => {
       expect.stringContaining("/chat/completions"),
       expect.objectContaining({
         method: "POST",
-        headers: expect.objectContaining({ Authorization: "Bearer test-key" }),
+        headers: expect.objectContaining({ authorization: "Bearer test-key" }),
       }),
     )
     expect(JSON.parse(String(upstreamFetch.mock.calls[0]?.[1]?.body))).toMatchObject({ model: "qwen3.5-flash", max_tokens: 6000 })

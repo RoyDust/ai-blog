@@ -91,7 +91,7 @@ describe("admin post review route", () => {
       expect.stringContaining("dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"),
       expect.objectContaining({
         method: "POST",
-        headers: expect.objectContaining({ Authorization: "Bearer test-api-key" }),
+        headers: expect.objectContaining({ authorization: "Bearer test-api-key" }),
       })
     );
     const upstreamBody = JSON.parse(String(upstreamFetch.mock.calls[0]?.[1]?.body));

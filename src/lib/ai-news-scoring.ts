@@ -1,3 +1,4 @@
+import { createCompletionClientForModel } from "@/lib/openai-compatible-completion-client"
 /**
  * AI 日报评分与筛选模块。
  *
@@ -225,25 +226,36 @@ export async function scoreAiNewsCandidate({
   fetchImpl = fetch,
 }: ScoreAiNewsCandidateInput): Promise<AiNewsScoreResult> {
   try {
+    const promptMessages = [
+      {
+        role: "system",
+        content: "You score AI news candidates for editorial relevance and reliability. Return strict JSON only.",
+      },
+      {
+        role: "user",
+        content: buildScoringPrompt(candidate),
+      },
+    ] as const
+
+    if (fetchImpl === fetch) {
+      const client = createCompletionClientForModel(aiModel)
+      const result = await client.completeText(promptMessages, {
+        strategy: "interactive-completion",
+        bodyExtensions: { temperature: 0.2 },
+      })
+      return parseAiNewsScoreResponse(result.text)
+    }
+
     const requestPath = aiModel.requestPath ?? "/chat/completions"
-    const response = await fetchImpl(`${aiModel.baseUrl.replace(/\/+$/, "")}${requestPath}`, {
+    const response = await fetchImpl(aiModel.baseUrl.replace(/\/+$/, "") + requestPath, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        ...(aiModel.apiKey ? { Authorization: `Bearer ${aiModel.apiKey}` } : {}),
+        ...(aiModel.apiKey ? { Authorization: "Bearer " + aiModel.apiKey } : {}),
       },
       body: JSON.stringify({
         model: aiModel.model,
-        messages: [
-          {
-            role: "system",
-            content: "You score AI news candidates for editorial relevance and reliability. Return strict JSON only.",
-          },
-          {
-            role: "user",
-            content: buildScoringPrompt(candidate),
-          },
-        ],
+        messages: promptMessages,
         temperature: 0.2,
       }),
     })
@@ -252,7 +264,7 @@ export async function scoreAiNewsCandidate({
     const upstreamError = payload?.error?.message
 
     if (!response.ok) {
-      return invalidScore(upstreamError || `AI score request failed with HTTP ${response.status}`)
+      return invalidScore(upstreamError || ("AI score request failed with HTTP " + response.status))
     }
 
     if (!payload) {
@@ -269,7 +281,6 @@ export async function scoreAiNewsCandidate({
     return invalidScore(error instanceof Error ? error.message : "AI score request failed")
   }
 }
-
 function getEffectiveScore(candidate: AiNewsScoredCandidate) {
   const flags = new Set(candidate.aiRiskFlags.map((flag) => flag.toLowerCase()))
   const excluded = Array.from(EXCLUSION_RISK_FLAGS).some((flag) => flags.has(flag))

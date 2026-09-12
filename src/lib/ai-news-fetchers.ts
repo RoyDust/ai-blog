@@ -1,3 +1,4 @@
+import { ExternalContentClient } from "@/lib/external-content-client"
 /**
  * AI 日报抓取器集合。
  *
@@ -184,13 +185,23 @@ export function parseAiNewsFeed(xml: string, source: AiNewsSourceConfig): AiNews
 }
 
 async function fetchRssItems(source: AiNewsSourceConfig, fetchImpl: typeof fetch) {
+  if (fetchImpl === fetch) {
+    const client = new ExternalContentClient()
+    const xml = await client.getText(source.url, {
+      headers: {
+        Accept: "application/rss+xml, application/atom+xml, application/xml, text/xml",
+        "User-Agent": DEFAULT_USER_AGENT,
+      },
+    })
+    return parseAiNewsFeed(xml, source)
+  }
+
   const response = await fetchImpl(source.url, {
     headers: { Accept: "application/rss+xml, application/atom+xml, application/xml, text/xml", "User-Agent": DEFAULT_USER_AGENT },
   })
   assertOkResponse(response, source.name)
   return parseAiNewsFeed(await response.text(), source)
 }
-
 function buildHackerNewsDiscussionUrl(id: number) {
   return `${HACKER_NEWS_DISCUSSION_BASE}${id}`
 }

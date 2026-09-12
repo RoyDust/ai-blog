@@ -12,6 +12,7 @@
  */
 import { generateAiCoverImage } from "@/lib/ai-cover-image";
 import { getAiModelChatRequestExtras, getAiModelForCapability, type AiModelOption } from "@/lib/ai-models";
+import { createCompletionClientForModel } from "@/lib/openai-compatible-completion-client";
 import {
   buildCategoryPrompt,
   buildPostAiBaseContext,
@@ -19,16 +20,14 @@ import {
   buildSlugPrompt,
   buildTagsPrompt,
   buildTitlePrompt,
-  extractChatText,
   parseJsonObject,
   resolveExistingTagsFromAiOutput,
   toStringArray,
-  type ChatPayload,
 } from "@/lib/ai-post-actions-prompts";
 import { AI_TASK_ITEM_STATUSES, getAiTaskItem, markAiTaskItemSucceeded, type JsonValue } from "@/lib/ai-tasks";
 import { ApiError, NotFoundError, ValidationError } from "@/lib/api-errors";
 import { revalidatePublicContent } from "@/lib/cache";
-import { generatePostSummary, getPostSummaryMaxInputChars, getPostSummaryTimeoutMs } from "@/lib/post-summary";
+import { generatePostSummary, getPostSummaryMaxInputChars } from "@/lib/post-summary";
 import { getSummaryFieldsForExcerpt } from "@/lib/post-summary-status";
 import { prisma } from "@/lib/prisma";
 import { generatePostSlug } from "@/lib/slug";
@@ -124,46 +123,25 @@ async function runChatText({
   user: string;
   maxTokens?: number;
 }) {
-  let response: Response;
+  const client = createCompletionClientForModel(aiModel)
+  const result = await client.completeText([
+    { role: "system", content: system },
+    { role: "user", content: user },
+  ], {
+    strategy: "interactive-completion",
+    bodyExtensions: {
+      ...getAiModelChatRequestExtras(aiModel),
+      temperature: 0.25,
+      max_tokens: maxTokens,
+    },
+  })
 
-  try {
-    response = await fetch(`${aiModel.baseUrl}${aiModel.requestPath}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${aiModel.apiKey}`,
-      },
-      body: JSON.stringify({
-        model: aiModel.model,
-        messages: [
-          { role: "system", content: system },
-          { role: "user", content: user },
-        ],
-        temperature: 0.25,
-        max_tokens: maxTokens,
-        ...getAiModelChatRequestExtras(aiModel),
-      }),
-      signal: AbortSignal.timeout(getPostSummaryTimeoutMs()),
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "AI request failed";
-    throw new Error(message.includes("timeout") || message.includes("aborted") ? "AI 操作超时，请稍后重试或切换更快的模型。" : message);
+  if (!result.text.trim()) {
+    throw new Error("AI returned empty output")
   }
 
-  const payload = (await response.json().catch(() => ({}))) as ChatPayload;
-
-  if (!response.ok) {
-    throw new Error(payload.error?.message || "AI request failed");
-  }
-
-  const text = extractChatText(payload);
-  if (!text) {
-    throw new Error("AI returned empty output");
-  }
-
-  return text;
+  return result.text
 }
-
 /**
  * 读取单篇正式文章，构造 AI 动作所需上下文。
  */

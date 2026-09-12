@@ -1,3 +1,4 @@
+import { createCompletionClientForModel } from "@/lib/openai-compatible-completion-client"
 import { getAiModelChatRequestExtras, getAiModelForCapability, type AiModelOption } from "@/lib/ai-models"
 import { buildDailyAiNewsSlug, formatDateId, type AiNewsItem } from "@/lib/ai-news-parser"
 import { ValidationError } from "@/lib/api-errors"
@@ -343,10 +344,9 @@ export async function generateDailyAiNewsDraft({
   }
 
   const resolvedModel = aiModel ?? (await resolveDailyAiNewsModel(modelId))
-
   const dateLabel = formatDateId(date)
   const prompt = [
-    `请基于候选新闻生成一篇中文 AI 新闻日报博客，日期为 ${dateLabel}。`,
+    "请基于候选新闻生成一篇中文 AI 新闻日报博客，日期为 " + dateLabel + "。",
     "只输出一个 JSON 对象，不要 Markdown 代码围栏以外的解释。",
     "JSON 字段：title, excerpt, intro, items, trends。",
     "items 是数组，每项包含 title, description, keyPoints, sourceName, url。",
@@ -358,33 +358,50 @@ export async function generateDailyAiNewsDraft({
     "4. items 优先选择 8-12 条信息密度高、对开发者或行业有价值的新闻；每条 description 写 1 段中文说明，keyPoints 写 2-4 条提要。",
     "5. trends 总结 3-5 条趋势，title 简短，desc 说明趋势依据。",
     "6. 只使用候选新闻给出的事实，不编造未提供的数据；每条重要新闻保留来源名称和 URL。",
-    `候选新闻：\n${buildCandidateDigest(selectedCandidates)}`,
+    "候选新闻：\n" + buildCandidateDigest(selectedCandidates),
   ].join("\n\n")
 
-  const response = await fetchImpl(`${resolvedModel.baseUrl}${resolvedModel.requestPath}`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${resolvedModel.apiKey}`,
-    },
-    body: JSON.stringify({
-      model: resolvedModel.model,
-      messages: [
-        { role: "system", content: "你是严谨的中文 AI 新闻主编，输出必须是可解析 JSON。" },
-        { role: "user", content: prompt },
-      ],
-      temperature: 0.25,
-      max_tokens: MAX_DRAFT_TOKENS,
-      ...getAiModelChatRequestExtras(resolvedModel),
-    }),
-  })
-
-  const payload = (await response.json()) as DashScopePayload
-  if (!response.ok) {
-    throw new Error(payload.error?.message || "AI news generation failed")
+  let responseText = ""
+  if (fetchImpl === fetch) {
+    const client = createCompletionClientForModel(resolvedModel)
+    const result = await client.completeText([
+      { role: "system", content: "你是严谨的中文 AI 新闻主编，输出必须是可解析 JSON。" },
+      { role: "user", content: prompt },
+    ], {
+      strategy: "long-completion",
+      bodyExtensions: {
+        ...getAiModelChatRequestExtras(resolvedModel),
+        temperature: 0.25,
+        max_tokens: MAX_DRAFT_TOKENS,
+      },
+    })
+    responseText = result.text
+  } else {
+    const response = await fetchImpl(resolvedModel.baseUrl + resolvedModel.requestPath, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer " + resolvedModel.apiKey,
+      },
+      body: JSON.stringify({
+        model: resolvedModel.model,
+        messages: [
+          { role: "system", content: "你是严谨的中文 AI 新闻主编，输出必须是可解析 JSON。" },
+          { role: "user", content: prompt },
+        ],
+        temperature: 0.25,
+        max_tokens: MAX_DRAFT_TOKENS,
+        ...getAiModelChatRequestExtras(resolvedModel),
+      }),
+    })
+    const payload = (await response.json()) as DashScopePayload
+    if (!response.ok) {
+      throw new Error(payload.error?.message || "AI news generation failed")
+    }
+    responseText = extractCompletionText(payload)
   }
 
-  const candidate = parseDraftCandidate(extractCompletionText(payload))
+  const candidate = parseDraftCandidate(responseText)
   const title = readString(candidate.title)
   const excerpt = readString(candidate.excerpt) || readString(candidate.intro)
   const content = readString(candidate.content) || renderStructuredDraftContent(candidate, selectedCandidates)
