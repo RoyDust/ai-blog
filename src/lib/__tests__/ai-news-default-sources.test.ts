@@ -28,10 +28,18 @@ describe("ai news default sources", () => {
       expect(DAILY_AI_NEWS_SOURCES[index]).toEqual({
         id: source.id,
         name: source.name,
-        feedUrl: source.url,
+        feedUrl: source.type === "GITHUB_RELEASES" ? `${source.url}/releases.atom` : source.url,
         homepage: source.homepage,
       })
     })
+  })
+
+  test("keeps the historical ollama releases.atom feedUrl in the legacy view", () => {
+    const ollama = DAILY_AI_NEWS_SOURCES.find((source) => source.id === "github-ollama")
+
+    expect(ollama?.feedUrl).toBe("https://github.com/ollama/ollama/releases.atom")
+    expect(ollama?.feedUrl?.endsWith("/releases.atom")).toBe(true)
+    expect(ollama?.homepage).toBe("https://github.com/ollama/ollama")
   })
 
   test("run-flow no longer holds its own default source copy", () => {

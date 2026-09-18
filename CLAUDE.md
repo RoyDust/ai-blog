@@ -71,7 +71,7 @@ Next.js 16 (App Router, 开启 viewTransition 实验特性) + React 19 + TypeScr
 
 ### 业务逻辑层 (src/lib)
 
-绝大多数业务逻辑在 `src/lib`（90+ 模块），route handler 和页面保持薄。主要域：AI 流水线 (`ai-news-*`、`ai-tasks`、`ai-models`、`post-summary*`、`ai-cover-image`)、内容 (`posts`、`taxonomy`、`recommendations`)、运营 (`newsletter*`、`notifications`、`analytics`、`reading-*`、`api-operation-log*`)、基础设施 (`prisma`、`cache`、`rate-limit`、`seo`、`security-headers`、`qiniu-server`)。
+绝大多数业务逻辑在 `src/lib`（90+ 模块），route handler 和页面保持薄。主要域：AI 流水线 (`ai-news/` 子目录、`ai-tasks`、`ai-models`、`post-summary*`、`ai-cover-image`)、内容 (`posts`、`taxonomy`、`recommendations`)、运营 (`newsletter*`、`notifications`、`analytics`、`reading-*`、`api-operation-log*`)、基础设施 (`prisma`、`cache`、`rate-limit`、`seo`、`security-headers`、`qiniu-server`)。
 
 ### 前端数据层与表单约定
 

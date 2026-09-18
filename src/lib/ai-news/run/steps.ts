@@ -49,7 +49,10 @@ import type {
  *
  * 与 AiNewsCandidateRepository 相同的结构探测风格：
  * aiNewsRun 负责运行记录的 create/update，post 负责按 slug 存在性检查与
- * generatedByAiNews 回写。方法签名保持宽松，便于 fake 仓储与全局 prisma 同时满足。
+ * generatedByAiNews 回写。aiNewsSource 是可选 delegate（形状与 sources.ts
+ * 的 loader options 一致），供 loadDailyAiNewsSources / loadSelectedDailyAiNewsSources
+ * 结构探测；缺失（fake 仓储）或表不存在时回退默认源清单。
+ * 方法签名保持宽松，便于 fake 仓储与全局 prisma 同时满足。
  */
 export type AiNewsRunPostSummary = {
   id: string
@@ -69,6 +72,9 @@ export type AiNewsRunRepository = {
       select?: Record<string, boolean>
     }): Promise<AiNewsRunPostSummary | null>
     updateMany(args: { where: Record<string, unknown>; data: Record<string, unknown> }): Promise<{ count: number }>
+  }
+  aiNewsSource?: {
+    findMany?: (args?: unknown) => Promise<unknown[]>
   }
 }
 
@@ -105,10 +111,6 @@ export async function resolveDailyAiNewsSourceConfigs({
     return legacySourcesToConfigs(sources)
   }
 
-  const sourcePrisma = repository as AiNewsRunRepository & {
-    aiNewsSource?: { findMany?: (args?: unknown) => Promise<unknown[]> }
-  }
-
   if (sourceMode === "selected") {
     const ids = Array.from(new Set((sourceIds ?? []).map((id) => id.trim()).filter(Boolean)))
     if (ids.length === 0) {
@@ -116,7 +118,7 @@ export async function resolveDailyAiNewsSourceConfigs({
     }
 
     const { sources: selectedSources, missingIds } = await loadSelectedDailyAiNewsSources({
-      prisma: sourcePrisma,
+      prisma: repository,
       sourceIds: ids,
     })
 
@@ -130,7 +132,7 @@ export async function resolveDailyAiNewsSourceConfigs({
     return selectedSources
   }
 
-  return loadDailyAiNewsSources({ prisma: sourcePrisma })
+  return loadDailyAiNewsSources({ prisma: repository })
 }
 
 /**

@@ -109,6 +109,35 @@ export type DailyAiNewsRunResult =
   | ({ operation: "created" } & DailyAiNewsRunSuccessBase)
   | ({ operation: "regenerated" } & DailyAiNewsRunSuccessBase)
 
+/** 候选持久化写回失败的统一形态（scores / duplicates / enrichments 三处一致）。 */
+type AiNewsCandidateUpdateFailure = {
+  id: string
+  error: Error
+}
+
+/**
+ * 将 persist 阶段的候选写回失败追加进 sourceFailureJson。
+ * description 逐字进入消息模板（"score" / "duplicate" / "enrichment"），
+ * 失败消息格式被既有测试锁定，勿改动。
+ */
+function appendPersistFailures(
+  sourceFailureJson: AiNewsSourceFailure[],
+  failures: AiNewsCandidateUpdateFailure[],
+  description: string,
+): AiNewsSourceFailure[] {
+  if (failures.length === 0) {
+    return sourceFailureJson
+  }
+
+  return [
+    ...sourceFailureJson,
+    ...failures.map((failure) => ({
+      stage: "persist" as const,
+      message: `Failed to update candidate ${description} ${failure.id}: ${failure.error.message}`,
+    })),
+  ]
+}
+
 /**
  * 探测全局 prisma 上的 run 仓储委托。
  * 与候选仓储的结构探测风格一致，但 run 记录不可静默丢弃，探测失败必须 fail-loud。
@@ -356,24 +385,8 @@ export async function runDailyAiNews({
         })),
       })
 
-      if (scoreUpdateResult.failures.length > 0) {
-        sourceFailureJson = [
-          ...sourceFailureJson,
-          ...scoreUpdateResult.failures.map((failure) => ({
-            stage: "persist" as const,
-            message: `Failed to update candidate score ${failure.id}: ${failure.error.message}`,
-          })),
-        ]
-      }
-      if (duplicateUpdateResult.failures.length > 0) {
-        sourceFailureJson = [
-          ...sourceFailureJson,
-          ...duplicateUpdateResult.failures.map((failure) => ({
-            stage: "persist" as const,
-            message: `Failed to update candidate duplicate ${failure.id}: ${failure.error.message}`,
-          })),
-        ]
-      }
+      sourceFailureJson = appendPersistFailures(sourceFailureJson, scoreUpdateResult.failures, "score")
+      sourceFailureJson = appendPersistFailures(sourceFailureJson, duplicateUpdateResult.failures, "duplicate")
     }
 
     const {
@@ -401,15 +414,7 @@ export async function runDailyAiNews({
           .filter((item): item is { id: string; enrichment: AiNewsJsonObject } => Boolean(item)),
       })
 
-      if (enrichmentUpdateResult.failures.length > 0) {
-        sourceFailureJson = [
-          ...sourceFailureJson,
-          ...enrichmentUpdateResult.failures.map((failure) => ({
-            stage: "persist" as const,
-            message: `Failed to update candidate enrichment ${failure.id}: ${failure.error.message}`,
-          })),
-        ]
-      }
+      sourceFailureJson = appendPersistFailures(sourceFailureJson, enrichmentUpdateResult.failures, "enrichment")
     }
 
     const post = existing

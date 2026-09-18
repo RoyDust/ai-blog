@@ -170,11 +170,13 @@ export const DEFAULT_AI_NEWS_SOURCES: AiNewsSourceConfig[] = [
 
 /**
  * 派生的 legacy 视图（AiNewsSource 形态），供 fetchDailyAiNewsCandidates
- * 默认参数等旧签名消费方使用。
+ * 默认参数等旧签名消费方使用。GITHUB_RELEASES 源沿用历史 run-flow 清单的
+ * 映射约定：legacy feedUrl 取 `${url}/releases.atom`（Atom 订阅地址），
+ * 与 origin/main 历史值一致；其余源 feedUrl 直接映射 url。
  */
-export const DAILY_AI_NEWS_SOURCES: AiNewsSource[] = DEFAULT_AI_NEWS_SOURCES.map(({ id, name, url, homepage }) => ({
+export const DAILY_AI_NEWS_SOURCES: AiNewsSource[] = DEFAULT_AI_NEWS_SOURCES.map(({ id, name, url, homepage, type }) => ({
   id,
   name,
-  feedUrl: url,
+  feedUrl: type === "GITHUB_RELEASES" ? `${url}/releases.atom` : url,
   homepage: homepage ?? undefined,
 }))
