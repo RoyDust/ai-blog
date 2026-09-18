@@ -2,7 +2,7 @@ import { withApiOperationLogging } from "@/lib/api-operation-log-route"
 import { NextResponse } from "next/server"
 
 import { requireAdminSession } from "@/lib/api-auth"
-import { testAiNewsSource } from "@/lib/ai-news-source-admin"
+import { testAiNewsSource } from "@/lib/ai-news"
 import { toErrorResponse } from "@/lib/api-errors"
 
 type RouteContext = {

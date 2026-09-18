@@ -23,7 +23,7 @@ vi.mock("@/lib/ai-review", () => ({
   isAutoPublishableReview,
 }))
 
-vi.mock("@/lib/ai-news-post-processing", () => ({
+vi.mock("@/lib/ai-news/post-processing", () => ({
   applyAiNewsPostEnhancements,
 }))
 

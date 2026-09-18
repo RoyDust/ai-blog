@@ -1,6 +1,6 @@
 import { describe, expect, test, vi } from "vitest"
 
-import { createAiNewsSource, deleteAiNewsSource, listAiNewsSources, testAiNewsSource, toPublicAiNewsSource } from "@/lib/ai-news-source-admin"
+import { createAiNewsSource, deleteAiNewsSource, listAiNewsSources, testAiNewsSource, toPublicAiNewsSource } from "@/lib/ai-news/source-admin"
 
 function textResponse(body: string, init?: ResponseInit) {
   return new Response(body, { status: 200, ...init })

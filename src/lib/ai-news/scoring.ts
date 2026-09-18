@@ -13,7 +13,7 @@ import type {
   AiNewsScoreResult,
   AiNewsSelectionResult,
   AiNewsSourceType,
-} from "@/lib/ai-news-types"
+} from "@/lib/ai-news/types"
 
 type OpenAICompatibleModel = {
   baseUrl: string

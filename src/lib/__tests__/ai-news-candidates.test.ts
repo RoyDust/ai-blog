@@ -8,7 +8,7 @@ import {
   updateAiNewsCandidateEnrichments,
   updateAiNewsCandidateScores,
   type AiNewsCandidateRepository,
-} from "@/lib/ai-news-candidates"
+} from "@/lib/ai-news/candidates"
 
 const create = vi.fn()
 const update = vi.fn()

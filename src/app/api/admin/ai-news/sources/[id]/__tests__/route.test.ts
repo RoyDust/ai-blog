@@ -10,7 +10,7 @@ vi.mock("@/lib/api-auth", () => ({
   requireAdminSession: mocks.requireAdminSession,
 }))
 
-vi.mock("@/lib/ai-news-source-admin", () => ({
+vi.mock("@/lib/ai-news", () => ({
   updateAiNewsSource: mocks.updateAiNewsSource,
   deleteAiNewsSource: mocks.deleteAiNewsSource,
 }))

@@ -4,8 +4,8 @@ import {
   parseAiNewsScoreResponse,
   scoreAiNewsCandidate,
   selectScoredCandidates,
-} from "@/lib/ai-news-scoring"
-import type { AiNewsCandidateInput, AiNewsScoredCandidate, AiNewsSourceType } from "@/lib/ai-news-types"
+} from "@/lib/ai-news/scoring"
+import type { AiNewsCandidateInput, AiNewsScoredCandidate, AiNewsSourceType } from "@/lib/ai-news/types"
 
 function candidate(overrides: Partial<AiNewsCandidateInput> = {}): AiNewsCandidateInput {
   return {

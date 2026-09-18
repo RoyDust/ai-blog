@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, test, vi } from "vitest"
 
-import { fetchAiNewsRawItems, parseAiNewsFeed } from "@/lib/ai-news-fetchers"
-import { FALLBACK_DAILY_AI_NEWS_SOURCES, loadDailyAiNewsSources, loadSelectedDailyAiNewsSources } from "@/lib/ai-news-sources"
-import type { AiNewsSourceConfig } from "@/lib/ai-news-types"
+import { fetchAiNewsRawItems, parseAiNewsFeed } from "@/lib/ai-news/fetchers"
+import { FALLBACK_DAILY_AI_NEWS_SOURCES, loadDailyAiNewsSources, loadSelectedDailyAiNewsSources } from "@/lib/ai-news/sources"
+import type { AiNewsSourceConfig } from "@/lib/ai-news/types"
 
 function textResponse(body: string, init?: ResponseInit) {
   return new Response(body, { status: 200, ...init })

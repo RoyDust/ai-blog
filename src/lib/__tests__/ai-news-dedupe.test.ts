@@ -5,8 +5,8 @@ import {
   dedupeByCanonicalUrl,
   semanticDedupeCandidates,
   type AiNewsDuplicateMap,
-} from "@/lib/ai-news-dedupe"
-import type { AiNewsCandidateInput, AiNewsRawItem } from "@/lib/ai-news-types"
+} from "@/lib/ai-news/dedupe"
+import type { AiNewsCandidateInput, AiNewsRawItem } from "@/lib/ai-news/types"
 
 function rawItem(overrides: Partial<AiNewsRawItem> = {}): AiNewsRawItem {
   return {

@@ -6,7 +6,7 @@
  * - 回写评分、去重、富化、入选结果等中间状态
  * - 为后台候选列表与运行详情页提供查询能力
  */
-import type { AiNewsCandidateInput, AiNewsJsonObject, AiNewsSourceType } from "@/lib/ai-news-types"
+import type { AiNewsCandidateInput, AiNewsJsonObject, AiNewsSourceType } from "@/lib/ai-news/types"
 
 type JsonPrimitive = string | number | boolean | null
 type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue }

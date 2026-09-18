@@ -7,7 +7,7 @@ import { ExternalContentClient } from "@/lib/external-content-client"
  * - 把不同来源格式统一映射成 AiNewsRawItem
  * - 在抓取失败时产出结构化 failure，供运行日志展示
  */
-import type { AiNewsRawItem, AiNewsSourceConfig, AiNewsSourceFailure } from "@/lib/ai-news-types"
+import type { AiNewsRawItem, AiNewsSourceConfig, AiNewsSourceFailure } from "@/lib/ai-news/types"
 
 type FetchAiNewsRawItemsOptions = {
   sources: AiNewsSourceConfig[]

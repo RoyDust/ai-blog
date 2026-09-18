@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs"
 
 import { describe, expect, test } from "vitest"
 
-import { FALLBACK_DAILY_AI_NEWS_SOURCES } from "@/lib/ai-news-sources"
+import { FALLBACK_DAILY_AI_NEWS_SOURCES } from "@/lib/ai-news/sources"
 
 const RADAR_RSS_SOURCES = [
   ["google-deepmind", "https://deepmind.google/blog/rss.xml"],
