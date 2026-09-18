@@ -23,6 +23,7 @@ import {
   type AiNewsCandidateRecord,
   type AiNewsCandidateRepository,
 } from "@/lib/ai-news/candidates"
+import { DAILY_AI_NEWS_SOURCES } from "@/lib/ai-news/default-sources"
 import { dedupeByCanonicalUrl, semanticDedupeCandidates, type AiNewsDuplicateMap } from "@/lib/ai-news/dedupe"
 import { generateDailyAiNewsDraft, resolveDailyAiNewsModel } from "@/lib/ai-news/draft-flow"
 import { generateDailyAiNewsEditorialBrief } from "@/lib/ai-news/editorial-compose"
@@ -58,29 +59,6 @@ function readScoreThresholdEnv(key: string, fallback: number) {
   const value = Number(process.env[key])
   return Number.isFinite(value) && value >= 0 && value <= 10 ? value : fallback
 }
-
-/**
- * 默认的 AI 新闻来源清单。
- * 当数据库里没有自定义来源配置时，会使用这组兜底源。
- */
-export const DAILY_AI_NEWS_SOURCES: AiNewsSource[] = [
-  { id: "openai", name: "OpenAI Blog", feedUrl: "https://openai.com/news/rss.xml", homepage: "https://openai.com/news/" },
-  { id: "anthropic", name: "Anthropic News", feedUrl: "https://www.anthropic.com/news/rss.xml", homepage: "https://www.anthropic.com/news" },
-  { id: "google-deepmind", name: "Google DeepMind", feedUrl: "https://deepmind.google/blog/rss.xml", homepage: "https://deepmind.google/blog/" },
-  { id: "google-ai", name: "Google AI", feedUrl: "https://blog.google/technology/ai/rss/", homepage: "https://blog.google/technology/ai/" },
-  { id: "meta-ai", name: "Meta AI", feedUrl: "https://ai.meta.com/blog/rss/", homepage: "https://ai.meta.com/blog/" },
-  { id: "aws-machine-learning", name: "AWS Machine Learning Blog", feedUrl: "https://aws.amazon.com/blogs/machine-learning/feed/", homepage: "https://aws.amazon.com/blogs/machine-learning/" },
-  { id: "bair-blog", name: "Berkeley AI Research Blog", feedUrl: "https://bair.berkeley.edu/blog/feed.xml", homepage: "https://bair.berkeley.edu/blog/" },
-  { id: "mit-ai-news", name: "MIT AI News", feedUrl: "https://news.mit.edu/rss/topic/machine-learning", homepage: "https://news.mit.edu/topic/machine-learning" },
-  { id: "simon-willison", name: "Simon Willison", feedUrl: "https://simonwillison.net/atom/everything/", homepage: "https://simonwillison.net/" },
-  { id: "hugging-face", name: "Hugging Face Blog", feedUrl: "https://huggingface.co/blog/feed.xml", homepage: "https://huggingface.co/blog" },
-  { id: "techcrunch-ai", name: "TechCrunch AI", feedUrl: "https://techcrunch.com/category/artificial-intelligence/feed/", homepage: "https://techcrunch.com/category/artificial-intelligence/" },
-  { id: "latent-space", name: "Latent Space", feedUrl: "https://www.latent.space/feed", homepage: "https://www.latent.space/" },
-  { id: "infoq-ai-ml", name: "InfoQ AI, ML & Data Engineering", feedUrl: "https://feed.infoq.com/ai-ml-data-eng", homepage: "https://www.infoq.com/ai-ml-data-eng/" },
-  { id: "venturebeat-ai", name: "VentureBeat AI", feedUrl: "https://venturebeat.com/feed/", homepage: "https://venturebeat.com/" },
-  { id: "the-decoder", name: "The Decoder", feedUrl: "https://the-decoder.com/feed/", homepage: "https://the-decoder.com/" },
-  { id: "github-ollama", name: "Ollama Releases", feedUrl: "https://github.com/ollama/ollama/releases.atom", homepage: "https://github.com/ollama/ollama" },
-]
 
 const MAX_CANDIDATES_FOR_AI = readPositiveIntegerEnv("AI_NEWS_MAX_SELECTED_CANDIDATES", 20)
 const MAX_CANDIDATES_TO_SCORE = readPositiveIntegerEnv("AI_NEWS_MAX_CANDIDATES_TO_SCORE", 24)
