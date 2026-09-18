@@ -115,7 +115,12 @@ describe("POST /api/admin/ai-news/run", () => {
 
   test("passes the regenerate flag through for existing daily posts", async () => {
     mocks.requireAdminSession.mockResolvedValueOnce({ user: { id: "admin-1", role: "ADMIN" } })
-    mocks.runDailyAiNews.mockResolvedValueOnce({ operation: "regenerated", published: true, post: { id: "post-1" } })
+    mocks.runDailyAiNews.mockResolvedValueOnce({
+      operation: "regenerated",
+      published: true,
+      post: { id: "post-1", title: "AI 日报", slug: "ai-daily-2026-04-29" },
+      run: { id: "run-1", status: "SUCCEEDED" },
+    })
 
     const { POST } = await import("../route")
     const response = await POST(
@@ -138,7 +143,12 @@ describe("POST /api/admin/ai-news/run", () => {
 
   test("passes selected source ids through for manual runs", async () => {
     mocks.requireAdminSession.mockResolvedValueOnce({ user: { id: "admin-1", role: "ADMIN" } })
-    mocks.runDailyAiNews.mockResolvedValueOnce({ operation: "created", published: false, run: { id: "run-1", status: "SUCCEEDED" } })
+    mocks.runDailyAiNews.mockResolvedValueOnce({
+      operation: "created",
+      published: false,
+      post: { id: "post-1", title: "AI 日报", slug: "ai-daily-2026-04-29" },
+      run: { id: "run-1", status: "SUCCEEDED" },
+    })
 
     const { POST } = await import("../route")
     const response = await POST(

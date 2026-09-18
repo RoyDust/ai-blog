@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs"
+import { existsSync, readFileSync } from "node:fs"
 
 import { describe, expect, test } from "vitest"
 
@@ -35,7 +35,16 @@ describe("ai news default sources", () => {
   })
 
   test("run-flow no longer holds its own default source copy", () => {
-    const runFlowSource = readFileSync("src/lib/ai-news/run-flow.ts", "utf8")
-    expect(runFlowSource).not.toMatch(/const DAILY_AI_NEWS_SOURCES/)
+    expect(existsSync("src/lib/ai-news/run-flow.ts")).toBe(false)
+
+    const runModules = [
+      "src/lib/ai-news/run/config.ts",
+      "src/lib/ai-news/run/tools.ts",
+      "src/lib/ai-news/run/steps.ts",
+      "src/lib/ai-news/run/entry.ts",
+    ]
+    for (const runModule of runModules) {
+      expect(readFileSync(runModule, "utf8")).not.toMatch(/const DAILY_AI_NEWS_SOURCES/)
+    }
   })
 })

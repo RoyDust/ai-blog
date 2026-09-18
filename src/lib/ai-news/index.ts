@@ -34,4 +34,9 @@ export {
 export { FALLBACK_DAILY_AI_NEWS_SOURCES } from "@/lib/ai-news/sources"
 export type { AiNewsSourceConfig, AiNewsSourceType } from "@/lib/ai-news/types"
 export { DEFAULT_AI_NEWS_SOURCES, DAILY_AI_NEWS_SOURCES } from "@/lib/ai-news/default-sources"
-export { fetchDailyAiNewsCandidates, runDailyAiNews } from "@/lib/ai-news/run-flow"
+export type { AiNewsRunRepository } from "@/lib/ai-news/run/steps"
+export {
+  fetchDailyAiNewsCandidates,
+  runDailyAiNews,
+  type DailyAiNewsRunResult,
+} from "@/lib/ai-news/run/entry"
