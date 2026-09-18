@@ -7,7 +7,7 @@ import { createCompletionClientForModel } from "@/lib/openai-compatible-completi
  * - 再在需要时调用模型做语义级去重
  * - 保留合并来源信息，避免去重后丢失多源上下文
  */
-import type { AiNewsCandidateInput, AiNewsJsonObject, AiNewsRawItem } from "@/lib/ai-news-types"
+import type { AiNewsCandidateInput, AiNewsJsonObject, AiNewsRawItem } from "@/lib/ai-news/types"
 
 type SemanticDedupeAiModel = {
   baseUrl: string

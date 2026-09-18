@@ -1,4 +1,4 @@
-import type { AiNewsJsonObject, AiNewsSourceConfig, AiNewsSourceType } from "@/lib/ai-news-types"
+import type { AiNewsJsonObject, AiNewsSourceConfig, AiNewsSourceType } from "@/lib/ai-news/types"
 
 type DailyAiNewsSourceLoaderOptions = {
   prisma?: {

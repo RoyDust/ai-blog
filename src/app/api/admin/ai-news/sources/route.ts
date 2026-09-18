@@ -2,7 +2,7 @@ import { withApiOperationLogging } from "@/lib/api-operation-log-route"
 import { NextResponse } from "next/server"
 
 import { requireAdminSession } from "@/lib/api-auth"
-import { createAiNewsSource, listAiNewsSources } from "@/lib/ai-news-source-admin"
+import { createAiNewsSource, listAiNewsSources } from "@/lib/ai-news"
 import { toErrorResponse } from "@/lib/api-errors"
 import { parseAdminListPagination } from "@/lib/admin-list-pagination"
 

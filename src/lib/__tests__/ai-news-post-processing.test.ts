@@ -127,7 +127,7 @@ describe("ai news post processing", () => {
   })
 
   test("runs and applies the supported AI post actions for a fresh daily article", async () => {
-    const { applyAiNewsPostEnhancements } = await import("@/lib/ai-news-post-processing")
+    const { applyAiNewsPostEnhancements } = await import("@/lib/ai-news/post-processing")
 
     const result = await applyAiNewsPostEnhancements({ postId: "post-1", modelId: "model-1" })
 
@@ -178,7 +178,7 @@ describe("ai news post processing", () => {
     mocks.categoryFindMany.mockResolvedValueOnce([{ id: "cat-eng", slug: "engineering" }])
     mocks.tagFindMany.mockResolvedValueOnce([{ id: "tag-eng", slug: "engineering" }])
 
-    const { applyAiNewsPostEnhancements } = await import("@/lib/ai-news-post-processing")
+    const { applyAiNewsPostEnhancements } = await import("@/lib/ai-news/post-processing")
     const result = await applyAiNewsPostEnhancements({ postId: "post-1" })
 
     expect(mocks.postUpdate).toHaveBeenCalledWith(expect.objectContaining({
@@ -202,7 +202,7 @@ describe("ai news post processing", () => {
       tags: [{ id: "tag-existing", name: "工程化", slug: "engineering" }],
       coverImage: "https://cdn.example.com/existing.png",
     })
-    const { applyAiNewsPostEnhancements } = await import("@/lib/ai-news-post-processing")
+    const { applyAiNewsPostEnhancements } = await import("@/lib/ai-news/post-processing")
 
     const result = await applyAiNewsPostEnhancements({ postId: "post-1" })
 
@@ -211,7 +211,7 @@ describe("ai news post processing", () => {
   })
 
   test("formats post-processing failures for the daily review summary", async () => {
-    const { formatAiNewsPostEnhancementWarning } = await import("@/lib/ai-news-post-processing")
+    const { formatAiNewsPostEnhancementWarning } = await import("@/lib/ai-news/post-processing")
 
     expect(formatAiNewsPostEnhancementWarning({
       post: null,

@@ -22,17 +22,17 @@ import {
   updateAiNewsCandidateScores,
   type AiNewsCandidateRecord,
   type AiNewsCandidateRepository,
-} from "@/lib/ai-news-candidates"
-import { dedupeByCanonicalUrl, semanticDedupeCandidates, type AiNewsDuplicateMap } from "@/lib/ai-news-dedupe"
-import { generateDailyAiNewsDraft, resolveDailyAiNewsModel } from "@/lib/ai-news-draft-flow"
-import { generateDailyAiNewsEditorialBrief } from "@/lib/ai-news-editorial-compose"
-import { calculateCitationCoverage, generateFactCardForCandidate, type AiNewsEnrichedFactCard } from "@/lib/ai-news-enrichment"
-import { fetchAiNewsRawItems } from "@/lib/ai-news-fetchers"
-import { buildDailyAiNewsSlug, dedupeNewsItems, parseNewsFeed, type AiNewsItem, type AiNewsSource } from "@/lib/ai-news-parser"
-import { applyAiNewsPostEnhancements } from "@/lib/ai-news-post-processing"
-import { renderDailyAiNewsMarkdown } from "@/lib/ai-news-renderer"
-import { loadDailyAiNewsSources, loadSelectedDailyAiNewsSources } from "@/lib/ai-news-sources"
-import { scoreAiNewsCandidate, selectScoredCandidates } from "@/lib/ai-news-scoring"
+} from "@/lib/ai-news/candidates"
+import { dedupeByCanonicalUrl, semanticDedupeCandidates, type AiNewsDuplicateMap } from "@/lib/ai-news/dedupe"
+import { generateDailyAiNewsDraft, resolveDailyAiNewsModel } from "@/lib/ai-news/draft-flow"
+import { generateDailyAiNewsEditorialBrief } from "@/lib/ai-news/editorial-compose"
+import { calculateCitationCoverage, generateFactCardForCandidate, type AiNewsEnrichedFactCard } from "@/lib/ai-news/enrichment"
+import { fetchAiNewsRawItems } from "@/lib/ai-news/fetchers"
+import { buildDailyAiNewsSlug, dedupeNewsItems, parseNewsFeed, type AiNewsItem, type AiNewsSource } from "@/lib/ai-news/parser"
+import { applyAiNewsPostEnhancements } from "@/lib/ai-news/post-processing"
+import { renderDailyAiNewsMarkdown } from "@/lib/ai-news/renderer"
+import { loadDailyAiNewsSources, loadSelectedDailyAiNewsSources } from "@/lib/ai-news/sources"
+import { scoreAiNewsCandidate, selectScoredCandidates } from "@/lib/ai-news/scoring"
 import { ValidationError } from "@/lib/api-errors"
 import type {
   AiNewsCandidateInput,
@@ -42,7 +42,7 @@ import type {
   AiNewsSourceConfig,
   AiNewsSourceFailure,
   AiNewsSourceSnapshot,
-} from "@/lib/ai-news-types"
+} from "@/lib/ai-news/types"
 import { prisma } from "@/lib/prisma"
 
 type AiNewsRunTriggerInput = "manual" | "cron"

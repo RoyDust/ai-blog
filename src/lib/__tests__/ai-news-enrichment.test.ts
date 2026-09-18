@@ -5,8 +5,8 @@ import {
   generateFactCardForCandidate,
   validateFactCardCitations,
   type AiNewsEnrichedFactCard,
-} from "@/lib/ai-news-enrichment"
-import type { AiNewsCandidateInput } from "@/lib/ai-news-types"
+} from "@/lib/ai-news/enrichment"
+import type { AiNewsCandidateInput } from "@/lib/ai-news/types"
 
 function candidate(overrides: Partial<AiNewsCandidateInput> = {}): AiNewsCandidateInput {
   return {

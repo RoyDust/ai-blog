@@ -7,8 +7,8 @@
  * - 统一来源链接、标题展示与生成模型标注格式
  */
 import type { AiModelOption } from "@/lib/ai-models"
-import type { DailyAiNewsEditorialBrief, DailyAiNewsEditorialItem } from "@/lib/ai-news-editorial-compose"
-import type { AiNewsFactCard, AiNewsScoredCandidate, AiNewsSourceType } from "@/lib/ai-news-types"
+import type { DailyAiNewsEditorialBrief, DailyAiNewsEditorialItem } from "@/lib/ai-news/editorial-compose"
+import type { AiNewsFactCard, AiNewsScoredCandidate, AiNewsSourceType } from "@/lib/ai-news/types"
 
 export type DailyAiNewsRendererInput = {
   date: Date

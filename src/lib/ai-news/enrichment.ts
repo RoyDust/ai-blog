@@ -12,7 +12,7 @@ import type {
   AiNewsFactCard,
   AiNewsJsonObject,
   AiNewsScoredCandidate,
-} from "@/lib/ai-news-types"
+} from "@/lib/ai-news/types"
 
 type OpenAICompatibleModel = {
   baseUrl: string

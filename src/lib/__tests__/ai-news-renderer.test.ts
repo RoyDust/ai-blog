@@ -1,8 +1,8 @@
 import { describe, expect, test } from "vitest"
 
-import { renderDailyAiNewsMarkdown } from "@/lib/ai-news-renderer"
-import type { DailyAiNewsEditorialBrief } from "@/lib/ai-news-editorial-compose"
-import type { AiNewsFactCard, AiNewsScoredCandidate } from "@/lib/ai-news-types"
+import { renderDailyAiNewsMarkdown } from "@/lib/ai-news/renderer"
+import type { DailyAiNewsEditorialBrief } from "@/lib/ai-news/editorial-compose"
+import type { AiNewsFactCard, AiNewsScoredCandidate } from "@/lib/ai-news/types"
 
 type RichTestFactCard = AiNewsFactCard & Partial<{
   whatHappened: string

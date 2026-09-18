@@ -19,9 +19,17 @@ vi.mock("@/lib/api-auth", () => ({
   requireAdminSession: mocks.requireAdminSession,
 }))
 
-vi.mock("@/lib/ai-news", () => ({
-  runDailyAiNews: mocks.runDailyAiNews,
-}))
+// route 从 barrel 导入 notifyDailyAiNewsSuccess/Failure 与 runDailyAiNews；
+// 通知断言依赖真实的通知组装逻辑，故仅替换 runDailyAiNews，其余保留实际实现。
+vi.mock("@/lib/ai-news", async () => {
+  const notifications = await vi.importActual<typeof import("@/lib/ai-news/notifications")>(
+    "@/lib/ai-news/notifications",
+  )
+  return {
+    ...notifications,
+    runDailyAiNews: mocks.runDailyAiNews,
+  }
+})
 
 vi.mock("@/lib/prisma", () => ({
   prisma: mocks.prisma,
