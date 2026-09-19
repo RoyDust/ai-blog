@@ -15,8 +15,10 @@
  * 依赖注入（均可选，缺省行为与历史版本一致）：
  * - runRepository：run 记录与文章存在性检查的结构化仓储；缺省对全局 prisma 做
  *   结构探测，探测失败直接抛错（run 记录不可静默丢弃）
- * - candidateRepository：候选持久化仓储；缺省探测全局 prisma（无表时走内存模式），
- *   显式传 null 可跳过持久化（测试/降级场景）
+ * - candidateRepository：候选持久化仓储；缺省探测全局 prisma——仅当客户端缺失
+ *   aiNewsCandidate delegate（fake/legacy 客户端）时返回 null 走内存模式；真实
+ *   PrismaClient 恒通过探测，若迁移未应用，persist 的 create 会抛错并使 run 进入
+ *   FAILED 路径（不会静默降级）。显式传 null 可跳过持久化（测试/降级场景）
  */
 import { createAdminPost, publishAiDraftPost, updateAdminPost } from "@/lib/ai-authoring"
 import {
@@ -165,7 +167,10 @@ function getAiNewsRunRepository(): AiNewsRunRepository {
 
 /**
  * 探测全局 prisma 上的候选仓储委托。
- * 无表（迁移未应用）时返回 null，运行退回内存候选模式。
+ * 仅当客户端缺失 aiNewsCandidate delegate（fake/legacy 客户端）时返回 null，
+ * 运行退回内存候选模式；真实 PrismaClient 的 delegate 在 prisma generate 阶段生成，
+ * 恒通过本探测，与迁移是否应用无关——迁移未应用时 persistAiNewsCandidates 的
+ * create 会因表不存在而抛错，由 runDailyAiNews 的 catch 落成 run FAILED 并 rethrow。
  */
 function getAiNewsCandidateRepository(): AiNewsCandidateRepository | null {
   const client = prisma as unknown as Partial<AiNewsCandidateRepository>

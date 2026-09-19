@@ -5,12 +5,15 @@
  * + 按 LLM 请求特征分发的 fake fetchImpl；ai-authoring、文章增强与模型解析（默认实现会查库）
  * 用 vi.mock 最小化替换，其余流水线（抓取/去重/评分/事实卡/渲染/草稿）走真实实现。
  *
- * 覆盖五条分支，只断言外部可观察行为（返回值、run 记录写入载荷、ai-authoring 调用参数）：
+ * 覆盖六条分支，只断言外部可观察行为（返回值、run 记录写入载荷、ai-authoring 调用参数）：
  * a. 同 slug 已存在且未发布 → SKIPPED + 发布既有草稿
  * b. regenerate → 更新既有文章
  * c. 不存在 → 创建 + 增强 + 发布，指标完整回写，generatedByAiNews 回写为 true
+ *    （增强结果差异化传播到返回值与 run 记录；编辑简报合法时被渲染消费；
+ *    qualityScore 夹具带 .5 尾数，钉住 round 而非 floor 的舍入方式）
  * d. 评分全不达标 → 回退选择候选，generationMode fallback、qualityScore 0
  * e. 步骤抛错 → run 记 FAILED 并 rethrow
+ * f. 语义去重减员 → selectedCandidateCount 为去重后数量，被去重候选不进入正文与事实卡请求
  */
 import { beforeEach, describe, expect, test, vi } from "vitest"
 
@@ -73,10 +76,70 @@ const CANDIDATE_URLS: Record<string, string> = {
   "NotebookLM adds developer APIs": "https://example.com/notebooklm",
 }
 
+// NotebookLM 分数带 .5 尾数：两候选均值 (9 + 8.5) / 2 = 8.75，×10 = 87.5，
+// Math.round 得 88（floor 会得 87）——qualityScore 断言对舍入方式敏感。
 const SCORE_BY_TITLE = new Map<string, Record<string, unknown>>([
   ["OpenAI 发布企业级代理", { score: 9, reason: "重大产品动态", summary: "OpenAI 发布企业级代理能力。", tags: ["agent"], riskFlags: [] }],
-  ["NotebookLM adds developer APIs", { score: 8, reason: "开发者相关性高", summary: "NotebookLM 开放开发者 API。", tags: ["developer"], riskFlags: [] }],
+  ["NotebookLM adds developer APIs", { score: 8.5, reason: "开发者相关性高", summary: "NotebookLM 开放开发者 API。", tags: ["developer"], riskFlags: [] }],
 ])
+
+// 合法编辑简报 fixture：形状对照 ai-news-editorial-compose.test.ts 的 validBrief，
+// 字段长度满足 parseDailyAiNewsEditorialBrief 的最低质量门槛
+// （intro ≥60、description ≥80、keyPoints ≥3 条且每条 ≥28 个实质字符）。
+const EDITORIAL_BRIEF_INTRO =
+  "今日 AI 生态的主线集中在企业级代理落地与开发者平台能力开放，两条新闻分别代表产品化推进与工具链完善的方向，说明平台方正在把模型能力转化为可集成的工程接口。"
+
+const EDITORIAL_BRIEF_ITEM_OPENAI = {
+  sourceTitle: "OpenAI 发布企业级代理",
+  editorialTitle: "OpenAI 将企业级代理推向知识库与流程自动化",
+  description:
+    "OpenAI 把企业级代理能力扩展到内部知识库与业务流程场景，代理可以在权限边界内完成检索、任务拆解与后续动作编排，适合已经拥有成熟工作流的企业团队评估接入成本、治理要求与数据边界。",
+  keyPoints: [
+    "新能力围绕企业知识库、权限控制与任务编排展开，目标是降低代理在真实业务流程中的接入成本。",
+    "对开发者而言，这更像一组可嵌入既有系统的代理能力，而不是面向普通用户的独立聊天入口。",
+    "来源未提供完整性能指标与客户案例，实际落地效果仍需结合试点反馈继续验证。",
+  ],
+  impact: "这类更新会把企业采用 AI 的问题从模型选择推进到权限、数据边界与流程集成，技术团队需要更早评估治理成本。",
+  sourceName: "OpenAI Blog",
+  url: "https://example.com/openai-agent",
+}
+
+const EDITORIAL_BRIEF_ITEM_NOTEBOOKLM = {
+  sourceTitle: "NotebookLM adds developer APIs",
+  editorialTitle: "NotebookLM 面向开发者开放 API 接入",
+  description:
+    "NotebookLM 推出面向开发者的 API 接入能力，团队可以把笔记本检索与摘要能力嵌入自己的产品流程，减少重复搭建文档问答链路的工作量，同时需要关注配额限制与内容审核策略对集成方案的约束影响。",
+  keyPoints: [
+    "API 覆盖笔记本创建、来源管理与摘要查询等核心操作，便于程序化集成。",
+    "开发者可以把该能力嵌入内部知识工具，降低自建检索链路的维护成本。",
+    "接口配额与内容审核策略尚未完全公开，大规模接入前需要先行验证。",
+  ],
+  impact: "开发者工具链多了一个可直接复用的摘要与检索入口，中小团队可以更快搭建知识型产品。",
+  sourceName: "OpenAI Blog",
+  url: "https://example.com/notebooklm",
+}
+
+const VALID_EDITORIAL_BRIEF = {
+  intro: EDITORIAL_BRIEF_INTRO,
+  items: [EDITORIAL_BRIEF_ITEM_OPENAI, EDITORIAL_BRIEF_ITEM_NOTEBOOKLM],
+  trends: [
+    {
+      title: "AI 能力从产品走向平台化开放",
+      desc: "两条动态都指向同一个方向：模型能力不再只以终端产品形态交付，而是通过代理框架与开发者 API 开放给集成方。",
+      evidenceTitles: ["OpenAI 将企业级代理推向知识库与流程自动化"],
+    },
+  ],
+  warnings: [],
+}
+
+// 语义去重场景使用：去重后仅剩主候选（candidates.length = 1，简报条数门槛为 1），
+// 简报只引用主候选，避免被去重候选经编辑稿回流进正文干扰断言。
+const OPENAI_ONLY_EDITORIAL_BRIEF = {
+  intro: EDITORIAL_BRIEF_INTRO,
+  items: [EDITORIAL_BRIEF_ITEM_OPENAI],
+  trends: [],
+  warnings: [],
+}
 
 const fakeAiModel: AiModelOption = {
   id: "model-fixture",
@@ -148,13 +211,18 @@ function factCardResponse(title: string) {
  * 按请求特征分发：
  * - LLM 调用根据 user prompt 关键词返回评分 / 语义去重 / 事实卡 / 编辑简报 / 草稿响应
  * - 默认源中的 RSS feed 返回条目（openai）或空 feed（其余），GitHub Releases 返回空列表
+ * - 编辑简报与语义去重的响应可按用例注入（默认简报不达标、去重为空）
  */
 function createPipelineFetch({
   scoreByTitle,
   draftResponse,
+  editorialBriefPayload = { intro: "太短", items: [], trends: [] },
+  dedupePayload = { duplicateGroups: [] },
 }: {
   scoreByTitle: Map<string, Record<string, unknown>>
   draftResponse?: unknown
+  editorialBriefPayload?: unknown
+  dedupePayload?: unknown
 }) {
   return vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input)
@@ -171,7 +239,7 @@ function createPipelineFetch({
       }
 
       if (userContent.includes("deduplicate AI news candidates")) {
-        return chatResponse({ duplicateGroups: [] })
+        return chatResponse(dedupePayload)
       }
 
       if (userContent.includes("Create a conservative fact card")) {
@@ -180,8 +248,9 @@ function createPipelineFetch({
       }
 
       if (userContent.includes("日级主编稿")) {
-        // 编辑简报返回不达标内容 → 流水线走降级路径（brief 为 null 仍可渲染发布）
-        return chatResponse({ intro: "太短", items: [], trends: [] })
+        // 默认返回不达标简报 → 流水线走降级路径（brief 为 null 仍可渲染发布）；
+        // 注入合法简报的用例借此验证"简报请求发出且被渲染消费"
+        return chatResponse(editorialBriefPayload)
       }
 
       if (userContent.includes("请基于候选新闻生成一篇中文 AI 新闻日报博客")) {
@@ -314,7 +383,31 @@ describe("runDailyAiNews orchestration behavior", () => {
     const runRepository = createRunRepository(null)
     mocks.createAdminPost.mockResolvedValueOnce({ id: "post-1", title: DRAFT_RESPONSE.title, slug: RUN_SLUG, published: false })
     mocks.publishAiDraftPost.mockResolvedValueOnce({ id: "post-1", published: true })
-    const fetchImpl = createPipelineFetch({ scoreByTitle: SCORE_BY_TITLE })
+    // 增强结果返回与草稿值不同的差异化字段（形状对照 AiNewsPostEnhancementResult.post / PostForAi），
+    // 钉住 entry.ts 的 {...post, ...enhancedPost} 合并：增强值必须覆盖草稿值，
+    // 并传播到返回值 post 与 run 记录的 postTitle——若增强结果被丢弃，这些断言会红。
+    mocks.applyAiNewsPostEnhancements.mockResolvedValueOnce({
+      post: {
+        id: "post-1",
+        title: "增强后标题",
+        slug: RUN_SLUG,
+        content: "增强后正文",
+        excerpt: "增强后摘要",
+        seoDescription: "增强后 SEO 描述",
+        category: null,
+        tags: [{ id: "tag-1", name: "AI 日报" }],
+        published: false,
+        coverImage: null,
+      },
+      applied: [
+        { action: "summary", source: "ai" },
+        { action: "seo-description", source: "ai" },
+        { action: "tags", source: "ai" },
+      ],
+      skipped: ["category", "cover-image"],
+      failed: [],
+    })
+    const fetchImpl = createPipelineFetch({ scoreByTitle: SCORE_BY_TITLE, editorialBriefPayload: VALID_EDITORIAL_BRIEF })
 
     const result = await runDailyAiNews({
       authorId: "admin-1",
@@ -332,10 +425,16 @@ describe("runDailyAiNews orchestration behavior", () => {
         excerpt: DRAFT_RESPONSE.excerpt,
         published: false,
         generatedByAiNews: true,
-        // candidate-pipeline 模式正文来自确定性渲染，保留来源 URL
-        content: expect.stringContaining("https://example.com/openai-agent"),
+        // 编辑简报请求已发出且被渲染消费：合法简报的 intro 进入最终正文
+        //（若简报请求未发出或渲染走了降级路径，intro 不会出现在 content 中）
+        content: expect.stringContaining(EDITORIAL_BRIEF_INTRO),
       }),
     })
+    const createdContent =
+      (mocks.createAdminPost.mock.calls[0]?.[0] as { input?: { content?: string } } | undefined)?.input?.content ?? ""
+    // candidate-pipeline 模式正文来自确定性渲染，保留来源 URL 与编辑简报条目标题
+    expect(createdContent).toContain("https://example.com/openai-agent")
+    expect(createdContent).toContain("OpenAI 将企业级代理推向知识库与流程自动化")
     expect(mocks.applyAiNewsPostEnhancements).toHaveBeenCalledWith({ postId: "post-1", modelId: undefined })
     // 发布时序：先增强，后发布
     const enhancementOrder = mocks.applyAiNewsPostEnhancements.mock.invocationCallOrder[0] ?? 0
@@ -356,11 +455,13 @@ describe("runDailyAiNews orchestration behavior", () => {
         scoredCandidateCount: 2,
         selectedCandidateCount: 2,
         sourceFailureJson: null,
-        qualityScore: 85,
+        // (9 + 8.5) / 2 × 10 = 87.5 → Math.round = 88；若实现误用 floor 会得 87
+        qualityScore: 88,
         citationCoverage: 1,
         generationMode: "candidate-pipeline",
         postId: "post-1",
-        postTitle: DRAFT_RESPONSE.title,
+        // postTitle 传播增强后的标题（enhancementResult.post 覆盖草稿标题）
+        postTitle: "增强后标题",
         postSlug: RUN_SLUG,
         published: true,
         reviewVerdict: null,
@@ -376,7 +477,8 @@ describe("runDailyAiNews orchestration behavior", () => {
     expect(result).toMatchObject({
       operation: "created",
       published: true,
-      post: { id: "post-1", slug: RUN_SLUG, published: true },
+      // 返回值传播增强结果：title/excerpt 来自 enhancedPost 而非草稿值
+      post: { id: "post-1", slug: RUN_SLUG, published: true, title: "增强后标题", excerpt: "增强后摘要" },
       sourceCount: 2,
       metrics: {
         rawCandidateCount: 2,
@@ -384,7 +486,7 @@ describe("runDailyAiNews orchestration behavior", () => {
         scoredCandidateCount: 2,
         selectedCandidateCount: 2,
         sourceFailureJson: [],
-        qualityScore: 85,
+        qualityScore: 88,
         citationCoverage: 1,
         generationMode: "candidate-pipeline",
         configuredSourceCount: DEFAULT_AI_NEWS_SOURCES.length,
@@ -494,5 +596,73 @@ describe("runDailyAiNews orchestration behavior", () => {
       }),
     })
     expect(runRepository.post.updateMany).not.toHaveBeenCalled()
+  })
+
+  test("branch f: semantic dedupe shrinkage reflects in run-level selectedCandidateCount and dropped candidates never reach draft or fact cards", async () => {
+    const runRepository = createRunRepository(null)
+    mocks.createAdminPost.mockResolvedValueOnce({ id: "post-1", title: DRAFT_RESPONSE.title, slug: RUN_SLUG, published: false })
+    mocks.publishAiDraftPost.mockResolvedValueOnce({ id: "post-1", published: true })
+    // 复用 branch c 装置，仅让语义去重返回"NotebookLM 是 OpenAI 代理动态的重复"；
+    // 候选 id 由 fetchers 按 `${sourceId}:${canonicalUrl}` 生成。
+    const fetchImpl = createPipelineFetch({
+      scoreByTitle: SCORE_BY_TITLE,
+      editorialBriefPayload: OPENAI_ONLY_EDITORIAL_BRIEF,
+      dedupePayload: {
+        duplicateGroups: [
+          { primaryId: "openai:https://example.com/openai-agent", duplicateIds: ["openai:https://example.com/notebooklm"] },
+        ],
+      },
+    })
+
+    const result = await runDailyAiNews({
+      authorId: "admin-1",
+      date: RUN_DATE,
+      fetchImpl,
+      runRepository,
+      candidateRepository: null,
+    })
+
+    // (a) run 级指标反映去重后的数量：selection 原始选 2，语义去重后保留 1；
+    // qualityScore 仍按去重前的 selection 均值 (9 + 8.5) / 2 × 10 = 87.5 → 88
+    expect(result).toMatchObject({
+      operation: "created",
+      published: true,
+      metrics: {
+        rawCandidateCount: 2,
+        dedupedCandidateCount: 2,
+        scoredCandidateCount: 2,
+        selectedCandidateCount: 1,
+        citationCoverage: 1,
+        qualityScore: 88,
+        generationMode: "candidate-pipeline",
+      },
+      run: { id: "run-1", status: "SUCCEEDED" },
+    })
+    expect(runRepository.aiNewsRun.update).toHaveBeenLastCalledWith({
+      where: { id: "run-1" },
+      data: expect.objectContaining({
+        status: "SUCCEEDED",
+        selectedCandidateCount: 1,
+      }),
+    })
+
+    // (b) 被去重候选不进入正文，主候选保留
+    const createdContent =
+      (mocks.createAdminPost.mock.calls[0]?.[0] as { input?: { content?: string } } | undefined)?.input?.content ?? ""
+    expect(createdContent).toContain("https://example.com/openai-agent")
+    expect(createdContent).not.toContain("NotebookLM")
+    expect(createdContent).not.toContain("https://example.com/notebooklm")
+
+    // (c) 事实卡请求只为保留候选发出（事实卡在去重后的 selectedCandidates 上生成）
+    const factCardPrompts = fetchImpl.mock.calls
+      .filter(([, init]) => init?.method === "POST")
+      .map(([, init]) => {
+        const body = JSON.parse(String(init?.body)) as { messages?: Array<{ content?: string }> }
+        return body.messages?.map((message) => String(message.content)).join("\n") ?? ""
+      })
+      .filter((text) => text.includes("Create a conservative fact card"))
+    expect(factCardPrompts).toHaveLength(1)
+    expect(factCardPrompts[0]).toContain("Title: OpenAI 发布企业级代理")
+    expect(factCardPrompts[0]).not.toContain("NotebookLM")
   })
 })
