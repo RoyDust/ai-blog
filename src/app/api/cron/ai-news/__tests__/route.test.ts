@@ -19,9 +19,6 @@ vi.mock("@/lib/prisma", () => ({
 
 vi.mock("@/lib/ai-news", () => ({
   runDailyAiNews,
-}))
-
-vi.mock("@/lib/ai-news-notifications", () => ({
   notifyDailyAiNewsSuccess,
   notifyDailyAiNewsFailure,
 }))

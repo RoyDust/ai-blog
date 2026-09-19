@@ -1,4 +1,5 @@
-import type { AiNewsJsonObject, AiNewsSourceConfig, AiNewsSourceType } from "@/lib/ai-news-types"
+import { DEFAULT_AI_NEWS_SOURCES } from "@/lib/ai-news/default-sources"
+import type { AiNewsJsonObject, AiNewsSourceConfig, AiNewsSourceType } from "@/lib/ai-news/types"
 
 type DailyAiNewsSourceLoaderOptions = {
   prisma?: {
@@ -18,55 +19,9 @@ type SelectedAiNewsSourceLoaderOptions = {
   sourceIds: string[]
 }
 
-const LEGACY_DAILY_AI_NEWS_SOURCES: Array<{
-  id: string
-  name: string
-  feedUrl: string
-  homepage: string
-  category?: string
-  enabled?: boolean
-}> = [
-  { id: "openai", name: "OpenAI Blog", feedUrl: "https://openai.com/news/rss.xml", homepage: "https://openai.com/news/" },
-  { id: "anthropic", name: "Anthropic News", feedUrl: "https://www.anthropic.com/news/rss.xml", homepage: "https://www.anthropic.com/news", enabled: false },
-  { id: "google-deepmind", name: "Google DeepMind", feedUrl: "https://deepmind.google/blog/rss.xml", homepage: "https://deepmind.google/blog/", category: "official" },
-  { id: "google-ai", name: "Google AI", feedUrl: "https://blog.google/technology/ai/rss/", homepage: "https://blog.google/technology/ai/" },
-  { id: "meta-ai", name: "Meta AI", feedUrl: "https://ai.meta.com/blog/rss/", homepage: "https://ai.meta.com/blog/", enabled: false },
-  { id: "aws-machine-learning", name: "AWS Machine Learning Blog", feedUrl: "https://aws.amazon.com/blogs/machine-learning/feed/", homepage: "https://aws.amazon.com/blogs/machine-learning/", category: "enterprise" },
-  { id: "bair-blog", name: "Berkeley AI Research Blog", feedUrl: "https://bair.berkeley.edu/blog/feed.xml", homepage: "https://bair.berkeley.edu/blog/", category: "research" },
-  { id: "mit-ai-news", name: "MIT AI News", feedUrl: "https://news.mit.edu/rss/topic/machine-learning", homepage: "https://news.mit.edu/topic/machine-learning", category: "research" },
-  { id: "simon-willison", name: "Simon Willison", feedUrl: "https://simonwillison.net/atom/everything/", homepage: "https://simonwillison.net/", category: "practitioner" },
-  { id: "hugging-face", name: "Hugging Face Blog", feedUrl: "https://huggingface.co/blog/feed.xml", homepage: "https://huggingface.co/blog", enabled: false },
-  { id: "techcrunch-ai", name: "TechCrunch AI", feedUrl: "https://techcrunch.com/category/artificial-intelligence/feed/", homepage: "https://techcrunch.com/category/artificial-intelligence/" },
-  { id: "latent-space", name: "Latent Space", feedUrl: "https://www.latent.space/feed", homepage: "https://www.latent.space/", category: "practitioner" },
-  { id: "infoq-ai-ml", name: "InfoQ AI, ML & Data Engineering", feedUrl: "https://feed.infoq.com/ai-ml-data-eng", homepage: "https://www.infoq.com/ai-ml-data-eng/", category: "engineering" },
-  { id: "venturebeat-ai", name: "VentureBeat AI", feedUrl: "https://venturebeat.com/feed/", homepage: "https://venturebeat.com/" },
-  { id: "the-decoder", name: "The Decoder", feedUrl: "https://the-decoder.com/feed/", homepage: "https://the-decoder.com/" },
-]
+// 兜底清单收敛到 default-sources 后，这里按旧名再导出，保持既有消费方与测试兼容。
+export { DEFAULT_AI_NEWS_SOURCES as FALLBACK_DAILY_AI_NEWS_SOURCES }
 
-export const FALLBACK_DAILY_AI_NEWS_SOURCES: AiNewsSourceConfig[] = [
-  ...LEGACY_DAILY_AI_NEWS_SOURCES.map((source, index) => ({
-    id: source.id,
-    type: "RSS" as const,
-    name: source.name,
-    url: source.feedUrl,
-    homepage: source.homepage,
-    category: source.category,
-    enabled: source.enabled !== false,
-    weight: LEGACY_DAILY_AI_NEWS_SOURCES.length - index,
-  })),
-  {
-    id: "github-ollama",
-    type: "GITHUB_RELEASES",
-    name: "Ollama Releases",
-    url: "https://github.com/ollama/ollama",
-    homepage: "https://github.com/ollama/ollama",
-    category: "github-release",
-    enabled: true,
-    weight: 0,
-    fetchLimit: 5,
-    config: { owner: "ollama", repo: "ollama" },
-  },
-]
 
 function readString(value: unknown) {
   return typeof value === "string" ? value.trim() : ""
@@ -129,7 +84,7 @@ function uniqueStrings(values: string[]) {
 
 export async function loadDailyAiNewsSources({
   prisma,
-  fallback = FALLBACK_DAILY_AI_NEWS_SOURCES,
+  fallback = DEFAULT_AI_NEWS_SOURCES,
 }: DailyAiNewsSourceLoaderOptions = {}): Promise<AiNewsSourceConfig[]> {
   const fallbackSources = sortSources(fallback)
   const findMany = prisma?.aiNewsSource?.findMany

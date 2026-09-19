@@ -1,6 +1,6 @@
 import { createCompletionClientForModel } from "@/lib/openai-compatible-completion-client"
 import { getAiModelChatRequestExtras, getAiModelForCapability, type AiModelOption } from "@/lib/ai-models"
-import { buildDailyAiNewsSlug, formatDateId, type AiNewsItem } from "@/lib/ai-news-parser"
+import { buildDailyAiNewsSlug, formatDateId, type AiNewsItem } from "@/lib/ai-news/parser"
 import { ValidationError } from "@/lib/api-errors"
 
 export type DailyAiNewsDraft = {

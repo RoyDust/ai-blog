@@ -5,8 +5,8 @@ import {
   buildDailyAiNewsEditorialPrompt,
   generateDailyAiNewsEditorialBrief,
   parseDailyAiNewsEditorialBrief,
-} from "@/lib/ai-news-editorial-compose"
-import type { AiNewsFactCard, AiNewsScoredCandidate } from "@/lib/ai-news-types"
+} from "@/lib/ai-news/editorial-compose"
+import type { AiNewsFactCard, AiNewsScoredCandidate } from "@/lib/ai-news/types"
 
 function candidate(overrides: Partial<AiNewsScoredCandidate> = {}): AiNewsScoredCandidate {
   return {

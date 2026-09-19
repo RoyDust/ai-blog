@@ -1,6 +1,6 @@
 import { ConflictError, NotFoundError, ValidationError, isPrismaMissingSchemaError } from "@/lib/api-errors"
-import { fetchAiNewsRawItems } from "@/lib/ai-news-fetchers"
-import type { AiNewsJsonObject, AiNewsRawItem, AiNewsSourceConfig, AiNewsSourceType } from "@/lib/ai-news-types"
+import { fetchAiNewsRawItems } from "@/lib/ai-news/fetchers"
+import type { AiNewsJsonObject, AiNewsRawItem, AiNewsSourceConfig, AiNewsSourceType } from "@/lib/ai-news/types"
 import { prisma } from "@/lib/prisma"
 
 type AiNewsSourceRecord = {

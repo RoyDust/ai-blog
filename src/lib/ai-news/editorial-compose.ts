@@ -8,7 +8,7 @@ import { createCompletionClientForModel } from "@/lib/openai-compatible-completi
  * - 失败时返回 null，让编排层继续使用确定性 FactCard 渲染兜底
  */
 import { getAiModelChatRequestExtras, type AiModelOption } from "@/lib/ai-models"
-import type { AiNewsFactCard, AiNewsScoredCandidate } from "@/lib/ai-news-types"
+import type { AiNewsFactCard, AiNewsScoredCandidate } from "@/lib/ai-news/types"
 
 export type DailyAiNewsEditorialItem = {
   sourceTitle: string

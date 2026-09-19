@@ -1,8 +1,7 @@
 import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 import { NextResponse } from "next/server"
 
-import { runDailyAiNews } from "@/lib/ai-news"
-import { notifyDailyAiNewsFailure, notifyDailyAiNewsSuccess } from "@/lib/ai-news-notifications"
+import { notifyDailyAiNewsFailure, notifyDailyAiNewsSuccess, runDailyAiNews } from "@/lib/ai-news"
 import { toErrorResponse, ValidationError } from "@/lib/api-errors"
 import { requireInternalSecret } from "@/lib/internal-secrets"
 import { prisma } from "@/lib/prisma"
