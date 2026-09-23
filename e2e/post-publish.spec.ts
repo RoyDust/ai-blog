@@ -27,7 +27,7 @@ test("E06 create draft then publish from workspace", async ({ page }) => {
   await page.waitForURL(new RegExp(`/posts/${slug}$`), { timeout: 30_000 })
   await expect(page.getByRole("heading", { name: title })).toBeVisible({ timeout: 20_000 })
 
-  // 清理
+  // 清理（createPostWorkspace 模式下 API 响应即包含 id；兜底按 slug 查）
   const listResponse = await page.request.get(`/api/admin/posts?query=${slug}`)
   if (listResponse.ok()) {
     const payload = await listResponse.json()

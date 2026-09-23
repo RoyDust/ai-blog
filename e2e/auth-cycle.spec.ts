@@ -42,8 +42,11 @@ test("E04 register login logout cycle", async ({ page }) => {
   await accountTrigger.click()
   await page.getByRole("menuitem", { name: "退出登录" }).click()
 
-  // 登出后 /write 重新跳登录
-  await page.waitForURL(/\//, { timeout: 20_000 })
+  // 登出跳转 "/"（signOut callbackUrl）：等导航稳定后再访问 /write，
+  // 立即 goto 会与 signOut 的自动跳转竞争（CI 上见 net::ERR_ABORTED）
+  await page.waitForURL(url => url.pathname === "/", { timeout: 20_000 })
+  await page.waitForLoadState("networkidle")
+
   await page.goto("/write")
   await expect(page).toHaveURL(/[?&]login=1/, { timeout: 15_000 })
 })

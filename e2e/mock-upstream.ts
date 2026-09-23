@@ -105,11 +105,14 @@ export function startMockUpstream(options: { rssItems?: RssItem[] } = {}): Promi
   })
 
   return new Promise((resolve, reject) => {
+    let closeDone: (() => void) | null = null
+    const closed = new Promise<void>((done) => {
+      closeDone = done
+    })
     server.once("error", reject)
     server.listen(0, "127.0.0.1", () => {
       const address = server.address() as AddressInfo
-      const { promise: closed, resolve: closeDone } = Promise.withResolvers<void>()
-      server.once("close", () => closeDone())
+      server.once("close", () => closeDone?.())
       resolve({
         baseUrl: `http://127.0.0.1:${address.port}`,
         close: () => {

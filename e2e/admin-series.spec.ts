@@ -38,7 +38,17 @@ test("E14 series create assign post and front visibility", async ({ page }) => {
     // 发布成功跳前台详情
     await page.waitForURL(new RegExp(`/posts/${post.slug}$`), { timeout: 30_000 })
 
-    // 前台系列页出现该文章（发布时 revalidate 精确失效）
+    // 前台系列页出现该文章（生产 ISR：revalidate 后首请求可能 stale，用轮询）
+    await expect
+      .poll(
+        async () => {
+          const response = await page.request.get(`/series/${slug}`)
+          const body = await response.text()
+          return body.includes(`/posts/${post.slug}`) ? "visible" : "pending"
+        },
+        { timeout: 60_000, intervals: [3_000] },
+      )
+      .toBe("visible")
     await page.goto(`/series/${slug}`)
     await expect(page.locator(`a[href="/posts/${post.slug}"]`).first()).toBeVisible({ timeout: 20_000 })
   } finally {

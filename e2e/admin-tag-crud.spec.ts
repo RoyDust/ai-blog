@@ -5,6 +5,9 @@ import { uniqueSlug } from "./helpers"
 /**
  * E13 标签 CRUD（TaxonomyStudio 标签 tab）。
  * 新增（含默认颜色）→ 列表出现 → 编辑改名（slug 同步为合法值）→ 保存 → 隐藏。
+ *
+ * 稳定性：切 tab 后等「新增标签」heading 渲染（RHF 表单挂载完成）再 fill；
+ * 每次提交前回读输入框值，防止表单 reset 时序清空输入。
  */
 test("E13 tag create rename hide", async ({ page }) => {
   const slug = uniqueSlug("tag")
@@ -14,9 +17,17 @@ test("E13 tag create rename hide", async ({ page }) => {
   await page.goto("/admin/taxonomy")
   await page.getByRole("button", { name: "标签", exact: true }).click()
 
+  // 等标签面板挂载：heading「新增标签」可见后表单才就绪
+  const nameInput = page.getByLabel("名称")
+  const slugInput = page.getByLabel("Slug", { exact: true })
+  await page.getByRole("heading", { name: "新增标签" }).waitFor({ state: "visible", timeout: 20_000 })
+
   // 新增标签（右侧表单：新增标签，颜色默认 #0f766e）
-  await page.getByLabel("名称").fill(name)
-  await page.getByLabel("Slug", { exact: true }).fill(slug)
+  await nameInput.fill(name)
+  await slugInput.fill(slug)
+  await expect(nameInput).toHaveValue(name)
+  await expect(slugInput).toHaveValue(slug)
+
   await page.getByRole("button", { name: "新增标签" }).click()
   await expect(page.getByText("标签已创建")).toBeVisible({ timeout: 15_000 })
 
@@ -27,8 +38,9 @@ test("E13 tag create rename hide", async ({ page }) => {
 
   // 编辑改名（slug 手动同步为合法值）
   await row.getByRole("button", { name: "编辑" }).click()
-  await page.getByLabel("名称").fill(`${name}改`)
-  await page.getByLabel("Slug", { exact: true }).fill(renamedSlug)
+  await nameInput.fill(`${name}改`)
+  await slugInput.fill(renamedSlug)
+  await expect(nameInput).toHaveValue(`${name}改`)
   await page.getByRole("button", { name: "保存修改" }).click()
   await expect(page.getByText("标签已保存")).toBeVisible({ timeout: 15_000 })
 

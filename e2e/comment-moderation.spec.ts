@@ -37,7 +37,17 @@ test("E05 anonymous comment moderation flow", async ({ page }) => {
     await row.waitFor({ state: "visible", timeout: 20_000 })
     await row.getByRole("button", { name: "通过", exact: true }).click()
 
-    // 4. 回前台验证评论可见（审核通过有 revalidate）
+    // 4. 回前台验证评论可见（生产模式 ISR revalidate 后首请求可能 stale，用轮询）
+    await expect
+      .poll(
+        async () => {
+          const response = await page.request.get(`/posts/${created.slug}`)
+          const body = await response.text()
+          return body.includes(commentText) ? "visible" : "pending"
+        },
+        { timeout: 60_000, intervals: [3_000] },
+      )
+      .toBe("visible")
     await page.goto(`/posts/${created.slug}`)
     await expect(page.getByText(commentText)).toBeVisible({ timeout: 20_000 })
   } finally {

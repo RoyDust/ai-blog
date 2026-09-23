@@ -6,8 +6,9 @@ import { uniqueSlug } from "./helpers"
  * E12 分类 CRUD（TaxonomyStudio /admin/taxonomy 分类 tab）。
  * 新增 → 列表出现 → 编辑改名（slug 同步改，避免派生 slug 非法）→ 保存 → 隐藏。
  *
- * 注意：名称输入会派生 slug（中文转拼音），编辑时手动把 slug 也改掉，
- * 否则 save 因 slug 含非法字符失败（ValidationError: Invalid slug）。
+ * 稳定性：等「新增分类」heading 渲染（RHF 表单挂载完成）再 fill；
+ * 每次提交前回读输入框值，防止表单 reset 时序清空输入。
+ * 注意：名称输入会派生 slug（中文转拼音），编辑时手动把 slug 也改掉。
  */
 test("E12 category create rename hide", async ({ page }) => {
   const slug = uniqueSlug("cat")
@@ -15,11 +16,16 @@ test("E12 category create rename hide", async ({ page }) => {
   const renamedSlug = uniqueSlug("cat2")
 
   await page.goto("/admin/taxonomy")
-  await expect(page.getByRole("button", { name: "分类", exact: true })).toBeVisible()
+  const nameInput = page.getByLabel("名称")
+  const slugInput = page.getByLabel("Slug", { exact: true })
+  await page.getByRole("heading", { name: "新增分类" }).waitFor({ state: "visible", timeout: 20_000 })
 
   // 新增分类（右侧常驻表单：新增分类）
-  await page.getByLabel("名称").fill(name)
-  await page.getByLabel("Slug", { exact: true }).fill(slug)
+  await nameInput.fill(name)
+  await slugInput.fill(slug)
+  await expect(nameInput).toHaveValue(name)
+  await expect(slugInput).toHaveValue(slug)
+
   await page.getByRole("button", { name: "新增分类" }).click()
   await expect(page.getByText("分类已创建")).toBeVisible({ timeout: 15_000 })
 
@@ -30,8 +36,9 @@ test("E12 category create rename hide", async ({ page }) => {
 
   // 编辑改名（slug 手动同步为合法值）
   await row.getByRole("button", { name: "编辑" }).click()
-  await page.getByLabel("名称").fill(`${name}改`)
-  await page.getByLabel("Slug", { exact: true }).fill(renamedSlug)
+  await nameInput.fill(`${name}改`)
+  await slugInput.fill(renamedSlug)
+  await expect(nameInput).toHaveValue(`${name}改`)
   await page.getByRole("button", { name: "保存修改" }).click()
   await expect(page.getByText("分类已保存")).toBeVisible({ timeout: 15_000 })
 
