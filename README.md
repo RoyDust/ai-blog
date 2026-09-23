@@ -229,4 +229,4 @@ pnpm build
 
 ## License
 
-当前仓库未声明开源许可证。公开分发或商用复用前，请先补充 `LICENSE`。
+MIT，详见 [LICENSE](./LICENSE)。
