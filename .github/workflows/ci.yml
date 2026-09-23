@@ -66,3 +66,86 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+  e2e:
+    runs-on: ubuntu-latest
+    # 首轮非阻塞：稳定后移除 continue-on-error 纳入必过门禁
+    continue-on-error: true
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: my_next_app
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d my_next_app"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/my_next_app?schema=public
+      AUTH_SECRET: test-auth-secret
+      NEXTAUTH_SECRET: test-nextauth-secret
+      NEXTAUTH_URL: http://127.0.0.1:3000
+      NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3000
+      AUTH_GITHUB_ID: test-github-id
+      AUTH_GITHUB_SECRET: test-github-secret
+      QINIU_ACCESS_KEY: test-ak
+      QINIU_SECRET_KEY: test-sk
+      QINIU_BUCKET: test-bucket
+      QINIU_DOMAIN: http://project.roydust.top
+      QINIU_UPLOAD_URL: https://up-z2.qiniup.com
+      DASHSCOPE_API_KEY: test-dashscope-key
+      E2E_ADMIN_EMAIL: e2e-admin@test.local
+      E2E_ADMIN_PASSWORD: e2e-admin-password-2026
+      E2E_SERVER_COMMAND: pnpm start
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+
+      - name: Setup pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.18.2 --activate
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm prisma generate
+
+      - name: Apply Prisma migrations for E2E database
+        run: pnpm prisma migrate deploy
+
+      - name: Seed E2E admin account
+        run: node scripts/seed-e2e-admin.cjs
+        # 注：scripts/seed-categories.cjs / seed-tags.cjs 在 partial-unique-index 迁移后失效
+        # （upsert where slug 不再是唯一约束），CI 不再调用；分类/标签由 mock-post catalog
+        # 既有数据覆盖（本地库已就绪）。修复这两个脚本不在本计划范围。
+
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install chromium --with-deps
+
+      - name: Build production bundle
+        run: pnpm build
+
+      - name: Run E2E tests
+        run: pnpm test:e2e
+
+      - name: Upload Playwright artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 7

@@ -229,4 +229,4 @@ Coverage spans public reading flows, post detail, search, RSS, SEO metadata, adm
 
 ## License
 
-This repository does not currently declare an open-source license. Add a `LICENSE` before public distribution or commercial reuse.
+MIT, see [LICENSE](./LICENSE).
