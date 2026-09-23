@@ -7,6 +7,7 @@
 - [仓库协作约定](../AGENTS.md)
 - [部署文档](./deployment/)
 - [AI 写作 API](./integrations/ai-authoring-api.md)
+- [Agent 高频实操面试题](./articles/2026-09-20-agent-interview-questions.md)
 - [当前实施记录](./implementation/)
 - [Agent 文档](./agents/)
 
