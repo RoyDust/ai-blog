@@ -3,7 +3,8 @@ import { NextResponse } from "next/server"
 import type { Prisma } from "@prisma/client"
 
 import { requireAdminSession } from "@/lib/api-auth"
-import { NotFoundError, toErrorResponse } from "@/lib/api-errors"
+import { toErrorResponse } from "@/lib/api-errors"
+import { mutateTaxonomy } from "@/lib/taxonomy-mutations"
 import { buildAdminListPagination, getAdminListSkip, parseAdminListPagination } from "@/lib/admin-list-pagination"
 import { prisma } from "@/lib/prisma"
 import { parseIdList, parseTaxonomyInput } from "@/lib/validation"
@@ -72,9 +73,8 @@ async function POSTHandler(request: Request) {
   try {
     await requireAdminSession()
     const { name, slug, color } = parseTaxonomyInput(await request.json())
-    const tag = await prisma.tag.create({ data: { name, slug, color } })
-
-    return NextResponse.json({ success: true, data: tag })
+    const result = await mutateTaxonomy('tag', [], slug, (tx) => tx.tag.create({ data: { name, slug, color } }))
+    return NextResponse.json({ success: true, ...result })
   } catch (error) {
     return toErrorResponse(error)
   }
@@ -89,12 +89,11 @@ async function PATCHHandler(request: Request) {
       return NextResponse.json({ error: "Id is required" }, { status: 400 })
     }
 
-    const tag = await prisma.tag.update({
+    const result = await mutateTaxonomy('tag', [id], slug, (tx) => tx.tag.update({
       where: { id },
       data: { name, slug, color },
-    })
-
-    return NextResponse.json({ success: true, data: tag })
+    }))
+    return NextResponse.json({ success: true, ...result })
   } catch (error) {
     return toErrorResponse(error, "Failed to update tag")
   }
@@ -110,13 +109,11 @@ async function DELETEHandler(request: Request) {
       return NextResponse.json({ error: "Tag ID is required" }, { status: 400 })
     }
 
-    const tags = await prisma.tag.findMany({ where: { id: { in: ids }, deletedAt: null }, select: { id: true } })
-    if (tags.length === 0) {
-      throw new NotFoundError("Tag not found")
-    }
-
-    await prisma.tag.updateMany({ where: { id: { in: tags.map((tag: { id: string }) => tag.id) }, deletedAt: null }, data: { deletedAt: new Date() } })
-    return NextResponse.json({ success: true })
+    const result = await mutateTaxonomy('tag', ids, undefined, async (tx, resolvedIds) => {
+      await tx.tag.updateMany({ where: { id: { in: resolvedIds }, deletedAt: null }, data: { deletedAt: new Date() } })
+      return { ids: resolvedIds }
+    })
+    return NextResponse.json({ success: true, ...result })
   } catch (error) {
     return toErrorResponse(error, "Failed to delete tag")
   }

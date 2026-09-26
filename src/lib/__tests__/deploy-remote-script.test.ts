@@ -24,19 +24,14 @@ describe("deploy-remote.sh", () => {
     expect(composeBuildIndex).toBeGreaterThan(proxyCleanupIndex);
   });
 
-  test("validates required deployment env before loading or starting containers", () => {
-    expect(deployScript).toContain("required_env_vars=(");
-    expect(deployScript).toContain('"DATABASE_URL"');
-    expect(deployScript).toContain('"AUTH_SECRET"');
-    expect(deployScript).toContain('"NEXTAUTH_SECRET"');
-    expect(deployScript).toContain('"NEXTAUTH_URL"');
-    expect(deployScript).toContain('"NEXT_PUBLIC_SITE_URL"');
-
-    const validationIndex = deployScript.indexOf("required_env_vars=(");
+  test("uses candidate image configuration preflight before migrations or replacement", () => {
+    expect(deployScript).not.toContain("required_env_vars=(");
+    const validationIndex = deployScript.indexOf('app node scripts/check-web-readiness.cjs');
     const imageLoadIndex = deployScript.indexOf("gzip -dc my-next-app.tar.gz | docker load");
     const composeUpIndex = deployScript.indexOf('docker compose -f "$COMPOSE_FILE" up -d --no-build --remove-orphans');
     expect(validationIndex).toBeGreaterThan(-1);
-    expect(imageLoadIndex).toBeGreaterThan(validationIndex);
+    expect(validationIndex).toBeGreaterThan(imageLoadIndex);
+    expect(deployScript.indexOf('\nrun_database_migrations\n')).toBeGreaterThan(validationIndex);
     expect(composeUpIndex).toBeGreaterThan(validationIndex);
   });
 

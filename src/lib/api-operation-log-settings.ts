@@ -7,7 +7,7 @@ export const DEFAULT_API_OPERATION_LOG_MAX_STORAGE_BYTES = 10 * 1024 * 1024;
 export const MIN_API_OPERATION_LOG_MAX_STORAGE_BYTES = 1 * 1024 * 1024;
 export const MAX_API_OPERATION_LOG_MAX_STORAGE_BYTES = 512 * 1024 * 1024;
 
-type RawPrisma = typeof prisma & {
+type RawPrisma = {
   $queryRawUnsafe?: <T = unknown>(query: string, ...values: unknown[]) => Promise<T>;
   $executeRawUnsafe?: (query: string, ...values: unknown[]) => Promise<number>;
 };
@@ -145,8 +145,7 @@ export function normalizeApiOperationLogMaxStorageBytes(value: unknown) {
   return rounded;
 }
 
-export async function getApiOperationLogMaxStorageBytes() {
-  const client = rawPrisma();
+export async function getApiOperationLogMaxStorageBytes(client: RawPrisma = rawPrisma()) {
   if (!client.$queryRawUnsafe) {
     return DEFAULT_API_OPERATION_LOG_MAX_STORAGE_BYTES;
   }
@@ -176,8 +175,7 @@ export async function getApiOperationLogMaxStorageBytes() {
   }
 }
 
-export async function getApiOperationLogStorageStats() {
-  const client = rawPrisma();
+export async function getApiOperationLogStorageStats(client: RawPrisma = rawPrisma()) {
   if (!client.$queryRawUnsafe) {
     return { bytes: 0, rowCount: 0 };
   }
@@ -194,41 +192,6 @@ export async function getApiOperationLogStorageStats() {
     bytes: toNumber(row?.bytes),
     rowCount: toNumber(row?.rowCount),
   };
-}
-
-export async function enforceApiOperationLogStorageLimit(maxStorageBytes?: number) {
-  const client = rawPrisma();
-  if (!client.$executeRawUnsafe) {
-    return { deletedCount: 0 };
-  }
-
-  const limit = normalizeApiOperationLogMaxStorageBytes(maxStorageBytes ?? (await getApiOperationLogMaxStorageBytes()));
-  const deletedCount = await client.$executeRawUnsafe(
-    `
-      WITH sized AS (
-        SELECT
-          "id",
-          pg_column_size(logs.*)::bigint AS row_size,
-          "createdAt"
-        FROM "api_operation_logs" AS logs
-      ),
-      ranked AS (
-        SELECT
-          "id",
-          SUM(row_size) OVER (ORDER BY "createdAt" DESC, "id" DESC) AS newest_bytes
-        FROM sized
-      )
-      DELETE FROM "api_operation_logs"
-      WHERE "id" IN (
-        SELECT "id"
-        FROM ranked
-        WHERE newest_bytes > $1
-      )
-    `,
-    limit,
-  );
-
-  return { deletedCount };
 }
 
 export async function updateApiOperationLogMaxStorageBytes(value: unknown) {
@@ -250,8 +213,7 @@ export async function updateApiOperationLogMaxStorageBytes(value: unknown) {
     JSON.stringify({ maxStorageBytes }),
   );
 
-  const { deletedCount } = await enforceApiOperationLogStorageLimit(maxStorageBytes);
-  return { maxStorageBytes, deletedCount };
+  return { maxStorageBytes, deletedCount: 0 };
 }
 
 export async function getApiOperationLogSettingsSummary() {

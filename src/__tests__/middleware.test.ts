@@ -223,6 +223,24 @@ describe('internal api middleware gateway', () => {
     )
   })
 
+  test('log retention registers only its exact path and CRON_SECRET', async () => {
+    process.env.AI_NEWS_CRON_SECRET = 'unrelated-secret'
+    const request = (path: string, token: string) => new NextRequest('http://localhost' + path, { headers: { authorization: 'Bearer ' + token, 'x-forwarded-for': '203.0.113.181' } })
+    expect((await middleware(request('/api/cron/log-retention', 'unrelated-secret'))).status).toBe(503)
+    process.env.CRON_SECRET = 'retention-secret'
+    expect((await middleware(request('/api/cron/log-retention', 'unrelated-secret'))).status).toBe(401)
+    expect((await middleware(request('/api/cron/log-retention', 'retention-secret'))).status).toBe(200)
+    expect((await middleware(request('/api/cron/log-retention-extra', 'retention-secret'))).status).toBe(503)
+  })
+
+  test('log retention limits repeated wrong-secret attempts', async () => {
+    process.env.CRON_SECRET = 'retention-secret'
+    for (let attempt = 1; attempt <= 11; attempt++) {
+      const response = await middleware(new NextRequest('http://localhost/api/cron/log-retention', { headers: { authorization: 'Bearer wrong', 'x-forwarded-for': '203.0.113.182' } }))
+      expect(response.status).toBe(attempt <= 10 ? 401 : 429)
+    }
+  })
+
   test('rejects cron requests without a valid bearer secret', async () => {
     process.env.AI_NEWS_CRON_SECRET = 'cron-secret'
 

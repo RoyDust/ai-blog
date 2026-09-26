@@ -19,11 +19,13 @@ export type MockUpstream = {
   close: () => Promise<void>
   /** 最近一次 chat/completions 请求体（诊断用） */
   lastCompletion: () => unknown
+  setCompletionFailure: (failed: boolean) => void
 }
 
 type RssItem = {
   title: string
   link: string
+  publishedAt?: Date
 }
 
 const DRAFT_JSON = {
@@ -53,6 +55,7 @@ function respondFor(systemText: string): string {
 export function startMockUpstream(options: { rssItems?: RssItem[] } = {}): Promise<MockUpstream> {
   const rssItems = options.rssItems ?? []
   let lastCompletion: unknown = null
+  let completionFailed = false
 
   const server = http.createServer((request, response) => {
     const url = request.url || "/"
@@ -60,7 +63,7 @@ export function startMockUpstream(options: { rssItems?: RssItem[] } = {}): Promi
     if (url.startsWith("/rss")) {
       const items = rssItems
         .map(
-          (item) => `<item><title>${item.title}</title><link>${item.link}</link><pubDate>${new Date().toUTCString()}</pubDate></item>`,
+          (item) => `<item><title>${item.title}</title><link>${item.link}</link><pubDate>${(item.publishedAt ?? new Date()).toUTCString()}</pubDate></item>`,
         )
         .join("")
       response.writeHead(200, { "Content-Type": "application/rss+xml; charset=utf-8" })
@@ -74,6 +77,11 @@ export function startMockUpstream(options: { rssItems?: RssItem[] } = {}): Promi
         body += chunk
       })
       request.on("end", () => {
+        if (completionFailed) {
+          response.writeHead(503, { "Content-Type": "application/json" })
+          response.end(JSON.stringify({ error: { message: "E2E upstream unavailable" } }))
+          return
+        }
         try {
           lastCompletion = JSON.parse(body)
         } catch {
@@ -120,6 +128,7 @@ export function startMockUpstream(options: { rssItems?: RssItem[] } = {}): Promi
           return closed
         },
         lastCompletion: () => lastCompletion,
+        setCompletionFailure: (failed) => { completionFailed = failed },
       })
     })
   })

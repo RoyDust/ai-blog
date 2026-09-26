@@ -1,0 +1,23 @@
+name: API Log Retention
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+jobs:
+  retain:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Run one protected log retention batch
+        env:
+          PRODUCTION_BASE_URL: ${{ secrets.PRODUCTION_BASE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          if [ -z "$PRODUCTION_BASE_URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo 'Log retention workflow configuration is incomplete' >&2
+            exit 1
+          fi
+          curl --fail-with-body --show-error --silent --max-time 45 \
+            --request POST --header "Authorization: Bearer $CRON_SECRET" \
+            "$PRODUCTION_BASE_URL/api/cron/log-retention"

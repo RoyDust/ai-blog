@@ -1,6 +1,7 @@
 import { readResponseBodyBounded, readResponseBytesBounded } from "@/lib/external-reliability"
 import type { CoverAssetRecord } from "@/lib/cover-assets";
 import { createCoverAsset } from "@/lib/cover-assets";
+import { withAiInfrastructure } from "@/lib/ai-task-errors";
 import { ValidationError } from "@/lib/api-errors";
 import { getAiModelForCapability, type AiModelOption } from "@/lib/ai-models";
 import { uploadBufferToQiniu } from "@/lib/qiniu-server";
@@ -241,16 +242,16 @@ export async function generateAiCoverImage(input: GenerateAiCoverInput): Promise
   }
 
   const size = input.size ?? "16:9";
-  const model = await getAiModelForCapability("cover-image", input.modelId);
+  const model = await withAiInfrastructure(() => getAiModelForCapability("cover-image", input.modelId));
   if (!model) {
     throw new ValidationError("No available cover image model is configured");
   }
 
   const finalPrompt = buildCoverImagePrompt(input);
   const image = await callImageModel(model, finalPrompt, size);
-  const uploaded = await uploadBufferToQiniu({ buffer: image.buffer, contentType: image.contentType, keyPrefix: "covers/ai" });
+  const uploaded = await withAiInfrastructure(() => uploadBufferToQiniu({ buffer: image.buffer, contentType: image.contentType, keyPrefix: "covers/ai" }));
 
-  return createCoverAsset({
+  return withAiInfrastructure(() => createCoverAsset({
     url: uploaded.url,
     key: uploaded.key,
     provider: "qiniu",
@@ -270,5 +271,5 @@ export async function generateAiCoverImage(input: GenerateAiCoverInput): Promise
       contentType: image.contentType,
     },
     createdById: input.createdById,
-  });
+  }));
 }

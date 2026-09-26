@@ -55,7 +55,7 @@ test('category detail fetches the requested page with deterministic pagination m
 
   expect(postFindMany).toHaveBeenCalledWith(
     expect.objectContaining({
-      where: { deletedAt: null, published: true, category: { slug: 'frontend' } },
+      where: { deletedAt: null, published: true, category: { id: 'c1', deletedAt: null } },
       orderBy: [{ featured: 'desc' }, { createdAt: 'desc' }, { id: 'desc' }],
       skip: 12,
       take: 12,

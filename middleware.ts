@@ -117,6 +117,7 @@ type InternalPathExpectation = {
  * 新增内部路由必须在这里显式登记密钥来源，否则 middleware 直接 fail closed（503）。
  */
 const INTERNAL_PATH_SECRETS: InternalPathExpectation[] = [
+  { path: '/api/cron/log-retention', header: null, resolveSecret: () => resolveInternalSecret(['CRON_SECRET']) },
   {
     path: '/api/cron/ai-news',
     header: null,

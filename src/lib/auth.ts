@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma"
 import { requireAuthSecret, resolveAuthSecret } from "@/lib/auth-secret"
 import { authSessionCookieName, shouldUseSecureAuthCookies } from "@/lib/auth-cookies"
 import { buildLoginPromptPath } from "@/lib/login-redirect"
+import { checkAuthRateLimit } from "@/lib/rate-limit"
 import bcrypt from "bcryptjs"
 
 /**
@@ -39,8 +40,13 @@ export const authOptions: NextAuthOptions = {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" }
       },
-      async authorize(credentials) {
+      async authorize(credentials, request) {
         requireAuthSecret()
+
+        const rateLimit = await checkAuthRateLimit({ headers: new Headers(request.headers) })
+        if (!rateLimit.allowed) {
+          throw new Error("Too many requests")
+        }
 
         if (!credentials?.email || !credentials?.password) {
           throw new Error("Invalid credentials")
@@ -123,13 +129,28 @@ export const authOptions: NextAuthOptions = {
       return true
     },
     /**
-     * 把数据库里的用户标识与角色写进 token，便于后续无状态鉴权。
+     * JWT 只作为身份凭据；每次读取会话都重新确认用户存在及当前角色。
+     * middleware 的 token 检查只是前置过滤，服务端权限以此处的数据库结果为准。
      */
     async jwt({ token, user, account }) {
       if (user) {
         token.id = user.id
-        token.role = (user as { role?: string }).role ?? "USER"
       }
+
+      if (!token.id) {
+        throw new Error("Session user no longer exists")
+      }
+
+      const currentUser = await prisma.user.findUnique({
+        where: { id: token.id },
+        select: { role: true },
+      })
+
+      if (!currentUser) {
+        throw new Error("Session user no longer exists")
+      }
+
+      token.role = currentUser.role
       if (account?.provider) {
         token.provider = account.provider
       }

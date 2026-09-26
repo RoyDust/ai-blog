@@ -15,6 +15,20 @@ import {
 } from '../validation'
 
 describe('validation helpers', () => {
+  test.each(['foo/bar', 'foo?bar', 'foo#bar', 'a'.repeat(201), '', '   ', 123])('rejects the same invalid slug on create and patch: %s', (slug) => {
+    const input = { title: 'Post', content: 'Content', slug }
+    expect(() => parsePostInput(input)).toThrow()
+    expect(() => parsePostPatchInput(input)).toThrow()
+  })
+
+  test('keeps an omitted patch slug unchanged and accepts valid slugs', () => {
+    expect(parsePostPatchInput({ title: 'Post', content: 'Content' }).slug).toBeUndefined()
+    for (const slug of ['valid-slug', 'post-2026', 'a']) {
+      const input = { title: 'Post', content: 'Content', slug }
+      expect(parsePostPatchInput(input).slug).toBe(parsePostInput(input).slug)
+    }
+  })
+
   test('clamps page and limit', () => {
     expect(clampPagination({ page: '0', limit: '500' })).toEqual({ page: 1, limit: 50 })
   })

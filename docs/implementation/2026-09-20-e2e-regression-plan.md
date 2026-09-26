@@ -9,6 +9,14 @@
 > - 15 个 spec 文件、32 用例覆盖 E01–E27；CI 新增非阻塞 e2e job（`continue-on-error: true`，稳定后移除）。
 > - 已知问题（另行处理）：①`scripts/seed-categories.cjs`/`seed-tags.cjs` 在 partial-unique-index 迁移后失效（upsert where slug 不再是唯一约束）；②admin/posts 列表筛选记忆在 Next dev + storageState origin 恢复组合下 reload 不恢复 UI（localStorage 写入契约正常，单测路径正常），E07 只锁写入契约；③前台详情 `notFound()` 在 dev 返回 200 渲染 not-found 内容，E10 断内容而非状态码。
 
+> 2026-09-26 PR #22 审查修复：
+> - E18/E19/E20 显式传入临时模型 ID，不替换全局默认模型；退出时删除测试模型并关闭 mock 上游。
+> - E18 严格断言成功计数、应用状态和持久化摘要，并新增失败后重试成功路径；E19 核验 `GENERATED`。
+> - E20 先创建测试独占日期的日报草稿，再重新生成；slug 冲突时停止，不覆盖已有日报。退出时清理测试文章和 RSS 源。
+> - E22/E23 经设置 API 临时启用 Newsletter，并在 `finally` 恢复原配置；各自创建、验证和清理独立订阅者，E23 必须核验该订阅者投递成功。
+> - 群发服务改为读取后台保存的 Newsletter provider；未保存 provider 时继续使用 `NEWSLETTER_PROVIDER`，显式 `none` 优先于环境变量。
+> - 验证：独立 PostgreSQL 16 + 生产构建下 33/33 E2E 通过（1.4 分钟）；278 个测试文件、1111 项单元/组件测试通过；类型检查与构建通过。全仓 lint 无错误，保留 20 条既有警告，修改文件 lint 无警告。测试后核验 Newsletter 配置已恢复，相关订阅者、活动、RSS 源、批量任务模型和可见测试日报均已清理。
+
 ## 现状
 
 - `e2e/` 仅 3 个 stub：`admin.spec.ts`（未登录跳登录）、`reader.spec.ts`（首页/`/posts` 可见）、`author.spec.ts`（`/write` 未登录跳登录）。

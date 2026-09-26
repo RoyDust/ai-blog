@@ -296,7 +296,8 @@ cd /opt/my-next-app/current
 ls -la
 docker compose -f docker-compose.prod.yml ps
 docker compose -f docker-compose.prod.yml logs --tail=100 app
-curl -I http://127.0.0.1:3000
+curl --fail http://127.0.0.1:3000/api/health/live
+curl --fail http://127.0.0.1:3000/api/health/ready
 curl -I http://47.98.167.32
 ```
 
@@ -318,6 +319,8 @@ sudo tail -n 100 /var/log/nginx/error.log
 ```
 
 ## 18. Rollback
+
+Stop active senders and verify schema and stored attempt-state compatibility before switching releases. Image rollback does not reverse migrations. A deployment succeeds only after `running healthy`; see [P2 release and recovery procedures](./p2-recovery-runbook.md) for required checks and recovery boundaries.
 
 List releases:
 
@@ -351,4 +354,3 @@ bash scripts/deploy/deploy-remote.sh
 4. Wait for CI: section `14`
 5. Trigger deployment: section `15`
 6. Verify and debug if needed: sections `16` to `19`
-

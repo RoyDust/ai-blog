@@ -250,6 +250,7 @@ model NewsletterCampaign {
   status      NewsletterCampaignStatus @default(DRAFT)
   scheduledAt DateTime?
   sentAt      DateTime?
+  audienceFrozenAt DateTime?
   createdById String?
   createdAt   DateTime                 @default(now())
   updatedAt   DateTime                 @updatedAt
@@ -270,13 +271,37 @@ model NewsletterDelivery {
   status       String             @default("pending")
   error        String?            @db.Text
   sentAt       DateTime?
+  attemptId    String?
+  attemptStartedAt DateTime?
+  provider     String?
+  providerReceiptId String?
+  evidenceReference String? @db.Text
+  simulated    Boolean?
   createdAt    DateTime           @default(now())
   updatedAt    DateTime           @updatedAt
+
+  reconciliations NewsletterDeliveryReconciliation[]
 
   @@unique([campaignId, subscriberId])
   @@index([campaignId, status])
   @@index([subscriberId])
   @@map("newsletter_deliveries")
+}
+
+model NewsletterDeliveryReconciliation {
+  id String @id @default(cuid())
+  deliveryId String
+  delivery NewsletterDelivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+  attemptId String
+  actorId String
+  decision String
+  reason String @db.Text
+  evidenceKind String?
+  evidenceReference String? @db.Text
+  createdAt DateTime @default(now())
+
+  @@unique([deliveryId, attemptId])
+  @@map("newsletter_delivery_reconciliations")
 }
 
 model VisitLog {

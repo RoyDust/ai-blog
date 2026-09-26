@@ -109,8 +109,10 @@ function notificationCreateData(input: CreateNotificationInput) {
 /**
  * 获取当前所有管理员用户，供系统级后台通知广播使用。
  */
-async function getAdminRecipientIds() {
-  const admins = await prisma.user.findMany({
+type NotificationClient = Pick<Prisma.TransactionClient, "user" | "notification" | "notificationRecipient">;
+
+async function getAdminRecipientIds(client: NotificationClient) {
+  const admins = await client.user.findMany({
     where: { role: "ADMIN" },
     select: { id: true },
   });
@@ -123,12 +125,12 @@ async function getAdminRecipientIds() {
  *
  * createMany + skipDuplicates 支持 dedupeKey upsert 后重复补发而不报错。
  */
-async function ensureRecipients(notificationId: string, userIds: string[]) {
+async function ensureRecipients(notificationId: string, userIds: string[], client: NotificationClient) {
   if (userIds.length === 0) {
     return;
   }
 
-  await prisma.notificationRecipient.createMany({
+  await client.notificationRecipient.createMany({
     data: userIds.map((userId) => ({ notificationId, userId })),
     skipDuplicates: true,
   });
@@ -137,10 +139,18 @@ async function ensureRecipients(notificationId: string, userIds: string[]) {
 /**
  * 创建或更新一条面向所有管理员的通知。
  */
-export async function createAdminNotification(input: CreateNotificationInput) {
+export async function createAdminNotification(input: CreateNotificationInput, client: NotificationClient = prisma) {
   const data = notificationCreateData(input);
+  // AI terminal delivery is immutable. The task row lock serializes its first delivery.
+  if (input.dedupeKey?.startsWith("ai-task:")) {
+    const existing = await client.notification.findUnique({ where: { dedupeKey: input.dedupeKey } });
+    if (existing) return existing;
+    const notification = await client.notification.create({ data });
+    await ensureRecipients(notification.id, await getAdminRecipientIds(client), client);
+    return notification;
+  }
   const notification = input.dedupeKey
-    ? await prisma.notification.upsert({
+    ? await client.notification.upsert({
         where: { dedupeKey: input.dedupeKey },
         create: data,
         update: {
@@ -153,9 +163,9 @@ export async function createAdminNotification(input: CreateNotificationInput) {
           metadata: data.metadata,
         },
       })
-    : await prisma.notification.create({ data });
+    : await client.notification.create({ data });
 
-  await ensureRecipients(notification.id, await getAdminRecipientIds());
+  await ensureRecipients(notification.id, await getAdminRecipientIds(client), client);
 
   return notification;
 }
@@ -163,10 +173,10 @@ export async function createAdminNotification(input: CreateNotificationInput) {
 /**
  * 创建或更新一条面向单个用户的通知。
  */
-export async function createUserNotification(userId: string, input: CreateNotificationInput) {
+export async function createUserNotification(userId: string, input: CreateNotificationInput, client: NotificationClient = prisma) {
   const data = notificationCreateData(input);
   const notification = input.dedupeKey
-    ? await prisma.notification.upsert({
+    ? await client.notification.upsert({
         where: { dedupeKey: input.dedupeKey },
         create: data,
         update: {
@@ -179,9 +189,9 @@ export async function createUserNotification(userId: string, input: CreateNotifi
           metadata: data.metadata,
         },
       })
-    : await prisma.notification.create({ data });
+    : await client.notification.create({ data });
 
-  await ensureRecipients(notification.id, [userId]);
+  await ensureRecipients(notification.id, [userId], client);
 
   return notification;
 }

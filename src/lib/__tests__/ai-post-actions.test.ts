@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   getAiModelForCapability: vi.fn(),
   postUpdate: vi.fn(),
+  postFindFirst: vi.fn(), postUpdateMany: vi.fn(), itemUpdateMany: vi.fn(),
   tagFindMany: vi.fn(),
   categoryFindMany: vi.fn(),
   getAiTaskItem: vi.fn(),
@@ -25,16 +26,23 @@ vi.mock("@/lib/ai-tasks", () => ({
   },
   getAiTaskItem: mocks.getAiTaskItem,
   markAiTaskItemSucceeded: mocks.markAiTaskItemSucceeded,
+  lockAiTask: vi.fn(async () => ({ id: "task-1", modelId: "model-1" })),
+  isAiTaskActive: (status: string) => status === "RUNNING" || status === "QUEUED",
+  refreshAiTaskCountsInTransaction: vi.fn(),
 }));
 
-vi.mock("@/lib/cache", () => ({
-  revalidatePublicContent: mocks.revalidatePublicContent,
+vi.mock("@/lib/cache", async (original) => ({
+  ...await original<typeof import("@/lib/cache")>(),
+  revalidatePublicContentStrict: mocks.revalidatePublicContent,
 }));
 
-vi.mock("@/lib/prisma", () => ({
-  prisma: {
+vi.mock("@/lib/prisma", () => {
+  const client = {
+    $queryRawUnsafe: vi.fn(),
+    aiTaskItem: { findUnique: mocks.getAiTaskItem, updateMany: mocks.itemUpdateMany },
     post: {
       update: mocks.postUpdate,
+      findFirst: mocks.postFindFirst, updateMany: mocks.postUpdateMany,
     },
     tag: {
       findMany: mocks.tagFindMany,
@@ -42,8 +50,9 @@ vi.mock("@/lib/prisma", () => ({
     category: {
       findMany: mocks.categoryFindMany,
     },
-  },
-}));
+  };
+  return { prisma: { ...client, $transaction: (fn: (tx: typeof client) => unknown) => fn(client) } };
+});
 
 const aiModel = {
   id: "model-1",
@@ -73,7 +82,22 @@ describe("ai post actions", () => {
     vi.clearAllMocks();
     vi.unstubAllGlobals();
     mocks.getAiModelForCapability.mockResolvedValue(aiModel);
+    mocks.postUpdateMany.mockResolvedValue({ count: 1 });
+    mocks.itemUpdateMany.mockResolvedValue({ count: 1 });
+    mocks.revalidatePublicContent.mockReturnValue({ paths: [], errors: [] });
     process.env.AI_POST_SUMMARY_TIMEOUT_MS = "90000";
+  });
+
+  test.each(["model", "tags", "category"])("classifies %s database read failures as recoverable infrastructure errors", async (dependency) => {
+    const failure = new Error(dependency + " database unavailable");
+    if (dependency === "model") mocks.getAiModelForCapability.mockRejectedValueOnce(failure);
+    if (dependency === "tags") mocks.tagFindMany.mockRejectedValueOnce(failure);
+    if (dependency === "category") mocks.categoryFindMany.mockRejectedValueOnce(failure);
+    const { runPostAiAction } = await import("../ai-post-actions");
+    await expect(runPostAiAction({
+      action: dependency === "model" ? "summary" : dependency,
+      post: { id: "post-1", title: "Title", slug: "title", content: "Article body", excerpt: null, seoDescription: null, category: null, tags: [], published: false },
+    })).rejects.toMatchObject({ name: "AiInfrastructureError", cause: failure });
   });
 
   test("generates an SEO description through an OpenAI-compatible model", async () => {
@@ -232,98 +256,38 @@ describe("ai post actions", () => {
     ).rejects.toThrow("AI tag output did not match existing tags");
   });
 
-  test("applies a successful SEO task item to the linked post", async () => {
-    mocks.getAiTaskItem.mockResolvedValueOnce({
-      id: "item-1",
-      postId: "post-1",
-      status: "SUCCEEDED",
-      action: "seo-description",
-      output: { seoDescription: "新的 SEO 描述" },
-      task: { modelId: "model-1" },
-      post: { id: "post-1" },
-    });
-    mocks.postUpdate.mockResolvedValueOnce({
-      id: "post-1",
-      title: "标题",
-      slug: "post-1",
-      excerpt: null,
-      seoDescription: "新的 SEO 描述",
-      published: true,
-      category: { id: "cat-1", name: "前端", slug: "frontend" },
-      tags: [{ id: "tag-1", name: "AI", slug: "ai" }],
-    });
-
-    const { applyPostAiTaskItem } = await import("../ai-post-actions");
+  test("applies a successful SEO task item without repeating task completion", async () => {
+    const { applyPostAiTaskItem, buildPostAiInputSnapshot } = await import("../ai-post-actions");
+    const before = { id: "post-1", title: "Title", content: "Body", slug: "post-1", authorId: "author-1", excerpt: null, seoDescription: null, published: true, category: null, tags: [] };
+    mocks.getAiTaskItem.mockResolvedValue({ id: "item-1", taskId: "task-1", postId: "post-1", status: "SUCCEEDED", applied: false, action: "seo-description", inputSnapshot: buildPostAiInputSnapshot(before, "seo-description"), output: { seoDescription: "新的 SEO 描述" } });
+    mocks.postFindFirst.mockResolvedValueOnce(before).mockResolvedValueOnce({ ...before, seoDescription: "新的 SEO 描述" });
     const updated = await applyPostAiTaskItem("item-1");
-
-    expect(mocks.postUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: "post-1" },
-        data: expect.objectContaining({
-          seoDescription: "新的 SEO 描述",
-          seoModelId: "model-1",
-        }),
-      }),
-    );
-    expect(mocks.markAiTaskItemSucceeded).toHaveBeenCalledWith("item-1", { seoDescription: "新的 SEO 描述" }, true);
     expect(updated.seoDescription).toBe("新的 SEO 描述");
+    expect(mocks.postUpdateMany).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "post-1", authorId: "author-1", deletedAt: null }, data: expect.objectContaining({ seoDescription: "新的 SEO 描述", seoModelId: "model-1" }) }));
+    expect(mocks.itemUpdateMany).toHaveBeenCalledWith(expect.objectContaining({ data: { applied: true } }));
+    expect(mocks.markAiTaskItemSucceeded).not.toHaveBeenCalled();
   });
 
-  test("applies a successful tag task item to the linked post", async () => {
-    mocks.getAiTaskItem.mockResolvedValueOnce({
-      id: "item-1",
-      postId: "post-1",
-      status: "SUCCEEDED",
-      action: "tags",
-      output: { existingTagIds: ["tag-ai", "tag-next"], names: ["AI", "Next.js"] },
-      task: { modelId: "model-1" },
-      post: { id: "post-1" },
-    });
-    mocks.postUpdate.mockResolvedValueOnce({
-      id: "post-1",
-      title: "标题",
-      slug: "post-1",
-      excerpt: null,
-      seoDescription: null,
-      published: false,
-      category: null,
-      tags: [
-        { id: "tag-ai", name: "AI", slug: "ai" },
-        { id: "tag-next", name: "Next.js", slug: "nextjs" },
-      ],
-    });
-
-    const { applyPostAiTaskItem } = await import("../ai-post-actions");
+  test("applies a successful tag task item using only active existing tag IDs", async () => {
+    const { applyPostAiTaskItem, buildPostAiInputSnapshot } = await import("../ai-post-actions");
+    const before = { id: "post-1", title: "Title", content: "Body", slug: "post-1", authorId: "author-1", excerpt: null, seoDescription: null, published: false, category: null, tags: [] };
+    const tags = [{ id: "tag-ai", name: "AI", slug: "ai" }, { id: "tag-next", name: "Next.js", slug: "nextjs" }];
+    mocks.getAiTaskItem.mockResolvedValue({ id: "item-1", taskId: "task-1", postId: "post-1", status: "SUCCEEDED", applied: false, action: "tags", inputSnapshot: buildPostAiInputSnapshot(before, "tags"), output: { existingTagIds: ["tag-ai", "tag-next"] } });
+    mocks.tagFindMany.mockResolvedValueOnce(tags);
+    mocks.postFindFirst.mockResolvedValueOnce(before).mockResolvedValueOnce({ ...before, tags });
     const updated = await applyPostAiTaskItem("item-1");
-
-    expect(mocks.postUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: "post-1" },
-        data: expect.objectContaining({
-          tags: { set: [{ id: "tag-ai" }, { id: "tag-next" }] },
-        }),
-      }),
-    );
-    expect(updated.tags).toEqual([
-      { id: "tag-ai", name: "AI", slug: "ai" },
-      { id: "tag-next", name: "Next.js", slug: "nextjs" },
-    ]);
+    expect(mocks.postUpdate).toHaveBeenCalledWith({ where: { id: "post-1" }, data: { tags: { set: [{ id: "tag-ai" }, { id: "tag-next" }] } } });
+    expect(updated.tags).toEqual(tags);
   });
 
   test("rejects tag task items without existing tag ids instead of clearing tags", async () => {
-    mocks.getAiTaskItem.mockResolvedValueOnce({
-      id: "item-1",
-      postId: "post-1",
-      status: "SUCCEEDED",
-      action: "tags",
-      output: { newTagNames: ["不存在"] },
-      task: { modelId: "model-1" },
-      post: { id: "post-1" },
-    });
-
-    const { applyPostAiTaskItem } = await import("../ai-post-actions");
+    const { applyPostAiTaskItem, buildPostAiInputSnapshot } = await import("../ai-post-actions");
+    const before = { id: "post-1", title: "Title", content: "Body", slug: "post-1", authorId: "author-1", excerpt: null, seoDescription: null, published: false, category: null, tags: [] };
+    mocks.getAiTaskItem.mockResolvedValue({ id: "item-1", taskId: "task-1", postId: "post-1", status: "SUCCEEDED", applied: false, action: "tags", inputSnapshot: buildPostAiInputSnapshot(before, "tags"), output: { newTagNames: ["不存在"] } });
+    mocks.postFindFirst.mockResolvedValueOnce(before);
     await expect(applyPostAiTaskItem("item-1")).rejects.toThrow("AI tag output did not match existing tags");
     expect(mocks.postUpdate).not.toHaveBeenCalled();
-    expect(mocks.markAiTaskItemSucceeded).not.toHaveBeenCalled();
+    expect(mocks.postUpdateMany).not.toHaveBeenCalled();
+    expect(mocks.itemUpdateMany).not.toHaveBeenCalled();
   });
 });

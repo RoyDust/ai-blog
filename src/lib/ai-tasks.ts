@@ -10,7 +10,7 @@
  * - 任务是批次级对象，任务项是单动作级对象
  * - 任务完成后会尝试发送后台通知，便于人工回看
  */
-import { NotFoundError, ValidationError } from "@/lib/api-errors";
+import { ConflictError, NotFoundError, ValidationError } from "@/lib/api-errors";
 import { createAdminNotification, NOTIFICATION_SEVERITIES, NOTIFICATION_TYPES } from "@/lib/notifications";
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
@@ -174,7 +174,7 @@ function getTaskCompletionNotification(status: AiTaskStatus, failedCount: number
   return null;
 }
 
-async function notifyAiTaskCompletion({
+async function notifyAiTaskCompletion(client: Prisma.TransactionClient, {
   taskId,
   status,
   failedCount,
@@ -190,8 +190,7 @@ async function notifyAiTaskCompletion({
     return;
   }
 
-  try {
-    await createAdminNotification({
+  await createAdminNotification({
       ...notification,
       body: lastError ? `${notification.body} 最近错误：${lastError}` : notification.body,
       actionUrl: `/admin/ai/tasks/${taskId}`,
@@ -199,10 +198,7 @@ async function notifyAiTaskCompletion({
       entityId: taskId,
       dedupeKey: `ai-task:${taskId}:${status}`,
       metadata: { status, failedCount },
-    });
-  } catch (error) {
-    console.error("Create AI task notification error:", error);
-  }
+  }, client);
 }
 
 /**
@@ -238,99 +234,66 @@ export async function createAiTask(input: CreateAiTaskInput): Promise<CreatedAiT
   }) as unknown as Promise<CreatedAiTask>;
 }
 
-/**
- * 标记任务批次已开始执行。
- */
+/** All task writers acquire the parent before item/post locks. */
+export async function lockAiTask(client: Prisma.TransactionClient, taskId: string) {
+  await client.$queryRawUnsafe('SELECT id FROM ai_tasks WHERE id = $1 FOR UPDATE', taskId);
+  const task = await client.aiTask.findUnique({ where: { id: taskId } });
+  if (!task) throw new NotFoundError("AI task not found");
+  return task;
+}
+
 export async function markAiTaskRunning(taskId: string) {
-  return prisma.aiTask.update({
-    where: { id: taskId },
-    data: {
-      status: AI_TASK_STATUSES.running,
-      startedAt: new Date(),
-      finishedAt: null,
-      lastError: null,
-    },
+  return prisma.$transaction(async (client) => {
+    const task = await lockAiTask(client, taskId);
+    if (!isAiTaskActive(task.status)) return null;
+    if (task.status === AI_TASK_STATUSES.running) return task;
+    return client.aiTask.update({
+      where: { id: taskId },
+      data: { status: AI_TASK_STATUSES.running, startedAt: task.startedAt ?? new Date(), finishedAt: null, lastError: null },
+    });
   });
 }
 
-/**
- * 标记单个任务项进入执行中状态。
- */
-export async function markAiTaskItemRunning(itemId: string) {
-  return prisma.aiTaskItem.update({
-    where: { id: itemId },
-    data: {
-      status: AI_TASK_ITEM_STATUSES.running,
-      startedAt: new Date(),
-      finishedAt: null,
-      error: null,
-    },
-  });
+async function changeActiveItem(itemId: string, data: Prisma.AiTaskItemUpdateManyMutationInput, complete: boolean, expectedTaskId?: string, transaction?: Prisma.TransactionClient) {
+  const initial = await (transaction ?? prisma).aiTaskItem.findUnique({ where: { id: itemId }, select: { taskId: true } });
+  if (!initial) throw new NotFoundError("AI task item not found");
+  if (expectedTaskId && initial.taskId !== expectedTaskId) return null;
+  const change = async (client: Prisma.TransactionClient) => {
+    const task = await lockAiTask(client, initial.taskId);
+    if (!isAiTaskActive(task.status)) return null;
+    const changed = await client.aiTaskItem.updateMany({
+      where: { id: itemId, taskId: task.id, status: { in: [AI_TASK_ITEM_STATUSES.queued, AI_TASK_ITEM_STATUSES.running] } },
+      data,
+    });
+    if (changed.count !== 1) return null;
+    if (complete) await refreshAiTaskCountsInTransaction(client, task.id);
+    return client.aiTaskItem.findUnique({ where: { id: itemId } });
+  };
+  return transaction ? change(transaction) : prisma.$transaction(change);
 }
 
-/**
- * 标记任务项执行成功，并把输出结果与 applied 状态写回数据库。
- * 随后会触发整批任务的统计刷新。
- */
-export async function markAiTaskItemSucceeded(itemId: string, output?: JsonValue, applied = false) {
-  const item = await prisma.aiTaskItem.update({
-    where: { id: itemId },
-    data: {
-      status: AI_TASK_ITEM_STATUSES.succeeded,
-      output: toJson(output),
-      applied,
-      error: null,
-      finishedAt: new Date(),
-    },
-    select: { taskId: true },
-  });
-
-  await refreshAiTaskCounts(item.taskId);
+export async function markAiTaskItemRunning(itemId: string, expectedTaskId?: string) {
+  return changeActiveItem(itemId, { status: AI_TASK_ITEM_STATUSES.running, startedAt: new Date(), finishedAt: null, error: null }, false, expectedTaskId);
 }
 
-/**
- * 标记任务项失败，并记录最近错误信息。
- */
-export async function markAiTaskItemFailed(itemId: string, error: string) {
-  const item = await prisma.aiTaskItem.update({
-    where: { id: itemId },
-    data: {
-      status: AI_TASK_ITEM_STATUSES.failed,
-      error,
-      finishedAt: new Date(),
-    },
-    select: { taskId: true },
-  });
-
-  await refreshAiTaskCounts(item.taskId);
+export async function markAiTaskItemSucceeded(itemId: string, output?: JsonValue, applied = false, transaction?: Prisma.TransactionClient) {
+  return changeActiveItem(itemId, { status: AI_TASK_ITEM_STATUSES.succeeded, output: toJson(output), applied, error: null, finishedAt: new Date() }, true, undefined, transaction);
 }
 
-/**
- * 标记任务项被跳过。
- * 跳过通常意味着输入不满足条件，而不是模型调用报错。
- */
-export async function markAiTaskItemSkipped(itemId: string, error?: string) {
-  const item = await prisma.aiTaskItem.update({
-    where: { id: itemId },
-    data: {
-      status: AI_TASK_ITEM_STATUSES.skipped,
-      error: error ?? null,
-      finishedAt: new Date(),
-    },
-    select: { taskId: true },
-  });
-
-  await refreshAiTaskCounts(item.taskId);
+export async function markAiTaskItemFailed(itemId: string, error: string, expectedTaskId?: string, transaction?: Prisma.TransactionClient) {
+  return changeActiveItem(itemId, { status: AI_TASK_ITEM_STATUSES.failed, error, finishedAt: new Date() }, true, expectedTaskId, transaction);
 }
 
-/**
- * 重新统计任务批次的成功/失败/跳过数量，并推导最终状态。
- * 当任务结束时，还会触发后台通知。
- */
-export async function refreshAiTaskCounts(taskId: string) {
-  const items = await prisma.aiTaskItem.findMany({
-    where: { taskId },
-    select: { status: true, error: true },
+export async function markAiTaskItemSkipped(itemId: string, error?: string, expectedTaskId?: string, transaction?: Prisma.TransactionClient) {
+  return changeActiveItem(itemId, { status: AI_TASK_ITEM_STATUSES.skipped, error: error ?? null, finishedAt: new Date() }, true, expectedTaskId, transaction);
+}
+
+/** Counts and the first terminal notification share the caller's transaction. */
+export async function refreshAiTaskCountsInTransaction(client: Prisma.TransactionClient, taskId: string) {
+  const previous = await lockAiTask(client, taskId);
+  if (!isAiTaskActive(previous.status)) return previous;
+  const items = await client.aiTaskItem.findMany({
+    where: { taskId }, select: { status: true, error: true }, orderBy: [{ createdAt: "asc" }, { id: "asc" }],
   });
   const succeeded = items.filter((item) => item.status === AI_TASK_ITEM_STATUSES.succeeded).length;
   const failedItems = items.filter((item) => item.status === AI_TASK_ITEM_STATUSES.failed);
@@ -338,29 +301,22 @@ export async function refreshAiTaskCounts(taskId: string) {
   const failed = failedItems.length;
   const status = resolveTaskStatus({ succeeded, failed, skipped, total: items.length });
   const finished = status !== AI_TASK_STATUSES.running;
-
-  const task = await prisma.aiTask.update({
-    where: { id: taskId },
-    data: {
-      status,
-      requestedCount: items.length,
-      succeededCount: succeeded,
-      failedCount: failed,
-      finishedAt: finished ? new Date() : null,
-      lastError: failedItems.at(-1)?.error ?? null,
-    },
+  const data = {
+    status, requestedCount: items.length, succeededCount: succeeded, failedCount: failed,
+    finishedAt: finished ? new Date() : null, lastError: failedItems.at(-1)?.error ?? null,
+  };
+  const changed = await client.aiTask.updateMany({
+    where: { id: taskId, status: { in: [AI_TASK_STATUSES.queued, AI_TASK_STATUSES.running] } }, data,
   });
-
+  if (changed.count !== 1) throw new ConflictError("AI task changed during completion");
   if (finished) {
-    await notifyAiTaskCompletion({
-      taskId,
-      status,
-      failedCount: failed,
-      lastError: failedItems.at(-1)?.error ?? null,
-    });
+    await notifyAiTaskCompletion(client, { taskId, status, failedCount: failed, lastError: data.lastError });
   }
+  return { ...previous, ...data };
+}
 
-  return task;
+export async function refreshAiTaskCounts(taskId: string) {
+  return prisma.$transaction((client) => refreshAiTaskCountsInTransaction(client, taskId));
 }
 
 /**

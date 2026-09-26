@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-import { ForbiddenError } from "@/lib/api-errors";
+import { ForbiddenError, UnauthorizedError } from "@/lib/api-errors";
 
 const authMocks = vi.hoisted(() => ({
   requireAdminSession: vi.fn(),
@@ -13,6 +13,7 @@ const authMocks = vi.hoisted(() => ({
   listNewsletterSubscribers: vi.fn(),
   previewNewsletterCampaign: vi.fn(),
   recoverSendingNewsletterCampaign: vi.fn(),
+  reconcileNewsletterDelivery: vi.fn(),
   retryNewsletterCampaignFailures: vi.fn(),
   sendNewsletterCampaign: vi.fn(),
   updateNewsletterCampaign: vi.fn(),
@@ -156,14 +157,31 @@ describe("admin newsletter routes", () => {
     });
 
     const { POST } = await import("../[id]/recover/route");
-    const response = await POST(new Request("http://localhost/api/admin/newsletter/campaigns/campaign-1/recover", { method: "POST" }), {
+    const response = await POST(new Request("http://localhost/api/admin/newsletter/campaigns/campaign-1/recover", { method: "POST", body: JSON.stringify({ senderStopped: true }) }), {
       params: Promise.resolve({ id: "campaign-1" }),
     });
     const payload = await response.json();
 
     expect(response.status).toBe(202);
     expect(payload.data.status).toBe("PARTIAL_FAILED");
-    expect(campaignMocks.recoverSendingNewsletterCampaign).toHaveBeenCalledWith("campaign-1");
+    expect(campaignMocks.recoverSendingNewsletterCampaign).toHaveBeenCalledWith("campaign-1", { senderStopped: true });
+  });
+
+  test.each([new UnauthorizedError(), new ForbiddenError()])("requires an admin session before reconciliation (%s)", async (error) => {
+    authMocks.requireAdminSession.mockRejectedValueOnce(error);
+    const { POST } = await import("../[id]/deliveries/[deliveryId]/reconcile/route");
+    const response = await POST(new Request("http://localhost/api/admin/newsletter/campaigns/c-1/deliveries/d-1/reconcile", { method: "POST", body: "{}" }), { params: Promise.resolve({ id: "c-1", deliveryId: "d-1" }) });
+    expect(response.status).toBe(error.status);
+    expect(campaignMocks.reconcileNewsletterDelivery).not.toHaveBeenCalled();
+  });
+
+  test("uses the authenticated administrator and exact delivery attempt for reconciliation", async () => {
+    campaignMocks.reconcileNewsletterDelivery.mockResolvedValueOnce({ campaign: { status: "SENT" } });
+    const { POST } = await import("../[id]/deliveries/[deliveryId]/reconcile/route");
+    const input = { attemptId: "attempt-1", decision: "accepted", reason: "Checked receipt", evidenceKind: "provider_acceptance", evidenceReference: "provider-receipt-1", senderStopped: true };
+    const response = await POST(new Request("http://localhost/api/admin/newsletter/campaigns/c-1/deliveries/d-1/reconcile", { method: "POST", body: JSON.stringify({ ...input, actorId: "forged-actor" }) }), { params: Promise.resolve({ id: "c-1", deliveryId: "d-1" }) });
+    expect(response.status).toBe(200);
+    expect(campaignMocks.reconcileNewsletterDelivery).toHaveBeenCalledWith("c-1", "d-1", "admin-1", input);
   });
 
   test("returns subscriber rows by status", async () => {

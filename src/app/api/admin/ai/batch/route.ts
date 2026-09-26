@@ -2,7 +2,7 @@ import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 import { NextResponse } from "next/server";
 
 import { requireAdminSession } from "@/lib/api-auth";
-import { createAiBatchTask, resumeAiBatchTasks } from "@/lib/ai-batch-jobs";
+import { createAiBatchTask, getAiBatchTaskSnapshot, resumeAiBatchTasks } from "@/lib/ai-batch-jobs";
 import { toErrorResponse } from "@/lib/api-errors";
 
 type Body = {
@@ -37,11 +37,18 @@ async function GETHandler(request: Request) {
     await requireAdminSession();
     const { searchParams } = new URL(request.url);
 
+    const taskIds = [...searchParams.getAll("taskId"), ...(searchParams.get("taskIds")?.split(",") ?? [])];
+    // Validate the observed set before any legacy recovery side effect.
+    const snapshot = await getAiBatchTaskSnapshot(taskIds);
     if (searchParams.get("resume") === "1") {
-      await resumeAiBatchTasks(searchParams.get("taskId"));
+      const ids = [...new Set(taskIds.map((id) => id.trim()).filter(Boolean))];
+      if (ids.length) {
+        for (const id of ids) await resumeAiBatchTasks(id);
+      } else {
+        await resumeAiBatchTasks();
+      }
     }
-
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, data: snapshot });
   } catch (error) {
     return toErrorResponse(error, "AI batch resume failed");
   }

@@ -6,6 +6,7 @@ import {
   POST_AI_ACTIONS,
   buildDraftPostForAiAction,
   buildPostAiInputSnapshot,
+  completePostAiTaskItem,
   getPostForAiAction,
   runPostAiAction,
   type DraftPostForAiInput,
@@ -24,6 +25,7 @@ import {
 } from "@/lib/ai-tasks";
 import { toErrorResponse, ValidationError } from "@/lib/api-errors";
 import { prisma } from "@/lib/prisma";
+import { AiInfrastructureError } from "@/lib/ai-task-errors";
 import { generatePostSlug } from "@/lib/slug";
 
 const ARTICLE_INFO_ACTIONS = [
@@ -172,7 +174,7 @@ async function buildArticleInfoQuality({
   };
 }
 
-async function resolvePostInput(body: Body): Promise<{ post: PostForAi; postId: string | null; source: "single-post" | "draft-post" }> {
+async function resolvePostInput(body: Body): Promise<{ post: PostForAi; postId: string | null; source: "single-post" | "draft-post"; draft: boolean }> {
   const postId = readOptionalString(body.postId);
   const hasDraft = Boolean(body.draft && typeof body.draft === "object");
 
@@ -186,6 +188,7 @@ async function resolvePostInput(body: Body): Promise<{ post: PostForAi; postId: 
       post: postId ? { ...draftPost, id: postId } : draftPost,
       postId: postId || null,
       source: postId ? "single-post" : "draft-post",
+      draft: true,
     };
   }
 
@@ -193,6 +196,7 @@ async function resolvePostInput(body: Body): Promise<{ post: PostForAi; postId: 
     post: await getPostForAiAction(postId),
     postId,
     source: "single-post",
+    draft: false,
   };
 }
 
@@ -200,11 +204,11 @@ async function POSTHandler(request: Request) {
   try {
     const session = await requireAdminSession();
     const body = (await request.json()) as Body;
-    const { post, postId, source } = await resolvePostInput(body);
+    const { post, postId, source, draft } = await resolvePostInput(body);
     assertEnoughContentForArticleInfo(post);
     const baseMetadata = {
       oneClick: true,
-      draft: source === "draft-post",
+      draft,
       preserve: ["title", "content"],
       actions: ARTICLE_INFO_ACTIONS,
       promptVersion: ARTICLE_INFO_PROMPT_VERSION,
@@ -215,7 +219,7 @@ async function POSTHandler(request: Request) {
       status: AI_TASK_ITEM_STATUSES.queued,
       inputSnapshot: {
         ...(buildPostAiInputSnapshot(post, action) as Record<string, JsonValue>),
-        draft: source === "draft-post",
+        draft,
         oneClick: true,
         preserve: ["title", "content"],
       },
@@ -245,27 +249,38 @@ async function POSTHandler(request: Request) {
       await markAiTaskItemRunning(item.id);
 
       const startedAt = Date.now();
+      let result: Awaited<ReturnType<typeof runPostAiAction>>;
       try {
-        const result = await runPostAiAction({ post, action, modelId: body.modelId });
-        const durationMs = Date.now() - startedAt;
-        if (result.modelId && result.modelId !== resolvedModelId) {
-          resolvedModelId = result.modelId;
-          await prisma.aiTask.update({ where: { id: task.id }, data: { modelId: result.modelId } });
-        }
-        const output = withOutputMeta(result.output, {
-          modelId: result.modelId ?? null,
-          durationMs,
-          promptVersion: ARTICLE_INFO_PROMPT_VERSION,
-        });
-        outputs[action] = output;
-        results.push({ itemId: item.id, action, modelId: result.modelId ?? null, durationMs, output });
-        await markAiTaskItemSucceeded(item.id, output as JsonValue);
+        result = await runPostAiAction({ post, action, modelId: body.modelId });
       } catch (error) {
+        if (error instanceof AiInfrastructureError) throw error;
         const durationMs = Date.now() - startedAt;
         const message = error instanceof Error ? error.message : "AI article info item failed";
         failures.push({ action, message, durationMs });
         await markAiTaskItemFailed(item.id, message);
+        continue;
       }
+      const durationMs = Date.now() - startedAt;
+      if (result.modelId && result.modelId !== resolvedModelId) {
+        resolvedModelId = result.modelId;
+        await prisma.aiTask.update({ where: { id: task.id }, data: { modelId: result.modelId } });
+      }
+      const output = withOutputMeta(result.output, {
+        modelId: result.modelId ?? null,
+        durationMs,
+        promptVersion: ARTICLE_INFO_PROMPT_VERSION,
+      });
+      if (draft) {
+        await markAiTaskItemSucceeded(item.id, output as JsonValue);
+      } else {
+        const completed = await completePostAiTaskItem({ taskId: task.id, itemId: item.id, post, action, expectedInputSnapshot: item.inputSnapshot, output: output as JsonValue, modelId: result.modelId, apply: false });
+        if (completed?.status !== AI_TASK_ITEM_STATUSES.succeeded) {
+          failures.push({ action, message: '生成期间文章或任务已变化，请重新生成建议', durationMs });
+          continue;
+        }
+      }
+      outputs[action] = output;
+      results.push({ itemId: item.id, action, modelId: result.modelId ?? null, durationMs, output });
     }
 
     await refreshAiTaskCounts(task.id);

@@ -68,6 +68,30 @@ describe("notification service", () => {
     });
   });
 
+  test("uses the supplied transaction for AI completion and leaves an existing delivery unchanged", async () => {
+    const tx = {
+      user: { findMany: vi.fn().mockResolvedValue([{ id: "admin-tx" }]) },
+      notification: {
+        findUnique: vi.fn().mockResolvedValue(null),
+        create: vi.fn().mockResolvedValue({ id: "tx-notification" }),
+      },
+      notificationRecipient: { createMany: vi.fn().mockResolvedValue({ count: 1 }) },
+    };
+    const { createAdminNotification } = await import("../notifications");
+    const input = { type: "AI_TASK_SUCCEEDED" as const, title: "完成", dedupeKey: "ai-task:task-1:SUCCEEDED" };
+    await createAdminNotification(input, tx as never);
+    expect(tx.notificationRecipient.createMany).toHaveBeenCalledWith({
+      data: [{ notificationId: "tx-notification", userId: "admin-tx" }], skipDuplicates: true,
+    });
+    expect(prismaMocks.notificationUpsert).not.toHaveBeenCalled();
+    expect(prismaMocks.userFindMany).not.toHaveBeenCalled();
+    tx.notification.findUnique.mockResolvedValue({ id: "tx-notification" });
+    await createAdminNotification({ ...input, title: "changed" }, tx as never);
+    expect(tx.notification.create).toHaveBeenCalledTimes(1);
+    expect(tx.notificationRecipient.createMany).toHaveBeenCalledTimes(1);
+    expect(tx.user.findMany).toHaveBeenCalledTimes(1);
+  });
+
   test("lists notifications with unread counts and flattened receipt state", async () => {
     const createdAt = new Date("2026-05-07T08:00:00Z");
     prismaMocks.recipientCount.mockResolvedValueOnce(2);

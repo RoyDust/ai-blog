@@ -8,7 +8,7 @@ vi.mock('@/lib/prisma', () => ({
   },
 }))
 
-import { checkInteractionRateLimit, createMemoryRateLimiter } from '../rate-limit'
+import { checkAuthRateLimit, checkInteractionRateLimit, createMemoryRateLimiter } from '../rate-limit'
 
 describe('rate limiter', () => {
   const originalDriver = process.env.RATE_LIMIT_DRIVER
@@ -45,5 +45,20 @@ describe('rate limiter', () => {
       remaining: 19,
       strategy: 'database',
     })
+  })
+
+  test('cannot rotate a forged forwarded-for prefix to evade the trusted proxy IP limit', async () => {
+    process.env.RATE_LIMIT_DRIVER = 'memory'
+    const results = []
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      results.push(await checkAuthRateLimit(new Request('http://localhost/api/auth/callback/credentials', {
+        headers: {
+          'x-real-ip': '203.0.113.80',
+          'x-forwarded-for': `198.51.100.${attempt + 1}, 203.0.113.80`,
+        },
+      })))
+    }
+
+    expect(results.map((result) => result.allowed)).toEqual([true, true, true, true, true, false])
   })
 })

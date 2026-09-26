@@ -50,7 +50,7 @@ async function GETHandler(
               select: { id: true, name: true, image: true }
             },
             replies: {
-              where: { status: "APPROVED", deletedAt: null },
+              where: { status: "APPROVED", deletedAt: null, post: { slug, published: true, deletedAt: null } },
               include: {
                 author: {
                   select: { id: true, name: true, image: true }

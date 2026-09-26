@@ -8,15 +8,18 @@ const prismaMocks = vi.hoisted(() => ({
   aiTaskFindMany: vi.fn(),
   aiTaskItemFindMany: vi.fn(),
   aiTaskItemUpdate: vi.fn(),
+  raw: vi.fn(),
   createAdminNotification: vi.fn(),
 }));
 
-vi.mock("@/lib/prisma", () => ({
-  prisma: {
+vi.mock("@/lib/prisma", () => {
+  const client = {
+    $queryRawUnsafe: prismaMocks.raw,
     aiTask: {
       create: prismaMocks.aiTaskCreate,
       findUnique: prismaMocks.aiTaskFindUnique,
       update: prismaMocks.aiTaskUpdate,
+      updateMany: prismaMocks.aiTaskUpdate,
       count: prismaMocks.aiTaskCount,
       findMany: prismaMocks.aiTaskFindMany,
     },
@@ -24,8 +27,9 @@ vi.mock("@/lib/prisma", () => ({
       findMany: prismaMocks.aiTaskItemFindMany,
       update: prismaMocks.aiTaskItemUpdate,
     },
-  },
-}));
+  };
+  return { prisma: { ...client, $transaction: (fn: (tx: typeof client) => unknown) => fn(client) } };
+});
 
 vi.mock("@/lib/notifications", () => ({
   createAdminNotification: prismaMocks.createAdminNotification,
@@ -46,7 +50,8 @@ describe("ai task service", () => {
     vi.resetModules();
     vi.clearAllMocks();
     prismaMocks.aiTaskCreate.mockImplementation(({ data }) => Promise.resolve({ id: "task-1", ...data, items: data.items?.create ?? [] }));
-    prismaMocks.aiTaskUpdate.mockImplementation(({ data }) => Promise.resolve({ id: "task-1", ...data }));
+    prismaMocks.aiTaskUpdate.mockImplementation(({ data }) => Promise.resolve({ id: "task-1", ...data, count: 1 }));
+    prismaMocks.aiTaskFindUnique.mockResolvedValue({ id: "task-1", status: "RUNNING" });
   });
 
   test("creates a queued task with task items", async () => {
@@ -99,7 +104,7 @@ describe("ai task service", () => {
     await refreshAiTaskCounts("task-1");
 
     expect(prismaMocks.aiTaskUpdate).toHaveBeenCalledWith({
-      where: { id: "task-1" },
+      where: { id: "task-1", status: { in: ["QUEUED", "RUNNING"] } },
       data: expect.objectContaining({
         status: "PARTIAL_FAILED",
         requestedCount: 3,
@@ -115,7 +120,23 @@ describe("ai task service", () => {
       entityType: "aiTask",
       entityId: "task-1",
       dedupeKey: "ai-task:task-1:PARTIAL_FAILED",
-    }));
+    }), expect.objectContaining({ aiTask: expect.any(Object) }));
+  });
+
+  test("propagates terminal notification failure so the caller transaction can roll back", async () => {
+    prismaMocks.aiTaskItemFindMany.mockResolvedValue([{ status: "SUCCEEDED", error: null }]);
+    prismaMocks.createAdminNotification.mockRejectedValueOnce(new Error("recipient insert unavailable"));
+    const { refreshAiTaskCounts } = await import("../ai-tasks");
+    await expect(refreshAiTaskCounts("task-1")).rejects.toThrow("recipient insert unavailable");
+  });
+
+  test("does not recalculate or redeliver a terminal task", async () => {
+    prismaMocks.aiTaskFindUnique.mockResolvedValue({ id: "task-1", status: "SUCCEEDED" });
+    prismaMocks.aiTaskItemFindMany.mockResolvedValue([{ status: "SUCCEEDED", error: null }]);
+    const { refreshAiTaskCounts } = await import("../ai-tasks");
+    await refreshAiTaskCounts("task-1");
+    expect(prismaMocks.aiTaskUpdate).not.toHaveBeenCalled();
+    expect(prismaMocks.createAdminNotification).not.toHaveBeenCalled();
   });
 
   test("creates a retry task from failed items only", async () => {

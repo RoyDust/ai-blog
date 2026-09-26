@@ -9,11 +9,12 @@ type CampaignRecoverRouteContext = {
   params: Promise<{ id: string }>;
 };
 
-async function POSTHandler(_: Request, { params }: CampaignRecoverRouteContext) {
+async function POSTHandler(request: Request, { params }: CampaignRecoverRouteContext) {
   try {
     await requireAdminSession();
     const { id } = await params;
-    const campaign = await recoverSendingNewsletterCampaign(id);
+    const body = await request.json().catch(() => ({}));
+    const campaign = await recoverSendingNewsletterCampaign(id, { senderStopped: body?.senderStopped });
 
     return NextResponse.json({ success: true, data: campaign }, { status: 202 });
   } catch (error) {

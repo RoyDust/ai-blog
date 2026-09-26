@@ -92,7 +92,7 @@ function safeRevalidatePath(path: string, type?: 'layout' | 'page') {
  * - 这里负责“哪些页面需要失效”，不负责具体写库逻辑
  * - previous* 字段用于处理内容迁移前的旧路径清理
  */
-export function revalidatePublicContent(options: {
+export interface PublicContentPathsInput {
   slug?: string | null
   previousSlug?: string | null
   categorySlug?: string | null
@@ -101,7 +101,9 @@ export function revalidatePublicContent(options: {
   previousTagSlugs?: string[]
   seriesSlug?: string | null
   previousSeriesSlug?: string | null
-}) {
+}
+
+export function getPublicContentPaths(options: PublicContentPathsInput) {
   const slug = normalizePathSlug(options.slug)
   const previousSlug = normalizePathSlug(options.previousSlug)
   const categorySlug = normalizePathSlug(options.categorySlug)
@@ -125,9 +127,30 @@ export function revalidatePublicContent(options: {
     previousSeriesSlug ? buildSeriesPath(previousSeriesSlug) : null,
   ])
 
-  for (const path of paths) {
+  return paths
+}
+
+export function revalidatePublicContent(options: PublicContentPathsInput) {
+  for (const path of getPublicContentPaths(options)) {
     safeRevalidatePath(path)
   }
+}
+
+export function revalidatePublicPathsStrict(paths: string[]) {
+  const uniquePaths = dedupePaths(paths)
+  const errors: Array<{ path: string; error: string }> = []
+  for (const path of uniquePaths) {
+    try {
+      revalidatePath(path)
+    } catch (error) {
+      errors.push({ path, error: error instanceof Error ? error.message : 'Cache revalidation failed' })
+    }
+  }
+  return { paths: uniquePaths, errors }
+}
+
+export function revalidatePublicContentStrict(options: PublicContentPathsInput) {
+  return revalidatePublicPathsStrict(getPublicContentPaths(options))
 }
 
 /**

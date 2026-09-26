@@ -101,6 +101,27 @@ export async function deletePostViaApi(request: APIRequestContext, id: string): 
   expect(response.status(), "delete post via API should succeed").toBeLessThan(300)
 }
 
+export type AiTaskResult = {
+  id: string
+  status: string
+  succeededCount: number
+  failedCount: number
+  items: Array<{ postId: string; status: string; applied: boolean }>
+}
+
+/** 等待任务完成；是否成功由调用方单独断言，失败终态不能当作成功。 */
+export async function waitForAiTask(request: APIRequestContext, taskId: string): Promise<AiTaskResult> {
+  let task: AiTaskResult | undefined
+  await expect.poll(async () => {
+    const response = await request.get(`/api/admin/ai/tasks/${encodeURIComponent(taskId)}`)
+    expect(response.ok()).toBe(true)
+    task = (await response.json()).data
+    return task?.status
+  }, { timeout: 180_000, intervals: [1_000, 2_000] }).toMatch(/^(SUCCEEDED|FAILED|PARTIAL_FAILED)$/)
+  if (!task) throw new Error(`AI task ${taskId} returned no result`)
+  return task
+}
+
 export type CreatedCategory = {
   id: string
   name: string

@@ -14,7 +14,6 @@ vi.mock("@/lib/prisma", () => ({
 
 import {
   DEFAULT_API_OPERATION_LOG_MAX_STORAGE_BYTES,
-  enforceApiOperationLogStorageLimit,
   getApiOperationLogSettingsSummary,
   normalizeApiOperationLogMaxStorageBytes,
   updateApiOperationLogMaxStorageBytes,
@@ -56,26 +55,18 @@ describe("api operation log settings", () => {
     });
   });
 
-  test("persists the limit and trims oldest logs", async () => {
+  test("persists the limit without running retention in the request", async () => {
     prismaMocks.executeRawUnsafe.mockResolvedValueOnce(1).mockResolvedValueOnce(4);
 
     const result = await updateApiOperationLogMaxStorageBytes("16m");
 
-    expect(result).toEqual({ maxStorageBytes: 16 * 1024 * 1024, deletedCount: 4 });
+    expect(result).toEqual({ maxStorageBytes: 16 * 1024 * 1024, deletedCount: 0 });
     expect(prismaMocks.executeRawUnsafe).toHaveBeenNthCalledWith(
       1,
       expect.stringContaining('INSERT INTO "system_settings"'),
       "apiOperationLog.maxStorageBytes",
       JSON.stringify({ maxStorageBytes: 16 * 1024 * 1024 }),
     );
-    expect(prismaMocks.executeRawUnsafe).toHaveBeenNthCalledWith(2, expect.stringContaining('DELETE FROM "api_operation_logs"'), 16 * 1024 * 1024);
-  });
-
-  test("enforces the configured limit from settings", async () => {
-    prismaMocks.queryRawUnsafe.mockResolvedValueOnce([{ value: { maxStorageBytes: 8 * 1024 * 1024 } }]);
-    prismaMocks.executeRawUnsafe.mockResolvedValueOnce(2);
-
-    await expect(enforceApiOperationLogStorageLimit()).resolves.toEqual({ deletedCount: 2 });
-    expect(prismaMocks.executeRawUnsafe).toHaveBeenCalledWith(expect.stringContaining("newest_bytes > $1"), 8 * 1024 * 1024);
+    expect(prismaMocks.executeRawUnsafe).toHaveBeenCalledTimes(1);
   });
 });

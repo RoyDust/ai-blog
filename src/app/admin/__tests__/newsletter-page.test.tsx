@@ -69,6 +69,49 @@ function createFetchMock() {
 }
 
 describe("admin newsletter page", () => {
+  test.each([false, true])('refreshes open delivery detail after recovery, including a failed response (%s)', async (failedResponse) => {
+    let recovered = false;
+    const row = { id: 'recover-open', title: 'Recovery detail', subject: 'Recovery', status: 'SENDING', postIds: [], sentAt: null, createdAt: '2026-09-26T00:00:00Z', deliveryStats: { total: 1, sending: 1 } };
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith('/recover')) {
+        recovered = true;
+        return { ok: !failedResponse, status: failedResponse ? 500 : 200, json: async () => failedResponse ? { success: false, error: 'Response failed after persistence' } : { success: true } };
+      }
+      if (url === '/api/admin/newsletter/campaigns/recover-open') return { ok: true, json: async () => ({ data: { ...row, status: recovered ? 'PARTIAL_FAILED' : 'SENDING', audienceFrozenAt: row.createdAt, deliveries: [{ id: 'delivery', email: 'reader@test.local', status: recovered ? 'unknown' : 'sending', attemptId: 'attempt', attemptStartedAt: row.createdAt }] } }) };
+      return { ok: true, json: async () => url.includes('/subscribers?') ? { data: [], stats: emptyStatsForTest } : { data: [{ ...row, status: recovered ? 'PARTIAL_FAILED' : 'SENDING' }] } };
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    try {
+      renderWithSWR(<AdminNewsletterPage />);
+      fireEvent.click(await screen.findByRole('button', { name: '收件记录' }));
+      await screen.findByText('reader@test.local');
+      expect(screen.queryByRole('button', { name: '核对未知结果' })).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: /恢复状态/ }));
+      expect(await screen.findByRole('button', { name: '核对未知结果' })).toBeEnabled();
+      expect(fetchMock.mock.calls.filter(([url]) => String(url).includes('campaigns?page='))).toHaveLength(2);
+    } finally { confirm.mockRestore(); }
+  });
+
+  test("shows every delivery state and requires explicit stopped-sender confirmation before recovery", async () => {
+    const fetchMock = createFetchMock().mockResolvedValue({ ok: true, json: async () => ({ success: true, data: [] }) });
+    const confirm = vi.spyOn(window, "confirm").mockReturnValueOnce(false).mockReturnValueOnce(true);
+    vi.stubGlobal("fetch", fetchMock);
+    renderWithSWR(<AdminNewsletterPage />);
+    await screen.findByText("本周精选");
+    expect(screen.getAllByText("待发送 0").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("发送中 0").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("未知 0").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("跳过 0").length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole("button", { name: /恢复状态/ }));
+    expect(fetchMock).not.toHaveBeenCalledWith("/api/admin/newsletter/campaigns/campaign-3/recover", expect.anything());
+    fireEvent.click(screen.getByRole("button", { name: /恢复状态/ }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/admin/newsletter/campaigns/campaign-3/recover", expect.objectContaining({ body: JSON.stringify({ senderStopped: true }) })));
+    expect(confirm).toHaveBeenCalledWith(expect.stringContaining("旧发送进程已经停止"));
+    confirm.mockRestore();
+  });
+
   test("renders campaign list, create form, subscriber summary, send action, and status badges", async () => {
     const fetchMock = createFetchMock();
     vi.stubGlobal("fetch", fetchMock);

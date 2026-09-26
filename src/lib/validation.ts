@@ -83,6 +83,12 @@ function assertSlug(value: string, fieldName: string) {
   }
 }
 
+export function parsePostSlug(value: unknown) {
+  const slug = readString(value, 'slug')
+  assertSlug(slug, 'slug')
+  return slug
+}
+
 function assertAiExternalId(value: string) {
   if (!AI_EXTERNAL_ID_PATTERN.test(value)) {
     throw new ValidationError("Invalid externalId")
@@ -537,7 +543,7 @@ export function parsePostPatchInput(payload: unknown) {
   return {
     title,
     content,
-    slug: data.slug == null ? undefined : readString(data.slug, 'slug'),
+    slug: data.slug == null ? undefined : parsePostSlug(data.slug),
     excerpt: optionalString(data.excerpt, 'excerpt'),
     seoDescription: optionalNullableString(data.seoDescription, 'seoDescription'),
     coverImage: optionalString(data.coverImage, 'coverImage'),

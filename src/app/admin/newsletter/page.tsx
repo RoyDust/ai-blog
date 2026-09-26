@@ -5,7 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { MailCheck, RefreshCcw, Send, Users } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
-import useSWR from "swr";
+import useSWR, { useSWRConfig } from "swr";
 import { z } from "zod";
 
 import { DataTable, type DataColumn } from "@/components/admin/DataTable";
@@ -15,6 +15,7 @@ import { WorkspacePanel } from "@/components/admin/primitives/WorkspacePanel";
 import { Button, Input, Textarea } from "@/components/admin/ui";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/shadcn/ui/form";
 import { apiFetcher, apiMutate, handleGlobalSwrError, toErrorMessage } from "@/lib/client-api";
+import { NewsletterDeliveryPanel } from "./NewsletterDeliveryPanel";
 
 type CampaignStatus = "DRAFT" | "SENDING" | "SENT" | "PARTIAL_FAILED" | "FAILED";
 
@@ -32,6 +33,9 @@ type CampaignRow = {
     sent: number;
     failed: number;
     pending: number;
+    sending: number;
+    skipped: number;
+    unknown: number;
   };
 };
 
@@ -120,8 +124,20 @@ function StatCard({
   );
 }
 
+function CampaignDeliveryStats({ stats }: { stats?: CampaignRow["deliveryStats"] }) {
+  return <div className="flex flex-wrap gap-2 text-xs">
+    <span className="rounded-md bg-[var(--surface-alt)] px-2 py-1 text-[var(--text-body)]">总计 {stats?.total ?? 0}</span>
+    <span className="rounded-md bg-emerald-50 px-2 py-1 text-emerald-700">已接受 {stats?.sent ?? 0}</span>
+    <span className="rounded-md bg-rose-50 px-2 py-1 text-rose-700">失败 {stats?.failed ?? 0}</span>
+    <span>待发送 {stats?.pending ?? 0}</span><span>发送中 {stats?.sending ?? 0}</span>
+    <span>未知 {stats?.unknown ?? 0}</span><span>跳过 {stats?.skipped ?? 0}</span>
+  </div>;
+}
+
 export default function AdminNewsletterPage() {
+  const { mutate } = useSWRConfig();
   const [busyCampaignId, setBusyCampaignId] = useState<string | null>(null);
+  const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null);
   const campaignForm = useForm<CampaignForm>({
     resolver: zodResolver(campaignFormSchema),
     defaultValues: initialForm,
@@ -183,20 +199,21 @@ export default function AdminNewsletterPage() {
   }
 
   const runCampaignAction = useCallback(async (campaignId: string, action: "send" | "retry" | "recover") => {
+    if (action === "recover" && !window.confirm("请先在运行环境确认旧发送进程已经停止。恢复不会停止仍在运行的进程。确认已停止后，将未完成尝试标为未知，待核对后处理。")) return;
     try {
       setBusyCampaignId(campaignId);
-      await apiMutate(`/api/admin/newsletter/campaigns/${campaignId}/${action}`, { method: "POST" });
+      await apiMutate(`/api/admin/newsletter/campaigns/${campaignId}/${action}`, { method: "POST", ...(action === "recover" ? { body: JSON.stringify({ senderStopped: true }) } : {}) });
 
       toast.success(action === "send" ? "邮件发送任务已执行" : action === "retry" ? "失败收件人已重试" : "发送状态已恢复");
-      void mutateCampaigns();
     } catch (error) {
       toast.error(
         toErrorMessage(error, action === "send" ? "邮件发送失败" : action === "retry" ? "失败重试失败" : "发送状态恢复失败"),
       );
     } finally {
       setBusyCampaignId(null);
+      await Promise.allSettled([mutateCampaigns(), mutate(`/api/admin/newsletter/campaigns/${campaignId}`)]);
     }
-  }, [mutateCampaigns]);
+  }, [mutateCampaigns, mutate]);
 
   const columns = useMemo<DataColumn<CampaignRow>[]>(
     () => [
@@ -218,17 +235,7 @@ export default function AdminNewsletterPage() {
       {
         key: "deliveries",
         label: "投递状态",
-        render: (row) => {
-          const stats = row.deliveryStats ?? { total: 0, sent: 0, failed: 0, pending: 0 };
-
-          return (
-            <div className="flex flex-wrap gap-2 text-xs">
-              <span className="rounded-md bg-[var(--surface-alt)] px-2 py-1 text-[var(--text-body)]">总计 {stats.total}</span>
-              <span className="rounded-md bg-emerald-50 px-2 py-1 text-emerald-700">成功 {stats.sent}</span>
-              <span className="rounded-md bg-rose-50 px-2 py-1 text-rose-700">失败 {stats.failed}</span>
-            </div>
-          );
-        },
+        render: (row) => <CampaignDeliveryStats stats={row.deliveryStats} />,
       },
       {
         key: "posts",
@@ -246,17 +253,17 @@ export default function AdminNewsletterPage() {
         render: (row) => (
           <div className="flex flex-wrap gap-2">
             <Button
-              disabled={busyCampaignId === row.id || row.status === "SENDING" || row.status === "SENT" || row.status === "FAILED"}
+              disabled={busyCampaignId === row.id || row.status === "SENDING" || row.status === "SENT" || (row.status !== "DRAFT" && !(row.deliveryStats?.pending))}
               onClick={() => void runCampaignAction(row.id, "send")}
               size="xs"
               type="button"
               variant="outline"
             >
               <Send className="h-3 w-3" aria-hidden />
-              发送
+              {row.status === "DRAFT" ? "发送" : "继续发送"}
             </Button>
             <Button
-              disabled={busyCampaignId === row.id || (row.status !== "PARTIAL_FAILED" && row.status !== "FAILED")}
+              disabled={busyCampaignId === row.id || (row.status !== "PARTIAL_FAILED" && row.status !== "FAILED") || !row.deliveryStats?.failed}
               onClick={() => void runCampaignAction(row.id, "retry")}
               size="xs"
               type="button"
@@ -264,6 +271,9 @@ export default function AdminNewsletterPage() {
             >
               <RefreshCcw className="h-3 w-3" aria-hidden />
               重试失败
+            </Button>
+            <Button type="button" size="xs" variant="outline" onClick={() => setSelectedCampaignId(row.id)}>
+              {row.deliveryStats?.unknown ? "核对未知" : "收件记录"}
             </Button>
             {row.status === "SENDING" ? (
               <Button
@@ -291,6 +301,8 @@ export default function AdminNewsletterPage() {
         title="邮件运营"
         description="创建文章精选邮件，发送给已验证订阅者，并追踪每次投递结果。"
       />
+      <p className="text-sm text-[var(--muted)]">已接受仅表示适配器接受，不保证到达邮箱。log 为模拟发送，noop 不发送真实邮件。未知结果不会自动重发。</p>
+      {selectedCampaignId ? <NewsletterDeliveryPanel key={selectedCampaignId} campaignId={selectedCampaignId} onChanged={() => { void mutateCampaigns(); }} onClose={() => setSelectedCampaignId(null)} /> : null}
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
         <StatCard icon={Users} label="全部订阅者" value={subscriberStats.total} hint="包含待验证与已退订" />
