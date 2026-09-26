@@ -3,30 +3,27 @@ on:
   workflow_dispatch:
     inputs:
       ref:
-        description: Previously uploaded release SHA
+        description: Release SHA
         required: true
       environment:
         description: Deployment environment
         required: true
         default: production
 concurrency:
-  group: deploy-production
+  group: deploy-transfer-diagnostic
   cancel-in-progress: false
 permissions:
   contents: read
 jobs:
-  recover:
+  inspect-transfer:
     runs-on: ubuntu-latest
     environment:
       name: ${{ inputs.environment }}
     steps:
-      - uses: actions/checkout@v5
-        with:
-          ref: a32249a2cae25c264fb09100cb7c51554300e7b5
       - uses: webfactory/ssh-agent@v0.10.0
         with:
           ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
-      - name: Prepare matching PostgreSQL backup client
+      - name: Inspect backup-client transfer without modifying production
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
@@ -36,71 +33,16 @@ jobs:
           set -euo pipefail
           mkdir -p ~/.ssh
           ssh-keyscan -p "$DEPLOY_PORT" "$DEPLOY_HOST" >> ~/.ssh/known_hosts
-          major=$(ssh -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" bash -s <<'REMOTE'
+          ssh -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" bash -s -- "$(printf '%q' "$DEPLOY_PATH")" <<'REMOTE'
           set -euo pipefail
-          docker exec current-app-1 node -e '
-          const { Client } = require("pg");
-          (async () => {
-            const client = new Client({ connectionString: process.env.DATABASE_URL, connectionTimeoutMillis: 10000, query_timeout: 10000 });
-            try {
-              await client.connect();
-              const result = await client.query("SHOW server_version_num");
-              const major = Math.floor(Number(result.rows[0].server_version_num) / 10000);
-              if (!Number.isInteger(major) || major < 10 || major > 99) throw new Error();
-              process.stdout.write(String(major));
-            } finally { await client.end(); }
-          })().catch(() => { console.error("Cannot determine backup client version"); process.exitCode = 1; });
-          '
-          REMOTE
-          )
-          [[ "$major" =~ ^[0-9]{2}$ ]]
-          echo "Backup client PostgreSQL major: $major"
-          if ssh -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "docker image inspect postgres:$major >/dev/null 2>&1"; then
-            echo 'Matching backup client is already cached'
-          else
-            docker pull "postgres:$major"
-            docker save "postgres:$major" | gzip > backup-client.tar.gz
-            scp -P "$DEPLOY_PORT" backup-client.tar.gz "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/shared/postgres-$major-recovery.tar.gz"
-            ssh -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" bash -s -- "$(printf '%q' "$DEPLOY_PATH")" "$major" <<'REMOTE'
-          set -euo pipefail
-          gzip -dc "$1/shared/postgres-$2-recovery.tar.gz" | docker load
-          docker image inspect "postgres:$2" >/dev/null
-          rm -f -- "$1/shared/postgres-$2-recovery.tar.gz"
-          REMOTE
-          fi
-      - name: Recover verified release with production gates
-        env:
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
-          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
-          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
-          DEPLOY_COMPOSE_PROJECT_NAME: ${{ vars.COMPOSE_PROJECT_NAME }}
-          RELEASE_SHA: ${{ inputs.ref }}
-        run: |
-          set -euo pipefail
-          [[ "$RELEASE_SHA" == ab4de42b89b7665127d1707b16d017f699d0cee5 ]]
-          [[ "$DEPLOY_COMPOSE_PROJECT_NAME" == current ]]
-          mkdir -p ~/.ssh
-          ssh-keyscan -p "$DEPLOY_PORT" "$DEPLOY_HOST" >> ~/.ssh/known_hosts
-          scp -P "$DEPLOY_PORT" scripts/prepare-production-env.cjs "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/releases/$RELEASE_SHA/scripts/prepare-production-env.cjs"
-          scp -P "$DEPLOY_PORT" scripts/deploy/deploy-remote.sh "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/releases/$RELEASE_SHA/scripts/deploy/deploy-remote.sh"
-          scp -P "$DEPLOY_PORT" scripts/deploy/backup-production.sh "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/releases/$RELEASE_SHA/scripts/deploy/backup-production.sh"
-          ssh -o ServerAliveInterval=30 -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" bash -s -- "$(printf '%q' "$DEPLOY_PATH")" "$RELEASE_SHA" <<'REMOTE'
-          set -euo pipefail
-          base="$1"
-          release="$2"
-          cd "$base/releases/$release"
-          image=$(docker image inspect 23195b98fcf88 --format '{{.Id}}')
-          [[ $(docker image inspect my-next-app:latest --format '{{.Id}}') == "$image" ]]
-          [[ $(docker inspect --format '{{.State.Running}}' current-app-1) == true ]]
-          if [[ ! -f "$base/shared/.env.pre-$release" ]]; then
-            install -m 600 "$base/shared/.env" "$base/shared/.env.pre-$release"
-          fi
-          docker run --rm --network none --entrypoint node --env DEPLOY_COMPOSE_PROJECT_NAME=current \
-            --mount "type=bind,src=$base/releases/$release/scripts/prepare-production-env.cjs,dst=/app/scripts/prepare-production-env.cjs,readonly" \
-            --mount "type=bind,src=$base/shared/.env,dst=/tmp/production.env" \
-            "$image" /app/scripts/prepare-production-env.cjs /tmp/production.env
-          docker tag "$image" "my-next-app:release-$release"
-          PREBUILT_IMAGE_ID="$image" BACKUP_BEFORE_DEPLOY=1 RELEASE_SHA="$release" DEPLOY_PATH="$base" bash scripts/deploy/deploy-remote.sh
-          echo "Production application release: $release"
+          shopt -s nullglob
+          for n in 1 2; do
+            for file in "$1"/shared/postgres-*-recovery.tar.gz; do
+              stat --printf 'TRANSFER %s bytes\n' "$file"
+            done
+            if [[ "$n" == 1 ]]; then sleep 10; fi
+          done
+          df --output=avail "$1" | tail -1 | awk '{ print "FREE_KIB " $1 }'
+          docker ps --filter publish=3000 --format 'APP_STATE {{.State}}'
+          docker images --format 'BACKUP_CLIENT {{.Repository}}:{{.Tag}}' --filter 'reference=postgres:*'
           REMOTE
