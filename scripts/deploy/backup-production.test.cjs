@@ -16,6 +16,8 @@ function backup(mode) {
     'set -eu',
     'echo "$*" >> "$MOCK_ROOT/commands"',
     'case "$*" in',
+    '  "image inspect"*) if [[ "$MODE" == client-missing || "$MODE" == client-pull-failure ]]; then exit 1; fi ;;',
+    '  pull*) if [[ "$MODE" == client-pull-failure ]]; then exit 1; fi ;;',
     '  compose*) if [[ "$MODE" != missing ]]; then echo owned-old-container; fi ;;',
     '  exec*) printf "%s\\n" "PG_VERSION=16" "DATABASE_URL=postgresql://user:test-only-backup-secret@database/test" ;;',
     '  inspect*) if [[ "$*" == *".Image"* ]]; then echo sha256:old-image; else echo false; fi ;;',
@@ -52,10 +54,18 @@ test('preserves the previous image and validates backup before stopping senders'
   assert.ok(stop > result.calls.indexOf('pg_dump --format=custom'));
   assert.ok(stop > result.calls.indexOf('pg_restore --list'));
   assert.match(result.stdout, /Validated database backup/);
+  assert.doesNotMatch(result.calls, /^pull /m);
   assert.doesNotMatch(result.stdout + result.stderr, /test-only-backup-secret/);
 });
 
-for (const mode of ['dump-failure', 'invalid', 'empty', 'missing']) {
+test('loads a matching client only when it is not cached', () => {
+  const result = backup('client-missing');
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.calls, /^pull postgres:16$/m);
+  assert.match(result.calls, /^stop /m);
+});
+
+for (const mode of ['dump-failure', 'invalid', 'empty', 'missing', 'client-pull-failure']) {
   test('backup ' + mode + ' prevents stop and removes temporary credentials', () => {
     const result = backup(mode);
     assert.notEqual(result.status, 0);

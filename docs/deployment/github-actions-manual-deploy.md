@@ -74,6 +74,8 @@ Failures preserve the container and print bounded, allowlisted diagnostic signal
 
 For recovery after an uploaded image passed the isolated smoke check but activation failed before migration, `PREBUILT_IMAGE_ID=sha256:<verified-image-id>` can reuse that exact local image. Identity mismatch stops deployment. Configuration validation, database backup, migration and final health checks still run. Never use this option for an unverified image.
 
+The backup reuses a cached official `postgres:<server-major>` image. If the server cannot reach Docker Hub, pull the matching official image on the CI runner and transfer it with `docker save` / `docker load` before recovery. A missing or unavailable backup client fails before stopping the existing service.
+
 1. Stop active senders and confirm the old image is compatible with applied migrations and stored Newsletter attempt states. Switching images does not reverse migrations.
 2. Point `current` to an older release.
 3. Re-run the remote deploy script and verify readiness.
