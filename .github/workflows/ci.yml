@@ -71,7 +71,7 @@ jobs:
       - name: Deployment readiness tests
         run: |
           node scripts/build-web-health.cjs
-          node --test scripts/deploy/deploy-remote.test.cjs
+          node --test scripts/deploy/deploy-remote.test.cjs scripts/deploy/backup-production.test.cjs
 
       - name: Build
         run: pnpm build

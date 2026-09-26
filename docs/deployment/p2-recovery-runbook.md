@@ -4,11 +4,13 @@
 
 ## 发布门禁
 
-1. 备份数据库，确认旧 Newsletter 发送进程已经停止，保留失败现场及旧镜像。
+1. 生产 Deploy 工作流启用迁移前备份。候选镜像配置预检通过后，用与服务端 PostgreSQL 主版本相同的客户端导出 custom-format 备份并验证归档目录；备份写入 shared/backups（目录 700、文件 600），同时为旧镜像保留独立 tag。只有备份验证通过才停止旧应用及其进程内 Newsletter 发送者，然后迁移和启动新版本。备份失败不停止旧应用，临时连接信息自动清理。
 2. 在可用 Docker 环境构建候选镜像，执行 `docker compose -f docker-compose.prod.yml config --quiet`。候选镜像的 `node scripts/check-web-readiness.cjs` 通过后，再执行 `pnpm prisma migrate deploy`。远程部署脚本已固定此顺序。
 3. 应用 `20260926101000_newsletter_durable_recovery`。新增受众冻结时间、投递尝试/证据字段和核对审计表，不回填虚构的历史受众、尝试或接受时间。
 4. 替换服务后只接受 `running healthy`。最多观察 12 次，间隔 5 秒。缺失、退出、unhealthy、状态不可读或持续 starting 均非零退出。
-5. 在隔离镜像环境断开数据库，确认 live 为 200、ready 为 503，并确认 Docker 健康状态失败；恢复数据库后重新检查。本轮尚未执行此项，发布前必须补做。
+5. Deploy 在上传 release 前执行 scripts/deploy/smoke-web-health.sh：使用生产 Compose 健康检查和专用 PostgreSQL 容器，先确认 healthy，再停止专用数据库并断言 live=200、ready=503、Docker unhealthy，恢复后重新确认 ready=200、healthy。检查失败不会触及生产服务器；是否已通过以对应 Deploy 运行结果为准。
+
+自动备份针对已有运行中的生产实例；首次部署没有旧容器时需先完成独立数据库备份，再按手动部署流程执行。备份不是自动回滚：迁移开始后失败，不自动恢复旧代码或数据库。共享 .env 与备份均不得上传为工作流产物。
 
 健康接口不鉴权、不缓存、不写操作审计。ready 仅检查 Web 必需配置及共享 Prisma 的 `SELECT 1`，不代表 Worker 或供应商可用。数据库读预算 2 秒；底层探针未结束时，后续请求快速返回 503，不积累查询。Docker 探针间隔 10 秒、超时 3 秒、启动宽限 20 秒、连续 3 次失败判为不健康。
 

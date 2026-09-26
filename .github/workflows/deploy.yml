@@ -96,8 +96,13 @@ jobs:
           set -a
           source app.env
           set +a
+          install -m 600 app.env .env
+          docker compose -f docker-compose.prod.yml config --quiet
           docker compose -f docker-compose.prod.yml build app
           docker save my-next-app:latest | gzip > my-next-app.tar.gz
+
+      - name: Smoke test production image with database outage
+        run: bash scripts/deploy/smoke-web-health.sh
 
       - name: Prepare release bundle
         run: |
@@ -153,7 +158,7 @@ jobs:
             ln -sfn "${{ secrets.DEPLOY_PATH }}/releases/${{ github.sha }}" "${{ secrets.DEPLOY_PATH }}/current"
             cd "${{ secrets.DEPLOY_PATH }}/current"
             chmod +x scripts/deploy/deploy-remote.sh
-            DEPLOY_PATH="${{ secrets.DEPLOY_PATH }}" bash scripts/deploy/deploy-remote.sh
+            BACKUP_BEFORE_DEPLOY=1 RELEASE_SHA="${{ github.sha }}" DEPLOY_PATH="${{ secrets.DEPLOY_PATH }}" bash scripts/deploy/deploy-remote.sh
           '
 
       - name: Deployment summary
