@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       ref:
-        description: Existing release SHA to diagnose
+        description: Previously uploaded release SHA
         required: true
       environment:
         description: Deployment environment
@@ -15,38 +15,49 @@ concurrency:
 permissions:
   contents: read
 jobs:
-  diagnose:
+  recover:
     runs-on: ubuntu-latest
     environment:
       name: ${{ inputs.environment }}
     steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: 7454c5b3ee16a2b664203ff8a3e41b1bc7e5c910
       - uses: webfactory/ssh-agent@v0.10.0
         with:
           ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
-      - name: Diagnose configuration without exposing values
+      - name: Recover verified release with production gates
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          DEPLOY_COMPOSE_PROJECT_NAME: ${{ vars.COMPOSE_PROJECT_NAME }}
           RELEASE_SHA: ${{ inputs.ref }}
         run: |
           set -euo pipefail
-          [[ "$RELEASE_SHA" =~ ^[a-f0-9]{40}$ ]]
+          [[ "$RELEASE_SHA" == ab4de42b89b7665127d1707b16d017f699d0cee5 ]]
+          [[ "$DEPLOY_COMPOSE_PROJECT_NAME" == current ]]
           mkdir -p ~/.ssh
           ssh-keyscan -p "$DEPLOY_PORT" "$DEPLOY_HOST" >> ~/.ssh/known_hosts
-          ssh -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" bash -s -- "$(printf '%q' "$DEPLOY_PATH")" "$RELEASE_SHA" <<'REMOTE'
+          scp -P "$DEPLOY_PORT" scripts/prepare-production-env.cjs "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/releases/$RELEASE_SHA/scripts/prepare-production-env.cjs"
+          scp -P "$DEPLOY_PORT" scripts/deploy/deploy-remote.sh "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/releases/$RELEASE_SHA/scripts/deploy/deploy-remote.sh"
+          ssh -o ServerAliveInterval=30 -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" bash -s -- "$(printf '%q' "$DEPLOY_PATH")" "$RELEASE_SHA" <<'REMOTE'
           set -euo pipefail
-          cd "$1/releases/$2"
-          docker compose -f docker-compose.prod.yml run --rm --no-deps -T app node <<'NODE'
-          const { parseWebReadinessConfig } = require('./.generated/web-health/web-readiness-config.js');
-          const valid = { DATABASE_URL: 'postgresql://diagnostic:diagnostic@localhost/diagnostic', AUTH_SECRET: 'diagnostic-valid-auth-value', NEXTAUTH_SECRET: 'diagnostic-valid-nextauth-value', NEXTAUTH_URL: 'http://localhost:3000', NEXT_PUBLIC_SITE_URL: 'http://localhost:3000' };
-          for (const key of Object.keys(valid)) {
-            const value = process.env[key];
-            const state = !value?.trim() ? 'missing' : parseWebReadinessConfig({ ...valid, [key]: value }).valid ? 'valid' : 'invalid';
-            console.log('CONFIG ' + key + ': ' + state);
-          }
-          NODE
-          docker ps --filter publish=3000 --format 'APP_CONTAINER {{.Names}} PROJECT {{.Label "com.docker.compose.project"}} SERVICE {{.Label "com.docker.compose.service"}} IMAGE {{.Image}} STATE {{.State}}'
-          docker image inspect my-next-app:latest --format 'CANDIDATE_IMAGE {{.Id}}'
+          base="$1"
+          release="$2"
+          cd "$base/releases/$release"
+          image=$(docker image inspect 23195b98fcf88 --format '{{.Id}}')
+          [[ $(docker image inspect my-next-app:latest --format '{{.Id}}') == "$image" ]]
+          [[ $(docker inspect --format '{{.State.Running}}' current-app-1) == true ]]
+          if [[ ! -f "$base/shared/.env.pre-$release" ]]; then
+            install -m 600 "$base/shared/.env" "$base/shared/.env.pre-$release"
+          fi
+          docker run --rm --network none --entrypoint node --env DEPLOY_COMPOSE_PROJECT_NAME=current \
+            --mount "type=bind,src=$base/releases/$release/scripts/prepare-production-env.cjs,dst=/app/scripts/prepare-production-env.cjs,readonly" \
+            --mount "type=bind,src=$base/shared/.env,dst=/tmp/production.env" \
+            "$image" /app/scripts/prepare-production-env.cjs /tmp/production.env
+          docker tag "$image" "my-next-app:release-$release"
+          PREBUILT_IMAGE_ID="$image" BACKUP_BEFORE_DEPLOY=1 RELEASE_SHA="$release" DEPLOY_PATH="$base" bash scripts/deploy/deploy-remote.sh
+          echo "Production application release: $release"
           REMOTE
