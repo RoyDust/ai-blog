@@ -90,6 +90,13 @@ jobs:
           AI_NEWS_CRON_SECRET="${{ secrets.AI_NEWS_CRON_SECRET }}"
           EOF
 
+      - name: Validate production configuration before image build
+        env:
+          DEPLOY_COMPOSE_PROJECT_NAME: ${{ vars.COMPOSE_PROJECT_NAME }}
+        run: |
+          node scripts/build-web-health.cjs
+          node scripts/prepare-production-env.cjs app.env
+
       - name: Build production Docker image
         run: |
           set -euo pipefail

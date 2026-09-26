@@ -22,6 +22,7 @@ function deploy(states, options = {}) {
 set -eu
 echo "$*" >> "$MOCK_ROOT/commands"
 case "$*" in
+  "image inspect my-next-app:latest --format {{.Id}}") echo "$MOCK_IMAGE_ID" ;;
   *check-web-readiness.cjs) node "$PREFLIGHT_CLI" ;;
   *" ps -a -q app") if [[ "$MISSING_APP" != "1" ]]; then echo fixture-container; fi ;;
   *" logs --no-color --no-log-prefix --tail 60 --since 5m app")
@@ -47,7 +48,8 @@ esac
       env: { ...process.env, DEPLOY_PATH: asPath(dir), MOCK_ROOT: asPath(dir), MOCK_BIN: asPath(bin),
         DEPLOY_SCRIPT: asPath(path.join(project, 'scripts/deploy/deploy-remote.sh')),
         PREFLIGHT_CLI: asPath(path.join(project, 'scripts/check-web-readiness.cjs')), MISSING_APP: options.missing ? '1' : '0',
-        MOCK_LOG_READ_FAILURE: options.logReadFailure ? '1' : '0', MOCK_LOG_READ_STALL: options.logReadStall ? '1' : '0' } });
+        MOCK_LOG_READ_FAILURE: options.logReadFailure ? '1' : '0', MOCK_LOG_READ_STALL: options.logReadStall ? '1' : '0',
+        PREBUILT_IMAGE_ID: options.prebuiltImage ?? '', MOCK_IMAGE_ID: options.actualImage ?? '' } });
     if (result.error) throw result.error;
     const calls = fs.readFileSync(path.join(dir, 'commands'), 'utf8');
     return { ...result, calls };
@@ -70,6 +72,23 @@ for (const state of ['running starting', 'running unhealthy', 'exited ', 'runnin
   });
 }
 test('missing service fails immediately', () => assert.notEqual(deploy(['running healthy'], { missing: true }).status, 0));
+
+test('reuses an exact prebuilt image while retaining validation and migrations', () => {
+  const image = 'sha256:' + 'a'.repeat(64);
+  const r = deploy(['running healthy'], { prebuiltImage: image, actualImage: image });
+  assert.equal(r.status, 0, r.stderr);
+  assert.doesNotMatch(r.calls, / build app| load/);
+  assert.match(r.calls, /check-web-readiness.cjs/);
+  assert.match(r.calls, /prisma migrate deploy/);
+});
+
+for (const image of ['sha256:' + 'b'.repeat(64), 'invalid']) {
+  test('rejects an unverified recovery image: ' + image, () => {
+    const r = deploy(['running healthy'], { prebuiltImage: image, actualImage: 'sha256:' + 'a'.repeat(64) });
+    assert.notEqual(r.status, 0);
+    assert.doesNotMatch(r.calls, /prisma migrate| up -d| build app/);
+  });
+}
 test('failure prints bounded state and recent log signals without exposing values', () => {
   const secrets = ['valid-auth-value', 'valid-nextauth-value', 'postgresql://user:password@localhost/test', 'bearer-sensitive-token', 'cookie-sensitive-session', 'api-sensitive-key', 'arbitrary-env-sensitive'];
   const logs = [

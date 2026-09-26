@@ -41,7 +41,9 @@ fi
 major=$(sed -n 's/^PG_VERSION=//p' "$connection")
 [[ "$major" =~ ^[0-9]{2}$ ]] || { echo 'Invalid database version' >&2; exit 1; }
 image="postgres:$major"
-docker pull "$image" >/dev/null
+if ! docker image inspect "$image" >/dev/null 2>&1; then
+  docker pull "$image" >/dev/null
+fi
 old_image=$(docker inspect --format '{{.Image}}' "$id")
 docker tag "$old_image" "my-next-app:pre-${RELEASE_SHA}-${stamp}"
 if ! docker run --rm --network "container:$id" --env-file "$connection" "$image" sh -c 'exec pg_dump --format=custom --no-owner --no-acl --dbname="$DATABASE_URL"' > "$backup.partial" 2>/dev/null; then

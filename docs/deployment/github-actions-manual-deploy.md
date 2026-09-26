@@ -18,6 +18,10 @@ Add these repository or environment secrets:
 - `DEPLOY_PATH`: remote app root, for example `/opt/my-next-app`
 - `APP_ENV_FILE`: full production `.env` file contents
 
+Set the environment variable `COMPOSE_PROJECT_NAME` to the existing server's Compose project label (production currently uses `current`). The workflow persists this identity in the uploaded environment file so changing release directories does not create a different Compose project.
+
+Production configuration is validated before image build and upload, without inheriting CI test defaults. A missing or placeholder `NEXTAUTH_SECRET` is aligned with an existing valid `AUTH_SECRET`; the latter is never rotated by deployment. Two valid, distinct secrets are preserved. Invalid required values stop deployment.
+
 ## Server bootstrap
 
 1. Install Docker and verify `docker compose version` works.
@@ -67,6 +71,10 @@ Only `running healthy` passes deployment. Docker probes readiness every 10 secon
 Failures preserve the container and print bounded, allowlisted diagnostic signals. There is no automatic rollback. See [P2 release and recovery procedures](./p2-recovery-runbook.md) for image smoke checks, Newsletter recovery and log retention scheduling.
 
 ## Rollback
+
+For recovery after an uploaded image passed the isolated smoke check but activation failed before migration, `PREBUILT_IMAGE_ID=sha256:<verified-image-id>` can reuse that exact local image. Identity mismatch stops deployment. Configuration validation, database backup, migration and final health checks still run. Never use this option for an unverified image.
+
+The backup reuses a cached official `postgres:<server-major>` image. If the server cannot reach Docker Hub, pull the matching official image on the CI runner and transfer it with `docker save` / `docker load` before recovery. A missing or unavailable backup client fails before stopping the existing service.
 
 1. Stop active senders and confirm the old image is compatible with applied migrations and stored Newsletter attempt states. Switching images does not reverse migrations.
 2. Point `current` to an older release.
