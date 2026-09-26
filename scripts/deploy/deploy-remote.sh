@@ -50,7 +50,12 @@ clear_loopback_proxy_var "NPM_CONFIG_HTTPS_PROXY"
 docker builder prune -f >/dev/null 2>&1 || true
 docker image prune -f >/dev/null 2>&1 || true
 
-if [[ -f my-next-app.tar.gz ]]; then
+if [[ -n "${PREBUILT_IMAGE_ID:-}" ]]; then
+  [[ "$PREBUILT_IMAGE_ID" =~ ^sha256:[a-f0-9]{64}$ ]] || { echo 'Invalid prebuilt image identity' >&2; exit 1; }
+  actual_image=$(docker image inspect my-next-app:latest --format '{{.Id}}')
+  [[ "$actual_image" == "$PREBUILT_IMAGE_ID" ]] || { echo 'Prebuilt image identity changed' >&2; exit 1; }
+  echo 'Reusing previously validated image for release recovery'
+elif [[ -f my-next-app.tar.gz ]]; then
   echo "Loading prebuilt Docker image from release bundle" >&2
   gzip -dc my-next-app.tar.gz | docker load
   rm -f my-next-app.tar.gz
