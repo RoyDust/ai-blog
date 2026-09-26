@@ -151,7 +151,14 @@ export async function getPublishedPostsPage({
   }
 
   if (tag) {
-    where.tags = { some: { slug: tag } }
+    const activeTag = await prisma.tag.findFirst({
+      where: { slug: tag, deletedAt: null },
+      select: { id: true },
+    })
+    if (!activeTag) {
+      return { posts: [] as PublicPostRecord[], pagination: buildOffsetPagination({ page, limit, total: 0 }) }
+    }
+    where.tags = { some: { id: activeTag.id, deletedAt: null } }
   }
 
   if (search) {

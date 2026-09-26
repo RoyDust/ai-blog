@@ -5,7 +5,7 @@ This project uses a split CI/CD flow:
 - CI runs automatically on every push and pull request.
 - CD is triggered manually from GitHub Actions.
 - GitHub Actions uploads a release bundle to the server over SSH.
-- The server rebuilds the Docker image with `docker compose` and applies Prisma migrations.
+- The server loads the uploaded image, or builds it when no image bundle is supplied, then validates configuration before Prisma migrations and service replacement.
 
 ## GitHub secrets
 
@@ -58,13 +58,19 @@ On the server:
 cd /opt/my-next-app/current
 docker compose -f docker-compose.prod.yml ps
 docker compose -f docker-compose.prod.yml logs -f app
-curl -I http://127.0.0.1:3000
+curl --fail http://127.0.0.1:3000/api/health/live
+curl --fail http://127.0.0.1:3000/api/health/ready
 ```
+
+Only `running healthy` passes deployment. Docker probes readiness every 10 seconds with a 3-second timeout, a 20-second startup grace period and 3 retries. The deploy script observes health up to 12 times at 5-second intervals. Missing, exited, unhealthy or unreadable services and an expired deadline fail with a nonzero exit code. Readiness checks required Web configuration and a database read with a 2-second budget. Health routes are not cached or audited.
+
+Failures preserve the container and print bounded, allowlisted diagnostic signals. There is no automatic rollback. See [P2 release and recovery procedures](./p2-recovery-runbook.md) for image smoke checks, Newsletter recovery and log retention scheduling.
 
 ## Rollback
 
-1. Point `current` to an older release.
-2. Re-run the remote deploy script.
+1. Stop active senders and confirm the old image is compatible with applied migrations and stored Newsletter attempt states. Switching images does not reverse migrations.
+2. Point `current` to an older release.
+3. Re-run the remote deploy script and verify readiness.
 
 ```bash
 cd /opt/my-next-app

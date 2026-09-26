@@ -1,17 +1,21 @@
 import { randomUUID } from "node:crypto";
+import type { Prisma } from "@prisma/client";
 
 import { getAiModelForCapability } from "@/lib/ai-models";
 import {
   AI_TASK_ITEM_STATUSES,
   createAiTask,
+  isAiTaskActive,
+  lockAiTask,
   markAiTaskItemFailed,
   markAiTaskItemRunning,
+  markAiTaskItemSkipped,
   markAiTaskItemSucceeded,
   markAiTaskRunning,
   refreshAiTaskCounts,
 } from "@/lib/ai-tasks";
 import { ApiError, ValidationError } from "@/lib/api-errors";
-import { revalidatePublicContent } from "@/lib/cache";
+import { revalidatePublicContentStrict } from "@/lib/cache";
 import { generatePostSummary } from "@/lib/post-summary";
 import {
   ACTIVE_SUMMARY_STATUSES,
@@ -24,12 +28,16 @@ import { prisma } from "@/lib/prisma";
 export const MAX_BULK_SUMMARY_POSTS = 20;
 
 const runningSummaryJobs = new Set<string>();
+const SUPERSEDED_SUMMARY_MESSAGE = "文章已修改、删除或已有新摘要任务，本次结果未应用";
 
 type SummaryPost = {
   id: string;
   title: string;
   content: string;
+  excerpt: string | null;
   slug: string;
+  published: boolean;
+  series: { slug: string } | null;
   category: { slug: string } | null;
   tags: Array<{ slug: string }>;
 };
@@ -48,20 +56,6 @@ function scheduleSummaryJob(jobId: string, modelId?: string | null) {
       console.error("Run post summary job error:", error);
     });
   }, 0);
-}
-
-async function failActiveJobPosts(jobId: string, message: string, modelId?: string | null) {
-  await prisma.post.updateMany({
-    where: {
-      summaryJobId: jobId,
-      summaryStatus: { in: ACTIVE_SUMMARY_STATUSES },
-    },
-    data: {
-      summaryStatus: POST_SUMMARY_STATUSES.failed,
-      summaryError: message,
-      summaryModelId: modelId ?? null,
-    },
-  });
 }
 
 export async function createPostSummaryJob({ ids, modelId }: { ids: unknown; modelId?: string | null }) {
@@ -86,7 +80,8 @@ export async function createPostSummaryJob({ ids, modelId }: { ids: unknown; mod
 
   const posts = await prisma.post.findMany({
     where: { id: { in: normalizedIds }, deletedAt: null },
-    select: { id: true, title: true, content: true },
+    select: { id: true, title: true, content: true, published: true, slug: true,
+      category: { select: { slug: true } }, tags: { where: { deletedAt: null }, select: { slug: true } }, series: { select: { slug: true } } },
   });
   const postsById = new Map(posts.map((post) => [post.id, post]));
   const queuedIds: string[] = [];
@@ -130,6 +125,11 @@ export async function createPostSummaryJob({ ids, modelId }: { ids: unknown; mod
               inputSnapshot: {
                 title: post?.title ?? "",
                 contentLength: post?.content.length ?? 0,
+                published: post?.published ?? false,
+                slug: post?.slug ?? '',
+                categorySlug: post?.category?.slug ?? null,
+                tagSlugs: post?.tags?.map((tag) => tag.slug) ?? [],
+                seriesSlug: post?.series?.slug ?? null,
               },
             };
           }),
@@ -184,18 +184,7 @@ export async function runPostSummaryJob(jobId: string, modelId?: string | null) 
     const taskItemsByPostId = new Map((task?.items ?? []).map((item) => [item.postId, item.id]));
 
     if (task) {
-      await markAiTaskRunning(task.id);
-    }
-
-    const aiModel = await getAiModelForCapability("post-summary", modelId);
-    if (!aiModel?.apiKey) {
-      await failActiveJobPosts(jobId, aiModel ? `${aiModel.apiKeyEnv} is not configured` : "AI model is not available for post summaries", modelId);
-      if (task) {
-        for (const item of task.items) {
-          await markAiTaskItemFailed(item.id, aiModel ? `${aiModel.apiKeyEnv} is not configured` : "AI model is not available for post summaries");
-        }
-      }
-      return;
+      if (!await markAiTaskRunning(task.id)) return;
     }
 
     const posts = (await prisma.post.findMany({
@@ -208,24 +197,73 @@ export async function runPostSummaryJob(jobId: string, modelId?: string | null) 
         id: true,
         title: true,
         content: true,
+        excerpt: true,
         slug: true,
+        published: true,
+        series: { select: { slug: true } },
         category: { select: { slug: true } },
         tags: { where: { deletedAt: null }, select: { slug: true } },
       },
       orderBy: { createdAt: "asc" },
     })) as SummaryPost[];
 
+    const activePostIds = new Set(posts.map((post) => post.id));
+    for (const item of task?.items ?? []) {
+      if (!item.postId || !activePostIds.has(item.postId)) {
+        await markAiTaskItemSkipped(item.id, SUPERSEDED_SUMMARY_MESSAGE);
+      }
+    }
+    if (posts.length === 0) {
+      if (task) await refreshAiTaskCounts(task.id);
+      return;
+    }
+
+    const aiModel = await getAiModelForCapability("post-summary", modelId);
+
     for (const post of posts) {
       const taskItemId = taskItemsByPostId.get(post.id);
+      const ownedPost = { id: post.id, deletedAt: null, summaryJobId: jobId };
+      // 把所有影响摘要的输入放进同一条条件更新，避免检查后再写入的竞态。
+      const unchangedPost = { ...ownedPost, title: post.title, content: post.content, excerpt: post.excerpt };
+      const withCompletionTransaction = async <T>(write: (client: Prisma.TransactionClient) => Promise<T>) => {
+        if (!taskItemId || !task) return write(prisma);
+        return prisma.$transaction(async (client) => {
+          const currentTask = await lockAiTask(client, task.id);
+          if (!isAiTaskActive(currentTask.status)) return null;
+          await client.$queryRawUnsafe('SELECT id FROM ai_task_items WHERE id = $1 FOR UPDATE', taskItemId);
+          const currentItem = await client.aiTaskItem.findUnique({ where: { id: taskItemId } });
+          if (!currentItem || currentItem.taskId !== task.id || currentItem.postId !== post.id || !isAiTaskActive(currentItem.status)) return null;
+          return write(client);
+        });
+      };
+      const skipSupersededPost = async (transaction?: Prisma.TransactionClient) => {
+        const skip = async (client: Prisma.TransactionClient) => {
+          // 正文变化但任务号未变时结束旧状态；新任务和已手工保存的摘要不受影响。
+          await client.post.updateMany({
+            where: { ...ownedPost, summaryStatus: { in: ACTIVE_SUMMARY_STATUSES } },
+            data: { summaryStatus: POST_SUMMARY_STATUSES.failed, summaryError: SUPERSEDED_SUMMARY_MESSAGE },
+          });
+          if (taskItemId) await markAiTaskItemSkipped(taskItemId, SUPERSEDED_SUMMARY_MESSAGE, jobId, client);
+        };
+        return transaction ? skip(transaction) : withCompletionTransaction(skip);
+      };
 
-      if (taskItemId) {
-        await markAiTaskItemRunning(taskItemId);
+      if (!aiModel?.apiKey) {
+        const message = aiModel ? `${aiModel.apiKeyEnv} is not configured` : "AI model is not available for post summaries";
+        await withCompletionTransaction(async (client) => {
+          const failed = await client.post.updateMany({
+            where: { ...unchangedPost, summaryStatus: { in: ACTIVE_SUMMARY_STATUSES } },
+            data: { summaryStatus: POST_SUMMARY_STATUSES.failed, summaryError: message, summaryModelId: modelId ?? null },
+          });
+          if (failed.count === 0) await skipSupersededPost(client);
+          else if (taskItemId) await markAiTaskItemFailed(taskItemId, message, jobId, client);
+        });
+        continue;
       }
 
-      await prisma.post.updateMany({
+      const claimed = await prisma.post.updateMany({
         where: {
-          id: post.id,
-          summaryJobId: jobId,
+          ...unchangedPost,
           summaryStatus: { in: ACTIVE_SUMMARY_STATUSES },
         },
         data: {
@@ -235,27 +273,39 @@ export async function runPostSummaryJob(jobId: string, modelId?: string | null) 
         },
       });
 
-      const content = post.content.trim();
-      if (!content) {
-        await prisma.post.update({
-          where: { id: post.id },
-          data: {
-            summaryStatus: POST_SUMMARY_STATUSES.failed,
-            summaryError: "Article content is required",
-            summaryModelId: aiModel.id,
-          },
-          select: { id: true },
-        });
-        if (taskItemId) {
-          await markAiTaskItemFailed(taskItemId, "Article content is required");
-        }
+      if (claimed.count === 0) {
+        await skipSupersededPost();
         continue;
       }
 
+      if (taskItemId) await markAiTaskItemRunning(taskItemId);
+
+      const pendingPost = { ...unchangedPost, summaryStatus: POST_SUMMARY_STATUSES.generating };
+      let excerpt: string;
       try {
-        const excerpt = await generatePostSummary({ aiModel, title: post.title, content });
-        await prisma.post.update({
-          where: { id: post.id },
+        const content = post.content.trim();
+        if (!content) throw new Error("Article content is required");
+        excerpt = await generatePostSummary({ aiModel, title: post.title, content });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Summary generation failed";
+        await withCompletionTransaction(async (client) => {
+          const failed = await client.post.updateMany({
+            where: pendingPost,
+            data: {
+              summaryStatus: POST_SUMMARY_STATUSES.failed,
+              summaryError: message,
+              summaryModelId: aiModel.id,
+            },
+          });
+          if (failed.count === 0) await skipSupersededPost(client);
+          else if (taskItemId) await markAiTaskItemFailed(taskItemId, message, jobId, client);
+        });
+        continue;
+      }
+
+      const committed = await withCompletionTransaction(async (client) => {
+        const applied = await client.post.updateMany({
+          where: pendingPost,
           data: {
             excerpt,
             summaryStatus: POST_SUMMARY_STATUSES.generated,
@@ -263,31 +313,26 @@ export async function runPostSummaryJob(jobId: string, modelId?: string | null) 
             summaryGeneratedAt: new Date(),
             summaryModelId: aiModel.id,
           },
-          select: { id: true },
         });
-        if (taskItemId) {
-          await markAiTaskItemSucceeded(taskItemId, { summary: excerpt }, true);
+        if (applied.count === 0) {
+          await skipSupersededPost(client);
+          return false;
         }
 
-        revalidatePublicContent({
+        if (taskItemId) await markAiTaskItemSucceeded(taskItemId, { summary: excerpt }, true, client);
+        return true;
+      });
+      if (!committed) continue;
+      try {
+        const report = revalidatePublicContentStrict({
           slug: post.slug,
           categorySlug: post.category?.slug,
           tagSlugs: post.tags.map((tag) => tag.slug),
+          seriesSlug: post.series?.slug,
         });
+        if (report.errors.length) console.error('Summary cache refresh incomplete', { taskId: jobId, postId: post.id, errors: report.errors });
       } catch (error) {
-        const message = error instanceof Error ? error.message : "Summary generation failed";
-        await prisma.post.update({
-          where: { id: post.id },
-          data: {
-            summaryStatus: POST_SUMMARY_STATUSES.failed,
-            summaryError: message,
-            summaryModelId: aiModel.id,
-          },
-          select: { id: true },
-        });
-        if (taskItemId) {
-          await markAiTaskItemFailed(taskItemId, message);
-        }
+        console.error('Summary cache refresh failed', { taskId: jobId, postId: post.id, path: '/posts/' + post.slug, error });
       }
     }
 

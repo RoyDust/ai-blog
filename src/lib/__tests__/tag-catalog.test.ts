@@ -58,7 +58,7 @@ test('tag detail fetches the requested page with deterministic pagination metada
 
   expect(postFindMany).toHaveBeenCalledWith(
     expect.objectContaining({
-      where: { deletedAt: null, published: true, tags: { some: { slug: 'nextjs' } } },
+      where: { deletedAt: null, published: true, tags: { some: { id: 't1', deletedAt: null } } },
       orderBy: [{ featured: 'desc' }, { createdAt: 'desc' }, { id: 'desc' }],
       skip: 24,
       take: 12,

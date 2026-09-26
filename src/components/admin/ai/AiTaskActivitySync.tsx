@@ -3,66 +3,53 @@
 import { useRef } from "react";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
-
-import { apiMutate } from "@/lib/client-api";
-
-const RESUME_ENDPOINTS = ["/api/admin/posts/summarize/bulk?resume=1", "/api/admin/ai/batch?resume=1"];
+import { apiFetcher, handleGlobalSwrError } from "@/lib/client-api";
 
 const REFRESH_INTERVAL_MS = 10000;
-
-type ResumePayload = { success?: boolean; data?: unknown };
-
-/**
- * 从单个轮询响应中提取"关键状态签名"。
- * 摘要快照会返回活跃标记与各状态计数；批量任务端点不返回状态，
- * 没有状态信息的端点返回固定占位，不参与去抖比较。
- */
-function extractStatusSignature(result: PromiseSettledResult<ResumePayload>): string {
-  if (result.status === "rejected") {
-    return "error";
-  }
-
-  const data = result.value?.data;
-  if (!data || typeof data !== "object" || Array.isArray(data)) {
-    return "no-status";
-  }
-
-  const snapshot = data as { active?: boolean; counts?: Record<string, number> };
-  return JSON.stringify({ active: snapshot.active ?? null, counts: snapshot.counts ?? null });
+type Snapshot = {
+  active: boolean;
+  counts?: Record<string, number>;
+  tasks?: Array<{ id: string; status: string; counts: Record<string, number>; version: string }>;
+  posts?: Array<{ id: string; summaryStatus: string; summaryJobId?: string | null; summaryGeneratedAt?: string | null }>;
+  missingTaskIds?: string[];
+};
+type Payload = { success: boolean; data: Snapshot };
+const sortedCounts = (counts?: Record<string, number>) => Object.entries(counts ?? {}).sort(([a], [b]) => a.localeCompare(b));
+function statusSignature(data: Snapshot) {
+  return JSON.stringify({
+    active: data.active, counts: sortedCounts(data.counts),
+    tasks: data.tasks?.map((task) => ({ id: task.id, status: task.status, counts: sortedCounts(task.counts), version: task.version })).sort((a, b) => a.id.localeCompare(b.id)),
+    posts: data.posts?.map((post) => ({ id: post.id, status: post.summaryStatus, jobId: post.summaryJobId, version: post.summaryGeneratedAt })).sort((a, b) => a.id.localeCompare(b.id)),
+    missingTaskIds: data.missingTaskIds?.slice().sort(),
+  });
 }
 
-function buildStatusSignature(results: PromiseSettledResult<ResumePayload>[]): string {
-  return results.map(extractStatusSignature).join("|");
+function useTaskSnapshot(url: string | null, refresh: () => void) {
+  const signatures = useRef(new Map<string, string>());
+  const { data } = useSWR<Payload>(url, apiFetcher, {
+    revalidateOnMount: true,
+    revalidateOnFocus: false,
+    revalidateOnReconnect: false,
+    refreshInterval: (result) => result?.data.active === false ? 0 : REFRESH_INTERVAL_MS,
+    onSuccess: (result, key) => {
+      const signature = statusSignature(result.data);
+      if (signatures.current.get(key) !== signature) {
+        signatures.current.set(key, signature);
+        refresh();
+      }
+    },
+    onError: (error, key) => handleGlobalSwrError(error, key),
+  });
+  return data;
 }
 
-/**
- * AI 任务页的后台同步器。
- *
- * 只要还有活跃任务，就定期触发可恢复的任务执行端点，让后台在无 WebSocket 的情况下持续推进任务。
- * 轮询交给 SWR 的 refreshInterval（10s）；router.refresh() 去抖——只有当轮询返回的任务状态
- * （活跃标记 + 各状态计数）相对上次发生变化时才刷新整页，避免每次轮询都触发页面刷新与操作日志噪音。
- */
-export function AiTaskActivitySync({ activeTaskCount }: { activeTaskCount: number }) {
+/** Independent snapshots retain legacy recovery until the persistent-worker migration. */
+export function AiTaskActivitySync({ activeTaskCount, observedTaskIds }: { activeTaskCount: number; observedTaskIds: string[] }) {
   const router = useRouter();
-  const lastStatusSignatureRef = useRef<string | null>(null);
-
-  useSWR(
-    activeTaskCount > 0 ? RESUME_ENDPOINTS : null,
-    async (endpoints: string[]) => {
-      // Promise.allSettled 确保单一路径失败不会阻塞另一类任务继续恢复
-      const results = await Promise.allSettled(endpoints.map((url) => apiMutate<ResumePayload>(url)));
-      return buildStatusSignature(results);
-    },
-    {
-      refreshInterval: REFRESH_INTERVAL_MS,
-      onSuccess: (signature: string) => {
-        if (signature !== lastStatusSignatureRef.current) {
-          lastStatusSignatureRef.current = signature;
-          router.refresh();
-        }
-      },
-    },
-  );
-
+  const ids = [...new Set(observedTaskIds)].sort();
+  const query = new URLSearchParams({ resume: "1" });
+  ids.forEach((id) => query.append("taskId", id));
+  useTaskSnapshot(activeTaskCount > 0 ? "/api/admin/posts/summarize/bulk?resume=1" : null, router.refresh);
+  useTaskSnapshot(activeTaskCount > 0 && ids.length > 0 ? "/api/admin/ai/batch?" + query.toString() : null, router.refresh);
   return null;
 }

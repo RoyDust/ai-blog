@@ -16,6 +16,7 @@ import {
   buildTagPath,
   revalidateBlogSettings,
   revalidatePublicContent,
+  revalidatePublicContentStrict,
 } from '../cache'
 
 describe('cache helpers', () => {
@@ -96,5 +97,15 @@ describe('cache helpers', () => {
 
     expect(() => revalidatePublicContent({ slug: 'ai-daily-2026-05-13' })).not.toThrow()
     expect(() => revalidateBlogSettings()).not.toThrow()
+  })
+
+  test('strict revalidation reports failed paths and still tries the remaining paths', () => {
+    revalidatePath.mockImplementation((path: string) => {
+      if (path === '/posts/old') throw new Error('cache unavailable')
+    })
+    const result = revalidatePublicContentStrict({ previousSlug: 'old', slug: 'new' })
+    expect(result.errors).toEqual([{ path: '/posts/old', error: 'cache unavailable' }])
+    expect(result.paths).toContain('/posts/new')
+    expect(revalidatePath).toHaveBeenCalledWith('/posts/new')
   })
 })

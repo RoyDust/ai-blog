@@ -2,9 +2,11 @@ import { beforeEach, describe, expect, test, vi } from 'vitest'
 
 const findMany = vi.fn()
 const count = vi.fn()
+const findTag = vi.fn()
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
+    tag: { findFirst: findTag },
     post: {
       findMany,
       count,
@@ -16,6 +18,7 @@ describe('getPublishedPostsPage', () => {
   beforeEach(() => {
     findMany.mockReset()
     count.mockReset()
+    findTag.mockReset().mockResolvedValue({ id: 'active-react' })
     findMany.mockResolvedValue([])
     count.mockResolvedValue(0)
   })
@@ -64,7 +67,7 @@ describe('getPublishedPostsPage', () => {
           published: true,
           deletedAt: null,
           category: { slug: 'frontend' },
-          tags: { some: { slug: 'react' } },
+          tags: { some: { id: 'active-react', deletedAt: null } },
           OR: [
             { title: { contains: 'hooks', mode: 'insensitive' } },
             { excerpt: { contains: 'hooks', mode: 'insensitive' } },
@@ -75,6 +78,16 @@ describe('getPublishedPostsPage', () => {
         take: 12,
       }),
     )
+  })
+
+  test('does not fall back to all posts when the active tag is missing', async () => {
+    findTag.mockResolvedValue(null)
+    const { getPublishedPostsPage } = await import('../posts')
+    expect(await getPublishedPostsPage({ page: 1, limit: 10, tag: 'removed' })).toEqual({
+      posts: [], pagination: { page: 1, limit: 10, total: 0, totalPages: 0 },
+    })
+    expect(findMany).not.toHaveBeenCalled()
+    expect(count).not.toHaveBeenCalled()
   })
 
   test('exposes reusable public query fragments for listing and taxonomy surfaces', async () => {

@@ -45,7 +45,7 @@ export default async function AdminAiTaskDetailPage({ params }: { params: Promis
 
   return (
     <div className="space-y-6">
-      <AiTaskActivitySync activeTaskCount={activeTaskCount} />
+      <AiTaskActivitySync activeTaskCount={activeTaskCount} observedTaskIds={[task.id]} />
       <PageHeader
         eyebrow="AI"
         title="AI 任务详情"

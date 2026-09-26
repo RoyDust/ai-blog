@@ -15,7 +15,7 @@ const prismaMocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/cache", () => ({
-  revalidatePublicContent: prismaMocks.revalidatePublicContentMock,
+  revalidatePublicContentStrict: prismaMocks.revalidatePublicContentMock,
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -48,6 +48,7 @@ describe("post summary jobs", () => {
     vi.resetModules();
     vi.unstubAllGlobals();
     vi.clearAllMocks();
+    prismaMocks.revalidatePublicContentMock.mockReturnValue({ paths: [], errors: [] });
     prismaMocks.aiFindManyMock.mockResolvedValue([]);
     prismaMocks.aiFindUniqueMock.mockResolvedValue(null);
     prismaMocks.aiCountMock.mockResolvedValue(0);
@@ -75,6 +76,7 @@ describe("post summary jobs", () => {
         id: "post-1",
         title: "第一篇",
         content: "第一篇正文",
+        excerpt: null,
         slug: "post-one",
         category: { slug: "tech" },
         tags: [{ slug: "ai" }],
@@ -101,8 +103,8 @@ describe("post summary jobs", () => {
         summaryError: null,
       }),
     }));
-    expect(prismaMocks.updateMock).toHaveBeenCalledWith(expect.objectContaining({
-      where: { id: "post-1" },
+    expect(prismaMocks.updateManyMock).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ id: "post-1", summaryJobId: "job-1", summaryStatus: "GENERATING" }),
       data: expect.objectContaining({
         excerpt: "生成后的文章摘要。",
         summaryStatus: "GENERATED",
@@ -114,6 +116,7 @@ describe("post summary jobs", () => {
       slug: "post-one",
       categorySlug: "tech",
       tagSlugs: ["ai"],
+      seriesSlug: undefined,
     });
   });
 });

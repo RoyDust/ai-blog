@@ -3,16 +3,19 @@ import { beforeEach, describe, expect, test, vi } from 'vitest'
 const create = vi.fn()
 const findFirstPost = vi.fn()
 const createAdminNotification = vi.fn()
+const findFirstParent = vi.fn()
+const queryRaw = vi.fn()
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     post: { findFirst: findFirstPost },
-    comment: { create },
+    comment: { create, findFirst: findFirstParent },
+    $transaction: async (run: (tx: unknown) => Promise<unknown>) => run({
+      post: { findFirst: findFirstPost },
+      comment: { create, findFirst: findFirstParent },
+      $queryRaw: queryRaw,
+    }),
   },
-}))
-
-vi.mock('@/lib/validation', () => ({
-  parseCommentInput: () => ({ postId: 'post-1', content: 'Nice post', parentId: null }),
 }))
 
 vi.mock('@/lib/rate-limit', () => ({
@@ -36,6 +39,8 @@ describe('POST /api/comments', () => {
     create.mockReset()
     findFirstPost.mockReset()
     createAdminNotification.mockReset()
+    findFirstParent.mockReset()
+    queryRaw.mockReset().mockResolvedValue([{ id: 'post-1' }])
   })
 
   test('creates an anonymous comment using browser id and masked ip label', async () => {
@@ -80,6 +85,19 @@ describe('POST /api/comments', () => {
       entityId: 'comment-1',
       dedupeKey: 'comment:comment-1:created',
     }))
+  })
+
+  test('rejects a reply when the parent is not public on this post', async () => {
+    findFirstPost.mockResolvedValue({ id: 'post-1', slug: 'hello', title: 'Hello' })
+    findFirstParent.mockResolvedValue(null)
+    const { POST } = await import('../route')
+    const response = await POST(new Request('http://localhost/api/comments', {
+      method: 'POST', headers: { 'content-type': 'application/json', 'x-browser-id': 'anon_123' },
+      body: JSON.stringify({ postId: 'post-1', content: 'Nice post', parentId: 'other-post-parent' }),
+    }))
+    expect(response.status).toBe(404)
+    expect(create).not.toHaveBeenCalled()
+    expect(createAdminNotification).not.toHaveBeenCalled()
   })
 
   test('rejects malformed anonymous browser ids', async () => {

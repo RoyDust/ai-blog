@@ -3,7 +3,8 @@ import { NextResponse } from "next/server"
 import type { Prisma } from "@prisma/client"
 
 import { requireAdminSession } from "@/lib/api-auth"
-import { NotFoundError, toErrorResponse } from "@/lib/api-errors"
+import { toErrorResponse } from "@/lib/api-errors"
+import { mutateTaxonomy } from "@/lib/taxonomy-mutations"
 import { buildAdminListPagination, getAdminListSkip, parseAdminListPagination } from "@/lib/admin-list-pagination"
 import { prisma } from "@/lib/prisma"
 import { parseIdList, parseTaxonomyInput } from "@/lib/validation"
@@ -72,9 +73,8 @@ async function POSTHandler(request: Request) {
   try {
     await requireAdminSession()
     const { name, slug, description } = parseTaxonomyInput(await request.json())
-    const category = await prisma.category.create({ data: { name, slug, description } })
-
-    return NextResponse.json({ success: true, data: category })
+    const result = await mutateTaxonomy('category', [], slug, (tx) => tx.category.create({ data: { name, slug, description } }))
+    return NextResponse.json({ success: true, ...result })
   } catch (error) {
     return toErrorResponse(error)
   }
@@ -89,12 +89,11 @@ async function PATCHHandler(request: Request) {
       return NextResponse.json({ error: "Id is required" }, { status: 400 })
     }
 
-    const category = await prisma.category.update({
+    const result = await mutateTaxonomy('category', [id], slug, (tx) => tx.category.update({
       where: { id },
       data: { name, slug, description },
-    })
-
-    return NextResponse.json({ success: true, data: category })
+    }))
+    return NextResponse.json({ success: true, ...result })
   } catch (error) {
     return toErrorResponse(error, "Failed to update category")
   }
@@ -110,20 +109,12 @@ async function DELETEHandler(request: Request) {
       return NextResponse.json({ error: "Category ID is required" }, { status: 400 })
     }
 
-    const categories = await prisma.category.findMany({ where: { id: { in: ids }, deletedAt: null }, select: { id: true } })
-    if (categories.length === 0) {
-      throw new NotFoundError("Category not found")
-    }
-
-    const resolvedIds = categories.map((category: { id: string }) => category.id)
-    const deletedAt = new Date()
-
-    await prisma.$transaction([
-      prisma.category.updateMany({ where: { id: { in: resolvedIds }, deletedAt: null }, data: { deletedAt } }),
-      prisma.post.updateMany({ where: { categoryId: { in: resolvedIds }, deletedAt: null }, data: { categoryId: null } }),
-    ])
-
-    return NextResponse.json({ success: true })
+    const result = await mutateTaxonomy('category', ids, undefined, async (tx, resolvedIds) => {
+      await tx.category.updateMany({ where: { id: { in: resolvedIds }, deletedAt: null }, data: { deletedAt: new Date() } })
+      await tx.post.updateMany({ where: { categoryId: { in: resolvedIds }, deletedAt: null }, data: { categoryId: null } })
+      return { ids: resolvedIds }
+    })
+    return NextResponse.json({ success: true, ...result })
   } catch (error) {
     return toErrorResponse(error, "Failed to delete category")
   }

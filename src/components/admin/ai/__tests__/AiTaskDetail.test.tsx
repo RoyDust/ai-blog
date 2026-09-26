@@ -60,6 +60,20 @@ function buildTask(overrides: Partial<Parameters<typeof AiTaskDetail>[0]["task"]
 }
 
 describe("AiTaskDetail", () => {
+  test("updates item outcomes and actions after a server refresh", () => {
+    const task = buildTask({ type: "post-bulk-completion", status: "RUNNING", metadata: {}, succeededCount: 0 });
+    const item = { ...task.items[0], status: "RUNNING", output: null };
+    const { rerender } = render(<AiTaskDetail task={{ ...task, items: [item] }} />);
+    expect(screen.getByRole("button", { name: "重试失败项" })).toBeDisabled();
+    rerender(<AiTaskDetail task={{ ...task, status: "FAILED", failedCount: 1, items: [{ ...item, status: "FAILED", error: "Upstream rejected this item" }] }} />);
+    expect(screen.getByText("Upstream rejected this item")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "重试失败项" })).not.toBeDisabled();
+    rerender(<AiTaskDetail task={{ ...task, status: "SUCCEEDED", succeededCount: 1, items: [{ ...item, status: "SUCCEEDED", output: { slug: "fresh-output" } }] }} />);
+    expect(screen.getByText("fresh-output")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "应用" })).not.toBeDisabled();
+    expect(screen.queryByText("Upstream rejected this item")).not.toBeInTheDocument();
+  });
+
   test("shows one-click article info items as form-filled instead of directly applicable", () => {
     render(<AiTaskDetail task={buildTask()} />);
 

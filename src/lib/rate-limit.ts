@@ -88,7 +88,7 @@ function resolveRateLimitMode() {
   return process.env.NODE_ENV === "production" ? "database" : "memory"
 }
 
-async function checkRateLimit(request: Request, scope: string, options: { limit: number; windowMs: number }) {
+async function checkRateLimit(request: Pick<Request, "headers">, scope: string, options: { limit: number; windowMs: number }) {
   const key = getRateLimitKey(request, scope)
 
   if (resolveRateLimitMode() === "database") {
@@ -125,10 +125,11 @@ async function checkRateLimit(request: Request, scope: string, options: { limit:
 /**
  * 基于请求元数据生成带作用域的稳定限流键。
  */
-export function getRateLimitKey(request: Request, scope: string) {
+export function getRateLimitKey(request: Pick<Request, "headers">, scope: string) {
   const forwardedFor = request.headers.get('x-forwarded-for')
   const realIp = request.headers.get('x-real-ip')?.trim()
-  const ip = forwardedFor?.split(',')[0]?.trim() || realIp || 'anonymous'
+  // 生产入口 Nginx 覆盖 X-Real-IP；不能优先信任客户端可伪造的 XFF 首项。
+  const ip = realIp || forwardedFor?.split(',')[0]?.trim() || 'anonymous'
 
   return `${scope}:${ip}`
 }
@@ -136,7 +137,7 @@ export function getRateLimitKey(request: Request, scope: string) {
 /**
  * 对认证相关接口应用更严格的限流策略。
  */
-export function checkAuthRateLimit(request: Request) {
+export function checkAuthRateLimit(request: Pick<Request, "headers">) {
   return checkRateLimit(request, 'auth', { limit: 5, windowMs: 60_000 })
 }
 

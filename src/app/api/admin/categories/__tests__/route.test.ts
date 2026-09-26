@@ -45,10 +45,7 @@ describe('DELETE /api/admin/categories', () => {
     const response = await DELETE(new Request('http://localhost/api/admin/categories?ids=cat-1'))
     const payload = await response.json()
 
-    expect(transaction).toHaveBeenCalledWith([
-      { kind: 'category-op' },
-      { kind: 'post-op' },
-    ])
+    expect(transaction).toHaveBeenCalledWith(expect.any(Function))
     expect(response.status).toBe(500)
     expect(payload).toEqual({ error: 'Failed to delete category' })
   })

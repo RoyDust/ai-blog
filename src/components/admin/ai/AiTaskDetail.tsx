@@ -224,8 +224,13 @@ function getArticleInfoSummary(task: TaskDetail): ArticleInfoSummary {
 export function AiTaskDetail({ task }: { task: TaskDetail }) {
   const router = useRouter();
   const [items, setItems] = useState(task.items);
+  const [serverItems, setServerItems] = useState(task.items);
   const [retrying, setRetrying] = useState(false);
   const [applyingItemId, setApplyingItemId] = useState<string | null>(null);
+  if (serverItems !== task.items) {
+    setServerItems(task.items);
+    setItems(task.items);
+  }
   const failedCount = useMemo(() => items.filter((item) => item.status === "FAILED").length, [items]);
   const oneClickArticleInfoTask = isOneClickArticleInfoTask(task);
   const articleInfoSummary = oneClickArticleInfoTask ? getArticleInfoSummary({ ...task, items }) : null;

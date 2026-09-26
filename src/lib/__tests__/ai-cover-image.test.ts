@@ -52,4 +52,12 @@ describe("ai cover image", () => {
       createdById: "admin-1",
     }));
   });
+
+  test("classifies upload outages as infrastructure failures before asset persistence", async () => {
+    const failure = new Error("Qiniu unavailable");
+    uploadBufferToQiniu.mockRejectedValueOnce(failure);
+    const { generateAiCoverImage } = await import("../ai-cover-image");
+    await expect(generateAiCoverImage({ title: "AI News", createdById: "admin-1" })).rejects.toMatchObject({ name: "AiInfrastructureError", cause: failure });
+    expect(createCoverAsset).not.toHaveBeenCalled();
+  });
 });

@@ -35,6 +35,7 @@ ARG NEXTAUTH_URL
 ARG NEXT_PUBLIC_SITE_URL
 COPY . .
 RUN pnpm prisma generate
+RUN node scripts/build-web-health.cjs
 RUN NEXTAUTH_URL="$NEXTAUTH_URL" \
  NEXT_PUBLIC_SITE_URL="$NEXT_PUBLIC_SITE_URL" \
  pnpm build
@@ -53,6 +54,8 @@ COPY --from=builder /app/src ./src
 COPY --from=builder /app/middleware.ts ./middleware.ts
 COPY --from=builder /app/tsconfig.json ./tsconfig.json
 COPY --from=builder /app/next-env.d.ts ./next-env.d.ts
+COPY --from=builder /app/.generated/web-health ./.generated/web-health
+COPY --from=builder /app/scripts/check-web-readiness.cjs ./scripts/check-web-readiness.cjs
 RUN pnpm prisma generate
 EXPOSE 3000
 CMD ["pnpm", "start"]

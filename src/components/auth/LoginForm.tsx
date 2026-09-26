@@ -62,6 +62,8 @@ const loginFormCopyByMode: Record<LoginFormMode, LoginFormCopy> = {
 };
 
 const errorMessages: Record<string, string> = {
+  "Too many requests": "登录尝试过于频繁，请一分钟后重试。",
+  "Invalid credentials": "邮箱或密码错误，请重试。",
   "not-admin": "当前不是管理员账号，请切换到拥有后台权限的账号。",
   "auth-secret-missing": "认证服务配置异常，请联系管理员。",
   OAuthAccountNotLinked: "该邮箱已注册，请先使用邮箱密码登录，然后在设置页绑定 GitHub。",

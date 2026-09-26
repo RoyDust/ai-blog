@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   getPostForAiAction: vi.fn(),
   normalizePostAiAction: vi.fn(),
   runPostAiAction: vi.fn(),
+  completePostAiTaskItem: vi.fn(),
   aiTaskUpdate: vi.fn(),
   postFindFirst: vi.fn(),
 }));
@@ -37,6 +38,7 @@ vi.mock("@/lib/ai-post-actions", () => ({
   getPostForAiAction: mocks.getPostForAiAction,
   normalizePostAiAction: mocks.normalizePostAiAction,
   runPostAiAction: mocks.runPostAiAction,
+  completePostAiTaskItem: mocks.completePostAiTaskItem,
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -87,7 +89,7 @@ describe("admin AI actions route", () => {
     const data = await response.json();
 
     expect(response.status).toBe(200);
-    expect(mocks.markAiTaskItemSucceeded).toHaveBeenCalledWith("item-1", expect.objectContaining({ seoDescription: "SEO 描述" }));
+    expect(mocks.completePostAiTaskItem).toHaveBeenCalledWith(expect.objectContaining({ itemId: "item-1", output: expect.objectContaining({ seoDescription: "SEO 描述" }), apply: false }));
     expect(data).toMatchObject({
       success: true,
       data: {
@@ -100,6 +102,16 @@ describe("admin AI actions route", () => {
     });
     expect(data.data.durationMs).toEqual(expect.any(Number));
     expect(data.data.output._meta).toEqual(expect.objectContaining({ modelId: "model-1", promptVersion: "post-ai-action-v1" }));
+  });
+
+  test("keeps the single action active after a model dependency fails", async () => {
+    const { AiInfrastructureError } = await import("@/lib/ai-task-errors");
+    mocks.runPostAiAction.mockRejectedValueOnce(new AiInfrastructureError(new Error("model database unavailable")));
+    const { POST } = await import("../route");
+    const response = await POST(new Request("http://localhost/api/admin/ai/actions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ postId: "post-1", action: "seo-description" }) }));
+    expect(response.status).toBe(500);
+    expect(mocks.markAiTaskItemFailed).not.toHaveBeenCalled();
+    expect(mocks.completePostAiTaskItem).not.toHaveBeenCalled();
   });
 
   test("generates a draft AI suggestion without requiring a saved post", async () => {
@@ -139,5 +151,13 @@ describe("admin AI actions route", () => {
         output: { seoDescription: "SEO 描述" },
       },
     });
+  });
+
+  test("does not mark a generated suggestion failed when its terminal transaction fails", async () => {
+    mocks.markAiTaskItemSucceeded.mockRejectedValueOnce(new Error("notification unavailable"));
+    const { POST } = await import("../route");
+    const response = await POST(new Request("http://localhost/api/admin/ai/actions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ draft: { title: "draft", content: "body" }, action: "seo-description" }) }));
+    expect(response.status).toBe(500);
+    expect(mocks.markAiTaskItemFailed).not.toHaveBeenCalled();
   });
 });

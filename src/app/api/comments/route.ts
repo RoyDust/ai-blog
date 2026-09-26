@@ -1,6 +1,7 @@
 import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { createPublicComment } from '@/lib/comments'
 import { createAnonymousActorId } from '@/lib/anonymous-actor'
 import { parseCommentInput } from '@/lib/validation'
 import { checkInteractionRateLimit } from '@/lib/rate-limit'
@@ -17,28 +18,10 @@ async function POSTHandler(request: Request) {
 
     const anonymousActor = createAnonymousActorId(request.headers)
     const { postId, content, parentId } = parseCommentInput(await request.json())
-    const post = await prisma.post.findFirst({
-      where: { id: postId, deletedAt: null, published: true },
-      select: { id: true, slug: true, title: true, published: true },
-    })
-    if (!post) {
-      throw new NotFoundError('Post not found')
-    }
-
-    const comment = await prisma.comment.create({
-      data: {
-        content,
-        status: 'PENDING',
-        postId: post.id,
-        parentId,
-        browserId: anonymousActor.actorId,
-        authorLabel: anonymousActor.authorLabel,
-      },
-      include: {
-        author: {
-          select: { id: true, name: true, image: true },
-        },
-      },
+    const { post, comment } = await createPublicComment({
+      postId, content, parentId,
+      browserId: anonymousActor.actorId,
+      authorLabel: anonymousActor.authorLabel,
     })
 
     try {

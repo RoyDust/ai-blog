@@ -66,7 +66,7 @@ export async function getCategoryDetail(slug: string, input: TaxonomyDetailPagin
   }
 
   const posts = await prisma.post.findMany({
-    where: { deletedAt: null, published: true, category: { slug } },
+    where: { deletedAt: null, published: true, category: { id: category.id, deletedAt: null } },
     select: getPublicPostSelect({ includeTagColor: true }),
     orderBy: PUBLIC_POST_ORDER_BY,
     skip: (page - 1) * limit,
@@ -103,7 +103,7 @@ export async function getTagDetail(slug: string, input: TaxonomyDetailPagination
   }
 
   const posts = await prisma.post.findMany({
-    where: { deletedAt: null, published: true, tags: { some: { slug } } },
+    where: { deletedAt: null, published: true, tags: { some: { id: tag.id, deletedAt: null } } },
     select: getPublicPostSelect({ includeTagColor: true }),
     orderBy: PUBLIC_POST_ORDER_BY,
     skip: (page - 1) * limit,

@@ -101,6 +101,17 @@ describe("LoginForm", () => {
     expect(screen.getByText(/GitHub 登录回调校验失败/)).toBeInTheDocument();
   });
 
+  test("shows a Chinese retry message when login attempts are rate limited", async () => {
+    signIn.mockResolvedValueOnce({ error: "Too many requests" });
+    render(<LoginForm mode="dialog" />);
+    fireEvent.change(screen.getByLabelText("邮箱"), { target: { value: "admin@example.com" } });
+    fireEvent.change(screen.getByLabelText("密码"), { target: { value: "wrong-password" } });
+    fireEvent.click(screen.getByRole("button", { name: /^登录$/ }));
+
+    expect(await screen.findByText("登录尝试过于频繁，请一分钟后重试。")).toBeInTheDocument();
+    expect(getSession).not.toHaveBeenCalled();
+  });
+
   test("falls back to generic copy for unknown error codes", () => {
     render(<LoginForm mode="dialog" authError="SomeUnknownError" />);
 

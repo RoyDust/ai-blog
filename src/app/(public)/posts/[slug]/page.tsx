@@ -108,7 +108,7 @@ async function getPostComments(postId: string) {
         select: { id: true, name: true, image: true },
       },
       replies: {
-        where: { deletedAt: null, status: "APPROVED" },
+        where: { postId, deletedAt: null, status: "APPROVED" },
         select: {
           id: true,
           content: true,

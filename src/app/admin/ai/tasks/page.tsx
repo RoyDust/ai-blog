@@ -53,7 +53,7 @@ export default async function AdminAiTasksPage({
 
   return (
     <div className="space-y-6">
-      <AiTaskActivitySync activeTaskCount={activeTaskCount} />
+      <AiTaskActivitySync activeTaskCount={activeTaskCount} observedTaskIds={data.tasks.map((task) => task.id)} />
       <PageHeader
         eyebrow="AI"
         title="AI 任务记录"

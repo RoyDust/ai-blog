@@ -5,6 +5,8 @@ import { describe, expect, test } from "vitest";
 const apiRoot = join(process.cwd(), "src", "app", "api");
 const allowedDisabledRoutes = new Set([
   "src/app/api/internal/operation-logs/route.ts",
+  "src/app/api/health/live/route.ts",
+  "src/app/api/health/ready/route.ts",
 ]);
 
 function findRouteFiles(dir: string): string[] {

@@ -5,7 +5,6 @@ import {
   markAiTaskItemFailed,
   markAiTaskItemRunning,
   markAiTaskItemSkipped,
-  markAiTaskItemSucceeded,
   markAiTaskRunning,
   refreshAiTaskCounts,
   type AiTaskType,
@@ -13,17 +12,19 @@ import {
 } from "@/lib/ai-tasks";
 import {
   POST_AI_ACTIONS,
-  applyPostAiTaskItem,
+  completePostAiTaskItem,
   buildPostAiInputSnapshot,
   getPostForAiAction,
   normalizePostAiAction,
   runPostAiAction,
   type PostAiAction,
 } from "@/lib/ai-post-actions";
-import { ValidationError } from "@/lib/api-errors";
+import { NotFoundError, ValidationError } from "@/lib/api-errors";
 import { prisma } from "@/lib/prisma";
+import { AiInfrastructureError } from "@/lib/ai-task-errors";
 
 const MAX_AI_BATCH_POSTS = 20;
+export const MAX_OBSERVED_AI_TASKS = 50;
 const runningBatchTasks = new Set<string>();
 const targetedResumeTaskTypes = [
   "post-bulk-completion",
@@ -36,6 +37,26 @@ const targetedResumeTaskTypes = [
 ] satisfies AiTaskType[];
 
 export type AiBatchMode = "missing-only" | "overwrite" | "suggest-only";
+
+/** A bounded read by the page's observed IDs includes the last terminal transition. */
+export async function getAiBatchTaskSnapshot(taskIds: string[]) {
+  const ids = [...new Set(taskIds.map((id) => id.trim()).filter(Boolean))].sort();
+  if (taskIds.length > MAX_OBSERVED_AI_TASKS || ids.some((id) => id.length > 128)) throw new ValidationError("最多观察 50 个 AI 任务");
+  if (ids.length === 0) return { active: false, tasks: [], missingTaskIds: [] };
+  const rows = await prisma.aiTask.findMany({
+    where: { id: { in: ids } }, take: MAX_OBSERVED_AI_TASKS, orderBy: { id: "asc" },
+    select: { id: true, status: true, requestedCount: true, succeededCount: true, failedCount: true, updatedAt: true, items: { select: { id: true, status: true, updatedAt: true }, orderBy: { id: "asc" } } },
+  });
+  const tasks = rows.map((task) => ({
+    id: task.id, status: task.status,
+    counts: { requested: task.requestedCount, succeeded: task.succeededCount, failed: task.failedCount,
+      queued: task.items.filter((item) => item.status === "QUEUED").length,
+      running: task.items.filter((item) => item.status === "RUNNING").length,
+      skipped: task.items.filter((item) => item.status === "SKIPPED").length },
+    version: [task.updatedAt.toISOString(), ...task.items.map((item) => item.id + ":" + item.updatedAt.toISOString())].join("|"),
+  }));
+  return { active: tasks.some((task) => isAiTaskActive(task.status)), tasks, missingTaskIds: ids.filter((id) => !tasks.some((task) => task.id === id)) };
+}
 
 /**
  * 规范化批量任务的文章 id，并去重空值。
@@ -92,16 +113,7 @@ function shouldCreateItemForAction({
   return false;
 }
 
-/**
- * 只有低风险字段允许批量自动应用。
- */
-function canAutoApply(action: PostAiAction, apply: boolean) {
-  return apply && (action === POST_AI_ACTIONS.summary || action === POST_AI_ACTIONS.seoDescription || action === POST_AI_ACTIONS.coverImage);
-}
-
-/**
- * 把批量任务放到当前 Node 进程的异步执行队列。
- */
+/** 把批量任务放到当前 Node 进程的异步执行队列。 */
 function scheduleBatchTask(taskId: string, modelId?: string | null, apply = false) {
   setTimeout(() => {
     void runAiBatchTask({ taskId, modelId, apply }).catch((error) => {
@@ -202,8 +214,7 @@ export async function runAiBatchTask({
   runningBatchTasks.add(taskId);
 
   try {
-    await markAiTaskRunning(taskId);
-    let resolvedModelId = modelId ?? null;
+    if (!await markAiTaskRunning(taskId)) return;
 
     const items = await prisma.aiTaskItem.findMany({
       where: {
@@ -217,26 +228,33 @@ export async function runAiBatchTask({
       const action = normalizePostAiAction(item.action);
 
       if (!item.postId) {
-        await markAiTaskItemSkipped(item.id, "Post not found");
+        await markAiTaskItemSkipped(item.id, "Post not found", taskId);
         continue;
       }
 
-      await markAiTaskItemRunning(item.id);
-
+      if (!await markAiTaskItemRunning(item.id, taskId)) continue;
+      let post: Awaited<ReturnType<typeof getPostForAiAction>>;
       try {
-        const post = await getPostForAiAction(item.postId);
-        const result = await runPostAiAction({ post, action, modelId });
-        if (!resolvedModelId && result.modelId) {
-          resolvedModelId = result.modelId;
-          await prisma.aiTask.update({ where: { id: taskId }, data: { modelId: result.modelId } });
-        }
-        await markAiTaskItemSucceeded(item.id, result.output as unknown as JsonValue, false);
-
-        if (canAutoApply(action, apply)) {
-          await applyPostAiTaskItem(item.id);
-        }
+        post = await getPostForAiAction(item.postId);
       } catch (error) {
-        await markAiTaskItemFailed(item.id, error instanceof Error ? error.message : "AI batch item failed");
+        if (!(error instanceof NotFoundError)) throw error;
+        await markAiTaskItemSkipped(item.id, "Post not found", taskId);
+        continue;
+      }
+      let result: Awaited<ReturnType<typeof runPostAiAction>>;
+      try {
+        result = await runPostAiAction({ post, action, modelId });
+      } catch (error) {
+        if (error instanceof AiInfrastructureError) throw error;
+        await markAiTaskItemFailed(item.id, error instanceof Error ? error.message : "AI batch item failed", taskId);
+        continue;
+      }
+      // Database/notification failures must escape without changing the active item to FAILED.
+      try {
+        await completePostAiTaskItem({ taskId, itemId: item.id, post, action, expectedInputSnapshot: item.inputSnapshot as JsonValue | null, output: result.output as unknown as JsonValue, modelId: result.modelId, apply });
+      } catch (error) {
+        if (!(error instanceof ValidationError)) throw error;
+        await markAiTaskItemFailed(item.id, error.message, taskId);
       }
     }
 

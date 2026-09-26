@@ -13,16 +13,17 @@ jobs:
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: my_next_app
+          POSTGRES_DB: inkforge_test
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U postgres -d my_next_app"
+          --health-cmd "pg_isready -U postgres -d inkforge_test"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
     env:
-      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/my_next_app?schema=public
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/inkforge_test?schema=public
+      TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/inkforge_test?schema=public
       AUTH_SECRET: test-auth-secret
       NEXTAUTH_SECRET: test-nextauth-secret
       NEXTAUTH_URL: http://127.0.0.1:3000
@@ -64,6 +65,14 @@ jobs:
       - name: Unit tests
         run: pnpm test
 
+      - name: PostgreSQL integration tests
+        run: pnpm vitest run --config vitest.integration.config.ts
+
+      - name: Deployment readiness tests
+        run: |
+          node scripts/build-web-health.cjs
+          node --test scripts/deploy/deploy-remote.test.cjs
+
       - name: Build
         run: pnpm build
 
@@ -77,16 +86,16 @@ jobs:
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: my_next_app
+          POSTGRES_DB: inkforge_test
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U postgres -d my_next_app"
+          --health-cmd "pg_isready -U postgres -d inkforge_test"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
     env:
-      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/my_next_app?schema=public
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/inkforge_test?schema=public
       AUTH_SECRET: test-auth-secret
       NEXTAUTH_SECRET: test-nextauth-secret
       NEXTAUTH_URL: http://127.0.0.1:3000
@@ -102,6 +111,7 @@ jobs:
       E2E_ADMIN_EMAIL: e2e-admin@test.local
       E2E_ADMIN_PASSWORD: e2e-admin-password-2026
       E2E_SERVER_COMMAND: pnpm start
+      E2E_DISPOSABLE_DATABASE: '1'
     steps:
       - name: Checkout
         uses: actions/checkout@v5

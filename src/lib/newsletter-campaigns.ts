@@ -1,62 +1,15 @@
-import { NotFoundError, ValidationError } from "@/lib/api-errors";
-import { createNewsletterMailer } from "@/lib/newsletter-mailer";
-import { createNewsletterUnsubscribeToken, listVerifiedSubscribers } from "@/lib/newsletter";
+import type { Prisma, NewsletterDelivery as DeliveryRecord, NewsletterCampaign as CampaignRecord } from "@prisma/client";
+import { ConflictError, NotFoundError, ValidationError } from "@/lib/api-errors";
+import { buildDeliveryStats, type DeliveryStats } from "@/lib/newsletter-delivery-stats";
+
+
+
 import { prisma } from "@/lib/prisma";
 import { renderNewsletterEmail } from "@/lib/newsletter-renderer";
 import { getSiteUrl } from "@/lib/seo";
 
 type NewsletterCampaignStatus = "DRAFT" | "SENDING" | "SENT" | "PARTIAL_FAILED" | "FAILED";
-type DeliveryStatus = "pending" | "sent" | "failed";
 
-type CampaignRecord = {
-  id: string;
-  title: string;
-  subject: string;
-  intro: string | null;
-  postIds: string[];
-  status: NewsletterCampaignStatus;
-  scheduledAt: Date | null;
-  sentAt: Date | null;
-  createdById: string | null;
-  createdAt: Date;
-  updatedAt: Date;
-};
-
-type SubscriberRecord = {
-  id: string;
-  email: string;
-  status: string;
-  verifiedAt: Date | null;
-  unsubscribedAt: Date | null;
-  createdAt: Date;
-  updatedAt: Date;
-};
-
-type DeliveryRecord = {
-  id: string;
-  campaignId: string;
-  subscriberId: string;
-  email: string;
-  status: string;
-  error: string | null;
-  sentAt: Date | null;
-  createdAt: Date;
-  updatedAt: Date;
-};
-
-type DeliveryStats = {
-  total: number;
-  sent: number;
-  failed: number;
-  pending: number;
-};
-
-type NewsletterPost = {
-  id: string;
-  title: string;
-  slug: string;
-  excerpt: string | null;
-};
 
 type CreateCampaignInput = {
   title: unknown;
@@ -83,34 +36,9 @@ type ListSubscribersOptions = {
   q?: string | null;
 };
 
-type PrismaNewsletterClient = typeof prisma & {
-  newsletterCampaign: {
-    count(args: unknown): Promise<number>;
-    create(args: unknown): Promise<CampaignRecord>;
-    findMany(args: unknown): Promise<CampaignRecord[]>;
-    findUnique(args: unknown): Promise<(CampaignRecord & { deliveries?: DeliveryRecord[] }) | null>;
-    update(args: unknown): Promise<CampaignRecord>;
-    updateMany(args: unknown): Promise<{ count: number }>;
-  };
-  newsletterDelivery: {
-    count(args: unknown): Promise<number>;
-    findMany(args: unknown): Promise<DeliveryRecord[]>;
-    upsert(args: unknown): Promise<DeliveryRecord>;
-    update(args: unknown): Promise<DeliveryRecord>;
-  };
-  newsletterSubscriber: {
-    count(args: unknown): Promise<number>;
-    findMany(args: unknown): Promise<SubscriberRecord[]>;
-    findUnique(args: unknown): Promise<SubscriberRecord | null>;
-  };
-  post: {
-    findMany(args: unknown): Promise<NewsletterPost[]>;
-  };
-};
-
 const DEFAULT_PAGE_SIZE = 10;
 const MAX_PAGE_SIZE = 100;
-const SEND_BATCH_SIZE = 500;
+
 const allowedCampaignStatuses = new Set<NewsletterCampaignStatus>([
   "DRAFT",
   "SENDING",
@@ -121,7 +49,7 @@ const allowedCampaignStatuses = new Set<NewsletterCampaignStatus>([
 const allowedSubscriberStatuses = new Set(["pending", "verified", "unsubscribed"]);
 
 function newsletterClient() {
-  return prisma as PrismaNewsletterClient;
+  return prisma;
 }
 
 function normalizeText(value: unknown, field: string) {
@@ -202,7 +130,7 @@ function normalizeSubscriberStatus(status: string | null | undefined) {
   return normalized;
 }
 
-function buildCampaignWhere(options: ListCampaignsOptions) {
+function buildCampaignWhere(options: ListCampaignsOptions): Prisma.NewsletterCampaignWhereInput {
   const status = normalizeCampaignStatus(options.status);
   const query = typeof options.q === "string" ? options.q.trim() : "";
 
@@ -219,7 +147,7 @@ function buildCampaignWhere(options: ListCampaignsOptions) {
   };
 }
 
-function buildSubscriberWhere(options: ListSubscribersOptions) {
+function buildSubscriberWhere(options: ListSubscribersOptions): Prisma.NewsletterSubscriberWhereInput {
   const status = normalizeSubscriberStatus(options.status);
   const query = typeof options.q === "string" ? options.q.trim() : "";
 
@@ -230,20 +158,7 @@ function buildSubscriberWhere(options: ListSubscribersOptions) {
   };
 }
 
-function buildDeliveryStats(deliveries: Array<Pick<DeliveryRecord, "status">>): DeliveryStats {
-  const sent = deliveries.filter((delivery) => delivery.status === "sent").length;
-  const failed = deliveries.filter((delivery) => delivery.status === "failed").length;
-  const pending = deliveries.filter((delivery) => delivery.status === "pending").length;
-
-  return {
-    total: deliveries.length,
-    sent,
-    failed,
-    pending,
-  };
-}
-
-function toPublicCampaign(campaign: CampaignRecord & { deliveries?: Array<Pick<DeliveryRecord, "status">>; deliveryStats?: DeliveryStats }) {
+function toPublicCampaign<T extends CampaignRecord & { deliveries?: Array<Pick<DeliveryRecord, "status">>; deliveryStats?: DeliveryStats }>(campaign: T) {
   const deliveryStats = campaign.deliveryStats ?? buildDeliveryStats(campaign.deliveries ?? []);
 
   return {
@@ -297,178 +212,6 @@ async function loadCampaignPosts(postIds: string[]) {
   return [...posts].sort((a, b) => (position.get(a.id) ?? 0) - (position.get(b.id) ?? 0));
 }
 
-function deliveryErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "Unknown error";
-}
-
-async function upsertDelivery(
-  campaignId: string,
-  subscriber: Pick<SubscriberRecord, "id" | "email">,
-  status: DeliveryStatus,
-  error: string | null,
-) {
-  const now = new Date();
-
-  return newsletterClient().newsletterDelivery.upsert({
-    where: {
-      campaignId_subscriberId: {
-        campaignId,
-        subscriberId: subscriber.id,
-      },
-    },
-    create: {
-      campaignId,
-      subscriberId: subscriber.id,
-      email: subscriber.email,
-      status,
-      error,
-      sentAt: status === "sent" ? now : null,
-    },
-    update: {
-      email: subscriber.email,
-      status,
-      error,
-      sentAt: status === "sent" ? now : null,
-    },
-  });
-}
-
-async function listSentDeliverySubscriberIds(campaignId: string, subscriberIds: string[]) {
-  if (subscriberIds.length === 0) {
-    return new Set<string>();
-  }
-
-  const deliveries = await newsletterClient().newsletterDelivery.findMany({
-    where: {
-      campaignId,
-      subscriberId: { in: subscriberIds },
-      status: "sent",
-    },
-    select: { subscriberId: true },
-  });
-
-  return new Set(deliveries.map((delivery) => delivery.subscriberId));
-}
-
-async function sendCampaignToSubscribers(campaign: CampaignRecord, subscribers: Array<Pick<SubscriberRecord, "id" | "email">>) {
-  const posts = await loadCampaignPosts(campaign.postIds);
-  const siteUrl = getSiteUrl();
-  const alreadySentSubscriberIds = await listSentDeliverySubscriberIds(campaign.id, subscribers.map((subscriber) => subscriber.id));
-  let failedCount = 0;
-
-  for (const subscriber of subscribers) {
-    if (alreadySentSubscriberIds.has(subscriber.id)) {
-      continue;
-    }
-
-    try {
-      const unsubscribeToken = createNewsletterUnsubscribeToken(subscriber.email);
-      const email = renderNewsletterEmail({
-        subject: campaign.subject,
-        intro: campaign.intro,
-        posts,
-        siteUrl,
-        unsubscribeToken,
-      });
-
-      const result = await sendNewsletterEmail({ to: subscriber.email, subject: email.subject, html: email.html, text: email.text });
-      if (isUndeliveredMailResult(result)) {
-        throw new Error(result.reason ?? "Newsletter provider did not deliver the message");
-      }
-      await upsertDelivery(campaign.id, subscriber, "sent", null);
-    } catch (error) {
-      failedCount += 1;
-      await upsertDelivery(campaign.id, subscriber, "failed", deliveryErrorMessage(error));
-    }
-  }
-
-  return { failedCount };
-}
-
-export type NewsletterOutboundMessage = {
-  to: string;
-  subject: string;
-  html: string;
-  text: string;
-};
-
-export async function sendNewsletterEmail(message: NewsletterOutboundMessage) {
-  const mailer = createNewsletterMailer() as ReturnType<typeof createNewsletterMailer> & {
-    sendCampaignEmail?: (message: NewsletterOutboundMessage) => Promise<unknown>;
-  };
-
-  if (typeof mailer.sendCampaignEmail === "function") {
-    return mailer.sendCampaignEmail(message);
-  }
-
-  if (mailer.provider === "log") {
-    console.info("[newsletter] campaign email", {
-      to: message.to,
-      subject: message.subject,
-      htmlLength: message.html.length,
-      textLength: message.text.length,
-    });
-
-    return { delivered: true, provider: "log" as const };
-  }
-
-  return { delivered: false, provider: "noop" as const, reason: "provider_not_configured" as const };
-}
-
-function isUndeliveredMailResult(result: unknown): result is { delivered: false; reason?: string } {
-  return typeof result === "object" && result !== null && "delivered" in result && result.delivered === false;
-}
-
-async function claimCampaignForSending(campaign: CampaignRecord) {
-  if (campaign.status !== "DRAFT" && campaign.status !== "PARTIAL_FAILED") {
-    throw new ValidationError("Campaign cannot be sent in current status");
-  }
-
-  const result = await newsletterClient().newsletterCampaign.updateMany({
-    where: {
-      id: campaign.id,
-      status: { in: ["DRAFT", "PARTIAL_FAILED"] },
-    },
-    data: { status: "SENDING" },
-  });
-
-  if (result.count !== 1) {
-    throw new ValidationError("Campaign is already being sent");
-  }
-}
-
-async function markCampaignSendInterrupted(campaignId: string) {
-  try {
-    await newsletterClient().newsletterCampaign.updateMany({
-      where: { id: campaignId, status: "SENDING" },
-      data: { status: "PARTIAL_FAILED" },
-    });
-  } catch {
-    // Preserve the original send failure; manual recovery can still fix SENDING.
-  }
-}
-
-async function finishSendingCampaign(campaign: CampaignRecord, nextStatus: NewsletterCampaignStatus) {
-  const sentAt = nextStatus === "SENT" || nextStatus === "PARTIAL_FAILED" ? new Date() : null;
-  const result = await newsletterClient().newsletterCampaign.updateMany({
-    where: { id: campaign.id, status: "SENDING" },
-    data: {
-      status: nextStatus,
-      sentAt,
-    },
-  });
-
-  if (result.count === 1) {
-    return {
-      ...campaign,
-      status: nextStatus,
-      sentAt,
-    };
-  }
-
-  return loadCampaign(campaign.id);
-}
-
 export async function createNewsletterCampaign(input: CreateCampaignInput) {
   return newsletterClient().newsletterCampaign.create({
     data: {
@@ -490,7 +233,7 @@ export async function updateNewsletterCampaign(campaignId: string, input: Update
   }
 
   return newsletterClient().newsletterCampaign.update({
-    where: { id: campaign.id },
+    where: { id: campaign.id, status: "DRAFT", audienceFrozenAt: null },
     data: {
       ...(input.title !== undefined ? { title: normalizeText(input.title, "Title") } : {}),
       ...(input.subject !== undefined ? { subject: normalizeText(input.subject, "Subject") } : {}),
@@ -498,6 +241,11 @@ export async function updateNewsletterCampaign(campaignId: string, input: Update
       ...(input.postIds !== undefined ? { postIds: normalizePostIds(input.postIds) } : {}),
       ...(input.scheduledAt !== undefined ? { scheduledAt: normalizeDate(input.scheduledAt) } : {}),
     },
+  }).catch((error: unknown) => {
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'P2025') {
+      throw new ConflictError("活动已开始发送或状态已变化，不能修改草稿");
+    }
+    throw error;
   });
 }
 
@@ -520,7 +268,11 @@ export async function listNewsletterCampaigns(options: ListCampaignsOptions = {}
 }
 
 export async function getNewsletterCampaign(campaignId: string) {
-  const campaign = await loadCampaign(campaignId, true);
+  const campaign = await prisma.newsletterCampaign.findUnique({
+    where: { id: normalizeText(campaignId, "Campaign ID") },
+    include: { deliveries: { orderBy: [{ updatedAt: "desc" }, { id: "asc" }] } },
+  });
+  if (!campaign) throw new NotFoundError("Campaign not found");
   const posts = await loadCampaignPosts(campaign.postIds);
 
   return {
@@ -544,114 +296,6 @@ export async function previewNewsletterCampaign(input: {
     posts,
     siteUrl: getSiteUrl(),
     unsubscribeToken: typeof input.unsubscribeToken === "string" && input.unsubscribeToken ? input.unsubscribeToken : "preview-token",
-  });
-}
-
-export async function sendNewsletterCampaign(campaignId: string) {
-  const campaign = await loadCampaign(campaignId);
-  await claimCampaignForSending(campaign);
-
-  try {
-    let cursorId: string | null = null;
-    let subscriberCount = 0;
-    let failedCount = 0;
-
-    while (true) {
-      const subscribers: Array<Pick<SubscriberRecord, "id" | "email">> = cursorId
-        ? await listVerifiedSubscribers(SEND_BATCH_SIZE, cursorId)
-        : await listVerifiedSubscribers(SEND_BATCH_SIZE);
-      if (subscribers.length === 0) {
-        break;
-      }
-
-      subscriberCount += subscribers.length;
-      cursorId = subscribers[subscribers.length - 1]?.id ?? null;
-
-      const result = await sendCampaignToSubscribers(campaign, subscribers);
-      failedCount += result.failedCount;
-    }
-
-    const nextStatus: NewsletterCampaignStatus =
-      subscriberCount === 0 ? "FAILED" : failedCount === 0 ? "SENT" : "PARTIAL_FAILED";
-
-    return finishSendingCampaign(campaign, nextStatus);
-  } catch (error) {
-    await markCampaignSendInterrupted(campaign.id);
-    throw error;
-  }
-}
-
-export async function retryNewsletterCampaignFailures(campaignId: string) {
-  const campaign = await loadCampaign(campaignId);
-  if (campaign.status !== "PARTIAL_FAILED" && campaign.status !== "FAILED") {
-    throw new ValidationError("Campaign has no failed deliveries to retry");
-  }
-
-  const failedDeliveries = await newsletterClient().newsletterDelivery.findMany({
-    where: { campaignId: campaign.id, status: "failed" },
-    orderBy: { updatedAt: "asc" },
-  });
-  const subscriberIds = Array.from(new Set(failedDeliveries.map((delivery) => delivery.subscriberId)));
-  const verifiedSubscribers = subscriberIds.length
-    ? await newsletterClient().newsletterSubscriber.findMany({
-        where: {
-          id: { in: subscriberIds },
-          status: "verified",
-          unsubscribedAt: null,
-        },
-        select: { id: true, email: true },
-      })
-    : [];
-  const subscriberById = new Map(verifiedSubscribers.map((subscriber) => [subscriber.id, subscriber]));
-  const subscribers = failedDeliveries
-    .map((delivery) => subscriberById.get(delivery.subscriberId))
-    .filter((subscriber): subscriber is Pick<SubscriberRecord, "id" | "email"> => Boolean(subscriber));
-
-  const claimResult = await newsletterClient().newsletterCampaign.updateMany({
-    where: { id: campaign.id, status: { in: ["PARTIAL_FAILED", "FAILED"] } },
-    data: { status: "SENDING" },
-  });
-  if (claimResult.count !== 1) {
-    throw new ValidationError("Campaign is already being retried");
-  }
-
-  try {
-    if (subscribers.length === 0 && failedDeliveries.length === 0) {
-      return finishSendingCampaign(campaign, "FAILED");
-    }
-
-    const result = await sendCampaignToSubscribers(campaign, subscribers);
-    const remainingFailedCount = await newsletterClient().newsletterDelivery.count({
-      where: { campaignId: campaign.id, status: "failed" },
-    });
-    const nextStatus: NewsletterCampaignStatus =
-      subscribers.length === 0 || result.failedCount > 0 || remainingFailedCount > 0 ? "PARTIAL_FAILED" : "SENT";
-
-    return finishSendingCampaign(campaign, nextStatus);
-  } catch (error) {
-    await markCampaignSendInterrupted(campaign.id);
-    throw error;
-  }
-}
-
-export async function recoverSendingNewsletterCampaign(campaignId: string) {
-  const campaign = await loadCampaign(campaignId);
-  if (campaign.status !== "SENDING") {
-    throw new ValidationError("Only sending campaigns can be recovered");
-  }
-
-  const [sentCount, failedCount] = await Promise.all([
-    newsletterClient().newsletterDelivery.count({ where: { campaignId: campaign.id, status: "sent" } }),
-    newsletterClient().newsletterDelivery.count({ where: { campaignId: campaign.id, status: "failed" } }),
-  ]);
-  const nextStatus: NewsletterCampaignStatus = sentCount === 0 && failedCount === 0 ? "DRAFT" : "PARTIAL_FAILED";
-
-  return newsletterClient().newsletterCampaign.update({
-    where: { id: campaign.id },
-    data: {
-      status: nextStatus,
-      sentAt: nextStatus === "PARTIAL_FAILED" ? campaign.sentAt ?? new Date() : null,
-    },
   });
 }
 
@@ -683,3 +327,7 @@ export async function listNewsletterSubscribers(options: ListSubscribersOptions 
     },
   };
 }
+
+export { sendNewsletterCampaign, retryNewsletterCampaignFailures, recoverSendingNewsletterCampaign, reconcileNewsletterDelivery } from "@/lib/newsletter-delivery-execution";
+
+export { sendNewsletterEmail, type NewsletterOutboundMessage } from "@/lib/newsletter-outbound";

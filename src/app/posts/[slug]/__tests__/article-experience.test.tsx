@@ -212,7 +212,7 @@ describe('article experience', () => {
       where: { postId: 'p1', parentId: null, deletedAt: null, status: 'APPROVED' },
       select: expect.objectContaining({
         replies: expect.objectContaining({
-          where: { deletedAt: null, status: 'APPROVED' },
+          where: { postId: 'p1', deletedAt: null, status: 'APPROVED' },
         }),
       }),
     }))

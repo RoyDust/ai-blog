@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   buildPostAiInputSnapshot: vi.fn(),
   getPostForAiAction: vi.fn(),
   runPostAiAction: vi.fn(),
+  completePostAiTaskItem: vi.fn(),
   aiTaskUpdate: vi.fn(),
   postFindFirst: vi.fn(),
 }));
@@ -23,7 +24,7 @@ vi.mock("@/lib/api-auth", () => ({
 }));
 
 vi.mock("@/lib/ai-tasks", () => ({
-  AI_TASK_ITEM_STATUSES: { queued: "QUEUED" },
+  AI_TASK_ITEM_STATUSES: { queued: "QUEUED", succeeded: "SUCCEEDED" },
   createAiTask: mocks.createAiTask,
   markAiTaskRunning: mocks.markAiTaskRunning,
   markAiTaskItemRunning: mocks.markAiTaskItemRunning,
@@ -46,6 +47,7 @@ vi.mock("@/lib/ai-post-actions", () => ({
   buildPostAiInputSnapshot: mocks.buildPostAiInputSnapshot,
   getPostForAiAction: mocks.getPostForAiAction,
   runPostAiAction: mocks.runPostAiAction,
+  completePostAiTaskItem: mocks.completePostAiTaskItem,
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -64,6 +66,8 @@ describe("admin one-click article info AI action", () => {
     vi.resetModules();
     vi.clearAllMocks();
     mocks.requireAdminSession.mockResolvedValue({ user: { id: "admin-1", role: "ADMIN" } });
+    mocks.completePostAiTaskItem.mockResolvedValue({ status: "SUCCEEDED", applied: false });
+    mocks.getPostForAiAction.mockResolvedValue({ id: "post-1", title: "原始标题", content: "这是一段足够长的正式文章内容，用来生成正式文章信息。", tags: [], category: null });
     mocks.buildDraftPostForAiAction.mockResolvedValue({
       id: "draft",
       title: "草稿标题",
@@ -95,6 +99,25 @@ describe("admin one-click article info AI action", () => {
     });
   });
 
+  test("does not turn a completion persistence error into a failed model item", async () => {
+    mocks.markAiTaskItemSucceeded.mockRejectedValueOnce(new Error("notification unavailable"));
+    const { POST } = await import("../route");
+    const response = await POST(new Request("http://localhost/api/admin/ai/actions/article-info", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ draft: { title: "draft", content: "这是一段足够长的正文内容，用来触发文章信息生成。" } }) }));
+    expect(response.status).toBe(500);
+    expect(mocks.markAiTaskItemFailed).not.toHaveBeenCalled();
+  });
+
+  test("keeps article info items active after a model dependency fails", async () => {
+    const { AiInfrastructureError } = await import("@/lib/ai-task-errors");
+    mocks.runPostAiAction.mockRejectedValueOnce(new AiInfrastructureError(new Error("model database unavailable")));
+    const { POST } = await import("../route");
+    const response = await POST(new Request("http://localhost/api/admin/ai/actions/article-info", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ postId: "post-1" }) }));
+    expect(response.status).toBe(500);
+    expect(mocks.markAiTaskItemFailed).not.toHaveBeenCalled();
+    expect(mocks.markAiTaskItemSucceeded).not.toHaveBeenCalled();
+    expect(mocks.completePostAiTaskItem).not.toHaveBeenCalled();
+  });
+
   test("creates one AI task with article info items and returns normalized editor payload", async () => {
     const { POST } = await import("../route");
     const response = await POST(
@@ -112,18 +135,19 @@ describe("admin one-click article info AI action", () => {
         type: "post-article-info",
         source: "single-post",
         createdById: "admin-1",
-        metadata: expect.objectContaining({ oneClick: true, preserve: ["title", "content"], promptVersion: "post-article-info-v1" }),
+        metadata: expect.objectContaining({ oneClick: true, draft: true, preserve: ["title", "content"], promptVersion: "post-article-info-v1" }),
         items: articleInfoActions.map((action) =>
           expect.objectContaining({
             postId: "post-1",
             action,
-            inputSnapshot: expect.objectContaining({ oneClick: true, preserve: ["title", "content"] }),
+            inputSnapshot: expect.objectContaining({ oneClick: true, draft: true, preserve: ["title", "content"] }),
           }),
         ),
       }),
     );
     expect(mocks.markAiTaskRunning).toHaveBeenCalledWith("task-1");
     expect(mocks.markAiTaskItemSucceeded).toHaveBeenCalledTimes(5);
+    expect(mocks.completePostAiTaskItem).not.toHaveBeenCalled();
     expect(data).toMatchObject({
       success: true,
       data: {

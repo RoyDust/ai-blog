@@ -23,6 +23,7 @@ import {
 import {
   buildDraftPostForAiAction,
   buildPostAiInputSnapshot,
+  completePostAiTaskItem,
   getAiTaskTypeForAction,
   getPostForAiAction,
   normalizePostAiAction,
@@ -30,6 +31,7 @@ import {
 } from "@/lib/ai-post-actions";
 import { toErrorResponse, ValidationError } from "@/lib/api-errors";
 import { prisma } from "@/lib/prisma";
+import { AiInfrastructureError } from "@/lib/ai-task-errors";
 
 const POST_AI_ACTION_PROMPT_VERSION = "post-ai-action-v1";
 
@@ -165,36 +167,42 @@ async function POSTHandler(request: Request) {
     await markAiTaskItemRunning(item.id);
 
     const startedAt = Date.now();
+    let result: Awaited<ReturnType<typeof runPostAiAction>>;
     try {
-      const result = await runPostAiAction({ post, action, modelId: body.modelId });
-      const durationMs = Date.now() - startedAt;
-      if (result.modelId !== task.modelId) {
-        await prisma.aiTask.update({ where: { id: task.id }, data: { modelId: result.modelId } });
-      }
-      const quality = action === "slug" ? await getSlugQuality(readOutputObject(result.output), postId) : null;
-      const output = withOutputMeta(result.output, {
-        modelId: result.modelId ?? null,
-        durationMs,
-        promptVersion: POST_AI_ACTION_PROMPT_VERSION,
-        ...(quality ? { quality } : {}),
-      });
-      await markAiTaskItemSucceeded(item.id, output as JsonValue);
-
-      return NextResponse.json({
-        success: true,
-        data: {
-          taskId: task.id,
-          itemId: item.id,
-          action,
-          modelId: result.modelId,
-          durationMs,
-          output,
-        },
-      });
+      result = await runPostAiAction({ post, action, modelId: body.modelId });
     } catch (error) {
+      if (error instanceof AiInfrastructureError) throw error;
       await markAiTaskItemFailed(item.id, error instanceof Error ? error.message : "AI action failed");
       throw error;
     }
+    const durationMs = Date.now() - startedAt;
+    if (draft && result.modelId !== task.modelId) {
+      await prisma.aiTask.update({ where: { id: task.id }, data: { modelId: result.modelId } });
+    }
+    const quality = action === "slug" ? await getSlugQuality(readOutputObject(result.output), postId) : null;
+    const output = withOutputMeta(result.output, {
+      modelId: result.modelId ?? null,
+      durationMs,
+      promptVersion: POST_AI_ACTION_PROMPT_VERSION,
+      ...(quality ? { quality } : {}),
+    });
+    if (draft) {
+      await markAiTaskItemSucceeded(item.id, output as JsonValue);
+    } else {
+      await completePostAiTaskItem({ taskId: task.id, itemId: item.id, post, action, expectedInputSnapshot: item.inputSnapshot, output: output as JsonValue, modelId: result.modelId, apply: false });
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        taskId: task.id,
+        itemId: item.id,
+        action,
+        modelId: result.modelId,
+        durationMs,
+        output,
+      },
+    });
   } catch (error) {
     return toErrorResponse(error, "AI action failed");
   }

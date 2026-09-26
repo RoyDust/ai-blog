@@ -156,6 +156,10 @@ function getDefaultBlogSettings(): BlogSettings {
   return {
     ...DEFAULT_BLOG_SETTINGS,
     siteUrl: getSiteUrl(),
+    newsletter: {
+      ...DEFAULT_BLOG_SETTINGS.newsletter,
+      provider: process.env.NEWSLETTER_PROVIDER?.trim().toLowerCase() === "log" ? "log" : "none",
+    },
   };
 }
 
@@ -341,7 +345,7 @@ function normalizeOptionalEmail(value: unknown, fallback: string, label: string)
 
 function normalizeNewsletterSettings(value: unknown, fallback: NewsletterSettings): NewsletterSettings {
   const record = typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
-  const provider = record.provider === "log" ? "log" : "none";
+  const provider = record.provider === undefined ? fallback.provider : record.provider === "log" ? "log" : "none";
 
   return {
     enabled: typeof record.enabled === "boolean" ? record.enabled : fallback.enabled,

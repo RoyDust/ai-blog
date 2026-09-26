@@ -1,65 +1,48 @@
 import { expect, test } from "@playwright/test"
 
-import { createPostViaApi, deletePostViaApi } from "./helpers"
-import { startMockUpstream } from "./mock-upstream"
+import { withMockAiModel } from "./ai-fixtures"
+import { createPostViaApi, deletePostViaApi, waitForAiTask } from "./helpers"
 
-/**
- * E18 AI 任务中心：批量摘要任务。
- *
- * createAiBatchTask 内 scheduleBatchTask（setTimeout）异步执行，
- * 任务详情 API 轮询终态（SUCCEEDED/PARTIAL_FAILED/FAILED，succeededCount 增长）。
- * 任务记录列表（/admin/ai/tasks）含任务行（bulk-posts · taskId）与详情链接。
- */
-test("E18 AI batch task runs and counts", async ({ page }) => {
-  test.setTimeout(240_000)
-  const upstream = await startMockUpstream()
+for (const retry of [false, true]) {
+  test(retry ? "E18 failed AI batch item succeeds after retry" : "E18 AI batch task succeeds and applies its result", async ({ page }) => {
+    test.setTimeout(240_000)
 
-  try {
-    // 确保 mock 模型存在并设为摘要默认（走 API）
-    const modelResponse = await page.request.post("/api/admin/ai/models", {
-      data: {
-        name: `E2E 批量模型 ${Date.now()}`,
-        model: "mock-model",
-        baseUrl: `${upstream.baseUrl}/v1`,
-        requestPath: "/chat/completions",
-        apiKey: "mock-key",
-        capabilities: ["post-summary"],
-        isDefaultForSummary: true,
-        enabled: true,
-      },
+    await withMockAiModel(page.request, async ({ modelId, upstream }) => {
+      const post = await createPostViaApi(page.request, { published: false })
+      try {
+        upstream.setCompletionFailure(retry)
+        const response = await page.request.post("/api/admin/ai/batch", {
+          data: { postIds: [post.id], actions: ["summary"], mode: "missing-only", apply: true, modelId },
+        })
+        expect(response.ok()).toBe(true)
+        let task = (await response.json()).data
+        expect(task.id).toBeTruthy()
+
+        if (retry) {
+          const failed = await waitForAiTask(page.request, task.id)
+          expect(failed).toMatchObject({ status: "FAILED", succeededCount: 0, failedCount: 1 })
+          upstream.setCompletionFailure(false)
+          const retryResponse = await page.request.post(
+            "/api/admin/ai/tasks/" + task.id + "/retry",
+          )
+          expect(retryResponse.ok()).toBe(true)
+          task = (await retryResponse.json()).data
+        }
+
+        const completed = await waitForAiTask(page.request, task.id)
+        expect(completed).toMatchObject({ status: "SUCCEEDED", succeededCount: 1, failedCount: 0 })
+        expect(completed.items).toEqual([
+          expect.objectContaining({ postId: post.id, status: "SUCCEEDED", applied: true }),
+        ])
+        const postResponse = await page.request.get("/api/admin/posts/" + post.id)
+        expect(postResponse.ok()).toBe(true)
+        expect((await postResponse.json()).data.excerpt).toBe("E2E mock 补全内容，用于本地 mock 上游返回值。")
+
+        await page.goto("/admin/ai/tasks")
+        await expect(page.locator('a[href="/admin/ai/tasks/' + task.id + '"]')).toBeVisible()
+      } finally {
+        await deletePostViaApi(page.request, post.id)
+      }
     })
-    expect(modelResponse.status()).toBeLessThan(300)
-
-    const post = await createPostViaApi(page.request, { published: false })
-
-    // 发起批量摘要任务
-    const batchResponse = await page.request.post("/api/admin/ai/batch", {
-      data: { postIds: [post.id], actions: ["summary"], mode: "missing-only", apply: true },
-    })
-    expect(batchResponse.status()).toBeLessThan(300)
-    const task = (await batchResponse.json())?.data
-    expect(task?.id).toBeTruthy()
-
-    // 轮询任务详情 API 终态
-    await expect
-      .poll(
-        async () => {
-          const response = await page.request.get(`/api/admin/ai/tasks/${task.id}`)
-          if (!response.ok()) return "pending"
-          const payload = await response.json()
-          const status = payload?.data?.status
-          return status === "SUCCEEDED" || status === "FAILED" || status === "PARTIAL_FAILED" ? status : "pending"
-        },
-        { timeout: 180_000, intervals: [3_000, 5_000] },
-      )
-      .toMatch(/SUCCEEDED|FAILED|PARTIAL_FAILED/)
-
-    // 任务记录列表页渲染（任务行 + 详情链接存在）
-    await page.goto("/admin/ai/tasks")
-    await expect(page.getByRole("link", { name: "查看" }).first()).toBeVisible({ timeout: 30_000 })
-
-    await deletePostViaApi(page.request, post.id).catch(() => undefined)
-  } finally {
-    await upstream.close()
-  }
-})
+  })
+}
