@@ -47,7 +47,6 @@ jobs:
             console.log('CONFIG ' + key + ': ' + state);
           }
           NODE
-          id=$(docker compose -f docker-compose.prod.yml ps -q app)
-          [[ -n "$id" ]]
-          docker inspect --format 'PREVIOUS_APP {{.State.Status}}' "$id"
+          docker ps --filter publish=3000 --format 'APP_CONTAINER {{.Names}} PROJECT {{.Label "com.docker.compose.project"}} SERVICE {{.Label "com.docker.compose.service"}} IMAGE {{.Image}} STATE {{.State}}'
+          docker image inspect my-next-app:latest --format 'CANDIDATE_IMAGE {{.Id}}'
           REMOTE
