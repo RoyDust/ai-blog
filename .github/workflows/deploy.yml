@@ -1,168 +1,53 @@
 name: Deploy
-
 on:
   workflow_dispatch:
     inputs:
       ref:
-        description: Git ref to deploy
+        description: Existing release SHA to diagnose
         required: true
-        default: main
       environment:
         description: Deployment environment
         required: true
         default: production
-
 concurrency:
   group: deploy-production
   cancel-in-progress: false
-
+permissions:
+  contents: read
 jobs:
-  deploy:
+  diagnose:
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: my_next_app
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d my_next_app"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
     environment:
       name: ${{ inputs.environment }}
-    env:
-      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/my_next_app?schema=public
-      AUTH_SECRET: test-auth-secret
-      NEXTAUTH_SECRET: test-nextauth-secret
-      NEXTAUTH_URL: http://127.0.0.1:3000
-      NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3000
-      AUTH_GITHUB_ID: test-github-id
-      AUTH_GITHUB_SECRET: test-github-secret
-      QINIU_ACCESS_KEY: test-ak
-      QINIU_SECRET_KEY: test-sk
-      QINIU_BUCKET: test-bucket
-      QINIU_DOMAIN: http://project.roydust.top
-      QINIU_UPLOAD_URL: https://up-z2.qiniup.com
-      DASHSCOPE_API_KEY: test-dashscope-key
-      SSH_KEEPALIVE_OPTS: -o ServerAliveInterval=30 -o ServerAliveCountMax=20 -o TCPKeepAlive=yes
     steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-        with:
-          ref: ${{ inputs.ref }}
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: 20
-
-      - name: Setup pnpm
-        run: |
-          corepack enable
-          corepack prepare pnpm@10.18.2 --activate
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Generate Prisma client
-        run: pnpm prisma generate
-
-      - name: Apply Prisma migrations for build database
-        run: pnpm prisma migrate deploy
-
-      - name: Build
-        run: pnpm build
-
-      - name: Write production env file locally
-        # APP_ENV_FILE 须包含 OPERATION_LOG_INGEST_SECRET（缺配时被拒管理请求日志静默丢失）、
-        # PUBLISH_SCHEDULED_CRON_SECRET / CRON_SECRET（定时发布接口密钥链）等内部密钥。
-        # 详见 docs/deployment/security-hardening-runbook.md 第 1、5 节。
-        run: |
-          cat > app.env <<'EOF'
-          ${{ secrets.APP_ENV_FILE }}
-          EOF
-          cat >> app.env <<'EOF'
-          AI_NEWS_CRON_SECRET="${{ secrets.AI_NEWS_CRON_SECRET }}"
-          EOF
-
-      - name: Build production Docker image
-        run: |
-          set -euo pipefail
-          set -a
-          source app.env
-          set +a
-          install -m 600 app.env .env
-          docker compose -f docker-compose.prod.yml config --quiet
-          docker compose -f docker-compose.prod.yml build app
-          docker save my-next-app:latest | gzip > my-next-app.tar.gz
-
-      - name: Smoke test production image with database outage
-        run: bash scripts/deploy/smoke-web-health.sh
-
-      - name: Prepare release bundle
-        run: |
-          mkdir -p release
-          rsync -a ./ release/ \
-            --exclude '.git/' \
-            --exclude '.github/' \
-            --exclude '.next/' \
-            --exclude '.worktrees/' \
-            --exclude 'node_modules/' \
-            --exclude 'docs/' \
-            --exclude 'e2e/' \
-            --exclude 'release/' \
-            --exclude 'test-results/' \
-            --exclude 'app.env' \
-            --exclude 'my-next-app.tar.gz' \
-            --exclude '.env' \
-            --exclude '.env.local' \
-            --exclude '.env.development' \
-            --exclude '.env.test'
-          mv my-next-app.tar.gz release/my-next-app.tar.gz
-          chmod +x release/scripts/deploy/deploy-remote.sh
-
-      - name: Start SSH agent
-        uses: webfactory/ssh-agent@v0.10.0
+      - uses: webfactory/ssh-agent@v0.10.0
         with:
           ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
-
-      - name: Add server to known hosts
+      - name: Diagnose configuration without exposing values
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          RELEASE_SHA: ${{ inputs.ref }}
         run: |
+          set -euo pipefail
+          [[ "$RELEASE_SHA" =~ ^[a-f0-9]{40}$ ]]
           mkdir -p ~/.ssh
-          ssh-keyscan -p "${{ secrets.DEPLOY_PORT }}" "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
-
-      - name: Create remote release directory
-        run: |
-          ssh $SSH_KEEPALIVE_OPTS -p "${{ secrets.DEPLOY_PORT }}" "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
-            "mkdir -p '${{ secrets.DEPLOY_PATH }}/releases/${{ github.sha }}' '${{ secrets.DEPLOY_PATH }}/shared'"
-
-      - name: Upload release bundle
-        run: |
-          rsync -az --delete -e "ssh $SSH_KEEPALIVE_OPTS -p ${{ secrets.DEPLOY_PORT }}" \
-            release/ "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:${{ secrets.DEPLOY_PATH }}/releases/${{ github.sha }}/"
-
-      - name: Upload production env file
-        run: |
-          scp $SSH_KEEPALIVE_OPTS -P "${{ secrets.DEPLOY_PORT }}" app.env "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:${{ secrets.DEPLOY_PATH }}/shared/.env"
-
-      - name: Activate release and restart services
-        run: |
-          ssh $SSH_KEEPALIVE_OPTS -p "${{ secrets.DEPLOY_PORT }}" "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" '
-            set -euo pipefail
-            ln -sfn "${{ secrets.DEPLOY_PATH }}/shared/.env" "${{ secrets.DEPLOY_PATH }}/releases/${{ github.sha }}/.env"
-            ln -sfn "${{ secrets.DEPLOY_PATH }}/releases/${{ github.sha }}" "${{ secrets.DEPLOY_PATH }}/current"
-            cd "${{ secrets.DEPLOY_PATH }}/current"
-            chmod +x scripts/deploy/deploy-remote.sh
-            BACKUP_BEFORE_DEPLOY=1 RELEASE_SHA="${{ github.sha }}" DEPLOY_PATH="${{ secrets.DEPLOY_PATH }}" bash scripts/deploy/deploy-remote.sh
-          '
-
-      - name: Deployment summary
-        run: |
-          echo "Deployed ref: ${{ inputs.ref }}"
-          echo "Release SHA: ${{ github.sha }}"
-          echo "Target host: ${{ secrets.DEPLOY_HOST }}"
+          ssh-keyscan -p "$DEPLOY_PORT" "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+          ssh -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" bash -s -- "$(printf '%q' "$DEPLOY_PATH")" "$RELEASE_SHA" <<'REMOTE'
+          set -euo pipefail
+          cd "$1/releases/$2"
+          docker compose -f docker-compose.prod.yml run --rm --no-deps -T app node <<'NODE'
+          const { parseWebReadinessConfig } = require('./.generated/web-health/web-readiness-config.js');
+          const valid = { DATABASE_URL: 'postgresql://diagnostic:diagnostic@localhost/diagnostic', AUTH_SECRET: 'diagnostic-valid-auth-value', NEXTAUTH_SECRET: 'diagnostic-valid-nextauth-value', NEXTAUTH_URL: 'http://localhost:3000', NEXT_PUBLIC_SITE_URL: 'http://localhost:3000' };
+          for (const key of Object.keys(valid)) {
+            const value = process.env[key];
+            const state = !value?.trim() ? 'missing' : parseWebReadinessConfig({ ...valid, [key]: value }).valid ? 'valid' : 'invalid';
+            console.log('CONFIG ' + key + ': ' + state);
+          }
+          NODE
+          id=$(docker compose -f docker-compose.prod.yml ps -q app)
+          [[ -n "$id" ]]
+          docker inspect --format 'PREVIOUS_APP {{.State.Status}}' "$id"
+          REMOTE
