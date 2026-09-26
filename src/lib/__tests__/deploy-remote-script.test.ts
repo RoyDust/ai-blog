@@ -6,6 +6,17 @@ const deployScriptPath = path.join(process.cwd(), "scripts/deploy/deploy-remote.
 const deployScript = readFileSync(deployScriptPath, "utf8");
 
 describe("deploy-remote.sh", () => {
+  test("production backup runs after candidate validation and before migrations", () => {
+    const validation = deployScript.indexOf('app node scripts/check-web-readiness.cjs');
+    const backup = deployScript.indexOf('bash scripts/deploy/backup-production.sh');
+    const migrations = deployScript.indexOf('\nrun_database_migrations\n');
+    expect(backup).toBeGreaterThan(validation);
+    expect(migrations).toBeGreaterThan(backup);
+    const workflow = readFileSync(path.join(process.cwd(), '.github/workflows/deploy.yml'), 'utf8');
+    expect(workflow).toContain('BACKUP_BEFORE_DEPLOY=1');
+    expect(workflow.indexOf('bash scripts/deploy/smoke-web-health.sh')).toBeLessThan(workflow.indexOf('name: Upload release bundle'));
+  });
+
   test("clears loopback proxy environment before any fallback docker compose build", () => {
     expect(deployScript).toContain('clear_loopback_proxy_var "HTTP_PROXY"');
     expect(deployScript).toContain('clear_loopback_proxy_var "HTTPS_PROXY"');

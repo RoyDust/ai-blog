@@ -64,6 +64,10 @@ fi
 # The candidate contains the same configuration policy consumed by /api/health/ready.
 docker compose -f "$COMPOSE_FILE" run --rm --no-deps app node scripts/check-web-readiness.cjs
 
+if [[ "${BACKUP_BEFORE_DEPLOY:-0}" == 1 ]]; then
+  bash scripts/deploy/backup-production.sh
+fi
+
 run_database_migrations() {
   if compgen -G "prisma/migrations/*" > /dev/null; then
     docker compose -f "$COMPOSE_FILE" run --rm --no-deps app pnpm prisma migrate deploy
