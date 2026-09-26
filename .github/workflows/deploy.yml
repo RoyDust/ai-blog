@@ -22,10 +22,52 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          ref: 7454c5b3ee16a2b664203ff8a3e41b1bc7e5c910
+          ref: a32249a2cae25c264fb09100cb7c51554300e7b5
       - uses: webfactory/ssh-agent@v0.10.0
         with:
           ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
+      - name: Prepare matching PostgreSQL backup client
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          ssh-keyscan -p "$DEPLOY_PORT" "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+          major=$(ssh -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" bash -s <<'REMOTE'
+          set -euo pipefail
+          docker exec current-app-1 node -e '
+          const { Client } = require("pg");
+          (async () => {
+            const client = new Client({ connectionString: process.env.DATABASE_URL, connectionTimeoutMillis: 10000, query_timeout: 10000 });
+            try {
+              await client.connect();
+              const result = await client.query("SHOW server_version_num");
+              const major = Math.floor(Number(result.rows[0].server_version_num) / 10000);
+              if (!Number.isInteger(major) || major < 10 || major > 99) throw new Error();
+              process.stdout.write(String(major));
+            } finally { await client.end(); }
+          })().catch(() => { console.error("Cannot determine backup client version"); process.exitCode = 1; });
+          '
+          REMOTE
+          )
+          [[ "$major" =~ ^[0-9]{2}$ ]]
+          echo "Backup client PostgreSQL major: $major"
+          if ssh -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "docker image inspect postgres:$major >/dev/null 2>&1"; then
+            echo 'Matching backup client is already cached'
+          else
+            docker pull "postgres:$major"
+            docker save "postgres:$major" | gzip > backup-client.tar.gz
+            scp -P "$DEPLOY_PORT" backup-client.tar.gz "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/shared/postgres-$major-recovery.tar.gz"
+            ssh -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" bash -s -- "$(printf '%q' "$DEPLOY_PATH")" "$major" <<'REMOTE'
+          set -euo pipefail
+          gzip -dc "$1/shared/postgres-$2-recovery.tar.gz" | docker load
+          docker image inspect "postgres:$2" >/dev/null
+          rm -f -- "$1/shared/postgres-$2-recovery.tar.gz"
+          REMOTE
+          fi
       - name: Recover verified release with production gates
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
@@ -42,6 +84,7 @@ jobs:
           ssh-keyscan -p "$DEPLOY_PORT" "$DEPLOY_HOST" >> ~/.ssh/known_hosts
           scp -P "$DEPLOY_PORT" scripts/prepare-production-env.cjs "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/releases/$RELEASE_SHA/scripts/prepare-production-env.cjs"
           scp -P "$DEPLOY_PORT" scripts/deploy/deploy-remote.sh "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/releases/$RELEASE_SHA/scripts/deploy/deploy-remote.sh"
+          scp -P "$DEPLOY_PORT" scripts/deploy/backup-production.sh "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/releases/$RELEASE_SHA/scripts/deploy/backup-production.sh"
           ssh -o ServerAliveInterval=30 -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" bash -s -- "$(printf '%q' "$DEPLOY_PATH")" "$RELEASE_SHA" <<'REMOTE'
           set -euo pipefail
           base="$1"
