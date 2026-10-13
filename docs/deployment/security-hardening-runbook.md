@@ -7,8 +7,9 @@
 
 现状（2026-08-15 晚实测复核，不含密钥明文）：
 - ✅ `AI_NEWS_CRON_SECRET` 已轮换为 32 位强随机（原可猜测固定值已废弃）；
-- ⚠️ `NEXTAUTH_SECRET` **仍是占位符**（"replace-with-…"，33 字符），必须轮换；轮换会使现有会话全部失效；
-- ⚠️ 以下 6 个新密钥**尚未配置**：`OPERATION_LOG_INGEST_SECRET`（未配置时生产跳过被拒日志回写）、`ANONYMOUS_ACTOR_SECRET`、`NEWSLETTER_TOKEN_SECRET`、`AI_MODEL_SECRET_KEY`、`PUBLISH_SCHEDULED_CRON_SECRET`、`CRON_SECRET`；
+- ✅ `NEXTAUTH_SECRET`：生产实测 `/api/health/ready` → `configuration: passed`（该检查要求 `AUTH_SECRET` 与 `NEXTAUTH_SECRET` 均非空且非占位符），即服务器已非占位符；本地 `.env` 的占位符已于 2026-10-13 改为与 `AUTH_SECRET` 同值；
+- ✅ `CRON_SECRET` 已于 2026-10-13 配置为 32 字节强随机（GitHub production environment + 服务器 `shared/.env`，由 `deploy.yml` append 注入，见 `p2-recovery-runbook.md` 日志保留维护）；
+- ⚠️ 以下 5 个新密钥**尚未配置**：`OPERATION_LOG_INGEST_SECRET`（未配置时生产跳过被拒日志回写）、`ANONYMOUS_ACTOR_SECRET`、`NEWSLETTER_TOKEN_SECRET`、`AI_MODEL_SECRET_KEY`、`PUBLISH_SCHEDULED_CRON_SECRET`；
 - ⚠️ 本地/服务器 `.env` 仍含真实生产凭据（DB/GitHub/七牛/DashScope），泄露面不变。
 
 执行步骤：
@@ -79,3 +80,4 @@ openssl rand -hex 32
 2. **验证探针**：任何"验证性写入"必须包在事务内并在成功路径强制抛错回滚（参考 2026-08-15 P2002 探针模式），严禁依赖"失败不落数据"的假设而不加事务保护。
 3. **只读检查**：pg_indexes / 行数 / migrate status 等只读查询可直接执行，但不得在日志中输出连接串与凭据。
 4. **本地 .env 指向生产**：这是开发便利与风险的折中；任何数据库相关命令（seed 脚本、prisma 命令）执行前必须确认 `DATABASE_URL` 目标，防止 seed 误入生产。
+5. **本地 E2E 不得直连生产库**（2026-10-13 复盘新增）：`pnpm test:e2e` 本地跑时用的是 `.env` 的 `DATABASE_URL`，而 `e2e/helpers.ts` 的建文/建分类/建标签虽然 `finally` 里软删，被中断的运行会留下 `e2e-post-*` / `e2e-cat-*` / `e2e-tag-*` 垃圾。实测生产库曾累积 25 篇 `e2e-post-*`（其中 4 篇 `scheduledAt` 已过期，会让 `publish-scheduled` 每轮空转）、6 个 `e2e-cat-*`、2 个 `e2e-tag-*`，已于 2026-10-13 全部软删除。本地跑 E2E 前先把 `DATABASE_URL` 指向一次性库（CI 用的是服务容器 `inkforge_test`，不污染生产），或只在 CI 跑 E2E。
