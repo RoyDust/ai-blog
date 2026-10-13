@@ -79,8 +79,9 @@ jobs:
         run: pnpm build
 
       - name: Write production env file locally
-        # APP_ENV_FILE 须包含 OPERATION_LOG_INGEST_SECRET（缺配时被拒管理请求日志静默丢失）、
-        # PUBLISH_SCHEDULED_CRON_SECRET / CRON_SECRET（定时发布接口密钥链）等内部密钥。
+        # APP_ENV_FILE 须包含 OPERATION_LOG_INGEST_SECRET（缺配时被拒管理请求日志静默丢失）等内部密钥；
+        # AI_NEWS_CRON_SECRET / CRON_SECRET 由下方 append 注入，避免手改 APP_ENV_FILE。
+        # /api/cron/log-retention 只认 CRON_SECRET（middleware 精确路径注册表，不接受其他密钥代替）。
         # 详见 docs/deployment/security-hardening-runbook.md 第 1、5 节。
         run: |
           cat > app.env <<'EOF'
@@ -88,6 +89,7 @@ jobs:
           EOF
           cat >> app.env <<'EOF'
           AI_NEWS_CRON_SECRET="${{ secrets.AI_NEWS_CRON_SECRET }}"
+          CRON_SECRET="${{ secrets.CRON_SECRET }}"
           EOF
 
       - name: Validate production configuration before image build

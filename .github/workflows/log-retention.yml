@@ -3,6 +3,11 @@ on:
   schedule:
     - cron: '*/15 * * * *'
   workflow_dispatch:
+
+env:
+  # 与 publish-scheduled.yml 保持一致：URL 非敏感，缺 secret 时回退到生产地址。
+  PRODUCTION_BASE_URL: ${{ secrets.PRODUCTION_BASE_URL || 'http://47.98.167.32' }}
+
 jobs:
   retain:
     runs-on: ubuntu-latest
@@ -10,7 +15,6 @@ jobs:
     steps:
       - name: Run one protected log retention batch
         env:
-          PRODUCTION_BASE_URL: ${{ secrets.PRODUCTION_BASE_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           set -euo pipefail
