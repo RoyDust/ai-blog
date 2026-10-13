@@ -48,7 +48,9 @@ sent 表示适配器明确接受，不保证送达收件箱。log 为模拟接�
 - 管理员：`POST /api/admin/logs/retention`。
 - 调度器：`POST /api/cron/log-retention`，请求头为 `Authorization: Bearer <CRON_SECRET>`，不接受其他内部密钥代替。
 
-`.github/workflows/log-retention.yml` 每 15 分钟运行，也支持手动触发。GitHub production environment 需配置 PRODUCTION_BASE_URL 与服务端一致的 CRON_SECRET。本地工作流改动尚未发布。
+`.github/workflows/log-retention.yml` 每 15 分钟运行，也支持手动触发。GitHub production environment 需配置 PRODUCTION_BASE_URL 与服务端一致的 CRON_SECRET。
+
+> 2026-10-13 已配置并验证：GitHub production environment 设 `CRON_SECRET`（32 字节强随机）与 `PRODUCTION_BASE_URL`；`deploy.yml` 在写 `app.env` 时与 `AI_NEWS_CRON_SECRET` 一样 append `CRON_SECRET`（不再要求手改 `APP_ENV_FILE`）；本地 `.env` 同步同值。实测：错密钥 → 401，正确密钥 → 200 且正常删批。此前服务端缺配时该接口 fail-closed 503，workflow 每轮在 guard 处 `exit 1`。
 
 每轮持有事务 advisory lock，沿用累计 pg_column_size 口径，从最旧超限记录最多删除 1000 条。返回 before/after、deletedCount、remainingExcessBytes、耗时及状态：
 
