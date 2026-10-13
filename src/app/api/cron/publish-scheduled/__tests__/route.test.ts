@@ -10,6 +10,7 @@ const touchCoverAssetUsage = vi.fn()
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
+    post: { findMany },
     $transaction: transaction,
   },
 }))
@@ -193,5 +194,57 @@ describe("POST /api/cron/publish-scheduled", () => {
     expect(touchCoverAssetUsage).not.toHaveBeenCalled()
     expect(revalidatePublicContent).not.toHaveBeenCalled()
     expect(payload).toEqual({ success: true, data: { publishedCount: 0, posts: [] } })
+  })
+
+  test("resolves cover backfill outside the claim transaction", async () => {
+    findMany.mockResolvedValueOnce([
+      {
+        id: "post-1",
+        slug: "scheduled-post",
+        coverImage: null,
+        coverAssetId: null,
+        category: null,
+        series: null,
+        tags: [],
+      },
+    ])
+    updateMany.mockResolvedValueOnce({ count: 1 })
+    findUnique.mockResolvedValueOnce({
+      id: "post-1",
+      slug: "scheduled-post",
+      published: true,
+      publishedAt: new Date("2026-05-17T01:00:00.000Z"),
+      scheduledAt: null,
+      category: null,
+      series: null,
+      tags: [],
+    })
+
+    // 连接池默认 max=1：封面回填走的是共享 prisma 连接，一旦落在事务内就会与事务抢连接，
+    // 把交互式事务拖到 5s 超时。这里锁死"回填必须发生在事务之外"。
+    let transactionOpen = false
+    const transactionOpenWhenResolvingCover: boolean[] = []
+    transaction.mockImplementation(async (callback) => {
+      transactionOpen = true
+      try {
+        return await callback({ post: { findMany, updateMany, findUnique } })
+      } finally {
+        transactionOpen = false
+      }
+    })
+    resolvePostCoverInput.mockImplementation(async () => {
+      transactionOpenWhenResolvingCover.push(transactionOpen)
+      return {
+        coverImage: "https://cdn.example.com/cover.jpg",
+        coverAssetId: "cover-1",
+        selectedAssetId: "cover-1",
+      }
+    })
+
+    const { POST } = await import("../route")
+    const response = await POST(authedRequest())
+
+    expect(response.status).toBe(200)
+    expect(transactionOpenWhenResolvingCover).toEqual([false])
   })
 })

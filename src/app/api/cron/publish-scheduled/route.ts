@@ -2,6 +2,7 @@ import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 import { toErrorResponse } from "@/lib/api-errors"
 import { revalidatePublicContent } from "@/lib/cache"
 import { resolvePostCoverInput, touchCoverAssetUsage } from "@/lib/cover-assets"
+import type { PostCoverResolution } from "@/lib/cover-assets"
 import { requireInternalSecret } from "@/lib/internal-secrets"
 import { prisma } from "@/lib/prisma"
 import { NextResponse } from "next/server"
@@ -18,30 +19,45 @@ async function POSTHandler(request: Request) {
     requireCronSecret(request)
 
     const now = new Date()
-    const published = await prisma.$transaction(async (tx) => {
-      const duePosts = await tx.post.findMany({
-        where: {
-          deletedAt: null,
-          published: false,
-          scheduledAt: { lte: now },
-        },
-        orderBy: { scheduledAt: "asc" },
-        select: {
-          id: true,
-          slug: true,
-          coverImage: true,
-          coverAssetId: true,
-          category: { select: { slug: true } },
-          series: { select: { slug: true } },
-          tags: { where: { deletedAt: null }, select: { slug: true } },
-        },
-      })
 
+    // 候选读取与封面回填都必须发生在事务之外：cover-assets 走的是共享 prisma 连接，
+    // 放进 $transaction 回调会和事务争抢连接池（默认 max=1），
+    // 把交互式事务拖到 5s 超时报 "expired transaction"。
+    const duePosts = await prisma.post.findMany({
+      where: {
+        deletedAt: null,
+        published: false,
+        scheduledAt: { lte: now },
+      },
+      orderBy: { scheduledAt: "asc" },
+      select: {
+        id: true,
+        slug: true,
+        coverImage: true,
+        coverAssetId: true,
+        category: { select: { slug: true } },
+        series: { select: { slug: true } },
+        tags: { where: { deletedAt: null }, select: { slug: true } },
+      },
+    })
+
+    type DuePost = (typeof duePosts)[number]
+    type PublishCandidate = {
+      post: DuePost
+      cover: PostCoverResolution | null
+    }
+
+    const candidates: PublishCandidate[] = []
+    for (const post of duePosts) {
+      const cover = post.coverImage?.trim() || post.coverAssetId
+        ? null
+        : await resolvePostCoverInput({ allowRandom: true })
+      candidates.push({ post, cover })
+    }
+
+    const published = await prisma.$transaction(async (tx) => {
       const publishedPosts = []
-      for (const post of duePosts) {
-        const cover = post.coverImage?.trim() || post.coverAssetId
-          ? null
-          : await resolvePostCoverInput({ allowRandom: true })
+      for (const { post, cover } of candidates) {
         const data = {
           published: true,
           publishedAt: now,
