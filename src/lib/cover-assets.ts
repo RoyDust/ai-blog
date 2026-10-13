@@ -367,6 +367,12 @@ export async function getActiveCoverAsset(id: string) {
   return asset
 }
 
+export type PostCoverResolution = {
+  coverImage: string | undefined
+  coverAssetId: string | null | undefined
+  selectedAssetId: string | null
+}
+
 /**
  * 解析文章封面输入。
  * 优先级：指定素材 > 手填 URL > 随机活跃素材 > 保持空值。
@@ -375,7 +381,7 @@ export async function resolvePostCoverInput(input: {
   coverImage?: string | null
   coverAssetId?: string | null
   allowRandom?: boolean
-}) {
+}): Promise<PostCoverResolution> {
   if (input.coverAssetId) {
     const asset = await getActiveCoverAsset(input.coverAssetId)
     return {
