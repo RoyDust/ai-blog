@@ -1,9 +1,34 @@
 import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 import { NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
 import { prisma } from '@/lib/prisma'
-import { createAnonymousActorId } from '@/lib/anonymous-actor'
+import { authOptions } from '@/lib/auth'
+import { resolveAnonymousActor } from '@/lib/anonymous-actor'
+import { getLikeState, toggleLike, type LikeIdentity } from '@/lib/likes'
 import { checkInteractionRateLimit } from '@/lib/rate-limit'
 import { NotFoundError, toErrorResponse, TooManyRequestsError } from '@/lib/api-errors'
+
+async function resolveLikeIdentity(request: Request): Promise<LikeIdentity> {
+  const session = await getServerSession(authOptions)
+
+  return {
+    userId: session?.user?.id ?? null,
+    browserId: resolveAnonymousActor(request.headers)?.actorId ?? null,
+  }
+}
+
+async function findPublishedPostId(slug: string) {
+  const post = await prisma.post.findFirst({
+    where: { slug, deletedAt: null, published: true },
+    select: { id: true },
+  })
+
+  if (!post) {
+    throw new NotFoundError('Post not found')
+  }
+
+  return post.id
+}
 
 async function POSTHandler(
   request: Request,
@@ -15,35 +40,12 @@ async function POSTHandler(
       throw new TooManyRequestsError()
     }
 
-    const anonymousActor = createAnonymousActorId(request.headers)
-
     const { slug } = await params
-    const post = await prisma.post.findFirst({ where: { slug, deletedAt: null, published: true } })
+    const identity = await resolveLikeIdentity(request)
+    const postId = await findPublishedPostId(slug)
+    const { liked, count } = await toggleLike(postId, identity)
 
-    if (!post) {
-      throw new NotFoundError('Post not found')
-    }
-
-    const existingLike = await prisma.like.findFirst({
-      where: {
-        postId: post.id,
-        browserId: anonymousActor.actorId,
-      },
-    })
-
-    if (existingLike) {
-      await prisma.like.delete({ where: { id: existingLike.id } })
-      return NextResponse.json({ success: true, liked: false })
-    }
-
-    await prisma.like.create({
-      data: {
-        postId: post.id,
-        browserId: anonymousActor.actorId,
-      },
-    })
-
-    return NextResponse.json({ success: true, liked: true })
+    return NextResponse.json({ success: true, liked, count })
   } catch (error) {
     console.error('Like error:', error)
     return toErrorResponse(error)
@@ -56,38 +58,13 @@ async function GETHandler(
 ) {
   try {
     const { slug } = await params
-    const anonymousActor = (() => {
-      try {
-        return createAnonymousActorId(request.headers)
-      } catch {
-        return null
-      }
-    })()
-    const post = await prisma.post.findFirst({ where: { slug, deletedAt: null, published: true } })
-
-    if (!post) {
-      throw new NotFoundError('Post not found')
-    }
-
-    const likeCount = await prisma.like.count({ where: { postId: post.id } })
-
-    let isLiked = false
-    if (anonymousActor) {
-      const like = await prisma.like.findFirst({
-        where: {
-          postId: post.id,
-          browserId: anonymousActor.actorId,
-        },
-      })
-      isLiked = Boolean(like)
-    }
+    const identity = await resolveLikeIdentity(request)
+    const postId = await findPublishedPostId(slug)
+    const { liked, count } = await getLikeState(postId, identity)
 
     return NextResponse.json({
       success: true,
-      data: {
-        count: likeCount,
-        liked: isLiked,
-      },
+      data: { count, liked },
     })
   } catch (error) {
     console.error('Get like status error:', error)
