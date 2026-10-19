@@ -1,13 +1,12 @@
 import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 import { createHash } from "node:crypto";
-import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 
 import { extractPostSlugFromPath, normalizeAnalyticsPath, shouldTrackVisitPath } from "@/lib/analytics";
 import { toErrorResponse, TooManyRequestsError, ValidationError } from "@/lib/api-errors";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { checkAnalyticsRateLimit } from "@/lib/rate-limit";
+import { readSessionUserId } from "@/lib/session-token";
 import { createVisitLogOperation } from "@/lib/visit-log-repository";
 
 const MAX_REFERRER_LENGTH = 500;
@@ -56,8 +55,7 @@ async function POSTHandler(request: Request) {
     const userAgent = truncate(request.headers.get("user-agent"), MAX_USER_AGENT_LENGTH);
     const ipHash = hashIp(getClientIp(request));
     const postSlug = extractPostSlugFromPath(path);
-    const session = await getServerSession(authOptions);
-    const userId = session?.user?.id ?? null;
+    const userId = await readSessionUserId(request);
 
     const post = postSlug
       ? await prisma.post.findFirst({
@@ -66,18 +64,19 @@ async function POSTHandler(request: Request) {
         })
       : null;
 
-    await prisma.$transaction([
-      createVisitLogOperation({
-        path,
-        postId: post?.id ?? null,
-        userId,
-        referrer,
-        visitorId,
-        userAgent,
-        ipHash,
-      }),
-      ...(post ? [prisma.post.update({ where: { id: post.id }, data: { viewCount: { increment: 1 } } })] : []),
-    ]);
+    await createVisitLogOperation({
+      path,
+      postId: post?.id ?? null,
+      userId,
+      referrer,
+      visitorId,
+      userAgent,
+      ipHash,
+    });
+
+    if (post) {
+      await prisma.post.update({ where: { id: post.id }, data: { viewCount: { increment: 1 } } });
+    }
 
     return NextResponse.json({ ok: true });
   } catch (error) {
