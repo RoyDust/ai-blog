@@ -3,7 +3,7 @@ import { NextResponse } from "next/server"
 
 import { requireAdminSession } from "@/lib/api-auth"
 import { getAiModelForCapability } from "@/lib/ai-models"
-import { toErrorResponse, ValidationError } from "@/lib/api-errors"
+import { ApiError, toErrorResponse, UpstreamError, ValidationError } from "@/lib/api-errors"
 import { generatePostSummary } from "@/lib/post-summary"
 
 async function POSTHandler(request: Request) {
@@ -23,17 +23,14 @@ async function POSTHandler(request: Request) {
     }
 
     if (!aiModel.apiKey) {
-      return NextResponse.json({ error: `${aiModel.apiKeyEnv} is not configured` }, { status: 500 })
+      throw new ApiError(500, `${aiModel.apiKeyEnv} is not configured`)
     }
 
     let summary: string
     try {
       summary = await generatePostSummary({ aiModel, title: body.title, content })
     } catch (error) {
-      return NextResponse.json(
-        { error: error instanceof Error ? error.message : "Summary generation failed" },
-        { status: 502 },
-      )
+      throw new UpstreamError(error instanceof Error ? error.message : "Summary generation failed")
     }
 
     return NextResponse.json({ success: true, data: { summary, modelId: aiModel.id } })

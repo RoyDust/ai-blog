@@ -3,7 +3,7 @@ import { NextResponse } from "next/server"
 import type { Prisma } from "@prisma/client"
 
 import { requireAdminSession } from "@/lib/api-auth"
-import { toErrorResponse } from "@/lib/api-errors"
+import { toErrorResponse, ValidationError } from "@/lib/api-errors"
 import { mutateTaxonomy } from "@/lib/taxonomy-mutations"
 import { buildAdminListPagination, getAdminListSkip, parseAdminListPagination } from "@/lib/admin-list-pagination"
 import { prisma } from "@/lib/prisma"
@@ -17,7 +17,7 @@ async function GETHandler(request: Request) {
     if (searchParams.get("preview") === "delete") {
       const ids = parseIdList(searchParams)
       if (ids.length === 0) {
-        return NextResponse.json({ error: "Category IDs are required" }, { status: 400 })
+        throw new ValidationError("Category IDs are required")
       }
 
       const [categoryCount, postCount] = await Promise.all([
@@ -86,7 +86,7 @@ async function PATCHHandler(request: Request) {
     const { id, name, slug, description } = parseTaxonomyInput(await request.json())
 
     if (!id) {
-      return NextResponse.json({ error: "Id is required" }, { status: 400 })
+      throw new ValidationError("Id is required")
     }
 
     const result = await mutateTaxonomy('category', [id], slug, (tx) => tx.category.update({
@@ -106,7 +106,7 @@ async function DELETEHandler(request: Request) {
     const { searchParams } = new URL(request.url)
     const ids = parseIdList(searchParams)
     if (ids.length === 0) {
-      return NextResponse.json({ error: "Category ID is required" }, { status: 400 })
+      throw new ValidationError("Category ID is required")
     }
 
     const result = await mutateTaxonomy('category', ids, undefined, async (tx, resolvedIds) => {

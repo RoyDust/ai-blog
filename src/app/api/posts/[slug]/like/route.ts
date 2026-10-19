@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { createAnonymousActorId } from '@/lib/anonymous-actor'
 import { checkInteractionRateLimit } from '@/lib/rate-limit'
-import { NotFoundError, toErrorResponse } from '@/lib/api-errors'
+import { NotFoundError, toErrorResponse, TooManyRequestsError } from '@/lib/api-errors'
 
 async function POSTHandler(
   request: Request,
@@ -12,7 +12,7 @@ async function POSTHandler(
   try {
     const rateLimit = await checkInteractionRateLimit(request)
     if (!rateLimit.allowed) {
-      return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+      throw new TooManyRequestsError()
     }
 
     const anonymousActor = createAnonymousActorId(request.headers)

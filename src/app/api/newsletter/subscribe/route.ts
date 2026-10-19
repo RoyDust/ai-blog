@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { withApiOperationLogging } from "@/lib/api-operation-log-route";
-import { ForbiddenError, toErrorResponse } from "@/lib/api-errors";
+import { ForbiddenError, toErrorResponse, TooManyRequestsError } from "@/lib/api-errors";
 import { getBlogSettings } from "@/lib/blog-settings";
 import { getSiteUrl } from "@/lib/seo";
 import { createNewsletterMailer } from "@/lib/newsletter-mailer";
@@ -21,7 +21,7 @@ async function POSTHandler(request: Request) {
   try {
     const rateLimit = await checkInteractionRateLimit(request);
     if (!rateLimit.allowed) {
-      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+      throw new TooManyRequestsError();
     }
 
     const body = await request.json().catch(() => ({}));

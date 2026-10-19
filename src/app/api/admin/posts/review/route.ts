@@ -10,7 +10,7 @@ import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 import { NextResponse } from "next/server"
 
 import { requireAdminSession } from "@/lib/api-auth"
-import { toErrorResponse } from "@/lib/api-errors"
+import { toErrorResponse, UpstreamError } from "@/lib/api-errors"
 import { generatePostReview } from "@/lib/ai-review"
 
 /**
@@ -33,7 +33,7 @@ async function POSTHandler(request: Request) {
     )
 
     if (!review) {
-      return NextResponse.json({ error: "Review generation failed" }, { status: 502 })
+      throw new UpstreamError("Review generation failed")
     }
 
     return NextResponse.json({ success: true, data: review })

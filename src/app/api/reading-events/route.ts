@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { withApiOperationLogging } from "@/lib/api-operation-log-route";
-import { toErrorResponse } from "@/lib/api-errors";
+import { toErrorResponse, TooManyRequestsError, ValidationError } from "@/lib/api-errors";
 import { requireSession } from "@/lib/api-auth";
 import { checkInteractionRateLimit } from "@/lib/rate-limit";
 import { recordQualifiedReadingEvent } from "@/lib/reading-events";
@@ -12,7 +12,7 @@ async function POSTHandler(request: Request) {
   try {
     const rateLimit = await checkInteractionRateLimit(request);
     if (!rateLimit.allowed) {
-      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+      throw new TooManyRequestsError();
     }
 
     const session = await requireSession();
@@ -21,7 +21,7 @@ async function POSTHandler(request: Request) {
     const postId = typeof payload.postId === "string" ? payload.postId.trim() : "";
 
     if (!postId || !POST_ID_PATTERN.test(postId)) {
-      return NextResponse.json({ error: "Valid postId is required" }, { status: 400 });
+      throw new ValidationError("Valid postId is required");
     }
 
     const readingEvent = await recordQualifiedReadingEvent({

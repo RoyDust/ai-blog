@@ -3,7 +3,7 @@ import { NextResponse } from "next/server"
 import type { Prisma } from "@prisma/client"
 
 import { requireAdminSession } from "@/lib/api-auth"
-import { NotFoundError, toErrorResponse } from "@/lib/api-errors"
+import { NotFoundError, toErrorResponse, ValidationError } from "@/lib/api-errors"
 import { buildAdminListPagination, getAdminListSkip, parseAdminListPagination } from "@/lib/admin-list-pagination"
 import { createAdminPost } from "@/lib/ai-authoring"
 import { revalidatePublicContent } from "@/lib/cache"
@@ -20,7 +20,7 @@ async function GETHandler(request: Request) {
       const ids = parseIdList(searchParams)
 
       if (ids.length === 0) {
-        return NextResponse.json({ error: "Post IDs are required" }, { status: 400 })
+        throw new ValidationError("Post IDs are required")
       }
 
       const [postCount, commentCount] = await Promise.all([
@@ -129,7 +129,7 @@ async function DELETEHandler(request: Request) {
     const ids = parseIdList(searchParams)
 
     if (ids.length === 0) {
-      return NextResponse.json({ error: "Post ID is required" }, { status: 400 })
+      throw new ValidationError("Post ID is required")
     }
 
     const posts = await prisma.post.findMany({
