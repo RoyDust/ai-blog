@@ -13,6 +13,7 @@
 - [当前实施记录](./implementation/)
 - [剩余 P2 问题修复方案](./implementation/2026-09-26-remaining-p2-remediation-plan.md)
 - [P2 修复执行与验收记录](./implementation/2026-09-26-p2-execution.md)
+- [改进分析：对照 GitHub 成熟开源项目](./implementation/improvement-analysis-vs-github-projects.md)
 - [Claude 修改审查与误报复核](./archive/2026-09-26-claude-change-review.md)
 - [P2 发布与恢复手册](./deployment/p2-recovery-runbook.md)
 - [Agent 文档](./agents/)
