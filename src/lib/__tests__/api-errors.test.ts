@@ -1,13 +1,32 @@
 import { describe, expect, test } from "vitest";
 
 import {
+  ApiError,
   getPrismaConflictMessage,
   getPrismaConflictTarget,
   isDatabaseConnectionError,
+  ServiceUnavailableError,
   toErrorResponse,
+  TooManyRequestsError,
+  UpstreamError,
 } from "../api-errors";
 
 describe("api error responses", () => {
+  test("maps rate limit, upstream and unavailable errors to their status codes", async () => {
+    const cases: Array<[ApiError, number, string]> = [
+      [new TooManyRequestsError(), 429, "Too many requests"],
+      [new TooManyRequestsError("Too many analytics requests"), 429, "Too many analytics requests"],
+      [new UpstreamError("Summary generation failed"), 502, "Summary generation failed"],
+      [new ServiceUnavailableError("Internal service secret is not configured"), 503, "Internal service secret is not configured"],
+    ];
+
+    for (const [error, status, message] of cases) {
+      const response = toErrorResponse(error);
+      expect(response.status).toBe(status);
+      await expect(response.json()).resolves.toEqual({ error: message });
+    }
+  });
+
   test("maps transient database connection failures to a retryable 503", async () => {
     const response = toErrorResponse(new Error("Connection terminated unexpectedly"));
 

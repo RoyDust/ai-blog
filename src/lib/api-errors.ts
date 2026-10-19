@@ -53,6 +53,27 @@ export class ConflictError extends ApiError {
   }
 }
 
+export class TooManyRequestsError extends ApiError {
+  constructor(message = "Too many requests") {
+    super(429, message)
+    this.name = "TooManyRequestsError"
+  }
+}
+
+export class UpstreamError extends ApiError {
+  constructor(message = "Upstream service failed") {
+    super(502, message)
+    this.name = "UpstreamError"
+  }
+}
+
+export class ServiceUnavailableError extends ApiError {
+  constructor(message = "Service unavailable") {
+    super(503, message)
+    this.name = "ServiceUnavailableError"
+  }
+}
+
 /**
  * 识别 Prisma 唯一键冲突错误，常用于 slug / email / 唯一关系写入场景。
  */

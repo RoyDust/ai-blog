@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 
 import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 import { authOptions } from "@/lib/auth";
-import { toErrorResponse } from "@/lib/api-errors";
+import { toErrorResponse, ValidationError } from "@/lib/api-errors";
 import { getRecommendedPostsForPost } from "@/lib/recommendations";
 import { clampPagination } from "@/lib/validation";
 
@@ -24,7 +24,7 @@ async function GETHandler(request: Request) {
     const postId = searchParams.get("postId")?.trim();
 
     if (!postId) {
-      return NextResponse.json({ error: "postId is required" }, { status: 400 });
+      throw new ValidationError("postId is required");
     }
 
     const { limit } = clampPagination({ page: "1", limit: searchParams.get("limit") });

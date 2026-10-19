@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 
 import { withApiOperationLogging } from "@/lib/api-operation-log-route"
 import { requireAdminSession } from "@/lib/api-auth"
-import { NotFoundError, toErrorResponse } from "@/lib/api-errors"
+import { NotFoundError, toErrorResponse, ValidationError } from "@/lib/api-errors"
 import { revalidatePublicContent } from "@/lib/cache"
 import { resolvePostCoverInput, touchCoverAssetUsage } from "@/lib/cover-assets"
 import { prisma } from "@/lib/prisma"
@@ -94,11 +94,11 @@ async function PATCHHandler(request: Request) {
     const now = new Date()
 
     if (published && scheduledAt) {
-      return NextResponse.json({ error: "Use immediate publish without scheduledAt, or schedule with published=false" }, { status: 400 })
+      throw new ValidationError("Use immediate publish without scheduledAt, or schedule with published=false")
     }
 
     if (!published && scheduledAt && scheduledAt.getTime() <= now.getTime()) {
-      return NextResponse.json({ error: "scheduledAt must be in the future. Use immediate publish for current or past publish times." }, { status: 400 })
+      throw new ValidationError("scheduledAt must be in the future. Use immediate publish for current or past publish times.")
     }
 
     if (ids.length > 1) {
