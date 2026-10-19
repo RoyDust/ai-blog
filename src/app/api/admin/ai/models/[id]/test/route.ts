@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 
 import { requireAdminSession } from "@/lib/api-auth";
 import { getAiModelOption, recordAiModelTestResult, testAiModelConnection } from "@/lib/ai-models";
-import { toErrorResponse, ValidationError } from "@/lib/api-errors";
+import { toErrorResponse, UpstreamError, ValidationError } from "@/lib/api-errors";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -28,7 +28,7 @@ async function POSTHandler(_request: Request, context: RouteContext) {
     } catch (error) {
       const message = error instanceof Error ? error.message : "Model test failed";
       await recordAiModelTestResult(id, "failed", message);
-      return NextResponse.json({ error: message }, { status: error instanceof ValidationError ? error.status : 502 });
+      throw error instanceof ValidationError ? error : new UpstreamError(message);
     }
   } catch (error) {
     return toErrorResponse(error, "AI model test failed");

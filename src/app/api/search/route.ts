@@ -9,7 +9,7 @@ import { withApiOperationLogging } from "@/lib/api-operation-log-route";
  * - 处理搜索与 AI 搜索的独立限流
  */
 import { NextResponse } from "next/server"
-import { toErrorResponse } from "@/lib/api-errors"
+import { toErrorResponse, TooManyRequestsError, ValidationError } from "@/lib/api-errors"
 import { checkAiSearchRateLimit, checkSearchRateLimit } from "@/lib/rate-limit"
 import { searchPublicPosts } from "@/lib/public-search"
 import { getAiModelForCapability } from "@/lib/ai-models"
@@ -180,20 +180,20 @@ async function GETHandler(request: Request) {
     const aiRequested = searchParams.get('ai') === '1'
 
     if (!query) {
-      return NextResponse.json({ error: 'Query is required' }, { status: 400 })
+      throw new ValidationError('Query is required')
     }
 
     if (countQueryCharacters(query) < SEARCH_MIN_QUERY_LENGTH) {
-      return NextResponse.json({ error: `Query must be at least ${SEARCH_MIN_QUERY_LENGTH} characters` }, { status: 400 })
+      throw new ValidationError(`Query must be at least ${SEARCH_MIN_QUERY_LENGTH} characters`)
     }
 
     if (countQueryCharacters(query) > SEARCH_MAX_QUERY_LENGTH) {
-      return NextResponse.json({ error: `Query must be at most ${SEARCH_MAX_QUERY_LENGTH} characters` }, { status: 400 })
+      throw new ValidationError(`Query must be at most ${SEARCH_MAX_QUERY_LENGTH} characters`)
     }
 
     const searchRateLimit = await checkSearchRateLimit(request)
     if (!searchRateLimit.allowed) {
-      return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+      throw new TooManyRequestsError()
     }
 
     const { page, limit } = clampPagination({
@@ -218,7 +218,7 @@ async function GETHandler(request: Request) {
       if (!ai) {
         const aiRateLimit = await checkAiSearchRateLimit(request)
         if (!aiRateLimit.allowed) {
-          return NextResponse.json({ error: 'Too many AI search requests' }, { status: 429 })
+          throw new TooManyRequestsError('Too many AI search requests')
         }
 
         ai = await generateAiSearchResult({ query, items: rankedItems })

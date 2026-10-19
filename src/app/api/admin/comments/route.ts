@@ -31,7 +31,7 @@ async function GETHandler(request: Request) {
       const ids = parseIdList(searchParams)
 
       if (ids.length === 0) {
-        return NextResponse.json({ error: "Comment IDs are required" }, { status: 400 })
+        throw new ValidationError("Comment IDs are required")
       }
 
       const [commentCount, replyCount] = await Promise.all([
@@ -161,7 +161,7 @@ async function DELETEHandler(request: Request) {
     const ids = parseIdList(searchParams)
 
     if (ids.length === 0) {
-      return NextResponse.json({ error: "Comment ID is required" }, { status: 400 })
+      throw new ValidationError("Comment ID is required")
     }
 
     const comments = await prisma.comment.findMany({

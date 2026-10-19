@@ -2,7 +2,7 @@ import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 import { NextResponse } from "next/server";
 
 import { requireAdminSession } from "@/lib/api-auth";
-import { toErrorResponse } from "@/lib/api-errors";
+import { toErrorResponse, ValidationError } from "@/lib/api-errors";
 import { setDefaultAiModelForCapability, toPublicAiModelOption, type AiModelCapability } from "@/lib/ai-models";
 
 type Body = {
@@ -16,12 +16,12 @@ async function POSTHandler(request: Request) {
 
     const body = (await request.json()) as Body;
     if (!body.modelId) {
-      return NextResponse.json({ error: "Model id is required" }, { status: 400 });
+      throw new ValidationError("Model id is required");
     }
 
     const capability = body.capability ?? "post-summary";
     if (capability !== "post-summary" && capability !== "cover-image") {
-      return NextResponse.json({ error: "Unsupported AI model capability" }, { status: 400 });
+      throw new ValidationError("Unsupported AI model capability");
     }
 
     const model = await setDefaultAiModelForCapability(capability, body.modelId);

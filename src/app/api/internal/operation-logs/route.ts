@@ -4,6 +4,7 @@ import {
   isValidOperationLogIngestSecret,
   resolveOperationLogIngestSecret,
 } from "@/lib/api-operation-log-ingest-secret";
+import { ServiceUnavailableError, toErrorResponse, UnauthorizedError } from "@/lib/api-errors";
 import { INTERNAL_SECRET_NOT_CONFIGURED_MESSAGE } from "@/lib/internal-secrets";
 import {
   createApiOperationLog,
@@ -44,37 +45,41 @@ function queryFromPayload(value: unknown) {
 }
 
 export async function POST(request: Request) {
-  // 密钥未配置（仅生产可能发生）：503，明确区分"配置缺失"与"密钥错误"。
-  if (!resolveOperationLogIngestSecret()) {
-    return NextResponse.json({ error: INTERNAL_SECRET_NOT_CONFIGURED_MESSAGE }, { status: 503 });
+  try {
+    // 密钥未配置（仅生产可能发生）：503，明确区分"配置缺失"与"密钥错误"。
+    if (!resolveOperationLogIngestSecret()) {
+      throw new ServiceUnavailableError(INTERNAL_SECRET_NOT_CONFIGURED_MESSAGE);
+    }
+
+    if (!isValidOperationLogIngestSecret(request.headers.get("x-operation-log-ingest-secret"))) {
+      throw new UnauthorizedError();
+    }
+
+    const body = (await request.json().catch(() => ({}))) as InternalOperationLogPayload;
+    const method = asString(body.method) ?? "GET";
+    const path = asString(body.path) ?? "/api/internal/operation-logs";
+    const statusCode = asStatusCode(body.statusCode);
+
+    await createApiOperationLog({
+      requestId: asString(body.requestId) ?? undefined,
+      method: method.toUpperCase(),
+      path,
+      scope: asString(body.scope) ?? "internal",
+      operation: asString(body.operation) ?? "internal.operationLog.ingest",
+      statusCode,
+      success: statusCode < 400,
+      durationMs: 0,
+      actorType: "unknown",
+      ipHash: hashIp(asString(body.ip)),
+      userAgent: asString(body.userAgent),
+      query: queryFromPayload(body.query),
+      errorName: statusCode >= 400 ? "MiddlewareResponse" : null,
+      errorMessage: asString(body.errorMessage),
+      metadata: limitLogJson(sanitizeLogPayload({ source: "middleware" })),
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    return toErrorResponse(error);
   }
-
-  if (!isValidOperationLogIngestSecret(request.headers.get("x-operation-log-ingest-secret"))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const body = (await request.json().catch(() => ({}))) as InternalOperationLogPayload;
-  const method = asString(body.method) ?? "GET";
-  const path = asString(body.path) ?? "/api/internal/operation-logs";
-  const statusCode = asStatusCode(body.statusCode);
-
-  await createApiOperationLog({
-    requestId: asString(body.requestId) ?? undefined,
-    method: method.toUpperCase(),
-    path,
-    scope: asString(body.scope) ?? "internal",
-    operation: asString(body.operation) ?? "internal.operationLog.ingest",
-    statusCode,
-    success: statusCode < 400,
-    durationMs: 0,
-    actorType: "unknown",
-    ipHash: hashIp(asString(body.ip)),
-    userAgent: asString(body.userAgent),
-    query: queryFromPayload(body.query),
-    errorName: statusCode >= 400 ? "MiddlewareResponse" : null,
-    errorMessage: asString(body.errorMessage),
-    metadata: limitLogJson(sanitizeLogPayload({ source: "middleware" })),
-  });
-
-  return NextResponse.json({ success: true });
 }
