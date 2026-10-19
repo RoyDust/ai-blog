@@ -2,7 +2,8 @@ import type { MetadataRoute } from 'next'
 import { getBlogSettings } from '@/lib/blog-settings'
 import { getSiteUrl } from '@/lib/seo'
 
-export const dynamic = 'force-dynamic'
+// 站点地图对分钟级新鲜度没有需求：按小时 ISR，避免每次爬虫访问都跑 4 条 findMany
+export const revalidate = 3600
 
 async function getPrisma() {
   const { prisma } = await import('@/lib/prisma')
