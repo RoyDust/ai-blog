@@ -124,6 +124,7 @@ pnpm dev            # 启动本地开发（默认 http://localhost:3000）
 pnpm build          # 生产构建
 pnpm start          # 启动生产服务
 pnpm lint           # ESLint 检查
+pnpm typecheck      # 类型检查（next typegen + tsc --noEmit）
 pnpm test           # Vitest 单元 / 组件测试
 pnpm test:e2e       # Playwright 端到端测试
 pnpm ai-news:check  # 检查 AI 新闻流水线就绪状态
@@ -202,6 +203,7 @@ pnpm prisma migrate deploy
 
 ```bash
 pnpm lint
+pnpm typecheck
 pnpm test
 pnpm test:e2e
 pnpm build

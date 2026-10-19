@@ -62,6 +62,9 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      - name: Type check
+        run: pnpm typecheck
+
       - name: Unit tests
         run: pnpm test
 
@@ -72,6 +75,7 @@ jobs:
         run: |
           node scripts/build-web-health.cjs
           node --test scripts/deploy/deploy-remote.test.cjs scripts/deploy/backup-production.test.cjs
+          node --test scripts/seed-categories.test.cjs scripts/seed-tags.test.cjs
 
       - name: Build
         run: pnpm build
@@ -137,9 +141,8 @@ jobs:
 
       - name: Seed E2E admin account
         run: node scripts/seed-e2e-admin.cjs
-        # 注：scripts/seed-categories.cjs / seed-tags.cjs 在 partial-unique-index 迁移后失效
-        # （upsert where slug 不再是唯一约束），CI 不再调用；分类/标签由 mock-post catalog
-        # 既有数据覆盖（本地库已就绪）。修复这两个脚本不在本计划范围。
+        # 注：scripts/seed-categories.cjs / seed-tags.cjs 已改为"按 slug + 未软删 findFirst → update / create"
+        # 并由 validate job 的 node --test 覆盖；E2E 夹具自带所需分类/标签，此处仍不调用。
 
       - name: Install Playwright browsers
         run: pnpm exec playwright install chromium --with-deps
