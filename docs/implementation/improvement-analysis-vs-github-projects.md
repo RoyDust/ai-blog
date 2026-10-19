@@ -4,6 +4,7 @@
 - 基线：`main` @ `acfecbe`（本文所有 `路径:行号` 均以该提交为准）
 - 范围：性能、UI、交互、数据库表、架构与工程五个维度
 - 性质：分析文档，不改动任何应用代码
+- 修订：已按现有 GitHub Issue 的既定决策对齐 2.2（#2）、5.1（#10）、6.2（#6）、6.6（#11 链），对照见 1.1
 
 ## 方法与口径
 
@@ -39,16 +40,16 @@
 
 | # | 改进 | 收益 | 成本 | 优先级 | 详见 |
 | --- | --- | --- | --- | --- | --- |
-| 1 | **页面浏览写路径瘦身**：匿名 beacon 去掉 `getServerSession`，操作日志对公共读接口与 beacon 异步化/采样，`viewCount` 改延迟聚合 | 每次 PV 从 3 次同步写 + 1 次会话解析降到 1 次写；直接降低数据库连接占用（池默认 1） | M | P0 | 2.1、2.2 |
+| 1 | **页面浏览写路径瘦身**：匿名 beacon 去掉 `getServerSession`，`viewCount` 改延迟聚合；操作日志的同步 INSERT 按 #2 保留 | 每次 PV 去掉 1 次会话解析与 1 次文章行更新（`viewCount` 自增）；直接降低数据库连接占用（池默认 1） | M | P0 | 2.1、2.2（#2） |
 | 2 | **CI 门禁补齐**：加 `tsc --noEmit`，修复失效 seed 脚本，E2E 去掉 `continue-on-error`，加覆盖率阈值，测试 setup 去掉生产形态主机 | 把"本地过、线上挂"的类别问题挡在合并前；杜绝测试误连生产 | M | P0 | 6.4 |
-| 3 | **环境变量集中校验**：新增 `src/env.ts`（t3 模式），启动即失败 | 消灭 37 处散落的 `process.env.*` 读取与运行时才暴露的缺配 | S | P0 | 6.2 |
+| 3 | **运行配置增量约束**：按 #6 用窄 getter + `process.env` 直读 ratchet，不建全局配置层（t3 `env.js` 仅作对照） | 数据库与环境 AI 模型配置有单一入口；37 处散落的 `process.env.*` 读取冻结为基线，新增读取失败、存量只减不增 | S | P0 | 6.2（#6） |
 | 4 | **错误响应收口**：24 个手拼 `NextResponse.json({ error })` 的路由迁到 `toErrorResponse`，并用 lint 规则禁止回退 | 前端 `toErrorMessage` 契约不再有例外；错误格式单一 | S | P1 | 6.1 |
 | 5 | **点赞原子化 + 身份修正**：利用已存在的 `@@unique([postId, browserId])` 做原子 toggle；登录用户写 `userId`；匿名身份不再绑定 IP | 消除并发双击产生的重复/丢失；移动网络切换不再丢点赞状态 | S | P1 | 5.2、6.3 |
 | 6 | **高写入表保留策略与日聚合**：`VisitLog`/`ReadingEvent` 加保留裁剪 + `visit_daily_stats` 聚合表；`rate_limit_entries` 纳入 schema | 后台统计从全表内存聚合变为读聚合表；表体积可控 | M | P1 | 5.3、5.4、2.6 |
-| 7 | **状态字段 String → enum**：6 个 `status String` 字段迁为 Prisma enum | 类型安全 + 数据库约束；与现有 10 个 enum 一致 | M | P1 | 5.1 |
+| 7 | **状态字段加数据库约束**：按 #10 用 PostgreSQL CHECK（Prisma 字段保持 `String`），先覆盖 `CoverAsset`、`TopicGuide`，其余待 #8、#15 落地后再加 | 数据库拒绝非法状态值，不转换列类型 | M（分批） | P1 | 5.1（#10） |
 | 8 | **客户端数据层收口**：13 处手写 `fetch` 迁到 `client-api`；11 个表单迁到 RHF + zod；后台筛选状态进 URL | 错误提示、加载态、401 处理一致；筛选可分享可后退 | M | P1 | 4.1、4.2、4.4 |
 | 9 | **UI 基元收敛**：四层目录、三个 Button 收敛到 shadcn 单一来源；状态色改语义 token | 119 处 raw palette 与 29 处 hex 有归宿；暗色模式与后台一致性靠 token 保证 | L | P1 | 3.1、3.2 |
-| 10 | **可观测性与后台任务可靠性**：`instrumentation.ts` + 结构化日志 + 错误上报；AI 任务从 `setTimeout` 改为 cron 拉取 + 租约 | 51 处 `console.*` 有去处；进程重启不再丢 AI 任务 | M | P1 | 6.5、6.6 |
+| 10 | **可观测性与后台任务可靠性**：`instrumentation.ts` + 结构化日志 + 错误上报；AI 任务从 `setTimeout` 迁到持久化任务平台 + 独立 Worker（#16 → #17 → #11 → #8/#15） | 51 处 `console.*` 有去处；进程重启不再丢 AI 任务 | M | P1 | 6.5、6.6（#16→#17→#11→#8/#15） |
 
 快速收益（不进 Top 10 但半天内可完成）：删除 5 个未使用依赖（2.9）、`sitemap.ts` 从 `force-dynamic` 改为 ISR（2.4）、搜索页 `keepPreviousData` 打开（4.7）、`src/test/setup.ts` 改用 `http://localhost:3000`（6.4）。
 
@@ -71,6 +72,27 @@
 
 > 未采用的候选：`Hashnode/starter-kit`、`vercel/commerce`、`umami` 以外的分析产品——本轮未读到可引用的源码，故不写进对照。
 
+## 1.1 与现有 Issue 的对照
+
+本文初稿未核对仓库现有 Issue。下表与计划 Issue #29 的 Further Notes 一致，以 #29 为准：凡现有 Issue 已拥有的决策，本文建议一律遵从 Issue，不重新设计。
+
+| 分析项 | 现有 Issue | 关系 |
+| --- | --- | --- |
+| 2.2 操作日志同步写库 | #2 | 由 #2 拥有；本文撤回"写入改到响应后"的建议 |
+| 2.7 搜索过度取数 | #5 | 由 #5 拥有（数据库内排序分页） |
+| 6.9 Route Handler 范式 | #9 | #9 的 Prisma 直连 allowlist 已是护栏；本文只补 ADR |
+| 5.1 状态列无约束 | #10 | 由 #10 拥有（CHECK 而非 enum）；AiTask/Newsletter 待 #8/#15 后扩展 |
+| 6.6 AI 任务 setTimeout | #16 → #17 → #11 → #8/#15 | 由该链拥有；本文撤回 cron 消费者方案 |
+| 6.2 环境变量校验 | #6 | 由 #6 拥有（ratchet 而非全局校验层） |
+| 6.4 集成测试基础 | #4 | 集成通道与 CI 步骤已存在，建议核验后关闭 #4 |
+| 6.5 可观测性 | #7 | 健康端点已存在，建议核验后关闭 #7；结构化日志为其后续 |
+| （未在分析中）后台授权 | #12 | 安全 P0，纳入阶段一 |
+| （未在分析中）外部调用可靠性 | #14 | 纳入阶段二 |
+| 3.x UI | #1（已实施） | 不重叠：#1 是前台视觉，本文是基元收敛 |
+| 2.10 Newsletter 并发 | #13（已关闭） | 建立在 #13 的幂等语义之上 |
+
+其余分析项（2.1、2.3–2.6、2.8、2.9、3.1–3.5、4.1–4.7、5.2–5.8、6.1、6.3、6.4 余项、6.7、6.8）为新增工作。
+
 ---
 
 ## 2. 性能
@@ -82,7 +104,7 @@
 - **建议**：
   1. beacon 路由去掉 `getServerSession`：匿名访问占绝对多数，`userId` 可由客户端在已登录时附带一个短签名（或直接放弃匿名场景的 userId 关联）。
   2. `viewCount` 不再逐次 `increment`：由 cron（已有 `/api/cron/*` 网关）每 5–15 分钟从 `visit_logs` 按 `postId` 聚合回写；或先改为 `UPDATE … SET "viewCount" = "viewCount" + 1` 的单条原生 SQL，去掉事务。
-  3. 对 `scope: 'analytics'` 的路由关闭操作日志或按 1% 采样（见 2.2）。
+  3. 操作日志的写入时序与容量清理由 #2 拥有（见 2.2），本节不再建议对 beacon 异步化或采样；`scope` 分级（含 `analytics`）只作为 2.2 的可选项。
 - **工作量**：M
 - **优先级**：P0
 - **风险/注意事项**：`viewCount` 展示会有分钟级延迟，需在后台统计页标注"每 N 分钟更新"；聚合 cron 需登记进 `middleware.ts` 的 `INTERNAL_PATH_SECRETS`，否则 fail closed。
@@ -92,12 +114,14 @@
 - **现状**：`src/lib/api-operation-log-route.ts:129` 对可捕获请求体的请求做 `request.clone()`，`148-169` 行在 `finally` 中 `await createApiOperationLog(...)`，即日志写入完成前响应不会返回。91 个 route 全部包了这层，包括公共 GET（搜索、推荐、点赞状态）与 beacon。
 - **参考项目做法**：Ghost 的 `actions` 表只记录资源级 CRUD 事件（`schema.js` 中 `actions` 表的 `resource_type`/`event`/`actor_id`），不记录读请求；cal.com 的 `BookingAudit` 同样只记业务变更。两者都没有"每个 HTTP 请求一行"的日志表。
 - **建议**：
-  1. 用 Next.js 的 `after()`（`next/server`，当前仓库 0 处使用）把日志写入挪到响应之后；这不改变日志内容，只改变时序。
-  2. 按 scope 分级：`admin`/`cron`/`internal` 全量记录；`public` 读接口默认只记 4xx/5xx 或采样；`analytics` 不记录（访问日志本身就是记录）。
-  3. 请求体捕获只对 admin 写接口开启。
-- **工作量**：S（`after()` 改造）+ S（分级策略）
-- **优先级**：P0
-- **风险/注意事项**：`after()` 在某些自托管运行时需要确认不会被提前终止；后台"操作日志"页的筛选默认值需同步调整，避免运营误以为公共流量消失。
+  1. 由 #2 拥有，本文不再另行设计。#2 的决定是：每次受统一包装器覆盖的请求在 `finally` 阶段等待一次操作日志 INSERT，这是现有的可追踪性边界，保留；只把容量上限的读取配置、逐行大小计算与超限删除移出热路径，改为独立的保留批任务（定时入口与管理员手动入口复用同一个 runner）。因此本文撤回"改用 `after()` 把写入挪到响应之后"的建议。
+  2. 本文只补充两条可选项，均不在 #2 首版范围内，且不得改变同步 INSERT 的语义，采纳前先与 #2 对齐：
+     - scope 分级：`admin`/`cron`/`internal` 全量记录；`public` 读接口默认只记 4xx/5xx 或采样；`analytics` 不记录（访问日志本身就是记录）。
+     - `requestBody` 仅后台捕获：请求体捕获只对 admin 写接口开启，同时省去其他请求上的 `request.clone()`。
+- **工作量**：以 #2 为准；两条可选项各 S
+- **优先级**：#2 的优先级由其自身决定；两条可选项 P2
+- **风险/注意事项**：scope 分级会缩小"每个受覆盖请求都同步留痕"的范围，与 #2 保留的可追踪性边界相邻，须先经 #2 的所有者确认；后台"操作日志"页的筛选默认值需同步调整，避免运营误以为公共流量消失。`requestBody` 收窄前先确认非 admin 写接口的请求体没有被排障流程依赖。
+- **相关 Issue**：#2（拥有操作日志写入与容量清理的决策：同步 INSERT 保留，只把容量清理移出热路径）
 
 ### 2.3 连接池默认 1 与基于数据库的限流
 
@@ -315,10 +339,15 @@
 
 - **现状**：schema 已有 10 个 enum（`Role/CommentStatus/PostSummaryStatus/AiNewsRunStatus/AiNewsRunTrigger/AiNewsSourceType/NotificationType/NotificationSeverity/NewsletterCampaignStatus/AiTopicStatus`），但以下 6 个状态仍是 `String`：`NewsletterSubscriber.status`（`@default("pending")`，第 233 行）、`NewsletterDelivery.status`（271）、`CoverAsset.status`（400）、`AiTask.status`（491）、`AiTaskItem.status`（520）、`TopicGuide.status`（778）。合法值只存在于 TypeScript 常量（如 `AI_TASK_ITEM_STATUSES`）与 `lib/validation.ts` 的手写校验里，数据库层不约束。
 - **参考项目做法**：cal.com 的 `Booking.status BookingStatus @default(ACCEPTED)`（`schema.prisma:875`），enum 值用 `@map("accepted")` 保持数据库小写（843-849 行）；Ghost 虽用字符串列，但在 schema 定义里以 `validations: { isIn: [[...]] }` 强制合法值（`schema.js:157-164`，`posts.status`）；payload 的 `_status` 是带 `options` 的 select 字段并 `index: true`；lobe-chat 用 `text('type', { enum: [...] })` 在 drizzle 层声明。四个项目都没有"状态列完全无约束"的情况。
-- **建议**：按风险从低到高迁移——`TopicGuide.status`、`CoverAsset.status` 先行（写入点少），`AiTask/AiTaskItem` 次之，`Newsletter*` 最后（涉及正在进行的投递）。每次迁移：`ALTER TABLE … ALTER COLUMN status TYPE "XxxStatus" USING status::"XxxStatus"`，迁移前先 `SELECT DISTINCT status` 核对脏值。enum 值用 `@map` 保持现有小写字符串，应用代码不改。
-- **工作量**：M
+- **建议**：遵从 #10，用 PostgreSQL CHECK 约束而不是迁 Prisma enum；Prisma 字段保持 `String`，数据库只镜像"允许保存哪些值"，业务含义与迁移入口仍归各领域。上述参考项目中，Ghost 的 `isIn` 校验与 CHECK 同属"在持久化层声明合法值集合"，cal.com 的 enum 路线仅作对照：#10 不采用它，因为 enum 会让领域层依赖 ORM 生成的持久化类型并扩大调用方改动，且需要列类型转换，而 CHECK 可 `NOT VALID` 后再 `VALIDATE`，不重写合法数据。
+  1. 首版顺序（#10）：只覆盖 `CoverAsset.status`（`active`/`archived`）与 `TopicGuide.status`（`draft`/`published`/`archived`），两个实施单元彼此独立，任一单元发现脏数据只阻止该单元。
+  2. 每个单元的步骤：审计全部现存记录（含软删除记录）→ 存在未知值即停止，不猜测映射、不静默归一化 → 添加具名 CHECK 并标记 `NOT VALID` → 审计仍为空后 `VALIDATE CONSTRAINT` → 以真实 PostgreSQL 集成测试确认约束、迁移与回滚。
+  3. `AiTask`/`AiTaskItem` 与 `NewsletterSubscriber`/`NewsletterDelivery` 暂不加约束：它们的状态集合会被后续任务改写（#10 点名 #8、#13、#15），提前加约束会制造迁移竞争和重复事实源。待 #8、#15 落地后再按同一方式各补一次 CHECK 迁移（排序见 #29）。
+  4. 撤回原建议中的 `ALTER COLUMN status TYPE "XxxStatus"`、`@map` 与"迁移顺序 TopicGuide/CoverAsset → AiTask → Newsletter"。
+- **工作量**：M（分批：首批两个字段为 #10 的两个独立单元，其余两组随 #8、#15 各一次迁移）
 - **优先级**：P1
-- **风险/注意事项**：Prisma enum 迁移会生成 `CREATE TYPE` + `ALTER COLUMN`，大表上锁时间短但需在低峰执行；`AI_TASK_ITEM_STATUSES` 等常量改为从 Prisma 生成的 enum 导出，避免两份真源。
+- **风险/注意事项**：CHECK 先 `NOT VALID` 再 `VALIDATE`，加锁阶段不扫描历史数据；`AI_TASK_ITEM_STATUSES` 等 TypeScript 常量仍是业务校验的来源，不改为从 Prisma 生成的 enum 导出，而是由拥有该状态的功能在同一变更中同步更新业务校验、CHECK 与测试，不建全局状态目录。日后扩展值集合按 expand/migrate/contract 顺序：先让数据库接受新旧值并集，再部署会写新值的应用，不得在放宽约束之前部署会写新值的应用。业务入口收到非法状态仍返回现有 `ValidationError`（HTTP 400）；受信任代码绕过校验触发 CHECK 属内部不变量破坏，应为 500。回滚以单元为界，只删除对应 CHECK。
+- **相关 Issue**：#10（拥有状态约束的决策：CHECK 而非 enum，首版只覆盖 CoverAsset 与 TopicGuide；AiTask/Newsletter 待 #8/#15 后扩展）
 
 ### 5.2 Like 双唯一键与非原子 toggle
 
@@ -412,10 +441,14 @@
 
 - **现状**：`src/lib` 下 37 处直接读取 `process.env.*`，缺配在首次调用时才以运行时错误暴露（`prisma.ts` 对 `DATABASE_URL` 做了延迟报错，是少数例外）；`env-example-contract.test.ts` 只保证 `.env.example` 与代码引用的变量名一致，不校验值的形态。
 - **参考项目做法**：create-t3-app 模板的 `src/env.js` 用 `createEnv({ server: { DATABASE_URL: z.url(), NODE_ENV: z.enum([...]) }, client: {...}, runtimeEnv: { DATABASE_URL: process.env.DATABASE_URL, ... }, skipValidation: !!process.env.SKIP_ENV_VALIDATION, emptyStringAsUndefined: true })`，在模块加载时一次性校验，Docker 构建期用 `SKIP_ENV_VALIDATION` 跳过。
-- **建议**：新建 `src/env.ts`（zod 已是依赖，不必引入 `@t3-oss/env-nextjs`），分 `server`/`client`（`NEXT_PUBLIC_*`）两组，`Dockerfile` 构建阶段设 `SKIP_ENV_VALIDATION=1`；`src/lib` 内逐步改为 `import { env } from '@/env'`。`DATABASE_POOL_MAX`、`AI_*`、`QINIU_*` 等可选组用 `.optional()` 并在 `web-readiness.ts` 的 configuration 检查里复用。
-- **工作量**：S
+- **建议**：遵从 #6，不建全局配置层。上述 t3 `env.js` 保留为对照，本项目选择增量路线，理由是全局 `createEnv` 式的配置层是一个跨全仓项目：它要一次迁入构建配置、public 配置、middleware、脚本和业务模块，同时引入新的配置框架、迁移计划与部署校验协议，还会与 #11 的 Worker 配置、#14 的 AI Gateway 配置重复决策。因此本文撤回"新建 `src/env.ts`、分 `server`/`client` 两组、`SKIP_ENV_VALIDATION`、`src/lib` 全量改为 `import { env }`"的建议，改为 #6 的三个增量边界：
+  1. 数据库运行配置：纯解析器 + 窄 getter，由现有 `src/lib/prisma.ts` 消费；#11 的 app 与 Worker 复用同一个 getter，不各自再实现连接配置。
+  2. 环境 AI 摘要模型与图像模型：纯解析器 + 窄 getter，由现有模型目录消费（首选键、遗留 fallback、默认 endpoint、凭据来源仍集中在模型目录附近）；#14 的 Gateway 继续以模型目录为唯一选模来源，不另读一套环境变量。
+  3. `process.env` 直读 ratchet：当前历史读取（上文 37 处）冻结为基线，新增的散落读取失败，删除历史读取始终允许；首版不偿还全部历史读取。Worker 专属配置归 #11，Gateway 策略配置归 #14。
+- **工作量**：以 #6 为准（首版只含上述两个 getter 与 ratchet）
 - **优先级**：P0
-- **风险/注意事项**：`prisma.ts` 的"缺 `DATABASE_URL` 时导入安全、调用才报错"语义要保留（构建期需要），`env.ts` 对该变量在 `SKIP_ENV_VALIDATION` 下应放行。
+- **风险/注意事项**：`prisma.ts` 的"缺 `DATABASE_URL` 时导入安全、调用才报错"语义必须保留（构建期需要），getter 要继承而不是改写它。只新增没有现有调用点使用的通用 parser、schema registry 或配置框架，不算完成（#6 的验收口径）。取舍也要明说：本路线不提供全站统一的启动期校验，范围外的缺配仍可能在首次调用时才暴露，只有 #6 覆盖的两个边界和 ratchet 受约束。
+- **相关 Issue**：#6（拥有运行配置的决策：窄 getter + `process.env` 直读 ratchet，不建全局配置层；#11、#14 复用其边界）
 
 ### 6.3 安全：CSP 放宽项与匿名身份绑定 IP
 
@@ -460,10 +493,15 @@
 
 - **现状**：`src/lib/ai-batch-jobs.ts:118-119` 与 `src/lib/post-summary-jobs.ts:54-55` 在 HTTP 请求内 `setTimeout(() => void run(...))` 启动长任务。进程重启、部署、函数超时都会让 `AiTask`/`AiTaskItem` 停留在 `QUEUED/RUNNING` 不再推进；没有租约、心跳或重试计数。
 - **参考项目做法**：Ghost 的 `jobs` 表（`schema.js:1866` 起）记录 `status(started/finished/failed/queued)`、`started_at`、`finished_at`、`queue_entry`，由独立 job manager 拉取；dub 把定时与延迟任务交给 QStash（`apps/web/lib/cron/` 下的 `/api/cron/*` 由外部调度触发，与本项目的 GitHub Actions cron 思路相同）。
-- **建议**：`AiTask` 表已是持久化队列，缺的只是消费者：新增 `/api/cron/ai-tasks`（登记进 `INTERNAL_PATH_SECRETS`）由 GitHub Actions 每 2–5 分钟触发，每次用 `UPDATE … SET "leaseUntil" = now() + interval '5 min' WHERE status = 'QUEUED' … FOR UPDATE SKIP LOCKED LIMIT 1` 领取一项执行；超时未心跳的 `RUNNING` 项回收重试，`attempts` 达上限标 `FAILED`。请求内只负责入队。
-- **工作量**：M
+- **建议**：遵从既定路线——持久化任务平台 + 独立 Worker，由 #16 → #17 → #11 → #8/#15 依次交付；本文撤回"新增 `/api/cron/ai-tasks`，由 GitHub Actions 定时触发，用 `leaseUntil` + `FOR UPDATE SKIP LOCKED` 领取，超时回收、`attempts` 达上限标 `FAILED`"的 cron 拉取 + 租约方案，仅在 #17 结论为两个候选库均不可用时才重新讨论。
+  1. #16：升级并验证 Node.js 22 运行基线。
+  2. #17：用同一小型原型比较 Graphile Worker 与 pg-boss，给出经验证的库、版本与运行参数；本文不预设二者之一。
+  3. #11：建立 PostgreSQL 持久化任务基础与独立 Worker（选中库的 runner、server-only 的窄任务提交接口、独立 Worker 入口与容器服务、无持久化心跳的只读健康检查、不依赖业务域的探针任务）；不迁移任何现有业务任务，执行语义为至少一次。
+  4. #8 迁移文章摘要与 AI 批处理（即上文 `ai-batch-jobs.ts`、`post-summary-jobs.ts` 两处 `setTimeout`），#15 迁移 AI 日报。
+- **工作量**：由该 Issue 链拥有，本文不另估
 - **优先级**：P1
-- **风险/注意事项**：GitHub Actions cron 最小粒度 5 分钟且可能延迟，用户感知从"立即开始"变为"数分钟内开始"，后台任务中心需显示排队状态；`daily-ai-news.yml` 已验证这条调度链路可用。
+- **风险/注意事项**：上文"没有租约、心跳或重试计数"的缺口由所选库的任务语义与 #11 的 runner 承担，具体以 #17 的验证结果为准，不在 `AiTask` 表上自建第二套调度状态。候选库未定，选定前不要在业务代码中预设 Graphile Worker 或 pg-boss 的 API；#17 要在 Prisma 7 PostgreSQL adapter、调用方事务、单 app 容器与很小的默认连接池的约束下验证。执行语义是至少一次，任务处理必须幂等。Worker 是新增的容器服务，部署与健康检查归 #11。#8、#15 完成前现有 `setTimeout` 路径仍在运行，进程重启丢任务的风险持续存在，不要提前移除。
+- **相关 Issue**：#16 → #17 → #11 → #8/#15（持久化任务平台与独立 Worker 链拥有本节决策；原"cron 拉取 + 租约"方案已撤回）
 
 ### 6.7 DX：格式化、钩子、依赖机器人与文档引用
 
@@ -503,8 +541,8 @@
 | 顺序 | 条目 | 产出 | 对应小节 |
 | --- | --- | --- | --- |
 | 1 | CI 加 `typecheck`、修 seed、`src/test/setup.ts` 改 localhost、加 dependabot | `ci.yml` 全绿且 E2E 转阻塞 | 6.4 |
-| 2 | `src/env.ts` 环境变量校验 | 缺配在启动期报错而非首次请求 | 6.2 |
-| 3 | PV 写路径瘦身：去 `getServerSession`、合并 `findFirst`、op-log 改 `after()` | `/api/analytics/visit` 从 3 写 + 1 读降到 1 写 | 2.1、2.2 |
+| 2 | 运行配置增量约束：数据库与环境 AI 模型窄 getter + `process.env` 直读 ratchet（#6） | 新增的散落 `process.env` 读取在测试中失败，存量只减不增 | 6.2（#6） |
+| 3 | PV 写路径瘦身：去 `getServerSession`、合并 `findFirst`、`viewCount` 不再在请求事务中自增（操作日志同步 INSERT 按 #2 保留） | `/api/analytics/visit` 不再解析会话、不再更新文章行 | 2.1、2.2（#2） |
 | 4 | 错误响应收口 24 处 + lint 规则 | `grep 'NextResponse.json({ error'` 在 `src/app/api` 为 0 | 6.1 |
 | 5 | Like 原子 toggle + 写 `userId` | 并发双击无 500；登录用户点赞绑账号 | 5.2 |
 | 6（并行） | 删 5 个未使用依赖、`sitemap` 改 ISR、搜索 `keepPreviousData` | `pnpm install` 体积下降；sitemap 不再每次打 4 次库 | 2.9、2.4、4.7 |
@@ -514,13 +552,13 @@
 | 顺序 | 条目 | 产出 | 对应小节 |
 | --- | --- | --- | --- |
 | 1 | `rate_limit_entries` 入 schema + `migrate diff` 漂移检测 | CI 能发现 schema/迁移不一致 | 5.4 |
-| 2 | 6 处 `status String` → enum（按 5.1 顺序分 3 批） | schema 内状态列全部有约束 | 5.1 |
+| 2 | `CoverAsset`、`TopicGuide` 状态加 CHECK 约束（#10）；`AiTask`/`Newsletter` 待 #8、#15 落地后各补一次 | 首批两个字段在数据库层拒绝非法值，其余随依赖链补齐 | 5.1（#10） |
 | 3 | `visit_daily_stats` + retention cron + `viewCount` 异步回写 | 后台热门文章改读聚合表；`visit_logs` 有保留上限 | 5.3、5.7、2.6 |
 | 4 | `unstable_cache` + tag 失效替换路径级 revalidate | 设置变更不再逐一失效 15 条路径 | 2.4 |
 | 5 | 连接池上调 + 限流迁出数据库（Redis 或 Postgres `UNLOGGED` 表） | 限流不再占用业务连接 | 2.3 |
 | 6（并行） | 11 处手写 fetch → SWR；7 个设置面板 → RHF | `useState+useEffect+fetch` 模式在 `src/components` 为 0 | 4.1、4.2 |
 | 7 | 结构化日志 + 错误上报 | 生产 5xx 可定位到 requestId | 6.5 |
-| 8 | AI 任务 cron 消费者 + 租约 | 部署重启后 `QUEUED` 任务自动恢复 | 6.6 |
+| 8 | AI 任务迁入持久化任务平台 + 独立 Worker（#16 → #17 → #11 → #8/#15） | 部署重启后已提交任务由 Worker 重新领取并继续 | 6.6（#16/#17/#11/#8/#15） |
 
 ### 阶段三（第 7 周起）：体验与长期维护
 
@@ -542,12 +580,12 @@
 
 1. **全面迁移到 Server Actions。** 本项目对外暴露 OpenAPI（`lib/ai-interface-catalog.ts`）且所有接口经 `withApiOperationLogging` 审计，Route Handler 是正确选择；taxonomy 同样全部用 Route Handler。只需按 6.9 写一篇 ADR。
 2. **引入 i18n 框架（next-intl 等）。** 站点 locale 固定 `zh-CN`（`blog-settings.ts:15,61`），文案全部中文，没有多语言需求；框架会给每个组件增加 `useTranslations` 噪音。
-3. **用 Redis/BullMQ 替换 `AiTask` 表做队列。** `AiTask/AiTaskItem` 已是持久化、可查询、有后台页面的队列，缺的只是消费者（6.6）。新增一个有状态中间件会让部署从"一个 Postgres"变成两个。
+3. **用 Redis/BullMQ 替换 `AiTask` 表做队列。** `AiTask/AiTaskItem` 已是持久化、可查询、有后台页面的任务记录，执行侧的缺口由 6.6 的 PostgreSQL 任务平台补上。新增 Redis 这类有状态中间件会让部署从"一个 Postgres"变成两个。Postgres 原生任务库（#17 比较的 Graphile Worker、pg-boss）不在此列。
 4. **把 Markdown 编辑器换成块编辑器（novel/Tiptap）。** 内容模型是 Markdown 字符串，AI 流水线（摘要/SEO/日报成文）都围绕 Markdown；换内核意味着存量内容迁移与 AI 提示词重写。从 novel 借鉴的只是交互细节（4.6）。
 5. **整体重写 UI 到新设计系统。** 3.1 的收敛是"把四层并成一层 shadcn"，不是换设计语言；公共页的 OKLCH + `--hue` 主题系统（`globals.css:113`）是项目特色，保留。
 6. **squash 或重命名历史迁移。** 31 个迁移目录命名宽度不一（5.6）是美观问题；重命名会让已部署环境的 `_prisma_migrations` 失配，squash 会丢失部分唯一索引的手写 SQL 上下文。
 7. **用 Tinybird/ClickHouse 替换 `VisitLog`。** dub 的量级（每天数百万点击）才需要列式存储；本项目日 PV 在千到万级，PostgreSQL + 日聚合表（5.3）足够。若未来确实需要独立分析，更合理的选项是自托管 umami 并以 tracker 脚本接入，而非自研。
-8. **微服务拆分或独立 AI worker 服务。** 单体 Next.js + GitHub Actions cron 的运维成本已经与项目规模匹配；6.6 的 cron 消费者方案不需要新进程。
+8. **微服务拆分，或在 #11 之外另起第二套 worker。** 独立 Worker 已由 #11 决定（6.6），不建议再另起第二套队列或 worker 进程，所有后台任务共用 #11 的这一个 Worker。除此之外，单体 Next.js + GitHub Actions cron 的运维成本已经与项目规模匹配，不需要拆服务。
 9. **把 `DATABASE_POOL_MAX` 直接调到 20。** 2.3 建议上调，但需先确认部署目标的 Postgres `max_connections` 与是否有 PgBouncer；盲目上调会在多实例部署时耗尽连接。
 10. **为所有 Prisma 模型生成 zod schema（cal.com 的 `zod-prisma-types`）。** 本项目的 `lib/validation.ts` 手写校验层已覆盖全部写入口且有契约测试；生成器会引入一份与手写层重叠的真源。
 
