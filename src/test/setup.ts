@@ -6,6 +6,11 @@ beforeAll(() => {
   process.env.NEXTAUTH_URL = 'http://47.98.167.32'
   process.env.NEXT_PUBLIC_SITE_URL = 'http://47.98.167.32'
 
+  // 纯 node 环境用例（// @vitest-environment node）没有 window，跳过浏览器 API 打桩
+  if (typeof window === 'undefined') {
+    return
+  }
+
   Object.defineProperty(window, 'matchMedia', {
     writable: true,
     value: vi.fn().mockImplementation((query: string) => ({
