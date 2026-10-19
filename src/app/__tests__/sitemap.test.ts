@@ -111,6 +111,13 @@ describe('sitemap', () => {
     )
   })
 
+  test('is served as hourly ISR instead of force-dynamic', async () => {
+    const sitemapModule = await import('../sitemap')
+
+    expect(sitemapModule.revalidate).toBe(3600)
+    expect('dynamic' in sitemapModule).toBe(false)
+  })
+
   test('uses configured site url for the default sitemap route', async () => {
     const { default: sitemap } = await import('../sitemap')
     const entries = await sitemap()
