@@ -81,7 +81,9 @@ jobs:
         run: pnpm build
 
   e2e:
-    runs-on: ubuntu-latest
+    # Playwright 1.58.x 不支持在 Ubuntu 26.04（当前 ubuntu-latest）上安装 chromium 系统依赖，
+    # 固定到 24.04；升级 Playwright 到支持 26.04 的版本后再改回 ubuntu-latest
+    runs-on: ubuntu-24.04
     # 首轮非阻塞：稳定后移除 continue-on-error 纳入必过门禁
     continue-on-error: true
     services:
