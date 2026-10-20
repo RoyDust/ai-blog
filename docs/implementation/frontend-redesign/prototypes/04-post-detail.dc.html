@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style data-omelette-injected>html,body{background:transparent}</style><script data-omelette-injected>(()=>{{const n=new URLSearchParams(location.search).get("theme");if(n==="light"||n==="dark"){document.documentElement.dataset.theme=n}}{if(new URLSearchParams(location.search).get("_omthumb")==="1"){const n=(f)=>{const g=f.focus;if(!g)return;f.focus=function(h){g.call(this,{...h,preventScroll:true})}};n(HTMLElement.prototype);n(SVGElement.prototype);if(typeof MathMLElement!=="undefined"){n(MathMLElement.prototype)}const d=(f)=>{f.removeAttribute("autofocus");f.inert=true;if(!(f instanceof HTMLElement))f.removeAttribute("tabindex")};const p=(f)=>{if(f.hasAttribute("autofocus"))d(f);for(const g of f.querySelectorAll("[autofocus]")){d(g)}};p(document.documentElement);new MutationObserver((f)=>{for(const g of f){for(const h of g.addedNodes){if(h.nodeType===1)p(h)}}}).observe(document,{childList:true,subtree:true})}}{const n=()=>{try{if(document.querySelector('meta[name="color-scheme"]'))return;const d=getComputedStyle(document.documentElement).getPropertyValue("color-scheme").trim();if(d&&d!=="normal")return;const p=(y)=>{if(!y)return null;const m=getComputedStyle(y).backgroundColor.match(/^rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)(?:[,\s/]+([\d.]+%?))?\s*\)$/);if(!m)return null;const w=m[4]==null?1:parseFloat(m[4])/(m[4].endsWith("%")?100:1);if(w<0.99)return null;return[+m[1],+m[2],+m[3]]};const f=p(document.body)||p(document.documentElement);if(!f)return;const g=(y)=>{const m=y/255;return m<=0.04045?m/12.92:((m+0.055)/1.055)**2.4};const h=0.2126*g(f[0])+0.7152*g(f[1])+0.0722*g(f[2]);document.documentElement.style.setProperty("color-scheme",h<0.4?"dark":"light")}catch{}};if(document.readyState==="complete")n();else window.addEventListener("load",n)}var I=[];var B=false;var K=false;var C=()=>{};if(K===true){try{const n=setTimeout.bind(window);const d=1e4;const p=15;const f=1e4;const g=120000;const h=200;const y=(o)=>{try{let r;if(typeof o==="string")r=o;else if(o instanceof URL)r=o.href;else if(typeof Request!=="undefined"&&o instanceof Request)r=o.url;else return null;if(!r)return null;const l=document.baseURI;const i=new URL(r,l);if(i.protocol!=="http:"&&i.protocol!=="https:")return null;if(i.origin!==new URL(l).origin)return null;return i.origin+i.pathname}catch{return null}};const m=new Map;const w=(o)=>{let r=m.get(o);if(!r){if(m.size>=h){const l=m.keys().next().value;if(l!==undefined)m.delete(l)}r={fails:[],until:0,cooldown:f,hard:false};m.set(o,r)}return r};const R=(o)=>{const r=m.get(o);return r!==undefined&&r.until>Date.now()};const O=(o,r)=>{const l=Date.now();const i=w(o);if(r)i.hard=true;if(i.until>l)return;i.fails.push(l);while(i.fails.length>0&&i.fails[0]<=l-d)i.fails.shift();if(i.fails.length>=p){i.until=l+i.cooldown;if(i.hard)i.cooldown=Math.min(i.cooldown*2,g);i.fails.length=0;try{n(()=>{try{S(true)}catch{}},i.until-l+100)}catch{}console.warn("[omelette] asset circuit breaker: pausing requests to "+o+" for "+Math.round((i.until-l)/1000)+"s after "+p+" failures in "+d/1000+"s")}};const e=(o)=>{m.delete(o)};const t=100;const a=new WeakMap;const u=new Set;let s=null;const S=(o)=>{for(const r of Array.from(u)){try{const l=a.get(r);if(l===undefined){u.delete(r);continue}if(o){const i=y(l);if(i!==null&&R(i))continue}a.delete(r);u.delete(r);if(s!==null)s.call(r,l)}catch{}}};C=()=>{try{m.clear();S(false)}catch{}};document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")C()});const _=window.fetch;if(typeof _==="function"){const o=function(...r){let l=null;try{l=y(r[0])}catch{}if(l!==null&&R(l)){let c;try{if(r[1]&&r[1].signal!==undefined){c=r[1].signal||undefined}else if(typeof Request!=="undefined"&&r[0]instanceof Request){c=r[0].signal||undefined}}catch{c=undefined}return new Promise((k,b)=>{const E=()=>{try{return c.reason!==undefined?c.reason:new DOMException("The operation was aborted.","AbortError")}catch{return new DOMException("The operation was aborted.","AbortError")}};try{if(c&&c.aborted){b(E());return}}catch{}let T=false;const j=()=>{if(T)return;T=true;b(E())};try{if(c)c.addEventListener("abort",j,{once:true})}catch{}n(()=>{if(T)return;T=true;try{if(c)c.removeEventListener("abort",j)}catch{}let L;try{L=new Response(null,{status:429,statusText:"Too Many Requests",headers:{"Retry-After":"10"}})}catch{L={ok:false,status:429}}k(L)},250)})}const i=_.apply(window,r);if(l!==null){const c=l;i.then((k)=>{try{if(k.ok)e(c);else if(k.status===401||k.status===403||k.status===404||k.status===429){O(c,k.status!==404)}}catch{}},()=>{})}return i};window.fetch=o}const v=Object.getOwnPropertyDescriptor(HTMLImageElement.prototype,"src");if(v!==undefined&&v.set!==undefined&&v.get!==undefined){const o=v.set;s=o;Object.defineProperty(HTMLImageElement.prototype,"src",{configurable:true,enumerable:v.enumerable,get:v.get,set(r){const l=`${r}`;try{const i=y(l);if(i!==null&&R(i)){a.set(this,l);if(u.size<t)u.add(this);return}}catch{}try{a.delete(this);u.delete(this)}catch{}o.call(this,l)}})}try{const o=HTMLImageElement.prototype.setAttribute;HTMLImageElement.prototype.setAttribute=function(r,l){if(arguments.length<2){o.apply(this,arguments);return}if(typeof r==="string"&&r.toLowerCase()==="src"){const i=`${l}`;try{const c=y(i);if(c!==null&&R(c)){a.set(this,i);if(u.size<t)u.add(this);return}a.delete(this);u.delete(this)}catch{}o.call(this,r,i);return}o.call(this,r,l)}}catch{}window.addEventListener("error",(o)=>{try{const r=o.target;if(r instanceof HTMLImageElement){const l=y(r.currentSrc||r.src||"");if(l!==null)O(l,true)}}catch{}},true);window.addEventListener("load",(o)=>{try{const r=o.target;if(r instanceof HTMLImageElement){const l=y(r.currentSrc||r.src||"");if(l!==null)e(l);const i=a.get(r);if(i!==undefined){let c=false;try{c=new URL(i,document.baseURI).href===new URL(r.currentSrc||r.src||"",document.baseURI).href}catch{c=false}if(c){a.delete(r);u.delete(r)}}}}catch{}},true)}catch{}}var J=30000;var G=3000;document.addEventListener("DOMContentLoaded",()=>{const n=window.Babel;const d="om-src-id";if(n&&n.registerPlugin&&!(n.availablePlugins&&n.availablePlugins[d])){n.registerPlugin(d,({types:h})=>({visitor:{JSXOpeningElement(y,m){const w=y.node;if(w.name&&w.name.type==="JSXMemberExpression")return;for(let t=0;t<w.attributes.length;t++){const a=w.attributes[t];if(a.type==="JSXAttribute"&&a.name&&a.name.name==="data-om-id")return}const R=m.file&&m.file.opts&&m.file.opts.filename||"?";const O=w.loc&&w.loc.start;const e=`jsx:${R}:${w.start??0}:${O?O.line:0}:${O?O.column+1:0}`;w.attributes.push(h.jsxAttribute(h.jsxIdentifier("data-om-id"),h.stringLiteral(e)))}}}))}const p="om-text-extract";let f=false;if(B&&n&&n.registerPlugin&&!(n.availablePlugins&&n.availablePlugins[p])){const h=window.React;if(h&&h.useSyncExternalStore&&h.createElement){f=true;const y={};const m=new Set;let w=0;window.__omTextO=y;window.__omTextSet=(e)=>{for(const t in e){const a=e[t];if(a==null)delete y[t];else y[t]=a}w++;m.forEach((t)=>t())};const R=(e)=>{m.add(e);return()=>m.delete(e)};const O=()=>w;window.__OmT=function e(t){h.useSyncExternalStore(R,O,O);return h.createElement("span",{"data-om-text":t.i,className:"__om-t"},t.i in y?y[t.i]:t.children)};n.registerPlugin(p,({types:e})=>{const t={style:1,script:1,noscript:1,textarea:1,title:1,option:1,text:1,tspan:1,textPath:1};const a={placeholder:1,alt:1,title:1,label:1,"aria-label":1,"aria-description":1,"aria-placeholder":1};const u=(o,r)=>e.logicalExpression("??",e.memberExpression(e.logicalExpression("||",e.memberExpression(e.identifier("window"),e.identifier("__omTextO")),e.objectExpression([])),e.stringLiteral(o),true),r);const s=(o)=>o.file&&o.file.opts&&o.file.opts.filename||"?";const S=(o)=>o.file&&o.file.code||"";const _=(o,r)=>{const l=(c)=>c&&c.start!=null&&c.end!=null&&(c.type==="StringLiteral"||c.type==="TemplateLiteral"&&c.expressions.length===0)?[c.start,c.end]:null;const i=l(r);if(i)return i;if(r&&r.type==="Identifier"){const c=o.scope.getBinding(r.name);if(c&&c.constant&&c.path.node.type==="VariableDeclarator"){return l(c.path.node.init)}}return null};const v=(o,r,l)=>{const i=o.node;let c=false;const k=(E,T)=>{c=true;return e.jsxElement(e.jsxOpeningElement(e.jsxIdentifier("__OmT"),[e.jsxAttribute(e.jsxIdentifier("i"),e.stringLiteral(E))],false),e.jsxClosingElement(e.jsxIdentifier("__OmT")),[T],false)};const b=i.children.map((E)=>{if(E.type==="JSXText"){if(E.start==null||E.end==null)return E;const T=l.slice(E.start,E.end);const j=T.length-T.trimStart().length;const L=T.length-T.trimEnd().length;if(j+L>=T.length)return E;return k(`txt:${r}:${E.start+j}:${E.end-L}`,E)}if(E.type==="JSXExpressionContainer"){const T=_(o,E.expression);if(T)return k(`str:${r}:${T[0]}:${T[1]}`,E)}return E});if(c)i.children=b};return{visitor:{JSXOpeningElement(o,r){const l=o.node;const i=s(r);const c={};for(let k=0;k<l.attributes.length;k++){const b=l.attributes[k];if(b.type!=="JSXAttribute"||!b.name)continue;const E=b.name.name;if(!a[E])continue;if(!b.value||b.value.type!=="StringLiteral")continue;if(b.value.start==null||b.value.end==null)continue;const T=`txt:${i}:${b.value.start}:${b.value.end}`;c[E]=T;b.value=e.jsxExpressionContainer(u(T,e.stringLiteral(b.value.value)))}if(Object.keys(c).length){l.attributes.push(e.jsxAttribute(e.jsxIdentifier("data-om-text-attrs"),e.stringLiteral(JSON.stringify(c))))}},JSXElement(o,r){const l=o.node.openingElement;const i=l&&l.name&&l.name.name;if(i==="__OmT")return;if(typeof i==="string"&&t[i])return;v(o,s(r),S(r))},JSXFragment(o,r){v(o,s(r),S(r))}}}})}}const g=f?["transform-react-jsx-source",d,p]:["transform-react-jsx-source",d];document.querySelectorAll('script[type="text/babel"],script[type="text/jsx"]').forEach((h,y)=>{const m=h.getAttribute("data-plugins")||"";const w=g.filter((R)=>m.indexOf(R)<0);if(w.length){h.setAttribute("data-plugins",m?`${m},${w.join(",")}`:w.join(","))}if(!h.hasAttribute("data-filename")){h.setAttribute("data-filename",h.getAttribute("src")||`inline-${y}`)}})});var A=window.parent;var U="not editable here — open the project in the Claude Design editor to save";var W=()=>Promise.resolve({persisted:false,noHost:true,reason:U});var H=W;var M="data/storage.json";var z=()=>{try{const n=new URL(document.baseURI);const d=n.pathname.match(/\/projects\/([^/]+)\/serve\//);if(d)return d[1];return n.hostname.split(".")[0]||""}catch{return location.hostname.split(".")[0]||""}};var Z=()=>{try{const n=new URL(document.baseURI);const d=n.pathname.indexOf("/serve/");if(d>=0)return n.origin+n.pathname.slice(0,d+"/serve/".length)+M}catch{}return"./"+M};var x=null;var N=()=>{if(!x){x=fetch(Z(),{cache:"no-store"}).then((n)=>{if(n.ok)return n.text();return n.status===404?"":null}).catch(()=>null).then((n)=>{if(n===null){x=null;return null}const d=new Map;if(!n)return d;let p;try{p=JSON.parse(n)}catch{console.warn("[omelette.storage] "+M+" is not valid JSON; treating the store as unreadable so a save cannot overwrite the "+"hand-edited bytes. Fix the JSON (or delete the file) to re-enable persistence.");x=null;return null}if(p===null||typeof p!=="object"||Array.isArray(p)){console.warn("[omelette.storage] "+M+" doesn't hold a JSON object; treating the store as unreadable so a save cannot "+"overwrite the hand-edited bytes. Make the top level a JSON object to re-enable persistence.");x=null;return null}const f=p;if("data"in f){const g=f.data;if(g===null||typeof g!=="object"||Array.isArray(g)){console.warn("[omelette.storage] "+M+' has a "data" field that is not a JSON object; treating the store as unreadable so a '+'save cannot overwrite the hand-edited bytes. Make "data" a JSON object to re-enable persistence.');x=null;return null}const h=f._meta;const y=h!==null&&typeof h==="object"?h.project:undefined;if(typeof y==="string"&&y!==""&&y!==z())return d;for(const m of Object.keys(g))d.set(m,g[m]);return d}for(const g of Object.keys(f)){if(g!=="_meta")d.set(g,f[g])}return d})}return x};var F=(n)=>H(M,JSON.stringify({_meta:{project:z(),version:1},data:Object.fromEntries(n)},null,2));var D=Promise.resolve();var $=(n)=>{const d=D.then(n);D=d.then(()=>{return},()=>{return});return d};var V=/sk-(?:ant-)?[A-Za-z0-9_-]{16,}|AKIA[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9]{20,}|xox[a-z]-[A-Za-z0-9][A-Za-z0-9-]{9,}|AIza[0-9A-Za-z_-]{30,}|-----BEGIN [A-Z ]*PRIVATE KEY-----/;var Y=/password|passwd|secret|api[_-]?key|access[_-]?token|auth[_-]?token|credential/i;var Q=(n,d,p)=>{if(V.test(d)||Y.test(n)&&typeof p==="string"&&p.length>=8){console.warn('[omelette.storage] the value for "'+n+'" looks like a credential. The storage file is a plaintext project file — visible to '+"everyone with project access and copied when the project is duplicated. Do not store secrets here.")}};var q={persisted:false,reason:"could not load the existing store — not overwriting it"};var X={persisted:false,reason:"stored value changed since a failed read — re-read this key before saving"};var P=new Set;var ee={get:(n)=>{if(typeof n!=="string"){return Promise.reject(new TypeError("storage.get: key must be a string"))}return $(N).then((d)=>{if(d===null){P.add(n);return null}P.delete(n);if(!d.has(n))return null;const p=d.get(n);return p==null?null:JSON.parse(JSON.stringify(p))})},set:(n,d)=>{if(typeof n!=="string"){return Promise.reject(new TypeError("storage.set: key must be a string"))}let p;try{p=JSON.stringify(d)}catch(g){return Promise.reject(new TypeError("storage.set: value must be JSON-serializable ("+String(g)+")"))}if(p===undefined){return Promise.reject(new TypeError("storage.set: value must be JSON-serializable"))}Q(n,p,d);const f=JSON.parse(p);return $(()=>N().then((g)=>{if(g===null)return q;if(P.has(n)){if(g.has(n))return X;P.delete(n)}g.set(n,f);return F(g)}))},delete:(n)=>{if(typeof n!=="string"){return Promise.reject(new TypeError("storage.delete: key must be a string"))}return $(()=>N().then((d)=>{if(d===null)return q;if(P.has(n)){if(d.has(n))return X;P.delete(n)}d.delete(n);return F(d)}))},keys:()=>$(N).then((n)=>n===null?[]:Array.from(n.keys()))};window.omelette={writeFile:(n,d)=>H(n,d).then((p)=>{if(!p.persisted&&!p.noHost){throw new Error(p.reason||"write failed")}}),storage:ee};if(A&&A!==window){const n=(e,t)=>{try{A.postMessage({__omelette_log:true,type:e,data:t},"*")}catch{}};["log","warn","error"].forEach((e)=>{const t=console[e];console[e]=(...a)=>{const u=a.map((s)=>{try{return typeof s==="object"?JSON.stringify(s):String(s)}catch{try{return String(s)}catch{return"[unstringifiable]"}}}).join(" ");n(e,u);t.apply(console,a)}});window.addEventListener("error",(e)=>{const t=e.target;if(t&&t!==window&&t.tagName){const a=t.src||t.href||"";n("resource_error",`${t.tagName} failed to load: ${a}`)}else{n("error",`${e.message||"Unknown error"} at ${e.filename||"?"}:${e.lineno||0}:${e.colno||0}`)}},true);window.addEventListener("unhandledrejection",(e)=>{const t=e.reason;const a=t instanceof Error?`${t.message} ${t.stack}`:String(t);n("error",`Unhandled rejection: ${a}`)});window.addEventListener("click",(e)=>{if(e.defaultPrevented||e.button!==0)return;if(e.metaKey||e.ctrlKey||e.shiftKey||e.altKey)return;const t=e.composedPath?e.composedPath():[];const a=["button","input","select","textarea","summary","label"];let u=null;for(const v of t){if(!(v instanceof Element))continue;if(v.localName==="a"){if(!(v instanceof HTMLAnchorElement))return;u=v;break}if(a.indexOf(v.localName)!==-1)return}if(!u)return;if(u.isContentEditable)return;const s=u.closest("[contenteditable]");if(s&&s.getAttribute("contenteditable")!=="false")return;const S=(u.getAttribute("target")||"_self").toLowerCase();if(S!=="_self"&&S!=="_top"&&S!=="_parent")return;let _;try{_=new URL(u.href)}catch{return}if(_.protocol!=="http:"&&_.protocol!=="https:")return;if(location.origin==="null")return;if(_.origin===location.origin)return;e.preventDefault();window.open(_.href,"_blank","noopener,noreferrer")});const d=()=>{try{A.postMessage({type:"omelette:height",height:document.documentElement.scrollHeight},"*")}catch{}};if(window.ResizeObserver)new ResizeObserver(d).observe(document.documentElement);const p=()=>{d();if(!document.querySelector('script[type="text/babel"],script[type="text/jsx"]'))return;const e=()=>document.getElementById("root")||document.querySelector("body > div[id]");const t=e()?.firstElementChild??null;let a=0;const u=()=>{const s=e();if(s&&s.firstElementChild!==t||++a>30){d();return}setTimeout(u,100)};setTimeout(u,100)};if(document.readyState==="complete")p();else window.addEventListener("load",p);const f={};let g=0;const h=(e)=>new Promise((t,a)=>{if(!I.length){a(new Error("claude.complete: no parent origin"));return}const u=`c${++g}`;const s=()=>setTimeout(()=>{delete f[u];a(new Error(`claude.complete: no data for ${J/1000}s`))},J);const S=s();f[u]={resolve:t,reject:a,text:"",t:S,arm:s};try{for(const _ of I){A.postMessage({__om_api:true,id:u,body:e},_)}}catch(_){clearTimeout(S);delete f[u];a(_)}});const y=8;const m=async(e,t)=>{if(!Array.isArray(e.messages)){throw new Error("claude.complete: tools require a messages array")}const a=e.messages.slice();const u={...e,tools:e.tools.map((_)=>{if(_===null||typeof _!=="object")return _;const v={};for(const o of Object.keys(_)){if(typeof _[o]!=="function")v[o]=_[o]}return v})};const s=u.tool_choice;const S=s!=null&&(s.type==="any"||s.type==="tool")?{...u,tool_choice:s.disable_parallel_tool_use!==undefined?{type:"auto",disable_parallel_tool_use:s.disable_parallel_tool_use}:{type:"auto"}}:u;for(let _=0;_<y;_++){const v=await h({..._===0?u:S,messages:a});const o=v.message;const r=o&&Array.isArray(o.content)?o.content:null;const l=r?r.filter((c)=>c?.type==="tool_use"):[];if(o?.stop_reason!=="tool_use"||l.length===0){return v.text}const i=[];for(const c of l){const k=t.get(c.name);if(!k){i.push({type:"tool_result",tool_use_id:c.id,content:`no handler for tool "${c.name}"`,is_error:true});continue}try{const b=await k(c.input);const E=typeof b==="string"?b:O(b)??"";i.push({type:"tool_result",tool_use_id:c.id,content:E})}catch(b){i.push({type:"tool_result",tool_use_id:c.id,content:String(b?.message??b??"tool handler failed"),is_error:true})}}a.push({role:"assistant",content:r},{role:"user",content:i})}throw new Error(`claude.complete: exceeded ${y} tool turns`)};window.claude={complete(e){const t=e;if(t!==null&&typeof t==="object"&&Array.isArray(t.tools)&&t.tools.some((a)=>a!==null&&typeof a==="object"&&typeof a.run==="function")){const a=new Map;for(const u of t.tools){if(u!==null&&typeof u==="object"&&typeof u.run==="function"){a.set(String(u.name),u.run)}}return m(t,a)}return h(e).then((a)=>a.text)}};const w={};let R=0;H=(e,t)=>new Promise((a)=>{if(!I.length){a({persisted:false,noHost:true,reason:U});return}const u=`f${++R}`;const s=setTimeout(()=>{delete w[u];a({persisted:false,noHost:true,reason:U})},G);w[u]={settle:a,t:s};try{for(const S of I){A.postMessage({__om_file:true,id:u,op:"write",path:e,content:t},S)}}catch{clearTimeout(s);delete w[u];a({persisted:false,noHost:true,reason:U})}});const O=(e)=>{try{return JSON.stringify(e)}catch{return JSON.stringify(String(e))}};window.addEventListener("message",(e)=>{if(I.indexOf(e.origin)<0)return;if(e.source!==A)return;const t=e.data;if(!t)return;if(t.type==="omelette-preview-refresh"){if(typeof t.token!=="string"||!/^[0-9a-f.-]+(\.(rc|pr-[0-9]+))?(\.[0-9]+\.[0-9a-f]{16})?$/.test(t.token))return;const s=Math.max(1,Math.floor((t.expiresAt||0)-Date.now()/1000));document.cookie="__Host-omelette-preview="+t.token+"; Path=/; Secure; SameSite=None; Partitioned; Max-Age="+s;C();return}if(t.__om_file_r){const s=w[t.id];if(!s)return;clearTimeout(s.t);delete w[t.id];s.settle(t.ok?{persisted:true}:{persisted:false,reason:t.error||"write failed"});return}if(t.__om_api_r){const s=f[t.id];if(!s)return;if(t.error!=null){clearTimeout(s.t);delete f[t.id];s.reject(new Error(t.error));return}if(t.chunk!=null){clearTimeout(s.t);s.t=s.arm();s.text+=t.chunk;return}if(t.done){clearTimeout(s.t);delete f[t.id];s.resolve({text:t.text!=null?t.text:s.text,message:t.message});return}return}if(!t.__om_eval)return;const a=t;const u=(s)=>{e.source.postMessage({...s,__om_eval_r:1,id:a.id},e.origin)};try{const s=(0,eval)(a.code);if(s&&typeof s.then==="function"){s.then((S)=>u({ok:1,v:O(S)}),(S)=>u({ok:0,e:String(S)}))}else{u({ok:1,v:O(s)})}}catch(s){u({ok:0,e:String(s)})}})}})();
+</script>
+
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@500;700&family=Noto+Serif+SC:wght@700;900&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#000305}
+a{color:var(--link);text-decoration:none}
+a:hover{color:var(--fg)}
+*:focus-visible{outline:2px solid var(--sky);outline-offset:2px}
+input::placeholder,textarea::placeholder{color:var(--meta)}
+</style>
+</helmet>
+<div ref="{{ rootRef }}" data-screen-label="/posts/[slug] · 1440 · 暗色" style="--h:224;--sans:'AlibabaPuHuiTi','PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans SC',sans-serif;--serif:'Noto Serif SC',serif;--mono:SFMono-Regular,'Cascadia Code','JetBrains Mono','Fira Code',Consolas,monospace;--page:oklch(0.085 0.022 var(--h));--panel:rgb(18 28 38 / .84);--card-bg:rgb(19 29 40 / .95);--panel-el:rgb(22 34 46 / .9);--panel-muted:rgb(34 49 66 / .76);--nav:rgb(13 20 28 / .92);--surf-alt:oklch(0.245 0.024 var(--h));--surf-con:oklch(0.305 0.03 var(--h));--fg:oklch(0.94 0.012 var(--h));--body:oklch(0.78 0.018 var(--h));--muted:oklch(0.66 0.018 var(--h));--meta:var(--muted);--primary:oklch(0.73 0.105 var(--h));--brand:oklch(0.8 0.115 var(--h));--sky:oklch(0.72 0.115 var(--h));--link:color-mix(in oklch, var(--sky) 82%, var(--fg));--chip-fg:color-mix(in oklch, var(--sky) 76%, var(--fg));--chip-bg:color-mix(in oklch, var(--sky) 14%, transparent);--chip-bd:color-mix(in oklch, var(--sky) 24%, transparent);--bd:rgb(128 163 205 / .26);--bd-strong:rgb(139 184 236 / .38);--div:rgba(255,255,255,.08);--sh:0 8px 30px rgba(0,0,0,.2);--sh-hover:0 22px 54px rgb(2 8 23 / .38);--btn:var(--primary);--btn-hover:var(--brand);--on-primary:oklch(0.085 0.022 var(--h));--input-bg:color-mix(in oklch, var(--page) 70%, transparent);--img:brightness(.82) saturate(.86) contrast(1.08);--cover-veil:linear-gradient(180deg, transparent 45%, rgb(2 6 23 / .42));--ease:cubic-bezier(0.16,1,0.3,1);--danger-bg:oklch(0.27 0.03 18 / .55);--danger:oklch(0.84 0.05 22);--warm:oklch(0.78 0.13 76);--cyan:oklch(0.72 0.085 205);position:relative;width:1440px;margin:0 auto;min-height:100vh;background:var(--page);color:var(--body);font-family:var(--sans);font-weight:500;font-size:15px;line-height:1.65;padding-bottom:40px">
+<div aria-hidden="true" style="position:absolute;left:0;right:0;top:0;height:54vh;min-height:440px;pointer-events:none;overflow:hidden">
+    <div style="position:absolute;inset:0;background:repeating-linear-gradient(135deg, color-mix(in oklch, var(--fg) 6%, transparent) 0 1px, transparent 1px 14px),linear-gradient(160deg, var(--surf-con), var(--surf-alt) 55%, var(--page));filter:var(--img)"></div>
+    <div style="position:absolute;inset:0;opacity:.08;background-image:linear-gradient(var(--fg) 1px, transparent 1px),linear-gradient(90deg, var(--fg) 1px, transparent 1px);background-size:72px 72px;-webkit-mask-image:linear-gradient(180deg,#000 30%,transparent);mask-image:linear-gradient(180deg,#000 30%,transparent)"></div>
+    <div style="position:absolute;inset:0;background:linear-gradient(180deg, transparent 35%, var(--page))"></div>
+    <div style="position:absolute;top:84px;right:24px;font-family:var(--mono);font-size:11px;color:var(--muted)">背景图占位 · 站点设置配置 · 其他页 54vh</div>
+  </div>
+
+  
+<div style="position:sticky;top:14px;z-index:20;margin-top:14px;display:flex;justify-content:center;padding:0 24px;transform:translateY({{ navY }}px);transition:transform .5s var(--ease)">
+    <nav aria-label="主导航" style="height:50px;width:100%;max-width:832px;box-sizing:border-box;border-radius:999px;background:var(--nav);border:1px solid var(--bd);backdrop-filter:blur(18px) saturate(1.18);-webkit-backdrop-filter:blur(18px) saturate(1.18);box-shadow:var(--sh);display:flex;align-items:center;gap:6px;padding:0 3px 0 8px">
+      <a href="#" style="display:flex;align-items:center;gap:8px;height:40px;padding:0 10px 0 2px;border-radius:8px;color:var(--fg);font-size:.92rem;font-weight:700;white-space:nowrap"><span style="width:28px;height:28px;border-radius:8px;background:var(--btn);color:var(--on-primary);display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-size:15px;font-weight:700">尘</span>依尘の博客</a>
+      <div style="flex:1;display:flex;justify-content:center;gap:2px">
+        <a href="#" style="display:flex;align-items:center;gap:6px;height:40px;padding:0 11px;border-radius:8px;font-size:.8rem;font-weight:700;color:var(--body)" style-hover="background:color-mix(in oklch, var(--sky) 10%, transparent);color:var(--fg)"><span aria-hidden="true" style="display:block;flex:none;width:16px;height:16px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static@0.460.0/icons/house.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@0.460.0/icons/house.svg) center/contain no-repeat"></span>首页</a>
+        <a href="#" aria-current="page" style="display:flex;align-items:center;gap:6px;height:40px;padding:0 11px;border-radius:8px;font-size:.8rem;font-weight:700;color:var(--fg);background:color-mix(in oklch, var(--sky) 14%, transparent)"><span aria-hidden="true" style="display:block;flex:none;width:16px;height:16px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static@0.460.0/icons/file-text.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@0.460.0/icons/file-text.svg) center/contain no-repeat"></span>文章</a>
+        <a href="#" style="display:flex;align-items:center;gap:6px;height:40px;padding:0 11px;border-radius:8px;font-size:.8rem;font-weight:700;color:var(--body)" style-hover="background:color-mix(in oklch, var(--sky) 10%, transparent);color:var(--fg)"><span aria-hidden="true" style="display:block;flex:none;width:16px;height:16px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static@0.460.0/icons/layers.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@0.460.0/icons/layers.svg) center/contain no-repeat"></span>系列</a>
+        <a href="#" style="display:flex;align-items:center;gap:6px;height:40px;padding:0 11px;border-radius:8px;font-size:.8rem;font-weight:700;color:var(--body)" style-hover="background:color-mix(in oklch, var(--sky) 10%, transparent);color:var(--fg)"><span aria-hidden="true" style="display:block;flex:none;width:16px;height:16px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static@0.460.0/icons/archive.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@0.460.0/icons/archive.svg) center/contain no-repeat"></span>归档</a>
+        <a href="#" style="display:flex;align-items:center;gap:6px;height:40px;padding:0 11px;border-radius:8px;font-size:.8rem;font-weight:700;color:var(--body)" style-hover="background:color-mix(in oklch, var(--sky) 10%, transparent);color:var(--fg)"><span aria-hidden="true" style="display:block;flex:none;width:16px;height:16px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static@0.460.0/icons/user-round.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@0.460.0/icons/user-round.svg) center/contain no-repeat"></span>关于</a>
+      </div>
+      <label style="display:flex;align-items:center;gap:6px;height:40px;width:150px;box-sizing:border-box;padding:0 12px;border-radius:999px;background:var(--input-bg);border:1px solid var(--bd);color:var(--meta)"><span aria-hidden="true" style="display:block;flex:none;width:15px;height:15px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static@0.460.0/icons/search.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@0.460.0/icons/search.svg) center/contain no-repeat"></span><input placeholder="搜索" aria-label="搜索" style="all:unset;flex:1;min-width:0;font-size:.8125rem;color:var(--fg)"></input></label>
+      <button type="button" aria-label="色相" style="width:44px;height:44px;border:0;border-radius:10px;background:transparent;color:var(--body);display:flex;align-items:center;justify-content:center;cursor:pointer" style-hover="background:color-mix(in oklch, var(--sky) 10%, transparent);color:var(--fg)"><span aria-hidden="true" style="display:block;flex:none;width:18px;height:18px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static@0.460.0/icons/palette.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@0.460.0/icons/palette.svg) center/contain no-repeat"></span></button>
+      <button type="button" aria-label="明暗切换" style="width:44px;height:44px;border:0;border-radius:999px;background:transparent;color:var(--body);display:flex;align-items:center;justify-content:center;cursor:pointer" style-hover="background:color-mix(in oklch, var(--sky) 10%, transparent);color:var(--fg)"><span aria-hidden="true" style="display:block;flex:none;width:18px;height:18px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static@0.460.0/icons/sun-moon.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@0.460.0/icons/sun-moon.svg) center/contain no-repeat"></span></button>
+    </nav>
+  </div>
+
+  
+  <div style="position:relative;z-index:1;width:1152px;margin:40px auto 0;display:grid;grid-template-columns:220px 672px minmax(0,1fr);gap:17px;align-items:start">
+<aside aria-label="侧栏" style="position:relative;display:flex;flex-direction:column;gap:16px">
+        <sc-if value="{{ showNotes }}" hint-placeholder-val="{{ true }}">
+          <div style="position:absolute;right:calc(100% + 168px);top:0;width:190px;display:flex;flex-direction:column;gap:8px;font-size:12px;line-height:1.5;color:var(--muted)">
+            <div>假设 · 资料面板「浮动」= 毛玻璃浮层，不吸顶：侧栏总高超过视口，吸顶会被裁切。</div>
+            <div>侧栏顺序按第 5 节：资料、热门、分类、标签；阅读统计属登录态，省略。</div>
+          </div>
+        </sc-if>
+        <div style="border-radius:16px;border:1px solid var(--bd);background:var(--panel);backdrop-filter:blur(20px) saturate(1.04);box-shadow:var(--sh);padding:16px;display:flex;flex-direction:column;gap:10px">
+          <div style="width:56px;height:56px;border-radius:999px;background:repeating-linear-gradient(135deg, color-mix(in oklch, var(--fg) 8%, transparent) 0 1px, transparent 1px 7px),var(--panel-muted);border:1px solid var(--bd);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:10px;color:var(--meta)">头像</div>
+          <div style="font-size:1rem;font-weight:700;color:var(--fg)">依尘</div>
+          <p style="margin:0;font-size:.875rem;line-height:1.6;color:var(--muted)">写代码，也写字。关注工程效率与内容产品。</p>
+          <div style="display:flex;gap:4px;margin-left:-10px">
+            <a href="#" aria-label="GitHub" style="width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--body)" style-hover="background:color-mix(in oklch, var(--sky) 10%, transparent);color:var(--fg)"><span aria-hidden="true" style="display:block;flex:none;width:18px;height:18px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static@0.460.0/icons/github.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@0.460.0/icons/github.svg) center/contain no-repeat"></span></a>
+            <a href="#" aria-label="RSS" style="width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--body)" style-hover="background:color-mix(in oklch, var(--sky) 10%, transparent);color:var(--fg)"><span aria-hidden="true" style="display:block;flex:none;width:18px;height:18px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static@0.460.0/icons/rss.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@0.460.0/icons/rss.svg) center/contain no-repeat"></span></a>
+            <a href="#" aria-label="邮件" style="width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--body)" style-hover="background:color-mix(in oklch, var(--sky) 10%, transparent);color:var(--fg)"><span aria-hidden="true" style="display:block;flex:none;width:18px;height:18px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static@0.460.0/icons/mail.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@0.460.0/icons/mail.svg) center/contain no-repeat"></span></a>
+          </div>
+        </div>
+        <div style="border-radius:16px;border:1px solid var(--bd);background:var(--panel);backdrop-filter:blur(20px) saturate(1.04);box-shadow:var(--sh);padding:14px 8px 10px;display:flex;flex-direction:column;gap:4px">
+          <div style="padding:0 8px 4px;font-size:.95rem;font-weight:700;color:var(--fg)">热门</div>
+          <a href="#" style="display:grid;grid-template-columns:22px minmax(0,1fr);gap:6px;min-height:44px;padding:6px 8px;box-sizing:border-box;border-radius:10px;color:var(--body);font-size:.875rem;line-height:1.5" style-hover="background:color-mix(in oklch, var(--sky) 10%, transparent);color:var(--fg)"><span style="font-family:var(--mono);font-size:12px;line-height:21px;color:var(--meta)">01</span><span>Codex 稳定使用与防封指南</span></a>
+          <a href="#" style="display:grid;grid-template-columns:22px minmax(0,1fr);gap:6px;min-height:44px;padding:6px 8px;box-sizing:border-box;border-radius:10px;color:var(--body);font-size:.875rem;line-height:1.5" style-hover="background:color-mix(in oklch, var(--sky) 10%, transparent);color:var(--fg)"><span style="font-family:var(--mono);font-size:12px;line-height:21px;color:var(--meta)">02</span><span>页面性能优化：先找到真正的瓶颈</span></a>
+          <a href="#" style="display:grid;grid-template-columns:22px minmax(0,1fr);gap:6px;min-height:44px;padding:6px 8px;box-sizing:border-box;border-radius:10px;color:var(--body);font-size:.875rem;line-height:1.5" style-hover="background:color-mix(in oklch, var(--sky) 10%, transparent);color:var(--fg)"><span style="font-family:var(--mono);font-size:12px;line-height:21px;color:var(--meta)">03</span><span>前端可观测性：从埋点到告警</span></a>
+        </div>
+        <div style="border-radius:16px;border:1px solid var(--bd);background:var(--panel);backdrop-filter:blur(20px) saturate(1.04);box-shadow:var(--sh);padding:14px 8px 10px;display:flex;flex-direction:column;gap:2px">
+          <div style="padding:0 8px 4px;font-size:.95rem;font-weight:700;color:var(--fg)">分类</div>
+          <a href="#" style="display:flex;align-items:center;justify-content:space-between;height:44px;padding:0 8px;border-radius:10px;color:var(--body);font-size:.875rem" style-hover="background:color-mix(in oklch, var(--sky) 10%, transparent);color:var(--fg)"><span>工程实践</span><span style="font-family:var(--mono);font-size:12px;color:var(--meta)">32</span></a>
+          <a href="#" style="display:flex;align-items:center;justify-content:space-between;height:44px;padding:0 8px;border-radius:10px;color:var(--body);font-size:.875rem" style-hover="background:color-mix(in oklch, var(--sky) 10%, transparent);color:var(--fg)"><span>前端开发</span><span style="font-family:var(--mono);font-size:12px;color:var(--meta)">29</span></a>
+          <a href="#" style="display:flex;align-items:center;justify-content:space-between;height:44px;padding:0 8px;border-radius:10px;color:var(--body);font-size:.875rem" style-hover="background:color-mix(in oklch, var(--sky) 10%, transparent);color:var(--fg)"><span>产品与体验</span><span style="font-family:var(--mono);font-size:12px;color:var(--meta)">24</span></a>
+          <a href="#" style="display:flex;align-items:center;justify-content:space-between;height:44px;padding:0 8px;border-radius:10px;color:var(--body);font-size:.875rem" style-hover="background:color-mix(in oklch, var(--sky) 10%, transparent);color:var(--fg)"><span>性能优化</span><span style="font-family:var(--mono);font-size:12px;color:var(--meta)">18</span></a>
+          <a href="#" style="display:flex;align-items:center;gap:4px;height:44px;padding:0 8px;border-radius:10px;font-size:.8125rem;font-weight:700">更多分类<span aria-hidden="true" style="display:block;flex:none;width:14px;height:14px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static@0.460.0/icons/arrow-right.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@0.460.0/icons/arrow-right.svg) center/contain no-repeat"></span></a>
+        </div>
+        <div style="border-radius:16px;border:1px solid var(--bd);background:var(--panel);backdrop-filter:blur(20px) saturate(1.04);box-shadow:var(--sh);padding:14px 16px 10px;display:flex;flex-direction:column;gap:10px">
+          <div style="font-size:.95rem;font-weight:700;color:var(--fg)">标签</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px">
+            <a href="#" style="display:inline-flex;align-items:center;border-radius:999px;font-size:.75rem;font-weight:600;line-height:1.2;padding:.45rem .7rem;color:var(--chip-fg);background:var(--chip-bg);border:1px solid var(--chip-bd)" style-hover="background:color-mix(in oklch, var(--sky) 22%, transparent);border-color:color-mix(in oklch, var(--sky) 40%, transparent)">CI/CD</a>
+            <a href="#" style="display:inline-flex;align-items:center;border-radius:999px;font-size:.75rem;font-weight:600;line-height:1.2;padding:.45rem .7rem;color:var(--chip-fg);background:var(--chip-bg);border:1px solid var(--chip-bd)" style-hover="background:color-mix(in oklch, var(--sky) 22%, transparent);border-color:color-mix(in oklch, var(--sky) 40%, transparent)">工程化</a>
+            <a href="#" style="display:inline-flex;align-items:center;border-radius:999px;font-size:.75rem;font-weight:600;line-height:1.2;padding:.45rem .7rem;color:var(--chip-fg);background:var(--chip-bg);border:1px solid var(--chip-bd)" style-hover="background:color-mix(in oklch, var(--sky) 22%, transparent);border-color:color-mix(in oklch, var(--sky) 40%, transparent)">部署</a>
+            <a href="#" style="display:inline-flex;align-items:center;border-radius:999px;font-size:.75rem;font-weight:600;line-height:1.2;padding:.45rem .7rem;color:var(--chip-fg);background:var(--chip-bg);border:1px solid var(--chip-bd)" style-hover="background:color-mix(in oklch, var(--sky) 22%, transparent);border-color:color-mix(in oklch, var(--sky) 40%, transparent)">性能优化</a>
+            <a href="#" style="display:inline-flex;align-items:center;border-radius:999px;font-size:.75rem;font-weight:600;line-height:1.2;padding:.45rem .7rem;color:var(--chip-fg);background:var(--chip-bg);border:1px solid var(--chip-bd)" style-hover="background:color-mix(in oklch, var(--sky) 22%, transparent);border-color:color-mix(in oklch, var(--sky) 40%, transparent)">可观测性</a>
+            <a href="#" style="display:inline-flex;align-items:center;border-radius:999px;font-size:.75rem;font-weight:600;line-height:1.2;padding:.45rem .7rem;color:var(--chip-fg);background:var(--chip-bg);border:1px solid var(--chip-bd)" style-hover="background:color-mix(in oklch, var(--sky) 22%, transparent);border-color:color-mix(in oklch, var(--sky) 40%, transparent)">API 设计</a>
+            <a href="#" style="display:inline-flex;align-items:center;border-radius:999px;font-size:.75rem;font-weight:600;line-height:1.2;padding:.45rem .7rem;color:var(--chip-fg);background:var(--chip-bg);border:1px solid var(--chip-bd)" style-hover="background:color-mix(in oklch, var(--sky) 22%, transparent);border-color:color-mix(in oklch, var(--sky) 40%, transparent)">前端架构</a>
+            <a href="#" style="display:inline-flex;align-items:center;border-radius:999px;font-size:.75rem;font-weight:600;line-height:1.2;padding:.45rem .7rem;color:var(--chip-fg);background:var(--chip-bg);border:1px solid var(--chip-bd)" style-hover="background:color-mix(in oklch, var(--sky) 22%, transparent);border-color:color-mix(in oklch, var(--sky) 40%, transparent)">可访问性</a>
+            <a href="#" style="display:inline-flex;align-items:center;border-radius:999px;font-size:.75rem;font-weight:600;line-height:1.2;padding:.45rem .7rem;color:var(--chip-fg);background:var(--chip-bg);border:1px solid var(--chip-bd)" style-hover="background:color-mix(in oklch, var(--sky) 22%, transparent);border-color:color-mix(in oklch, var(--sky) 40%, transparent)">LLM</a>
+            <a href="#" style="display:inline-flex;align-items:center;border-radius:999px;font-size:.75rem;font-weight:600;line-height:1.2;padding:.45rem .7rem;color:var(--chip-fg);background:var(--chip-bg);border:1px solid var(--chip-bd)" style-hover="background:color-mix(in oklch, var(--sky) 22%, transparent);border-color:color-mix(in oklch, var(--sky) 40%, transparent)">测试</a>
+          </div>
+          <a href="#" style="display:flex;align-items:center;gap:4px;height:44px;font-size:.8125rem;font-weight:700">全部标签<span aria-hidden="true" style="display:block;flex:none;width:14px;height:14px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static@0.460.0/icons/arrow-right.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@0.460.0/icons/arrow-right.svg) center/contain no-repeat"></span></a>
+        </div>
+      </aside>
+    <main style="min-width:0;display:flex;flex-direction:column">
+
+      <div style="position:relative">
+        <sc-if value="{{ showNotes }}" hint-placeholder-val="{{ true }}">
+          <div style="position:absolute;left:calc(100% + 411px);top:0;width:220px;display:flex;flex-direction:column;gap:8px;font-size:12px;line-height:1.5;color:var(--muted)">
+            <div>面包屑移出 Hero，0.8125rem。按第 14 节，text-faint 不再用于文字，改用 text-muted。</div>
+            <div>Hero 最小高 clamp(16rem, 30vw, 22rem) = 352px；封面 100% 不透明，文字只占下半区。</div>
+            <div>假设 · 「底部 70% 深色」理解为渐变覆盖下方 70% 高度，底端 rgb(2 6 23 / .88)；Hero 圆角取卡片 24px。</div>
+          </div>
+        </sc-if>
+        <nav aria-label="面包屑" style="display:flex;align-items:center;gap:4px;font-size:.8125rem;color:var(--muted);margin-bottom:10px">
+          <a href="#" style="color:var(--muted);display:inline-flex;align-items:center;min-height:24px">首页</a><span aria-hidden="true" style="display:block;flex:none;width:12px;height:12px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static@0.460.0/icons/chevron-right.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@0.460.0/icons/chevron-right.svg) center/contain no-repeat"></span>
+          <a href="#" style="color:var(--muted);display:inline-flex;align-items:center;min-height:24px">文章</a><span aria-hidden="true" style="display:block;flex:none;width:12px;height:12px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static@0.460.0/icons/chevron-right.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@0.460.0/icons/chevron-right.svg) center/contain no-repeat"></span>
+          <a href="#" style="color:var(--muted);display:inline-flex;align-items:center;min-height:24px">性能优化</a><span aria-hidden="true" style="display:block;flex:none;width:12px;height:12px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static@0.460.0/icons/chevron-right.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@0.460.0/icons/chevron-right.svg) center/contain no-repeat"></span>
+          <span aria-current="page" style="color:var(--body);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">页面性能优化：先找到真正的瓶颈</span>
+        </nav>
+        <header style="position:relative;min-height:352px;border-radius:24px;overflow:hidden;border:1px solid var(--bd);display:flex;flex-direction:column;justify-content:flex-end">
+          <div aria-hidden="true" style="position:absolute;inset:0;background:repeating-linear-gradient(135deg, color-mix(in oklch, var(--fg) 7%, transparent) 0 1px, transparent 1px 12px),linear-gradient(150deg, var(--surf-con), var(--panel-muted) 60%, var(--surf-alt));filter:var(--img)"></div>
+          <div aria-hidden="true" style="position:absolute;top:16px;right:18px;font-family:var(--mono);font-size:11px;color:var(--fg)">文章封面 · 100% 不透明</div>
+          <div aria-hidden="true" style="position:absolute;inset:0;background:linear-gradient(0deg, rgb(2 6 23 / .88) 0%, rgb(2 6 23 / .6) 35%, transparent 70%)"></div>
+          <div style="position:relative;padding:28px;display:flex;flex-direction:column;gap:10px;align-items:flex-start;max-height:50%">
+            <a href="#" style="display:inline-flex;align-items:center;border-radius:999px;font-size:.75rem;font-weight:600;line-height:1.2;padding:.45rem .7rem;color:var(--chip-fg);background:var(--chip-bg);border:1px solid var(--chip-bd);backdrop-filter:blur(8px)">性能优化</a>
+            <h1 style="margin:0;font-family:var(--serif);font-size:40px;line-height:1.2;font-weight:700;color:var(--fg);text-wrap:balance">页面性能优化：先找到真正的瓶颈</h1>
+            <p style="margin:0;font-size:1rem;line-height:1.7;color:var(--body);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">凭直觉动手是性能优化最常见的误区。先用 Performance 面板录一次真实加载，再决定从哪里下刀。</p>
+            <div style="display:flex;align-items:center;gap:8px;font-size:.8125rem;color:var(--body);font-variant-numeric:tabular-nums">
+              <span style="width:24px;height:24px;border-radius:999px;background:var(--panel-muted);border:1px solid var(--bd);flex:none"></span>
+              <span style="color:var(--fg);font-weight:700">依尘</span><span>·</span><span>2026-03-02</span><span>·</span><span>1,204 阅读</span><span>·</span><span>9 分钟</span>
+            </div>
+          </div>
+        </header>
+      </div>
+
+      <section aria-label="系列连载" style="position:relative;margin-top:16px">
+        <sc-if value="{{ showNotes }}" hint-placeholder-val="{{ true }}">
+          <div style="position:absolute;left:calc(100% + 411px);top:0;width:220px;display:flex;flex-direction:column;gap:8px;font-size:12px;line-height:1.5;color:var(--muted)">
+            <div>连载条前置到 Hero 与正文之间，默认折叠；点「展开全部 11 篇」可展开（可点）。</div>
+            <div>假设 · 进度条 3px，sky 填充 6/11；当前篇在展开列表里用 sky 竖条 + foreground 字标出。</div>
+          </div>
+        </sc-if>
+        <div style="border-radius:16px;border:1px solid var(--bd);background:var(--panel);backdrop-filter:blur(20px) saturate(1.04);box-shadow:var(--sh);padding:6px 8px 12px 16px;display:flex;flex-direction:column;gap:6px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="color:var(--sky)"><span aria-hidden="true" style="display:block;flex:none;width:18px;height:18px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static@0.460.0/icons/list-ordered.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@0.460.0/icons/list-ordered.svg) center/contain no-repeat"></span></span>
+            <a href="#" style="font-size:.9375rem;font-weight:700;color:var(--fg)">未整理与测试内容</a>
+            <span style="font-size:.8125rem;color:var(--muted);font-variant-numeric:tabular-nums">第 6 / 11 篇</span>
+            <span style="flex:1"></span>
+            <a href="#" style="display:inline-flex;align-items:center;gap:4px;height:44px;padding:0 6px;font-size:.8125rem;font-weight:700"><span aria-hidden="true" style="display:block;flex:none;width:14px;height:14px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static@0.460.0/icons/arrow-left.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@0.460.0/icons/arrow-left.svg) center/contain no-repeat"></span>上一篇</a>
+            <span aria-hidden="true" style="color:var(--muted)">/</span>
+            <a href="#" style="display:inline-flex;align-items:center;gap:4px;height:44px;padding:0 6px;font-size:.8125rem;font-weight:700">下一篇<span aria-hidden="true" style="display:block;flex:none;width:14px;height:14px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static@0.460.0/icons/arrow-right.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@0.460.0/icons/arrow-right.svg) center/contain no-repeat"></span></a>
+          </div>
+          <div role="progressbar" aria-valuemin="1" aria-valuemax="11" aria-valuenow="6" aria-label="系列进度" style="height:3px;border-radius:2px;background:var(--panel-muted);margin-right:8px;overflow:hidden"><div style="width:54.5%;height:100%;background:var(--sky);border-radius:2px"></div></div>
+          <button type="button" aria-expanded="{{ seriesOpen }}" onClick="{{ toggleSeries }}" style="align-self:flex-start;height:44px;margin:0 0 -8px -6px;padding:0 6px;border:0;border-radius:8px;background:transparent;color:var(--link);font:inherit;font-size:.8125rem;font-weight:700;display:inline-flex;align-items:center;gap:4px;cursor:pointer">{{ seriesLabel }}<span style="display:flex;transform:rotate({{ seriesRot }}deg);transition:transform .3s var(--ease)"><span aria-hidden="true" style="display:block;flex:none;width:14px;height:14px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static@0.460.0/icons/chevron-down.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@0.460.0/icons/chevron-down.svg) center/contain no-repeat"></span></span></button>
+          <sc-if value="{{ seriesOpen }}" hint-placeholder-val="{{ false }}">
+            <ol style="list-style:none;margin:8px 0 0;padding:8px 0 0;border-top:1px solid var(--div);display:flex;flex-direction:column">
+              <sc-for list="{{ seriesItems }}" as="s" hint-placeholder-count="11">
+                <li><a href="#" aria-current="{{ s.current }}" style="display:grid;grid-template-columns:28px minmax(0,1fr);gap:6px;align-items:center;min-height:44px;padding:0 8px;border-radius:10px;font-size:.8125rem;line-height:1.5;color:{{ s.color }};font-weight:{{ s.weight }};box-shadow:inset 2px 0 0 {{ s.bar }}" style-hover="background:color-mix(in oklch, var(--sky) 10%, transparent);color:var(--fg)"><span style="font-family:var(--mono);font-size:12px;color:var(--muted)">{{ s.no }}</span><span>{{ s.title }}</span></a></li>
+              </sc-for>
+            </ol>
+          </sc-if>
+        </div>
+      </section>
+
+      <article style="position:relative;margin-top:24px;font-size:1.0625rem;line-height:1.85;color:var(--body)">
+        <sc-if value="{{ showNotes }}" hint-placeholder-val="{{ true }}">
+          <div style="position:absolute;left:calc(100% + 411px);top:0;width:220px;display:flex;flex-direction:column;gap:8px;font-size:12px;line-height:1.5;color:var(--muted)">
+            <div>正文列 672px。段落 17/1.85、段距 1.25em；h2 24px 衬线（上 2.5rem 下 1rem）；h3 19px 无衬线 700（上 2rem 下 .75rem）。</div>
+            <div>标题 hover 时左侧出现 # 锚点（可试）。</div>
+          </div>
+        </sc-if>
+        <p style="margin:0 0 1.25em;text-wrap:pretty">性能优化最常见的误区，是在没有数据的情况下凭直觉动手：压缩一遍图片、加几个懒加载、换个更快的 CDN，然后发现首屏还是慢。问题不在于这些手段无效，而在于它们未必打在真正的瓶颈上。</p>
+        <p style="margin:0 0 1.25em;text-wrap:pretty">这篇记录我在博客改版时的一次排查过程：先测量，再拆解，最后只改最贵的那一项。整个过程不需要任何付费工具，浏览器自带的面板就够用。</p>
+
+        <h2 id="s1" onMouseEnter="{{ enter.s1 }}" onMouseLeave="{{ leave }}" style="position:relative;margin:2.5rem 0 1rem;font-family:var(--serif);font-size:1.5rem;line-height:1.3;font-weight:700;color:var(--fg);scroll-margin-top:90px"><a href="#s1" aria-label="本节链接" style="position:absolute;left:-26px;top:0;width:22px;color:var(--muted);font-family:var(--sans);opacity:{{ anc.s1 }};transition:opacity .2s">#</a>瓶颈为什么总在意料之外</h2>
+        <p style="margin:0 0 1.25em;text-wrap:pretty">我们对页面的直觉，往往来自开发机上的体验：本地网络快、缓存是热的、设备性能好。真实读者的环境完全相反，于是一个在本地几乎察觉不到的同步脚本，到了中端手机上就能把首屏推迟一秒以上。</p>
+        <blockquote style="margin:0 0 1.25em;padding:14px 18px;border-left:3px solid var(--warm);background:var(--panel-muted);border-radius:0 12px 12px 0;color:var(--body);font-size:1.0625rem;line-height:1.85">先测量，再优化。没有数据支撑的优化，大多只是把慢换到了别的地方。</blockquote>
+
+        <h3 id="s1-1" onMouseEnter="{{ enter.s11 }}" onMouseLeave="{{ leave }}" style="position:relative;margin:2rem 0 .75rem;font-size:1.1875rem;line-height:1.4;font-weight:700;color:var(--fg);scroll-margin-top:90px"><a href="#s1-1" aria-label="本节链接" style="position:absolute;left:-26px;top:0;width:22px;color:var(--muted);opacity:{{ anc.s11 }};transition:opacity .2s">#</a>先录一次真实的加载</h3>
+        <p style="margin:0 0 1.25em;text-wrap:pretty">打开 Performance 面板，把网络节流设为「快速 4G」、CPU 降速 4 倍，再录一次冷启动。如果想把关键指标留存下来，可以直接在页面里读取：</p>
+        <div style="position:relative;margin:0 0 1.25em;border-radius:14px;border:1px solid var(--bd);background:var(--panel-muted)">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 4px 0 16px">
+            <span style="font-family:var(--mono);font-size:12px;color:var(--muted)">TypeScript</span>
+            <button type="button" aria-label="{{ copyAria }}" onClick="{{ copy }}" style="height:44px;min-width:44px;padding:0 10px;border:0;border-radius:10px;background:transparent;color:var(--body);font:inherit;font-size:.75rem;display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer" style-hover="background:color-mix(in oklch, var(--sky) 10%, transparent);color:var(--fg)"><sc-if value="{{ notCopied }}" hint-placeholder-val="{{ true }}"><span aria-hidden="true" style="display:block;flex:none;width:16px;height:16px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static@0.460.0/icons/copy.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@0.460.0/icons/copy.svg) center/contain no-repeat"></span></sc-if><sc-if value="{{ copied }}" hint-placeholder-val="{{ false }}"><span style="display:flex;align-items:center;gap:6px;color:var(--fg)"><span aria-hidden="true" style="display:block;flex:none;width:16px;height:16px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static@0.460.0/icons/check.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@0.460.0/icons/check.svg) center/contain no-repeat"></span>已复制</span></sc-if></button>
+          </div>
+          <pre style="margin:0;padding:4px 16px 16px;overflow-x:auto;font-family:var(--mono);font-size:.875rem;line-height:1.65;color:var(--body)"><code><sc-for list="{{ codeLines }}" as="ln" hint-placeholder-count="14"><div style="white-space:pre;min-height:1.65em"><sc-for list="{{ ln.toks }}" as="tk" hint-placeholder-count="3"><span style="color:{{ tk.c }}">{{ tk.t }}</span></sc-for></div></sc-for></code></pre>
+        </div>
+
+        <h3 id="s1-2" onMouseEnter="{{ enter.s12 }}" onMouseLeave="{{ leave }}" style="position:relative;margin:2rem 0 .75rem;font-size:1.1875rem;line-height:1.4;font-weight:700;color:var(--fg);scroll-margin-top:90px"><a href="#s1-2" aria-label="本节链接" style="position:absolute;left:-26px;top:0;width:22px;color:var(--muted);opacity:{{ anc.s12 }};transition:opacity .2s">#</a>把指标拆到具体资源</h3>
+        <p style="margin:0 0 1.25em;text-wrap:pretty">首字节和最大内容绘制之间的那段时间，才是前端真正能掌控的部分。在瀑布图里按开始时间排序，把阻塞渲染的样式、同步脚本和首屏大图逐一标出来，通常一眼就能看到哪一项最贵。详见 <a href="#" style="color:var(--link);text-decoration:underline;text-underline-offset:3px">关键渲染路径</a> 的说明。</p>
+
+        <h2 id="s2" onMouseEnter="{{ enter.s2 }}" onMouseLeave="{{ leave }}" style="position:relative;margin:2.5rem 0 1rem;font-family:var(--serif);font-size:1.5rem;line-height:1.3;font-weight:700;color:var(--fg);scroll-margin-top:90px"><a href="#s2" aria-label="本节链接" style="position:absolute;left:-26px;top:0;width:22px;color:var(--muted);font-family:var(--sans);opacity:{{ anc.s2 }};transition:opacity .2s">#</a>从最贵的一项开始</h2>
+        <p style="margin:0 0 1.25em;text-wrap:pretty">这次排查的结论有点出乎意料：拖慢首屏的不是图片，而是一个在头部同步加载的统计脚本，加上两套没有子集化的中文字体。前者改成延迟加载，后者按页面实际用字裁剪，首屏时间就从 3.4 秒降到了 1.6 秒。</p>
+        <figure style="margin:0 0 1.25em;display:flex;flex-direction:column;gap:10px">
+          <div style="position:relative;aspect-ratio:16/9;border-radius:16px;overflow:hidden;border:1px solid var(--bd)">
+            <div style="position:absolute;inset:0;background:repeating-linear-gradient(135deg, color-mix(in oklch, var(--fg) 6%, transparent) 0 1px, transparent 1px 10px),var(--panel-muted);filter:var(--img)"></div>
+            <div style="position:absolute;left:12px;bottom:10px;font-family:var(--mono);font-size:11px;color:var(--fg)">正文配图 16:9</div>
+          </div>
+          <figcaption style="font-size:.8125rem;line-height:1.5;color:var(--muted);text-align:center">同一页面优化前后的瀑布图对比</figcaption>
+        </figure>
+
+        <h3 id="s2-1" onMouseEnter="{{ enter.s21 }}" onMouseLeave="{{ leave }}" style="position:relative;margin:2rem 0 .75rem;font-size:1.1875rem;line-height:1.4;font-weight:700;color:var(--fg);scroll-margin-top:90px"><a href="#s2-1" aria-label="本节链接" style="position:absolute;left:-26px;top:0;width:22px;color:var(--muted);opacity:{{ anc.s21 }};transition:opacity .2s">#</a>字体：中文站点最容易忽略的大头</h3>
+        <p style="margin:0 0 1.25em;text-wrap:pretty">一套完整的中文字体动辄数兆字节。按页面实际用字做子集化、配合 font-display: swap，几乎不影响观感，却能省下首屏最大的一笔下载。</p>
+        <p style="margin:0;text-wrap:pretty">下一篇会讲怎么把这些指标接进日常监控，让退化在上线当天就被发现。</p>
+
+        <div style="margin-top:2rem;padding-top:1.5rem;border-top:1px solid var(--div);display:flex;flex-wrap:wrap;align-items:center;gap:6px">
+          <span style="font-size:.8125rem;color:var(--muted);margin-right:4px">标签</span>
+          <a href="#" style="display:inline-flex;align-items:center;border-radius:999px;font-size:.75rem;font-weight:600;line-height:1.2;padding:.45rem .7rem;color:var(--chip-fg);background:var(--chip-bg);border:1px solid var(--chip-bd)">性能优化</a>
+          <a href="#" style="display:inline-flex;align-items:center;border-radius:999px;font-size:.75rem;font-weight:600;line-height:1.2;padding:.45rem .7rem;color:var(--chip-fg);background:var(--chip-bg);border:1px solid var(--chip-bd)">可观测性</a>
+          <a href="#" style="display:inline-flex;align-items:center;border-radius:999px;font-size:.75rem;font-weight:600;line-height:1.2;padding:.45rem .7rem;color:var(--chip-fg);background:var(--chip-bg);border:1px solid var(--chip-bd)">前端架构</a>
+        </div>
+      </article>
+
+      <nav aria-label="上一篇与下一篇" style="position:relative;margin-top:36px;display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <sc-if value="{{ showNotes }}" hint-placeholder-val="{{ true }}">
+          <div style="position:absolute;left:calc(100% + 411px);top:0;width:220px;font-size:12px;line-height:1.5;color:var(--muted)">正文后保留上一篇 / 下一篇两张卡（系列内顺序）。假设 · 面板圆角 16px，标题 0.9375rem 700，最多 2 行。</div>
+        </sc-if>
+        <a href="#" style="display:flex;flex-direction:column;gap:6px;padding:16px 18px;border-radius:16px;border:1px solid var(--bd);background:var(--panel);box-shadow:var(--sh);color:inherit;transition:transform .5s var(--ease),border-color .5s var(--ease),box-shadow .5s var(--ease)" style-hover="border-color:var(--bd-strong);box-shadow:var(--sh-hover);transform:translateY(-2px);color:inherit">
+          <span style="display:flex;align-items:center;gap:4px;font-size:.75rem;color:var(--muted)"><span aria-hidden="true" style="display:block;flex:none;width:14px;height:14px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static@0.460.0/icons/arrow-left.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@0.460.0/icons/arrow-left.svg) center/contain no-repeat"></span>上一篇 · 第 5 篇</span>
+          <span style="font-size:.9375rem;line-height:1.5;font-weight:700;color:var(--fg)">前端可观测性：从埋点到告警</span>
+        </a>
+        <a href="#" style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;text-align:right;padding:16px 18px;border-radius:16px;border:1px solid var(--bd);background:var(--panel);box-shadow:var(--sh);color:inherit;transition:transform .5s var(--ease),border-color .5s var(--ease),box-shadow .5s var(--ease)" style-hover="border-color:var(--bd-strong);box-shadow:var(--sh-hover);transform:translateY(-2px);color:inherit">
+          <span style="display:flex;align-items:center;gap:4px;font-size:.75rem;color:var(--muted)">第 7 篇 · 下一篇<span aria-hidden="true" style="display:block;flex:none;width:14px;height:14px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static@0.460.0/icons/arrow-right.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@0.460.0/icons/arrow-right.svg) center/contain no-repeat"></span></span>
+          <span style="font-size:.9375rem;line-height:1.5;font-weight:700;color:var(--fg)">把 CI/CD 流水线从 20 分钟压到 6 分钟</span>
+        </a>
+      </nav>
+
+      <section aria-labelledby="h-related" style="position:relative;margin-top:36px;display:flex;flex-direction:column;gap:14px">
+        <sc-if value="{{ showNotes }}" hint-placeholder-val="{{ true }}">
+          <div style="position:absolute;left:calc(100% + 411px);top:0;width:220px;font-size:12px;line-height:1.5;color:var(--muted)">相关文章三列：16:9 封面；无封面用 panel-muted 底 + 分类名（第 2 张）。chip 0.68rem，日期 0.75rem。</div>
+        </sc-if>
+        <h2 id="h-related" style="display:flex;align-items:center;gap:10px;margin:0;font-size:1.125rem;line-height:1.3;font-weight:700;color:var(--fg)"><span style="width:3px;height:18px;border-radius:2px;background:var(--sky);flex:none"></span>相关文章</h2>
+        <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px">
+          <sc-for list="{{ related }}" as="r" hint-placeholder-count="3">
+            <a href="#" style="display:flex;flex-direction:column;border-radius:24px;border:1px solid var(--bd);background:var(--card-bg);box-shadow:var(--sh);overflow:hidden;color:inherit;transition:transform .5s var(--ease),border-color .5s var(--ease),box-shadow .5s var(--ease)" style-hover="border-color:var(--bd-strong);box-shadow:var(--sh-hover);transform:translateY(-2px);color:inherit">
+              <sc-if value="{{ r.cover }}" hint-placeholder-val="{{ true }}">
+                <div style="position:relative;aspect-ratio:16/9"><div style="position:absolute;inset:0;background:repeating-linear-gradient(135deg, color-mix(in oklch, var(--fg) 6%, transparent) 0 1px, transparent 1px 9px),linear-gradient(150deg, var(--surf-con), var(--panel-muted));filter:var(--img)"></div><div style="position:absolute;inset:0;background:var(--cover-veil)"></div><span style="position:absolute;left:10px;bottom:8px;font-family:var(--mono);font-size:10px;color:var(--fg)">封面 16:9</span></div>
+              </sc-if>
+              <sc-if value="{{ r.noCover }}" hint-placeholder-val="{{ false }}">
+                <div style="aspect-ratio:16/9;background:var(--panel-muted);display:flex;align-items:center;justify-content:center;font-size:.9375rem;font-weight:700;color:var(--body)">{{ r.cat }}</div>
+              </sc-if>
+              <div style="padding:12px 14px 14px;display:flex;flex-direction:column;gap:8px;align-items:flex-start">
+                <span style="display:inline-flex;border-radius:999px;font-size:.68rem;font-weight:600;line-height:1.2;padding:.3rem .55rem;color:var(--chip-fg);background:var(--chip-bg);border:1px solid var(--chip-bd)">{{ r.cat }}</span>
+                <span style="font-size:.9375rem;line-height:1.45;font-weight:500;color:var(--fg);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">{{ r.title }}</span>
+                <span style="font-size:.75rem;color:var(--meta);font-variant-numeric:tabular-nums">{{ r.date }}</span>
+              </div>
+            </a>
+          </sc-for>
+        </div>
+      </section>
+
+      <section aria-label="文末操作" style="position:relative;margin-top:36px">
+        <sc-if value="{{ showNotes }}" hint-placeholder-val="{{ true }}">
+          <div style="position:absolute;left:calc(100% + 411px);top:0;width:220px;font-size:12px;line-height:1.5;color:var(--muted)">读后操作合并成 56px 文末条：点赞（可点）、收藏、分享各带计数；右侧「写评论」跳到评论区。Newsletter 缩成单行。</div>
+        </sc-if>
+        <div style="height:56px;box-sizing:border-box;border-radius:16px;border:1px solid var(--bd);background:var(--panel);backdrop-filter:blur(20px) saturate(1.04);box-shadow:var(--sh);padding:0 6px;display:flex;align-items:center;gap:6px">
+          <button type="button" aria-pressed="{{ liked }}" onClick="{{ toggleLike }}" style="height:44px;padding:0 12px;border-radius:10px;border:1px solid var(--bd);background:{{ likeBg }};color:{{ likeColor }};font:inherit;font-size:.8125rem;display:flex;align-items:center;gap:6px;font-variant-numeric:tabular-nums;cursor:pointer" style-hover="border-color:var(--bd-strong);color:var(--fg)"><span aria-hidden="true" style="display:block;flex:none;width:17px;height:17px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static@0.460.0/icons/heart.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@0.460.0/icons/heart.svg) center/contain no-repeat"></span>{{ likeCount }}<span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">点赞</span></button>
+          <button type="button" style="height:44px;padding:0 12px;border-radius:10px;border:1px solid var(--bd);background:transparent;color:var(--body);font:inherit;font-size:.8125rem;display:flex;align-items:center;gap:6px;font-variant-numeric:tabular-nums;cursor:pointer" style-hover="border-color:var(--bd-strong);color:var(--fg)"><span aria-hidden="true" style="display:block;flex:none;width:17px;height:17px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static@0.460.0/icons/bookmark.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@0.460.0/icons/bookmark.svg) center/contain no-repeat"></span>36<span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">收藏</span></button>
+          <button type="button" style="height:44px;padding:0 12px;border-radius:10px;border:1px solid var(--bd);background:transparent;color:var(--body);font:inherit;font-size:.8125rem;display:flex;align-items:center;gap:6px;font-variant-numeric:tabular-nums;cursor:pointer" style-hover="border-color:var(--bd-strong);color:var(--fg)"><span aria-hidden="true" style="display:block;flex:none;width:17px;height:17px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static@0.460.0/icons/share-2.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@0.460.0/icons/share-2.svg) center/contain no-repeat"></span>12<span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">分享</span></button>
+          <span style="flex:1"></span>
+          <a href="#comments" style="height:44px;padding:0 18px;border-radius:10px;background:var(--btn);color:var(--on-primary);font-size:.875rem;font-weight:700;display:inline-flex;align-items:center;gap:6px" style-hover="background:var(--btn-hover);color:var(--on-primary)"><span aria-hidden="true" style="display:block;flex:none;width:16px;height:16px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static@0.460.0/icons/message-square.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@0.460.0/icons/message-square.svg) center/contain no-repeat"></span>写评论</a>
+        </div>
+        <div style="margin-top:12px;border-radius:16px;border:1px solid var(--bd);background:var(--panel);backdrop-filter:blur(20px) saturate(1.04);box-shadow:var(--sh);padding:6px 6px 6px 18px;display:flex;align-items:center;gap:12px">
+          <p style="margin:0;flex:1;font-size:.9375rem;line-height:1.7;color:var(--body);white-space:nowrap">每周一封精选，随时退订。</p>
+          <input type="email" placeholder="你的邮箱" aria-label="邮箱" style="width:240px;height:44px;box-sizing:border-box;border-radius:10px;border:1px solid var(--bd-strong);background:var(--input-bg);color:var(--fg);font:inherit;font-size:.9375rem;padding:0 14px"></input>
+          <button type="button" style="height:44px;padding:0 18px;border-radius:10px;border:0;background:var(--btn);color:var(--on-primary);font:inherit;font-size:.875rem;font-weight:700;cursor:pointer" style-hover="background:var(--btn-hover)">订阅</button>
+        </div>
+      </section>
+
+      <section id="comments" aria-labelledby="h-comments" style="position:relative;margin-top:36px;display:flex;flex-direction:column;gap:16px;scroll-margin-top:90px">
+        <sc-if value="{{ showNotes }}" hint-placeholder-val="{{ true }}">
+          <div style="position:absolute;left:calc(100% + 411px);top:0;width:220px;display:flex;flex-direction:column;gap:8px;font-size:12px;line-height:1.5;color:var(--muted)">
+            <div>输入框最小高 6rem，聚焦 2px sky 外框；提交 44px。</div>
+            <div>回复缩进到头像右侧（44px），不用竖线。</div>
+            <div>假设 · 作者回复带「作者」小 chip；评论区不套面板，条目间用 1px 分隔线。</div>
+          </div>
+        </sc-if>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+          <h2 id="h-comments" style="display:flex;align-items:center;gap:10px;margin:0;font-size:1.125rem;line-height:1.3;font-weight:700;color:var(--fg)"><span style="width:3px;height:18px;border-radius:2px;background:var(--sky);flex:none"></span>评论 (2)</h2>
+          <span style="font-size:.8125rem;color:var(--muted)">友善讨论，支持 Markdown</span>
+        </div>
+        <form style="margin:0;display:flex;flex-direction:column;gap:10px">
+          <textarea aria-label="写评论" placeholder="写下你的想法…" style="min-height:6rem;box-sizing:border-box;width:100%;resize:vertical;border-radius:12px;border:1px solid var(--bd-strong);background:var(--input-bg);color:var(--fg);font:inherit;font-size:.9375rem;line-height:1.7;padding:12px 14px" style-focus="outline:2px solid var(--sky);outline-offset:2px"></textarea>
+          <div style="display:flex;justify-content:flex-end"><button type="button" style="height:44px;padding:0 18px;border-radius:10px;border:0;background:var(--btn);color:var(--on-primary);font:inherit;font-size:.875rem;font-weight:700;cursor:pointer" style-hover="background:var(--btn-hover)">发表评论</button></div>
+        </form>
+        <ol style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column">
+          <li style="padding:16px 0;border-top:1px solid var(--div);display:flex;flex-direction:column;gap:14px">
+            <div style="display:grid;grid-template-columns:32px minmax(0,1fr);gap:12px">
+              <span style="width:32px;height:32px;border-radius:999px;background:var(--panel-muted);border:1px solid var(--bd)"></span>
+              <div style="display:flex;flex-direction:column;gap:4px;min-width:0">
+                <div style="display:flex;align-items:center;gap:8px;min-height:32px"><span style="font-size:.875rem;font-weight:700;color:var(--fg)">林间</span><span style="font-family:var(--mono);font-size:.75rem;color:var(--muted)">2026-03-03</span></div>
+                <p style="margin:0;font-size:.9375rem;line-height:1.7;color:var(--body)">Performance 面板录制那段很实用。之前一直只盯 Lighthouse 分数，没想到瀑布图里能看出这么多东西。</p>
+                <div style="display:flex;gap:4px;margin-left:-8px"><button type="button" style="height:44px;padding:0 8px;border:0;border-radius:8px;background:transparent;color:var(--muted);font:inherit;font-size:.8125rem;display:flex;align-items:center;gap:4px;cursor:pointer" style-hover="color:var(--fg);background:color-mix(in oklch, var(--sky) 10%, transparent)"><span aria-hidden="true" style="display:block;flex:none;width:14px;height:14px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static@0.460.0/icons/reply.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@0.460.0/icons/reply.svg) center/contain no-repeat"></span>回复</button></div>
+              </div>
+            </div>
+            <div style="padding-left:44px;display:grid;grid-template-columns:32px minmax(0,1fr);gap:12px">
+              <span style="width:32px;height:32px;border-radius:999px;background:var(--btn);color:var(--on-primary);display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-size:14px;font-weight:700">尘</span>
+              <div style="display:flex;flex-direction:column;gap:4px;min-width:0">
+                <div style="display:flex;align-items:center;gap:8px;min-height:32px"><span style="font-size:.875rem;font-weight:700;color:var(--fg)">依尘</span><span style="display:inline-flex;border-radius:999px;font-size:.68rem;font-weight:600;line-height:1.2;padding:.2rem .5rem;color:var(--chip-fg);background:var(--chip-bg);border:1px solid var(--chip-bd)">作者</span><span style="font-family:var(--mono);font-size:.75rem;color:var(--muted)">2026-03-03</span></div>
+                <p style="margin:0;font-size:.9375rem;line-height:1.7;color:var(--body)">Lighthouse 适合做回归基线，定位问题还是得看真实录制。下一篇会讲怎么把这些数据接进监控。</p>
+                <div style="display:flex;gap:4px;margin-left:-8px"><button type="button" style="height:44px;padding:0 8px;border:0;border-radius:8px;background:transparent;color:var(--muted);font:inherit;font-size:.8125rem;display:flex;align-items:center;gap:4px;cursor:pointer" style-hover="color:var(--fg);background:color-mix(in oklch, var(--sky) 10%, transparent)"><span aria-hidden="true" style="display:block;flex:none;width:14px;height:14px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static@0.460.0/icons/reply.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@0.460.0/icons/reply.svg) center/contain no-repeat"></span>回复</button></div>
+              </div>
+            </div>
+          </li>
+          <li style="padding:16px 0;border-top:1px solid var(--div);border-bottom:1px solid var(--div)">
+            <div style="display:grid;grid-template-columns:32px minmax(0,1fr);gap:12px">
+              <span style="width:32px;height:32px;border-radius:999px;background:var(--panel-muted);border:1px solid var(--bd)"></span>
+              <div style="display:flex;flex-direction:column;gap:4px;min-width:0">
+                <div style="display:flex;align-items:center;gap:8px;min-height:32px"><span style="font-size:.875rem;font-weight:700;color:var(--fg)">阿哲</span><span style="font-family:var(--mono);font-size:.75rem;color:var(--muted)">2026-03-05</span></div>
+                <p style="margin:0;font-size:.9375rem;line-height:1.7;color:var(--body)">字体那节想追问一下：font-display: swap 和预加载一起用时，有没有遇到过字体闪烁的问题？</p>
+                <div style="display:flex;gap:4px;margin-left:-8px"><button type="button" style="height:44px;padding:0 8px;border:0;border-radius:8px;background:transparent;color:var(--muted);font:inherit;font-size:.8125rem;display:flex;align-items:center;gap:4px;cursor:pointer" style-hover="color:var(--fg);background:color-mix(in oklch, var(--sky) 10%, transparent)"><span aria-hidden="true" style="display:block;flex:none;width:14px;height:14px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static@0.460.0/icons/reply.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@0.460.0/icons/reply.svg) center/contain no-repeat"></span>回复</button></div>
+              </div>
+            </div>
+          </li>
+        </ol>
+      </section>
+    </main>
+
+    <aside aria-label="目录" style="position:sticky;top:84px;align-self:start;padding-top:32px">
+      <sc-if value="{{ showNotes }}" hint-placeholder-val="{{ true }}">
+        <div style="position:absolute;left:calc(100% + 168px);top:32px;width:220px;display:flex;flex-direction:column;gap:8px;font-size:12px;line-height:1.5;color:var(--muted)">
+          <div>目录：去掉英文 kicker，只留「目录」0.95rem 700。条目 0.8125rem / 1.5，h3 缩进 10px。</div>
+          <div>当前条目左侧 2px sky 竖条；h3 只在所属 h2 激活时展开（滚动正文可看到切换）。</div>
+          <div>假设 · 目录不套面板，顶部与 Hero 卡片上沿对齐。</div>
+        </div>
+      </sc-if>
+      <nav style="display:flex;flex-direction:column;gap:6px">
+        <div style="font-size:.95rem;font-weight:700;color:var(--fg);padding-left:12px">目录</div>
+        <ol style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;border-left:1px solid var(--div)">
+          <sc-for list="{{ toc }}" as="t" hint-placeholder-count="4">
+            <li><a href="{{ t.href }}" aria-current="{{ t.current }}" style="display:block;margin-left:-1px;padding:5px 8px 5px {{ t.pad }}px;font-size:.8125rem;line-height:1.5;color:{{ t.color }};font-weight:{{ t.weight }};box-shadow:inset 2px 0 0 {{ t.bar }}" style-hover="color:var(--fg)">{{ t.label }}</a></li>
+          </sc-for>
+        </ol>
+      </nav>
+    </aside>
+  </div>
+<footer style="position:relative;z-index:1;width:1152px;margin:36px auto 0">
+    <div style="border-radius:16px;border:1px solid var(--bd);background:var(--panel);backdrop-filter:blur(20px) saturate(1.04);box-shadow:var(--sh);padding:20px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px">
+      <div style="display:flex;flex-direction:column;gap:4px;min-width:0">
+        <div style="font-size:.75rem;font-weight:700;color:var(--meta)">依尘の博客</div>
+        <p style="margin:0;font-size:.9375rem;line-height:1.7;color:var(--body)">工程实践、产品思考与每天的 AI 动态。</p>
+      </div>
+      <nav aria-label="页脚入口" style="display:flex;flex-wrap:wrap;gap:6px">
+        <a href="#" style="display:inline-flex;align-items:center;border-radius:999px;font-size:.75rem;font-weight:600;line-height:1.2;padding:.45rem .7rem;color:var(--chip-fg);background:var(--chip-bg);border:1px solid var(--chip-bd)">文章</a>
+        <a href="#" style="display:inline-flex;align-items:center;border-radius:999px;font-size:.75rem;font-weight:600;line-height:1.2;padding:.45rem .7rem;color:var(--chip-fg);background:var(--chip-bg);border:1px solid var(--chip-bd)">系列</a>
+        <a href="#" style="display:inline-flex;align-items:center;border-radius:999px;font-size:.75rem;font-weight:600;line-height:1.2;padding:.45rem .7rem;color:var(--chip-fg);background:var(--chip-bg);border:1px solid var(--chip-bd)">分类</a>
+        <a href="#" style="display:inline-flex;align-items:center;border-radius:999px;font-size:.75rem;font-weight:600;line-height:1.2;padding:.45rem .7rem;color:var(--chip-fg);background:var(--chip-bg);border:1px solid var(--chip-bd)">归档</a>
+        <a href="#" style="display:inline-flex;align-items:center;gap:4px;border-radius:999px;font-size:.75rem;font-weight:600;line-height:1.2;padding:.45rem .7rem;color:var(--chip-fg);background:var(--chip-bg);border:1px solid var(--chip-bd)"><span aria-hidden="true" style="display:block;flex:none;width:12px;height:12px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static@0.460.0/icons/rss.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@0.460.0/icons/rss.svg) center/contain no-repeat"></span>RSS 订阅</a>
+      </nav>
+    </div>
+  </footer>
+
+  <section data-screen-label="/posts/[slug] · 状态画板" style="position:relative;z-index:1;width:1152px;margin:96px auto 0;display:flex;flex-direction:column;gap:56px">
+    <div style="display:flex;flex-direction:column;gap:6px;padding-bottom:20px;border-bottom:1px solid var(--div)">
+      <div style="font-family:var(--mono);font-size:12px;color:var(--muted)">/posts/[slug] · 状态画板</div>
+      <h2 style="margin:0;font-size:22px;font-weight:700;color:var(--fg)">状态画板 · 实尺寸</h2>
+    </div>
+
+    <div style="display:grid;grid-template-columns:672px minmax(0,1fr);gap:40px;align-items:start">
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div style="font-size:14px;font-weight:700;color:var(--fg)">A · 无封面 Hero</div>
+        <header style="position:relative;min-height:240px;border-radius:24px;overflow:hidden;border:1px solid var(--bd);display:flex;flex-direction:column;justify-content:flex-end;background:radial-gradient(38% 70% at 6% 0%, color-mix(in oklch, var(--sky) 22%, transparent), transparent 70%),radial-gradient(38% 70% at 94% 0%, color-mix(in oklch, var(--warm) 18%, transparent), transparent 70%),linear-gradient(135deg, #011E28, #00151C 55%, #3B2116)">
+          <div aria-hidden="true" style="position:absolute;inset:0;background-image:radial-gradient(1.6px 1.6px at 6% 22%, rgb(255 255 255 / .85), transparent 100%),radial-gradient(1px 1px at 14% 64%, rgb(255 255 255 / .55), transparent 100%),radial-gradient(1px 1px at 29% 12%, rgb(255 255 255 / .55), transparent 100%),radial-gradient(1.6px 1.6px at 44% 28%, rgb(255 255 255 / .85), transparent 100%),radial-gradient(1px 1px at 58% 16%, rgb(255 255 255 / .55), transparent 100%),radial-gradient(1.6px 1.6px at 71% 24%, rgb(255 255 255 / .85), transparent 100%),radial-gradient(1px 1px at 84% 34%, rgb(255 255 255 / .55), transparent 100%),radial-gradient(1px 1px at 92% 12%, rgb(255 255 255 / .55), transparent 100%);opacity:.9"></div>
+          <div style="position:relative;padding:28px;display:flex;flex-direction:column;gap:10px;align-items:flex-start">
+            <span style="display:inline-flex;border-radius:999px;font-size:.75rem;font-weight:600;line-height:1.2;padding:.45rem .7rem;color:var(--chip-fg);background:var(--chip-bg);border:1px solid var(--chip-bd)">工程实践</span>
+            <h1 style="margin:0;font-family:var(--serif);font-size:40px;line-height:1.2;font-weight:700;color:var(--fg);text-wrap:balance">API 设计：版本演进如何不破坏老客户端</h1>
+            <p style="margin:0;font-size:1rem;line-height:1.7;color:var(--body)">字段只加不删、默认值兜底、废弃周期公告：一套能落地的接口演进约定。</p>
+            <div style="display:flex;align-items:center;gap:8px;font-size:.8125rem;color:var(--body);font-variant-numeric:tabular-nums"><span style="width:24px;height:24px;border-radius:999px;background:var(--panel-muted);border:1px solid var(--bd)"></span><span style="color:var(--fg);font-weight:700">依尘</span><span>·</span><span>2026-02-14</span><span>·</span><span>862 阅读</span><span>·</span><span>6 分钟</span></div>
+          </div>
+        </header>
+      </div>
+      <div style="padding-top:34px;display:flex;flex-direction:column;gap:8px;font-size:12px;line-height:1.5;color:var(--muted)">
+        <div>无封面高 clamp(12rem, 20vw, 15rem) = 240px，底色用专题头暗色渐变 + 光斑 + 稀疏星点。</div>
+        <div>假设 · 无封面时不叠底部暗色渐变（底色已足够深）；内容区同有封面版本。</div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="font-size:14px;font-weight:700;color:var(--fg)">B · 整页加载骨架</div>
+      <div aria-busy="true" aria-label="正在加载文章" style="display:grid;grid-template-columns:220px 672px minmax(0,1fr);gap:17px;align-items:start">
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div style="height:196px;border-radius:16px;border:1px solid var(--bd);background:var(--panel)"></div>
+          <div style="height:176px;border-radius:16px;border:1px solid var(--bd);background:var(--panel)"></div>
+          <div style="height:290px;border-radius:16px;border:1px solid var(--bd);background:var(--panel)"></div>
+        </div>
+        <div style="display:flex;flex-direction:column">
+          <div style="height:24px;margin-bottom:10px;display:flex;align-items:center"><div style="height:10px;width:46%;border-radius:6px;background:var(--panel-muted)"></div></div>
+          <div style="height:352px;box-sizing:border-box;border-radius:24px;border:1px solid var(--bd);background:var(--panel);padding:28px;display:flex;flex-direction:column;justify-content:flex-end;gap:12px">
+            <div style="height:26px;width:72px;border-radius:999px;background:var(--panel-muted)"></div>
+            <div style="height:30px;width:88%;border-radius:8px;background:var(--panel-muted)"></div>
+            <div style="height:14px;width:76%;border-radius:6px;background:var(--panel-muted)"></div>
+            <div style="height:12px;width:44%;border-radius:6px;background:var(--panel-muted)"></div>
+          </div>
+          <div style="margin-top:16px;height:106px;border-radius:16px;border:1px solid var(--bd);background:var(--panel)"></div>
+          <div style="margin-top:24px;display:flex;flex-direction:column">
+            <sc-for list="{{ skelLines }}" as="l" hint-placeholder-count="10">
+              <div style="height:{{ l.h }}px;display:flex;align-items:center;margin-top:{{ l.mt }}px"><div style="height:{{ l.bar }}px;width:{{ l.w }};border-radius:6px;background:var(--panel-muted)"></div></div>
+            </sc-for>
+          </div>
+        </div>
+        <div style="padding-top:32px;display:flex;flex-direction:column;gap:6px">
+          <div style="height:22px;display:flex;align-items:center;padding-left:12px"><div style="height:12px;width:40px;border-radius:6px;background:var(--panel-muted)"></div></div>
+          <div style="border-left:1px solid var(--div);display:flex;flex-direction:column">
+            <div style="height:29.5px;display:flex;align-items:center;padding-left:12px"><div style="height:10px;width:78%;border-radius:6px;background:var(--panel-muted)"></div></div>
+            <div style="height:29.5px;display:flex;align-items:center;padding-left:22px"><div style="height:10px;width:62%;border-radius:6px;background:var(--panel-muted)"></div></div>
+            <div style="height:29.5px;display:flex;align-items:center;padding-left:22px"><div style="height:10px;width:70%;border-radius:6px;background:var(--panel-muted)"></div></div>
+            <div style="height:29.5px;display:flex;align-items:center;padding-left:12px"><div style="height:10px;width:58%;border-radius:6px;background:var(--panel-muted)"></div></div>
+          </div>
+        </div>
+      </div>
+      <div style="font-size:12px;line-height:1.5;color:var(--muted)">Hero 352px、连载条、正文行高 31.45px（17 × 1.85）、目录 4 行（2 个 h2 + 首个 h2 下 2 个 h3）与真实页面一致。假设 · 侧栏只占位面板外框，不画内部行。</div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:672px minmax(0,1fr);gap:40px;align-items:start">
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div style="font-size:14px;font-weight:700;color:var(--fg)">C · 评论加载骨架 3 条</div>
+        <ol aria-busy="true" aria-label="正在加载评论" style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column">
+          <sc-for list="{{ skelComments }}" as="c" hint-placeholder-count="3">
+            <li style="padding:16px 0;border-top:1px solid var(--div);display:grid;grid-template-columns:32px minmax(0,1fr);gap:12px">
+              <span style="width:32px;height:32px;border-radius:999px;background:var(--panel-muted)"></span>
+              <div style="display:flex;flex-direction:column;gap:4px">
+                <div style="height:32px;display:flex;align-items:center;gap:8px"><div style="height:12px;width:56px;border-radius:6px;background:var(--panel-muted)"></div><div style="height:10px;width:76px;border-radius:6px;background:var(--panel-muted)"></div></div>
+                <div style="height:25.5px;display:flex;align-items:center"><div style="height:11px;width:{{ c.w1 }};border-radius:6px;background:var(--panel-muted)"></div></div>
+                <div style="height:25.5px;display:flex;align-items:center"><div style="height:11px;width:{{ c.w2 }};border-radius:6px;background:var(--panel-muted)"></div></div>
+                <div style="height:44px"></div>
+              </div>
+            </li>
+          </sc-for>
+        </ol>
+      </div>
+      <div style="padding-top:34px;display:flex;flex-direction:column;gap:8px;font-size:12px;line-height:1.5;color:var(--muted)">
+        <div>每条高度与真实评论项一致：32px 头像行 + 2 行内容（0.9375 × 1.7）+ 44px 回复按钮位。</div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:672px minmax(0,1fr);gap:40px;align-items:start">
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <div style="font-size:14px;font-weight:700;color:var(--fg)">D · 评论为空</div>
+        <h2 style="display:flex;align-items:center;gap:10px;margin:0;font-size:1.125rem;line-height:1.3;font-weight:700;color:var(--fg)"><span style="width:3px;height:18px;border-radius:2px;background:var(--sky);flex:none"></span>评论 (0)</h2>
+        <div style="border-radius:16px;border:1px solid var(--bd);background:var(--panel);padding:32px 24px;display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center">
+          <span style="color:var(--muted)"><span aria-hidden="true" style="display:block;flex:none;width:28px;height:28px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static@0.460.0/icons/message-square.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@0.460.0/icons/message-square.svg) center/contain no-repeat"></span></span>
+          <p style="margin:0;font-size:.9375rem;line-height:1.7;font-weight:700;color:var(--fg)">还没有评论，来说第一句</p>
+          <button type="button" style="height:44px;padding:0 18px;border-radius:10px;border:0;background:var(--btn);color:var(--on-primary);font:inherit;font-size:.875rem;font-weight:700;display:inline-flex;align-items:center;gap:6px;cursor:pointer" style-hover="background:var(--btn-hover)"><span aria-hidden="true" style="display:block;flex:none;width:16px;height:16px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static@0.460.0/icons/pen-line.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@0.460.0/icons/pen-line.svg) center/contain no-repeat"></span>写评论</button>
+        </div>
+      </div>
+      <div style="padding-top:34px;display:flex;flex-direction:column;gap:8px;font-size:12px;line-height:1.5;color:var(--muted)">
+        <div>假设 · 空态时输入框先收起，点「写评论」再展开并聚焦，避免空框和空态文案重复。</div>
+      </div>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;notes&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;预览&quot;},&quot;hue&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:224,&quot;min&quot;:0,&quot;max&quot;:360,&quot;step&quot;:1,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;主题&quot;}}">
+class Component extends DCLogic {
+  state = { hidden: false, active: 's1', hover: null, seriesOpen: false, copied: false, liked: false };
+  rootRef = React.createRef();
+  heads = ['s1', 's1-1', 's1-2', 's2', 's2-1'];
+  code = `// 1. 首字节时间
+const [nav] = performance.getEntriesByType('navigation') as PerformanceNavigationTiming[];
+const ttfb = nav.responseStart - nav.requestStart;
+
+// 2. 最大内容绘制
+const lcp = await new Promise<number>((resolve) => {
+  new PerformanceObserver((list) => {
+    const last = list.getEntries().at(-1);
+    if (last) resolve(last.startTime);
+  }).observe({ type: 'largest-contentful-paint', buffered: true });
+});
+
+console.table({ ttfb, lcp });`;
+  componentDidMount() {
+    this.last = window.scrollY;
+    this.onScroll = () => {
+      const y = window.scrollY, d = y - this.last;
+      let active = this.heads[0];
+      for (const id of this.heads) { const el = document.getElementById(id); if (el && el.getBoundingClientRect().top < 140) active = id; }
+      const next = { active };
+      if (Math.abs(d) >= 4) { next.hidden = d > 0 && y > 120; this.last = y; }
+      if (next.active !== this.state.active || (next.hidden !== undefined && next.hidden !== this.state.hidden)) this.setState(next);
+    };
+    window.addEventListener('scroll', this.onScroll, { passive: true });
+    this.applyHue();
+  }
+  componentWillUnmount() { window.removeEventListener('scroll', this.onScroll); clearTimeout(this.t); }
+  componentDidUpdate() { this.applyHue(); }
+  applyHue() { const el = this.rootRef.current; if (el) el.style.setProperty('--h', String(this.props.hue ?? 224)); }
+  tokenize() {
+    if (this._lines) return this._lines;
+    const re = /(\/\/.*$)|('[^']*')|\b(const|await|new|if|as)\b|\b([A-Z][A-Za-z]*)\b|\b([a-zA-Z_]\w*)(?=\()|(-?\d+)/g;
+    this._lines = this.code.split('\n').map(line => {
+      const toks = []; let i = 0, m; re.lastIndex = 0;
+      while ((m = re.exec(line))) {
+        if (m.index > i) toks.push({ t: line.slice(i, m.index), c: 'var(--body)' });
+        const c = m[1] ? 'var(--muted)' : m[2] ? 'var(--warm)' : m[3] ? 'var(--sky)' : m[4] ? 'var(--cyan)' : m[5] ? 'var(--fg)' : 'var(--warm)';
+        toks.push({ t: m[0], c }); i = m.index + m[0].length;
+      }
+      if (i < line.length) toks.push({ t: line.slice(i), c: 'var(--body)' });
+      if (!toks.length) toks.push({ t: ' ', c: 'var(--body)' });
+      return { toks };
+    });
+    return this._lines;
+  }
+  renderVals() {
+    const { active, hover, seriesOpen, copied, liked } = this.state;
+    const parent = active.split('-')[0];
+    const tocSrc = [['s1', '瓶颈为什么总在意料之外', 2], ['s1-1', '先录一次真实的加载', 3], ['s1-2', '把指标拆到具体资源', 3], ['s2', '从最贵的一项开始', 2], ['s2-1', '字体：中文站点最容易忽略的大头', 3]];
+    const toc = tocSrc.filter(([id, , lv]) => lv === 2 || id.startsWith(parent + '-')).map(([id, label, lv]) => {
+      const on = id === active;
+      return { href: '#' + id, label, pad: lv === 2 ? 12 : 22, current: on ? 'location' : undefined, color: on ? 'var(--fg)' : 'var(--muted)', weight: on ? 700 : 500, bar: on ? 'var(--sky)' : 'transparent' };
+    });
+    const titles = ['写在开始：为什么要重新做一个博客', 'Markdown 渲染管线的第一版', '用 Docker Compose 搭本地开发环境', '图片懒加载的三种写法对比', '前端可观测性：从埋点到告警', '页面性能优化：先找到真正的瓶颈', '把 CI/CD 流水线从 20 分钟压到 6 分钟', 'API 设计：版本演进如何不破坏老客户端', '测试金字塔在前端还成立吗', '可访问性：键盘用户眼中的博客', '产品与体验：内容型页面为什么需要节奏感'];
+    const seriesItems = titles.map((title, i) => {
+      const cur = i === 5;
+      return { title, no: String(i + 1).padStart(2, '0'), current: cur ? 'page' : undefined, color: cur ? 'var(--fg)' : 'var(--body)', weight: cur ? 700 : 500, bar: cur ? 'var(--sky)' : 'transparent' };
+    });
+    const ids = { s1: 's1', s11: 's1-1', s12: 's1-2', s2: 's2', s21: 's2-1' };
+    const anc = {}, enter = {};
+    for (const k in ids) { anc[k] = hover === ids[k] ? 1 : 0; enter[k] = () => this.setState({ hover: ids[k] }); }
+    const P = 31.45;
+    const skelLines = [];
+    const para = (n, last) => { for (let i = 0; i < n; i++) skelLines.push({ h: P, mt: 0, bar: 12, w: i === n - 1 ? last : '100%' }); skelLines.push({ h: 0, mt: 21, bar: 0, w: '0' }); };
+    para(4, '62%'); para(2, '48%');
+    skelLines.push({ h: 31, mt: 19, bar: 18, w: '52%' }); skelLines.push({ h: 0, mt: 16, bar: 0, w: '0' });
+    para(3, '70%');
+    return {
+      rootRef: this.rootRef, navY: this.state.hidden ? -84 : 0, showNotes: this.props.notes ?? true,
+      toc, anc, enter, leave: () => this.setState({ hover: null }),
+      seriesOpen, seriesItems, seriesLabel: seriesOpen ? '收起列表' : '展开全部 11 篇', seriesRot: seriesOpen ? 180 : 0,
+      toggleSeries: () => this.setState(s => ({ seriesOpen: !s.seriesOpen })),
+      codeLines: this.tokenize(), copied, notCopied: !copied, copyAria: copied ? '已复制' : '复制代码',
+      copy: () => { try { navigator.clipboard && navigator.clipboard.writeText(this.code); } catch (e) {} this.setState({ copied: true }); clearTimeout(this.t); this.t = setTimeout(() => this.setState({ copied: false }), 2000); },
+      liked, likeCount: liked ? 129 : 128, likeBg: liked ? 'color-mix(in oklch, var(--sky) 14%, transparent)' : 'transparent', likeColor: liked ? 'var(--fg)' : 'var(--body)',
+      toggleLike: () => this.setState(s => ({ liked: !s.liked })),
+      related: [
+        { title: '前端可观测性：从埋点到告警', cat: '前端开发', date: '2026-02-20', cover: true, noCover: false },
+        { title: '图片懒加载的三种写法对比', cat: '前端开发', date: '2025-12-18', cover: false, noCover: true },
+        { title: '把 CI/CD 流水线从 20 分钟压到 6 分钟', cat: '工程实践', date: '2026-02-27', cover: true, noCover: false }
+      ],
+      skelLines,
+      skelComments: [{ w1: '96%', w2: '58%' }, { w1: '88%', w2: '40%' }, { w1: '92%', w2: '66%' }]
+    };
+  }
+}
+</script>
+</body>
+</html>
