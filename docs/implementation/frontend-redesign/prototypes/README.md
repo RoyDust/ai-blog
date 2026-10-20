@@ -7,9 +7,10 @@
 
 ## Claude Design 项目
 
-- 项目名「依尘博客前台重设计」：https://claude.ai/design/p/90b0cd22-68f3-4453-95aa-4fa5c4f01a8d
+- 项目名「依尘博客设计系统」：https://claude.ai/design/p/90b0cd22-68f3-4453-95aa-4fa5c4f01a8d
 - 简报已另存为项目根目录的「简报.md」（含第 14 节「已拍板」），后续每步都以它为准。
-- Claude Design 提示该版本将迁移到 Artifacts，**12 月 14 日后不再可用**。这里的导出件是长期留档。
+- Claude Design 提示该版本将迁移到 Artifacts，**12 月 14 日后不再可用**，原件随后删除，对话和评论不迁移。这里的导出件是长期留档。
+- 迁移现状（2026-10-20 查看）：官方只给设计系统提供迁移按钮，普通项目的迁移方式「即将推出」。本项目已列在 Claude 的 Artifacts 页，点开仍进入独立版。官方提供项目迁移前，可用 Share → Project HTML → Project archive → Export 导出 zip 备份。
 
 ## 怎么看
 
