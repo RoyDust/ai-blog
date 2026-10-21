@@ -37,11 +37,11 @@ python3 -m http.server 8790 --bind 127.0.0.1 --directory docs/implementation/fro
 | 8 文章列表 `/posts` · 方向 A | `08-posts-editorial.dc.html` | `screenshots/08-posts-editorial-1440.jpeg`（暗、亮、状态画板） | 通过 |
 | 9 文章详情 · 方向 A | `09-post-detail-editorial.dc.html` | `screenshots/09-post-detail-editorial-1440.jpeg`（暗、亮、状态画板） | 通过 |
 | 10 分类 / 标签 / 系列 · 方向 A | `10-taxonomy-editorial.dc.html` | `screenshots/10-taxonomy-editorial-1440.jpeg`（5 张整页、状态画板） | 通过，Claude Code 手写 |
-| 11 搜索 / 归档 / 专题导读 · 方向 A | `11-search-archives-guides-editorial.dc.html` | `screenshots/11-search-archives-guides-editorial-1440.jpeg`（4 张整页、状态画板） | 待确认，Claude Code 手写 |
-| 12 关于 / 联系 / 登录 / 注册 · 方向 A | `12-about-contact-auth-editorial.dc.html` | `screenshots/12-about-contact-auth-editorial-1440.jpeg`（4 张整页、状态画板） | 待确认，Claude Code 手写 |
-| 13 后台外壳与首页 · 方向 A | `13-admin-shell-dashboard-editorial.dc.html` | `screenshots/13-admin-shell-dashboard-editorial-1440.jpeg`（亮、暗、状态画板） | 待确认，Claude Code 手写 |
-| 14 后台列表类 · 方向 A | `14-admin-lists-editorial.dc.html` | `screenshots/14-admin-lists-editorial-1440.jpeg`（文章 / 评论 / 接口日志亮色、文章暗色、状态画板） | 待确认，Claude Code 手写 |
-| 15 后台工作台类 · 方向 A | `15-admin-workspace-editorial.dc.html` | `screenshots/15-admin-workspace-editorial-1440.jpeg`（文章编辑 / AI 日报 / 设置亮色、文章编辑暗色、状态画板） | 待确认，Claude Code 手写 |
+| 11 搜索 / 归档 / 专题导读 · 方向 A | `11-search-archives-guides-editorial.dc.html` | `screenshots/11-search-archives-guides-editorial-1440.jpeg`（4 张整页、状态画板） | 通过，Claude Code 手写 |
+| 12 关于 / 联系 / 登录 / 注册 · 方向 A | `12-about-contact-auth-editorial.dc.html` | `screenshots/12-about-contact-auth-editorial-1440.jpeg`（4 张整页、状态画板） | 通过，Claude Code 手写 |
+| 13 后台外壳与首页 · 方向 A | `13-admin-shell-dashboard-editorial.dc.html` | `screenshots/13-admin-shell-dashboard-editorial-1440.jpeg`（亮、暗、状态画板） | 通过，Claude Code 手写 |
+| 14 后台列表类 · 方向 A | `14-admin-lists-editorial.dc.html` | `screenshots/14-admin-lists-editorial-1440.jpeg`（文章 / 评论 / 接口日志亮色、文章暗色、状态画板） | 通过，Claude Code 手写 |
+| 15 后台工作台类 · 方向 A | `15-admin-workspace-editorial.dc.html` | `screenshots/15-admin-workspace-editorial-1440.jpeg`（文章编辑 / AI 日报 / 设置亮色、文章编辑暗色、状态画板） | 通过，Claude Code 手写 |
 
 ### 1 设计系统
 
@@ -188,6 +188,7 @@ python3 -m http.server 8790 --bind 127.0.0.1 --directory docs/implementation/fro
   - 搜索失败补「，请稍后重试」和「重试」按钮，与 `/posts` 的错误态一致。
   - AI 摘要里提到的文章名用书名号，不做成链接（现有实现是纯文本）。
   - 归档、专题导读空态新增文字链接出路（回到首页、浏览全部文章、全部系列），现状只有一行文字。
+- 2026-10-21 用户确认第 11–15 步通过。上面的假设随之采纳，有异议再改。
 
 ### 12 关于 / 联系 / 登录 / 注册 · 方向 A
 
@@ -223,6 +224,7 @@ python3 -m http.server 8790 --bind 127.0.0.1 --directory docs/implementation/fro
   - 关于页不设主按钮：现状两个按钮都是次级样式，「联系我」改为描边按钮。
   - 关于页三条亮点现状没有区块标题，这里也不加。
   - toast 只改样式，位置与时长沿用现有 Toaster 配置。
+- 2026-10-21 用户确认第 11–15 步通过。上面的假设随之采纳，有异议再改。
 
 ### 13 后台外壳与首页 · 方向 A
 
@@ -262,6 +264,7 @@ python3 -m http.server 8790 --bind 127.0.0.1 --directory docs/implementation/fro
   - 全局搜索结果去掉每行左侧图标，改为「标题 …… 类型 / 状态」两端对齐，并在底部新增一行等宽快捷键提示。
   - 侧栏当前项的 sky 竖线用亮一档的 oklch(0.72 0.115 h)，保证在深色侧栏上可见。
   - 示例数字、文章名、评论内容都是虚构的，只用来看排版。
+- 2026-10-21 用户确认第 11–15 步通过。上面的假设随之采纳，有异议再改。
 
 ### 14 后台列表类 · 方向 A
 
@@ -291,6 +294,7 @@ python3 -m http.server 8790 --bind 127.0.0.1 --directory docs/implementation/fro
   - 接口日志指标条每项下补了一行口径说明（近 7 天 / 2xx·3xx / 4xx·5xx），现状没有，可以去掉。
   - 接口日志详情里 Request ID / Operation / Actor 等英文字段名保留，因为都是技术字段。
   - 示例数据（文章、评论、请求记录、Request ID）都是虚构的，只用来看排版。
+- 2026-10-21 用户确认第 11–15 步通过。上面的假设随之采纳，有异议再改。
 
 ### 15 后台工作台类 · 方向 A
 
@@ -323,6 +327,7 @@ python3 -m http.server 8790 --bind 127.0.0.1 --directory docs/implementation/fro
   - AI 日报页头 eyebrow 用侧栏分组名「AI 助手」（现状是英文「AI News」）。
   - 运行记录和来源表的列（如「原始 · 去重 · 入选」「抓取 · 候选 · 入选」）是把现状卡片里的数字重新归列，字段没有增减；缺失的数字统一显示「—」。
   - 示例数据（文章正文、来源、运行记录、候选、账号信息）都是虚构的，只用来看排版。
+- 2026-10-21 用户确认第 11–15 步通过。上面的假设随之采纳，有异议再改。
 
 ## 还没画的
 
