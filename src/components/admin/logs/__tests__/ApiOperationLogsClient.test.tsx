@@ -82,6 +82,16 @@ describe("ApiOperationLogsClient", () => {
     }));
   });
 
+  test("marks outbound model usage entries in the operation log list", async () => {
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response(JSON.stringify({
+      success: true,
+      data: { ...logsPayload(), items: [{ ...buildLog("usage-1", "/outbound/ai/completions"), scope: "ai-usage", operation: "ai.news.score" }] },
+    }), { status: 200 }))));
+    renderLogsClient();
+    expect(await screen.findByText("ai.news.score · AI 用量")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "查看接口日志详情" }));
+    expect(await screen.findByText("ai.news.score · AI 用量")).toBeInTheDocument();
+  });
   test("renders page controls and loads the selected log page", async () => {
     renderLogsClient();
 

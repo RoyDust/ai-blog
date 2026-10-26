@@ -9,13 +9,16 @@ const mocks = vi.hoisted(() => ({
   getAiTaskItem: vi.fn(),
   markAiTaskItemSucceeded: vi.fn(),
   revalidatePublicContent: vi.fn(),
+  completion: vi.fn(),
 }));
-
 vi.mock("@/lib/ai-models", () => ({
-  getAiModelChatRequestExtras: vi.fn(() => ({})),
   getAiModelForCapability: mocks.getAiModelForCapability,
+  getAiModelChatRequestExtras: vi.fn(() => ({})),
 }));
 
+vi.mock("@/lib/ai-completion-client", () => ({
+  createCompletionClientForModel: () => ({ completeText: mocks.completion }),
+}));
 vi.mock("@/lib/ai-tasks", () => ({
   AI_TASK_ITEM_STATUSES: {
     queued: "QUEUED",
@@ -78,13 +81,19 @@ const aiModel = {
 
 describe("ai post actions", () => {
   beforeEach(() => {
-    vi.resetModules();
     vi.clearAllMocks();
     vi.unstubAllGlobals();
-    mocks.getAiModelForCapability.mockResolvedValue(aiModel);
-    mocks.postUpdateMany.mockResolvedValue({ count: 1 });
-    mocks.itemUpdateMany.mockResolvedValue({ count: 1 });
-    mocks.revalidatePublicContent.mockReturnValue({ paths: [], errors: [] });
+    mocks.getAiModelForCapability.mockReset().mockResolvedValue(aiModel);
+    mocks.postUpdate.mockReset();
+    mocks.postFindFirst.mockReset();
+    mocks.postUpdateMany.mockReset().mockResolvedValue({ count: 1 });
+    mocks.itemUpdateMany.mockReset().mockResolvedValue({ count: 1 });
+    mocks.tagFindMany.mockReset();
+    mocks.categoryFindMany.mockReset();
+    mocks.getAiTaskItem.mockReset();
+    mocks.markAiTaskItemSucceeded.mockReset();
+    mocks.revalidatePublicContent.mockReset().mockReturnValue({ paths: [], errors: [] });
+    mocks.completion.mockReset().mockResolvedValue({ text: "  这是一段适合搜索展示的 SEO 描述。 " });
     process.env.AI_POST_SUMMARY_TIMEOUT_MS = "90000";
   });
 
@@ -101,15 +110,7 @@ describe("ai post actions", () => {
   });
 
   test("generates an SEO description through an OpenAI-compatible model", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({
-          choices: [{ message: { content: "  这是一段适合搜索展示的 SEO 描述。 " } }],
-        }),
-      }),
-    );
+    mocks.completion.mockResolvedValueOnce({ text: "  这是一段适合搜索展示的 SEO 描述。 " });
 
     const { runPostAiAction } = await import("../ai-post-actions");
     const result = await runPostAiAction({
@@ -132,23 +133,10 @@ describe("ai post actions", () => {
       modelId: "model-1",
       output: { seoDescription: "这是一段适合搜索展示的 SEO 描述。" },
     });
-    expect(fetch).toHaveBeenCalledWith(
-      "https://compat.example/v1/chat/completions",
-      expect.objectContaining({
-        method: "POST",
-        headers: expect.objectContaining({ authorization: "Bearer secret" }),
-      }),
-    );
   });
 
   test("generates tag suggestions as existing tag ids", async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        choices: [{ message: { content: '{"tagIds":["tag-ai","tag-next"],"names":["AI","Next.js"]}' } }],
-      }),
-    });
-    vi.stubGlobal("fetch", fetchMock);
+    mocks.completion.mockResolvedValueOnce({ text: '{"tagIds":["tag-ai","tag-next"],"names":["AI","Next.js"]}' });
     mocks.tagFindMany.mockResolvedValueOnce([
       { id: "tag-ai", name: "AI", slug: "ai" },
       { id: "tag-next", name: "Next.js", slug: "nextjs" },
@@ -181,21 +169,12 @@ describe("ai post actions", () => {
         newTagNames: [],
       },
     });
-    const requestBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)) as { messages: Array<{ content: string }> };
-    expect(requestBody.messages[1].content).toContain("只能从已有标签中选择");
-    expect(requestBody.messages[1].content).toContain('"id":"tag-ai"');
+    expect(mocks.completion.mock.calls[0]?.[0][1].content).toContain("只能从已有标签中选择")
+    expect(mocks.completion.mock.calls[0]?.[0][1].content).toContain('"id":"tag-ai"')
   });
 
   test("matches common AI tag output shapes back to existing tags", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({
-          choices: [{ message: { content: '{"selectedTags":[{"name":"AI"},{"slug":"nextjs"}],"tagNames":["不存在"]}' } }],
-        }),
-      }),
-    );
+    mocks.completion.mockResolvedValueOnce({ text: '{"selectedTags":[{"name":"AI"},{"slug":"nextjs"}],"tagNames":["不存在"]}' });
     mocks.tagFindMany.mockResolvedValueOnce([
       { id: "tag-ai", name: "AI", slug: "ai" },
       { id: "tag-next", name: "Next.js", slug: "nextjs" },
@@ -226,15 +205,7 @@ describe("ai post actions", () => {
   });
 
   test("rejects AI tag suggestions that do not match existing tags", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({
-          choices: [{ message: { content: '{"tagIds":["invented-tag"],"names":["不存在"]}' } }],
-        }),
-      }),
-    );
+    mocks.completion.mockResolvedValueOnce({ text: '{"tagIds":["invented-tag"],"names":["不存在"]}' });
     mocks.tagFindMany.mockResolvedValueOnce([{ id: "tag-ai", name: "AI", slug: "ai" }]);
 
     const { runPostAiAction } = await import("../ai-post-actions");

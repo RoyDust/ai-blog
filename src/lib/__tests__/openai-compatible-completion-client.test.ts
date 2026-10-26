@@ -39,6 +39,32 @@ describe('OpenAICompatibleCompletionClient', () => {
     expect(init.headers).toMatchObject({ authorization: 'Bearer sk-test-secret', 'content-type': 'application/json' })
     expect(JSON.parse(String(init.body))).toEqual({ model: 'demo', messages })
   })
+  it('leaves usage unset when the provider omits usage', async () => {
+    const client = new OpenAICompatibleCompletionClient({ baseUrl: 'https://provider.example', model: 'demo', apiKey: 'key' }, {
+      fetchImpl: fetchMock(jsonResponse({ choices: [{ message: { content: 'ok' } }] })), sleep: async () => {},
+    })
+    await expect(client.completeText(messages)).resolves.toEqual({ text: 'ok' })
+  })
+  it('captures reasoning and cache usage and records each billed retry separately', async () => {
+    const usage = { prompt_tokens: 34, completion_tokens: 19, total_tokens: 53, completion_tokens_details: { reasoning_tokens: 13 }, prompt_cache_hit_tokens: 5, prompt_cache_miss_tokens: 29 }
+    const fetchImpl = fetchMock(
+      new Response(JSON.stringify({ error: { code: 'busy' }, usage }), { status: 503 }),
+      jsonResponse({ model: 'deepseek-flash', choices: [{ message: { content: 'ok' }, finish_reason: 'stop' }], usage }),
+    )
+    const attempts: unknown[] = []
+    const client = new OpenAICompatibleCompletionClient({
+      baseUrl: 'https://provider.example', model: 'demo', apiKey: 'diagnostic-secret',
+      onAttempt: async attempt => { attempts.push(attempt) },
+    }, { fetchImpl, sleep: async () => {} })
+
+    await expect(client.completeText(messages)).resolves.toMatchObject({
+      usage: { prompt_tokens: 34, completion_tokens: 19, total_tokens: 53, reasoning_tokens: 13, prompt_cache_hit_tokens: 5, prompt_cache_miss_tokens: 29 },
+    })
+    expect(attempts).toEqual([
+      expect.objectContaining({ attempt: 1, statusCode: 503, success: false, usage: expect.objectContaining({ total_tokens: 53 }), errorKind: 'transient-upstream' }),
+      expect.objectContaining({ attempt: 2, statusCode: 200, success: true, usage: expect.objectContaining({ reasoning_tokens: 13 }), finishReason: 'stop' }),
+    ])
+  })
 
   it('does not allow provider headers to override the configured credential', async () => {
     const fetchImpl = fetchMock(jsonResponse({ choices: [{ message: { content: 'ok' } }] }))

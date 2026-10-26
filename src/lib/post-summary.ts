@@ -7,6 +7,7 @@
  * - 为编辑器摘要按钮与批量摘要任务提供可复用能力
  */
 import { getAiModelChatRequestExtras, type AiModelOption } from "@/lib/ai-models";
+import { fetchAiModelJson } from "@/lib/ai-completion-client";
 
 type OpenAICompatibleChatPayload = {
   choices?: Array<{
@@ -138,8 +139,9 @@ export async function generatePostSummary({
     .join("\n\n");
 
   let response: Response;
+  let payload: OpenAICompatibleChatPayload;
   try {
-    response = await fetch(`${aiModel.baseUrl}${aiModel.requestPath}`, {
+    const result = await fetchAiModelJson(aiModel, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -156,7 +158,9 @@ export async function generatePostSummary({
         ...getAiModelChatRequestExtras(aiModel),
       }),
       signal: AbortSignal.timeout(getPostSummaryTimeoutMs()),
-    });
+    }, "ai.post.summary");
+    response = result.response;
+    payload = (result.payload ?? {}) as OpenAICompatibleChatPayload;
   } catch (error) {
     if (isTimeoutError(error)) {
       throw new Error(`摘要生成超时，请稍后重试，或在 AI 模型管理中切换更快的模型。当前超时 ${Math.round(getPostSummaryTimeoutMs() / 1000)} 秒。`);
@@ -165,7 +169,6 @@ export async function generatePostSummary({
     throw error;
   }
 
-  const payload = (await response.json().catch(() => ({}))) as OpenAICompatibleChatPayload;
 
   if (!response.ok) {
     throw new Error(getUpstreamErrorMessage(response, payload));

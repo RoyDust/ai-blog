@@ -14,7 +14,7 @@ import { createHash } from "node:crypto";
 import type { Prisma } from "@prisma/client";
 import { generateAiCoverImage } from "@/lib/ai-cover-image";
 import { getAiModelChatRequestExtras, getAiModelForCapability, type AiModelOption } from "@/lib/ai-models";
-import { createCompletionClientForModel } from "@/lib/openai-compatible-completion-client";
+import { createCompletionClientForModel } from "@/lib/ai-completion-client";
 import {
   buildCategoryPrompt,
   buildPostAiBaseContext,

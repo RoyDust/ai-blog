@@ -13,7 +13,7 @@ import { toErrorResponse } from "@/lib/api-errors"
 import { checkAiSearchRateLimit, checkSearchRateLimit } from "@/lib/rate-limit"
 import { searchPublicPosts } from "@/lib/public-search"
 import { getAiModelForCapability } from "@/lib/ai-models"
-import { createCompletionClientForModel } from "@/lib/openai-compatible-completion-client"
+import { createCompletionClientForModel } from "@/lib/ai-completion-client"
 import { clampPagination } from "@/lib/validation"
 
 const SEARCH_MIN_QUERY_LENGTH = 2
@@ -145,7 +145,7 @@ async function generateAiSearchResult({ query, items }: { query: string; items: 
   ].join('\n\n')
 
   try {
-    const client = createCompletionClientForModel(aiModel)
+    const client = createCompletionClientForModel(aiModel, undefined, "ai.search")
     const result = await client.completeText([
       { role: "system", content: "你是站内搜索助手，输出必须是可解析 JSON。" },
       { role: "user", content: prompt },

@@ -1,4 +1,4 @@
-import { createCompletionClientForModel } from "@/lib/openai-compatible-completion-client"
+import { createCompletionClientForModel } from "@/lib/ai-completion-client"
 import { getAiModelChatRequestExtras, getAiModelForCapability, type AiModelOption } from "@/lib/ai-models"
 import { buildDailyAiNewsSlug, formatDateId, type AiNewsItem } from "@/lib/ai-news/parser"
 import { ValidationError } from "@/lib/api-errors"
@@ -363,7 +363,7 @@ export async function generateDailyAiNewsDraft({
 
   let responseText = ""
   if (fetchImpl === fetch) {
-    const client = createCompletionClientForModel(resolvedModel)
+    const client = createCompletionClientForModel(resolvedModel, undefined, "ai.news.draft")
     const result = await client.completeText([
       { role: "system", content: "你是严谨的中文 AI 新闻主编，输出必须是可解析 JSON。" },
       { role: "user", content: prompt },

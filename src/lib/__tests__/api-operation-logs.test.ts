@@ -28,21 +28,22 @@ describe("api operation logs", () => {
     delete process.env.API_OPERATION_LOG_TEST_ENABLE;
   });
 
-  test("redacts sensitive keys recursively", () => {
+  test("redacts secrets while preserving reported usage counters", () => {
     expect(sanitizeLogPayload({
-      email: "admin@example.com",
-      password: "secret",
-      nested: {
-        apiKey: "key-1",
-        content: "long article body",
+      usage: {
+        prompt_tokens: 900,
+        completion_tokens: 120,
+        reasoning_tokens: 80,
+        prompt_cache_hit_tokens: 75,
       },
+      api_key_fingerprint: "sha256-value",
+      authorization: "Bearer secret",
+      content: "prompt and article content",
     })).toEqual({
-      email: "admin@example.com",
-      password: "[REDACTED]",
-      nested: {
-        apiKey: "[REDACTED]",
-        content: "[REDACTED]",
-      },
+      usage: { prompt_tokens: 900, completion_tokens: 120, reasoning_tokens: 80, prompt_cache_hit_tokens: 75 },
+      api_key_fingerprint: "[REDACTED]",
+      authorization: "[REDACTED]",
+      content: "[REDACTED]",
     });
   });
 

@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto'
+import { extractCompletionUsage, type CompletionAttempt, type CompletionUsage } from './completion-usage'
 import {
   COMPLETION_SUCCESS_MAX_BYTES,
   DEFAULT_COMPLETION_PROBE_BUDGET_MS,
@@ -41,6 +43,8 @@ export interface OpenAICompatibleModelConfig {
   headers?: Record<string, string>
   /** Provider-specific JSON fields, kept outside the transport protocol. */
   bodyExtensions?: Record<string, unknown>
+  /** Every physical attempt, including retries, is observed here. */
+  onAttempt?: (attempt: CompletionAttempt) => Promise<void>
 }
 
 export type CompletionBudgetStrategy = 'model-probe' | 'interactive-completion' | 'long-completion'
@@ -61,6 +65,7 @@ export interface CompletionTextResult {
   text: string
   model?: string
   finishReason?: string
+  usage?: CompletionUsage
 }
 
 export interface CompletionClient {
@@ -157,8 +162,32 @@ export class OpenAICompatibleCompletionClient implements CompletionClient {
     const endpoint = buildEndpoint(this.config.baseUrl, this.config.requestPath ?? DEFAULT_REQUEST_PATH)
     const secrets = [this.config.apiKey]
 
-    return withReliabilityRetry(
-      async ({ signal }) => {
+    const callId = randomUUID()
+    const recordings: Promise<void>[] = []
+    try {
+      return await withReliabilityRetry(
+      async ({ signal, attempt }) => {
+        const startedAt = this.now()
+        let statusCode: number | null = null
+        let usage: CompletionUsage | null = null
+        let returnedModel: string | null = null
+        let finishReason: string | null = null
+        let recorded = false
+        const recordAttempt = (success: boolean, errorKind: string | null) => {
+          if (recorded || !this.config.onAttempt) return
+          recorded = true
+          const observation: CompletionAttempt = {
+            callId, attempt, startedAt: new Date(startedAt).toISOString(),
+            durationMs: Math.max(0, this.now() - startedAt), statusCode, success,
+            model: returnedModel, finishReason, usage, errorKind,
+          }
+          recordings.push(Promise.resolve().then(() => this.config.onAttempt!(observation)).catch(() => {
+            console.error('Completion usage recording failed')
+          }))
+        }
+        const onAbort = () => recordAttempt(false, 'timeout')
+        signal.addEventListener('abort', onAbort, { once: true })
+        try {
         let response: Response
         try {
           response = await this.fetchImpl(endpoint, {
@@ -179,9 +208,12 @@ export class OpenAICompatibleCompletionClient implements CompletionClient {
         if (!isResponseLike(response)) {
           throw new ReliabilityError({ kind: 'invalid-response', retryable: false, message: 'Completion transport returned an invalid response', secrets })
         }
+        statusCode = response.status
 
         if (!response.ok) {
-          throw await responseError(response, secrets, this.now)
+          const failure = await responseError(response, secrets, this.now)
+          usage = failure.usage
+          throw failure.error
         }
 
         let raw: string
@@ -197,7 +229,18 @@ export class OpenAICompatibleCompletionClient implements CompletionClient {
         } catch (error) {
           throw new ReliabilityError({ kind: 'invalid-response', retryable: false, message: 'Completion response was not valid JSON', cause: error, secrets })
         }
-        return parseCompletionPayload(payload, secrets)
+        usage = extractCompletionUsage(payload)
+        returnedModel = typeof payload.model === 'string' ? payload.model : null
+        const result = parseCompletionPayload(payload, secrets)
+        finishReason = result.finishReason ?? null
+        recordAttempt(true, null)
+        return result
+        } catch (error) {
+          recordAttempt(false, error instanceof ReliabilityError ? error.kind : 'network')
+          throw error
+        } finally {
+          signal.removeEventListener('abort', onAbort)
+        }
       },
       {
         maxAttempts: policy.maxAttempts,
@@ -210,6 +253,9 @@ export class OpenAICompatibleCompletionClient implements CompletionClient {
         signal: options.signal,
       },
     )
+    } finally {
+      await Promise.all(recordings)
+    }
   }
 
   async completeJson<T>(
@@ -240,29 +286,13 @@ export function createOpenAICompatibleCompletionClient(
   config: OpenAICompatibleModelConfig,
   runtime?: CompletionClientRuntimeOptions,
 ): OpenAICompatibleCompletionClient {
-  return new OpenAICompatibleCompletionClient(config, runtime)
-}
-
-/**
- * Adapt the model-directory shape without making the transport depend on the
- * model directory itself.  Missing credentials fail before any request is
- * scheduled, which also keeps them out of the retry loop.
- */
-export function createCompletionClientForModel(
-  model: OpenAICompatibleModelLike,
-  runtime?: CompletionClientRuntimeOptions,
-): OpenAICompatibleCompletionClient {
-  if (!model || typeof model.apiKey !== 'string' || model.apiKey.length === 0) {
-    throw new ReliabilityError({ kind: 'configuration', retryable: false, message: 'Completion API key is missing' })
-  }
-  return createOpenAICompatibleCompletionClient({
-    baseUrl: model.baseUrl,
-    requestPath: model.requestPath,
-    model: model.model,
-    apiKey: model.apiKey,
-    headers: model.headers,
+  if (runtime?.fetchImpl || config.onAttempt) return new OpenAICompatibleCompletionClient(config, runtime)
+  return new OpenAICompatibleCompletionClient({
+    ...config,
+    onAttempt: (attempt) => import('./ai-completion-client').then(({ createAiUsageRecorder }) => createAiUsageRecorder(config, 'ai.completion')(attempt)),
   }, runtime)
 }
+
 
 function validateConfig(config: OpenAICompatibleModelConfig): void {
   if (!config || typeof config !== 'object') {
@@ -346,24 +376,27 @@ function buildEndpoint(baseUrl: string, requestPath: string): string {
   return endpoint.toString()
 }
 
-async function responseError(response: Response, secrets: readonly string[], now: () => number): Promise<ReliabilityError> {
+async function responseError(response: Response, secrets: readonly string[], now: () => number): Promise<{ error: ReliabilityError; usage: CompletionUsage | null }> {
   let body = ''
   try {
     body = await readResponseBodyBounded(response, { maxBytes: UPSTREAM_ERROR_MAX_BYTES, secrets })
   } catch {
     // Error diagnostics are best effort; status classification remains useful.
   }
+  let usage: CompletionUsage | null = null
+  try { usage = extractCompletionUsage(JSON.parse(body)) } catch { /* Error bodies need not be JSON. */ }
   const diagnostic = parseUpstreamDiagnostic(body, { secrets })
   // Upstream messages are untrusted and can echo prompts or request bodies.
   // Keep the public transport error generic; code/status/request id are the
   // only bounded diagnostics safe to pass across the business boundary.
-  return classifyHttpFailure(response.status, {
+  const error = classifyHttpFailure(response.status, {
     message: undefined,
     upstreamCode: diagnostic.code,
     requestId: diagnostic.requestId ?? getResponseHeader(response, 'x-request-id') ?? getResponseHeader(response, 'request-id') ?? undefined,
     retryAfterMs: parseRetryAfter(getResponseHeader(response, 'retry-after'), now()),
     secrets,
   })
+  return { error, usage }
 }
 
 function isResponseLike(value: unknown): value is Response {
@@ -390,6 +423,8 @@ function parseCompletionPayload(payload: CompletionPayload, secrets: readonly st
   if (typeof finishReason === 'string' && finishReason.length <= 64) {
     result.finishReason = finishReason
   }
+  const usage = extractCompletionUsage(payload)
+  if (usage) result.usage = usage
   return result
 }
 
