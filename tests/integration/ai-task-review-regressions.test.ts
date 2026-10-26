@@ -14,7 +14,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("next/cache", () => ({ revalidatePath: mocks.cache }));
 vi.mock("@/lib/ai-models", () => ({ getAiModelForCapability: mocks.model, getAiModelChatRequestExtras: () => ({}) }));
 vi.mock("@/lib/post-summary", () => ({ generatePostSummary: mocks.summary, getPostSummaryMaxInputChars: () => 1000 }));
-vi.mock("@/lib/openai-compatible-completion-client", () => ({ createCompletionClientForModel: () => ({ completeText: mocks.completion }) }));
+vi.mock("@/lib/ai-completion-client", () => ({ createCompletionClientForModel: () => ({ completeText: mocks.completion }) }));
 vi.mock("@/lib/qiniu-server", () => ({ uploadBufferToQiniu: mocks.upload }));
 vi.mock("@/lib/api-auth", () => ({ requireAdminSession: mocks.session }));
 vi.mock("@/lib/api-operation-log-route", () => ({ withApiOperationLogging: (handler: unknown) => handler }));
