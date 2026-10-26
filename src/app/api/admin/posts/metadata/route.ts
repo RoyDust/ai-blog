@@ -2,7 +2,7 @@ import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 import { NextResponse } from "next/server"
 
 import { requireAdminSession } from "@/lib/api-auth"
-import { toErrorResponse, ValidationError } from "@/lib/api-errors"
+import { ApiError, toErrorResponse, UpstreamError, ValidationError } from "@/lib/api-errors"
 import { AI_AUTHORING_LIMITS } from "@/lib/ai-contract"
 import { generatePostSlug } from "@/lib/slug"
 import { getCategoryDirectory, getTagDirectory } from "@/lib/taxonomy"
@@ -210,7 +210,7 @@ async function POSTHandler(request: Request) {
 
     const aiModel = await getAiModelForCapability("post-summary")
     if (!aiModel?.apiKey) {
-      return NextResponse.json({ error: "AI model is not configured" }, { status: 500 })
+      throw new ApiError(500, "AI model is not configured")
     }
     const prompt = buildPrompt({ categories, content: content ?? "", field, tags, title: titleInput })
 
@@ -227,7 +227,7 @@ async function POSTHandler(request: Request) {
     if (field === "title") {
       const title = truncate(readOptionalString(candidate.title) || titleInput, AI_AUTHORING_LIMITS.titleMaxLength)
       if (!title) {
-        return NextResponse.json({ error: "Metadata generation failed" }, { status: 502 })
+        throw new UpstreamError("Metadata generation failed")
       }
 
       return NextResponse.json({ success: true, data: { title } })
@@ -256,7 +256,7 @@ async function POSTHandler(request: Request) {
     const excerpt = truncate(readOptionalString(candidate.excerpt), AI_AUTHORING_LIMITS.excerptMaxLength)
 
     if (!excerpt) {
-      return NextResponse.json({ error: "Metadata generation failed" }, { status: 502 })
+      throw new UpstreamError("Metadata generation failed")
     }
 
     return NextResponse.json({

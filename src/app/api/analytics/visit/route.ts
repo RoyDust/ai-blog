@@ -1,13 +1,12 @@
 import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 import { createHash } from "node:crypto";
-import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 
 import { extractPostSlugFromPath, normalizeAnalyticsPath, shouldTrackVisitPath } from "@/lib/analytics";
-import { toErrorResponse } from "@/lib/api-errors";
-import { authOptions } from "@/lib/auth";
+import { toErrorResponse, TooManyRequestsError, ValidationError } from "@/lib/api-errors";
 import { prisma } from "@/lib/prisma";
 import { checkAnalyticsRateLimit } from "@/lib/rate-limit";
+import { readSessionUserId } from "@/lib/session-token";
 import { createVisitLogOperation } from "@/lib/visit-log-repository";
 
 const MAX_REFERRER_LENGTH = 500;
@@ -30,39 +29,34 @@ function hashIp(ip: string | null) {
 }
 
 async function POSTHandler(request: Request) {
-  let payload: unknown;
-
   try {
-    payload = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
-  }
+    const payload: unknown = await request.json().catch(() => {
+      throw new ValidationError("Invalid JSON body");
+    });
 
-  const body = payload && typeof payload === "object" ? payload as Record<string, unknown> : {};
-  const path = normalizeAnalyticsPath(body.path);
+    const body = payload && typeof payload === "object" ? payload as Record<string, unknown> : {};
+    const path = normalizeAnalyticsPath(body.path);
 
-  if (!path) {
-    return NextResponse.json({ error: "Valid path is required" }, { status: 400 });
-  }
+    if (!path) {
+      throw new ValidationError("Valid path is required");
+    }
 
-  if (!shouldTrackVisitPath(path)) {
-    return NextResponse.json({ ok: true, skipped: true });
-  }
+    if (!shouldTrackVisitPath(path)) {
+      return NextResponse.json({ ok: true, skipped: true });
+    }
 
-  const rateLimit = await checkAnalyticsRateLimit(request);
-  if (!rateLimit.allowed) {
-    return NextResponse.json({ error: "Too many analytics requests" }, { status: 429 });
-  }
+    const rateLimit = await checkAnalyticsRateLimit(request);
+    if (!rateLimit.allowed) {
+      throw new TooManyRequestsError("Too many analytics requests");
+    }
 
-  const referrer = truncate(typeof body.referrer === "string" ? body.referrer : null, MAX_REFERRER_LENGTH);
-  const visitorId = truncate(typeof body.visitorId === "string" ? body.visitorId : null, MAX_VISITOR_ID_LENGTH);
-  const userAgent = truncate(request.headers.get("user-agent"), MAX_USER_AGENT_LENGTH);
-  const ipHash = hashIp(getClientIp(request));
-  const postSlug = extractPostSlugFromPath(path);
-  const session = await getServerSession(authOptions);
-  const userId = session?.user?.id ?? null;
+    const referrer = truncate(typeof body.referrer === "string" ? body.referrer : null, MAX_REFERRER_LENGTH);
+    const visitorId = truncate(typeof body.visitorId === "string" ? body.visitorId : null, MAX_VISITOR_ID_LENGTH);
+    const userAgent = truncate(request.headers.get("user-agent"), MAX_USER_AGENT_LENGTH);
+    const ipHash = hashIp(getClientIp(request));
+    const postSlug = extractPostSlugFromPath(path);
+    const userId = await readSessionUserId(request);
 
-  try {
     const post = postSlug
       ? await prisma.post.findFirst({
           where: { slug: postSlug, deletedAt: null, published: true },
@@ -70,18 +64,19 @@ async function POSTHandler(request: Request) {
         })
       : null;
 
-    await prisma.$transaction([
-      createVisitLogOperation({
-        path,
-        postId: post?.id ?? null,
-        userId,
-        referrer,
-        visitorId,
-        userAgent,
-        ipHash,
-      }),
-      ...(post ? [prisma.post.update({ where: { id: post.id }, data: { viewCount: { increment: 1 } } })] : []),
-    ]);
+    await createVisitLogOperation({
+      path,
+      postId: post?.id ?? null,
+      userId,
+      referrer,
+      visitorId,
+      userAgent,
+      ipHash,
+    });
+
+    if (post) {
+      await prisma.post.update({ where: { id: post.id }, data: { viewCount: { increment: 1 } } });
+    }
 
     return NextResponse.json({ ok: true });
   } catch (error) {

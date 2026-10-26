@@ -3,7 +3,7 @@ import { NextResponse } from "next/server"
 import type { Prisma } from "@prisma/client"
 
 import { requireAdminSession } from "@/lib/api-auth"
-import { toErrorResponse } from "@/lib/api-errors"
+import { toErrorResponse, ValidationError } from "@/lib/api-errors"
 import { mutateTaxonomy } from "@/lib/taxonomy-mutations"
 import { buildAdminListPagination, getAdminListSkip, parseAdminListPagination } from "@/lib/admin-list-pagination"
 import { prisma } from "@/lib/prisma"
@@ -17,7 +17,7 @@ async function GETHandler(request: Request) {
     if (searchParams.get("preview") === "delete") {
       const ids = parseIdList(searchParams)
       if (ids.length === 0) {
-        return NextResponse.json({ error: "Tag IDs are required" }, { status: 400 })
+        throw new ValidationError("Tag IDs are required")
       }
 
       const [tagCount, postCount] = await Promise.all([
@@ -86,7 +86,7 @@ async function PATCHHandler(request: Request) {
     const { id, name, slug, color } = parseTaxonomyInput(await request.json())
 
     if (!id) {
-      return NextResponse.json({ error: "Id is required" }, { status: 400 })
+      throw new ValidationError("Id is required")
     }
 
     const result = await mutateTaxonomy('tag', [id], slug, (tx) => tx.tag.update({
@@ -106,7 +106,7 @@ async function DELETEHandler(request: Request) {
     const { searchParams } = new URL(request.url)
     const ids = parseIdList(searchParams)
     if (ids.length === 0) {
-      return NextResponse.json({ error: "Tag ID is required" }, { status: 400 })
+      throw new ValidationError("Tag ID is required")
     }
 
     const result = await mutateTaxonomy('tag', ids, undefined, async (tx, resolvedIds) => {

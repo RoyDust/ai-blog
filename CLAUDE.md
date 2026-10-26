@@ -26,6 +26,7 @@ This is a single-context repo; domain docs are read from root-level `CONTEXT.md`
 pnpm dev            # 启动开发服务器 (http://localhost:3000)
 pnpm build          # 生产构建
 pnpm lint           # ESLint 检查
+pnpm typecheck      # next typegen + tsc --noEmit（CI 独立门禁）
 
 pnpm test           # Vitest 单元/组件测试 (vitest run)
 pnpm vitest run src/lib/__tests__/posts.test.ts   # 运行单个测试文件

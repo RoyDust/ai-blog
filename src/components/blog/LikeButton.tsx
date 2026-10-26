@@ -92,8 +92,13 @@ export function LikeButton({ slug, initialLiked, initialCount }: LikeButtonProps
       })
       const data = await response.json()
 
-      if (!data.success) {
+      if (!response.ok || !data.success) {
         throw new Error('Like action failed')
+      }
+
+      setLiked(Boolean(data.liked))
+      if (typeof data.count === 'number') {
+        setCount(data.count)
       }
     } catch (error) {
       setLiked(!nextLiked)

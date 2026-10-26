@@ -1,7 +1,7 @@
 import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
-import { toErrorResponse } from "@/lib/api-errors";
+import { ForbiddenError, toErrorResponse, ValidationError } from "@/lib/api-errors";
 import { requireSession } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
 
@@ -39,7 +39,7 @@ async function POSTHandler(request: Request) {
     const requestOrigin = headerStore.get("origin");
 
     if (!isAllowedOrigin(requestOrigin, request.url)) {
-      return NextResponse.json({ error: "非法请求来源" }, { status: 403 });
+      throw new ForbiddenError("非法请求来源");
     }
 
     const session = await requireSession();
@@ -65,14 +65,11 @@ async function POSTHandler(request: Request) {
     ]);
 
     if (!githubAccount) {
-      return NextResponse.json({ error: "未绑定 GitHub 账号" }, { status: 400 });
+      throw new ValidationError("未绑定 GitHub 账号");
     }
 
     if (!user?.password && otherAccountsCount === 0) {
-      return NextResponse.json(
-        { error: "解绑后你将无法登录，请先设置密码或绑定其他登录方式" },
-        { status: 400 },
-      );
+      throw new ValidationError("解绑后你将无法登录，请先设置密码或绑定其他登录方式");
     }
 
     await prisma.account.delete({

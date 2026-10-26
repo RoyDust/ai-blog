@@ -4,13 +4,13 @@ import { prisma } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
 import { parseRegisterInput } from "@/lib/validation"
 import { checkAuthRateLimit } from "@/lib/rate-limit"
-import { ConflictError, toErrorResponse } from "@/lib/api-errors"
+import { ConflictError, toErrorResponse, TooManyRequestsError } from "@/lib/api-errors"
 
 async function POSTHandler(request: Request) {
   try {
     const rateLimit = await checkAuthRateLimit(request)
     if (!rateLimit.allowed) {
-      return NextResponse.json({ error: "Too many requests" }, { status: 429 })
+      throw new TooManyRequestsError()
     }
 
     const { name, email, password } = parseRegisterInput(await request.json())

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { LikeButton } from "../LikeButton";
 
@@ -102,6 +102,47 @@ describe("LikeButton", () => {
     
     // Check button label is set to '取消点赞'
     expect(screen.getByRole("button", { name: "取消点赞" })).toBeInTheDocument();
+  });
+
+  test("reconciles liked state and count from the server response", async () => {
+    mockReducedMotion(true);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (_url: string, init?: RequestInit) =>
+        init?.method === "POST"
+          ? { ok: true, json: async () => ({ success: true, liked: false, count: 4 }) }
+          : { ok: true, json: async () => ({ success: true, data: { liked: false, count: 5 } }) },
+      ),
+    );
+
+    render(<LikeButton slug="test-post" initialLiked={false} initialCount={5} />);
+    fireEvent.click(screen.getByRole("button", { name: "点赞" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("4")).toBeInTheDocument();
+    });
+    expect(screen.getByRole("button", { name: "点赞" })).toBeInTheDocument();
+  });
+
+  test("rolls back the optimistic update when the request fails", async () => {
+    mockReducedMotion(true);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (_url: string, init?: RequestInit) =>
+        init?.method === "POST"
+          ? { ok: false, json: async () => ({ error: "Too many requests" }) }
+          : { ok: true, json: async () => ({ success: true, data: { liked: false, count: 5 } }) },
+      ),
+    );
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    render(<LikeButton slug="test-post" initialLiked={false} initialCount={5} />);
+    fireEvent.click(screen.getByRole("button", { name: "点赞" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "点赞" })).not.toBeDisabled();
+    });
+    expect(screen.getByText("5")).toBeInTheDocument();
   });
 
   test("skips canvas particles when reduced motion is enabled", () => {
