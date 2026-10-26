@@ -1,4 +1,4 @@
-import { createCompletionClientForModel } from "@/lib/openai-compatible-completion-client"
+import { createCompletionClientForModel } from "@/lib/ai-completion-client"
 /**
  * AI 日报候选富化模块。
  *
@@ -421,7 +421,7 @@ export async function generateFactCardForCandidate({
     ] as const
 
     if (fetchImpl === fetch) {
-      const client = createCompletionClientForModel(aiModel)
+      const client = createCompletionClientForModel(aiModel, undefined, "ai.news.fact-card")
       const result = await client.completeText(messages, {
         strategy: "interactive-completion",
         bodyExtensions: { temperature: 0.2, max_tokens: FACT_CARD_MAX_TOKENS },

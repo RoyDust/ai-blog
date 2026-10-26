@@ -1,4 +1,4 @@
-import { createCompletionClientForModel } from "@/lib/openai-compatible-completion-client"
+import { createCompletionClientForModel } from "@/lib/ai-completion-client"
 /**
  * AI 日报日级主编稿生成模块。
  *
@@ -409,7 +409,7 @@ export async function generateDailyAiNewsEditorialBrief({
 
     let assistantText = ""
     if (fetchImpl === fetch) {
-      const client = createCompletionClientForModel(aiModel)
+      const client = createCompletionClientForModel(aiModel, undefined, "ai.news.editorial")
       const result = await client.completeText(messages, {
         strategy: "long-completion",
         bodyExtensions: {

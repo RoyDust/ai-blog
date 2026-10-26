@@ -7,7 +7,7 @@ import { AI_AUTHORING_LIMITS } from "@/lib/ai-contract"
 import { generatePostSlug } from "@/lib/slug"
 import { getCategoryDirectory, getTagDirectory } from "@/lib/taxonomy"
 import { getAiModelForCapability } from "@/lib/ai-models"
-import { createCompletionClientForModel } from "@/lib/openai-compatible-completion-client"
+import { createCompletionClientForModel } from "@/lib/ai-completion-client"
 
 type MetadataCandidate = {
   title?: unknown
@@ -214,7 +214,7 @@ async function POSTHandler(request: Request) {
     }
     const prompt = buildPrompt({ categories, content: content ?? "", field, tags, title: titleInput })
 
-    const client = createCompletionClientForModel(aiModel)
+    const client = createCompletionClientForModel(aiModel, undefined, "ai.post.metadata")
     const result = await client.completeText([
       { role: "system", content: "你是一个严谨的中文博客编辑，只返回可解析 JSON。" },
       { role: "user", content: prompt },

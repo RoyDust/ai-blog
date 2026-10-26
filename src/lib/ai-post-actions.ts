@@ -14,7 +14,7 @@ import { createHash } from "node:crypto";
 import type { Prisma } from "@prisma/client";
 import { generateAiCoverImage } from "@/lib/ai-cover-image";
 import { getAiModelChatRequestExtras, getAiModelForCapability, type AiModelOption } from "@/lib/ai-models";
-import { createCompletionClientForModel } from "@/lib/openai-compatible-completion-client";
+import { createCompletionClientForModel } from "@/lib/ai-completion-client";
 import {
   buildCategoryPrompt,
   buildPostAiBaseContext,
@@ -131,7 +131,7 @@ async function runChatText({
   user: string;
   maxTokens?: number;
 }) {
-  const client = createCompletionClientForModel(aiModel)
+  const client = createCompletionClientForModel(aiModel, undefined, "ai.post.action");
   const result = await client.completeText([
     { role: "system", content: system },
     { role: "user", content: user },

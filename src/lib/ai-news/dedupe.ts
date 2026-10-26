@@ -1,4 +1,4 @@
-import { createCompletionClientForModel } from "@/lib/openai-compatible-completion-client"
+import { createCompletionClientForModel } from "@/lib/ai-completion-client"
 /**
  * AI 日报去重模块。
  *
@@ -393,7 +393,7 @@ export async function semanticDedupeCandidates({
     ] as const
 
     if (fetchImpl === fetch) {
-      const client = createCompletionClientForModel(aiModel)
+      const client = createCompletionClientForModel(aiModel, undefined, "ai.news.dedupe")
       const result = await client.completeText(messages, {
         strategy: "interactive-completion",
         bodyExtensions: { temperature: 0, max_tokens: 1200 },

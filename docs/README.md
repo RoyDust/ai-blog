@@ -7,6 +7,7 @@
 - [仓库协作约定](../AGENTS.md)
 - [部署文档](./deployment/)
 - [AI 写作 API](./integrations/ai-authoring-api.md)
+- [AI 调用用量日志](./integrations/ai-usage.md)
 - [Agent 高频实操面试题](./articles/2026-09-20-agent-interview-questions.md)
 - [Codex 的 /goal 是如何实现的？](./articles/2026-09-26-codex-goal-implementation.md)
 - [当前实施记录](./implementation/)

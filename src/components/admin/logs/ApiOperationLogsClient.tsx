@@ -98,7 +98,7 @@ const statusOptions = [
   { value: "5xx", label: "5xx" },
 ];
 
-const scopeOptions = ["", "admin", "public", "auth", "ai", "cron", "analytics", "account"];
+const scopeOptions = ["", "admin", "public", "auth", "ai", "ai-usage", "cron", "analytics", "account"];
 const allFilterValue = "__all__";
 const defaultPageSize = 40;
 const selectTriggerClassName = "h-10 w-full rounded-xl border-[var(--border)] bg-[var(--surface)] px-3 text-sm font-medium text-[var(--foreground)] shadow-none";
@@ -380,7 +380,7 @@ export function ApiOperationLogsClient() {
                       <TableCell><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${methodClassName(item.method)}`}>{item.method}</span></TableCell>
                       <TableCell className="whitespace-normal align-top">
                         <p className="truncate font-medium text-[var(--foreground)]">{item.path}</p>
-                        <p className="mt-1 truncate text-xs text-[var(--text-muted)]">{item.operation ?? item.route ?? item.scope}</p>
+                        <p className="mt-1 truncate text-xs text-[var(--text-muted)]">{item.operation ?? item.route ?? item.scope}{item.scope === "ai-usage" ? " · AI 用量" : ""}</p>
                       </TableCell>
                       <TableCell className="truncate align-top text-[var(--text-body)]">{formatActor(item)}</TableCell>
                       <TableCell className="whitespace-nowrap align-top text-[var(--text-body)]">{item.durationMs ?? 0} ms</TableCell>
@@ -428,7 +428,7 @@ export function ApiOperationLogsClient() {
               {detailError ? <p className="text-sm text-rose-600">{toErrorMessage(detailError, "接口日志详情加载失败")}</p> : null}
               <div className="grid gap-3 md:grid-cols-3">
                 <div><p className="text-xs text-[var(--muted)]">Request ID</p><p className="mt-1 break-all text-sm">{detailLog.requestId}</p></div>
-                <div><p className="text-xs text-[var(--muted)]">Operation</p><p className="mt-1 text-sm">{detailLog.operation ?? "未标记"}</p></div>
+                <div><p className="text-xs text-[var(--muted)]">Operation</p><p className="mt-1 text-sm">{detailLog.operation ?? "未标记"}{detailLog.scope === "ai-usage" ? " · AI 用量" : ""}</p></div>
                 <div><p className="text-xs text-[var(--muted)]">Actor</p><p className="mt-1 text-sm">{formatActor(detailLog)}</p></div>
               </div>
               {detailLog.errorMessage ? (

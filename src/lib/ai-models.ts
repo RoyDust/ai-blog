@@ -14,6 +14,7 @@
 import { prisma } from "@/lib/prisma";
 import { ValidationError } from "@/lib/api-errors";
 import { decryptApiKeyFromStorage, encryptApiKeyForStorage } from "@/lib/ai-models-crypto";
+import { fetchAiModelJson } from "@/lib/ai-completion-client";
 
 export type AiModelCapability = "post-summary" | "cover-image";
 
@@ -786,7 +787,7 @@ export async function testAiModelConnection(model: AiModelOption) {
     return "图片生成模型配置完整，实际连通性将在生成封面时验证。";
   }
 
-  const response = await fetch(`${model.baseUrl}${model.requestPath}`, {
+  const result = await fetchAiModelJson(model, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -803,9 +804,10 @@ export async function testAiModelConnection(model: AiModelOption) {
       ...getAiModelChatRequestExtras(model),
     }),
     signal: AbortSignal.timeout(15000),
-  });
+  }, "ai.model.probe");
+  const response = result.response;
 
-  const payload = (await response.json().catch(() => ({}))) as OpenAICompatibleChatPayload;
+  const payload = (result.payload ?? {}) as OpenAICompatibleChatPayload;
   const assistantText = extractAssistantText(payload);
 
   if (!response.ok) {

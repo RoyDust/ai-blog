@@ -1,0 +1,8 @@
+{
+  "setup": [
+    "pnpm install",
+    "[ ! -f .env ] && cp .env.example .env"
+  ],
+  "teardown": [],
+  "run": []
+}

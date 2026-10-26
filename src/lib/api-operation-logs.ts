@@ -15,6 +15,7 @@ export type ApiOperationLogCreateInput = {
   operation?: string | null;
   statusCode?: number | null;
   success: boolean;
+  errorKind?: string | null;
   durationMs?: number | null;
   actorType?: string | null;
   actorUserId?: string | null;
@@ -54,25 +55,12 @@ export const MAX_LOG_JSON_TEXT_LENGTH = 8_192;
 const VALID_RANGE_DAYS = [1, 7, 30, 90] as const;
 const VALID_PURGE_DAYS = [30, 60, 90] as const;
 
-const SENSITIVE_KEYS = new Set([
-  "authorization",
-  "cookie",
-  "password",
-  "passphrase",
-  "token",
-  "apikey",
-  "api_key",
-  "key",
-  "secret",
-  "access_token",
-  "refreshtoken",
-  "refresh_token",
-  "idtoken",
-  "id_token",
-  "content",
-  "body",
-  "prompt",
-]);
+const SENSITIVE_KEYS: Record<string, true> = {
+  authorization: true, cookie: true, password: true, passphrase: true,
+  token: true, apikey: true, api_key: true, key: true, secret: true,
+  access_token: true, refreshtoken: true, refresh_token: true, idtoken: true,
+  id_token: true, content: true, body: true, prompt: true, api_key_fingerprint: true,
+};
 
 const apiOperationLogModel = () =>
   (prisma as typeof prisma & {
@@ -80,9 +68,7 @@ const apiOperationLogModel = () =>
       create: (args: { data: Prisma.ApiOperationLogCreateInput }) => Promise<unknown>;
       count: (args: { where?: Prisma.ApiOperationLogWhereInput }) => Promise<number>;
       findMany: (args: Prisma.ApiOperationLogFindManyArgs) => Promise<ApiOperationLogRecord[]>;
-      findUnique: (args: {
-        where: { id: string };
-      }) => Promise<ApiOperationLogRecord | null>;
+      findUnique: (args: { where: { id: string } }) => Promise<ApiOperationLogRecord | null>;
       deleteMany: (args: { where: Prisma.ApiOperationLogWhereInput }) => Promise<{ count: number }>;
     };
   }).apiOperationLog;
@@ -118,9 +104,8 @@ function normalizeSensitiveKey(key: string) {
 
 function shouldRedactKey(key: string) {
   const normalized = normalizeSensitiveKey(key);
-  return SENSITIVE_KEYS.has(normalized) || normalized.endsWith("token") || normalized.endsWith("secret");
+  return SENSITIVE_KEYS[normalized] === true || normalized.endsWith("secret") || (normalized.endsWith("token") && !normalized.includes("_tokens"));
 }
-
 function truncateString(value: string, maxLength = MAX_STRING_LENGTH) {
   return value.length > maxLength ? `${value.slice(0, maxLength)}...` : value;
 }
@@ -348,17 +333,16 @@ export async function createApiOperationLog(input: ApiOperationLogCreateInput) {
         statusCode: input.statusCode ?? null,
         success: input.success,
         durationMs: input.durationMs ?? null,
+        errorName: input.errorKind ?? input.errorName ?? null,
         actorType: input.actorType ?? null,
         actorUserId: input.actorUserId ?? null,
         actorClientId: input.actorClientId ?? null,
         actorLabel: input.actorLabel ?? null,
-        ipHash: input.ipHash ?? null,
         userAgent: input.userAgent ? truncateString(input.userAgent, MAX_USER_AGENT_LENGTH) : null,
-        query: toJson(input.query),
-        requestBody: toJson(input.requestBody),
-        errorName: input.errorName ?? null,
+        query: input.query === undefined ? undefined : toJson(sanitizeLogPayload(input.query) as JsonValue),
+        requestBody: input.requestBody === undefined ? undefined : toJson(sanitizeLogPayload(input.requestBody) as JsonValue),
         errorMessage: input.errorMessage ? truncateString(input.errorMessage, MAX_ERROR_LENGTH) : null,
-        metadata: toJson(input.metadata),
+        metadata: input.metadata === undefined ? undefined : toJson(sanitizeLogPayload(input.metadata) as JsonValue),
       },
     });
     return createdLog;

@@ -1,4 +1,4 @@
-import { createCompletionClientForModel } from "@/lib/openai-compatible-completion-client"
+import { createCompletionClientForModel } from "@/lib/ai-completion-client"
 /**
  * AI 日报评分与筛选模块。
  *
@@ -238,7 +238,7 @@ export async function scoreAiNewsCandidate({
     ] as const
 
     if (fetchImpl === fetch) {
-      const client = createCompletionClientForModel(aiModel)
+      const client = createCompletionClientForModel(aiModel, undefined, "ai.news.score")
       const result = await client.completeText(promptMessages, {
         strategy: "interactive-completion",
         bodyExtensions: { temperature: 0.2 },

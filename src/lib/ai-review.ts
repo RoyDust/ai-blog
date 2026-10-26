@@ -12,7 +12,7 @@
  */
 import { ValidationError } from "@/lib/api-errors"
 import { getAiModelForCapability } from "@/lib/ai-models"
-import { createCompletionClientForModel } from "@/lib/openai-compatible-completion-client"
+import { createCompletionClientForModel } from "@/lib/ai-completion-client"
 
 export type ReviewCheckStatus = "pass" | "warn" | "fail"
 export type ReviewVerdict = "ready" | "needs-work"
@@ -239,7 +239,7 @@ export async function generatePostReview(
     `文章内容：\n${content.slice(0, 14_000)}`,
   ].join("\n\n")
 
-  const client = createCompletionClientForModel(aiModel!)
+  const client = createCompletionClientForModel(aiModel!, undefined, "ai.post.review")
   const result = await client.completeText([
     { role: "system", content: "你是严谨的中文博客主编，输出必须是可解析 JSON。" },
     { role: "user", content: prompt },
