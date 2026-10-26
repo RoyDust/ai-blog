@@ -11,6 +11,10 @@ const mocks = vi.hoisted(() => ({
   revalidatePublicContent: vi.fn(),
   completion: vi.fn(),
 }));
+vi.mock("@/lib/ai-models", () => ({
+  getAiModelForCapability: mocks.getAiModelForCapability,
+  getAiModelChatRequestExtras: vi.fn(() => ({})),
+}));
 
 vi.mock("@/lib/openai-compatible-completion-client", () => ({
   createCompletionClientForModel: () => ({ completeText: mocks.completion }),
@@ -80,11 +84,17 @@ describe("ai post actions", () => {
     vi.resetModules();
     vi.clearAllMocks();
     vi.unstubAllGlobals();
-    mocks.getAiModelForCapability.mockResolvedValue(aiModel);
-    mocks.postUpdateMany.mockResolvedValue({ count: 1 });
-    mocks.itemUpdateMany.mockResolvedValue({ count: 1 });
-    mocks.revalidatePublicContent.mockReturnValue({ paths: [], errors: [] });
-    mocks.completion.mockResolvedValue({ text: "  这是一段适合搜索展示的 SEO 描述。 " });
+    mocks.getAiModelForCapability.mockReset().mockResolvedValue(aiModel);
+    mocks.postUpdate.mockReset();
+    mocks.postFindFirst.mockReset();
+    mocks.postUpdateMany.mockReset().mockResolvedValue({ count: 1 });
+    mocks.itemUpdateMany.mockReset().mockResolvedValue({ count: 1 });
+    mocks.tagFindMany.mockReset();
+    mocks.categoryFindMany.mockReset();
+    mocks.getAiTaskItem.mockReset();
+    mocks.markAiTaskItemSucceeded.mockReset();
+    mocks.revalidatePublicContent.mockReset().mockReturnValue({ paths: [], errors: [] });
+    mocks.completion.mockReset().mockResolvedValue({ text: "  这是一段适合搜索展示的 SEO 描述。 " });
     process.env.AI_POST_SUMMARY_TIMEOUT_MS = "90000";
   });
 
@@ -124,6 +134,7 @@ describe("ai post actions", () => {
       modelId: "model-1",
       output: { seoDescription: "这是一段适合搜索展示的 SEO 描述。" },
     });
+  });
 
   test("generates tag suggestions as existing tag ids", async () => {
     mocks.completion.mockResolvedValueOnce({ text: '{"tagIds":["tag-ai","tag-next"],"names":["AI","Next.js"]}' });
