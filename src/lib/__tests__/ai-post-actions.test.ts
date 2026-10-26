@@ -16,7 +16,7 @@ vi.mock("@/lib/ai-models", () => ({
   getAiModelChatRequestExtras: vi.fn(() => ({})),
 }));
 
-vi.mock("@/lib/openai-compatible-completion-client", () => ({
+vi.mock("@/lib/ai-completion-client", () => ({
   createCompletionClientForModel: () => ({ completeText: mocks.completion }),
 }));
 vi.mock("@/lib/ai-tasks", () => ({
@@ -81,7 +81,6 @@ const aiModel = {
 
 describe("ai post actions", () => {
   beforeEach(() => {
-    vi.resetModules();
     vi.clearAllMocks();
     vi.unstubAllGlobals();
     mocks.getAiModelForCapability.mockReset().mockResolvedValue(aiModel);
