@@ -43,7 +43,7 @@ html:has(.reader-home-stage) {
   --reader-background-height: 46vh;
   --reader-background-fade-start: 20vh;
   --reader-background-fade-end: 37vh;
-  --reader-page-top: clamp(8.5rem, 16vh, 10.25rem);
+  --reader-page-top: clamp(6.5rem, 12vh, 8.25rem);
 }
 
 @supports not (scrollbar-gutter: stable) {
@@ -61,7 +61,7 @@ html:has(.reader-home-stage) {
     --reader-background-height: 36vh;
     --reader-background-fade-start: 14vh;
     --reader-background-fade-end: 27vh;
-    --reader-page-top: clamp(5rem, 12vh, 6.25rem);
+    --reader-page-top: clamp(4rem, 10vh, 5rem);
   }
 }
 

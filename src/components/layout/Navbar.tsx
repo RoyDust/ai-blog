@@ -36,7 +36,7 @@ export function Navbar({ siteName = "My Blog" }: NavbarProps) {
   const [showHuePicker, setShowHuePicker] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const { theme, toggleTheme } = useTheme();
-  const isHidden = useScrollHide({ threshold: 100, delta: 5 });
+  const isHidden = useScrollHide({ threshold: 100, delta: 720 });
   const navbarRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
 
