@@ -223,7 +223,7 @@
 
   .reader-shell:has(.reader-home-stage) {
     --reader-background-height: 46vh;
-    --reader-page-top: clamp(8.5rem, 16vh, 10.25rem);
+    --reader-page-top: clamp(6.5rem, 12vh, 8.25rem);
   }
 
   .reader-shell:has(.reader-home-stage)::after {
@@ -470,7 +470,7 @@
 
     .reader-shell:has(.reader-home-stage) {
       --reader-background-height: 36vh;
-      --reader-page-top: clamp(5rem, 12vh, 6.25rem);
+      --reader-page-top: clamp(4rem, 10vh, 5rem);
     }
   }
 

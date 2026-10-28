@@ -77,7 +77,8 @@ jobs:
         run: pnpm build
 
   e2e:
-    runs-on: ubuntu-latest
+    # Playwright 1.58.2 不支持 Ubuntu 26.04，固定到受支持的 runner。
+    runs-on: ubuntu-24.04
     # 首轮非阻塞：稳定后移除 continue-on-error 纳入必过门禁
     continue-on-error: true
     services:

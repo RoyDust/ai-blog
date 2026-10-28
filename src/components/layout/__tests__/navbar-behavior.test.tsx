@@ -23,7 +23,13 @@ beforeEach(() => {
   refresh.mockReset();
   useSession.mockReset();
   useSession.mockReturnValue({ data: null, status: "unauthenticated" });
+  Object.defineProperty(window, "scrollY", { configurable: true, value: 0, writable: true });
 });
+
+function scrollTo(y: number) {
+  window.scrollY = y;
+  fireEvent.scroll(window);
+}
 
 test("navbar keeps its desktop navigation centered with a flexible search slot", () => {
   const { container } = render(<Navbar />);
@@ -87,4 +93,60 @@ test("navbar account entry opens the login dialog without changing the mobile me
   expect(await screen.findByRole("dialog")).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "登录账号" })).toBeInTheDocument();
   expect(mobileMenu).toHaveAttribute("data-state", "closed");
+});
+
+test("navbar switches immediately after 720 pixels of scrolling in the same direction", () => {
+  const { container } = render(<Navbar />);
+  const navbar = container.querySelector("#navbar");
+
+  scrollTo(100);
+  for (const y of [200, 400, 700, 819]) {
+    scrollTo(y);
+    expect(navbar).not.toHaveClass("-translate-y-full");
+  }
+  scrollTo(820);
+  expect(navbar).toHaveClass("-translate-y-full");
+
+  scrollTo(2000);
+  for (const y of [1900, 1700, 1400, 1281]) {
+    scrollTo(y);
+    expect(navbar).toHaveClass("-translate-y-full");
+  }
+  scrollTo(1280);
+  expect(navbar).not.toHaveClass("-translate-y-full");
+});
+
+test("navbar restarts the scroll distance when direction changes", () => {
+  const { container } = render(<Navbar />);
+  const navbar = container.querySelector("#navbar");
+
+  scrollTo(3000);
+  expect(navbar).toHaveClass("-translate-y-full");
+
+  scrollTo(2500);
+  scrollTo(2800);
+  scrollTo(2190);
+  expect(navbar).toHaveClass("-translate-y-full");
+
+  scrollTo(2080);
+  expect(navbar).not.toHaveClass("-translate-y-full");
+
+  scrollTo(2500);
+  scrollTo(2200);
+  scrollTo(2919);
+  expect(navbar).not.toHaveClass("-translate-y-full");
+
+  scrollTo(2920);
+  expect(navbar).toHaveClass("-translate-y-full");
+});
+
+test("navbar always reappears near the top without waiting for the full distance", () => {
+  const { container } = render(<Navbar />);
+  const navbar = container.querySelector("#navbar");
+
+  scrollTo(750);
+  expect(navbar).toHaveClass("-translate-y-full");
+
+  scrollTo(100);
+  expect(navbar).not.toHaveClass("-translate-y-full");
 });
