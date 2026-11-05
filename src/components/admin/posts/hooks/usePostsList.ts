@@ -493,6 +493,8 @@ export function usePostsList() {
     pagination,
     stats,
     loading: isLoading || isValidating,
+    // 首次加载 / 切换筛选（当前 key 尚无数据）：列表显示骨架；轮询与静默刷新不打断已有行
+    initialLoading: isLoading,
     query,
     setQuery,
     statusFilter,

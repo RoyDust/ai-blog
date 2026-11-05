@@ -2,8 +2,8 @@
 
 import { CalendarClock } from "lucide-react";
 
-import { StatusBadge } from "@/components/admin/primitives/StatusBadge";
-import { Button, Input } from "@/components/admin/ui";
+import { FieldLabel, RadioChoiceGroup } from "@/components/admin/workspace/WorkspaceKit";
+import { cn } from "@/lib/cn";
 import type { CategoryOption, SeriesOption } from "./workspace-types";
 
 type PublishSettingsPanelProps = {
@@ -26,8 +26,12 @@ type PublishSettingsPanelProps = {
   onScheduledAtChange: (value: string) => void;
 };
 
+type SummaryRow = { label: string; value: string; empty: boolean; mono?: boolean };
+
 /**
- * 「发布设置」面板内容：发布/精选状态切换、定时发布、评论开关与永久链接摘要。
+ * 「发布设置」面板内容（方向 A 第 15 节 A1）：发布状态、精选状态两个单选组（选中只改表单值，
+ * 仍需「保存草稿」或「发布文章」提交），定时发布时间，以及 64px 键列的细线定义列表摘要。
+ * 「允许评论」静态开关按已采纳假设去掉（文章接口没有评论开关字段）。
  * 纯展示组件，所有变更经回调上抛，由工作台统一 setFormData。
  */
 export function PublishSettingsPanel({
@@ -49,95 +53,82 @@ export function PublishSettingsPanel({
   onFeature,
   onScheduledAtChange,
 }: PublishSettingsPanelProps) {
+  const scheduleInputId = isEditMode ? "edit-post-scheduled-at" : "create-post-scheduled-at";
+  const categoryName = categories.find((category) => category.id === categoryId)?.name;
+  const seriesTitle = series.find((item) => item.id === seriesId)?.title;
+  const summaryRows: SummaryRow[] = [
+    { label: "永久链接", value: slug ? `/posts/${slug}` : "未生成", empty: !slug, mono: Boolean(slug) },
+    { label: "分类", value: categoryName ?? "未选择", empty: !categoryName },
+    { label: "标签", value: tagCount > 0 ? `${tagCount} 个` : "未选择", empty: tagCount === 0 },
+    { label: "系列", value: seriesTitle ?? "未选择", empty: !seriesTitle },
+    { label: "排程", value: scheduledAt ? scheduledAt.replace("T", " ") : "未设置", empty: !scheduledAt, mono: Boolean(scheduledAt) },
+    { label: "封面图", value: coverImage ? "已设置" : "未设置", empty: !coverImage },
+  ];
+
   return (
-    <div className="space-y-4">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 space-y-1">
-          <p className="text-sm font-medium text-[var(--foreground)]">发布状态</p>
-          <p className="text-sm text-[var(--muted)]">{isEditMode ? "切换后通过保存或发布提交。" : saveStatusLabel}</p>
+    <div className="flex flex-col gap-3.5" data-slot="publish-settings">
+      <RadioChoiceGroup
+        label="发布状态"
+        name={`${isEditMode ? "edit" : "create"}-post-published`}
+        value={published ? "published" : "draft"}
+        options={[
+          { value: "draft", label: "草稿" },
+          { value: "published", label: "已发布" },
+        ]}
+        onChange={(next) => (next === "published" ? onSwitchPublished() : onKeepDraft())}
+        description={isEditMode ? "切换后通过保存或发布提交。" : saveStatusLabel}
+      />
+
+      <RadioChoiceGroup
+        label="精选状态"
+        name={`${isEditMode ? "edit" : "create"}-post-featured`}
+        value={featured ? "featured" : "normal"}
+        options={[
+          { value: "normal", label: "普通" },
+          { value: "featured", label: "精选" },
+        ]}
+        onChange={(next) => (next === "featured" ? onFeature() : onUnfeature())}
+        description="最多 3 篇精选文章会展示在前台。"
+      />
+
+      <div className="min-w-0">
+        <div className="mb-1.5">
+          <FieldLabel htmlFor={scheduleInputId} optional>
+            定时发布时间
+          </FieldLabel>
         </div>
-        <StatusBadge tone={published ? "success" : "warning"}>{published ? "已发布" : "草稿"}</StatusBadge>
-      </div>
-
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <Button
-          type="button"
-          size="sm"
-          variant={published ? "outline" : "primary"}
-          disabled={!published}
-          onClick={onKeepDraft}
-        >
-          保持草稿
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant={published ? "primary" : "outline"}
-          disabled={published}
-          onClick={onSwitchPublished}
-        >
-          切换为已发布
-        </Button>
-      </div>
-
-      <div className="space-y-3 border-t border-[var(--border)] pt-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 space-y-1">
-            <p className="text-sm font-medium text-[var(--foreground)]">精选状态</p>
-            <p className="text-sm text-[var(--muted)]">最多 3 篇精选文章会展示在前台。</p>
-          </div>
-          <StatusBadge tone={featured ? "success" : "neutral"}>{featured ? "精选" : "普通"}</StatusBadge>
+        <div className="relative">
+          <input
+            id={scheduleInputId}
+            type="datetime-local"
+            aria-describedby={`${scheduleInputId}-hint`}
+            className="h-9 w-full min-w-0 rounded-[var(--radius-ctl)] border border-[var(--reader-border-strong)] bg-transparent pr-9 pl-2.5 font-mono text-[0.8125rem] text-[var(--foreground)] transition-[border-color] duration-150 hover:border-[var(--text-muted)] focus-visible:border-[var(--foreground)] [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-2 [&::-webkit-calendar-picker-indicator]:size-5 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-0"
+            value={scheduledAt}
+            onChange={(event) => onScheduledAtChange(event.target.value)}
+          />
+          <CalendarClock aria-hidden="true" className="pointer-events-none absolute top-1/2 right-2.5 size-[15px] -translate-y-1/2 text-[var(--text-muted)]" />
         </div>
-
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <Button
-            type="button"
-            size="sm"
-            variant={featured ? "outline" : "primary"}
-            disabled={!featured}
-            onClick={onUnfeature}
-          >
-            取消精选
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant={featured ? "primary" : "outline"}
-            disabled={featured}
-            onClick={onFeature}
-          >
-            设为精选
-          </Button>
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <Input
-          label="定时发布时间"
-          type="datetime-local"
-          value={scheduledAt}
-          onChange={(event) => onScheduledAtChange(event.target.value)}
-        />
-        <p className="flex items-center gap-1 text-xs text-[var(--muted)]">
-          <CalendarClock className="h-3.5 w-3.5" />
+        <p id={`${scheduleInputId}-hint`} className="mt-1.5 text-xs leading-[1.55] text-[var(--text-muted)]">
           留空则使用“发布文章”立即发布；填写未来时间后点击“定时发布”。
         </p>
       </div>
 
-      <label className="flex items-center justify-between gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface-alt)] px-3 py-2 text-sm">
-        <span className="text-[var(--foreground)]">允许评论</span>
-        <input type="checkbox" disabled className="h-4 w-4 rounded border-[var(--border)]" />
-      </label>
-      <p className="text-xs text-[var(--muted)]">静态开关，当前文章接口没有评论开关字段。</p>
-
-      <div className="space-y-2 rounded-xl border border-[var(--border)] bg-[var(--surface-alt)] p-3 text-sm text-[var(--muted)]">
-        <p>永久链接：{slug ? `/posts/${slug}` : "未生成"}</p>
-        <p>分类：{categories.find((category) => category.id === categoryId)?.name ?? "未选择"}</p>
-        <p>标签：{tagCount > 0 ? `${tagCount} 个` : "未选择"}</p>
-        <p>系列：{series.find((item) => item.id === seriesId)?.title ?? "未选择"}</p>
-        <p>排程：{scheduledAt ? scheduledAt.replace("T", " ") : "未设置"}</p>
-        <p>封面图：{coverImage ? "已设置" : "未设置"}</p>
-      </div>
+      <dl className="grid grid-cols-[64px_minmax(0,1fr)] gap-x-3 gap-y-[5px] border-t border-[var(--border)] pt-2.5 text-[0.8125rem] leading-normal">
+        {summaryRows.map((row) => (
+          <div key={row.label} className="contents">
+            <dt className="text-[var(--text-muted)]">{row.label}</dt>
+            <dd
+              className={cn(
+                "min-w-0 [overflow-wrap:anywhere] transition-colors duration-200",
+                row.empty ? "text-[var(--text-muted)]" : "text-[var(--foreground)]",
+                row.mono && "font-mono text-xs tabular-nums",
+              )}
+            >
+              {row.value}
+            </dd>
+          </div>
+        ))}
+      </dl>
     </div>
   );
 }
