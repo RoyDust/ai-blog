@@ -254,14 +254,7 @@ export function MetadataEditor({
           value={formData.coverImage}
           onChange={(event) => onCoverUrlChange(event.target.value)}
         />
-        <input
-          ref={coverInputRef}
-          accept="image/*"
-          className="hidden"
-          id={`${mode}-cover-upload`}
-          type="file"
-          onChange={onCoverUpload}
-        />
+        <input ref={coverInputRef} accept="image/*" className="hidden" id={`${mode}-cover-upload`} type="file" onChange={onCoverUpload} />
         <div className="mt-2.5 flex flex-wrap items-center gap-2">
           <Button
             type="button"

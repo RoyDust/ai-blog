@@ -122,6 +122,102 @@ function CapabilityDefaultCard({
   );
 }
 
+/** 模型库的一行：衬线名称 + 语气色状态，右侧下划线文字按钮（测试 / 修改 / 删除），下面一行描述与等宽配置摘要 */
+function ModelLibraryItem({
+  model,
+  testing,
+  deleting,
+  onTest,
+  onEdit,
+  onDelete,
+}: {
+  model: PublicAiModelOption;
+  testing: boolean;
+  deleting: boolean;
+  onTest: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <StaggerItem
+      as="article"
+      className="border-b border-[var(--border)] py-3.5 transition-colors duration-150 hover:bg-[color-mix(in_oklab,var(--foreground)_2%,transparent)]"
+    >
+      <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-2">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <h3 className="font-serif text-base font-bold text-[var(--foreground)]">{model.name}</h3>
+            <span className={cn("text-xs font-bold", statusToneClassName(model.status))}>{statusLabel(model.status)}</span>
+            {model.defaultFor.map((capability) => (
+              <span key={capability} className="text-xs font-bold text-[var(--success)]">
+                {capabilityLabels[capability]}默认
+              </span>
+            ))}
+            <span className="text-xs text-[var(--text-muted)]">{model.source === "environment" ? "环境变量" : "数据库"}</span>
+          </div>
+          <p className="mt-1 line-clamp-1 text-[0.8125rem] text-[var(--text-body)]">{model.description || "未填写描述。"}</p>
+        </div>
+
+        <div className="flex shrink-0 items-center gap-3.5">
+          <button
+            aria-busy={testing || undefined}
+            className={adminTextActionClassName}
+            disabled={testing}
+            onClick={onTest}
+            type="button"
+          >
+            {testing ? "测试中" : "测试"}
+          </button>
+          <button className={adminTextActionClassName} disabled={!model.editable} onClick={onEdit} type="button">
+            修改
+          </button>
+          <button
+            className={adminTextActionDangerClassName}
+            disabled={!model.deletable || deleting}
+            onClick={onDelete}
+            type="button"
+          >
+            删除
+          </button>
+        </div>
+      </div>
+
+      <dl className="mt-2 grid grid-cols-1 gap-x-6 gap-y-1 text-xs md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]">
+        <div className="flex min-w-0 gap-2">
+          <dt className="shrink-0 text-[var(--text-muted)]">Endpoint</dt>
+          <dd className="min-w-0 truncate font-mono text-[var(--foreground)]" title={`${model.baseUrl}${model.requestPath}`}>
+            {model.baseUrl}
+            {model.requestPath}
+          </dd>
+        </div>
+        <div className="flex min-w-0 gap-2">
+          <dt className="shrink-0 text-[var(--text-muted)]">Model</dt>
+          <dd className="min-w-0 truncate font-mono text-[var(--foreground)]">{model.model}</dd>
+        </div>
+        <div className="flex min-w-0 gap-2">
+          <dt className="shrink-0 text-[var(--text-muted)]">Secret</dt>
+          <dd className="min-w-0 truncate font-mono text-[var(--foreground)]">{model.hasApiKey ? "已配置" : model.apiKeyEnv}</dd>
+        </div>
+        <div className="flex min-w-0 gap-2">
+          <dt className="shrink-0 text-[var(--text-muted)]">能力</dt>
+          <dd className="min-w-0 truncate text-[var(--foreground)]">
+            {model.capabilities.map((capability) => capabilityLabels[capability] ?? capability).join(" · ")}
+          </dd>
+        </div>
+      </dl>
+      {model.lastTestMessage ? (
+        <p className="mt-1.5 text-xs text-[var(--text-muted)]">
+          最近测试：
+          <span className={cn("font-bold", model.lastTestStatus === "success" ? "text-[var(--success)]" : "text-[var(--danger-foreground)]")}>
+            {model.lastTestStatus === "success" ? "通过" : "失败"}
+          </span>{" "}
+          · {model.lastTestMessage}
+        </p>
+      ) : null}
+    </StaggerItem>
+  );
+}
+
 /**
  * Admin surface for model CRUD, testing, and default model selection.
  * Form state and server mutations are split into hooks so this component stays focused on layout.
@@ -389,86 +485,18 @@ export function AiModelManager({ initialModels }: { initialModels: PublicAiModel
         />
         <StaggerList className="mt-2 border-t border-[var(--reader-border-strong)]" stagger={0.04}>
           {models.map((model) => (
-            <StaggerItem
-              as="article"
+            <ModelLibraryItem
               key={model.id}
-              className="border-b border-[var(--border)] py-3.5 transition-colors duration-150 hover:bg-[color-mix(in_oklab,var(--foreground)_2%,transparent)]"
-            >
-              <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-2">
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                    <h3 className="font-serif text-base font-bold text-[var(--foreground)]">{model.name}</h3>
-                    <span className={cn("text-xs font-bold", statusToneClassName(model.status))}>{statusLabel(model.status)}</span>
-                    {model.defaultFor.map((capability) => (
-                      <span key={capability} className="text-xs font-bold text-[var(--success)]">
-                        {capabilityLabels[capability]}默认
-                      </span>
-                    ))}
-                    <span className="text-xs text-[var(--text-muted)]">{model.source === "environment" ? "环境变量" : "数据库"}</span>
-                  </div>
-                  <p className="mt-1 line-clamp-1 text-[0.8125rem] text-[var(--text-body)]">{model.description || "未填写描述。"}</p>
-                </div>
-
-                <div className="flex shrink-0 items-center gap-3.5">
-                  <button
-                    aria-busy={testingId === model.id || undefined}
-                    className={adminTextActionClassName}
-                    disabled={testingId === model.id}
-                    onClick={() => void testModel(model)}
-                    type="button"
-                  >
-                    {testingId === model.id ? "测试中" : "测试"}
-                  </button>
-                  <button className={adminTextActionClassName} disabled={!model.editable} onClick={() => startEdit(model)} type="button">
-                    修改
-                  </button>
-                  <button
-                    className={adminTextActionDangerClassName}
-                    disabled={!model.deletable || deletingId === model.id}
-                    onClick={() => {
-                      setPendingDelete(model);
-                      setDeleteConfirmOpen(true);
-                    }}
-                    type="button"
-                  >
-                    删除
-                  </button>
-                </div>
-              </div>
-
-              <dl className="mt-2 grid grid-cols-1 gap-x-6 gap-y-1 text-xs md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]">
-                <div className="flex min-w-0 gap-2">
-                  <dt className="shrink-0 text-[var(--text-muted)]">Endpoint</dt>
-                  <dd className="min-w-0 truncate font-mono text-[var(--foreground)]" title={`${model.baseUrl}${model.requestPath}`}>
-                    {model.baseUrl}
-                    {model.requestPath}
-                  </dd>
-                </div>
-                <div className="flex min-w-0 gap-2">
-                  <dt className="shrink-0 text-[var(--text-muted)]">Model</dt>
-                  <dd className="min-w-0 truncate font-mono text-[var(--foreground)]">{model.model}</dd>
-                </div>
-                <div className="flex min-w-0 gap-2">
-                  <dt className="shrink-0 text-[var(--text-muted)]">Secret</dt>
-                  <dd className="min-w-0 truncate font-mono text-[var(--foreground)]">{model.hasApiKey ? "已配置" : model.apiKeyEnv}</dd>
-                </div>
-                <div className="flex min-w-0 gap-2">
-                  <dt className="shrink-0 text-[var(--text-muted)]">能力</dt>
-                  <dd className="min-w-0 truncate text-[var(--foreground)]">
-                    {model.capabilities.map((capability) => capabilityLabels[capability] ?? capability).join(" · ")}
-                  </dd>
-                </div>
-              </dl>
-              {model.lastTestMessage ? (
-                <p className="mt-1.5 text-xs text-[var(--text-muted)]">
-                  最近测试：
-                  <span className={cn("font-bold", model.lastTestStatus === "success" ? "text-[var(--success)]" : "text-[var(--danger-foreground)]")}>
-                    {model.lastTestStatus === "success" ? "通过" : "失败"}
-                  </span>{" "}
-                  · {model.lastTestMessage}
-                </p>
-              ) : null}
-            </StaggerItem>
+              model={model}
+              testing={testingId === model.id}
+              deleting={deletingId === model.id}
+              onTest={() => void testModel(model)}
+              onEdit={() => startEdit(model)}
+              onDelete={() => {
+                setPendingDelete(model);
+                setDeleteConfirmOpen(true);
+              }}
+            />
           ))}
         </StaggerList>
       </section>
