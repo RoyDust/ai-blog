@@ -336,7 +336,15 @@ function CandidateRow({ candidate }: { candidate: RunCandidateItem }) {
         </a>
         {candidate.aiReason ? <p className="mt-0.5 text-xs leading-5 text-[var(--text-body)]">{candidate.aiReason}</p> : null}
         {candidate.aiTags.length ? (
-          <p className="mt-0.5 text-xs text-[var(--text-muted)]">标签：{candidate.aiTags.join(" · ")}</p>
+          <p className="mt-0.5 text-xs text-[var(--text-muted)]">
+            标签：
+            {candidate.aiTags.map((tag, index) => (
+              <Fragment key={tag}>
+                {index > 0 ? " · " : null}
+                <span>{tag}</span>
+              </Fragment>
+            ))}
+          </p>
         ) : null}
         {candidate.duplicateOfId ? (
           <p className="mt-0.5 font-mono text-[0.6875rem] text-[var(--warning)]">重复于 {candidate.duplicateOfId}</p>

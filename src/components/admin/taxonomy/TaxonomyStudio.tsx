@@ -184,7 +184,7 @@ function CategoriesManager() {
   return (
     <>
       <div>
-          <div className="grid grid-cols-1 gap-x-8 gap-y-8 xl:grid-cols-[minmax(0,1fr)_340px]">
+          <div className="grid grid-cols-1 gap-x-8 gap-y-8 2xl:grid-cols-[minmax(0,1fr)_340px]">
             <DataTable
               bulkActions={[
                 {
@@ -209,9 +209,11 @@ function CategoriesManager() {
               title="分类列表"
             />
 
+            <div className="order-first 2xl:order-none">
+
             <EntityFormShell title={editingId ? "编辑分类" : "新增分类"} description="名称、Slug 和说明集中在右侧编辑，减少页面跳转。">
               <Form {...form}>
-                <form className="space-y-4" onSubmit={form.handleSubmit(save)}>
+                <form className="grid items-start gap-4 md:grid-cols-3 2xl:grid-cols-1" onSubmit={form.handleSubmit(save)}>
                   <FormField
                     control={form.control}
                     name="name"
@@ -271,6 +273,7 @@ function CategoriesManager() {
                 </form>
               </Form>
             </EntityFormShell>
+            </div>
           </div>
       </div>
 
@@ -366,7 +369,7 @@ function TagsManager() {
   return (
     <>
       <div>
-          <div className="grid grid-cols-1 gap-x-8 gap-y-8 xl:grid-cols-[minmax(0,1fr)_340px]">
+          <div className="grid grid-cols-1 gap-x-8 gap-y-8 2xl:grid-cols-[minmax(0,1fr)_340px]">
             <DataTable
               bulkActions={[
                 {
@@ -391,9 +394,11 @@ function TagsManager() {
               title="标签列表"
             />
 
+            <div className="order-first 2xl:order-none">
+
             <EntityFormShell title={editingId ? "编辑标签" : "新增标签"} description="颜色与名称在右侧集中编辑，减少来回跳转。">
               <Form {...form}>
-                <form className="space-y-4" onSubmit={form.handleSubmit(save)}>
+                <form className="grid items-start gap-4 md:grid-cols-3 2xl:grid-cols-1" onSubmit={form.handleSubmit(save)}>
                   <FormField
                     control={form.control}
                     name="name"
@@ -467,6 +472,7 @@ function TagsManager() {
                 </form>
               </Form>
             </EntityFormShell>
+            </div>
           </div>
       </div>
 

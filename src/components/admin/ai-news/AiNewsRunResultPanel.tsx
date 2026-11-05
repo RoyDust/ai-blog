@@ -59,9 +59,11 @@ export function AiNewsRunResultPanel({ result }: AiNewsRunResultPanelProps) {
         ) : null}
         {typeof result.metrics?.qualityScore === "number" ? <Metric label="候选质量">{result.metrics.qualityScore} 分</Metric> : null}
         {result.generatedBy ? (
-          <span className="whitespace-nowrap" title={result.generatedBy.name}>
+          <span className="whitespace-nowrap">
             <span className="text-[var(--text-muted)]">生成模型</span>{" "}
-            <span className="font-mono font-bold text-[var(--foreground)]">{result.generatedBy.model}</span>
+            <span className="font-bold text-[var(--foreground)]">
+              {result.generatedBy.name}（<span className="font-mono">{result.generatedBy.model}</span>）
+            </span>
           </span>
         ) : null}
         <Metric label="来源失败">{result.failures?.length ?? 0} 个</Metric>

@@ -60,7 +60,8 @@ describe('admin editor', () => {
     expect(screen.getByRole('button', { name: '发布文章' })).toBeInTheDocument()
     expect(screen.getByText('发布清单')).toBeInTheDocument()
     expect(screen.getByText('分类、标签与封面图')).toBeInTheDocument()
-    expect(screen.getByText('永久链接：/posts/post-1')).toBeInTheDocument()
+    const permalink = screen.getAllByText('永久链接').find((element) => element.tagName === 'DT')
+    expect(permalink?.nextElementSibling?.textContent).toBe('/posts/post-1')
   })
 
   test('shows cover upload and gallery picker triggers', async () => {
@@ -115,8 +116,10 @@ describe('admin editor', () => {
 
     expect(await screen.findByText('发布状态')).toBeInTheDocument()
     expect(screen.getAllByText('草稿').length).toBeGreaterThan(0)
-    expect(screen.getByRole('button', { name: '切换为已发布' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '保持草稿' })).toBeDisabled()
+    // 发布状态是单选组（方向 A 第 15 节）：草稿选中，切到「已发布」只改表单值
+    expect(screen.getByRole('radiogroup', { name: '发布状态' })).toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: '草稿' })).toBeChecked()
+    expect(screen.getByRole('radio', { name: '已发布' })).not.toBeChecked()
   })
 
   test('updates slug from Chinese title with pinyin limit', async () => {

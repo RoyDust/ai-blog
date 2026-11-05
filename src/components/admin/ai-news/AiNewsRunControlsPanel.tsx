@@ -93,15 +93,22 @@ export function AiNewsRunControlsPanel({
           <p>流程：抓取 RSS / Atom / HN / GitHub → URL 去重 → AI 评分筛选 → 生成 Markdown 日报 → 内容增强 → 直接发布。</p>
           <p>同一天使用固定 slug，重复触发不会重复创建文章；重新生成会覆盖同日已存在日报内容，并保留原文章链接。</p>
           <p className="text-[var(--text-muted)]">
-            来源范围：
-            {sourceMode === "selected" ? (
-              <>
-                本次选中 <span className="font-mono font-bold text-[var(--foreground)]">{selectedSourceCount}</span> 个来源
-              </>
-            ) : (
-              "默认启用来源"
-            )}
-            {selectedModel ? ` · 当前模型：${selectedModel.name}（${selectedModel.model}）` : ""}。
+            <span>
+              来源范围：
+              {sourceMode === "selected" ? (
+                <>
+                  本次选中 <span className="font-mono font-bold text-[var(--foreground)]">{selectedSourceCount}</span> 个来源
+                </>
+              ) : (
+                "默认启用来源"
+              )}
+              。
+            </span>
+            {selectedModel ? (
+              <span className="ml-1">
+                当前模型：{selectedModel.name}（{selectedModel.model}）。
+              </span>
+            ) : null}
           </p>
           {modelsError ? <p className="text-[var(--danger-foreground)]" role="alert">{String(modelsError)}</p> : null}
         </div>

@@ -319,7 +319,7 @@ export default function AdminNewsletterPage() {
         ) : null}
       </AnimatePresence>
 
-      <div className="mt-6 grid grid-cols-1 gap-x-8 gap-y-8 xl:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="mt-6 grid grid-cols-1 gap-x-8 gap-y-8 2xl:grid-cols-[minmax(0,1fr)_340px]">
         <DataTable
           title="邮件活动列表"
           summary="查看活动状态、投递结果，并对失败收件人执行重试。"
@@ -331,9 +331,11 @@ export default function AdminNewsletterPage() {
           pageSize={20}
         />
 
+        <div className="order-first 2xl:order-none">
+
         <EntityFormShell title="创建邮件活动" description="输入文章 ID 后生成一个可发送的草稿。">
           <Form {...campaignForm}>
-            <form className="space-y-4" onSubmit={campaignForm.handleSubmit(createCampaign)}>
+            <form className="grid items-start gap-4 md:grid-cols-2 2xl:grid-cols-1" onSubmit={campaignForm.handleSubmit(createCampaign)}>
               <FormField
                 control={campaignForm.control}
                 name="title"
@@ -393,6 +395,7 @@ export default function AdminNewsletterPage() {
             </form>
           </Form>
         </EntityFormShell>
+        </div>
       </div>
     </div>
   );
