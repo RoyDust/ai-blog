@@ -29,8 +29,8 @@ export function Footer({
     <footer id="footer" className="mt-10 border-t border-[var(--border)] pt-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <p className="min-w-0 text-[0.875rem] leading-6">
-          <span className="font-bold text-[var(--foreground)]">{siteName}</span>
-          <span className="ml-3 text-[var(--text-muted)]">{siteDescription}</span>
+          <span className="block font-bold text-[var(--foreground)] sm:inline">{siteName}</span>
+          <span className="block text-[var(--text-muted)] sm:ml-3 sm:inline">{siteDescription}</span>
         </p>
         <nav aria-label="Footer">
           <ul className="flex flex-wrap items-center gap-x-1 gap-y-0">

@@ -208,14 +208,8 @@ export function Sidebar({
 
   return (
     <aside id="sidebar" className="h-full w-full">
-      <div
-        data-testid="sidebar-taxonomy-rail"
-        className="reader-scrollbar-hidden sticky space-y-6 overflow-y-auto pb-2 transition-[top,max-height] duration-300 ease-out"
-        style={{
-          top: "calc(var(--sidebar-sticky-top, 0px) + 0.75rem)",
-          maxHeight: "calc(100vh - var(--sidebar-sticky-top, 0px) - 1.75rem)",
-        }}
-      >
+      {/* 纸面左栏随页面自然滚动（原型里侧栏各组完整排开，不做内部滚动） */}
+      <div data-testid="sidebar-taxonomy-rail" className="space-y-6 pb-2">
         <section aria-label="作者资料">
           <div className="mb-4 flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-[var(--surface-alt)] text-lg font-bold text-[var(--foreground)]">
             {profile.avatar ? (

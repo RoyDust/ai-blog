@@ -677,10 +677,6 @@
       display: none;
     }
 
-    .ed-row__excerpt--desktop {
-      display: none;
-    }
-
     .ed-row::before {
       inset: 0 -0.5rem;
     }

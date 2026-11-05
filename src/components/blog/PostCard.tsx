@@ -89,17 +89,23 @@ export function PostCard({
       </span>
     ) : null,
     isIndexed ? <span className="ed-mono">{formatIsoDate(post.createdAt)}</span> : null,
-    !isIndexed ? <span className="ed-mono sm:hidden">{dateStyle === "short" ? formatMonthDay(post.createdAt) : formatIsoDate(post.createdAt)}</span> : null,
     !hideCategory && post.category ? (
       <Link className="ed-tag text-[0.75rem]" href={`/categories/${post.category.slug}`}>
         {post.category.name}
       </Link>
     ) : null,
-    !hideTag && firstTag ? (
-      <Link className="ed-tag hidden text-[0.75rem] sm:inline" href={`/tags/${firstTag.slug}`}>
-        #{firstTag.name}
-      </Link>
-    ) : null,
+    !hideTag && firstTag
+      ? {
+          key: "tag",
+          // 手机 meta 去掉 #标签（README 第 16 节）
+          className: "max-sm:hidden",
+          node: (
+            <Link className="ed-tag text-[0.75rem]" href={`/tags/${firstTag.slug}`}>
+              #{firstTag.name}
+            </Link>
+          ),
+        }
+      : null,
     typeof minutes === "number" && minutes > 0 ? <span className="ed-mono">{minutes} 分钟</span> : null,
   ];
 
@@ -124,8 +130,22 @@ export function PostCard({
             {post.title}
           </Link>
         </Heading>
-        {post.excerpt ? <p className="ed-row__excerpt ed-row__excerpt--desktop line-clamp-2">{post.excerpt}</p> : null}
-        <MetaLine className="ed-row__meta" items={metaItems} />
+        {post.excerpt ? <p className="ed-row__excerpt line-clamp-2 max-sm:hidden">{post.excerpt}</p> : null}
+        <MetaLine
+          className="ed-row__meta"
+          items={metaItems}
+          prefix={
+            isIndexed ? null : (
+              // 手机上没有日期列，日期并入 meta 开头（README 第 16 节）
+              <span className="inline-flex items-baseline sm:hidden">
+                <span className="ed-mono">{dateStyle === "short" ? formatMonthDay(post.createdAt) : formatIsoDate(post.createdAt)}</span>
+                <span aria-hidden="true" className="ed-meta-sep">
+                  ·
+                </span>
+              </span>
+            )
+          }
+        />
       </div>
 
       {hasCover ? (

@@ -206,24 +206,44 @@ export function TagLine({
 
 /* ── meta 行：用 · 连接，空项自动跳过 ──────────────────────────── */
 
-export function MetaLine({ items, className }: { items: ReactNode[]; className?: string }) {
+/** 可带 className 的 meta 项：className 作用在「分隔符 + 内容」整体上（如 hidden sm:inline-flex） */
+export type MetaItem = ReactNode | { node: ReactNode; className?: string; key?: string };
+
+function isMetaObject(item: MetaItem): item is { node: ReactNode; className?: string; key?: string } {
+  return typeof item === "object" && item !== null && !Array.isArray(item) && "node" in (item as object) && !("$$typeof" in (item as object));
+}
+
+export function MetaLine({
+  items,
+  className,
+  prefix,
+}: {
+  items: MetaItem[];
+  className?: string;
+  /** 行首附加内容（自带分隔符），如手机上并入 meta 的日期 */
+  prefix?: ReactNode;
+}) {
   const visible = items.filter((item) => item !== null && item !== undefined && item !== false && item !== "");
-  if (visible.length === 0) {
+  if (visible.length === 0 && !prefix) {
     return null;
   }
 
   return (
     <p className={cn("ed-meta flex flex-wrap items-baseline", className)}>
-      {visible.map((item, index) => (
-        <span key={index} className="inline-flex items-baseline">
-          {index > 0 ? (
-            <span aria-hidden="true" className="ed-meta-sep">
-              ·
-            </span>
-          ) : null}
-          {item}
-        </span>
-      ))}
+      {prefix}
+      {visible.map((item, index) => {
+        const entry = isMetaObject(item) ? item : { node: item };
+        return (
+          <span key={entry.key ?? index} className={cn("inline-flex items-baseline", entry.className)}>
+            {index > 0 ? (
+              <span aria-hidden="true" className="ed-meta-sep">
+                ·
+              </span>
+            ) : null}
+            {entry.node}
+          </span>
+        );
+      })}
     </p>
   );
 }

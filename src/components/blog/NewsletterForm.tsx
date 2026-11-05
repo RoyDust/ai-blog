@@ -76,8 +76,8 @@ export function NewsletterForm({
         noValidate
         onSubmit={handleSubmit(onSubmit)}
       >
-        <p className="ed-serif text-[1.0625rem] leading-[1.5] text-[var(--foreground)]">{pitch}</p>
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <p className="ed-serif text-[1.0625rem] leading-[1.5] text-[var(--foreground)] lg:shrink-0">{pitch}</p>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 lg:flex-nowrap">
           <div className="min-w-0 flex-1 sm:w-[11.25rem] sm:flex-none">
             <input
               aria-describedby={fieldError ? "newsletter-email-error" : undefined}
