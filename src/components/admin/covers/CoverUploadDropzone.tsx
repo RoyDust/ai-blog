@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { UploadCloud } from "lucide-react";
 
 import { Button } from "@/components/admin/ui";
 import { compressImageForUpload } from "@/lib/client-image-compression";
@@ -92,23 +91,22 @@ export function CoverUploadDropzone({ onCreated }: CoverUploadDropzoneProps) {
   };
 
   return (
-    <div className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--surface-alt)] px-4 py-5">
+    <div className="rounded-[var(--radius-paper)] border border-dashed border-[var(--reader-border-strong)] px-4 py-4 transition-colors duration-150 hover:border-[var(--text-muted)]">
       <input ref={inputRef} accept="image/*" className="hidden" type="file" onChange={handleFileChange} />
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div className="flex items-start gap-3">
-          <span className="mt-0.5 rounded-xl bg-[var(--surface)] p-2 text-[var(--brand)]">
-            <UploadCloud className="h-5 w-5" aria-hidden="true" />
-          </span>
-          <div>
-            <p className="font-medium text-[var(--foreground)]">上传到图床并保存</p>
-            <p className="mt-1 text-sm leading-6 text-[var(--muted)]">图片会先直传七牛，再写入封面图库。</p>
-          </div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[0.875rem] font-bold text-[var(--foreground)]">上传到图床并保存</p>
+          <p className="mt-0.5 text-xs leading-5 text-[var(--text-muted)]">图片会先直传七牛，再写入封面图库。</p>
         </div>
-        <Button type="button" onClick={() => inputRef.current?.click()} disabled={uploading}>
+        <Button type="button" variant="outline" onClick={() => inputRef.current?.click()} disabled={uploading}>
           {uploading ? "上传中..." : "选择图片"}
         </Button>
       </div>
-      {error ? <p className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p> : null}
+      {error ? (
+        <p className="ed-banner ed-banner--danger mt-3" role="alert">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }

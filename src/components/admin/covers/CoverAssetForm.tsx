@@ -33,12 +33,12 @@ type CoverAssetFormProps = {
   onCancel?: () => void;
 };
 
-const adminSelectTriggerClassName = "w-full rounded-xl border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm text-[var(--foreground)] shadow-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]";
-const adminSelectContentClassName = "rounded-xl border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)]";
-const adminInputClassName = "rounded-xl border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm text-[var(--foreground)] placeholder:text-[var(--muted)] focus-visible:ring-2 focus-visible:ring-[var(--ring)]";
-const adminTextareaClassName = "ui-ring min-h-24 w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-sm leading-6 text-[var(--foreground)] placeholder:text-[var(--muted)] focus-visible:ring-2 focus-visible:ring-[var(--ring)]";
-const adminLabelClassName = "text-sm font-medium text-[var(--foreground)]";
-const adminMessageClassName = "text-xs text-rose-500";
+const adminSelectTriggerClassName = "w-full";
+const adminSelectContentClassName = "";
+const adminInputClassName = "";
+const adminTextareaClassName = "min-h-24 resize-y";
+const adminLabelClassName = "";
+const adminMessageClassName = "";
 
 const coverAssetFormSchema = z.object({
   url: z.string(),

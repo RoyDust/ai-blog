@@ -172,8 +172,8 @@ export function useAiNewsSources() {
   }
 
   const deleteSource = async (source: PublicAiNewsSource) => {
+    // 确认在站内 ConfirmDialog 里完成（AiNewsSourcePanel），这里只执行删除
     if (!source.deletable) return
-    if (!window.confirm(`删除来源「${source.name}」？历史候选会保留来源名称快照。`)) return
 
     setDeletingId(source.id)
     clearFeedback()
@@ -214,8 +214,8 @@ export function useAiNewsSources() {
 
   const disableProblemSources = async () => {
     const problemSources = sources.filter((source) => source.enabled && source.healthWarnings.length > 0)
+    // 确认在站内 ConfirmDialog 里完成（AiNewsSourcePanel），这里只执行批量停用
     if (problemSources.length === 0) return
-    if (!window.confirm(`停用 ${problemSources.length} 个有健康提醒的来源？`)) return
 
     clearFeedback()
     setSaving(true)
