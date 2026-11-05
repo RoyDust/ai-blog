@@ -22,7 +22,7 @@ function readParam(params: SettingsSearchParams, key: string) {
   return Array.isArray(value) ? value[0] : value;
 }
 
-export default async function AdminSettingsPage({ searchParams }: { searchParams?: Promise<SettingsSearchParams> }) {
+export default async function AdminSettingsPage({ searchParams }: { searchParams?: Promise<SettingsSearchParams> } = {}) {
   const params = (await searchParams) ?? {};
   const requestedTab = readParam(params, "tab");
   const githubJustLinked = readParam(params, "github") === "linked";

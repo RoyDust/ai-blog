@@ -12,7 +12,7 @@
  * 主组件只保留表单实例、保存动作与 tab 装配。
  */
 
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { motion, useReducedMotion } from "motion/react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useForm, useWatch } from "react-hook-form";
@@ -198,7 +198,7 @@ export function AdminSettingsClient({
       <div className="flex flex-col gap-6">
         <SettingsTablist activeTab={activeTab} onTabChange={handleTabChange} />
 
-        <AnimatePresence initial={false} mode="wait">
+        {/* 换页签时新面板淡入（不等旧面板退出，保持同步渲染） */}
         <motion.div
           key={activeTab}
           aria-labelledby={`settings-tab-${activeTab}`}
@@ -206,7 +206,6 @@ export function AdminSettingsClient({
           role="tabpanel"
           initial={reduceMotion ? false : { opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0, transition: { duration: reduceMotion ? 0 : 0.26, ease: editorialEase } }}
-          exit={reduceMotion ? { opacity: 1 } : { opacity: 0, transition: { duration: 0.12 } }}
         >
           {activeTab === "account" ? (
             <AccountSettingsPanel
@@ -252,7 +251,6 @@ export function AdminSettingsClient({
             />
           ) : null}
         </motion.div>
-        </AnimatePresence>
       </div>
     </div>
   );
