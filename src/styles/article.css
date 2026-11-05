@@ -567,6 +567,7 @@
   }
 
   .article-prose :not(pre) > code {
+    font-variant-ligatures: none;
     border-radius: 2px;
     background: var(--ed-press-bg);
     color: var(--foreground);
@@ -614,6 +615,7 @@
     overflow-wrap: normal;
     word-break: normal;
     tab-size: 2;
+    font-variant-ligatures: none;
     scrollbar-width: thin;
   }
 
@@ -652,8 +654,8 @@
   }
 
   .article-figure__caption,
-  .article-prose .article-figure ~ em,
-  .article-prose p:has(> .article-figure) + p:has(> em:only-child) {
+  .article-prose .article-figure-wrap ~ em,
+  .article-prose p:has(> .article-figure-wrap) + p:has(> em:only-child) {
     display: block;
     margin-top: 0.625rem;
     color: var(--text-muted);
@@ -663,7 +665,7 @@
     text-align: center;
   }
 
-  .article-prose p:has(> .article-figure) + p:has(> em:only-child) em {
+  .article-prose p:has(> .article-figure-wrap) + p:has(> em:only-child) em {
     font-style: normal;
   }
 

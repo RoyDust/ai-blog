@@ -443,7 +443,7 @@ function buildMarkdownComponents(getHeadingId: (children: ReactNode) => string):
       if (!imageSrc) return null
 
       return (
-        <span className="block">
+        <span className="article-figure-wrap block">
           <span className="article-figure">
             <FallbackImage alt={alt ?? ''} height={900} src={imageSrc} unoptimized width={1600} />
           </span>
@@ -490,12 +490,25 @@ export async function renderArticlePage({ slug, includeDraft = false }: { slug: 
 
   const relatedPosts = isDraftPreview ? [] : await getRecommendedPostsForPost({ postId: post.id, limit: 3 })
   const commentsPromise = isDraftPreview ? null : getPostComments(post.id)
+  const settings = await getBlogSettings()
 
+  return renderArticleView({ post, isDraftPreview, relatedPosts, commentsPromise, settings })
+}
+
+type ArticleViewData = {
+  post: ArticlePost
+  isDraftPreview: boolean
+  relatedPosts: Awaited<ReturnType<typeof getRecommendedPostsForPost>>
+  commentsPromise: CommentsPromise | null
+  settings: Awaited<ReturnType<typeof getBlogSettings>>
+}
+
+/** 纯渲染：拿到已装配好的数据后拼出整页（便于单独预览与测试） */
+export function renderArticleView({ post, isDraftPreview, relatedPosts, commentsPromise, settings }: ArticleViewData) {
   const articleContent = stripLeadingTitleHeading(post.content, post.title)
   const headings = extractHeadings(articleContent);
   const renderedHeadingCounters = new Map<string, number>()
   const getRenderedHeadingId = (children: ReactNode) => getUniqueHeadingId(nodeText(children), renderedHeadingCounters)
-  const settings = await getBlogSettings()
   const description = post.seoDescription || post.excerpt || `${post.title} - ${settings.siteName}`
   const articleJsonLd = buildArticleJsonLd({
     title: post.title,
