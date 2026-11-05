@@ -82,7 +82,7 @@ export function WorkspaceHeader({
             预览
           </Link>
         ) : (
-          <HintTooltip hint="草稿暂不支持前台预览">
+          <HintTooltip hint="草稿暂不支持前台预览" side="bottom">
             <Button type="button" disabled variant="outline" title="草稿暂不支持前台预览">
               预览
             </Button>

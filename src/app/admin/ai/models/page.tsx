@@ -28,7 +28,7 @@ export default async function AdminAiModelsPage() {
       />
 
       <section className="grid gap-x-10 gap-y-5 xl:grid-cols-[minmax(0,1fr)_340px]" aria-label="模型概览">
-        <dl className="grid grid-cols-2 border-y border-[var(--border)] sm:grid-cols-4">
+        <dl className="grid grid-cols-2 self-start border-y border-[var(--border)] sm:grid-cols-4">
           {metrics.map((metric, index) => (
             <div
               key={metric.label}
