@@ -40,7 +40,7 @@ function displayHost(url: string) {
 }
 
 /** 来源表列宽（table-fixed）：勾选 · 来源 · 类型分类 · 状态 · 权重 · 抓取候选入选 · 操作 */
-export const aiNewsSourceColumns = ["w-9", "", "w-[7.5rem]", "w-[22%]", "w-14", "w-[13.5rem]", "w-[11.5rem]"] as const
+export const aiNewsSourceColumns = ["w-9", "", "w-[9rem]", "w-[20%]", "w-14", "w-[13.5rem]", "w-[11.5rem]"] as const
 
 /**
  * 来源表的一行（方向 A 第 15 节 + 17.3）：44px 单行，主值完整显示，同格说明（URL、分类、分数与失败数等）跟在后面截断。
@@ -78,7 +78,8 @@ export function AiNewsSourceRow({
 
   return (
     <>
-      <TableRow data-state={selected ? "selected" : undefined} data-source-id={source.id}>
+      {/* 这里的勾选是「本次运行用哪些来源」，不是批量选中，行不加选中底色（同原型） */}
+      <TableRow data-source-id={source.id} data-checked={selected ? "true" : undefined}>
         <TableCell className="pr-0">
           <input
             type="checkbox"
@@ -90,7 +91,9 @@ export function AiNewsSourceRow({
         </TableCell>
         <TableCell className="min-w-0 overflow-hidden">
           <div className="flex min-w-0 items-baseline gap-2">
-            <span className="shrink-0 text-sm font-medium text-[var(--foreground)]">{source.name}</span>
+            <span className="max-w-[75%] shrink-0 truncate text-sm font-medium text-[var(--foreground)]" title={source.name}>
+              {source.name}
+            </span>
             <a
               className="min-w-0 truncate font-mono text-xs text-[var(--text-muted)] hover:text-[var(--foreground)] hover:underline"
               href={source.url}
@@ -103,8 +106,12 @@ export function AiNewsSourceRow({
           </div>
         </TableCell>
         <TableCell className="overflow-hidden">
-          <span className="inline-block w-14 truncate align-baseline font-mono text-xs font-bold text-[var(--foreground)]">{typeLabels[source.type] ?? source.type}</span>
-          <span className="text-xs text-[var(--text-muted)]">{categoryLabel}</span>
+          <div className="flex min-w-0 items-baseline gap-2">
+            <span className="w-[3.75rem] shrink-0 truncate font-mono text-xs font-bold text-[var(--foreground)]">{typeLabels[source.type] ?? source.type}</span>
+            <span className="min-w-0 truncate text-xs text-[var(--text-muted)]" title={categoryLabel}>
+              {categoryLabel}
+            </span>
+          </div>
         </TableCell>
         <TableCell className="overflow-hidden">
           <div className="flex min-w-0 items-baseline gap-2" title={source.healthWarnings.join("；") || undefined}>
