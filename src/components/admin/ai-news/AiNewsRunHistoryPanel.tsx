@@ -161,7 +161,6 @@ export function AiNewsRunHistoryPanel({
             const retrying = retryingIds.includes(run.id);
             const expanded = Boolean(candidates?.expanded) || retrying;
             const sourceCount = runSourceCount(run);
-            const hasPostLinks = Boolean(run.postId || (run.postSlug && run.published));
 
             return (
               <Fragment key={run.id}>
@@ -209,7 +208,7 @@ export function AiNewsRunHistoryPanel({
                       >
                         {expanded ? "收起候选" : "展开候选"}
                       </button>
-                      {hasPostLinks && run.postId ? (
+                      {run.postId ? (
                         <Link className={adminTextActionClassName} href={`/admin/posts/${run.postId}/edit`}>
                           编辑
                         </Link>

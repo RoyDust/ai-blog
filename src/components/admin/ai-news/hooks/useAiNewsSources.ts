@@ -86,6 +86,17 @@ export function useAiNewsSources() {
 
   const sources = useMemo(() => (Array.isArray(sourcesResponse?.data) ? sourcesResponse.data : []), [sourcesResponse?.data])
   const summary = sourcesResponse?.summary ?? defaultSummary
+  // 页码与每页条数以本地状态为准；总数与总页数取接口返回（此前一直是默认 0，导致分页与「匹配 N 个来源」失效）
+  const responsePagination = sourcesResponse?.pagination
+  const effectivePagination = useMemo<AiNewsSourcePagination>(
+    () => ({
+      page: pagination.page,
+      limit: pagination.limit,
+      total: responsePagination?.total ?? pagination.total,
+      totalPages: responsePagination?.totalPages ?? pagination.totalPages,
+    }),
+    [pagination, responsePagination?.total, responsePagination?.totalPages],
+  )
   const loading = isLoading
 
   // 首次加载后默认选中启用的来源（渲染期条件调整，与旧实现一致：空选择时回落到启用集）
@@ -244,7 +255,7 @@ export function useAiNewsSources() {
     sourceMode,
     query,
     category,
-    pagination,
+    pagination: effectivePagination,
     summary,
     loading,
     saving,
