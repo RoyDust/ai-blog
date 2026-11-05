@@ -76,11 +76,11 @@ export function PostsTable({
               </TableHead>
               <TableHead>标题</TableHead>
               <TableHead className="hidden w-[88px] xl:table-cell">作者</TableHead>
-              <TableHead className="w-[34%] xl:w-[30%]">AI 摘要</TableHead>
-              <TableHead className="w-[132px]">发布</TableHead>
+              <TableHead className="w-[32%] xl:w-[24%]">AI 摘要</TableHead>
+              <TableHead className="w-[124px]">发布</TableHead>
               <TableHead className="hidden w-[200px] 2xl:table-cell">上下文</TableHead>
               <TableHead className="hidden w-[104px] xl:table-cell">日期</TableHead>
-              <TableHead className="w-[128px] text-right">操作</TableHead>
+              <TableHead className="w-[124px] text-right">操作</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

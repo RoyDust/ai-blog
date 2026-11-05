@@ -1,9 +1,10 @@
 "use client";
 
+import { motion, useReducedMotion } from "motion/react";
 import Link from "next/link";
 
 import { Button, Modal } from "@/components/admin/ui";
-import { StaggerItem, StaggerList } from "@/components/editorial";
+import { StaggerItem, StaggerList, editorialEase } from "@/components/editorial";
 import { cn } from "@/lib/cn";
 import type { AiArticleInfoPreview } from "./hooks/useAiActions";
 import type { CategoryOption, TagOption } from "./workspace-types";
@@ -130,6 +131,7 @@ export function ArticleInfoPreviewModal({
   onApply,
 }: ArticleInfoPreviewModalProps) {
   const rows = getArticleInfoPreviewRows({ categories, preview, tags });
+  const reduceMotion = useReducedMotion();
 
   const metricsLine = preview.metrics
     .filter((metric) => metric.action)
@@ -190,22 +192,25 @@ export function ArticleInfoPreviewModal({
             <th scope="col" className="h-9 font-bold">变化</th>
           </tr>
         </thead>
-        <StaggerList as="ol" className="contents" stagger={0.04}>
-          {rows.map((row) => (
-            <StaggerItem key={row.key} className="contents">
-              <tr className="border-b border-[var(--border)] align-top">
-                <th scope="row" className="py-3 pr-3 text-left font-bold text-[var(--foreground)]">{row.label}</th>
-                <td className={cn("min-w-0 break-words py-3 pr-3 leading-[1.6]", row.key === "slug" && "font-mono text-xs", valueClassName(row.current, false))}>
-                  {row.current}
-                </td>
-                <td className={cn("min-w-0 break-words py-3 pr-3 leading-[1.6]", row.key === "slug" && "font-mono text-xs", valueClassName(row.next, true))}>
-                  {row.next}
-                </td>
-                <td className={cn("py-3 text-xs font-bold", getChangeClassName(row.change))}>{row.change}</td>
-              </tr>
-            </StaggerItem>
+        <tbody>
+          {rows.map((row, index) => (
+            <motion.tr
+              key={row.key}
+              className="border-b border-[var(--border)] align-top"
+              initial={reduceMotion ? false : { opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0, transition: { duration: 0.32, ease: editorialEase, delay: reduceMotion ? 0 : 0.04 * index } }}
+            >
+              <th scope="row" className="py-3 pr-3 text-left font-bold text-[var(--foreground)]">{row.label}</th>
+              <td className={cn("min-w-0 break-words py-3 pr-3 leading-[1.6]", row.key === "slug" && "font-mono text-xs", valueClassName(row.current, false))}>
+                {row.current}
+              </td>
+              <td className={cn("min-w-0 break-words py-3 pr-3 leading-[1.6]", row.key === "slug" && "font-mono text-xs", valueClassName(row.next, true))}>
+                {row.next}
+              </td>
+              <td className={cn("py-3 text-xs font-bold", getChangeClassName(row.change))}>{row.change}</td>
+            </motion.tr>
           ))}
-        </StaggerList>
+        </tbody>
       </table>
 
       {preview.quality ? (
