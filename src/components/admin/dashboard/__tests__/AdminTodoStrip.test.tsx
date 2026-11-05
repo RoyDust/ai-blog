@@ -28,17 +28,19 @@ describe("AdminTodoStrip", () => {
     expect(screen.getByRole("link", { name: "失败 AI 任务 2 条，点击进入AI 任务中心" })).toHaveAttribute("href", "/admin/ai/tasks");
     expect(screen.getByRole("link", { name: "滞留草稿 1 条，点击进入文章工作台" })).toHaveAttribute("href", "/admin/posts");
     expect(screen.getByRole("link", { name: "待处理 Newsletter 4 条，点击进入Newsletter" })).toHaveAttribute("href", "/admin/newsletter");
-    expect(screen.getByText("3 条")).toBeInTheDocument();
-    expect(screen.getByText("2 条")).toBeInTheDocument();
-    expect(screen.getByText("1 条")).toBeInTheDocument();
-    expect(screen.getByText("4 条")).toBeInTheDocument();
+    // 一行文字链接：计数等宽、按语气着色（失败 AI 任务 danger，其余 warning）
+    expect(screen.getByRole("link", { name: /待审评论/ })).toHaveTextContent("待审评论3 条");
+    expect(screen.getByText("3")).toHaveClass("font-mono", "text-[var(--warning)]");
+    expect(screen.getByText("2")).toHaveClass("font-mono", "text-[var(--danger-foreground)]");
+    expect(screen.getByText("1")).toHaveClass("text-[var(--warning)]");
+    expect(screen.getByText("4")).toHaveClass("text-[var(--warning)]");
   });
 
   test("collapses to a single zero-state row when there is no work", () => {
     render(<AdminTodoStrip counts={zeroCounts} />);
 
     expect(screen.getByRole("region", { name: "今日待办" })).toBeInTheDocument();
-    expect(screen.getByText("今日无待办")).toBeInTheDocument();
+    expect(screen.getByText("今日无待办")).toHaveClass("text-[var(--success)]");
     expect(screen.queryByRole("link")).not.toBeInTheDocument();
   });
 

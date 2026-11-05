@@ -1,6 +1,7 @@
 // TEMPORARY visual check page — delete after use.
 import { renderArticleView } from "../posts/[slug]/page";
 import { getBlogSettings } from "@/lib/blog-settings";
+import PostLoading from "../posts/[slug]/loading";
 
 export const dynamic = "force-dynamic";
 
@@ -62,8 +63,9 @@ console.table({ ttfb, lcp });
 下一篇会讲怎么把这些指标接进日常监控。
 `;
 
-export default async function Page({ searchParams }: { searchParams: Promise<{ cover?: string; empty?: string }> }) {
+export default async function Page({ searchParams }: { searchParams: Promise<{ cover?: string; empty?: string; loading?: string }> }) {
   const params = await searchParams;
+  if (params.loading === "1") return <PostLoading />;
   const settings = await getBlogSettings();
   const seriesPosts = Array.from({ length: 11 }, (_, index) => ({
     title: index === 5 ? "页面性能优化：先找到真正的瓶颈" : `系列文章第 ${index + 1} 篇的标题`,

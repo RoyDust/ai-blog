@@ -49,15 +49,21 @@ describe("admin layout", () => {
     expect(within(nav).getByRole("link", { name: "分类" })).toHaveAttribute("href", "/admin/taxonomy");
     expect(within(nav).getByRole("link", { name: "媒体库" })).toHaveAttribute("href", "/admin/covers");
     expect(within(nav).getByRole("link", { name: "接口日志" })).toHaveAttribute("href", "/admin/logs");
-    const aiAssistant = within(nav).getByText("AI 助手").closest("details");
-    expect(aiAssistant).not.toBeNull();
-    expect(aiAssistant).not.toHaveAttribute("open");
-    fireEvent.click(within(aiAssistant as HTMLElement).getByText("AI 助手"));
-    expect(aiAssistant).toHaveAttribute("open");
-    expect(within(aiAssistant as HTMLElement).getByRole("link", { name: "AI 日报" })).toHaveAttribute("href", "/admin/ai-news");
-    expect(within(aiAssistant as HTMLElement).getByRole("link", { name: "AI 接口" })).toHaveAttribute("href", "/admin/ai/interfaces");
-    expect(within(aiAssistant as HTMLElement).getByRole("link", { name: "模型配置" })).toHaveAttribute("href", "/admin/ai/models");
-    expect(within(aiAssistant as HTMLElement).getByRole("link", { name: "AI 任务" })).toHaveAttribute("href", "/admin/ai/tasks");
+    // 当前项：aria-current + 白字 700（指示条用 layoutId 平移）
+    expect(within(nav).getByRole("link", { name: "分类" })).toHaveAttribute("aria-current", "page");
+    expect(within(nav).getByRole("link", { name: "文章" })).not.toHaveAttribute("aria-current");
+    // AI 助手折叠组：按钮 aria-expanded 控制展开 / 收起
+    const aiAssistant = within(nav).getByRole("button", { name: "AI 助手" });
+    expect(aiAssistant).toHaveAttribute("aria-expanded", "false");
+    expect(within(nav).queryByRole("link", { name: "AI 日报" })).not.toBeInTheDocument();
+    fireEvent.click(aiAssistant);
+    expect(aiAssistant).toHaveAttribute("aria-expanded", "true");
+    const aiGroup = document.getElementById("admin-sider-ai-group") as HTMLElement;
+    expect(aiGroup).not.toBeNull();
+    expect(within(aiGroup).getByRole("link", { name: "AI 日报" })).toHaveAttribute("href", "/admin/ai-news");
+    expect(within(aiGroup).getByRole("link", { name: "AI 接口" })).toHaveAttribute("href", "/admin/ai/interfaces");
+    expect(within(aiGroup).getByRole("link", { name: "模型配置" })).toHaveAttribute("href", "/admin/ai/models");
+    expect(within(aiGroup).getByRole("link", { name: "AI 任务" })).toHaveAttribute("href", "/admin/ai/tasks");
     expect(within(nav).queryByRole("button", { name: "设置稍后开放" })).not.toBeInTheDocument();
     expect(within(nav).queryByRole("link", { name: "设置" })).not.toBeInTheDocument();
     const accountMenuButton = screen.getByRole("button", { name: "RoyDust 账号菜单" });
@@ -89,6 +95,14 @@ describe("admin layout", () => {
     expect(screen.getByTestId("admin-layout-content")).toHaveClass("h-screen", "overflow-hidden");
     expect(screen.getByTestId("admin-layout-main")).toHaveClass("flex-1", "overflow-y-auto");
     expect(screen.getByTestId("admin-layout-main").firstElementChild).toHaveClass("max-w-[1840px]");
+    // 方向 A：内容区是一张纸面（card-bg、1px 描边、6px 圆角、无阴影），版权页脚在纸面底部
+    const paper = screen.getByTestId("admin-layout-main").firstElementChild as HTMLElement;
+    expect(paper).toHaveAttribute("data-slot", "admin-paper");
+    expect(paper).toHaveClass("rounded-[var(--radius-paper)]", "border", "bg-[var(--card-bg)]");
+    expect(paper.className).not.toMatch(/shadow/);
+    expect(within(paper).getByText("版本 1.0.0 · Ctrl+K 全局搜索")).toBeInTheDocument();
+    // 顶栏「新建文章」降为描边按钮
+    expect(screen.getByRole("link", { name: "新建文章" })).toHaveClass("border-[var(--reader-border-strong)]", "bg-transparent");
   });
 
   test("restores only valid persisted admin tabs after the initial client render", async () => {
