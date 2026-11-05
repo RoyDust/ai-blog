@@ -292,10 +292,10 @@ export function ApiOperationLogsClient() {
           <TableCell className="h-9 py-0 font-mono text-xs font-bold text-[var(--foreground)]">{item.method}</TableCell>
           <TableCell className="h-9 overflow-hidden py-0">
             <span className="flex min-w-0 items-baseline gap-2">
-              <span className="shrink-0 truncate font-mono text-[0.8125rem] text-[var(--foreground)]" title={item.path}>
+              <span className="min-w-0 shrink truncate font-mono text-[0.8125rem] text-[var(--foreground)]" title={item.path}>
                 {item.path}
               </span>
-              <span className="min-w-0 truncate font-mono text-[0.6875rem] text-[var(--text-muted)]">{formatOperationLine(item)}</span>
+              <span className="min-w-0 shrink-[3] truncate font-mono text-[0.6875rem] text-[var(--text-muted)]">{formatOperationLine(item)}</span>
             </span>
           </TableCell>
           <TableCell className={cn("h-9 truncate py-0 text-[0.8125rem]", formatActor(item) === "unknown" ? "text-[var(--text-muted)]" : "text-[var(--text-body)]")}>

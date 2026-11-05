@@ -1,9 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Sparkles } from "lucide-react";
 
 import { Button, FallbackImage, Modal } from "@/components/admin/ui";
+import { FadeBanner, InlineSpinner } from "@/components/admin/workspace/WorkspaceKit";
 import {
   Select,
   SelectContent,
@@ -23,8 +23,6 @@ type AiCoverGeneratorProps = {
   onGenerated: (asset: CoverAsset) => void;
 };
 
-const adminSelectTriggerClassName = "w-full rounded-xl border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--foreground)] shadow-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]";
-const adminSelectContentClassName = "rounded-xl border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)]";
 
 /**
  * 文章编辑器里的 AI 封面生成入口。
@@ -107,62 +105,75 @@ export function AiCoverGenerator({ title, excerpt, content, models: initialModel
   return (
     <>
       <Button type="button" size="sm" variant="outline" onClick={() => { setOpen(true); void loadModels(); }}>
-        <Sparkles className="mr-1 h-4 w-4" aria-hidden="true" />
         AI 生成封面
       </Button>
 
-      <Modal isOpen={open} onClose={() => setOpen(false)} title="AI 生成封面" size="3xl" contentClassName="space-y-4">
-        <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-alt)] px-4 py-3 text-sm text-[var(--muted)]">
+      <Modal isOpen={open} onClose={() => setOpen(false)} title="AI 生成封面" size="3xl" contentClassName="flex flex-col gap-4">
+        <p className="border-l-2 border-[var(--focus)] py-0.5 pl-3 text-[0.8125rem] leading-[1.6] text-[var(--text-body)]">
           基于当前标题和摘要生成 16:9 文章封面。生成结果会保存到封面图库，并可一键回填到文章。
-        </div>
+        </p>
 
         {coverModels.length > 0 ? (
-          <label className="block space-y-2 text-sm font-medium text-[var(--foreground)]">
-            <span>生图模型</span>
+          <div className="flex flex-col gap-1.5">
+            <span id="ai-cover-model-label" className="text-[0.8125rem] font-bold text-[var(--foreground)]">生图模型</span>
             <Select value={selectedModelId} onValueChange={setModelId}>
-              <SelectTrigger className={adminSelectTriggerClassName}>
+              <SelectTrigger aria-labelledby="ai-cover-model-label" className="w-full">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className={adminSelectContentClassName}>
+              <SelectContent>
                 {coverModels.map((model) => (
                   <SelectItem key={model.id} value={model.id}>{model.name} · {model.model}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
-          </label>
+          </div>
         ) : (
-          <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
+          <p className="ed-banner ed-banner--warning">
             暂无可用封面生图模型，请先在 AI 模型配置中添加或配置千问 Wan 2.6 生图模型。
           </p>
         )}
 
-        <label className="block space-y-2 text-sm font-medium text-[var(--foreground)]">
-          <span>补充风格提示词</span>
+        <label className="flex flex-col gap-1.5">
+          <span className="text-[0.8125rem] font-bold text-[var(--foreground)]">
+            补充风格提示词<span className="ml-1 font-medium text-[var(--text-muted)]">（可选）</span>
+          </span>
           <textarea
-            className="ui-ring min-h-28 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--foreground)] placeholder:text-[var(--muted)] focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+            className="min-h-28 w-full resize-y rounded-[var(--radius-ctl)] border border-[var(--reader-border-strong)] bg-transparent px-2.5 py-2 text-base leading-[1.6] text-[var(--foreground)] transition-[border-color] duration-150 placeholder:text-[var(--text-muted)] hover:border-[var(--text-muted)] focus-visible:border-[var(--foreground)] md:text-sm"
             placeholder="例如：暗色科技感、抽象几何、柔和光影、不要人物"
             value={prompt}
             onChange={(event) => setPrompt(event.target.value)}
           />
         </label>
 
-        {error ? <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p> : null}
+        <FadeBanner message={error} tone="danger" />
 
         {generated ? (
-          <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]">
-            <div className="relative aspect-[16/9] bg-[var(--surface-alt)]">
+          <figure className="flex flex-col gap-1.5">
+            <div className="relative aspect-[16/9] overflow-hidden rounded-[var(--radius-ctl)] border border-[var(--border)] bg-[var(--ed-skeleton)]">
               <FallbackImage alt={generated.alt || "AI 生成封面"} className="object-cover" fill src={generated.url} unoptimized />
             </div>
-            <div className="p-3 text-sm text-[var(--muted)]">{generated.url}</div>
+            <figcaption className="truncate font-mono text-xs text-[var(--text-muted)]">{generated.url}</figcaption>
+          </figure>
+        ) : generating ? (
+          <div role="status" className="flex aspect-[16/9] items-center justify-center gap-2 rounded-[var(--radius-ctl)] bg-[var(--ed-skeleton)] text-[0.8125rem] text-[var(--text-muted)]">
+            <InlineSpinner />
+            封面生成中...
           </div>
         ) : null}
 
-        <div className="flex flex-wrap justify-end gap-2">
+        <div className="-mx-6 -mb-5 flex flex-wrap justify-end gap-2.5 border-t border-[var(--border)] px-6 py-3.5">
           <Button type="button" variant="outline" onClick={() => setOpen(false)}>取消</Button>
-          <Button type="button" disabled={generating || coverModels.length === 0 || !title.trim()} onClick={() => void handleGenerate()}>
+          <Button
+            type="button"
+            variant={generated ? "outline" : "primary"}
+            disabled={generating || coverModels.length === 0 || !title.trim()}
+            onClick={() => void handleGenerate()}
+          >
             {generating ? "生成中..." : "开始生成"}
           </Button>
-          <Button type="button" disabled={!generated} onClick={handleUse}>使用这张封面</Button>
+          {generated ? (
+            <Button type="button" onClick={handleUse}>使用这张封面</Button>
+          ) : null}
         </div>
       </Modal>
     </>
