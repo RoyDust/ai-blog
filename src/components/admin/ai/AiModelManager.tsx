@@ -384,7 +384,7 @@ export function AiModelManager({ initialModels }: { initialModels: PublicAiModel
         <AdminSectionHeader
           id="ai-model-library-title"
           title="模型库"
-          count={models.length}
+          aside={<span className="font-mono">{models.length} 个模型</span>}
           description="统一维护环境变量内置模型与数据库自定义模型；默认选择按能力独立设置。"
         />
         <StaggerList className="mt-2 border-t border-[var(--reader-border-strong)]" stagger={0.04}>
