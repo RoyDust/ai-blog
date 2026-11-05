@@ -25,6 +25,8 @@ import { PostAiWorkspace } from "@/components/admin/ai/PostAiWorkspace";
 import { WorkspacePanel } from "@/components/admin/primitives/WorkspacePanel";
 import { Modal } from "@/components/admin/ui";
 import { ConfirmDialog } from "@/components/admin/ui/confirm-dialog";
+import { FadeBanner, InlineSpinner } from "@/components/admin/workspace/WorkspaceKit";
+import { StaggerItem, StaggerList } from "@/components/editorial";
 import { apiFetcher, apiMutate, toErrorMessage } from "@/lib/client-api";
 
 import { AiFieldButton } from "./AiFieldButton";
@@ -338,7 +340,12 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
   ) : null;
 
   if (isEditMode && isPostLoading) {
-    return <p className="py-20 text-center text-[var(--muted)]">加载中...</p>;
+    return (
+      <p role="status" className="flex items-center gap-2 py-2 text-sm text-[var(--text-muted)]">
+        <InlineSpinner />
+        加载中...
+      </p>
+    );
   }
 
   const visibleError = error || (postLoadError ? toErrorMessage(postLoadError, "加载失败") : "");
@@ -352,8 +359,11 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
         : "本地草稿待保存";
   const hasContent = formData.content.trim() !== "";
 
+  // 右栏分段之间 1px bd-strong 线；分段逐段淡入（StaggerItem 承担分隔线，WorkspacePanel 只排版标题与内容）
+  const paneItemClassName = "border-t border-[var(--reader-border-strong)] pt-[18px] first:border-t-0 first:pt-0";
+
   return (
-    <form className="flex h-full min-h-0 flex-col gap-4 overflow-hidden" onSubmit={handleSubmit}>
+    <form className="flex h-full min-h-0 flex-col overflow-hidden" onSubmit={handleSubmit}>
       <WorkspaceHeader
         isEditMode={isEditMode}
         published={formData.published}
@@ -365,11 +375,11 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
         onBack={() => (isEditMode ? router.back() : router.push("/admin/posts"))}
       />
 
-      {visibleError ? <p className="rounded-xl border border-rose-300 bg-rose-50 p-3 text-sm text-rose-700">{visibleError}</p> : null}
+      <FadeBanner message={visibleError} tone="danger" className="mt-3 shrink-0" />
 
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-y-auto xl:grid-cols-[minmax(0,1fr)_320px] xl:grid-rows-[minmax(0,1fr)] xl:overflow-hidden">
+      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-y-auto xl:grid-cols-[minmax(0,1fr)_320px] xl:grid-rows-[minmax(0,1fr)] xl:overflow-hidden">
         <EditorWorkspace
-          className="h-full"
+          className="pt-4 pb-5 xl:h-full xl:pr-6"
           fillHeight
           mode="content"
           contentMinRows={12}
@@ -401,81 +411,91 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
           onTitleChange={(value) => applyTitleChange(value, setFormData)}
         />
 
-        <aside className="flex min-h-0 flex-col gap-3 overflow-y-auto pr-1 xl:h-full xl:max-h-full">
-          <WorkspacePanel title="发布设置" description="保存、发布和前台展示相关设置。" className="rounded-2xl" fillHeight={false}>
-            <PublishSettingsPanel
-              isEditMode={isEditMode}
-              saveStatusLabel={saveStatusLabel}
-              published={formData.published}
-              featured={formData.featured}
-              scheduledAt={formData.scheduledAt}
-              slug={formData.slug}
-              categoryId={formData.categoryId}
-              tagCount={formData.tagIds.length}
-              seriesId={formData.seriesId}
-              coverImage={formData.coverImage}
-              categories={categories}
-              series={series}
-              onKeepDraft={() => setFormData((prev) => ({ ...prev, published: false, scheduledAt: "" }))}
-              onSwitchPublished={() => setFormData((prev) => ({ ...prev, published: true, scheduledAt: "" }))}
-              onUnfeature={() => setFormData((prev) => ({ ...prev, featured: false }))}
-              onFeature={() => setFormData((prev) => ({ ...prev, featured: true }))}
-              onScheduledAtChange={(value) => setFormData((prev) => ({ ...prev, scheduledAt: value, published: false }))}
-            />
-          </WorkspacePanel>
+        <aside
+          aria-label="发布与元信息"
+          className="min-h-0 border-t border-[var(--border)] pt-4 pb-6 [scrollbar-color:var(--reader-border-strong)_transparent] [scrollbar-width:thin] xl:h-full xl:max-h-full xl:overflow-y-auto xl:border-t-0 xl:border-l xl:pr-2 xl:pl-6"
+        >
+          <StaggerList className="flex flex-col gap-[22px]" stagger={0.07}>
+            <StaggerItem className={paneItemClassName}>
+              <WorkspacePanel variant="pane" title="发布设置" description="保存、发布和前台展示相关设置。" fillHeight={false}>
+                <PublishSettingsPanel
+                  isEditMode={isEditMode}
+                  saveStatusLabel={saveStatusLabel}
+                  published={formData.published}
+                  featured={formData.featured}
+                  scheduledAt={formData.scheduledAt}
+                  slug={formData.slug}
+                  categoryId={formData.categoryId}
+                  tagCount={formData.tagIds.length}
+                  seriesId={formData.seriesId}
+                  coverImage={formData.coverImage}
+                  categories={categories}
+                  series={series}
+                  onKeepDraft={() => setFormData((prev) => ({ ...prev, published: false, scheduledAt: "" }))}
+                  onSwitchPublished={() => setFormData((prev) => ({ ...prev, published: true, scheduledAt: "" }))}
+                  onUnfeature={() => setFormData((prev) => ({ ...prev, featured: false }))}
+                  onFeature={() => setFormData((prev) => ({ ...prev, featured: true }))}
+                  onScheduledAtChange={(value) => setFormData((prev) => ({ ...prev, scheduledAt: value, published: false }))}
+                />
+              </WorkspacePanel>
+            </StaggerItem>
 
-          <WorkspacePanel title="发布清单" description="发布前检查标题、正文、SEO 与封面。" className="rounded-2xl" fillHeight={false}>
-            <PublishChecklist
-              variant="inline"
-              content={formData.content}
-              coverImage={formData.coverImage}
-              excerpt={formData.excerpt}
-              seoDescription={formData.seoDescription}
-              slug={formData.slug}
-              title={formData.title}
-            />
-          </WorkspacePanel>
+            <StaggerItem className={paneItemClassName}>
+              {/* 发布清单自带分段标题：「AI 审稿」按钮与审稿状态都在清单组件内部 */}
+              <PublishChecklist
+                variant="panel"
+                content={formData.content}
+                coverImage={formData.coverImage}
+                excerpt={formData.excerpt}
+                seoDescription={formData.seoDescription}
+                slug={formData.slug}
+                title={formData.title}
+              />
+            </StaggerItem>
 
-          <WorkspacePanel title="分类、标签与封面图" description="这些字段会随保存或发布提交。" className="rounded-2xl" fillHeight={false}>
-            <MetadataEditor
-              mode={mode}
-              formData={formData}
-              hasContent={hasContent}
-              canUseAiWorkspace={canUseAiWorkspace}
-              categories={categories}
-              tags={tags}
-              series={series}
-              metadataError={metadataError}
-              metadataPendingField={metadataPendingField}
-              isCompletingMetadata={isCompletingMetadata}
-              isGeneratingAllMetadata={isGeneratingAllMetadata}
-              lastArticleInfoTaskId={lastArticleInfoTaskId}
-              isSummarizing={isSummarizing}
-              summaryError={summaryError}
-              coverUploadError={coverUploadError}
-              isCoverUploading={isCoverUploading}
-              coverInputRef={coverFileInputRef}
-              onGenerateAll={() => void handleGenerateAllArticleInfo()}
-              onOpenAiWorkspace={() => setAiWorkspaceOpen(true)}
-              onGenerateMetadata={handleGenerateMetadata}
-              onGenerateSummary={() => void handleGenerateSummary()}
-              onCategoryChange={(value) => setFormData((prev) => ({ ...prev, categoryId: value }))}
-              onTagToggle={(tagId, checked) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  tagIds: checked ? [...prev.tagIds, tagId] : prev.tagIds.filter((id) => id !== tagId),
-                }))
-              }
-              onSeriesChange={(value) => setFormData((prev) => ({ ...prev, seriesId: value }))}
-              onSeriesOrderChange={(value) => setFormData((prev) => ({ ...prev, seriesOrder: value }))}
-              onCoverUrlChange={(value) => setFormData((prev) => ({ ...prev, coverImage: value, coverAssetId: "" }))}
-              onCoverUpload={handleCoverUpload}
-              onCoverUploadClick={() => coverFileInputRef.current?.click()}
-              onCoverAssetSelect={(asset) => setFormData((prev) => ({ ...prev, coverImage: asset.url, coverAssetId: asset.id }))}
-              onExcerptChange={(value) => setFormData((prev) => ({ ...prev, excerpt: value }))}
-              onSeoDescriptionChange={(value) => setFormData((prev) => ({ ...prev, seoDescription: value }))}
-            />
-          </WorkspacePanel>
+            <StaggerItem className={paneItemClassName}>
+              <WorkspacePanel variant="pane" title="分类、标签与封面图" description="这些字段会随保存或发布提交。" fillHeight={false}>
+                <MetadataEditor
+                  mode={mode}
+                  formData={formData}
+                  hasContent={hasContent}
+                  canUseAiWorkspace={canUseAiWorkspace}
+                  categories={categories}
+                  tags={tags}
+                  series={series}
+                  metadataError={metadataError}
+                  metadataPendingField={metadataPendingField}
+                  isCompletingMetadata={isCompletingMetadata}
+                  isGeneratingAllMetadata={isGeneratingAllMetadata}
+                  lastArticleInfoTaskId={lastArticleInfoTaskId}
+                  isSummarizing={isSummarizing}
+                  summaryError={summaryError}
+                  coverUploadError={coverUploadError}
+                  isCoverUploading={isCoverUploading}
+                  coverInputRef={coverFileInputRef}
+                  onGenerateAll={() => void handleGenerateAllArticleInfo()}
+                  onOpenAiWorkspace={() => setAiWorkspaceOpen(true)}
+                  onGenerateMetadata={handleGenerateMetadata}
+                  onGenerateSummary={() => void handleGenerateSummary()}
+                  onCategoryChange={(value) => setFormData((prev) => ({ ...prev, categoryId: value }))}
+                  onTagToggle={(tagId, checked) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      tagIds: checked ? [...prev.tagIds, tagId] : prev.tagIds.filter((id) => id !== tagId),
+                    }))
+                  }
+                  onSeriesChange={(value) => setFormData((prev) => ({ ...prev, seriesId: value }))}
+                  onSeriesOrderChange={(value) => setFormData((prev) => ({ ...prev, seriesOrder: value }))}
+                  onCoverUrlChange={(value) => setFormData((prev) => ({ ...prev, coverImage: value, coverAssetId: "" }))}
+                  onCoverUpload={handleCoverUpload}
+                  onCoverUploadClick={() => coverFileInputRef.current?.click()}
+                  onCoverAssetSelect={(asset) => setFormData((prev) => ({ ...prev, coverImage: asset.url, coverAssetId: asset.id }))}
+                  onExcerptChange={(value) => setFormData((prev) => ({ ...prev, excerpt: value }))}
+                  onSeoDescriptionChange={(value) => setFormData((prev) => ({ ...prev, seoDescription: value }))}
+                />
+              </WorkspacePanel>
+            </StaggerItem>
+          </StaggerList>
         </aside>
       </div>
 

@@ -2,12 +2,12 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { LoaderCircle, Sparkles } from "lucide-react";
 import type { ChangeEvent, RefObject } from "react";
 
 import { CoverPicker } from "@/components/admin/covers/CoverPicker";
 import type { CoverAsset } from "@/components/admin/covers/types";
-import { Button, Input } from "@/components/admin/ui";
+import { Button } from "@/components/admin/ui";
+import { FadeBanner, FieldLabel, FramedInput, InlineSpinner } from "@/components/admin/workspace/WorkspaceKit";
 import {
   Select,
   SelectContent,
@@ -15,15 +15,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/shadcn/ui/select";
-import type { AiMetadataField, AiMetadataSingleField } from "./hooks/useAiActions";
+import { REUSED_ARTICLE_INFO_MESSAGE, type AiMetadataField, type AiMetadataSingleField } from "./hooks/useAiActions";
 import type { PostFormData } from "./hooks/usePostForm";
 import { AiFieldButton } from "./AiFieldButton";
 import type { CategoryOption, SeriesOption, TagOption, WorkspaceMode } from "./workspace-types";
 
 const uncategorizedValue = "__uncategorized__";
 const noSeriesValue = "__no_series__";
-const adminSelectTriggerClassName = "w-full rounded-xl border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm text-[var(--foreground)] shadow-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]";
-const adminSelectContentClassName = "rounded-xl border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)]";
+const selectTriggerClassName = "w-full";
+const hintClassName = "mt-1.5 text-xs leading-[1.55] text-[var(--text-muted)]";
+const fieldErrorClassName = "mt-1.5 text-[0.8125rem] text-[var(--danger-foreground)]";
 
 const AiCoverGenerator = dynamic(
   () => import("@/components/admin/covers/AiCoverGenerator").then((mod) => mod.AiCoverGenerator),
@@ -31,7 +32,7 @@ const AiCoverGenerator = dynamic(
     ssr: false,
     loading: () => (
       <Button type="button" size="sm" variant="outline" disabled>
-        AI 封面加载中
+        AI 生成封面
       </Button>
     ),
   },
@@ -112,50 +113,48 @@ export function MetadataEditor({
   onExcerptChange,
   onSeoDescriptionChange,
 }: MetadataEditorProps) {
-  return (
-    <div className="space-y-4">
-      {metadataError ? <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{metadataError}</p> : null}
+  const metadataBannerTone = metadataError === REUSED_ARTICLE_INFO_MESSAGE ? "info" : "danger";
 
-      <div className="rounded-2xl border border-[color-mix(in_oklab,var(--brand)_18%,var(--border)_82%)] bg-[color-mix(in_oklab,var(--brand)_5%,var(--surface)_95%)] p-3">
-        <div className="flex flex-col gap-3">
-          <div className="min-w-0 space-y-1">
-            <p className="text-sm font-semibold text-[var(--foreground)]">一键 AI 生成信息</p>
-            <p className="text-xs leading-5 text-[var(--muted)]">保留标题和正文，覆盖 Slug、摘要、SEO、分类和标签。</p>
-          </div>
+  return (
+    <div className="flex flex-col gap-4" data-slot="metadata-editor">
+      <FadeBanner message={metadataError} tone={metadataBannerTone} className="text-[0.8125rem]" />
+
+      <div className="border-l-2 border-[var(--focus)] py-0.5 pl-3" data-slot="one-click-ai">
+        <p className="text-sm font-bold text-[var(--foreground)]">一键 AI 生成信息</p>
+        <p className="mt-0.5 text-xs leading-[1.55] text-[var(--text-muted)]">保留标题和正文，覆盖 Slug、摘要、SEO、分类和标签。</p>
+        <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5">
           <Button
             type="button"
             size="sm"
-            className="w-full"
+            variant="outline"
+            aria-busy={isGeneratingAllMetadata || undefined}
             disabled={isCompletingMetadata || !hasContent}
             onClick={onGenerateAll}
           >
-            {isGeneratingAllMetadata ? (
-              <LoaderCircle className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />
-            ) : (
-              <Sparkles className="mr-1 h-4 w-4" aria-hidden="true" />
-            )}
+            {isGeneratingAllMetadata ? <InlineSpinner className="mr-0.5" /> : null}
             {isGeneratingAllMetadata ? "生成中..." : "一键 AI 生成"}
           </Button>
           {canUseAiWorkspace ? (
-            <Button type="button" size="sm" variant="outline" className="w-full" onClick={onOpenAiWorkspace}>
-              <Sparkles className="mr-1 h-4 w-4" aria-hidden="true" />
+            <Button type="button" size="sm" variant="outline" onClick={onOpenAiWorkspace}>
               打开 AI 辅助
             </Button>
           ) : null}
           {lastArticleInfoTaskId ? (
-            <Link className="text-xs font-medium text-[var(--brand)] hover:underline" href={`/admin/ai/tasks/${lastArticleInfoTaskId}`}>
+            <Link
+              className="inline-flex min-h-8 items-center text-[0.8125rem] font-bold text-[var(--text-body)] underline decoration-[var(--reader-border-strong)] decoration-1 underline-offset-4 transition-[color,text-decoration-color] duration-150 hover:text-[var(--foreground)] hover:decoration-[var(--accent-sky)]"
+              href={`/admin/ai/tasks/${lastArticleInfoTaskId}`}
+            >
               查看最近 AI 任务
             </Link>
           ) : null}
         </div>
       </div>
 
-      <div className="space-y-2">
-        <div className="flex items-center justify-between gap-3">
-          <label className="block text-sm font-medium text-[var(--foreground)]" htmlFor={`${mode}-post-category`}>
-            分类
-          </label>
+      <div className="min-w-0">
+        <div className="mb-1.5 flex min-h-5 items-center justify-between gap-3">
+          <FieldLabel htmlFor={`${mode}-post-category`}>分类</FieldLabel>
           <AiFieldButton
+            placement="label"
             label="AI 选择分类"
             loading={metadataPendingField === "category"}
             disabled={isCompletingMetadata || !hasContent}
@@ -166,10 +165,10 @@ export function MetadataEditor({
           value={formData.categoryId || uncategorizedValue}
           onValueChange={(value) => onCategoryChange(value === uncategorizedValue ? "" : value)}
         >
-          <SelectTrigger id={`${mode}-post-category`} className={adminSelectTriggerClassName}>
+          <SelectTrigger id={`${mode}-post-category`} className={selectTriggerClassName}>
             <SelectValue />
           </SelectTrigger>
-          <SelectContent className={adminSelectContentClassName}>
+          <SelectContent>
             <SelectItem value={uncategorizedValue}>未分类</SelectItem>
             {categories.map((category) => (
               <SelectItem key={category.id} value={category.id}>
@@ -180,28 +179,39 @@ export function MetadataEditor({
         </Select>
       </div>
 
-      <div className="space-y-2" role="group" aria-labelledby={`${mode}-post-tags-label`}>
-        <div className="flex items-center justify-between gap-3">
-          <p id={`${mode}-post-tags-label`} className="text-sm font-medium text-[var(--foreground)]">标签</p>
+      <div className="min-w-0">
+        <div className="mb-1.5 flex min-h-5 items-center justify-between gap-3">
+          <FieldLabel as="span" id={`${mode}-post-tags-label`} optional>
+            标签
+          </FieldLabel>
           <AiFieldButton
+            placement="label"
             label="AI 选择标签"
             loading={metadataPendingField === "tags"}
             disabled={isCompletingMetadata || !hasContent}
             onClick={() => onGenerateMetadata("tags")}
           />
         </div>
-        <div className="grid gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 sm:grid-cols-2 xl:grid-cols-1">
-          {tags.length === 0 ? <p className="text-sm text-[var(--muted)]">暂无可选标签</p> : null}
+        <div
+          role="group"
+          aria-labelledby={`${mode}-post-tags-label`}
+          className="max-h-60 overflow-y-auto rounded-[var(--radius-ctl)] border border-[var(--reader-border-strong)] px-2.5 py-[3px]"
+        >
+          {tags.length === 0 ? <p className="py-1.5 text-[0.8125rem] text-[var(--text-muted)]">暂无可选标签</p> : null}
           {tags.map((tag) => {
             const inputId = `${mode}-post-tag-${tag.id}`;
             const checked = formData.tagIds.includes(tag.id);
 
             return (
-              <label key={tag.id} htmlFor={inputId} className="flex items-center gap-2 text-sm text-[var(--foreground)]">
+              <label
+                key={tag.id}
+                htmlFor={inputId}
+                className="flex min-h-[30px] cursor-pointer items-center gap-2 text-[0.8125rem] text-[var(--text-body)] transition-colors duration-150 hover:text-[var(--foreground)]"
+              >
                 <input
                   id={inputId}
                   type="checkbox"
-                  className="h-4 w-4 rounded border-[var(--border)]"
+                  className="ed-checkbox"
                   checked={checked}
                   onChange={(event) => onTagToggle(tag.id, event.target.checked)}
                 />
@@ -212,19 +222,21 @@ export function MetadataEditor({
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_8rem] xl:grid-cols-1">
-        <div className="space-y-2">
-          <label className="block text-sm font-medium text-[var(--foreground)]" htmlFor={`${mode}-post-series`}>
-            所属系列
-          </label>
+      <div className="grid grid-cols-[minmax(0,1fr)_80px] gap-3">
+        <div className="min-w-0">
+          <div className="mb-1.5">
+            <FieldLabel htmlFor={`${mode}-post-series`} optional>
+              所属系列
+            </FieldLabel>
+          </div>
           <Select
             value={formData.seriesId || noSeriesValue}
             onValueChange={(value) => onSeriesChange(value === noSeriesValue ? "" : value)}
           >
-            <SelectTrigger id={`${mode}-post-series`} className={adminSelectTriggerClassName}>
+            <SelectTrigger id={`${mode}-post-series`} className={selectTriggerClassName}>
               <SelectValue />
             </SelectTrigger>
-            <SelectContent className={adminSelectContentClassName}>
+            <SelectContent>
               <SelectItem value={noSeriesValue}>不归入系列</SelectItem>
               {series.map((item) => (
                 <SelectItem key={item.id} value={item.id}>
@@ -235,54 +247,81 @@ export function MetadataEditor({
           </Select>
         </div>
 
-        <Input
-          label="系列排序"
-          min={0}
-          type="number"
-          value={String(formData.seriesOrder)}
-          onChange={(event) => onSeriesOrderChange(Math.max(0, Number.parseInt(event.target.value, 10) || 0))}
-        />
+        <div className="min-w-0">
+          <div className="mb-1.5">
+            <FieldLabel htmlFor={`${mode}-post-series-order`}>系列排序</FieldLabel>
+          </div>
+          <FramedInput
+            id={`${mode}-post-series-order`}
+            min={0}
+            type="number"
+            inputClassName="font-mono"
+            value={String(formData.seriesOrder)}
+            onChange={(event) => onSeriesOrderChange(Math.max(0, Number.parseInt(event.target.value, 10) || 0))}
+          />
+        </div>
       </div>
 
-      <Input
-        label="封面图 URL"
-        placeholder="https://example.com/cover.jpg"
-        value={formData.coverImage}
-        onChange={(event) => onCoverUrlChange(event.target.value)}
-      />
-
-      <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-alt)] p-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <input
-            ref={coverInputRef}
-            accept="image/*"
-            className="hidden"
-            id={`${mode}-cover-upload`}
-            type="file"
-            onChange={onCoverUpload}
-          />
-          <Button type="button" size="sm" onClick={onCoverUploadClick} disabled={isCoverUploading}>
+      <div className="min-w-0">
+        <div className="mb-1.5">
+          <FieldLabel htmlFor={`${mode}-post-cover-url`} optional>
+            封面图 URL
+          </FieldLabel>
+        </div>
+        <FramedInput
+          id={`${mode}-post-cover-url`}
+          placeholder="https://example.com/cover.jpg"
+          inputClassName="font-mono md:text-[0.8125rem]"
+          value={formData.coverImage}
+          onChange={(event) => onCoverUrlChange(event.target.value)}
+        />
+        <input
+          ref={coverInputRef}
+          accept="image/*"
+          className="hidden"
+          id={`${mode}-cover-upload`}
+          type="file"
+          onChange={onCoverUpload}
+        />
+        <div className="mt-2.5 flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            aria-busy={isCoverUploading || undefined}
+            onClick={onCoverUploadClick}
+            disabled={isCoverUploading}
+          >
+            {isCoverUploading ? <InlineSpinner className="mr-0.5" /> : null}
             {isCoverUploading ? "上传中..." : "上传并保存到图库"}
           </Button>
-          <CoverPicker
-            selectedAssetId={formData.coverAssetId}
-            onSelect={onCoverAssetSelect}
-          />
+          <CoverPicker selectedAssetId={formData.coverAssetId} onSelect={onCoverAssetSelect} />
           <AiCoverGenerator
             title={formData.title}
             excerpt={formData.excerpt}
             content={formData.content}
             onGenerated={onCoverAssetSelect}
           />
-          <p className="text-sm text-[var(--muted)]">选择图片后自动回填封面地址。</p>
         </div>
-        {coverUploadError ? <p className="mt-2 text-sm text-rose-500">{coverUploadError}</p> : null}
+        <p className={hintClassName}>选择图片后自动回填封面地址。</p>
+        {coverUploadError ? (
+          <p role="alert" className={fieldErrorClassName}>
+            {coverUploadError}
+          </p>
+        ) : null}
       </div>
-      <div className="space-y-2">
-        <Input
-          label="摘要"
+
+      <div className="min-w-0">
+        <div className="mb-1.5">
+          <FieldLabel htmlFor={`${mode}-post-excerpt`} optional>
+            摘要
+          </FieldLabel>
+        </div>
+        <FramedInput
+          id={`${mode}-post-excerpt`}
           placeholder="文章摘要（可选）"
-          rightSlot={
+          aria-describedby={`${mode}-post-excerpt-hint`}
+          suffix={
             <AiFieldButton
               label="AI 生成摘要"
               loading={isSummarizing}
@@ -293,22 +332,33 @@ export function MetadataEditor({
           value={formData.excerpt}
           onChange={(event) => onExcerptChange(event.target.value)}
         />
-        <p className="text-sm text-[var(--muted)]">基于当前正文生成适合列表页与 SEO 展示的简短摘要。</p>
-        {summaryError ? <p className="text-sm text-rose-500">{summaryError}</p> : null}
+        <p id={`${mode}-post-excerpt-hint`} className={hintClassName}>
+          基于当前正文生成适合列表页与 SEO 展示的简短摘要。
+        </p>
+        {summaryError ? (
+          <p role="alert" className={fieldErrorClassName}>
+            {summaryError}
+          </p>
+        ) : null}
       </div>
 
-      <div className="space-y-2">
-        <label className="block text-sm font-medium text-[var(--foreground)]" htmlFor={`${mode}-post-seo-description`}>
-          SEO 描述
-        </label>
+      <div className="min-w-0">
+        <div className="mb-1.5">
+          <FieldLabel htmlFor={`${mode}-post-seo-description`} optional>
+            SEO 描述
+          </FieldLabel>
+        </div>
         <textarea
           id={`${mode}-post-seo-description`}
-          className="ui-ring min-h-36 w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-sm leading-6 text-[var(--foreground)] placeholder:text-[var(--muted)] focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+          aria-describedby={`${mode}-post-seo-description-hint`}
+          className="min-h-24 w-full resize-y rounded-[var(--radius-ctl)] border border-[var(--reader-border-strong)] bg-transparent px-2.5 py-2 text-base leading-[1.65] text-[var(--foreground)] transition-[border-color] duration-150 placeholder:text-[var(--text-muted)] hover:border-[var(--text-muted)] focus-visible:border-[var(--foreground)] md:text-sm"
           placeholder="搜索结果和分享卡片优先使用的描述"
           value={formData.seoDescription}
           onChange={(event) => onSeoDescriptionChange(event.target.value)}
         />
-        <p className="text-sm text-[var(--muted)]">为空时前台元数据会继续回退到文章摘要。</p>
+        <p id={`${mode}-post-seo-description-hint`} className={hintClassName}>
+          为空时前台元数据会继续回退到文章摘要。
+        </p>
       </div>
     </div>
   );

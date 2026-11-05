@@ -54,8 +54,14 @@ describe('admin comments page', () => {
     expect(screen.getAllByText('已通过').length).toBeGreaterThan(0)
     expect(screen.getAllByText('已驳回').length).toBeGreaterThan(0)
     expect(screen.getByRole('button', { name: '已隐藏' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '批量通过' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '通过' })).toBeInTheDocument()
+    // 批量操作勾选后才出现，替换工具栏右侧的聚焦说明
+    expect(screen.queryByRole('button', { name: '批量通过' })).not.toBeInTheDocument()
+    expect(screen.getByText(/当前聚焦/)).toHaveTextContent('当前聚焦 全部评论')
+    fireEvent.click(screen.getByLabelText('选择第 1 行'))
+    expect(await screen.findByRole('button', { name: '批量通过' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '批量隐藏' })).toBeInTheDocument()
+    expect(screen.getByLabelText('选择当前页')).toBeChecked()
     expect(screen.queryByText('运行正常')).not.toBeInTheDocument()
   })
 
@@ -75,6 +81,8 @@ describe('admin comments page', () => {
     await waitFor(() => {
       expect(screen.getByText('评论列表加载失败，请稍后重试')).toBeInTheDocument()
     })
+    expect(screen.getByRole('alert')).toHaveTextContent('评论列表加载失败，请稍后重试')
+    expect(screen.getByRole('button', { name: '重试' })).toBeInTheDocument()
     expect(screen.queryByText('暂无评论')).not.toBeInTheDocument()
   })
 

@@ -61,6 +61,9 @@ const articleInfoActionLabels: Record<string, string> = {
 const ONE_CLICK_MIN_CONTENT_CHARS = 20;
 const ARTICLE_INFO_CACHE_MS = 60_000;
 
+/** 复用最近一次一键生成结果时的提示：不是错误，工作台用 info 色 banner 展示 */
+export const REUSED_ARTICLE_INFO_MESSAGE = "已复用最近一次 AI 生成结果，请确认预览后应用。";
+
 export type AiMetadataSingleField = "title" | "slug" | "category" | "tags";
 export type AiMetadataField = "all" | AiMetadataSingleField;
 
@@ -391,7 +394,7 @@ export function useAiActions({
       if (cached?.key === cacheKey && Date.now() - cached.createdAt < ARTICLE_INFO_CACHE_MS) {
         setArticleInfoPreview(cached.preview);
         setLastArticleInfoTaskId(cached.preview.taskId);
-        setMetadataError("已复用最近一次 AI 生成结果，请确认预览后应用。");
+        setMetadataError(REUSED_ARTICLE_INFO_MESSAGE);
         return;
       }
 

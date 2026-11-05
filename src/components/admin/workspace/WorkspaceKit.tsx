@@ -37,32 +37,20 @@ export function FieldLabel({
   className?: string;
   as?: "label" | "span" | "p";
 }) {
-  const content = (
-    <>
-      {children}
+  const Tag = as;
+  // 「*」与「（可选）」放在 <label> 外面：不改变 label 文本（getByLabel("标题", { exact: true }) 等仍然命中）
+  return (
+    <span className={cn("inline-flex items-baseline text-[0.8125rem] leading-[1.4] font-bold text-[var(--foreground)]", className)}>
+      <Tag htmlFor={as === "label" ? htmlFor : undefined} id={id}>
+        {children}
+      </Tag>
       {required ? (
         <span aria-hidden="true" className="ml-1 font-medium text-[var(--text-muted)]">
           *
         </span>
       ) : null}
       {optional ? <span className="ml-1 font-medium text-[var(--text-muted)]">（可选）</span> : null}
-    </>
-  );
-  const labelClassName = cn("text-[0.8125rem] leading-[1.4] font-bold text-[var(--foreground)]", className);
-
-  if (as === "label") {
-    return (
-      <label className={labelClassName} htmlFor={htmlFor} id={id}>
-        {content}
-      </label>
-    );
-  }
-
-  const Tag = as;
-  return (
-    <Tag className={labelClassName} id={id}>
-      {content}
-    </Tag>
+    </span>
   );
 }
 
