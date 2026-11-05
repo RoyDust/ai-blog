@@ -25,7 +25,7 @@ test('renders localized comment form copy', () => {
   render(<CommentForm postId="post-1" />)
 
   const textarea = screen.getByRole('textbox', { name: '写评论' })
-  expect(textarea).toHaveAttribute('placeholder', '写下你的想法…')
+  expect(textarea).toHaveAttribute('placeholder', '写下你的评论...')
   expect(textarea).toHaveAttribute('id', 'comment-content')
   expect(textarea.className).toContain('ed-textarea')
   expect(screen.getByRole('button', { name: '发表评论' }).className).toContain('ed-btn')

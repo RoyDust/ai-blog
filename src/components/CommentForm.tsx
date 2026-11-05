@@ -110,7 +110,7 @@ export function CommentForm({ postId, parentId, variant = 'comment', hint, onCan
         aria-describedby={errors.content ? errorId : undefined}
         aria-invalid={Boolean(errors.content)}
         className={cn('ed-textarea text-base leading-[1.7] sm:text-[0.9375rem]', isReply && 'min-h-[4.5rem]')}
-        placeholder={isReply ? '写下你的回复…' : '写下你的想法…'}
+        placeholder={isReply ? '写下你的回复...' : '写下你的评论...'}
         rows={isReply ? 3 : 4}
         {...register('content')}
       />

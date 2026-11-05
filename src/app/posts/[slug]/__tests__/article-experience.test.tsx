@@ -535,6 +535,8 @@ describe('article experience', () => {
     })
 
     expect(container.querySelector('.article-hero--cover')).toBeInTheDocument()
+    // e2e/admin-covers.spec.ts 按 alt=标题 定位详情页封面
+    expect(screen.getByRole('img', { name: 'Article Title' })).toBeInTheDocument()
     expect(screen.getByTestId('article-hero-meta')).toHaveTextContent('1,204 阅读')
     expect(await screen.findByText('Author answer')).toBeInTheDocument()
     const reply = screen.getByText('Author answer').closest('li')

@@ -84,9 +84,9 @@ export function ArticleHero({
       >
         {hasCover && coverImage ? (
           <>
-            <div aria-hidden="true" className="article-hero__media absolute inset-0">
+            <div className="article-hero__media absolute inset-0">
               <FallbackImage
-                alt=""
+                alt={title}
                 className="object-cover"
                 fill
                 priority
