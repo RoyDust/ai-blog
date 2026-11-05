@@ -23,5 +23,6 @@ export const adminMetricValueClassName = "font-mono font-bold tabular-nums text-
 
 export const adminMetricUnitClassName = "text-[0.875rem] font-medium text-[var(--text-muted)]";
 
+// 悬停底色向两侧多铺 8px，底部细线仍与内容对齐（细线画在 ::before 上）
 export const adminHairlineRowClassName =
-  "relative -mx-2 border-b border-[var(--border)] px-2 transition-colors duration-150 hover:bg-[color-mix(in_oklab,var(--foreground)_4%,transparent)]";
+  "relative -mx-2 rounded-[2px] px-2 transition-colors duration-150 before:pointer-events-none before:absolute before:inset-x-2 before:bottom-0 before:h-px before:bg-[var(--border)] before:content-[''] hover:bg-[color-mix(in_oklab,var(--foreground)_4%,transparent)]";

@@ -182,9 +182,13 @@ export function DataTable<T extends { id: string }>({
       <section className={cn(fillHeight && "flex min-h-0 flex-1 flex-col")}>
         {/* 区块标题：衬线标题 + muted 说明 + 1px 细线 + 右侧等宽计数 */}
         <AdminSectionHeader
-          aside={densityLabel ? <span className="ed-mono">{densityLabel}</span> : undefined}
+          aside={
+            <span className="ed-mono">
+              {densityLabel ?? `第 ${activePage} / ${Math.max(totalPages, 1)} 页 · ${totalRows} 条记录`}
+            </span>
+          }
           className="shrink-0"
-          description={summary ?? `共 ${totalRows} 条记录`}
+          description={summary}
           title={title}
         />
 

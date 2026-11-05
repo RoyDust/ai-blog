@@ -197,7 +197,8 @@ export function EngagementTrendChart({ stats }: { stats: DashboardStats["engagem
             tick={<TodayTick />}
             tickLine={false}
           />
-          <RechartsYAxis allowDecimals={false} axisLine={false} tick={axisTick} tickLine={false} width={32} />
+          {/* 互动柱状图不画纵轴文字，只留网格线 */}
+          <RechartsYAxis allowDecimals={false} hide tickCount={4} />
           <ChartTooltip
             content={<ChartTooltipContent className={tooltipClassName} />}
             cursor={{ fill: "color-mix(in oklab, var(--foreground) 4%, transparent)" }}

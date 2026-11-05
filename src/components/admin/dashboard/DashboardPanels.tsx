@@ -103,11 +103,16 @@ function MetricColumns({ children, columns, className = "" }: { children: ReactN
   );
 }
 
+/** 百分比保留一位小数（4.8%、-0.6 个百分点），整数不带小数 */
+function toPercentNumber(value: number) {
+  return Math.round(value * 1000) / 10;
+}
+
 function formatDelta(value: number, options: { unit?: string; percent?: boolean } = {}) {
-  const absoluteValue = options.percent ? Math.round(value * 100) : value;
+  const absoluteValue = options.percent ? toPercentNumber(value) : value;
   if (absoluteValue === 0) return "较上期 持平";
 
-  const formatted = Math.abs(absoluteValue).toLocaleString("zh-CN");
+  const formatted = Math.abs(absoluteValue).toLocaleString("zh-CN", { maximumFractionDigits: 1 });
   const prefix = absoluteValue > 0 ? "+" : "-";
   const unit = options.percent ? " 个百分点" : options.unit ? ` ${options.unit}` : "";
 
@@ -138,7 +143,7 @@ export function DashboardHealthMetrics({ comparison }: { comparison: DashboardSt
     },
     {
       label: "互动率",
-      value: Math.round(comparison.metrics.engagementRate * 100).toLocaleString("zh-CN"),
+      value: toPercentNumber(comparison.metrics.engagementRate).toLocaleString("zh-CN", { maximumFractionDigits: 1 }),
       unit: "%",
       delta: comparison.deltas.engagementRate,
       deltaLabel: formatDelta(comparison.deltas.engagementRate, { percent: true }),
