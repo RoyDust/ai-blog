@@ -119,36 +119,15 @@ export function MetadataEditor({
     <div className="flex flex-col gap-4" data-slot="metadata-editor">
       <FadeBanner message={metadataError} tone={metadataBannerTone} className="text-[0.8125rem]" />
 
-      <div className="border-l-2 border-[var(--focus)] py-0.5 pl-3" data-slot="one-click-ai">
-        <p className="text-sm font-bold text-[var(--foreground)]">一键 AI 生成信息</p>
-        <p className="mt-0.5 text-xs leading-[1.55] text-[var(--text-muted)]">保留标题和正文，覆盖 Slug、摘要、SEO、分类和标签。</p>
-        <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5">
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            aria-busy={isGeneratingAllMetadata || undefined}
-            disabled={isCompletingMetadata || !hasContent}
-            onClick={onGenerateAll}
-          >
-            {isGeneratingAllMetadata ? <InlineSpinner className="mr-0.5" /> : null}
-            {isGeneratingAllMetadata ? "生成中..." : "一键 AI 生成"}
-          </Button>
-          {canUseAiWorkspace ? (
-            <Button type="button" size="sm" variant="outline" onClick={onOpenAiWorkspace}>
-              打开 AI 辅助
-            </Button>
-          ) : null}
-          {lastArticleInfoTaskId ? (
-            <Link
-              className="inline-flex min-h-8 items-center text-[0.8125rem] font-bold text-[var(--text-body)] underline decoration-[var(--reader-border-strong)] decoration-1 underline-offset-4 transition-[color,text-decoration-color] duration-150 hover:text-[var(--foreground)] hover:decoration-[var(--accent-sky)]"
-              href={`/admin/ai/tasks/${lastArticleInfoTaskId}`}
-            >
-              查看最近 AI 任务
-            </Link>
-          ) : null}
-        </div>
-      </div>
+      <OneClickAiBlock
+        hasContent={hasContent}
+        canUseAiWorkspace={canUseAiWorkspace}
+        isCompletingMetadata={isCompletingMetadata}
+        isGeneratingAllMetadata={isGeneratingAllMetadata}
+        lastArticleInfoTaskId={lastArticleInfoTaskId}
+        onGenerateAll={onGenerateAll}
+        onOpenAiWorkspace={onOpenAiWorkspace}
+      />
 
       <div className="min-w-0">
         <div className="mb-1.5 flex min-h-5 items-center justify-between gap-3">
@@ -359,6 +338,59 @@ export function MetadataEditor({
         <p id={`${mode}-post-seo-description-hint`} className={hintClassName}>
           为空时前台元数据会继续回退到文章摘要。
         </p>
+      </div>
+    </div>
+  );
+}
+
+/** 「一键 AI 生成信息」：左侧 2px info 竖线的说明段 + 两个描边按钮 + 「查看最近 AI 任务」文字链接 */
+function OneClickAiBlock({
+  hasContent,
+  canUseAiWorkspace,
+  isCompletingMetadata,
+  isGeneratingAllMetadata,
+  lastArticleInfoTaskId,
+  onGenerateAll,
+  onOpenAiWorkspace,
+}: Pick<
+  MetadataEditorProps,
+  | "hasContent"
+  | "canUseAiWorkspace"
+  | "isCompletingMetadata"
+  | "isGeneratingAllMetadata"
+  | "lastArticleInfoTaskId"
+  | "onGenerateAll"
+  | "onOpenAiWorkspace"
+>) {
+  return (
+    <div className="border-l-2 border-[var(--focus)] py-0.5 pl-3" data-slot="one-click-ai">
+      <p className="text-sm font-bold text-[var(--foreground)]">一键 AI 生成信息</p>
+      <p className="mt-0.5 text-xs leading-[1.55] text-[var(--text-muted)]">保留标题和正文，覆盖 Slug、摘要、SEO、分类和标签。</p>
+      <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          aria-busy={isGeneratingAllMetadata || undefined}
+          disabled={isCompletingMetadata || !hasContent}
+          onClick={onGenerateAll}
+        >
+          {isGeneratingAllMetadata ? <InlineSpinner className="mr-0.5" /> : null}
+          {isGeneratingAllMetadata ? "生成中..." : "一键 AI 生成"}
+        </Button>
+        {canUseAiWorkspace ? (
+          <Button type="button" size="sm" variant="outline" onClick={onOpenAiWorkspace}>
+            打开 AI 辅助
+          </Button>
+        ) : null}
+        {lastArticleInfoTaskId ? (
+          <Link
+            className="inline-flex min-h-8 items-center text-[0.8125rem] font-bold text-[var(--text-body)] underline decoration-[var(--reader-border-strong)] decoration-1 underline-offset-4 transition-[color,text-decoration-color] duration-150 hover:text-[var(--foreground)] hover:decoration-[var(--accent-sky)]"
+            href={`/admin/ai/tasks/${lastArticleInfoTaskId}`}
+          >
+            查看最近 AI 任务
+          </Link>
+        ) : null}
       </div>
     </div>
   );
