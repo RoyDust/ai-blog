@@ -144,8 +144,8 @@ export function DataTable<T extends { id: string }>({
 
         {bulkActions.length > 0 ? (
           <div className="flex shrink-0 flex-wrap items-center gap-3 py-2.5 text-[0.8125rem]">
-            <span className={cn("font-bold", hasSelection ? "text-[var(--foreground)]" : "text-[var(--text-muted)]")}>
-              已选 <span className="ed-mono">{visibleSelectedIds.length}</span> 项
+            <span className={cn("font-bold tabular-nums", hasSelection ? "text-[var(--foreground)]" : "text-[var(--text-muted)]")}>
+              已选 {visibleSelectedIds.length} 项
             </span>
             <span aria-hidden="true" className="h-5 w-px bg-[var(--border)]" />
             <div className="flex items-center gap-2">

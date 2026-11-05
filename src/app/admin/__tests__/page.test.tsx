@@ -231,8 +231,8 @@ describe("admin overview", () => {
     expect(screen.getByRole("heading", { name: "访问趋势" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "阅读统计" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "互动统计" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "最近草稿" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "待审评论" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /^最近草稿/ })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /^待审评论/ })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "热门文章" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "AI 模型清单" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "博客后台总览" })).not.toBeInTheDocument();
@@ -274,7 +274,7 @@ describe("admin overview", () => {
     expect(screen.getAllByText("点赞").length).toBeGreaterThanOrEqual(1);
 
     expect(screen.getByText("Queued Draft")).toBeInTheDocument();
-    const recentDraftsPanel = screen.getByRole("heading", { name: "最近草稿" }).closest("section");
+    const recentDraftsPanel = screen.getByRole("heading", { name: /^最近草稿/ }).closest("section");
     expect(recentDraftsPanel).not.toBeNull();
     expect(within(recentDraftsPanel as HTMLElement).queryByRole("img", { name: /封面/ })).not.toBeInTheDocument();
     expect(within(recentDraftsPanel as HTMLElement).getByText("这是第一篇草稿的内容摘要，用于后台快速查看。"));

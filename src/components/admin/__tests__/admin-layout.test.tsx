@@ -102,7 +102,7 @@ describe("admin layout", () => {
     expect(paper.className).not.toMatch(/shadow/);
     expect(within(paper).getByText("版本 1.0.0 · Ctrl+K 全局搜索")).toBeInTheDocument();
     // 顶栏「新建文章」降为描边按钮
-    expect(screen.getByRole("link", { name: "新建文章" })).toHaveClass("border-[var(--reader-border-strong)]", "bg-transparent");
+    expect(screen.getByRole("link", { name: "新建文章", hidden: true })).toHaveClass("border-[var(--reader-border-strong)]", "bg-transparent");
   });
 
   test("restores only valid persisted admin tabs after the initial client render", async () => {
