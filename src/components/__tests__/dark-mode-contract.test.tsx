@@ -125,8 +125,11 @@ test('global focus ring keeps a high-contrast light-mode outline contract', () =
   const componentSource = readSource('src/styles/components.css')
 
   expect(themeSource).toContain('--ring: oklch(0.58 0.12 var(--hue));')
-  expect(componentSource).toContain('outline: 2px solid var(--ring) !important')
-  expect(componentSource).toContain('outline-offset: 2.5px !important')
+  // 方向 A：亮色 focus 用 --ring（#0088AE），暗色用 sky，统一走 --focus（简报 16.1）
+  expect(themeSource).toContain('--focus: var(--ring);')
+  expect(themeSource).toContain('--focus: var(--accent-sky);')
+  expect(componentSource).toContain('outline: 2px solid var(--focus) !important')
+  expect(componentSource).toContain('outline-offset: 2px !important')
 })
 
 test('global scrollbars stay thin and transparent across surfaces', () => {

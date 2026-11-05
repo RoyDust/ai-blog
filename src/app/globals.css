@@ -2,6 +2,7 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 @import "../styles/components.css";
+@import "../styles/editorial.css";
 @import "../styles/animations.css";
 @import "../styles/code-highlight.css";
 
@@ -39,11 +40,18 @@ html.dark {
   color-scheme: dark;
 }
 
+/* 首页背景图：亮色 34vh、暗色 42vh（简报 3.4） */
 html:has(.reader-home-stage) {
-  --reader-background-height: 46vh;
-  --reader-background-fade-start: 20vh;
-  --reader-background-fade-end: 37vh;
+  --reader-background-height: 34vh;
+  --reader-background-fade-start: 14vh;
+  --reader-background-fade-end: 27vh;
   --reader-page-top: clamp(6.5rem, 12vh, 8.25rem);
+}
+
+html.dark:has(.reader-home-stage) {
+  --reader-background-height: 42vh;
+  --reader-background-fade-start: 18vh;
+  --reader-background-fade-end: 33vh;
 }
 
 @supports not (scrollbar-gutter: stable) {
@@ -57,11 +65,13 @@ html:has(.reader-home-stage) {
     background-attachment: scroll;
   }
 
-  html:has(.reader-home-stage) {
-    --reader-background-height: 36vh;
-    --reader-background-fade-start: 14vh;
-    --reader-background-fade-end: 27vh;
+  html:has(.reader-home-stage),
+  html.dark:has(.reader-home-stage) {
     --reader-page-top: clamp(4rem, 10vh, 5rem);
+  }
+
+  html.dark:has(.reader-home-stage) {
+    --reader-background-height: 42vh;
   }
 }
 
@@ -144,12 +154,23 @@ html:has(.reader-home-stage) {
   --color-brand-strong: var(--brand-strong);
   --color-danger: var(--danger-foreground);
   --color-danger-surface: var(--danger-surface);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-seal: var(--accent-seal);
+  --color-focus: var(--focus);
+  --color-text-body: var(--text-body);
+  --color-text-muted: var(--text-muted);
+  --color-card-bg: var(--card-bg);
+  --color-page-bg: var(--page-bg);
+  --radius-ctl: 4px;
+  --radius-paper: 6px;
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
   --font-sans: var(--font-alibaba-puhuiti);
   --font-display: var(--font-alibaba-puhuiti);
+  --font-serif: "Noto Serif SC", "Source Han Serif SC", "Songti SC", serif;
   --font-mono: "SFMono-Regular", "Cascadia Code", "JetBrains Mono", "Fira Code", Consolas, monospace;
   --font-code: "SFMono-Regular", "Cascadia Code", "JetBrains Mono", "Fira Code", Consolas, monospace;
   --color-sidebar-ring:

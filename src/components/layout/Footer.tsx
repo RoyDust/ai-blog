@@ -1,12 +1,11 @@
 import Link from "next/link";
-import { Archive, BookOpenText, FolderOpen, ListTree, Rss } from "lucide-react";
 
 const footerLinks = [
-  { href: "/posts", label: "文章", icon: BookOpenText },
-  { href: "/series", label: "系列", icon: ListTree },
-  { href: "/categories", label: "分类", icon: FolderOpen },
-  { href: "/archives", label: "归档", icon: Archive },
-  { href: "/rss.xml", label: "RSS 订阅", icon: Rss, external: true },
+  { href: "/posts", label: "文章" },
+  { href: "/series", label: "系列" },
+  { href: "/categories", label: "分类" },
+  { href: "/archives", label: "归档" },
+  { href: "/rss.xml", label: "RSS", ariaLabel: "RSS 订阅", external: true },
 ];
 
 interface FooterProps {
@@ -14,45 +13,47 @@ interface FooterProps {
   siteName?: string;
 }
 
+const footerLinkClass =
+  "inline-flex min-h-11 items-center text-[0.875rem] font-bold text-[var(--text-body)] underline decoration-transparent decoration-1 underline-offset-4 transition-colors hover:text-[var(--foreground)] hover:decoration-[var(--accent-sky)] sm:min-h-0";
+
+/**
+ * 页脚（简报 15.9 第 7 条）：纸面内最底部，上方 1px 细线；
+ * 左边站名与一句描述，右边纯文字链接用 · 分隔。
+ */
 // Keep these fallbacks aligned with DEFAULT_BLOG_SETTINGS without importing server-only settings code.
 export function Footer({
   siteDescription = "夜读模式下整理前端、工程实践和部署笔记，让长期积累有清晰入口。",
   siteName = "My Blog",
 }: FooterProps) {
   return (
-    <footer id="footer" className="onload-animation mt-auto">
-      <div className="mx-auto max-w-[var(--page-width)] py-8">
-        <div className="reader-panel p-5 md:p-6">
-          <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
-            <div className="max-w-xl space-y-2">
-              <p className="ui-kicker">{siteName}</p>
-              <p className="text-75 text-sm leading-7">
-                {siteDescription}
-              </p>
-            </div>
-            <nav aria-label="Footer" className="flex flex-wrap items-center gap-2">
-              {footerLinks.map((link) => {
-                const Icon = link.icon;
-
-                if (link.external) {
-                  return (
-                    <a key={link.href} className="reader-chip" href={link.href}>
-                      <Icon className="h-3.5 w-3.5" />
-                      {link.label}
-                    </a>
-                  );
-                }
-
-                return (
-                  <Link key={link.href} className="reader-chip" href={link.href}>
-                    <Icon className="h-3.5 w-3.5" />
+    <footer id="footer" className="mt-10 border-t border-[var(--border)] pt-6">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <p className="min-w-0 text-[0.875rem] leading-6">
+          <span className="font-bold text-[var(--foreground)]">{siteName}</span>
+          <span className="ml-3 text-[var(--text-muted)]">{siteDescription}</span>
+        </p>
+        <nav aria-label="Footer">
+          <ul className="flex flex-wrap items-center gap-x-1 gap-y-0">
+            {footerLinks.map((link, index) => (
+              <li key={link.href} className="inline-flex items-center">
+                {index > 0 ? (
+                  <span aria-hidden="true" className="px-1.5 text-[var(--text-muted)]">
+                    ·
+                  </span>
+                ) : null}
+                {link.external ? (
+                  <a aria-label={link.ariaLabel} className={footerLinkClass} href={link.href}>
+                    {link.label}
+                  </a>
+                ) : (
+                  <Link className={footerLinkClass} href={link.href}>
                     {link.label}
                   </Link>
-                );
-              })}
-            </nav>
-          </div>
-        </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        </nav>
       </div>
     </footer>
   );
