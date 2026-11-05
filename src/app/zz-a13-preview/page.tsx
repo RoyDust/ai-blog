@@ -49,6 +49,21 @@ export default function Preview() {
         <div className="mt-9">
           <DataTable title="文章列表" summary="发布状态、AI 摘要和数据上下文" rows={rows} emptyText="暂无" bulkActions={[{label:"批量发布", onClick:()=>{}},{label:"批量删除", onClick:()=>{}, variant:"danger"}]} columns={[{key:"name",label:"标题",render:(r)=> <span className="font-serif font-bold text-[var(--foreground)]">{r.name}</span>},{key:"status",label:"状态",render:(r)=>r.status}]} />
         </div>
+        <div id="empty-board" className="mt-16">
+          <AdminTodoStrip counts={{pendingComments:0, failedAiTasks:0, staleDrafts:0, pendingNewsletters:0}} />
+          <div className="mt-9 grid grid-cols-1 gap-x-7 gap-y-9 xl:grid-cols-[minmax(0,1.45fr)_1px_minmax(400px,0.75fr)]">
+            <VisitTrendPanel stats={{...visits, hasData:false, trend: visits.trend.map((t)=>({...t,pv:0,uv:0})), summary:{totalPv:0,totalUv:0,todayPv:0,yesterdayPv:0}}} />
+            <span aria-hidden="true" className="hidden self-stretch bg-[var(--border)] xl:block" />
+            <RecentDraftsPanel drafts={[]} />
+          </div>
+          <div className="mt-9 grid grid-cols-1 gap-x-7 gap-y-9 lg:grid-cols-[minmax(0,1fr)_1px_minmax(0,1fr)]">
+            <ReadingStatsPanel stats={{...reading, hasData:false}} />
+            <ColumnRule />
+            <PopularPostsPanel posts={[]} range={7} />
+          </div>
+          <div className="mt-9"><DataTable title="加载中表格" rows={[]} isLoading emptyText="暂无" columns={[{key:"a",label:"标题",render:()=>null}]} /></div>
+          <div className="mt-9"><DataTable title="空表格" rows={[]} emptyText="还没有文章，先写第一篇。" columns={[{key:"a",label:"标题",render:()=>null}]} /></div>
+        </div>
         <ConfirmDialog open={open} onOpenChange={setOpen} title="删除文章「前端可观测性」？" description="删除后文章从前台下线，可在回收站恢复。" tone="danger" confirmLabel="确认删除" impacts={<p>关联评论 3 条</p>} onConfirm={() => setOpen(false)} />
       </div>
     </AdminLayout>
