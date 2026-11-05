@@ -218,6 +218,216 @@ function ModelLibraryItem({
   );
 }
 
+type ModelFormHook = ReturnType<typeof useModelForm>;
+
+/** 新增 / 修改模型表单（区块标题 + 两列字段 + 「启用与能力」组 + 右侧取消 / 保存模型） */
+function ModelFormSection({
+  form,
+  methods,
+  capabilities,
+  isSubmitting,
+  onSubmit,
+  onCancel,
+  onToggleCapability,
+}: {
+  form: NonNullable<ModelFormHook["form"]>;
+  methods: ModelFormHook["methods"];
+  capabilities: Capability[];
+  isSubmitting: boolean;
+  onSubmit: () => void;
+  onCancel: () => void;
+  onToggleCapability: ModelFormHook["toggleCapability"];
+}) {
+  return (
+    <Reveal as="section" aria-labelledby="ai-model-form-title" className="max-w-[760px]">
+      <AdminSectionHeader
+        id="ai-model-form-title"
+        title={form.id ? "修改模型" : "新增模型"}
+        description="编辑已有模型时，API Key 留空会保留原值。"
+      />
+      <p className="mt-1 text-xs text-[var(--text-muted)]">保存后可立即测试连接。</p>
+      <div className="pt-4">
+      <Form {...methods}>
+        <form className="flex flex-col gap-5" onSubmit={onSubmit}>
+          <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
+            <FormField
+              control={methods.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <div className="flex items-baseline">
+                    <FormLabel>模型名称</FormLabel>
+                    {requiredMark}
+                  </div>
+                  <FormControl><Input {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={methods.control}
+              name="model"
+              render={({ field }) => (
+                <FormItem>
+                  <div className="flex items-baseline">
+                    <FormLabel>模型 ID</FormLabel>
+                    {requiredMark}
+                  </div>
+                  <FormControl><Input className="font-mono" placeholder="qwen3.5-flash / wan2.6-t2i" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={methods.control}
+              name="baseUrl"
+              render={({ field }) => (
+                <FormItem>
+                  <div className="flex items-baseline">
+                    <FormLabel>Base URL</FormLabel>
+                    {requiredMark}
+                  </div>
+                  <FormControl><Input className="font-mono" placeholder="https://api.openai.com/v1" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={methods.control}
+              name="requestPath"
+              render={({ field }) => (
+                <FormItem>
+                  <div className="flex items-baseline">
+                    <FormLabel>Request Path</FormLabel>
+                    {requiredMark}
+                  </div>
+                  <FormControl><Input className="font-mono" placeholder="/chat/completions / /images/generations" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={methods.control}
+              name="apiKey"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{form.id ? "API Key（留空保持不变）" : "API Key"}</FormLabel>
+                  <FormControl><Input type="password" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          <FormField
+            control={methods.control}
+            name="description"
+            render={({ field }) => (
+              <FormItem>
+                <div className="flex items-baseline">
+                  <FormLabel>描述</FormLabel>
+                  <span className="ml-1 text-[0.8125rem] font-medium text-[var(--text-muted)]">（可选）</span>
+                </div>
+                <FormControl><Textarea className="min-h-24" {...field} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <p className="border-b border-[var(--border)] pb-1.5 text-xs font-bold text-[var(--text-muted)]">启用与能力</p>
+          <div className="grid gap-x-6 gap-y-3 lg:grid-cols-3">
+            <FormField
+              control={methods.control}
+              name="enabled"
+              render={({ field }) => (
+                <FormItem className="flex items-center gap-2">
+                  <FormControl>
+                    <Checkbox checked={field.value} onCheckedChange={(checked) => field.onChange(checked === true)} />
+                  </FormControl>
+                  <FormLabel className="font-normal">启用模型</FormLabel>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={methods.control}
+              name="capabilities"
+              render={() => (
+                <FormItem className="lg:col-span-2">
+                  <FormLabel>模型能力</FormLabel>
+                  <FormControl>
+                    <div className="grid gap-3 sm:grid-cols-2" role="group">
+                      <label className="flex items-center gap-2 text-sm text-[var(--foreground)]">
+                        <Checkbox
+                          checked={capabilities.includes("post-summary")}
+                          onCheckedChange={(checked) => onToggleCapability("post-summary", checked === true)}
+                        />
+                        文章摘要能力
+                      </label>
+                      <label className="flex items-center gap-2 text-sm text-[var(--foreground)]">
+                        <Checkbox
+                          checked={capabilities.includes("cover-image")}
+                          onCheckedChange={(checked) => onToggleCapability("cover-image", checked === true)}
+                        />
+                        封面生图能力
+                      </label>
+                    </div>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={methods.control}
+              name="isDefaultForSummary"
+              render={({ field }) => (
+                <FormItem className="flex items-center gap-2">
+                  <FormControl>
+                    <Checkbox
+                      checked={field.value}
+                      disabled={!capabilities.includes("post-summary")}
+                      onCheckedChange={(checked) => field.onChange(checked === true)}
+                    />
+                  </FormControl>
+                  <FormLabel className="font-normal">设为文章摘要默认</FormLabel>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={methods.control}
+              name="isDefaultForCoverImage"
+              render={({ field }) => (
+                <FormItem className="flex items-center gap-2">
+                  <FormControl>
+                    <Checkbox
+                      checked={field.value}
+                      disabled={!capabilities.includes("cover-image")}
+                      onCheckedChange={(checked) => field.onChange(checked === true)}
+                    />
+                  </FormControl>
+                  <FormLabel className="font-normal">设为封面生图默认</FormLabel>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          <div className="flex flex-wrap justify-end gap-2.5">
+            <Button type="button" variant="outline" onClick={onCancel}>
+              取消
+            </Button>
+            <Button disabled={isSubmitting} type="submit">
+              {isSubmitting ? "保存中..." : "保存模型"}
+            </Button>
+          </div>
+        </form>
+      </Form>
+      </div>
+    </Reveal>
+  );
+}
+
 /**
  * Admin surface for model CRUD, testing, and default model selection.
  * Form state and server mutations are split into hooks so this component stays focused on layout.
@@ -288,192 +498,15 @@ export function AiModelManager({ initialModels }: { initialModels: PublicAiModel
       </section>
 
       {form ? (
-        <Reveal as="section" aria-labelledby="ai-model-form-title" className="max-w-[760px]">
-          <AdminSectionHeader
-            id="ai-model-form-title"
-            title={form.id ? "修改模型" : "新增模型"}
-            description="编辑已有模型时，API Key 留空会保留原值。"
-          />
-          <p className="mt-1 text-xs text-[var(--text-muted)]">保存后可立即测试连接。</p>
-          <div className="pt-4">
-          <Form {...methods}>
-            <form className="flex flex-col gap-5" onSubmit={handleSubmit}>
-              <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
-                <FormField
-                  control={methods.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <div className="flex items-baseline">
-                        <FormLabel>模型名称</FormLabel>
-                        {requiredMark}
-                      </div>
-                      <FormControl><Input {...field} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={methods.control}
-                  name="model"
-                  render={({ field }) => (
-                    <FormItem>
-                      <div className="flex items-baseline">
-                        <FormLabel>模型 ID</FormLabel>
-                        {requiredMark}
-                      </div>
-                      <FormControl><Input className="font-mono" placeholder="qwen3.5-flash / wan2.6-t2i" {...field} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={methods.control}
-                  name="baseUrl"
-                  render={({ field }) => (
-                    <FormItem>
-                      <div className="flex items-baseline">
-                        <FormLabel>Base URL</FormLabel>
-                        {requiredMark}
-                      </div>
-                      <FormControl><Input className="font-mono" placeholder="https://api.openai.com/v1" {...field} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={methods.control}
-                  name="requestPath"
-                  render={({ field }) => (
-                    <FormItem>
-                      <div className="flex items-baseline">
-                        <FormLabel>Request Path</FormLabel>
-                        {requiredMark}
-                      </div>
-                      <FormControl><Input className="font-mono" placeholder="/chat/completions / /images/generations" {...field} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={methods.control}
-                  name="apiKey"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{form.id ? "API Key（留空保持不变）" : "API Key"}</FormLabel>
-                      <FormControl><Input type="password" {...field} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <FormField
-                control={methods.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <div className="flex items-baseline">
-                      <FormLabel>描述</FormLabel>
-                      <span className="ml-1 text-[0.8125rem] font-medium text-[var(--text-muted)]">（可选）</span>
-                    </div>
-                    <FormControl><Textarea className="min-h-24" {...field} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <p className="border-b border-[var(--border)] pb-1.5 text-xs font-bold text-[var(--text-muted)]">启用与能力</p>
-              <div className="grid gap-x-6 gap-y-3 lg:grid-cols-3">
-                <FormField
-                  control={methods.control}
-                  name="enabled"
-                  render={({ field }) => (
-                    <FormItem className="flex items-center gap-2">
-                      <FormControl>
-                        <Checkbox checked={field.value} onCheckedChange={(checked) => field.onChange(checked === true)} />
-                      </FormControl>
-                      <FormLabel className="font-normal">启用模型</FormLabel>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={methods.control}
-                  name="capabilities"
-                  render={() => (
-                    <FormItem className="lg:col-span-2">
-                      <FormLabel>模型能力</FormLabel>
-                      <FormControl>
-                        <div className="grid gap-3 sm:grid-cols-2" role="group">
-                          <label className="flex items-center gap-2 text-sm text-[var(--foreground)]">
-                            <Checkbox
-                              checked={capabilities.includes("post-summary")}
-                              onCheckedChange={(checked) => toggleCapability("post-summary", checked === true)}
-                            />
-                            文章摘要能力
-                          </label>
-                          <label className="flex items-center gap-2 text-sm text-[var(--foreground)]">
-                            <Checkbox
-                              checked={capabilities.includes("cover-image")}
-                              onCheckedChange={(checked) => toggleCapability("cover-image", checked === true)}
-                            />
-                            封面生图能力
-                          </label>
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={methods.control}
-                  name="isDefaultForSummary"
-                  render={({ field }) => (
-                    <FormItem className="flex items-center gap-2">
-                      <FormControl>
-                        <Checkbox
-                          checked={field.value}
-                          disabled={!capabilities.includes("post-summary")}
-                          onCheckedChange={(checked) => field.onChange(checked === true)}
-                        />
-                      </FormControl>
-                      <FormLabel className="font-normal">设为文章摘要默认</FormLabel>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={methods.control}
-                  name="isDefaultForCoverImage"
-                  render={({ field }) => (
-                    <FormItem className="flex items-center gap-2">
-                      <FormControl>
-                        <Checkbox
-                          checked={field.value}
-                          disabled={!capabilities.includes("cover-image")}
-                          onCheckedChange={(checked) => field.onChange(checked === true)}
-                        />
-                      </FormControl>
-                      <FormLabel className="font-normal">设为封面生图默认</FormLabel>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <div className="flex flex-wrap justify-end gap-2.5">
-                <Button type="button" variant="outline" onClick={resetForm}>
-                  取消
-                </Button>
-                <Button disabled={isSubmitting} type="submit">
-                  {isSubmitting ? "保存中..." : "保存模型"}
-                </Button>
-              </div>
-            </form>
-          </Form>
-          </div>
-        </Reveal>
+        <ModelFormSection
+          form={form}
+          methods={methods}
+          capabilities={capabilities}
+          isSubmitting={isSubmitting}
+          onSubmit={handleSubmit}
+          onCancel={resetForm}
+          onToggleCapability={toggleCapability}
+        />
       ) : null}
 
       <section aria-labelledby="ai-model-library-title">

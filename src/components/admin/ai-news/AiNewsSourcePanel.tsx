@@ -156,72 +156,16 @@ export function AiNewsSourcePanel({
         <FadeBanner message={sources.length > 0 ? error : ""} tone="danger" />
       </div>
 
-      <Toolbar
-        leading={
-          <>
-            <div className="flex items-center" role="group" aria-label="来源范围">
-              {sourceModes.map((mode) => {
-                const active = sourceMode === mode.id
-                return (
-                  <button
-                    key={mode.id}
-                    type="button"
-                    aria-pressed={active}
-                    className={adminTabClassName}
-                    onClick={() => onSourceModeChange(mode.id)}
-                  >
-                    {mode.label}
-                    {active ? <ActiveUnderline layoutId="ai-news-source-mode" /> : null}
-                  </button>
-                )
-              })}
-            </div>
-            <ToolbarDivider />
-            <div className="flex items-center gap-3">
-              <button type="button" className={toolbarTextButtonClassName} onClick={onSelectEnabledSources}>
-                选择已启用
-              </button>
-              <button
-                type="button"
-                className={toolbarTextButtonClassName}
-                disabled={problemCount === 0 || saving}
-                onClick={() => setDisableConfirmOpen(true)}
-              >
-                停用异常源
-              </button>
-            </div>
-            <ToolbarDivider />
-            <div className="flex flex-wrap items-center" role="group" aria-label="来源分类">
-              {groupFilters.map((filter) => {
-                const active = category === filter.id
-                return (
-                  <button
-                    key={filter.id}
-                    type="button"
-                    aria-pressed={active}
-                    className={adminTabClassName}
-                    onClick={() => onCategoryChange(filter.id)}
-                  >
-                    {filter.label}
-                    {active ? <ActiveUnderline layoutId="ai-news-source-category" /> : null}
-                  </button>
-                )
-              })}
-            </div>
-          </>
-        }
-        trailing={
-          <label className="relative block w-60">
-            <span className="ed-visually-hidden">搜索来源</span>
-            <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-[var(--text-muted)]" aria-hidden="true" />
-            <input
-              className="h-9 w-full rounded-[var(--radius-ctl)] border border-[var(--reader-border-strong)] bg-transparent pr-3 pl-8 text-base text-[var(--foreground)] transition-[border-color] duration-150 placeholder:text-[var(--text-muted)] hover:border-[var(--text-muted)] focus-visible:border-[var(--foreground)] md:text-sm"
-              placeholder="搜索来源"
-              value={query}
-              onChange={(event) => onQueryChange(event.target.value)}
-            />
-          </label>
-        }
+      <SourceToolbar
+        sourceMode={sourceMode}
+        category={category}
+        query={query}
+        disableProblemsDisabled={problemCount === 0 || saving}
+        onSourceModeChange={onSourceModeChange}
+        onSelectEnabledSources={onSelectEnabledSources}
+        onRequestDisableProblems={() => setDisableConfirmOpen(true)}
+        onCategoryChange={onCategoryChange}
+        onQueryChange={onQueryChange}
       />
 
       <Table className="table-fixed" aria-busy={loading || undefined}>
@@ -344,5 +288,98 @@ export function AiNewsSourcePanel({
         }}
       />
     </section>
+  )
+}
+
+/** 来源工具栏：模式页签 | 批量文字按钮 | 分类页签（2px sky 下划线平移），右侧 36px 搜索框 */
+function SourceToolbar({
+  sourceMode,
+  category,
+  query,
+  disableProblemsDisabled,
+  onSourceModeChange,
+  onSelectEnabledSources,
+  onRequestDisableProblems,
+  onCategoryChange,
+  onQueryChange,
+}: {
+  sourceMode: "default" | "selected"
+  category: string
+  query: string
+  disableProblemsDisabled: boolean
+  onSourceModeChange: (mode: "default" | "selected") => void
+  onSelectEnabledSources: () => void
+  onRequestDisableProblems: () => void
+  onCategoryChange: (category: string) => void
+  onQueryChange: (query: string) => void
+}) {
+  return (
+    <Toolbar
+      leading={
+        <>
+          <div className="flex items-center" role="group" aria-label="来源范围">
+            {sourceModes.map((mode) => {
+              const active = sourceMode === mode.id
+              return (
+                <button
+                  key={mode.id}
+                  type="button"
+                  aria-pressed={active}
+                  className={adminTabClassName}
+                  onClick={() => onSourceModeChange(mode.id)}
+                >
+                  {mode.label}
+                  {active ? <ActiveUnderline layoutId="ai-news-source-mode" /> : null}
+                </button>
+              )
+            })}
+          </div>
+          <ToolbarDivider />
+          <div className="flex items-center gap-3">
+            <button type="button" className={toolbarTextButtonClassName} onClick={onSelectEnabledSources}>
+              选择已启用
+            </button>
+            <button
+              type="button"
+              className={toolbarTextButtonClassName}
+              disabled={disableProblemsDisabled}
+              onClick={onRequestDisableProblems}
+            >
+              停用异常源
+            </button>
+          </div>
+          <ToolbarDivider />
+          <div className="flex flex-wrap items-center" role="group" aria-label="来源分类">
+            {groupFilters.map((filter) => {
+              const active = category === filter.id
+              return (
+                <button
+                  key={filter.id}
+                  type="button"
+                  aria-pressed={active}
+                  className={adminTabClassName}
+                  onClick={() => onCategoryChange(filter.id)}
+                >
+                  {filter.label}
+                  {active ? <ActiveUnderline layoutId="ai-news-source-category" /> : null}
+                </button>
+              )
+            })}
+          </div>
+        </>
+      }
+      trailing={
+        <label className="relative block w-60">
+          <span className="ed-visually-hidden">搜索来源</span>
+          <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-[var(--text-muted)]" aria-hidden="true" />
+          <input
+            className="h-9 w-full rounded-[var(--radius-ctl)] border border-[var(--reader-border-strong)] bg-transparent pr-3 pl-8 text-base text-[var(--foreground)] transition-[border-color] duration-150 placeholder:text-[var(--text-muted)] hover:border-[var(--text-muted)] focus-visible:border-[var(--foreground)] md:text-sm"
+            placeholder="搜索来源"
+            value={query}
+            onChange={(event) => onQueryChange(event.target.value)}
+          />
+        </label>
+      }
+    />
   )
 }
