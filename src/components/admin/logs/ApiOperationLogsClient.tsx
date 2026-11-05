@@ -260,6 +260,92 @@ function LogDetailDialog({ selectedLog, onClose }: { selectedLog: LogItem | null
   );
 }
 
+/** 请求记录表体：骨架（36px，保留表头）→ 加载失败（重试）→ 空结果 → 单行数据行 */
+function LogsTableBody({
+  items,
+  isLoading,
+  listError,
+  errorMessage,
+  onRetry,
+  onSelect,
+}: {
+  items: LogItem[];
+  isLoading: boolean;
+  listError: unknown;
+  errorMessage: string;
+  onRetry: () => void;
+  onSelect: (item: LogItem) => void;
+}) {
+  if (isLoading) {
+    return <SkeletonTableRows bars={logSkeletonBars} rowHeightClassName="h-9" rows={8} />;
+  }
+
+  if (listError) {
+    return (
+      <TableStateRow colSpan={logColumnCount}>
+        <EmptyState
+          actions={
+            <Button onClick={onRetry} size="sm" type="button" variant="outline">
+              重试
+            </Button>
+          }
+          role="alert"
+          title={errorMessage}
+          tone="danger"
+        />
+      </TableStateRow>
+    );
+  }
+
+  if (items.length === 0) {
+    return (
+      <TableStateRow colSpan={logColumnCount}>
+        <EmptyState description="调整筛选条件后重新查询，或等待新的接口请求产生日志。" role="status" title="暂无匹配日志" />
+      </TableStateRow>
+    );
+  }
+
+  return items.map((item) => {
+    const isServerError = (item.statusCode ?? 0) >= 500;
+    return (
+      <MotionTableRow key={item.id}>
+        <TableCell className="h-9 py-0 font-mono text-xs text-[var(--text-body)] tabular-nums">{formatDate(item.createdAt)}</TableCell>
+        <TableCell className={cn("h-9 py-0 font-mono text-[0.8125rem] font-bold tabular-nums", statusToneClassName(item.statusCode))}>
+          {item.statusCode ?? "NA"}
+        </TableCell>
+        <TableCell className="h-9 py-0 font-mono text-xs font-bold text-[var(--foreground)]">{item.method}</TableCell>
+        <TableCell className="h-9 overflow-hidden py-0">
+          <span className="flex min-w-0 items-baseline gap-2">
+            <span className="min-w-0 shrink truncate font-mono text-[0.8125rem] text-[var(--foreground)]" title={item.path}>
+              {item.path}
+            </span>
+            <span className="min-w-0 shrink-[3] truncate font-mono text-[0.6875rem] text-[var(--text-muted)]">{formatOperationLine(item)}</span>
+          </span>
+        </TableCell>
+        <TableCell className={cn("h-9 truncate py-0 text-[0.8125rem]", formatActor(item) === "unknown" ? "text-[var(--text-muted)]" : "text-[var(--text-body)]")}>
+          {formatActor(item)}
+        </TableCell>
+        <TableCell
+          className={cn(
+            "h-9 py-0 text-right font-mono text-xs tabular-nums",
+            isServerError ? "text-[var(--danger-foreground)]" : "text-[var(--text-body)]",
+          )}
+        >
+          {item.durationMs ?? 0} ms
+        </TableCell>
+        <TableCell className="h-9 truncate py-0 font-mono text-[0.6875rem] text-[var(--text-muted)]" title={item.requestId}>
+          {item.requestId}
+        </TableCell>
+        <TableCell className="h-9 py-0">
+          <button aria-label="查看接口日志详情" className={cn(adminTextActionClassName, "min-h-7")} onClick={() => onSelect(item)} type="button">
+            详情
+          </button>
+        </TableCell>
+      </MotionTableRow>
+    );
+  });
+}
+
 export function ApiOperationLogsClient() {
   const [range, setRange] = useState("7");
   const [method, setMethod] = useState("");
@@ -316,77 +402,6 @@ export function ApiOperationLogsClient() {
   const pagination = payload.pagination;
   const rangeLabel = rangeOptions.find((option) => option.value === range)?.label ?? `${range} 天`;
   const hasRows = !isLoading && !listError && payload.items.length > 0;
-
-  const renderTableBody = () => {
-    if (isLoading) {
-      return <SkeletonTableRows bars={logSkeletonBars} rowHeightClassName="h-9" rows={8} />;
-    }
-
-    if (listError) {
-      return (
-        <TableStateRow colSpan={logColumnCount}>
-          <EmptyState
-            actions={
-              <Button onClick={() => void mutate()} size="sm" type="button" variant="outline">
-                重试
-              </Button>
-            }
-            role="alert"
-            title={errorMessage}
-            tone="danger"
-          />
-        </TableStateRow>
-      );
-    }
-
-    if (payload.items.length === 0) {
-      return (
-        <TableStateRow colSpan={logColumnCount}>
-          <EmptyState description="调整筛选条件后重新查询，或等待新的接口请求产生日志。" role="status" title="暂无匹配日志" />
-        </TableStateRow>
-      );
-    }
-
-    return payload.items.map((item) => {
-      const isServerError = (item.statusCode ?? 0) >= 500;
-      return (
-        <MotionTableRow key={item.id}>
-          <TableCell className="h-9 py-0 font-mono text-xs text-[var(--text-body)] tabular-nums">{formatDate(item.createdAt)}</TableCell>
-          <TableCell className={cn("h-9 py-0 font-mono text-[0.8125rem] font-bold tabular-nums", statusToneClassName(item.statusCode))}>
-            {item.statusCode ?? "NA"}
-          </TableCell>
-          <TableCell className="h-9 py-0 font-mono text-xs font-bold text-[var(--foreground)]">{item.method}</TableCell>
-          <TableCell className="h-9 overflow-hidden py-0">
-            <span className="flex min-w-0 items-baseline gap-2">
-              <span className="min-w-0 shrink truncate font-mono text-[0.8125rem] text-[var(--foreground)]" title={item.path}>
-                {item.path}
-              </span>
-              <span className="min-w-0 shrink-[3] truncate font-mono text-[0.6875rem] text-[var(--text-muted)]">{formatOperationLine(item)}</span>
-            </span>
-          </TableCell>
-          <TableCell className={cn("h-9 truncate py-0 text-[0.8125rem]", formatActor(item) === "unknown" ? "text-[var(--text-muted)]" : "text-[var(--text-body)]")}>
-            {formatActor(item)}
-          </TableCell>
-          <TableCell
-            className={cn(
-              "h-9 py-0 text-right font-mono text-xs tabular-nums",
-              isServerError ? "text-[var(--danger-foreground)]" : "text-[var(--text-body)]",
-            )}
-          >
-            {item.durationMs ?? 0} ms
-          </TableCell>
-          <TableCell className="h-9 truncate py-0 font-mono text-[0.6875rem] text-[var(--text-muted)]" title={item.requestId}>
-            {item.requestId}
-          </TableCell>
-          <TableCell className="h-9 py-0">
-            <button aria-label="查看接口日志详情" className={cn(adminTextActionClassName, "min-h-7")} onClick={() => setSelectedLog(item)} type="button">
-              详情
-            </button>
-          </TableCell>
-        </MotionTableRow>
-      );
-    });
-  };
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -537,7 +552,16 @@ export function ApiOperationLogsClient() {
               <TableHead className="w-[56px]">详情</TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody>{renderTableBody()}</TableBody>
+          <TableBody>
+            <LogsTableBody
+              errorMessage={errorMessage}
+              isLoading={isLoading}
+              items={payload.items}
+              listError={listError}
+              onRetry={() => void mutate()}
+              onSelect={setSelectedLog}
+            />
+          </TableBody>
         </table>
       </div>
 
