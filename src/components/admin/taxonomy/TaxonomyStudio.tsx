@@ -8,7 +8,8 @@ import { z } from "zod";
 import { DataTable, type DataColumn } from "@/components/admin/DataTable";
 import { DeleteImpactDialog } from "@/components/admin/DeleteImpactDialog";
 import { EntityFormShell } from "@/components/admin/forms/EntityFormShell";
-import { FilterBar } from "@/components/admin/FilterBar";
+import { ListSearchInput, ListTabs } from "@/components/admin/lists";
+import { adminTextActionClassName, adminTextActionDangerClassName } from "@/components/admin/primitives/admin-classes";
 import { PageHeader } from "@/components/admin/primitives/PageHeader";
 import { Button } from "@/components/admin/ui";
 import { useTaxonomyActions } from "@/components/admin/taxonomy/hooks/useTaxonomyActions";
@@ -17,6 +18,11 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/shadcn/ui/input";
 
 type TabId = "categories" | "tags";
+
+const taxonomyTabs: Array<{ value: TabId; label: string }> = [
+  { value: "categories", label: "分类" },
+  { value: "tags", label: "标签" },
+];
 
 function resolveActiveTab(value: string | null): TabId {
   return value === "tags" ? "tags" : "categories";
@@ -39,29 +45,6 @@ function buildNextHref(pathname: string, current: URLSearchParams, tab: TabId) {
   return `${pathname}?${params.toString()}`;
 }
 
-function TabButton({
-  active,
-  label,
-  onClick,
-}: {
-  active: boolean;
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      className={`rounded-full px-4 py-2 text-sm font-medium transition ${
-        active ? "bg-[var(--foreground)] text-[var(--background)]" : "text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]"
-      }`}
-      type="button"
-      aria-pressed={active}
-      onClick={onClick}
-    >
-      {label}
-    </button>
-  );
-}
-
 /**
  * Shared admin workspace for categories and tags.
  * Tab routing lives here; row lifecycle and create/update actions live in dedicated hooks.
@@ -80,15 +63,18 @@ export function TaxonomyStudio() {
   );
 
   return (
-    <div className="space-y-4">
+    <div>
       <PageHeader eyebrow="内容" title="分类与标签" description="统一维护分类结构与标签归类。" />
 
-      <div className="ui-surface flex flex-wrap items-center gap-2 rounded-full p-2">
-        <TabButton active={activeTab === "categories"} label="分类" onClick={() => goToTab("categories")} />
-        <TabButton active={activeTab === "tags"} label="标签" onClick={() => goToTab("tags")} />
-      </div>
+      <ListTabs
+        ariaLabel="分类与标签"
+        className="mt-2 border-b border-[var(--border)] pb-px"
+        items={taxonomyTabs}
+        onChange={goToTab}
+        value={activeTab}
+      />
 
-      {activeTab === "categories" ? <CategoriesManager /> : <TagsManager />}
+      <div className="mt-6">{activeTab === "categories" ? <CategoriesManager /> : <TagsManager />}</div>
     </div>
   );
 }
@@ -170,24 +156,24 @@ function CategoriesManager() {
   });
 
   const columns: DataColumn<CategoryRow>[] = [
-    { key: "name", label: "名称", render: (row) => row.name },
-    { key: "slug", label: "Slug", render: (row) => row.slug },
-    { key: "description", label: "说明", render: (row) => row.description || "-" },
-    { key: "count", label: "文章数", render: (row) => row._count.posts },
-    { key: "date", label: "日期", render: (row) => new Date(row.createdAt).toLocaleDateString("zh-CN") },
+    { key: "name", label: "名称", className: "font-serif text-[0.9375rem] font-bold text-[var(--foreground)]", render: (row) => row.name },
+    { key: "slug", label: "Slug", className: "font-mono text-xs text-[var(--text-muted)]", render: (row) => row.slug },
+    { key: "description", label: "说明", className: "w-[28%] truncate text-[var(--text-muted)]", render: (row) => row.description || "-" },
+    { key: "count", label: "文章数", className: "font-mono tabular-nums", render: (row) => row._count.posts },
+    { key: "date", label: "日期", className: "font-mono text-[var(--text-muted)] tabular-nums", render: (row) => new Date(row.createdAt).toLocaleDateString("zh-CN") },
     {
       key: "actions",
       label: "操作",
       render: (row) => (
-        <div className="flex gap-3 text-sm">
+        <div className="flex gap-3">
           <button
-            className="text-[var(--primary)] hover:underline"
+            className={adminTextActionClassName}
             onClick={() => form.reset({ id: row.id, name: row.name, slug: row.slug, description: row.description ?? "" })}
             type="button"
           >
             编辑
           </button>
-          <button className="text-rose-600 hover:underline" onClick={() => void openDeleteDialog([row.id])} type="button">
+          <button className={adminTextActionDangerClassName} onClick={() => void openDeleteDialog([row.id])} type="button">
             隐藏
           </button>
         </div>
@@ -197,13 +183,8 @@ function CategoriesManager() {
 
   return (
     <>
-      <div className="space-y-4">
-        <FilterBar placeholder="搜索分类" value={query} onChange={setQuery} />
-
-        {loading ? (
-          <p className="py-16 text-center text-[var(--muted)]">加载中...</p>
-        ) : (
-          <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+      <div>
+          <div className="grid grid-cols-1 gap-x-8 gap-y-8 xl:grid-cols-[minmax(0,1fr)_340px]">
             <DataTable
               bulkActions={[
                 {
@@ -221,6 +202,10 @@ function CategoriesManager() {
               }}
               pagination={pagination}
               rows={filtered}
+              isLoading={loading}
+              loadingLabel="正在加载分类..."
+              summary="名称、Slug 与文章数，勾选后可批量隐藏"
+              toolbar={<ListSearchInput ariaLabel="搜索分类" onChange={setQuery} placeholder="搜索分类" value={query} />}
               title="分类列表"
             />
 
@@ -287,7 +272,6 @@ function CategoriesManager() {
               </Form>
             </EntityFormShell>
           </div>
-        )}
       </div>
 
       <DeleteImpactDialog
@@ -350,28 +334,28 @@ function TagsManager() {
       key: "name",
       label: "名称",
       render: (row) => (
-        <div className="flex items-center gap-2">
-          <span className="h-3 w-3 rounded-full" style={{ backgroundColor: row.color || "#94a3b8" }} />
-          <span>{row.name}</span>
-        </div>
+        <span className="flex items-center gap-2">
+          <span aria-hidden="true" className="size-2.5 shrink-0 rounded-[2px]" style={{ backgroundColor: row.color || "#94a3b8" }} />
+          <span className="truncate font-bold text-[var(--foreground)]">#{row.name}</span>
+        </span>
       ),
     },
-    { key: "slug", label: "Slug", render: (row) => row.slug },
-    { key: "count", label: "文章数", render: (row) => row._count.posts },
-    { key: "date", label: "日期", render: (row) => new Date(row.createdAt).toLocaleDateString("zh-CN") },
+    { key: "slug", label: "Slug", className: "font-mono text-xs text-[var(--text-muted)]", render: (row) => row.slug },
+    { key: "count", label: "文章数", className: "font-mono tabular-nums", render: (row) => row._count.posts },
+    { key: "date", label: "日期", className: "font-mono text-[var(--text-muted)] tabular-nums", render: (row) => new Date(row.createdAt).toLocaleDateString("zh-CN") },
     {
       key: "actions",
       label: "操作",
       render: (row) => (
-        <div className="flex gap-3 text-sm">
+        <div className="flex gap-3">
           <button
-            className="text-[var(--primary)] hover:underline"
+            className={adminTextActionClassName}
             onClick={() => form.reset({ id: row.id, name: row.name, slug: row.slug, color: row.color || defaultColors[0] })}
             type="button"
           >
             编辑
           </button>
-          <button className="text-rose-600 hover:underline" onClick={() => void openDeleteDialog([row.id])} type="button">
+          <button className={adminTextActionDangerClassName} onClick={() => void openDeleteDialog([row.id])} type="button">
             隐藏
           </button>
         </div>
@@ -381,13 +365,8 @@ function TagsManager() {
 
   return (
     <>
-      <div className="space-y-4">
-        <FilterBar placeholder="搜索标签" value={query} onChange={setQuery} />
-
-        {loading ? (
-          <p className="py-16 text-center text-[var(--muted)]">加载中...</p>
-        ) : (
-          <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+      <div>
+          <div className="grid grid-cols-1 gap-x-8 gap-y-8 xl:grid-cols-[minmax(0,1fr)_340px]">
             <DataTable
               bulkActions={[
                 {
@@ -405,6 +384,10 @@ function TagsManager() {
               }}
               pagination={pagination}
               rows={filtered}
+              isLoading={loading}
+              loadingLabel="正在加载标签..."
+              summary="标签名、Slug 与文章数，勾选后可批量隐藏"
+              toolbar={<ListSearchInput ariaLabel="搜索标签" onChange={setQuery} placeholder="搜索标签" value={query} />}
               title="标签列表"
             />
 
@@ -451,13 +434,14 @@ function TagsManager() {
                       <FormItem>
                         <FormLabel>颜色</FormLabel>
                         <FormControl>
-                          <div className="flex flex-wrap gap-2 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3">
+                          <div className="flex flex-wrap gap-2">
                             {defaultColors.map((color) => (
                               <button
                                 key={color}
                                 aria-label={`选择颜色 ${color}`}
-                                className={`h-9 w-9 rounded-full border-2 transition ${
-                                  selectedColor === color ? "scale-105 border-[var(--foreground)]" : "border-transparent"
+                                aria-pressed={selectedColor === color}
+                                className={`size-8 cursor-pointer rounded-[var(--radius-ctl)] outline-offset-2 transition-[outline-color,transform] duration-150 active:scale-95 ${
+                                  selectedColor === color ? "outline-2 outline-[var(--foreground)] outline-solid" : "outline-2 outline-transparent outline-solid"
                                 }`}
                                 onClick={() => field.onChange(color)}
                                 style={{ backgroundColor: color }}
@@ -484,7 +468,6 @@ function TagsManager() {
               </Form>
             </EntityFormShell>
           </div>
-        )}
       </div>
 
       <DeleteImpactDialog
