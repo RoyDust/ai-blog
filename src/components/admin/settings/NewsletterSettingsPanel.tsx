@@ -2,9 +2,9 @@
 
 import type { UseFormReturn } from "react-hook-form";
 
-import { WorkspacePanel } from "@/components/admin/primitives/WorkspacePanel";
-import { Button, Input } from "@/components/admin/ui";
-import { Form } from "@/components/shadcn/ui/form";
+import { Form, FormControl, FormField } from "@/components/shadcn/ui/form";
+import { Input } from "@/components/shadcn/ui/input";
+import { SettingsFieldItem, SettingsSaveRow, SettingsSection, settingsMonoInputClassName } from "./SettingsFormParts";
 import type { BlogSettingsFormValues } from "./settings-shared";
 
 type NewsletterSettingsPanelProps = {
@@ -19,57 +19,66 @@ type NewsletterSettingsPanelProps = {
  */
 export function NewsletterSettingsPanel({ blogDraft, blogForm, onSubmit }: NewsletterSettingsPanelProps) {
   return (
-    <Form {...blogForm}>
-      <form className="space-y-5" onSubmit={onSubmit}>
-        <WorkspacePanel title="邮件订阅" description="控制前台 Newsletter 订阅基础开关和本地日志发送器。">
-          <div className="space-y-4">
-            <label className="flex items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface-alt)] p-4">
-              <input
-                checked={blogDraft.newsletter.enabled}
-                className="h-4 w-4"
-                onChange={(event) => blogForm.setValue("newsletter.enabled", event.target.checked, { shouldDirty: true, shouldValidate: true })}
-                type="checkbox"
-              />
-              <span>
-                <span className="block text-sm font-semibold text-[var(--foreground)]">启用订阅入口</span>
-                <span className="mt-1 block text-sm text-[var(--muted)]">首页和文章页会读取此开关展示订阅入口。</span>
-              </span>
-            </label>
-            <div className="grid gap-4 md:grid-cols-2">
-              <Input
-                helperText="当前只支持 none 和 log；真实邮件供应商会在后续批次接入。"
-                label="发送器"
-                onChange={(event) =>
-                  blogForm.setValue("newsletter.provider", event.target.value === "log" ? "log" : "none", {
-                    shouldDirty: true,
-                    shouldValidate: true,
-                  })
-                }
-                value={blogDraft.newsletter.provider}
-              />
-              <Input
-                label="发件邮箱"
-                onChange={(event) => blogForm.setValue("newsletter.fromEmail", event.target.value, { shouldDirty: true, shouldValidate: true })}
-                placeholder="news@example.com"
-                type="email"
-                value={blogDraft.newsletter.fromEmail}
-              />
-            </div>
-            <Input
-              label="回复邮箱"
-              onChange={(event) => blogForm.setValue("newsletter.replyTo", event.target.value, { shouldDirty: true, shouldValidate: true })}
-              placeholder="reply@example.com"
-              type="email"
-              value={blogDraft.newsletter.replyTo}
+    <SettingsSection title="邮件订阅" description="控制前台 Newsletter 订阅基础开关和本地日志发送器。">
+      <Form {...blogForm}>
+        <form className="flex flex-col gap-5" onSubmit={onSubmit}>
+          <label className="flex cursor-pointer items-start gap-2.5">
+            <input
+              checked={blogDraft.newsletter.enabled}
+              className="ed-checkbox mt-0.5"
+              onChange={(event) => blogForm.setValue("newsletter.enabled", event.target.checked, { shouldDirty: true, shouldValidate: true })}
+              type="checkbox"
             />
-            <div className="flex justify-end">
-              <Button disabled={blogForm.formState.isSubmitting} type="submit" variant="outline">
-                {blogForm.formState.isSubmitting ? "保存中..." : "保存订阅设置"}
-              </Button>
-            </div>
+            <span>
+              <span className="block text-[0.8125rem] font-bold text-[var(--foreground)]">启用订阅入口</span>
+              <span className="mt-0.5 block text-xs text-[var(--text-muted)]">首页和文章页会读取此开关展示订阅入口。</span>
+            </span>
+          </label>
+          <div className="grid gap-x-6 gap-y-5 md:grid-cols-2">
+            <FormField
+              control={blogForm.control}
+              name="newsletter.provider"
+              render={({ field }) => (
+                <SettingsFieldItem label="发送器" description="当前只支持 none 和 log；真实邮件供应商会在后续批次接入。">
+                  <FormControl>
+                    <Input
+                      className={settingsMonoInputClassName}
+                      name={field.name}
+                      onBlur={field.onBlur}
+                      onChange={(event) => field.onChange(event.target.value === "log" ? "log" : "none")}
+                      ref={field.ref}
+                      value={field.value}
+                    />
+                  </FormControl>
+                </SettingsFieldItem>
+              )}
+            />
+            <FormField
+              control={blogForm.control}
+              name="newsletter.fromEmail"
+              render={({ field }) => (
+                <SettingsFieldItem label="发件邮箱" optional>
+                  <FormControl>
+                    <Input className={settingsMonoInputClassName} placeholder="news@example.com" type="email" {...field} />
+                  </FormControl>
+                </SettingsFieldItem>
+              )}
+            />
           </div>
-        </WorkspacePanel>
-      </form>
-    </Form>
+          <FormField
+            control={blogForm.control}
+            name="newsletter.replyTo"
+            render={({ field }) => (
+              <SettingsFieldItem label="回复邮箱" optional>
+                <FormControl>
+                  <Input className={settingsMonoInputClassName} placeholder="reply@example.com" type="email" {...field} />
+                </FormControl>
+              </SettingsFieldItem>
+            )}
+          />
+          <SettingsSaveRow label="保存订阅设置" submitting={blogForm.formState.isSubmitting} />
+        </form>
+      </Form>
+    </SettingsSection>
   );
 }
