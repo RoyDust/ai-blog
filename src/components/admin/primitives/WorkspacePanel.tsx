@@ -37,7 +37,7 @@ export function WorkspacePanel({
     <section
       className={cn(
         "flex min-w-0 flex-col",
-        fillHeight && "h-full",
+        `${fillHeight ? "h-full" : ""}`,
         variant === "pane" && "border-t border-[var(--reader-border-strong)] pt-4 first:border-t-0 first:pt-0",
         className,
       )}
