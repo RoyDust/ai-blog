@@ -31,7 +31,7 @@ type SummaryRow = { label: string; value: string; empty: boolean; mono?: boolean
 /**
  * 「发布设置」面板内容（方向 A 第 15 节 A1）：发布状态、精选状态两个单选组（选中只改表单值，
  * 仍需「保存草稿」或「发布文章」提交），定时发布时间，以及 64px 键列的细线定义列表摘要。
- * 「允许评论」静态开关按已采纳假设去掉（文章接口没有评论开关字段）。
+ * 原来的禁用静态评论开关按已采纳假设去掉（文章接口没有评论开关字段）。
  * 纯展示组件，所有变更经回调上抛，由工作台统一 setFormData。
  */
 export function PublishSettingsPanel({
