@@ -40,9 +40,12 @@ export function AdminHeader() {
       <div className="ml-auto flex min-w-0 shrink-0 items-center gap-2.5">
         <AdminGlobalSearch />
 
-        <Link className={cn(buttonVariants({ variant: "outline" }), "hidden px-3.5 sm:inline-flex")} href="/admin/posts/new">
-          新建文章
-        </Link>
+        {/* 文章列表页的页头已有「新建文章」，顶栏这一个隐藏，避免同屏两个入口（README 第 14 节） */}
+        {pathname === "/admin/posts" ? null : (
+          <Link className={cn(buttonVariants({ variant: "outline" }), "hidden px-3.5 sm:inline-flex")} href="/admin/posts/new">
+            新建文章
+          </Link>
+        )}
 
         <NotificationBell />
       </div>

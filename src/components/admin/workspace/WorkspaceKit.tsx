@@ -287,7 +287,18 @@ export function FadeBanner({
 
 /* ── 禁用按钮提示 ───────────────────────────────────────────────── */
 
-export function HintTooltip({ hint, children, className }: { hint: string; children: ReactNode; className?: string }) {
+export function HintTooltip({
+  hint,
+  children,
+  className,
+  side = "top",
+}: {
+  hint: string;
+  children: ReactNode;
+  className?: string;
+  /** 纸面 overflow-hidden 时页头按钮的提示放在下方，避免被裁掉 */
+  side?: "top" | "bottom";
+}) {
   const tooltipId = useId();
 
   return (
@@ -300,7 +311,12 @@ export function HintTooltip({ hint, children, className }: { hint: string; child
       <span
         id={tooltipId}
         role="tooltip"
-        className="pointer-events-none absolute bottom-[calc(100%+8px)] left-1/2 z-20 -translate-x-1/2 translate-y-1 rounded-[4px] bg-[var(--foreground)] px-2 py-1 text-xs font-bold whitespace-nowrap text-[var(--card-bg)] opacity-0 transition-[opacity,transform] duration-150 group-hover/hint:translate-y-0 group-hover/hint:opacity-100 group-focus-visible/hint:translate-y-0 group-focus-visible/hint:opacity-100 motion-reduce:transition-none"
+        className={cn(
+          "pointer-events-none absolute left-1/2 z-20 -translate-x-1/2 rounded-[4px]",
+          side === "top" ? "bottom-[calc(100%+8px)] translate-y-1" : "top-[calc(100%+8px)] -translate-y-1",
+          "bg-[var(--foreground)] px-2 py-1 text-xs font-bold whitespace-nowrap text-[var(--card-bg)] opacity-0 transition-[opacity,transform] duration-150 group-hover/hint:translate-y-0 group-hover/hint:opacity-100 group-focus-visible/hint:translate-y-0 group-focus-visible/hint:opacity-100 motion-reduce:transition-none",
+        )}
+        data-side={side}
       >
         {hint}
       </span>

@@ -80,8 +80,10 @@ export function ConfirmDialog({
               {cancelLabel}
             </Button>
           </AlertDialogCancel>
+          {/* AlertDialogAction 自身也会包一层 Button：变体必须与内部按钮一致，否则默认的深色实底会盖过 danger */}
           <AlertDialogAction
             asChild
+            variant={tone === "danger" ? "destructive" : "default"}
             onClick={(event) => {
               event.preventDefault();
               if (confirmLockRef.current) {

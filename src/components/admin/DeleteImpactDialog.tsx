@@ -72,6 +72,7 @@ export function DeleteImpactDialog({
           </AlertDialogCancel>
           <AlertDialogAction
             asChild
+            variant="destructive"
             onClick={(event) => {
               event.preventDefault();
               void onConfirm();

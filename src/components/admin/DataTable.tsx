@@ -51,12 +51,43 @@ interface DataTableProps<T extends { id: string }> {
 
 type BulkAction = NonNullable<DataTableProps<{ id: string }>["bulkActions"]>[number];
 
-/** 批量操作条：「已选 N 项」+ 描边按钮（破坏性的用 danger 描边），未勾选时置灰 */
+/**
+ * 批量操作条：勾选后才出现（与文章、评论列表一致，README 第 14 节），「已选 N 项」+ 描边按钮，
+ * 破坏性的用 danger 描边；出现 / 收起带高度过渡。
+ */
 function BulkActionsBar({ actions, selectedIds }: { actions: BulkAction[]; selectedIds: string[] }) {
   const hasSelection = selectedIds.length > 0;
+  const reduce = useReducedMotion();
 
   return (
-    <div className="flex shrink-0 flex-wrap items-center gap-3 py-2.5 text-[0.8125rem]">
+    <AnimatePresence initial={false}>
+      {hasSelection ? (
+        <motion.div
+          key="bulk-bar"
+          className="shrink-0 overflow-hidden"
+          initial={reduce ? { opacity: 0 } : { opacity: 0, height: 0 }}
+          animate={reduce ? { opacity: 1 } : { opacity: 1, height: "auto" }}
+          exit={reduce ? { opacity: 0 } : { opacity: 0, height: 0 }}
+          transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
+        >
+          <BulkActionsBarContent actions={actions} hasSelection={hasSelection} selectedIds={selectedIds} />
+        </motion.div>
+      ) : null}
+    </AnimatePresence>
+  );
+}
+
+function BulkActionsBarContent({
+  actions,
+  hasSelection,
+  selectedIds,
+}: {
+  actions: BulkAction[];
+  hasSelection: boolean;
+  selectedIds: string[];
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-3 py-2.5 text-[0.8125rem]">
       <span className={cn("font-bold tabular-nums", hasSelection ? "text-[var(--foreground)]" : "text-[var(--text-muted)]")}>
         已选 {selectedIds.length} 项
       </span>

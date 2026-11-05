@@ -33,11 +33,7 @@ const statusTabs: Array<{ value: StatusFilter; label: string }> = [
   { value: "published", label: "已发布" },
 ];
 
-/**
- * 本页页头已有唯一的实心「新建文章」，顶栏那个描边按钮在本页隐藏（README 14 已采纳假设）。
- * 外壳不归本页管：用只在本页挂载的样式隐藏，离开本页即移除。
- */
-const hideHeaderNewPostCss = '[data-testid="admin-layout-content"] > header a[href="/admin/posts/new"]{display:none !important}';
+// 本页页头已有唯一的实心「新建文章」，顶栏那个描边按钮由 AdminHeader 按路由隐藏（README 14 已采纳假设）。
 
 export default function AdminPostsPage() {
   const postsList = usePostsList();
@@ -235,8 +231,6 @@ export default function AdminPostsPage() {
           />
         </div>
       </TooltipProvider>
-
-      <style>{hideHeaderNewPostCss}</style>
 
       <DeleteImpactDialog
         confirmLabel="确认删除"
