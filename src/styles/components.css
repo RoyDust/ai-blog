@@ -561,13 +561,14 @@
   }
 
   /* 统一 focus-visible：2px 实线外框，外扩 2px；暗色 sky、亮色 --ring（见简报 16.1） */
+  /* 菜单 / 列表框容器与 cmdk 输入框由自身选中态表达焦点，不画整块外框 */
   a:focus-visible,
   button:focus-visible,
-  input:focus-visible,
+  input:not([cmdk-input]):focus-visible,
   select:focus-visible,
   textarea:focus-visible,
   summary:focus-visible,
-  [tabindex]:focus-visible {
+  [tabindex]:not([role="menu"]):not([role="listbox"]):not([cmdk-input]):focus-visible {
     outline: 2px solid var(--focus) !important;
     outline-offset: 2px !important;
     box-shadow: none !important;
