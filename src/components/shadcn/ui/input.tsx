@@ -8,9 +8,10 @@ function Input({ className, type, ...props }: React.ComponentProps<"input">) {
       type={type}
       data-slot="input"
       className={cn(
-        "h-9 w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-xs transition-[color,box-shadow] outline-none selection:bg-primary selection:text-primary-foreground file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm dark:bg-input/30",
-        "focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50",
-        "aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40",
+        // 方向 A 控件：36px、4px 圆角、1px 强描边、透明底；hover 描边变 muted，错误 danger 描边
+        "h-9 w-full min-w-0 rounded-[4px] border border-[var(--reader-border-strong)] bg-transparent px-3 py-1 text-base text-[var(--foreground)] shadow-none transition-[border-color,background-color] duration-150 outline-none file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-[var(--foreground)] placeholder:text-[var(--text-muted)] hover:not-disabled:border-[var(--text-muted)] disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-55 md:text-sm",
+        "focus-visible:border-[var(--foreground)]",
+        "aria-invalid:border-[var(--danger-foreground)] aria-invalid:hover:border-[var(--danger-foreground)]",
         className
       )}
       {...props}

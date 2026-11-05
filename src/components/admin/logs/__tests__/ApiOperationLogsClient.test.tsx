@@ -177,4 +177,71 @@ describe("ApiOperationLogsClient", () => {
       expect(toastErrorMock).toHaveBeenCalledWith("服务器内部错误，请稍后重试");
     });
   });
+
+  test("单行写法：状态码为等宽语气色数字，路径同一行接 operation · scope；详情是文字按钮", async () => {
+    renderLogsClient();
+
+    const path = await screen.findByText("/api/admin/posts");
+    const row = path.closest("tr") as HTMLElement;
+    expect(row).toHaveTextContent("admin.posts.read · admin");
+    expect(screen.getByText("200")).toHaveClass("font-mono", "text-[var(--success)]");
+    expect(screen.getByRole("button", { name: "查看接口日志详情" })).toHaveTextContent("详情");
+    expect(screen.getByText("近 7 天")).toBeInTheDocument();
+  });
+
+  test("5xx 详情：请求信息三列、错误摘要与四个 JSON 块（方向 A 状态画板 E）", async () => {
+    const failed = {
+      ...buildLog("log-500", "/api/cron/ai-news"),
+      method: "POST",
+      scope: "cron",
+      operation: null,
+      route: "/api/cron/ai-news",
+      statusCode: 500,
+      success: false,
+      durationMs: 30412,
+      actorType: "cron",
+      actorLabel: null,
+      actorUserId: null,
+      errorName: "TimeoutError",
+      errorMessage: "抓取信息源超时",
+      requestBody: { trigger: "schedule" },
+      metadata: { status: 500 },
+      userAgent: "vercel-cron/1.0",
+    };
+    vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.startsWith("/api/admin/logs/log-500")) {
+        return Promise.resolve(new Response(JSON.stringify({ success: true, data: failed }), { status: 200 }));
+      }
+      return Promise.resolve(new Response(JSON.stringify({ success: true, data: { ...logsPayload(), items: [failed] } }), { status: 200 }));
+    }));
+
+    renderLogsClient();
+
+    expect(await screen.findByText("cron · /api/cron/ai-news")).toBeInTheDocument();
+    expect(screen.getByText("500")).toHaveClass("text-[var(--danger-foreground)]");
+    fireEvent.click(screen.getByRole("button", { name: "查看接口日志详情" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "接口日志详情" });
+    expect(dialog).toHaveTextContent("POST /api/cron/ai-news");
+    expect(dialog).toHaveTextContent("Request ID");
+    expect(dialog).toHaveTextContent("未标记");
+    expect(screen.getByRole("note")).toHaveTextContent("TimeoutError");
+    expect(screen.getByRole("note")).toHaveTextContent("抓取信息源超时");
+    for (const title of ["Query", "Request Body", "Metadata", "User Agent"]) {
+      expect(screen.getByRole("heading", { name: title })).toBeInTheDocument();
+    }
+    expect(dialog).toHaveTextContent("vercel-cron/1.0");
+    expect(screen.getAllByRole("button", { name: "关闭" }).length).toBeGreaterThan(0);
+  });
+
+  test("清理旧日志确认弹窗带「危险操作」eyebrow", async () => {
+    renderLogsClient();
+
+    await screen.findByText("/api/admin/posts");
+    fireEvent.click(screen.getByRole("button", { name: "清理旧日志" }));
+
+    expect(await screen.findByText("危险操作")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "清理旧日志" })).toBeInTheDocument();
+  });
 });

@@ -2,11 +2,12 @@ export const revalidate = 300;
 
 import type { Metadata } from "next";
 
-import { SeriesCard } from "@/components/blog/SeriesCard";
-import { InViewReveal } from "@/components/motion";
+import { EmptyState, MetaLine, StaggerItem, StaggerList, TextLink } from "@/components/editorial";
+import { getSeriesStatusLabel, TaxonomyEntry, TaxonomyHero, TaxonomyLoadError } from "@/components/taxonomy";
 import { getBlogSettings } from "@/lib/blog-settings";
 import { prisma } from "@/lib/prisma";
 import { buildPageMetadata } from "@/lib/seo";
+import { getSeriesViewTransitionName } from "@/lib/view-transition";
 
 export async function generateMetadata(): Promise<Metadata> {
   const settings = await getBlogSettings();
@@ -62,37 +63,53 @@ export default async function SeriesPage() {
   const totalPosts = series.reduce((sum, item) => sum + item._count.posts, 0);
 
   return (
-    <div className="reader-section">
-      <section className="reader-banner px-6 py-8 md:px-8 md:py-10">
-        <div className="relative z-10 flex min-h-[calc(var(--reader-banner-height)-4rem)] flex-col justify-end gap-6">
-          <span className="reader-chip w-fit">Series</span>
-          <div className="max-w-3xl space-y-3">
-            <h1 className="text-90 font-display text-3xl font-black leading-tight tracking-tight md:text-4xl">文章系列</h1>
-            <p className="max-w-2xl text-sm leading-7 text-[var(--text-body)] md:text-base">
-              把同一主题下的文章整理成连续路径。适合从第一篇开始读，也适合快速回到某个系列复盘上下文。
-            </p>
-          </div>
-          <div className="reader-panel w-fit rounded-2xl px-4 py-3 text-sm font-medium text-[var(--foreground)]">
-            {series.length} 个系列 · {totalPosts} 篇已发布文章
-          </div>
-        </div>
-      </section>
+    <>
+      <TaxonomyHero
+        eyebrow="系列"
+        title="全部系列"
+        description="成体系的连载，按顺序读更顺。"
+        meta={`${series.length} 个系列 · ${totalPosts} 篇文章`}
+        links={[{ href: "/posts", label: "全部文章" }]}
+      />
 
       {hasLoadError ? (
-        <section role="alert" className="reader-panel border-[var(--danger-border)] bg-[var(--danger-surface)] p-8 text-sm text-[var(--danger-foreground)]">
-          文章系列加载失败，请稍后重试。
-        </section>
+        <TaxonomyLoadError retryHref="/series" title="文章系列加载失败，请稍后重试。" />
       ) : series.length > 0 ? (
-        <section className="grid gap-4 md:grid-cols-2">
-          {series.map((item, index) => (
-            <InViewReveal key={item.id} delay={Math.min(index, 3) * 0.06}>
-              <SeriesCard series={item} />
-            </InViewReveal>
+        <StaggerList inView as="ul" className="grid md:grid-cols-2 md:gap-x-8" aria-label="系列目录">
+          {series.map((item) => (
+            <StaggerItem key={item.id} as="li">
+              <TaxonomyEntry
+                href={`/series/${item.slug}`}
+                title={item.title}
+                description={item.description}
+                coverImage={item.coverImage}
+                coverStyle={{ viewTransitionName: getSeriesViewTransitionName("cover", item.slug) }}
+                titleStyle={{ viewTransitionName: getSeriesViewTransitionName("title", item.slug) }}
+                meta={
+                  <MetaLine
+                    items={[
+                      <span key="status" className="font-sans font-bold">
+                        {getSeriesStatusLabel(item)}
+                      </span>,
+                      `${item._count.posts} 篇`,
+                    ]}
+                  />
+                }
+              />
+            </StaggerItem>
           ))}
-        </section>
+        </StaggerList>
       ) : (
-        <section className="reader-panel p-8 text-sm text-[var(--text-muted)]">当前还没有可展示的文章系列。</section>
+        <EmptyState
+          title="当前还没有可展示的文章系列"
+          actions={
+            <>
+              <TextLink href="/posts">浏览全部文章</TextLink>
+              <TextLink href="/">回到首页</TextLink>
+            </>
+          }
+        />
       )}
-    </div>
+    </>
   );
 }

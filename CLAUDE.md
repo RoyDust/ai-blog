@@ -73,6 +73,15 @@ Next.js 16 (App Router, 开启 viewTransition 实验特性) + React 19 + TypeScr
 
 绝大多数业务逻辑在 `src/lib`（90+ 模块），route handler 和页面保持薄。主要域：AI 流水线 (`ai-news/` 子目录、`ai-tasks`、`ai-models`、`post-summary*`、`ai-cover-image`)、内容 (`posts`、`taxonomy`、`recommendations`)、运营 (`newsletter*`、`notifications`、`analytics`、`reading-*`、`api-operation-log*`)、基础设施 (`prisma`、`cache`、`rate-limit`、`seo`、`security-headers`、`qiniu-server`)。
 
+### 界面设计系统（方向 A「编辑排版」）
+
+全站外观按 `docs/implementation/frontend-redesign/04-claude-design-brief.md` 第 15–17 节与 `prototypes/` 原型实现，新界面沿用同一套积木，不要回到圆角卡片 / 毛玻璃 / 药丸 chip / 带图标实心按钮：
+
+- 样式层：token 在 `src/styles/theme-variables.css`（含朱红印章 `--accent-seal`、focus 色 `--focus`、`--success` / `--warning`、圆角三档），组件类在 `src/styles/editorial.css`（`.ed-*`），文章正文在 `src/styles/article.css`
+- 前台积木：`src/components/editorial`（区块标题、报头 `Masthead`、文字链接 `TextLink`、印章、点线目录行、`#标签` 行、meta 行、页码、空态、骨架，以及 `Reveal` / `StaggerList` / `ActiveUnderline` / `collapseMotion` 动效）；文章列表一律用 `components/blog/PostCard`（列表行）；日期格式用 `lib/editorial-format.ts`
+- 后台积木：外壳每页一张纸面（`AdminLayout`），页头 / 区块标题 / 状态文字 / 工具栏 / 分页在 `components/admin/primitives`，列表积木在 `components/admin/lists`，工作台积木在 `components/admin/workspace`
+- 规则速记：每页最多一个实心主按钮，次级操作用「… →」文字链接；sky 只用于当前项下划线、链接 hover、focus 与「今日」；朱红只用于印章；动效尊重 `prefers-reduced-motion`
+
 ### 前端数据层与表单约定
 
 - **客户端取数**：列表用 `useSWR(urlKey, apiFetcher, { keepPreviousData: true, revalidateOnMount: true })`，key 为完整 URL 字符串；轮询用 `refreshInterval`；变更操作用 `apiMutate` 成功后 `mutate()` 失效。禁止手写 `useState+useEffect+fetch` 状态机与 requestId 竞态防护。黄金参考：`components/admin/logs/ApiOperationLogsClient.tsx`（列表）、`components/admin/posts/hooks/usePostsList.ts`（复杂列表）。

@@ -98,10 +98,16 @@ describe('/posts SEO shell', () => {
     expect(screen.getByTestId('initial-filters')).toHaveTextContent(
       JSON.stringify({ category: 'frontend', tag: 'nextjs', search: 'react' }),
     )
-    expect(screen.getByRole('link', { name: '关键词: react' })).toHaveAttribute(
+    // 已选条件按名称展示（取自目录），点击即移除该条件
+    expect(screen.getByRole('link', { name: '移除关键词：react' })).toHaveAttribute(
       'href',
       '/posts?category=frontend&tag=nextjs',
     )
+    expect(screen.getByRole('link', { name: '移除分类：Frontend' })).toHaveAttribute('href', '/posts?q=react&tag=nextjs')
+    expect(screen.getByRole('link', { name: '移除标签：Next.js' })).toHaveAttribute('href', '/posts?q=react&category=frontend')
+    // 报头等宽状态行显示首屏总数
+    expect(screen.getByRole('heading', { level: 1, name: '全部文章' })).toBeInTheDocument()
+    expect(screen.getByText(/共 1/)).toBeInTheDocument()
   })
 
   test.each([

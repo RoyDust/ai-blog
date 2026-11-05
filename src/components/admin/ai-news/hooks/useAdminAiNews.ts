@@ -125,9 +125,10 @@ export function useAdminAiNews() {
   const runs = useMemo(() => (Array.isArray(runsResponse?.data) ? runsResponse.data : []), [runsResponse?.data]);
   const models = useMemo(() => (Array.isArray(modelsResponse?.data) ? modelsResponse.data : []), [modelsResponse?.data]);
 
-  // 自动选择默认模型（渲染期条件调整）
-  if (!selectedModelId && models.length > 0) {
-    setSelectedModelId(getDefaultNewsModel(models)?.id ?? "");
+  // 自动选择默认模型（渲染期条件调整）；没有可用模型时不再 set（否则 "" → "" 会无限重渲染）
+  const defaultNewsModelId = selectedModelId ? "" : getDefaultNewsModel(models)?.id ?? "";
+  if (!selectedModelId && defaultNewsModelId) {
+    setSelectedModelId(defaultNewsModelId);
   }
 
   const selectedModel = useMemo(

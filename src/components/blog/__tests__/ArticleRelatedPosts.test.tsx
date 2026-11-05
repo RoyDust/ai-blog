@@ -9,8 +9,8 @@ describe("ArticleRelatedPosts", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  test("renders compact links for related posts", () => {
-    render(
+  test("renders cover columns with serif titles and category · date meta", () => {
+    const { container } = render(
       <ArticleRelatedPosts
         posts={[
           {
@@ -18,16 +18,31 @@ describe("ArticleRelatedPosts", () => {
             title: "Related article",
             slug: "related-article",
             excerpt: "A related excerpt",
+            coverImage: "https://example.com/cover.jpg",
             createdAt: "2026-03-01T00:00:00.000Z",
             category: { name: "Tech", slug: "tech" },
+          },
+          {
+            id: "related-2",
+            title: "No cover article",
+            slug: "no-cover",
+            createdAt: "2026-02-01T00:00:00.000Z",
+            category: { name: "Design", slug: "design" },
           },
         ]}
       />,
     );
 
     expect(screen.getByRole("heading", { name: "相关文章" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Related article/ })).toHaveAttribute("href", "/posts/related-article");
-    expect(screen.getByText("Tech")).toBeInTheDocument();
-    expect(screen.getByText("A related excerpt")).toBeInTheDocument();
+    const link = screen.getByRole("link", { name: /Related article/ });
+    expect(link).toHaveAttribute("href", "/posts/related-article");
+    expect(link).toHaveTextContent("Tech");
+    expect(link).toHaveTextContent("2026-03-01");
+    expect(link.querySelector("img")).toBeInTheDocument();
+    expect(screen.queryByText("A related excerpt")).not.toBeInTheDocument();
+
+    const placeholder = container.querySelector(".article-related__placeholder");
+    expect(placeholder).toHaveTextContent("Design");
+    expect(container.querySelector(".reader-chip")).toBeNull();
   });
 });

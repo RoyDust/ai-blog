@@ -79,10 +79,15 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     applyTheme(theme)
   }, [theme])
 
+  // 色相固定为 224（简报 17.1），清理旧版色相选择器留下的本地设置
   useEffect(() => {
-    const savedHue = localStorage.getItem("theme-hue") ?? "250";
-    document.documentElement.style.setProperty("--hue", savedHue);
-  }, []);
+    try {
+      localStorage.removeItem("theme-hue")
+    } catch {
+      // 隐私模式等场景下 localStorage 不可用，忽略即可
+    }
+    document.documentElement.style.removeProperty("--hue")
+  }, [])
 
   const toggleTheme = useCallback(() => {
     const currentTheme = getStoredTheme()

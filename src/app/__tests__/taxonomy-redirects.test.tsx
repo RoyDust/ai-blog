@@ -82,10 +82,17 @@ describe('taxonomy routes', () => {
 
     render(ui as React.ReactElement)
 
-    expect(screen.getByRole('heading', { name: '分类专题' })).toBeInTheDocument()
-    expect(document.querySelector('.reader-banner')).toBeInTheDocument()
-    expect(document.querySelector('.reader-card')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1, name: '全部分类' })).toBeInTheDocument()
+    expect(document.querySelector('.ed-masthead .ed-rule-strong')).toBeInTheDocument()
+    expect(document.querySelector('.reader-banner')).toBeNull()
+    expect(document.querySelector('.reader-card')).toBeNull()
+    expect(screen.getByText('1 个分类 · 4 篇文章')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: '前端' })).toHaveAttribute('href', '/categories/frontend')
+    expect(screen.getByText('4 篇')).toBeInTheDocument()
+    expect(screen.getByText('前端工程与交互体验')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '全部文章' })).toHaveAttribute('href', '/posts')
+    // 目录页不放「在列表页中筛选」
+    expect(screen.queryByRole('link', { name: '在列表页中筛选' })).not.toBeInTheDocument()
   })
 
   test('/tags renders tag directory', async () => {
@@ -94,10 +101,13 @@ describe('taxonomy routes', () => {
 
     render(ui as React.ReactElement)
 
-    expect(screen.getByRole('heading', { name: '标签专题' })).toBeInTheDocument()
-    expect(document.querySelector('.reader-banner')).toBeInTheDocument()
-    expect(document.querySelector('.reader-card')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: '#Next.js' })).toHaveAttribute('href', '/tags/nextjs')
+    expect(screen.getByRole('heading', { level: 1, name: '全部标签' })).toBeInTheDocument()
+    expect(document.querySelector('.reader-banner')).toBeNull()
+    expect(document.querySelector('.reader-card')).toBeNull()
+    // 不足 12 个标签时只排「全部」一组，避免重复
+    expect(screen.getByRole('heading', { name: '全部 1' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: /^常用/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '#Next.js 3 篇' })).toHaveAttribute('href', '/tags/nextjs')
   })
 
   test('/categories/[slug] renders category article list', async () => {
@@ -106,10 +116,19 @@ describe('taxonomy routes', () => {
 
     const { container } = render(ui as React.ReactElement)
 
-    expect(screen.getByRole('heading', { name: '前端' })).toBeInTheDocument()
-    expect(document.querySelector('.reader-banner')).toBeInTheDocument()
-    expect(document.querySelector('.reader-section')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1, name: '前端' })).toBeInTheDocument()
+    expect(document.querySelector('.reader-banner')).toBeNull()
+    expect(screen.getByText('分类')).toHaveClass('ed-eyebrow')
+    expect(screen.getByText('1 篇文章 · 最近更新 2026-03-01')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '在列表页中筛选' })).toHaveAttribute('href', '/posts?category=frontend')
+    expect(screen.getByRole('link', { name: '全部分类' })).toHaveAttribute('href', '/categories')
+    expect(screen.getByRole('heading', { name: '文章 1' })).toBeInTheDocument()
+    expect(screen.getByText('按发布时间')).toBeInTheDocument()
     expect(screen.getAllByRole('link', { name: 'Build Better UI' })[0]).toHaveAttribute('href', '/posts/build-better-ui')
+    // 分类详情的列表行 meta 省略分类名
+    expect(container.querySelector('.ed-row a[href="/categories/frontend"]')).toBeNull()
+    // 只有一页时不渲染页码
+    expect(screen.queryByRole('navigation', { name: '分页' })).not.toBeInTheDocument()
 
     const jsonLd = JSON.parse(container.querySelector('script[type="application/ld+json"]')?.textContent ?? '{}')
     expect(jsonLd).toMatchObject({
@@ -128,10 +147,16 @@ describe('taxonomy routes', () => {
 
     const { container } = render(ui as React.ReactElement)
 
-    expect(screen.getByRole('heading', { name: '#Next.js' })).toBeInTheDocument()
-    expect(document.querySelector('.reader-banner')).toBeInTheDocument()
-    expect(document.querySelector('.reader-section')).toBeInTheDocument()
+    // h1 不带「#」，eyebrow 写「标签」
+    expect(screen.getByRole('heading', { level: 1, name: 'Next.js' })).toBeInTheDocument()
+    expect(screen.getByText('标签')).toHaveClass('ed-eyebrow')
+    expect(document.querySelector('.reader-banner')).toBeNull()
+    expect(screen.getByRole('link', { name: '在列表页中筛选' })).toHaveAttribute('href', '/posts?tag=nextjs')
+    expect(screen.getByRole('link', { name: '全部标签' })).toHaveAttribute('href', '/tags')
     expect(screen.getAllByRole('link', { name: 'Next Patterns' })[0]).toHaveAttribute('href', '/posts/next-patterns')
+    // 标签详情的列表行 meta 省略标签名，保留分类
+    expect(container.querySelector('.ed-row a[href="/tags/nextjs"]')).toBeNull()
+    expect(container.querySelector('.ed-row a[href="/categories/frontend"]')).not.toBeNull()
 
     const jsonLd = JSON.parse(container.querySelector('script[type="application/ld+json"]')?.textContent ?? '{}')
     expect(jsonLd).toMatchObject({
@@ -161,7 +186,50 @@ describe('taxonomy routes', () => {
 
     render(ui as React.ReactElement)
 
-    expect(screen.getByText(/当前页没有内容/)).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: '返回第一页' })).toHaveAttribute('href', '/categories/frontend?page=1')
+    expect(screen.getByText('第 3 页不存在，这个分类共 1 页')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '回到第 1 页' })).toHaveAttribute('href', '/categories/frontend?page=1')
+  })
+
+  test('/categories/[slug] renders editorial pagination for multi-page categories', async () => {
+    const { getCategoryDetail } = await import('@/lib/taxonomy')
+    const base = await vi.mocked(getCategoryDetail).getMockImplementation()!('frontend')
+    vi.mocked(getCategoryDetail).mockResolvedValueOnce({
+      ...base!,
+      _count: { posts: 24 },
+      pagination: { page: 2, limit: 12, total: 24, totalPages: 2 },
+    } as never)
+
+    const { default: CategoryPage } = await import('@/app/(public)/categories/[slug]/page')
+    const ui = await CategoryPage({ params: Promise.resolve({ slug: 'frontend' }), searchParams: Promise.resolve({ page: '2' }) } as never)
+
+    render(ui as React.ReactElement)
+
+    const pagination = screen.getByRole('navigation', { name: '分页' })
+    expect(pagination).toHaveTextContent('第 2 / 2 页')
+    expect(screen.getByRole('link', { name: '上一页' })).toHaveAttribute('href', '/categories/frontend')
+    // 非第 1 页不写「最近更新」
+    expect(screen.getByText('24 篇文章')).toBeInTheDocument()
+  })
+
+  test('/categories/[slug] shows an empty state with two text links', async () => {
+    const { getCategoryDetail } = await import('@/lib/taxonomy')
+    vi.mocked(getCategoryDetail).mockResolvedValueOnce({
+      id: 'c2',
+      name: '开源',
+      slug: 'open-source',
+      description: null,
+      _count: { posts: 0 },
+      pagination: { page: 1, limit: 12, total: 0, totalPages: 0 },
+      posts: [],
+    } as never)
+
+    const { default: CategoryPage } = await import('@/app/(public)/categories/[slug]/page')
+    const ui = await CategoryPage({ params: Promise.resolve({ slug: 'open-source' }) })
+
+    render(ui as React.ReactElement)
+
+    expect(screen.getByText('这个分类下还没有文章')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '浏览全部文章' })).toHaveAttribute('href', '/posts')
+    expect(screen.getAllByRole('link', { name: '全部分类' }).length).toBeGreaterThan(0)
   })
 })

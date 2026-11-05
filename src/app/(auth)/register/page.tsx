@@ -8,7 +8,10 @@ import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
-import { Button, Input, Card, CardContent } from '@/components/ui';
+import { AuthDivider, AuthHeader, SubmitLabel } from '@/components/auth/AuthFormParts';
+import { Input } from '@/components/ui';
+import { fieldErrorMotionClassName } from '@/components/ui/Input';
+import { cn } from '@/lib/cn';
 import { buildLoginPromptPath } from '@/lib/login-redirect';
 import { apiMutate, toErrorMessage } from '@/lib/client-api';
 
@@ -27,6 +30,10 @@ const registerSchema = z
 
 type RegisterFormValues = z.infer<typeof registerSchema>;
 
+/**
+ * 注册页（原型 12 第 4 张与状态画板 D）：纸面由 (auth) 布局提供，
+ * 页头左对齐，结构同登录弹层；表单按简报第 12 节「全站表单写法」。
+ */
 export default function RegisterPage() {
   const router = useRouter();
   const {
@@ -51,111 +58,94 @@ export default function RegisterPage() {
   };
 
   return (
-    <Card>
-      <CardContent>
-        <div className="mb-8 text-center">
-          <h1 className="text-90 text-2xl font-bold">
-            创建账号
-          </h1>
-          <p className="text-75 mt-2">
-            注册一个账号，收藏文章并开始创作
-          </p>
-        </div>
+    <>
+      <AuthHeader eyebrow="账号" title="创建账号" description="注册一个账号，收藏文章并开始创作" />
 
-        <form className="space-y-4" noValidate onSubmit={handleSubmit(onSubmit)}>
-          <Input
-            type="text"
-            label="昵称"
-            placeholder="输入你的昵称"
-            autoComplete="nickname"
-            error={errors.name?.message}
-            {...register('name')}
-          />
+      <form className="mt-5 flex flex-col gap-4" noValidate onSubmit={handleSubmit(onSubmit)} aria-busy={isSubmitting}>
+        <Input
+          type="text"
+          label="昵称"
+          placeholder="输入你的昵称"
+          autoComplete="nickname"
+          error={errors.name?.message}
+          {...register('name')}
+        />
 
-          <Input
-            type="email"
-            label="邮箱"
-            placeholder="you@example.com"
-            autoComplete="email"
-            error={errors.email?.message}
-            {...register('email')}
-          />
+        <Input
+          type="email"
+          label="邮箱"
+          placeholder="you@example.com"
+          autoComplete="email"
+          error={errors.email?.message}
+          {...register('email')}
+        />
 
-          <Input
-            type="password"
-            label="密码"
-            placeholder="设置密码"
-            autoComplete="new-password"
-            helperText="至少 8 位"
-            error={errors.password?.message}
-            {...register('password')}
-          />
+        <Input
+          type="password"
+          label="密码"
+          placeholder="设置密码"
+          autoComplete="new-password"
+          helperText="至少 8 位"
+          error={errors.password?.message}
+          {...register('password')}
+        />
 
-          <Input
-            type="password"
-            label="确认密码"
-            placeholder="再次输入密码"
-            autoComplete="new-password"
-            error={errors.confirmPassword?.message}
-            {...register('confirmPassword')}
-          />
+        <Input
+          type="password"
+          label="确认密码"
+          placeholder="再次输入密码"
+          autoComplete="new-password"
+          error={errors.confirmPassword?.message}
+          {...register('confirmPassword')}
+        />
 
-          <div className="flex items-start">
+        <div>
+          <div className="flex min-h-11 items-center gap-2.5">
             <input
               type="checkbox"
               id="terms"
-              className="ui-checkbox mt-0.5 h-4 w-4 rounded"
+              className={cn('ed-checkbox', errors.terms && 'border-[var(--danger-foreground)]')}
               aria-invalid={Boolean(errors.terms)}
+              aria-describedby={errors.terms ? 'terms-error' : undefined}
               {...register('terms')}
             />
-            <label htmlFor="terms" className="text-75 ml-2 text-sm">
-              我已阅读并同意{' '}
-              <Link href="/terms" className="ui-link">
+            <label htmlFor="terms" className="text-[0.875rem] leading-[1.6] text-[var(--text-body)]">
+              我已阅读并同意
+              <Link href="/terms" className="ed-link ed-link--inline">
                 《服务条款》
-              </Link>{' '}
-              与{' '}
-              <Link href="/privacy" className="ui-link">
+              </Link>
+              与
+              <Link href="/privacy" className="ed-link ed-link--inline">
                 《隐私政策》
               </Link>
             </label>
           </div>
-          {errors.terms ? <p className="text-xs text-rose-500">{errors.terms.message}</p> : null}
-
-          <Button type="submit" className="w-full" disabled={isSubmitting}>
-            {isSubmitting ? '正在创建...' : '创建账号'}
-          </Button>
-        </form>
-
-        <div className="relative my-6">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-[var(--border)]" />
-          </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-[var(--surface)] px-3 text-[var(--muted)]">或</span>
-          </div>
+          {errors.terms ? (
+            <p id="terms-error" key={errors.terms.message} className={cn('ed-field-error mt-0 pl-[1.625rem]', fieldErrorMotionClassName)}>
+              {errors.terms.message}
+            </p>
+          ) : null}
         </div>
 
-        <Button
-          type="button"
-          variant="outline"
-          className="w-full"
-          onClick={() => signIn('github', { callbackUrl: '/' })}
-        >
-          使用 GitHub 注册
-        </Button>
-
-        <div className="mt-6 text-center">
-          <p className="text-75 text-sm">
-            已有账号？{' '}
-            <Link
-              href={buildLoginPromptPath()}
-              className="ui-link font-medium"
-            >
-              去登录
-            </Link>
-          </p>
+        <div className="mt-1">
+          <button type="submit" className="ed-btn ed-btn--block" disabled={isSubmitting}>
+            <SubmitLabel busyLabel="正在创建..." idleLabel="创建账号" submitting={isSubmitting} />
+          </button>
         </div>
-      </CardContent>
-    </Card>
+      </form>
+
+      <AuthDivider />
+
+      <button type="button" className="ed-btn-outline ed-btn--block" onClick={() => signIn('github', { callbackUrl: '/' })}>
+        使用 GitHub 注册
+      </button>
+
+      <p className="mt-5 text-[0.875rem] leading-[1.7] text-[var(--text-muted)]">
+        已有账号？
+        <Link href={buildLoginPromptPath()} className="ed-link ed-link--inline">
+          去登录
+        </Link>
+      </p>
+    </>
   );
 }

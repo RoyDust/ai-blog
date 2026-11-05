@@ -1,5 +1,6 @@
 import NextLink from "next/link";
-import { Eye, Flame } from "lucide-react";
+import { SkeletonBar } from "@/components/editorial";
+import { formatIndex } from "@/lib/editorial-format";
 
 const POPULAR_POST_LIMIT = 3;
 
@@ -13,18 +14,20 @@ export type PopularPost = {
 interface PopularPostsWidgetProps {
   posts: PopularPost[];
   isLoading?: boolean;
+  /** 区块标题文字；侧栏写「热门」 */
+  title?: string;
+  className?: string;
 }
 
 function PopularPostsSkeleton() {
   return (
     <ol aria-hidden="true" className="space-y-3" data-testid="popular-posts-skeleton">
       {Array.from({ length: POPULAR_POST_LIMIT }).map((_, index) => (
-        <li className="flex items-start gap-2.5" key={index}>
-          <span className="mt-0.5 h-4 w-4 shrink-0 rounded-md reader-skeleton" />
-          <div className="min-w-0 flex-1 space-y-2">
-            <span className="block h-3.5 w-full rounded-md reader-skeleton" />
-            <span className="block h-3.5 w-4/5 rounded-md reader-skeleton" />
-            <span className="block h-3 w-16 rounded-md reader-skeleton" />
+        <li className="flex items-start gap-3" key={index}>
+          <SkeletonBar className="mt-1 h-3 w-4" />
+          <div className="min-w-0 flex-1 space-y-1.5">
+            <SkeletonBar className="h-3.5 w-full" />
+            <SkeletonBar className="h-3.5 w-3/5" />
           </div>
         </li>
       ))}
@@ -32,36 +35,33 @@ function PopularPostsSkeleton() {
   );
 }
 
-export function PopularPostsWidget({ posts, isLoading = false }: PopularPostsWidgetProps) {
+/**
+ * 侧栏「热门」（简报 15.10）：衬线组标题，3 行等宽序号 01–03 加标题，最多 2 行。
+ */
+export function PopularPostsWidget({ posts, isLoading = false, title = "热门", className }: PopularPostsWidgetProps) {
   if (!isLoading && posts.length === 0) {
     return null;
   }
 
   return (
-    <section aria-busy={isLoading} aria-labelledby="sidebar-popular-title" className="reader-panel p-4">
-      <div className="mb-3 flex items-center gap-2">
-        <span aria-hidden="true" className="h-4 w-1 rounded-full bg-[var(--accent-warm)]" />
-        <Flame aria-hidden="true" className="h-4 w-4 text-[var(--text-body)]" />
-        <h3 className="font-bold text-[var(--foreground)]" id="sidebar-popular-title">
-          热门文章
-        </h3>
-      </div>
+    <section aria-busy={isLoading} aria-labelledby="sidebar-popular-title" className={className}>
+      <h3 className="ed-serif mb-3 text-base text-[var(--foreground)]" id="sidebar-popular-title">
+        {title}
+      </h3>
       {isLoading ? (
         <PopularPostsSkeleton />
       ) : (
-        <ol className="space-y-2">
+        <ol className="space-y-1">
           {posts.slice(0, POPULAR_POST_LIMIT).map((post, index) => (
-            <li className="flex items-start gap-2.5" key={post.id}>
-              <span className="mt-0.5 w-4 shrink-0 text-center text-xs font-bold tabular-nums text-[var(--text-faint)]">
-                {index + 1}
-              </span>
-              <NextLink className="group flex min-w-0 flex-1 flex-col gap-1" href={`/posts/${post.slug}`}>
-                <span className="line-clamp-2 text-sm leading-snug text-[var(--text-body)] transition group-hover:text-[var(--foreground)]">
+            <li key={post.id}>
+              <NextLink
+                className="group flex min-h-11 items-start gap-3 py-1.5 text-[0.875rem] leading-[1.5] text-[var(--text-body)] transition-colors hover:text-[var(--foreground)]"
+                href={`/posts/${post.slug}`}
+                title={`${post.viewCount.toLocaleString("zh-CN")} 次阅读`}
+              >
+                <span className="ed-mono pt-px text-[0.8125rem] text-[var(--text-muted)]">{formatIndex(index + 1)}</span>
+                <span className="line-clamp-2 min-w-0 flex-1 underline decoration-transparent underline-offset-4 transition-[text-decoration-color] group-hover:decoration-[var(--reader-border-strong)]">
                   {post.title}
-                </span>
-                <span className="inline-flex items-center gap-1 text-xs text-[var(--text-faint)]">
-                  <Eye aria-hidden="true" className="h-3 w-3" />
-                  {post.viewCount.toLocaleString("zh-CN")}
                 </span>
               </NextLink>
             </li>

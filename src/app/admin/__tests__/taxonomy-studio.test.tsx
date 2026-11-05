@@ -325,6 +325,6 @@ describe("TaxonomyStudio", () => {
       );
     });
 
-    expect(await screen.findByText("React 19")).toBeInTheDocument();
+    expect(await screen.findByText("#React 19")).toBeInTheDocument();
   });
 });

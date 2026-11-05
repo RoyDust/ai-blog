@@ -1,18 +1,32 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import useSWR from "swr";
-import { DataTable, type DataColumn } from "@/components/admin/DataTable";
 import { DeleteImpactDialog, type DeleteImpactItem } from "@/components/admin/DeleteImpactDialog";
+import {
+  ListTabs,
+  ListSearchInput,
+  LoadingStatus,
+  MetricStrip,
+  MotionTableRow,
+  SelectionSwap,
+  SkeletonTableRows,
+  TableStateRow,
+} from "@/components/admin/lists";
+import { AdminPagination } from "@/components/admin/primitives/AdminPagination";
+import { adminTextActionClassName, adminTextActionDangerClassName } from "@/components/admin/primitives/admin-classes";
 import { PageHeader } from "@/components/admin/primitives/PageHeader";
+import { AdminSectionHeader } from "@/components/admin/primitives/SectionHeader";
 import { StatusBadge } from "@/components/admin/primitives/StatusBadge";
-import { Toolbar } from "@/components/admin/primitives/Toolbar";
+import { Toolbar, ToolbarDivider } from "@/components/admin/primitives/Toolbar";
+import { Button } from "@/components/admin/ui";
+import { EmptyState } from "@/components/editorial";
+import { TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/shadcn/ui/table";
 import { getApiErrorMessage } from "@/lib/admin-api-client";
 import { apiFetcher, apiMutate, handleGlobalSwrError, toErrorMessage } from "@/lib/client-api";
 import { readPositiveInteger, useFilterMemory } from "@/hooks/useFilterMemory";
-import { CheckCircle2, Clock, MessageSquare, XCircle } from "lucide-react";
 
 type CommentStatus = "APPROVED" | "PENDING" | "REJECTED" | "SPAM";
 
@@ -44,11 +58,11 @@ const initialDeleteDialog: DeleteDialogState = {
   submitting: false,
 };
 
-const statusMeta: Record<CommentStatus, { label: string; tone: "success" | "warning" | "danger" | "neutral" }> = {
+const statusMeta: Record<CommentStatus, { label: string; tone: "success" | "warning" | "danger" | "muted" }> = {
   APPROVED: { label: "已通过", tone: "success" },
   PENDING: { label: "待审核", tone: "warning" },
   REJECTED: { label: "已驳回", tone: "danger" },
-  SPAM: { label: "已隐藏", tone: "neutral" },
+  SPAM: { label: "已隐藏", tone: "muted" },
 };
 
 const defaultPageSize = 10;
@@ -105,75 +119,130 @@ function validateCommentsFilterMemory(parsed: Partial<CommentsFilterMemory>, fal
   };
 }
 
-interface StatsCardProps {
-  label: string;
-  value: string | number;
-  icon: React.ComponentType<{ className?: string; "aria-hidden"?: boolean }>;
-  scheme: "blue" | "emerald" | "amber" | "rose";
-  hint?: string;
-  onClick?: () => void;
-  active?: boolean;
+
+const triageFilters: Array<{ value: CommentStatusFilter; label: string }> = [
+  { value: "ALL", label: "全部" },
+  { value: "PENDING", label: "待审核" },
+  { value: "APPROVED", label: "已通过" },
+  { value: "REJECTED", label: "已驳回" },
+  { value: "SPAM", label: "已隐藏" },
+];
+
+const commentColumnCount = 7;
+const commentSkeletonBars = ["checkbox", "w-[70%]", "w-12", "w-24", "w-[66%]", "w-20", "w-24"];
+
+/** 治理队列表体：骨架（保留表头）→ 加载失败（重试）→ 空列表 → 单行数据行 */
+function CommentsTableBody({
+  comments,
+  showSkeleton,
+  commentsError,
+  visibleSelectedIds,
+  pagination,
+  onRetry,
+  toggleOne,
+  updateStatuses,
+  openDeleteDialog,
+}: {
+  comments: CommentRow[];
+  showSkeleton: boolean;
+  commentsError: unknown;
+  visibleSelectedIds: string[];
+  pagination: PaginationState;
+  onRetry: () => void;
+  toggleOne: (id: string) => void;
+  updateStatuses: (ids: string[], status: CommentStatus) => Promise<void>;
+  openDeleteDialog: (ids: string[]) => Promise<void>;
+}) {
+  if (showSkeleton) {
+    return <SkeletonTableRows bars={commentSkeletonBars} />;
+  }
+
+  if (commentsError) {
+    return (
+      <TableStateRow colSpan={commentColumnCount}>
+        <EmptyState
+          actions={
+            <Button onClick={onRetry} size="sm" type="button" variant="outline">
+              重试
+            </Button>
+          }
+          role="alert"
+          title="评论列表加载失败，请稍后重试"
+          tone="danger"
+        />
+      </TableStateRow>
+    );
+  }
+
+  if (comments.length === 0) {
+    return (
+      <TableStateRow colSpan={commentColumnCount}>
+        <EmptyState description="当前筛选条件下没有评论。" role="status" title="暂无评论" />
+      </TableStateRow>
+    );
+  }
+
+  return comments.map((row, rowIndex) => {
+    const isSelected = visibleSelectedIds.includes(row.id);
+    const authorName = row.authorLabel || row.author?.name || row.author?.email || "匿名访客";
+    const isAnonymous = !row.author;
+    const meta = statusMeta[row.status];
+
+    return (
+      <MotionTableRow key={row.id} selected={isSelected}>
+        <TableCell className="pr-0">
+          <input
+            aria-label={`选择第 ${(pagination.page - 1) * pagination.limit + rowIndex + 1} 行`}
+            checked={isSelected}
+            className="ed-checkbox align-middle"
+            onChange={() => toggleOne(row.id)}
+            type="checkbox"
+          />
+        </TableCell>
+        <TableCell className="truncate text-[0.875rem] text-[var(--foreground)]" title={row.content}>
+          {row.content}
+        </TableCell>
+        <TableCell className={isAnonymous ? "truncate text-[0.8125rem] text-[var(--text-muted)]" : "truncate text-[0.8125rem] font-bold text-[var(--foreground)]"}>
+          {authorName}
+        </TableCell>
+        <TableCell>
+          <span className="flex items-baseline gap-2">
+            <StatusBadge tone={meta.tone}>{meta.label}</StatusBadge>
+            <span className="text-xs text-[var(--text-muted)]">{row.status === "PENDING" ? "待你决策" : "已处理"}</span>
+          </span>
+        </TableCell>
+        <TableCell className="overflow-hidden">
+          <Link
+            className="block truncate text-[0.8125rem] text-[var(--text-body)] decoration-[var(--accent-sky)] decoration-1 underline-offset-4 transition-colors hover:text-[var(--foreground)] hover:underline"
+            href={`/posts/${row.post.slug}`}
+            title={row.post.title}
+          >
+            {row.post.title}
+          </Link>
+        </TableCell>
+        <TableCell className="font-mono text-[0.8125rem] text-[var(--text-muted)] tabular-nums">{new Date(row.createdAt).toLocaleDateString("zh-CN")}</TableCell>
+        <TableCell>
+          <span className="flex items-center gap-3">
+            <button className={adminTextActionClassName} onClick={() => void updateStatuses([row.id], "APPROVED")} type="button">
+              通过
+            </button>
+            <button className={adminTextActionClassName} onClick={() => void updateStatuses([row.id], "REJECTED")} type="button">
+              驳回
+            </button>
+            <button className={adminTextActionDangerClassName} onClick={() => void openDeleteDialog([row.id])} type="button">
+              隐藏
+            </button>
+          </span>
+        </TableCell>
+      </MotionTableRow>
+    );
+  });
 }
 
-function StatsCard({ label, value, icon: Icon, scheme, hint, onClick, active }: StatsCardProps) {
-  const schemeStyles = {
-    blue: {
-      bg: "bg-[color-mix(in_oklab,var(--brand)_10%,var(--surface))]",
-      text: "text-[var(--brand)]",
-      border: "border-[color-mix(in_oklab,var(--brand)_22%,var(--border))]",
-      ring: "border-[var(--brand)] ring-2 ring-[color-mix(in_oklab,var(--brand)_24%,transparent)]",
-    },
-    emerald: {
-      bg: "bg-[var(--success-surface)]",
-      text: "text-[var(--success-foreground)]",
-      border: "border-[var(--success-border)]",
-      ring: "border-[var(--success-foreground)] ring-2 ring-[color-mix(in_oklab,var(--success-foreground)_24%,transparent)]",
-    },
-    amber: {
-      bg: "bg-[var(--warning-surface)]",
-      text: "text-[var(--warning-foreground)]",
-      border: "border-[var(--warning-border)]",
-      ring: "border-[var(--warning-foreground)] ring-2 ring-[color-mix(in_oklab,var(--warning-foreground)_24%,transparent)]",
-    },
-    rose: {
-      bg: "bg-[var(--danger-surface)]",
-      text: "text-[var(--danger-foreground)]",
-      border: "border-[var(--danger-border)]",
-      ring: "border-[var(--danger-foreground)] ring-2 ring-[color-mix(in_oklab,var(--danger-foreground)_24%,transparent)]",
-    },
-  }[scheme];
-
-  return (
-    <div
-      onClick={onClick}
-      role={onClick ? "button" : undefined}
-      tabIndex={onClick ? 0 : undefined}
-      onKeyDown={onClick ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } } : undefined}
-      className={`relative overflow-hidden rounded-lg border bg-[var(--surface)] p-4 shadow-sm transition-all duration-200
-        ${onClick ? "cursor-pointer hover:shadow-md select-none" : ""}
-        ${active ? `${schemeStyles.ring}` : "border-[var(--border)] hover:border-[color-mix(in_oklab,var(--brand)_18%,var(--border))]"}
-        group`}
-    >
-      <div className="flex items-center justify-between">
-        <dt className="text-xs font-semibold text-[var(--muted)] tracking-wide uppercase">
-          {label}
-        </dt>
-        <span className={`inline-flex h-8 w-8 items-center justify-center rounded-lg ${schemeStyles.bg} ${schemeStyles.text} ${schemeStyles.border} border shadow-sm`}>
-          <Icon className="h-4.5 w-4.5" aria-hidden />
-        </span>
-      </div>
-      <dd className="mt-2 text-2xl font-bold tracking-tight text-[var(--foreground)] font-mono">
-        {typeof value === "number" ? value.toLocaleString("zh-CN") : value}
-      </dd>
-      {hint ? (
-        <p className="mt-2 text-xs font-medium text-[var(--muted)] border-t border-[var(--border)] pt-1.5">
-          {hint}
-        </p>
-      ) : null}
-    </div>
-  );
-}
-
+/**
+ * 后台评论收件箱（方向 A 第 14 节列表模板）：页头 → 指标条 → 区块标题 → 工具栏 → 表格 → 分页。
+ * 指标条与工具栏 tab 共用 statusFilter；批量操作勾选后才出现，替换工具栏右侧的聚焦说明。
+ */
 export default function AdminCommentsPage() {
   const { initialMemory, persist } = useFilterMemory<CommentsFilterMemory>(commentsFilterMemoryKey, fallbackCommentsFilterMemory, validateCommentsFilterMemory);
   const [query, setQuery] = useState(initialMemory.query);
@@ -182,6 +251,7 @@ export default function AdminCommentsPage() {
   const [page, setPage] = useState(initialMemory.page);
   const [pageSize, setPageSize] = useState(initialMemory.pageSize);
   const [deleteDialog, setDeleteDialog] = useState<DeleteDialogState>(initialDeleteDialog);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   // 300ms 防抖：setState 只发生在事件回调与定时器回调中（不在 effect 体内）
   const debounceTimerRef = useRef<number | null>(null);
@@ -237,7 +307,7 @@ export default function AdminCommentsPage() {
     },
   );
 
-  const comments = commentsResponse?.data ?? [];
+  const comments = useMemo(() => commentsResponse?.data ?? [], [commentsResponse?.data]);
   const pagination = commentsResponse?.pagination ?? {
     page,
     limit: pageSize,
@@ -245,7 +315,8 @@ export default function AdminCommentsPage() {
     totalPages: Math.max(1, Math.ceil(comments.length / pageSize)),
   };
   const stats = commentsResponse?.stats ?? emptyStats;
-  const loading = isLoading || isValidating;
+  // 骨架只在当前 key 尚无数据时出现（首次加载 / 切换筛选）；操作后的静默刷新不打断已有行
+  const showSkeleton = isLoading;
 
   // 服务端校正页码时同步回状态（渲染期条件调整，仅在真实响应到达后；
   // keepPreviousData 下旧响应会先于新响应出现，isValidating 期间不校正，避免翻页被旧页码拉回）
@@ -262,6 +333,29 @@ export default function AdminCommentsPage() {
       pageSize,
     });
   }, [page, pageSize, persist, query, statusFilter]);
+
+  // 勾选：只认当前页仍在的行；表头勾选框支持半选
+  const currentPageIds = useMemo(() => comments.map((row) => row.id), [comments]);
+  const visibleSelectedIds = useMemo(() => selectedIds.filter((id) => currentPageIds.includes(id)), [currentPageIds, selectedIds]);
+  const allCurrentPageSelected = currentPageIds.length > 0 && currentPageIds.every((id) => visibleSelectedIds.includes(id));
+  const partiallySelected = !allCurrentPageSelected && visibleSelectedIds.length > 0;
+
+  const toggleAll = () => {
+    if (allCurrentPageSelected) {
+      setSelectedIds((prev) => prev.filter((id) => !currentPageIds.includes(id)));
+      return;
+    }
+    setSelectedIds((prev) => Array.from(new Set([...prev, ...currentPageIds])));
+  };
+
+  const toggleOne = (id: string) => {
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]));
+  };
+
+  const applyStatusFilter = (nextFilter: CommentStatusFilter) => {
+    setStatusFilter(nextFilter);
+    setPage(1);
+  };
 
   async function updateStatuses(ids: string[], status: CommentStatus) {
     try {
@@ -314,194 +408,155 @@ export default function AdminCommentsPage() {
     }
   }
 
-  const columns: DataColumn<CommentRow>[] = [
-    { key: "content", label: "评论内容", render: (row) => <p className="line-clamp-2 max-w-xl">{row.content}</p> },
-    { key: "author", label: "作者", render: (row) => row.authorLabel || row.author?.name || row.author?.email || "匿名访客" },
-    {
-      key: "status",
-      label: "状态",
-      render: (row) => (
-        <div className="flex items-center gap-2">
-          <StatusBadge tone={statusMeta[row.status].tone}>{statusMeta[row.status].label}</StatusBadge>
-          <span className="text-xs text-[var(--muted)]">{row.status === "PENDING" ? "待你决策" : "已处理"}</span>
-        </div>
-      ),
-    },
-    {
-      key: "post",
-      label: "所属文章",
-      render: (row) => (
-        <Link className="text-[var(--primary)] hover:underline" href={`/posts/${row.post.slug}`}>
-          {row.post.title}
-        </Link>
-      ),
-    },
-    { key: "date", label: "日期", render: (row) => new Date(row.createdAt).toLocaleDateString("zh-CN") },
-    {
-      key: "actions",
-      label: "操作",
-      render: (row) => (
-        <div className="flex flex-wrap gap-3 text-sm">
-          <button className="text-[var(--primary)] hover:underline" onClick={() => void updateStatuses([row.id], "APPROVED")} type="button">
-            通过
-          </button>
-          <button className="text-[var(--foreground)] hover:text-[var(--primary)]" onClick={() => void updateStatuses([row.id], "REJECTED")} type="button">
-            驳回
-          </button>
-          <button className="text-rose-600 hover:underline" onClick={() => void openDeleteDialog([row.id])} type="button">
-            隐藏
-          </button>
-        </div>
-      ),
-    },
-  ];
+  const focusLabel = statusFilter === "ALL" ? "全部评论" : `${statusMeta[statusFilter].label} 评论`;
 
-  const triageFilters: Array<{ key: "ALL" | CommentStatus; label: string }> = [
-    { key: "ALL", label: "全部" },
-    { key: "PENDING", label: "待审核" },
-    { key: "APPROVED", label: "已通过" },
-    { key: "REJECTED", label: "已驳回" },
-    { key: "SPAM", label: "已隐藏" },
-  ];
-
-  const toolbarHint =
-    statusFilter === "ALL" ? "当前聚焦 全部评论" : `当前聚焦 ${statusMeta[statusFilter].label} 评论`;
-
-  const triageToolbar = (
-    <Toolbar
-      leading={
-        <>
-          <div className="min-w-0 flex-1">
-            <label className="sr-only" htmlFor="admin-comments-search">
-              搜索评论
-            </label>
-            <input
-              id="admin-comments-search"
-              placeholder="搜索评论内容或文章标题"
-              value={query}
-              onChange={(event) => handleQueryChange(event.target.value)}
-              className="ui-ring w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--foreground)] placeholder:text-[var(--muted)] focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
-            />
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {triageFilters.map((filter) => (
-              <button
-                key={filter.key}
-                type="button"
-                className={
-                  statusFilter === filter.key
-                    ? "ui-btn rounded-xl bg-[var(--primary)] px-3 py-1.5 text-xs text-white"
-                    : "ui-btn rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-1.5 text-xs text-[var(--foreground)] hover:bg-[var(--surface-alt)]"
-                }
-                onClick={() => {
-                  setStatusFilter(filter.key);
-                  setPage(1);
-                }}
-              >
-                {filter.label}
-              </button>
-            ))}
-          </div>
-        </>
-      }
-      trailing={<span className="text-sm text-[var(--muted)]">{toolbarHint}</span>}
-    />
-  );
-
-  return (    <>
-      <div className="space-y-6">
+  return (
+    <>
+      <div>
         <PageHeader
-          eyebrow="Moderation"
-          title="评论收件箱"
           description="围绕待审核、已通过与已驳回组织评论治理，优先完成 triage 操作。"
+          eyebrow="评论审核"
+          title="评论收件箱"
         />
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <StatsCard
-            label="全部评论"
-            value={stats.total}
-            icon={MessageSquare}
-            scheme="blue"
-            hint="点击快速过滤全部评论"
-            onClick={() => {
-              setStatusFilter("ALL");
-              setPage(1);
-            }}
-            active={statusFilter === "ALL"}
-          />
-          <StatsCard
-            label="待审核"
-            value={stats.pending}
-            icon={Clock}
-            scheme="amber"
-            hint="新评论进入待处理，优先审核"
-            onClick={() => {
-              setStatusFilter("PENDING");
-              setPage(1);
-            }}
-            active={statusFilter === "PENDING"}
-          />
-          <StatsCard
-            label="已通过"
-            value={stats.approved}
-            icon={CheckCircle2}
-            scheme="emerald"
-            hint="确认优质互动继续在线展示"
-            onClick={() => {
-              setStatusFilter("APPROVED");
-              setPage(1);
-            }}
-            active={statusFilter === "APPROVED"}
-          />
-          <StatsCard
-            label="已驳回"
-            value={stats.rejected}
-            icon={XCircle}
-            scheme="rose"
-            hint="被驳回或标记为不通过的评论"
-            onClick={() => {
-              setStatusFilter("REJECTED");
-              setPage(1);
-            }}
-            active={statusFilter === "REJECTED"}
-          />
-        </div>
+        <MetricStrip
+          ariaLabel="按状态筛选"
+          className="mt-1"
+          items={[
+            { key: "ALL", label: "全部评论", value: stats.total.toLocaleString("zh-CN"), note: "点击快速过滤全部评论", pressed: statusFilter === "ALL", onSelect: () => applyStatusFilter("ALL") },
+            {
+              key: "PENDING",
+              label: "待审核",
+              value: stats.pending.toLocaleString("zh-CN"),
+              note: "新评论进入待处理，优先审核",
+              tone: stats.pending > 0 ? "warning" : "default",
+              pressed: statusFilter === "PENDING",
+              onSelect: () => applyStatusFilter("PENDING"),
+            },
+            { key: "APPROVED", label: "已通过", value: stats.approved.toLocaleString("zh-CN"), note: "确认优质互动继续在线展示", pressed: statusFilter === "APPROVED", onSelect: () => applyStatusFilter("APPROVED") },
+            { key: "REJECTED", label: "已驳回", value: stats.rejected.toLocaleString("zh-CN"), note: "被驳回或标记为不通过的评论", pressed: statusFilter === "REJECTED", onSelect: () => applyStatusFilter("REJECTED") },
+          ]}
+        />
 
-        {commentsError ? (
-          <div role="status" className="flex flex-col items-center justify-center gap-3 rounded-lg border border-[var(--danger-border)] bg-[var(--danger-surface)] px-6 py-10 text-center">
-            <p className="text-sm font-medium text-[var(--danger-foreground)]">评论列表加载失败，请稍后重试</p>
-            <button
-              type="button"
-              className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-1.5 text-sm text-[var(--foreground)] transition-colors hover:bg-[var(--surface-alt)]"
-              onClick={() => void mutateComments()}
-            >
-              重试
-            </button>
-          </div>
-        ) : (
-          <DataTable
+        <section aria-labelledby="admin-comments-queue-title" className="mt-6">
+          <AdminSectionHeader
+            aside={
+              <span className="ed-mono">
+                <span>
+                  第 {pagination.page} / {Math.max(pagination.totalPages, 1)} 页
+                </span>
+                <span className="ed-meta-sep">·</span>
+                <span>{pagination.total} 条记录</span>
+              </span>
+            }
+            description="在一个视图里完成审核、驳回与隐藏操作。"
+            id="admin-comments-queue-title"
             title="治理队列"
-            summary="在一个视图里完成审核、驳回与隐藏操作。"
-            toolbar={triageToolbar}
-            columns={columns}
-            rows={comments}
-            emptyText="暂无评论"
-            isLoading={loading}
-            loadingLabel="正在加载评论队列..."
-            pagination={pagination}
-            onPageChange={setPage}
-            onPageSizeChange={(nextPageSize) => {
-              setPageSize(nextPageSize);
-              setPage(1);
-            }}
-            bulkActions={[
-              { label: "批量通过", onClick: (ids) => void updateStatuses(ids, "APPROVED") },
-              { label: "批量设为待审核", onClick: (ids) => void updateStatuses(ids, "PENDING") },
-              { label: "批量驳回", variant: "danger", onClick: (ids) => void updateStatuses(ids, "REJECTED") },
-              { label: "批量隐藏", variant: "danger", onClick: (ids) => void openDeleteDialog(ids) },
-            ]}
           />
-        )}
+
+          <Toolbar
+            leading={
+              <>
+                <div className="min-w-[12rem] flex-1">
+                  <label className="sr-only" htmlFor="admin-comments-search">
+                    搜索评论
+                  </label>
+                  <ListSearchInput
+                    className="sm:w-full"
+                    id="admin-comments-search"
+                    onChange={handleQueryChange}
+                    placeholder="搜索评论内容或文章标题"
+                    value={query}
+                  />
+                </div>
+                <ListTabs ariaLabel="评论状态" items={triageFilters} onChange={applyStatusFilter} value={statusFilter} />
+                <ToolbarDivider />
+              </>
+            }
+            trailing={
+              <SelectionSwap
+                count={visibleSelectedIds.length}
+                idle={
+                  <>
+                    当前聚焦 <span className="font-bold text-[var(--foreground)]">{focusLabel}</span>
+                  </>
+                }
+              >
+                <Button onClick={() => void updateStatuses(visibleSelectedIds, "APPROVED")} size="sm" type="button" variant="outline">
+                  批量通过
+                </Button>
+                <Button onClick={() => void updateStatuses(visibleSelectedIds, "PENDING")} size="sm" type="button" variant="outline">
+                  批量设为待审核
+                </Button>
+                <Button onClick={() => void updateStatuses(visibleSelectedIds, "REJECTED")} size="sm" type="button" variant="outline-danger">
+                  批量驳回
+                </Button>
+                <Button onClick={() => void openDeleteDialog(visibleSelectedIds)} size="sm" type="button" variant="outline-danger">
+                  批量隐藏
+                </Button>
+              </SelectionSwap>
+            }
+          />
+
+          <div aria-busy={showSkeleton || undefined} className="overflow-x-auto">
+            {showSkeleton ? <LoadingStatus label="正在加载评论队列..." /> : null}
+            <table className="w-full min-w-[860px] table-fixed caption-bottom text-sm xl:min-w-[1080px]" data-slot="table">
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-10 pr-0">
+                    <input
+                      aria-checked={partiallySelected ? "mixed" : allCurrentPageSelected}
+                      aria-label="选择当前页"
+                      checked={allCurrentPageSelected}
+                      className="ed-checkbox align-middle disabled:cursor-not-allowed disabled:opacity-50"
+                      disabled={showSkeleton || comments.length === 0}
+                      onChange={toggleAll}
+                      ref={(element) => {
+                        if (element) element.indeterminate = partiallySelected;
+                      }}
+                      type="checkbox"
+                    />
+                  </TableHead>
+                  <TableHead>评论内容</TableHead>
+                  <TableHead className="w-[104px]">作者</TableHead>
+                  <TableHead className="w-[136px]">状态</TableHead>
+                  <TableHead className="w-[22%]">所属文章</TableHead>
+                  <TableHead className="w-[104px]">日期</TableHead>
+                  <TableHead className="w-[120px]">操作</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <CommentsTableBody
+                  comments={comments}
+                  commentsError={commentsError}
+                  onRetry={() => void mutateComments()}
+                  openDeleteDialog={openDeleteDialog}
+                  pagination={pagination}
+                  showSkeleton={showSkeleton}
+                  toggleOne={toggleOne}
+                  updateStatuses={updateStatuses}
+                  visibleSelectedIds={visibleSelectedIds}
+                />
+              </TableBody>
+            </table>
+          </div>
+
+          {!showSkeleton && !commentsError && comments.length > 0 ? (
+            <AdminPagination
+              itemLabel="条记录"
+              onPageChange={setPage}
+              onPageSizeChange={(nextPageSize) => {
+                setPageSize(nextPageSize);
+                setPage(1);
+              }}
+              page={pagination.page}
+              pageSize={pagination.limit}
+              pageSizeOptions={pageSizeOptions}
+              total={pagination.total}
+              totalPages={Math.max(pagination.totalPages, 1)}
+            />
+          ) : null}
+        </section>
       </div>
 
       <DeleteImpactDialog

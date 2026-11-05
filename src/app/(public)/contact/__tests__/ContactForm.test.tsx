@@ -38,9 +38,39 @@ describe("ContactForm", () => {
     render(<ContactForm />);
     fireEvent.click(screen.getByRole("button", { name: "发送邮件" }));
 
-    expect(await screen.findByText("请输入有效的邮箱地址")).toBeInTheDocument();
+    expect(await screen.findByText("请输入有效的邮箱地址")).toHaveClass("ed-field-error");
     expect(screen.getByText("主题至少 2 个字")).toBeInTheDocument();
     expect(screen.getByText("内容至少 20 个字")).toBeInTheDocument();
+    expect(screen.getByLabelText(/邮箱/)).toHaveAttribute("aria-invalid", "true");
+    expect(openSpy).not.toHaveBeenCalled();
+  });
+
+  test("uses the editorial form rules: muted required marks, outlined fields and one content-width primary button", () => {
+    const { container } = render(<ContactForm />);
+
+    expect(screen.getByLabelText(/邮箱/)).toHaveClass("ed-input");
+    expect(screen.getByLabelText(/内容/)).toHaveClass("ed-textarea", "min-h-40");
+    expect(screen.getByText("（可选）")).toHaveClass("ed-label__optional");
+    expect(container.querySelectorAll(".ed-label__required")).toHaveLength(3);
+    expect(container.querySelector(".text-rose-500")).toBeNull();
+
+    const submit = screen.getByRole("button", { name: "发送邮件" });
+    expect(submit).toHaveClass("ed-btn");
+    expect(submit).not.toHaveClass("ed-btn--block");
+  });
+
+  test("tells the reader when the contact address is not configured", async () => {
+    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+
+    render(<ContactForm />);
+    fireEvent.change(screen.getByLabelText(/邮箱/), { target: { value: "reader@example.com" } });
+    fireEvent.change(screen.getByLabelText(/主题/), { target: { value: "合作" } });
+    fireEvent.change(screen.getByLabelText(/内容/), {
+      target: { value: "这是一段超过二十个字的联系内容，用于测试提交。" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "发送邮件" }));
+
+    await waitFor(() => expect(toastMocks.error).toHaveBeenCalledWith("联系邮箱暂未配置"));
     expect(openSpy).not.toHaveBeenCalled();
   });
 

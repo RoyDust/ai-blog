@@ -2,7 +2,8 @@ export const revalidate = 300
 
 import type { Metadata } from 'next'
 
-import { TaxonomyDirectoryCard, TaxonomyHero } from '@/components/taxonomy'
+import { EmptyState, StaggerItem, StaggerList, TextLink } from '@/components/editorial'
+import { TaxonomyDirectoryCard, TaxonomyHero, TaxonomyLoadError } from '@/components/taxonomy'
 import { getBlogSettings } from '@/lib/blog-settings'
 import { buildPageMetadata } from '@/lib/seo'
 import { getCategoryDirectory } from '@/lib/taxonomy'
@@ -34,40 +35,36 @@ export default async function CategoriesPage() {
   const totalPosts = categories.reduce((sum: number, category: CategoryDirectoryEntry) => sum + category._count.posts, 0)
 
   return (
-    <div className="reader-section">
+    <>
       <TaxonomyHero
-        eyebrow="Categories"
-        title="分类专题"
-        description="把文章按主题组织成更清晰的阅读路径。你可以从某个专题进入，连续阅读同一方向的内容，而不只是停留在筛选结果页。"
-        countLabel={`${categories.length} 个分类 · ${totalPosts} 篇已发布文章`}
-        primaryHref="/posts"
-        primaryLabel="浏览全部文章"
-        secondaryHref="/archives"
-        secondaryLabel="查看文章归档"
+        eyebrow="分类"
+        title="全部分类"
+        description="按主题浏览全部文章。"
+        meta={`${categories.length} 个分类 · ${totalPosts} 篇文章`}
+        links={[{ href: '/posts', label: '全部文章' }]}
       />
 
       {hasLoadError ? (
-        <section role="alert" className="reader-panel border-[var(--danger-border)] bg-[var(--danger-surface)] p-8 text-sm text-[var(--danger-foreground)]">
-          分类专题加载失败，请稍后重试。
-        </section>
+        <TaxonomyLoadError retryHref="/categories" title="分类加载失败，请稍后重试。" />
       ) : categories.length > 0 ? (
-        <section className="grid gap-4">
-          {categories.map((category: CategoryDirectoryEntry, index: number) => (
-            <div key={category.id} className="onload-animation" style={{ animationDelay: `${80 + index * 30}ms` }}>
+        <StaggerList inView as="ul" className="grid md:grid-cols-2 md:gap-x-8" aria-label="分类目录">
+          {categories.map((category: CategoryDirectoryEntry) => (
+            <StaggerItem key={category.id} as="li">
               <TaxonomyDirectoryCard
                 href={`/categories/${category.slug}`}
                 name={category.name}
                 description={category.description}
                 count={category._count.posts}
-                badge="专题分类"
-                accent={index % 2 === 0 ? "var(--accent-warm)" : "var(--accent-cyan)"}
               />
-            </div>
+            </StaggerItem>
           ))}
-        </section>
+        </StaggerList>
       ) : (
-        <section className="reader-panel p-8 text-sm text-[var(--text-muted)]">当前还没有可展示的分类专题。</section>
+        <EmptyState
+          title="当前还没有可展示的分类"
+          actions={<TextLink href="/posts">浏览全部文章</TextLink>}
+        />
       )}
-    </div>
+    </>
   )
 }

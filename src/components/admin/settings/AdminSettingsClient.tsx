@@ -12,12 +12,14 @@
  * 主组件只保留表单实例、保存动作与 tab 装配。
  */
 
+import { motion, useReducedMotion } from "motion/react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
 import { PageHeader } from "@/components/admin/primitives/PageHeader";
+import { editorialEase } from "@/components/editorial";
 import { apiMutate, toErrorMessage } from "@/lib/client-api";
 import { AccountSettingsPanel } from "@/components/admin/settings/AccountSettingsPanel";
 import { AboutSettingsPanel } from "@/components/admin/settings/AboutSettingsPanel";
@@ -44,9 +46,32 @@ interface AdminSettingsClientProps {
   user: SettingsUser;
   blogSettings: BlogSettingsDraft;
   operationLogSettings: OperationLogSettings;
+  /** 由服务端页面从 `?tab=` 读出并校验，刷新或分享链接时保留当前页签 */
+  initialTab?: SettingsTabId;
+  /** GitHub 绑定回跳 `?github=linked` */
+  githubJustLinked?: boolean;
 }
 
-export function AdminSettingsClient({ user, blogSettings, operationLogSettings }: AdminSettingsClientProps) {
+/**
+ * 切换页签时把当前页签写回地址栏 `?tab=`（replaceState，不新增历史记录、不触发路由刷新）。
+ * 回跳参数 `github=linked` 只在落地时读一次，切换页签后从地址栏去掉。
+ */
+function syncTabToUrl(tab: SettingsTabId) {
+  if (typeof window === "undefined") return;
+  const url = new URL(window.location.href);
+  url.searchParams.set("tab", tab);
+  url.searchParams.delete("github");
+  window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+}
+
+export function AdminSettingsClient({
+  user,
+  blogSettings,
+  operationLogSettings,
+  initialTab = "account",
+  githubJustLinked = false,
+}: AdminSettingsClientProps) {
+  const reduceMotion = useReducedMotion();
   const profileForm = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
     defaultValues: { name: user.name ?? "", email: user.email, image: user.image ?? "" },
@@ -60,7 +85,11 @@ export function AdminSettingsClient({ user, blogSettings, operationLogSettings }
   const blogDraft = useWatch({ control: blogForm.control }) as BlogSettingsFormValues;
 
   const [logSettings, setLogSettings] = useState(operationLogSettings);
-  const [activeTab, setActiveTab] = useState<SettingsTabId>("account");
+  const [activeTab, setActiveTab] = useState<SettingsTabId>(initialTab);
+  const handleTabChange = (tab: SettingsTabId) => {
+    setActiveTab(tab);
+    syncTabToUrl(tab);
+  };
 
   const logForm = useForm<LogSettingsFormValues>({
     resolver: zodResolver(logSettingsSchema),
@@ -159,20 +188,24 @@ export function AdminSettingsClient({ user, blogSettings, operationLogSettings }
   );
 
   return (
-    <div className="space-y-5">
+    <div className="flex flex-col gap-5 pb-2">
       <PageHeader
         eyebrow="账号"
         title="设置"
         description="集中管理管理员资料、博客展示信息和后台运行策略。"
       />
 
-      <div className="space-y-5">
-        <SettingsTablist activeTab={activeTab} onTabChange={setActiveTab} />
+      <div className="flex flex-col gap-6">
+        <SettingsTablist activeTab={activeTab} onTabChange={handleTabChange} />
 
-        <div
+        {/* 换页签时新面板淡入（不等旧面板退出，保持同步渲染） */}
+        <motion.div
+          key={activeTab}
           aria-labelledby={`settings-tab-${activeTab}`}
           id="settings-panel"
           role="tabpanel"
+          initial={reduceMotion ? false : { opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0, transition: { duration: reduceMotion ? 0 : 0.26, ease: editorialEase } }}
         >
           {activeTab === "account" ? (
             <AccountSettingsPanel
@@ -181,6 +214,7 @@ export function AdminSettingsClient({ user, blogSettings, operationLogSettings }
               profileForm={profileForm}
               initial={initial}
               onSubmit={saveProfile}
+              githubJustLinked={githubJustLinked}
               onAvatarUploaded={(url) => {
                 profileForm.setValue("image", url, { shouldDirty: true, shouldValidate: true });
                 toast.success("头像已裁切上传，保存个人信息后生效");
@@ -216,7 +250,7 @@ export function AdminSettingsClient({ user, blogSettings, operationLogSettings }
               onSubmit={saveLogSettings}
             />
           ) : null}
-        </div>
+        </motion.div>
       </div>
     </div>
   );

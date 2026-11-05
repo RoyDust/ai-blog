@@ -11,6 +11,7 @@ import {
   AlertDialogTitle,
   Button,
 } from "@/components/admin/ui";
+import { DangerEyebrow } from "@/components/admin/ui/confirm-dialog";
 
 export interface DeleteImpactItem {
   label: string;
@@ -45,24 +46,23 @@ export function DeleteImpactDialog({
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <p className="text-xs uppercase tracking-[0.18em] text-rose-500">危险操作</p>
-          <AlertDialogTitle className="mt-2">{title}</AlertDialogTitle>
+          <DangerEyebrow />
+          <AlertDialogTitle>{title}</AlertDialogTitle>
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
 
-        <div className="space-y-3 px-6 py-5">
+        {/* 影响范围：细线分隔的行，数字等宽 */}
+        <dl className="border-y border-[var(--border)] text-sm">
           {impacts.map((impact) => (
-            <div key={impact.label} className="rounded-2xl border border-[var(--border)] bg-[var(--surface-alt)] px-4 py-3">
-              <p className="text-sm text-[var(--foreground)]">
-                {impact.label}
-                <span className="ml-1 font-semibold">
-                  {impact.value}
-                  {impact.unit ?? ""}
-                </span>
-              </p>
+            <div key={impact.label} className="flex items-baseline justify-between gap-4 border-b border-[var(--border)] py-2.5 last:border-b-0">
+              <dt className="text-[var(--text-body)]">{impact.label}</dt>
+              <dd className="shrink-0 text-[var(--foreground)]">
+                <span className="ed-mono font-bold">{impact.value}</span>
+                {impact.unit ? <span className="ml-1 text-xs text-[var(--text-muted)]">{impact.unit}</span> : null}
+              </dd>
             </div>
           ))}
-        </div>
+        </dl>
 
         <AlertDialogFooter>
           <AlertDialogCancel asChild>
@@ -72,6 +72,7 @@ export function DeleteImpactDialog({
           </AlertDialogCancel>
           <AlertDialogAction
             asChild
+            variant="destructive"
             onClick={(event) => {
               event.preventDefault();
               void onConfirm();

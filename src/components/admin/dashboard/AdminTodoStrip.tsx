@@ -1,8 +1,6 @@
 import Link from "next/link";
-import type { ComponentType } from "react";
-import { Bot, CheckCircle2, FileClock, MailWarning, MessageSquareWarning } from "lucide-react";
+import { Fragment } from "react";
 
-import { StatusBadge } from "@/components/admin/primitives/StatusBadge";
 import type { AdminTodoCounts } from "@/lib/admin-stats";
 
 type TodoTone = "warning" | "danger";
@@ -14,7 +12,6 @@ type TodoConfig = {
   href: string;
   destination: string;
   tone: TodoTone;
-  icon: ComponentType<{ className?: string; "aria-hidden"?: boolean }>;
   unit?: string;
   showWhenZero?: boolean;
 };
@@ -24,10 +21,19 @@ type AdminTodoStripProps = {
   showAiModelWarning?: boolean;
 };
 
+const toneClassName: Record<TodoTone, string> = {
+  warning: "text-[var(--warning)]",
+  danger: "text-[var(--danger-foreground)]",
+};
+
 function formatTodoLabel(count: number, unit = "条") {
   return `${count.toLocaleString("zh-CN")} ${unit}`;
 }
 
+/**
+ * 今日待办（方向 A）：一行文字链接，计数等宽并按语气着色，项与项之间 1px 竖线；
+ * 全部清零时整行换成 success 色「今日无待办」。
+ */
 export function AdminTodoStrip({ counts, showAiModelWarning = false }: AdminTodoStripProps) {
   const items: TodoConfig[] = [
     {
@@ -37,7 +43,6 @@ export function AdminTodoStrip({ counts, showAiModelWarning = false }: AdminTodo
       href: "/admin/comments",
       destination: "评论审核",
       tone: "warning",
-      icon: MessageSquareWarning,
     },
     {
       key: "failedAiTasks",
@@ -46,7 +51,6 @@ export function AdminTodoStrip({ counts, showAiModelWarning = false }: AdminTodo
       href: "/admin/ai/tasks",
       destination: "AI 任务中心",
       tone: "danger",
-      icon: Bot,
     },
     {
       key: "staleDrafts",
@@ -55,7 +59,6 @@ export function AdminTodoStrip({ counts, showAiModelWarning = false }: AdminTodo
       href: "/admin/posts",
       destination: "文章工作台",
       tone: "warning",
-      icon: FileClock,
     },
     {
       key: "pendingNewsletters",
@@ -64,7 +67,6 @@ export function AdminTodoStrip({ counts, showAiModelWarning = false }: AdminTodo
       href: "/admin/newsletter",
       destination: "Newsletter",
       tone: "warning",
-      icon: MailWarning,
     },
     ...(showAiModelWarning
       ? [
@@ -75,7 +77,6 @@ export function AdminTodoStrip({ counts, showAiModelWarning = false }: AdminTodo
             href: "/admin/ai/models",
             destination: "模型管理",
             tone: "danger" as const,
-            icon: Bot,
             unit: "个",
             showWhenZero: true,
           },
@@ -84,39 +85,47 @@ export function AdminTodoStrip({ counts, showAiModelWarning = false }: AdminTodo
   ];
   const visibleItems = items.filter((item) => item.count > 0 || item.showWhenZero);
 
-  if (visibleItems.length === 0) {
-    return (
-      <section
-        aria-label="今日待办"
-        className="flex items-center gap-2 rounded-lg bg-[var(--success-surface)] px-4 py-3 text-sm font-semibold text-[var(--success-foreground)]"
-      >
-        <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
-        <span>今日无待办</span>
-      </section>
-    );
-  }
-
   return (
-    <section aria-label="今日待办" className="rounded-lg bg-[var(--surface-alt)] px-4 py-3">
-      <div className="flex flex-wrap items-center gap-2">
-        {visibleItems.map((item) => {
-          const Icon = item.icon;
+    <section
+      aria-label="今日待办"
+      className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-b border-[var(--border)] py-2.5"
+      data-testid="admin-todo-strip"
+    >
+      <h2 className="mr-2 text-[0.8125rem] font-bold tracking-[0.08em] text-[var(--foreground)]">今日待办</h2>
+
+      {visibleItems.length === 0 ? (
+        <p className="flex min-h-8 flex-wrap items-center gap-x-4 text-[0.875rem]">
+          <span className="font-bold text-[var(--success)]">今日无待办</span>
+          <span className="text-[var(--text-muted)]">评论、AI 任务、草稿与 Newsletter 都已处理完。</span>
+        </p>
+      ) : (
+        visibleItems.map((item, index) => {
           const countLabel = formatTodoLabel(item.count, item.unit);
 
           return (
-            <Link
-              key={item.key}
-              href={item.href}
-              aria-label={`${item.label} ${countLabel}，点击进入${item.destination}`}
-              className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm font-semibold text-[var(--foreground)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--surface-alt)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface)]"
-            >
-              <Icon className="h-4 w-4 text-[var(--muted)]" aria-hidden />
-              <span>{item.label}</span>
-              <StatusBadge tone={item.tone}>{countLabel}</StatusBadge>
-            </Link>
+            <Fragment key={item.key}>
+              {index > 0 ? <span aria-hidden="true" className="h-4 w-px bg-[var(--border)]" /> : null}
+              <Link
+                aria-label={`${item.label} ${countLabel}，点击进入${item.destination}`}
+                className="group inline-flex min-h-8 items-center gap-1.5 text-[0.875rem] text-[var(--text-body)] transition-colors duration-150 hover:text-[var(--foreground)]"
+                href={item.href}
+              >
+                <span>{item.label}</span>
+                <span>
+                  <span className={`font-mono font-bold tabular-nums ${toneClassName[item.tone]}`}>{item.count.toLocaleString("zh-CN")}</span>{" "}
+                  {item.unit ?? "条"}
+                </span>
+                <span
+                  aria-hidden="true"
+                  className="text-[var(--text-muted)] transition-transform duration-200 group-hover:translate-x-[3px] motion-reduce:transition-none"
+                >
+                  →
+                </span>
+              </Link>
+            </Fragment>
           );
-        })}
-      </div>
+        })
+      )}
     </section>
   );
 }
