@@ -1,6 +1,5 @@
-import { CheckCircle2, SlidersHorizontal } from "lucide-react";
-
 import { AiModelManager } from "@/components/admin/ai/AiModelManager";
+import { PageHeader } from "@/components/admin/primitives/PageHeader";
 import { getPublicAiModelOptions } from "@/lib/ai-models";
 
 export const dynamic = "force-dynamic";
@@ -13,58 +12,42 @@ export default async function AdminAiModelsPage() {
   const coverModelCount = models.filter((model) => model.capabilities.includes("cover-image")).length;
   const customCount = models.filter((model) => model.source === "database").length;
 
+  const metrics = [
+    { label: "摘要默认", value: defaultSummaryModel?.model ?? "未配置", mono: Boolean(defaultSummaryModel) },
+    { label: "可用模型", value: String(readyCount), mono: true },
+    { label: "生图默认", value: defaultCoverModel?.model ?? `${coverModelCount} 个可选`, mono: Boolean(defaultCoverModel) },
+    { label: "自定义模型", value: String(customCount), mono: true },
+  ];
+
   return (
-    <div className="space-y-6">
-      <section className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="ui-surface rounded-xl p-6 shadow-[var(--shadow-card)]">
-          <div className="flex items-start gap-4">
-            <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-[var(--brand)]">
-              <SlidersHorizontal className="h-5 w-5" />
-            </span>
-            <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--muted)]">AI Config</p>
-              <h1 className="mt-2 font-display text-2xl font-semibold tracking-tight text-[var(--foreground)]">AI 配置选择</h1>
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--muted)]">
-                管理后台写作和封面生成使用的 AI 模型。每种能力独立选择默认模型，摘要切换不会影响封面生图。
-              </p>
-            </div>
-          </div>
+    <div className="flex flex-col gap-7 pb-2">
+      <PageHeader
+        eyebrow="AI 助手"
+        title="AI 配置选择"
+        description="管理后台写作和封面生成使用的 AI 模型。每种能力独立选择默认模型，摘要切换不会影响封面生图。"
+      />
 
-          <dl className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-4">
-            <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] px-4 py-3">
-              <dt className="text-xs text-[var(--muted)]">摘要默认</dt>
-              <dd className="mt-2 truncate text-sm font-semibold text-[var(--foreground)]">{defaultSummaryModel?.model ?? "未配置"}</dd>
+      <section className="grid gap-x-10 gap-y-5 xl:grid-cols-[minmax(0,1fr)_340px]" aria-label="模型概览">
+        <dl className="grid grid-cols-2 border-y border-[var(--border)] sm:grid-cols-4">
+          {metrics.map((metric, index) => (
+            <div
+              key={metric.label}
+              className={`min-w-0 px-4 py-3.5 ${index > 0 ? "sm:border-l sm:border-[var(--border)]" : ""} ${index % 2 === 1 ? "border-l border-[var(--border)]" : ""}`}
+            >
+              <dt className="text-xs text-[var(--text-muted)]">{metric.label}</dt>
+              <dd className={`mt-1 truncate text-lg font-bold text-[var(--foreground)] ${metric.mono ? "font-mono tabular-nums" : ""}`} title={metric.value}>
+                {metric.value}
+              </dd>
             </div>
-            <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] px-4 py-3">
-              <dt className="text-xs text-[var(--muted)]">可用模型</dt>
-              <dd className="mt-2 text-sm font-semibold text-[var(--foreground)]">{readyCount}</dd>
-            </div>
-            <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] px-4 py-3">
-              <dt className="text-xs text-[var(--muted)]">生图默认</dt>
-              <dd className="mt-2 truncate text-sm font-semibold text-[var(--foreground)]">{defaultCoverModel?.model ?? `${coverModelCount} 个可选`}</dd>
-            </div>
-            <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] px-4 py-3">
-              <dt className="text-xs text-[var(--muted)]">自定义模型</dt>
-              <dd className="mt-2 text-sm font-semibold text-[var(--foreground)]">{customCount}</dd>
-            </div>
-          </dl>
-        </div>
+          ))}
+        </dl>
 
-        <aside className="ui-surface rounded-xl p-6 shadow-[var(--shadow-card)]">
-          <h2 className="font-display text-lg font-semibold text-[var(--foreground)]">当前接入范围</h2>
-          <ul className="mt-4 space-y-3 text-sm text-[var(--muted)]">
-            <li className="flex gap-3">
-              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[var(--brand)]" />
-              <span>文章摘要、元信息补全、审稿和 AI 封面生成使用这里的模型配置。</span>
-            </li>
-            <li className="flex gap-3">
-              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[var(--brand)]" />
-              <span>连接测试会真实请求模型测试接口。</span>
-            </li>
-            <li className="flex gap-3">
-              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[var(--brand)]" />
-              <span>封面生图会保存到七牛和封面图库；成本统计暂未接入。</span>
-            </li>
+        <aside className="border-l-2 border-[var(--reader-border-strong)] pl-4">
+          <h2 className="font-serif text-base font-bold text-[var(--foreground)]">当前接入范围</h2>
+          <ul className="mt-2 list-disc space-y-1 pl-4 text-[0.8125rem] leading-6 text-[var(--text-body)] marker:text-[var(--text-muted)]">
+            <li>文章摘要、元信息补全、审稿和 AI 封面生成使用这里的模型配置。</li>
+            <li>连接测试会真实请求模型测试接口。</li>
+            <li>封面生图会保存到七牛和封面图库；成本统计暂未接入。</li>
           </ul>
         </aside>
       </section>

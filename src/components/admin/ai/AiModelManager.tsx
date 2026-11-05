@@ -201,14 +201,17 @@ export function AiModelManager({ initialModels }: { initialModels: PublicAiModel
           <p className="mt-1 text-xs text-[var(--text-muted)]">保存后可立即测试连接。</p>
           <div className="pt-4">
           <Form {...methods}>
-            <form className="space-y-4" onSubmit={handleSubmit}>
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <form className="flex flex-col gap-5" onSubmit={handleSubmit}>
+              <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
                 <FormField
                   control={methods.control}
                   name="name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>模型名称</FormLabel>
+                      <div className="flex items-baseline">
+                        <FormLabel>模型名称</FormLabel>
+                        {requiredMark}
+                      </div>
                       <FormControl><Input {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
@@ -219,8 +222,11 @@ export function AiModelManager({ initialModels }: { initialModels: PublicAiModel
                   name="model"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>模型 ID</FormLabel>
-                      <FormControl><Input placeholder="qwen3.5-flash / wan2.6-t2i" {...field} /></FormControl>
+                      <div className="flex items-baseline">
+                        <FormLabel>模型 ID</FormLabel>
+                        {requiredMark}
+                      </div>
+                      <FormControl><Input className="font-mono" placeholder="qwen3.5-flash / wan2.6-t2i" {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -230,8 +236,11 @@ export function AiModelManager({ initialModels }: { initialModels: PublicAiModel
                   name="baseUrl"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Base URL</FormLabel>
-                      <FormControl><Input placeholder="https://api.openai.com/v1" {...field} /></FormControl>
+                      <div className="flex items-baseline">
+                        <FormLabel>Base URL</FormLabel>
+                        {requiredMark}
+                      </div>
+                      <FormControl><Input className="font-mono" placeholder="https://api.openai.com/v1" {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -241,8 +250,11 @@ export function AiModelManager({ initialModels }: { initialModels: PublicAiModel
                   name="requestPath"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Request Path</FormLabel>
-                      <FormControl><Input placeholder="/chat/completions / /images/generations" {...field} /></FormControl>
+                      <div className="flex items-baseline">
+                        <FormLabel>Request Path</FormLabel>
+                        {requiredMark}
+                      </div>
+                      <FormControl><Input className="font-mono" placeholder="/chat/completions / /images/generations" {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -265,14 +277,18 @@ export function AiModelManager({ initialModels }: { initialModels: PublicAiModel
                 name="description"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>描述</FormLabel>
+                    <div className="flex items-baseline">
+                      <FormLabel>描述</FormLabel>
+                      <span className="ml-1 text-[0.8125rem] font-medium text-[var(--text-muted)]">（可选）</span>
+                    </div>
                     <FormControl><Textarea className="min-h-24" {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
 
-              <div className="grid gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-alt)] p-4 lg:grid-cols-3">
+              <p className="border-b border-[var(--border)] pb-1.5 text-xs font-bold text-[var(--text-muted)]">启用与能力</p>
+              <div className="grid gap-x-6 gap-y-3 lg:grid-cols-3">
                 <FormField
                   control={methods.control}
                   name="enabled"
@@ -350,11 +366,11 @@ export function AiModelManager({ initialModels }: { initialModels: PublicAiModel
                 />
               </div>
 
-              <div className="flex flex-wrap justify-end gap-2">
-                <Button type="button" variant="outline" onClick={resetForm} className="rounded-lg">
+              <div className="flex flex-wrap justify-end gap-2.5">
+                <Button type="button" variant="outline" onClick={resetForm}>
                   取消
                 </Button>
-                <Button disabled={isSubmitting} type="submit" className="rounded-lg">
+                <Button disabled={isSubmitting} type="submit">
                   {isSubmitting ? "保存中..." : "保存模型"}
                 </Button>
               </div>
