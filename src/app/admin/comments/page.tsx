@@ -131,6 +131,114 @@ const triageFilters: Array<{ value: CommentStatusFilter; label: string }> = [
 const commentColumnCount = 7;
 const commentSkeletonBars = ["checkbox", "w-[70%]", "w-12", "w-24", "w-[66%]", "w-20", "w-24"];
 
+/** 治理队列表体：骨架（保留表头）→ 加载失败（重试）→ 空列表 → 单行数据行 */
+function CommentsTableBody({
+  comments,
+  showSkeleton,
+  commentsError,
+  visibleSelectedIds,
+  pagination,
+  onRetry,
+  toggleOne,
+  updateStatuses,
+  openDeleteDialog,
+}: {
+  comments: CommentRow[];
+  showSkeleton: boolean;
+  commentsError: unknown;
+  visibleSelectedIds: string[];
+  pagination: PaginationState;
+  onRetry: () => void;
+  toggleOne: (id: string) => void;
+  updateStatuses: (ids: string[], status: CommentStatus) => Promise<void>;
+  openDeleteDialog: (ids: string[]) => Promise<void>;
+}) {
+  if (showSkeleton) {
+    return <SkeletonTableRows bars={commentSkeletonBars} />;
+  }
+
+  if (commentsError) {
+    return (
+      <TableStateRow colSpan={commentColumnCount}>
+        <EmptyState
+          actions={
+            <Button onClick={onRetry} size="sm" type="button" variant="outline">
+              重试
+            </Button>
+          }
+          role="alert"
+          title="评论列表加载失败，请稍后重试"
+          tone="danger"
+        />
+      </TableStateRow>
+    );
+  }
+
+  if (comments.length === 0) {
+    return (
+      <TableStateRow colSpan={commentColumnCount}>
+        <EmptyState description="当前筛选条件下没有评论。" role="status" title="暂无评论" />
+      </TableStateRow>
+    );
+  }
+
+  return comments.map((row, rowIndex) => {
+    const isSelected = visibleSelectedIds.includes(row.id);
+    const authorName = row.authorLabel || row.author?.name || row.author?.email || "匿名访客";
+    const isAnonymous = !row.author;
+    const meta = statusMeta[row.status];
+
+    return (
+      <MotionTableRow key={row.id} selected={isSelected}>
+        <TableCell className="pr-0">
+          <input
+            aria-label={`选择第 ${(pagination.page - 1) * pagination.limit + rowIndex + 1} 行`}
+            checked={isSelected}
+            className="ed-checkbox align-middle"
+            onChange={() => toggleOne(row.id)}
+            type="checkbox"
+          />
+        </TableCell>
+        <TableCell className="truncate text-[0.875rem] text-[var(--foreground)]" title={row.content}>
+          {row.content}
+        </TableCell>
+        <TableCell className={isAnonymous ? "truncate text-[0.8125rem] text-[var(--text-muted)]" : "truncate text-[0.8125rem] font-bold text-[var(--foreground)]"}>
+          {authorName}
+        </TableCell>
+        <TableCell>
+          <span className="flex items-baseline gap-2">
+            <StatusBadge tone={meta.tone}>{meta.label}</StatusBadge>
+            <span className="text-xs text-[var(--text-muted)]">{row.status === "PENDING" ? "待你决策" : "已处理"}</span>
+          </span>
+        </TableCell>
+        <TableCell className="overflow-hidden">
+          <Link
+            className="block truncate text-[0.8125rem] text-[var(--text-body)] decoration-[var(--accent-sky)] decoration-1 underline-offset-4 transition-colors hover:text-[var(--foreground)] hover:underline"
+            href={`/posts/${row.post.slug}`}
+            title={row.post.title}
+          >
+            {row.post.title}
+          </Link>
+        </TableCell>
+        <TableCell className="font-mono text-[0.8125rem] text-[var(--text-muted)] tabular-nums">{new Date(row.createdAt).toLocaleDateString("zh-CN")}</TableCell>
+        <TableCell>
+          <span className="flex items-center gap-3">
+            <button className={adminTextActionClassName} onClick={() => void updateStatuses([row.id], "APPROVED")} type="button">
+              通过
+            </button>
+            <button className={adminTextActionClassName} onClick={() => void updateStatuses([row.id], "REJECTED")} type="button">
+              驳回
+            </button>
+            <button className={adminTextActionDangerClassName} onClick={() => void openDeleteDialog([row.id])} type="button">
+              隐藏
+            </button>
+          </span>
+        </TableCell>
+      </MotionTableRow>
+    );
+  });
+}
+
 /**
  * 后台评论收件箱（方向 A 第 14 节列表模板）：页头 → 指标条 → 区块标题 → 工具栏 → 表格 → 分页。
  * 指标条与工具栏 tab 共用 statusFilter；批量操作勾选后才出现，替换工具栏右侧的聚焦说明。
@@ -302,93 +410,6 @@ export default function AdminCommentsPage() {
 
   const focusLabel = statusFilter === "ALL" ? "全部评论" : `${statusMeta[statusFilter].label} 评论`;
 
-  const renderTableBody = () => {
-    if (showSkeleton) {
-      return <SkeletonTableRows bars={commentSkeletonBars} />;
-    }
-
-    if (commentsError) {
-      return (
-        <TableStateRow colSpan={commentColumnCount}>
-          <EmptyState
-            actions={
-              <Button onClick={() => void mutateComments()} size="sm" type="button" variant="outline">
-                重试
-              </Button>
-            }
-            role="alert"
-            title="评论列表加载失败，请稍后重试"
-            tone="danger"
-          />
-        </TableStateRow>
-      );
-    }
-
-    if (comments.length === 0) {
-      return (
-        <TableStateRow colSpan={commentColumnCount}>
-          <EmptyState description="当前筛选条件下没有评论。" role="status" title="暂无评论" />
-        </TableStateRow>
-      );
-    }
-
-    return comments.map((row, rowIndex) => {
-      const isSelected = visibleSelectedIds.includes(row.id);
-      const authorName = row.authorLabel || row.author?.name || row.author?.email || "匿名访客";
-      const isAnonymous = !row.author;
-      const meta = statusMeta[row.status];
-
-      return (
-        <MotionTableRow key={row.id} selected={isSelected}>
-          <TableCell className="pr-0">
-            <input
-              aria-label={`选择第 ${(pagination.page - 1) * pagination.limit + rowIndex + 1} 行`}
-              checked={isSelected}
-              className="ed-checkbox align-middle"
-              onChange={() => toggleOne(row.id)}
-              type="checkbox"
-            />
-          </TableCell>
-          <TableCell className="truncate text-[0.875rem] text-[var(--foreground)]" title={row.content}>
-            {row.content}
-          </TableCell>
-          <TableCell className={isAnonymous ? "truncate text-[0.8125rem] text-[var(--text-muted)]" : "truncate text-[0.8125rem] font-bold text-[var(--foreground)]"}>
-            {authorName}
-          </TableCell>
-          <TableCell>
-            <span className="flex items-baseline gap-2">
-              <StatusBadge tone={meta.tone}>{meta.label}</StatusBadge>
-              <span className="text-xs text-[var(--text-muted)]">{row.status === "PENDING" ? "待你决策" : "已处理"}</span>
-            </span>
-          </TableCell>
-          <TableCell className="overflow-hidden">
-            <Link
-              className="block truncate text-[0.8125rem] text-[var(--text-body)] decoration-[var(--accent-sky)] decoration-1 underline-offset-4 transition-colors hover:text-[var(--foreground)] hover:underline"
-              href={`/posts/${row.post.slug}`}
-              title={row.post.title}
-            >
-              {row.post.title}
-            </Link>
-          </TableCell>
-          <TableCell className="font-mono text-[0.8125rem] text-[var(--text-muted)] tabular-nums">{new Date(row.createdAt).toLocaleDateString("zh-CN")}</TableCell>
-          <TableCell>
-            <span className="flex items-center gap-3">
-              <button className={adminTextActionClassName} onClick={() => void updateStatuses([row.id], "APPROVED")} type="button">
-                通过
-              </button>
-              <button className={adminTextActionClassName} onClick={() => void updateStatuses([row.id], "REJECTED")} type="button">
-                驳回
-              </button>
-              <button className={adminTextActionDangerClassName} onClick={() => void openDeleteDialog([row.id])} type="button">
-                隐藏
-              </button>
-            </span>
-          </TableCell>
-        </MotionTableRow>
-      );
-    });
-  };
-
   return (
     <>
       <div>
@@ -504,7 +525,19 @@ export default function AdminCommentsPage() {
                   <TableHead className="w-[120px]">操作</TableHead>
                 </TableRow>
               </TableHeader>
-              <TableBody>{renderTableBody()}</TableBody>
+              <TableBody>
+                <CommentsTableBody
+                  comments={comments}
+                  commentsError={commentsError}
+                  onRetry={() => void mutateComments()}
+                  openDeleteDialog={openDeleteDialog}
+                  pagination={pagination}
+                  showSkeleton={showSkeleton}
+                  toggleOne={toggleOne}
+                  updateStatuses={updateStatuses}
+                  visibleSelectedIds={visibleSelectedIds}
+                />
+              </TableBody>
             </table>
           </div>
 

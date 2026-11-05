@@ -35,7 +35,7 @@ export function AiNewsSourceTestResult({ result }: { result: SourceTestResult })
       </div>
       <p className={cn("mt-1.5 leading-5", passed ? "text-[var(--text-body)]" : "text-[var(--danger-foreground)]")}>{result.message}</p>
       {result.sampleItems.length ? (
-        <ul className="mt-1 list-disc space-y-0.5 pl-4 text-[var(--foreground)] marker:text-[var(--text-muted)]">
+        <ul className="mt-1 list-inside list-disc space-y-0.5 text-[var(--foreground)] marker:text-[var(--text-muted)]">
           {result.sampleItems.map((item) => (
             <li key={`${item.title}-${item.url}`} className="truncate">
               <a className="hover:underline hover:decoration-[var(--accent-sky)] hover:underline-offset-4" href={item.url} target="_blank" rel="noreferrer">

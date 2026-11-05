@@ -184,6 +184,82 @@ function JsonSection({ title, children }: { title: string; children: ReactNode }
   );
 }
 
+/** 接口日志详情（方向 A 状态画板 E）：请求信息三列、错误摘要（左 2px danger 线）、四个 JSON 块 */
+function LogDetailDialog({ selectedLog, onClose }: { selectedLog: LogItem | null; onClose: () => void }) {
+  // 详情：选中条目时才请求（条件 key）
+  const {
+    data: detailResponse,
+    error: detailError,
+    isLoading: detailLoading,
+  } = useSWR<{ success?: boolean; data?: LogItem }>(
+    selectedLog ? `/api/admin/logs/${selectedLog.id}` : null,
+    apiFetcher,
+  );
+  const detailLog = detailResponse?.data ?? selectedLog;
+
+  return (
+    <Dialog open={Boolean(selectedLog)} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-h-[calc(100dvh-2rem)] max-w-[56rem] gap-0 overflow-y-auto p-0 sm:max-w-[56rem]">
+        <DialogHeader className="px-6 pt-5 pb-4">
+          <DialogTitle className="text-[1.375rem]">接口日志详情</DialogTitle>
+          <DialogDescription className="font-mono text-[0.875rem] text-[var(--foreground)]">
+            {detailLog ? `${detailLog.method} ${detailLog.path}` : ""}
+          </DialogDescription>
+        </DialogHeader>
+        {detailLog ? (
+          <div className="space-y-4 px-6 pb-5">
+            {detailLoading ? <p className="text-[0.8125rem] text-[var(--text-muted)]">正在加载详情...</p> : null}
+            {detailError ? (
+              <p className="text-[0.8125rem] text-[var(--danger-foreground)]" role="alert">
+                {toErrorMessage(detailError, "接口日志详情加载失败")}
+              </p>
+            ) : null}
+            <div className="grid gap-4 border-y border-[var(--border)] py-3.5 md:grid-cols-3">
+              <DetailField label="Request ID" mono>
+                {detailLog.requestId}
+              </DetailField>
+              <DetailField label="Operation">
+                {detailLog.operation ?? "未标记"}
+                {detailLog.scope === "ai-usage" ? " · AI 用量" : ""}
+              </DetailField>
+              <DetailField label="Actor" mono>
+                {formatActor(detailLog)}
+              </DetailField>
+            </div>
+            {detailLog.errorMessage ? (
+              <div className="border-l-2 border-[var(--danger-foreground)] pl-3 text-[0.8125rem] leading-6 text-[var(--danger-foreground)]" role="note">
+                <p className="font-mono font-bold">{detailLog.errorName ?? "Error"}</p>
+                <p>{detailLog.errorMessage}</p>
+              </div>
+            ) : null}
+            <div className="grid gap-x-6 gap-y-4 lg:grid-cols-2">
+              <JsonSection title="Query">
+                <JsonBlock value={detailLog.query} />
+              </JsonSection>
+              <JsonSection title="Request Body">
+                <JsonBlock value={detailLog.requestBody} />
+              </JsonSection>
+              <JsonSection title="Metadata">
+                <JsonBlock value={detailLog.metadata} />
+              </JsonSection>
+              <JsonSection title="User Agent">
+                <p className={jsonBlockClassName}>{detailLog.userAgent ?? "无"}</p>
+              </JsonSection>
+            </div>
+          </div>
+        ) : null}
+        <DialogFooter className="border-t border-[var(--border)] px-6 py-4">
+          <DialogClose asChild>
+            <Button type="button" variant="outline">
+              关闭
+            </Button>
+          </DialogClose>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function ApiOperationLogsClient() {
   const [range, setRange] = useState("7");
   const [method, setMethod] = useState("");
@@ -219,16 +295,6 @@ export function ApiOperationLogsClient() {
   const payload = logsResponse?.data ?? EMPTY_PAYLOAD;
   const errorMessage = toErrorMessage(listError, "接口日志加载失败");
 
-  // 详情：选中条目时才请求（条件 key）
-  const {
-    data: detailResponse,
-    error: detailError,
-    isLoading: detailLoading,
-  } = useSWR<{ success?: boolean; data?: LogItem }>(
-    selectedLog ? `/api/admin/logs/${selectedLog.id}` : null,
-    apiFetcher,
-  );
-  const detailLog = detailResponse?.data ?? selectedLog;
 
   const purgeOldLogs = useCallback(async () => {
     setPurging(true);
@@ -493,65 +559,7 @@ export function ApiOperationLogsClient() {
         />
       ) : null}
 
-      <Dialog open={Boolean(selectedLog)} onOpenChange={(open) => !open && setSelectedLog(null)}>
-        <DialogContent className="max-h-[calc(100dvh-2rem)] max-w-[56rem] gap-0 overflow-y-auto p-0 sm:max-w-[56rem]">
-          <DialogHeader className="px-6 pt-5 pb-4">
-            <DialogTitle className="text-[1.375rem]">接口日志详情</DialogTitle>
-            <DialogDescription className="font-mono text-[0.875rem] text-[var(--foreground)]">
-              {detailLog ? `${detailLog.method} ${detailLog.path}` : ""}
-            </DialogDescription>
-          </DialogHeader>
-          {detailLog ? (
-            <div className="space-y-4 px-6 pb-5">
-              {detailLoading ? <p className="text-[0.8125rem] text-[var(--text-muted)]">正在加载详情...</p> : null}
-              {detailError ? (
-                <p className="text-[0.8125rem] text-[var(--danger-foreground)]" role="alert">
-                  {toErrorMessage(detailError, "接口日志详情加载失败")}
-                </p>
-              ) : null}
-              <div className="grid gap-4 border-y border-[var(--border)] py-3.5 md:grid-cols-3">
-                <DetailField label="Request ID" mono>
-                  {detailLog.requestId}
-                </DetailField>
-                <DetailField label="Operation">
-                  {detailLog.operation ?? "未标记"}
-                  {detailLog.scope === "ai-usage" ? " · AI 用量" : ""}
-                </DetailField>
-                <DetailField label="Actor" mono>
-                  {formatActor(detailLog)}
-                </DetailField>
-              </div>
-              {detailLog.errorMessage ? (
-                <div className="border-l-2 border-[var(--danger-foreground)] pl-3 text-[0.8125rem] leading-6 text-[var(--danger-foreground)]" role="note">
-                  <p className="font-mono font-bold">{detailLog.errorName ?? "Error"}</p>
-                  <p>{detailLog.errorMessage}</p>
-                </div>
-              ) : null}
-              <div className="grid gap-x-6 gap-y-4 lg:grid-cols-2">
-                <JsonSection title="Query">
-                  <JsonBlock value={detailLog.query} />
-                </JsonSection>
-                <JsonSection title="Request Body">
-                  <JsonBlock value={detailLog.requestBody} />
-                </JsonSection>
-                <JsonSection title="Metadata">
-                  <JsonBlock value={detailLog.metadata} />
-                </JsonSection>
-                <JsonSection title="User Agent">
-                  <p className={jsonBlockClassName}>{detailLog.userAgent ?? "无"}</p>
-                </JsonSection>
-              </div>
-            </div>
-          ) : null}
-          <DialogFooter className="border-t border-[var(--border)] px-6 py-4">
-            <DialogClose asChild>
-              <Button type="button" variant="outline">
-                关闭
-              </Button>
-            </DialogClose>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <LogDetailDialog onClose={() => setSelectedLog(null)} selectedLog={selectedLog} />
 
       <ConfirmDialog
         cancelLabel="取消"

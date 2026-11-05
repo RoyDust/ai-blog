@@ -36,7 +36,7 @@ const sourceTypes: Array<{ value: AiNewsSourceType; label: string }> = [
 ]
 
 const categories = ["official", "industry", "developer", "community", "github-release"]
-const adminSelectClassName = "ed-select ed-select--sm"
+const adminSelectClassName = "ed-select h-9 min-h-9 py-0 text-sm"
 const adminMonoInputClassName = "font-mono"
 // 分组：组标题写法同 AI 批量补全弹窗——.75rem 700 muted 小标题 + 1px 细线
 const adminFieldsetClassName = "space-y-4"
