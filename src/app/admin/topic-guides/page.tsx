@@ -292,10 +292,10 @@ export default function AdminTopicGuidesPage() {
             <table className="w-full min-w-[640px] table-fixed caption-bottom text-sm" data-slot="table">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[34%]">专题</TableHead>
-                  <TableHead className="w-[72px]">状态</TableHead>
+                  <TableHead className="w-[30%]">专题</TableHead>
+                  <TableHead className="w-[64px]">状态</TableHead>
                   <TableHead>文章顺序</TableHead>
-                  <TableHead className="w-[212px]">操作</TableHead>
+                  <TableHead className="w-[224px]">操作</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -314,13 +314,13 @@ export default function AdminTopicGuidesPage() {
                         <StatusBadge tone={statusTone[guide.status]}>{statusLabels[guide.status]}</StatusBadge>
                       </TableCell>
                       <TableCell className="overflow-hidden">
-                        <span className="flex min-w-0 gap-3 truncate text-xs text-[var(--text-muted)]">
+                        <span className="block truncate text-xs text-[var(--text-muted)]">
                           {guide.posts.slice(0, 4).map((item) => (
-                            <span key={item.id} className="shrink-0">
+                            <span key={item.id} className="mr-3">
                               {item.order}. {item.post.title}
                             </span>
                           ))}
-                          {guide.posts.length > 4 ? <span className="shrink-0">另 {guide.posts.length - 4} 篇</span> : null}
+                          {guide.posts.length > 4 ? <span>另 {guide.posts.length - 4} 篇</span> : null}
                         </span>
                       </TableCell>
                       <TableCell>
@@ -422,7 +422,7 @@ export default function AdminTopicGuidesPage() {
                   <FormItem>
                     <FormLabel>状态</FormLabel>
                     <FormControl>
-                      <select className="ed-select w-full" {...field}>
+                      <select className="ed-select ed-select--sm w-full" {...field}>
                         <option value="draft">草稿</option>
                         <option value="published">发布</option>
                         <option value="archived">归档</option>
