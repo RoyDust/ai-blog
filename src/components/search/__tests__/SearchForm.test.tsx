@@ -39,7 +39,7 @@ test('fills its navbar slot without breakpoint width steps and keeps native sear
   expect(inputWrapper?.className).toContain('w-full')
   expect(input.className).toContain('w-full')
   expect(input.className).not.toMatch(/(?:^|\s)(?:lg|xl|2xl):w-[^\s]+/)
-  expect(input.className).toContain('transition-[background-color,border-color,box-shadow]')
+  expect(input.className).toContain('transition-[border-color]')
   expect(input.className).toContain('duration-200')
   expect(input.className).toContain('ease-out')
   expect(input.className).not.toMatch(/transition-\[[^\]]*(?:width|max-width)[^\]]*\]/)

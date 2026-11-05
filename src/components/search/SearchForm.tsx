@@ -37,7 +37,7 @@ export function SearchForm({
           <Search aria-hidden="true" className="pointer-events-none absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-[var(--text-muted)] transition-colors duration-200 group-focus-within:text-[var(--foreground)]" />
           <input
             aria-label={inputLabel}
-            className="h-9 w-full rounded-[var(--radius-ctl)] border border-[var(--reader-border-strong)] bg-transparent pr-3 pl-8 text-[0.8125rem] text-[var(--foreground)] transition-[border-color,width] duration-200 ease-out placeholder:text-[var(--text-muted)] hover:border-[var(--text-muted)]"
+            className="h-9 w-full rounded-[var(--radius-ctl)] border border-[var(--reader-border-strong)] bg-transparent pr-3 pl-8 text-[0.8125rem] text-[var(--foreground)] transition-[border-color] duration-200 ease-out placeholder:text-[var(--text-muted)] hover:border-[var(--text-muted)]"
             defaultValue={defaultValue}
             id="site-search-input"
             name="q"
