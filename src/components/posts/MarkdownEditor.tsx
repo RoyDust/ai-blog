@@ -279,11 +279,12 @@ export function MarkdownEditor({
   };
 
   const reduceMotion = useReducedMotion();
-  const panelSizeClassName = fillHeight ? "min-h-0 flex-1" : editorPanelClassName ?? "min-h-[26rem] max-h-[700px]";
+  // fillHeight：xl 以上由整屏工作台撑满高度；xl 以下页面纵向滚动，给编辑区与预览保底高度，避免被压成 0
+  const panelSizeClassName = fillHeight ? "min-h-[20rem] flex-1 xl:min-h-0" : editorPanelClassName ?? "min-h-[26rem] max-h-[700px]";
   const uploadErrorId = `${id}-upload-error`;
 
   return (
-    <div className={fillHeight ? "flex min-h-0 flex-1 flex-col" : "flex flex-col"} data-slot="markdown-editor">
+    <div className={fillHeight ? "flex flex-1 flex-col xl:min-h-0" : "flex flex-col"} data-slot="markdown-editor">
       <div className="mb-1.5">
         <FieldLabel htmlFor={id} required>
           {label}
@@ -293,7 +294,7 @@ export function MarkdownEditor({
       <div
         className={cn(
           "flex min-w-0 flex-col overflow-hidden rounded-[var(--radius-ctl)] border border-[var(--reader-border-strong)] transition-[border-color] duration-150 has-[textarea:focus-visible]:outline-2 has-[textarea:focus-visible]:outline-offset-2 has-[textarea:focus-visible]:outline-[var(--focus)]",
-          fillHeight && "min-h-0 flex-1",
+          fillHeight && "flex-1 xl:min-h-0",
         )}
         data-slot="markdown-frame"
       >
@@ -336,7 +337,7 @@ export function MarkdownEditor({
           </button>
         </div>
 
-        <div className={cn("grid grid-cols-1 xl:grid-cols-2 xl:grid-rows-[minmax(0,1fr)]", fillHeight && "min-h-0 flex-1")}>
+        <div className={cn("grid grid-cols-1 xl:grid-cols-2 xl:grid-rows-[minmax(0,1fr)]", fillHeight && "flex-1 xl:min-h-0")}>
           <div className="flex min-h-0 min-w-0 flex-col">
             <div aria-hidden="true" className="shrink-0 px-4 pt-2 text-[0.6875rem] font-bold tracking-[0.08em] text-[var(--text-muted)]">
               Markdown

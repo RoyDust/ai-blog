@@ -156,7 +156,7 @@ export function EditorWorkspace({
 
   return (
     <section
-      className={cn("flex min-w-0 flex-col gap-3.5", fillHeight && "min-h-0 overflow-hidden", className)}
+      className={cn("flex min-w-0 flex-col gap-3.5", fillHeight && "xl:min-h-0 xl:overflow-hidden", className)}
       data-slot="editor-workspace"
     >
       <h2 className="ed-visually-hidden">写作画布</h2>
