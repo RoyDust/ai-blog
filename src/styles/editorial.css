@@ -365,6 +365,15 @@
     resize: vertical;
   }
 
+  /* 手机上输入框 16px，避免 iOS Safari 聚焦时自动放大页面（README 第 16 节） */
+  @media (max-width: 639px) {
+    .ed-input,
+    .ed-select,
+    .ed-textarea {
+      font-size: 1rem;
+    }
+  }
+
   .ed-select {
     appearance: none;
     padding-right: 2.25rem;

@@ -36,7 +36,7 @@ export function buildContactMailto(to: string, data: ContactFormValues) {
  * 输入框 44px、4px 圆角、1px --reader-border-strong 描边、透明底；字段错误时边框变 danger，
  * 下方一句 .8125rem danger 文案并淡入。手机端字号 16px，避免 iOS 聚焦放大。
  */
-const fieldItemClassName = "gap-0";
+const fieldItemClassName = "content-start gap-0";
 const fieldLabelClassName = "ed-label block leading-[1.4] data-[error=true]:text-[var(--foreground)]";
 const fieldInputClassName = "ed-input text-base sm:text-[0.9375rem]";
 const fieldMessageClassName = cn("ed-field-error", fieldErrorMotionClassName);
