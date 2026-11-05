@@ -54,8 +54,9 @@ export function PostsTable({
   const showSkeleton = loading;
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div className="min-h-0 flex-1 overflow-auto" data-testid="admin-data-table-scroll" aria-busy={showSkeleton || undefined}>
+    <div className="flex min-h-0 flex-1 flex-col max-lg:flex-none">
+      {/* 桌面：固定高度纸面内滚动、表头吸顶；手机：整页滚动，表格只横向滚动 */}
+      <div className="min-h-0 flex-1 overflow-auto max-lg:flex-none" data-testid="admin-data-table-scroll" aria-busy={showSkeleton || undefined}>
         {showSkeleton ? <LoadingStatus label="正在加载文章" /> : null}
         <table className="w-full min-w-[860px] table-fixed caption-bottom text-sm xl:min-w-[1080px]" data-slot="table">
           <TableHeader className="sticky top-0 z-10 bg-[var(--card-bg)]">

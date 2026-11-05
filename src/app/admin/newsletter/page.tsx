@@ -115,9 +115,9 @@ function CampaignDeliveryStats({ stats }: { stats?: CampaignRow["deliveryStats"]
   ];
 
   return (
-    <span className="flex min-w-0 gap-x-2.5 truncate font-mono text-xs text-[var(--text-muted)] tabular-nums">
+    <span className="block truncate font-mono text-xs text-[var(--text-muted)] tabular-nums">
       {items.map((item) => (
-        <span key={item.label} className={item.className}>
+        <span key={item.label} className={`mr-2.5 ${item.className ?? ""}`}>
           {item.label} {item.value}
         </span>
       ))}

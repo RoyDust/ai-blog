@@ -112,7 +112,7 @@ export default function AdminPostsPage() {
   return (
     <>
       <TooltipProvider>
-        <div className="flex h-full min-h-0 flex-col overflow-hidden text-[var(--foreground)]">
+        <div className="flex h-full min-h-0 flex-col overflow-hidden text-[var(--foreground)] max-lg:overflow-y-auto">
           <PageHeader
             action={
               <Button asChild>

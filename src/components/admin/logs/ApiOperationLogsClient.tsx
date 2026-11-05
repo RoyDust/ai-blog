@@ -316,10 +316,10 @@ function LogsTableBody({
         <TableCell className="h-9 py-0 font-mono text-xs font-bold text-[var(--foreground)]">{item.method}</TableCell>
         <TableCell className="h-9 overflow-hidden py-0">
           <span className="flex min-w-0 items-baseline gap-2">
-            <span className="min-w-0 shrink truncate font-mono text-[0.8125rem] text-[var(--foreground)]" title={item.path}>
+            <span className="max-w-[72%] shrink-0 truncate font-mono text-[0.8125rem] text-[var(--foreground)]" title={item.path}>
               {item.path}
             </span>
-            <span className="min-w-0 shrink-[3] truncate font-mono text-[0.6875rem] text-[var(--text-muted)]">{formatOperationLine(item)}</span>
+            <span className="min-w-0 flex-1 truncate font-mono text-[0.6875rem] text-[var(--text-muted)]">{formatOperationLine(item)}</span>
           </span>
         </TableCell>
         <TableCell className={cn("h-9 truncate py-0 text-[0.8125rem]", formatActor(item) === "unknown" ? "text-[var(--text-muted)]" : "text-[var(--text-body)]")}>
@@ -404,7 +404,7 @@ export function ApiOperationLogsClient() {
   const hasRows = !isLoading && !listError && payload.items.length > 0;
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden max-lg:flex-none max-lg:overflow-visible">
       <MetricStrip
         ariaLabel="接口请求概况"
         className="mt-1 shrink-0"
@@ -537,7 +537,7 @@ export function ApiOperationLogsClient() {
         }
       />
 
-      <div aria-busy={isLoading || undefined} className="min-h-0 flex-1 overflow-auto" data-testid="admin-logs-table-scroll">
+      <div aria-busy={isLoading || undefined} className="min-h-0 flex-1 overflow-auto max-lg:flex-none" data-testid="admin-logs-table-scroll">
         {isLoading ? <LoadingStatus label="正在加载接口日志..." /> : null}
         <table className="w-full min-w-[980px] table-fixed caption-bottom text-sm" data-slot="table">
           <TableHeader className="sticky top-0 z-10 bg-[var(--card-bg)]">
