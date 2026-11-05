@@ -225,7 +225,7 @@ export default function AdminSeriesPage() {
                   ))
                 ) : (
                   <TableStateRow colSpan={4}>
-                    <EmptyState description={query.trim() ? "换个关键词再试。" : "在右侧新建第一个系列。"} role="status" title="暂无系列" />
+                    <EmptyState description={query.trim() ? "换个关键词再试。" : "在表单里新建第一个系列。"} role="status" title="暂无系列" />
                   </TableStateRow>
                 )}
               </TableBody>

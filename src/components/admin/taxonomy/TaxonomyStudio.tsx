@@ -211,7 +211,7 @@ function CategoriesManager() {
 
             <div className="order-first 2xl:order-none">
 
-            <EntityFormShell title={editingId ? "编辑分类" : "新增分类"} description="名称、Slug 和说明集中在右侧编辑，减少页面跳转。">
+            <EntityFormShell title={editingId ? "编辑分类" : "新增分类"} description="名称、Slug 和说明集中在这里编辑，减少页面跳转。">
               <Form {...form}>
                 <form className="grid items-start gap-4 md:grid-cols-3 2xl:grid-cols-1" onSubmit={form.handleSubmit(save)}>
                   <FormField
@@ -260,7 +260,7 @@ function CategoriesManager() {
                       </FormItem>
                     )}
                   />
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 md:col-span-3 2xl:col-span-1">
                     <Button type="submit" disabled={form.formState.isSubmitting}>
                       {editingId ? "保存修改" : "新增分类"}
                     </Button>
@@ -396,7 +396,7 @@ function TagsManager() {
 
             <div className="order-first 2xl:order-none">
 
-            <EntityFormShell title={editingId ? "编辑标签" : "新增标签"} description="颜色与名称在右侧集中编辑，减少来回跳转。">
+            <EntityFormShell title={editingId ? "编辑标签" : "新增标签"} description="颜色与名称集中在这里编辑，减少来回跳转。">
               <Form {...form}>
                 <form className="grid items-start gap-4 md:grid-cols-3 2xl:grid-cols-1" onSubmit={form.handleSubmit(save)}>
                   <FormField
@@ -459,7 +459,7 @@ function TagsManager() {
                       </FormItem>
                     )}
                   />
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 md:col-span-3 2xl:col-span-1">
                     <Button type="submit" disabled={form.formState.isSubmitting}>
                       {editingId ? "保存修改" : "新增标签"}
                     </Button>

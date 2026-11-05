@@ -279,7 +279,7 @@ export default function AdminTopicGuidesPage() {
         ]}
       />
 
-      <section className="mt-6 grid gap-x-8 gap-y-8 xl:grid-cols-[minmax(0,1fr)_400px]">
+      <section className="mt-6 grid gap-x-8 gap-y-8 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="min-w-0">
           <AdminSectionHeader
             aside={<span className="ed-mono">共 {filteredGuides.length} 个专题导读</span>}
@@ -289,7 +289,7 @@ export default function AdminTopicGuidesPage() {
           <Toolbar leading={<ListSearchInput ariaLabel="搜索专题导读" onChange={setQuery} placeholder="搜索标题或 slug" value={query} />} />
           <div aria-busy={loading || undefined} className="overflow-x-auto">
             {loading ? <LoadingStatus label="正在加载专题导读..." /> : null}
-            <table className="w-full min-w-[760px] table-fixed caption-bottom text-sm" data-slot="table">
+            <table className="w-full min-w-[640px] table-fixed caption-bottom text-sm" data-slot="table">
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[34%]">专题</TableHead>
@@ -354,7 +354,7 @@ export default function AdminTopicGuidesPage() {
                   ))
                 ) : (
                   <TableStateRow colSpan={4}>
-                    <EmptyState description={query.trim() ? "换个关键词再试。" : "在右侧新建第一个专题导读。"} role="status" title="暂无专题导读" />
+                    <EmptyState description={query.trim() ? "换个关键词再试。" : "在表单里新建第一个专题导读。"} role="status" title="暂无专题导读" />
                   </TableStateRow>
                 )}
               </TableBody>

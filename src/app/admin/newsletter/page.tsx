@@ -389,7 +389,7 @@ export default function AdminNewsletterPage() {
                   </FormItem>
                 )}
               />
-              <Button disabled={campaignForm.formState.isSubmitting} type="submit">
+              <Button className="justify-self-start md:col-span-2 2xl:col-span-1" disabled={campaignForm.formState.isSubmitting} type="submit">
                 {campaignForm.formState.isSubmitting ? "创建中..." : "创建草稿"}
               </Button>
             </form>
