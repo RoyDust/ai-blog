@@ -65,9 +65,12 @@ test('auth entry points stop depending on hand-authored gray and blue theme pair
   const authLayoutSource = readSource('src/app/(auth)/layout.tsx')
   const combined = `${loginSource}\n${registerSource}\n${authLayoutSource}`
 
-  expect(combined).toContain('ui-alert-danger')
-  expect(combined).toContain('ui-link')
-  expect(combined).toContain('bg-background')
+  // 方向 A：请求级错误走 .ed-banner--danger，链接走 .ed-link，账号页落在 --page-bg 底色上
+  const partsSource = readSource('src/components/auth/AuthFormParts.tsx')
+  expect(`${combined}\n${partsSource}`).toContain('ed-banner--danger')
+  expect(combined).toContain('ed-link')
+  expect(combined).toContain('bg-[var(--page-bg)]')
+  expect(combined).not.toMatch(/text-rose-\d+/)
   expect(combined).not.toMatch(/text-gray-\d+/)
   expect(combined).not.toMatch(/bg-gray-\d+/)
   expect(combined).not.toMatch(/text-blue-\d+/)

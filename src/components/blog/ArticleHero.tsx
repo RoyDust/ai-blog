@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { CalendarDays, Clock3, Eye, UserRound } from "lucide-react";
-import { motion } from "motion/react";
-import { listContainerVariants, revealVariants } from "@/components/motion/variants";
+import { motion, useReducedMotion, type Variants } from "motion/react";
+import { editorialEase } from "@/components/editorial";
 import { FallbackImage } from "@/components/ui";
+import { formatIsoDate } from "@/lib/editorial-format";
 import { getPostViewTransitionName } from "@/lib/view-transition";
 
 interface ArticleHeroProps {
@@ -19,6 +19,30 @@ interface ArticleHeroProps {
   readingTimeMinutes: number;
 }
 
+const numberFormatter = new Intl.NumberFormat("en-US");
+
+const containerVariants: Variants = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.06, delayChildren: 0.05 } },
+};
+
+const itemVariants: Variants = {
+  hidden: { opacity: 0, y: 8 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: editorialEase } },
+};
+
+const staticVariants: Variants = {
+  hidden: { opacity: 1, y: 0 },
+  visible: { opacity: 1, y: 0 },
+};
+
+/**
+ * 文章 Hero（简报 16.4）：面包屑在 Hero 上方；有封面时文字压在封面下半区，
+ * 只叠一层自下而上的暗渐变；无封面时直接排在纸面上，下方 2px 粗线收尾。
+ *
+ * 封面与 h1 带 viewTransitionName，跨页 morph 期间不能再叠加变换，
+ * 因此入场只作用于分类、摘要与 meta 行，h1 保持静态。
+ */
 export function ArticleHero({
   slug,
   title,
@@ -30,102 +54,105 @@ export function ArticleHero({
   viewCount,
   readingTimeMinutes,
 }: ArticleHeroProps) {
-  // 封面与 h1 带 viewTransitionName，跨页 morph 期间不能再叠加变换，
-  // 因此 header 与标题链保持静态，级联只作用于面包屑/章节/摘要/meta；
-  // reduced-motion 由 BlogMotionProvider 的 MotionConfig 全局处理
-  const containerVariants = listContainerVariants;
-  const itemVariants = revealVariants;
+  const reduce = useReducedMotion();
+  const item = reduce ? staticVariants : itemVariants;
+  const authorName = author.name ?? "匿名作者";
+  const hasCover = Boolean(coverImage);
 
   return (
-    <header
-      className="reader-banner flex min-h-[clamp(22rem,42vw,33rem)] items-end"
-      style={{ viewTransitionName: getPostViewTransitionName("cover", slug) }}
-    >
-      {coverImage ? (
-        <FallbackImage
-          alt={title}
-          className="theme-media-image object-cover opacity-80"
-          fill
-          priority
-          sizes="(min-width: 1280px) 980px, 100vw"
-          src={coverImage}
-        />
-      ) : null}
-      <div className="absolute inset-0 bg-[linear-gradient(90deg,rgb(2_6_23_/_0.82),rgb(2_6_23_/_0.52)_52%,rgb(2_6_23_/_0.28)),var(--reader-media-overlay)]" />
+    <div className="space-y-3">
+      <nav aria-label="Breadcrumb" className="article-breadcrumb">
+        <Link href="/">首页</Link>
+        <span aria-hidden="true">/</span>
+        <Link href="/posts">文章</Link>
+        <span aria-hidden="true">/</span>
+        {category ? (
+          <>
+            <Link href={`/categories/${category.slug}`}>{category.name}</Link>
+            <span aria-hidden="true">/</span>
+          </>
+        ) : null}
+        <span aria-current="page" className="article-breadcrumb__current">
+          {title}
+        </span>
+      </nav>
 
-      <motion.div
-        className="relative z-10 grid w-full gap-6 p-6 sm:p-8 lg:p-10"
-        variants={containerVariants}
-        initial="hidden"
-        animate="visible"
+      <header
+        className={hasCover ? "article-hero article-hero--cover" : "article-hero article-hero--plain"}
+        data-variant={hasCover ? "cover" : "plain"}
+        style={hasCover ? { viewTransitionName: getPostViewTransitionName("cover", slug) } : undefined}
       >
-        <motion.nav aria-label="Breadcrumb" className="flex min-w-0 flex-wrap items-center gap-2 text-sm text-white/70" variants={itemVariants}>
-          <Link className="transition-colors hover:text-white" href="/">
-            首页
-          </Link>
-          <span aria-hidden="true">/</span>
-          <Link className="transition-colors hover:text-white" href="/posts">
-            文章
-          </Link>
-          <span aria-hidden="true">/</span>
-          {category ? (
-            <>
-              <Link className="transition-colors hover:text-white" href={`/categories/${category.slug}`}>
-                {category.name}
-              </Link>
-              <span aria-hidden="true">/</span>
-            </>
-          ) : null}
-          <span className="min-w-0 truncate text-white/55">{title}</span>
-        </motion.nav>
+        {hasCover && coverImage ? (
+          <>
+            <div aria-hidden="true" className="article-hero__media absolute inset-0">
+              <FallbackImage
+                alt=""
+                className="object-cover"
+                fill
+                priority
+                sizes="(min-width: 1280px) 672px, 100vw"
+                src={coverImage}
+              />
+            </div>
+            <div aria-hidden="true" className="article-hero__veil" />
+          </>
+        ) : null}
 
-        <div className="grid max-w-[var(--article-reading-max-width)] gap-5">
+        <motion.div
+          className="article-hero__body"
+          variants={containerVariants}
+          initial={reduce ? false : "hidden"}
+          animate="visible"
+        >
           {category ? (
-            <motion.div variants={itemVariants}>
-              <Link className="reader-chip border-white/20 bg-white/10 text-white hover:bg-white/15" href={`/categories/${category.slug}`}>
+            <motion.div variants={item}>
+              <Link className="article-hero__category" href={`/categories/${category.slug}`}>
                 {category.name}
               </Link>
             </motion.div>
           ) : null}
 
-          <div className="space-y-4">
-            <h1
-              className="font-display text-4xl font-bold leading-tight text-white md:text-5xl lg:text-6xl"
-              style={{ viewTransitionName: getPostViewTransitionName("title", slug) }}
-            >
-              {title}
-            </h1>
-            {excerpt ? (
-              <motion.p className="max-w-3xl text-base leading-8 text-white/76 md:text-lg" variants={itemVariants}>
-                {excerpt}
-              </motion.p>
-            ) : null}
-          </div>
-        </div>
+          <h1
+            className="article-hero__title"
+            style={{ viewTransitionName: getPostViewTransitionName("title", slug) }}
+          >
+            {title}
+          </h1>
 
-        <motion.div className="flex flex-wrap items-center gap-3 text-sm text-white/72" variants={itemVariants}>
-          <span className="inline-flex items-center gap-2">
-            {author.image ? (
-              <FallbackImage alt={author.name ?? "作者头像"} className="rounded-full object-cover" height={24} src={author.image} width={24} />
-            ) : (
-              <UserRound className="h-4 w-4" />
-            )}
-            {author.name ?? "匿名作者"}
-          </span>
-          <span className="inline-flex items-center gap-2">
-            <CalendarDays className="h-4 w-4" />
-            {new Date(createdAt).toLocaleDateString("zh-CN")}
-          </span>
-          <span className="inline-flex items-center gap-2">
-            <Eye className="h-4 w-4" />
-            {viewCount} 阅读
-          </span>
-          <span className="inline-flex items-center gap-2">
-            <Clock3 className="h-4 w-4" />
-            预计阅读 {readingTimeMinutes} 分钟
-          </span>
+          {excerpt ? (
+            <motion.p className="article-hero__excerpt" variants={item}>
+              {excerpt}
+            </motion.p>
+          ) : null}
+
+          <motion.div className="article-hero__meta" data-testid="article-hero-meta" variants={item}>
+            <span className="inline-flex items-center gap-2">
+              <span aria-hidden="true" className="article-hero__avatar">
+                {author.image ? (
+                  <FallbackImage alt="" className="h-full w-full object-cover" height={24} src={author.image} width={24} />
+                ) : (
+                  authorName.slice(0, 1)
+                )}
+              </span>
+              <span className="article-hero__author">{authorName}</span>
+            </span>
+            <span aria-hidden="true">·</span>
+            <time className="ed-mono" dateTime={new Date(createdAt).toISOString()}>
+              {formatIsoDate(createdAt)}
+            </time>
+            <span aria-hidden="true">·</span>
+            <span>
+              <span className="ed-mono">{numberFormatter.format(viewCount)}</span> 阅读
+            </span>
+            <span aria-hidden="true">·</span>
+            <span>
+              <span className="ed-mono">{readingTimeMinutes}</span> 分钟
+            </span>
+          </motion.div>
         </motion.div>
-      </motion.div>
-    </header>
+      </header>
+
+      {hasCover ? null : <hr className="ed-rule-strong" />}
+    </div>
   );
 }

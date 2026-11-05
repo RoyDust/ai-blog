@@ -129,7 +129,7 @@ describe("LikeButton", () => {
     expect(fillStyles.length).toBeGreaterThan(0);
     expect(fillStyles).toEqual(
       expect.arrayContaining([
-        expect.stringMatching(/^hsl\((168|184|192|210|228) 88% \d+%\)$/),
+        expect.stringMatching(/^hsl\((168|184|192|210|228) 52% \d+%\)$/),
       ]),
     );
     expect(fillStyles.join(" ")).not.toMatch(/#[\da-f]{3,8}/i);

@@ -1,16 +1,10 @@
 "use client";
 
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useId, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
-import { buttonVariants } from "@/components/admin/ui";
-import {
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-} from "@/components/shadcn/ui/pagination";
+import { ActiveUnderline } from "@/components/editorial";
+import { Button } from "@/components/admin/ui/button";
 import {
   Select,
   SelectContent,
@@ -88,6 +82,7 @@ export function AdminPagination({
   const canPaginate = totalPages > 1;
   const canChoosePageSize = pageSizeOptions.length > 1;
   const [jumpValue, setJumpValue] = useState(String(activePage));
+  const underlineId = useId();
   // 渲染期条件调整（AGENTS.md 允许的模式）：外部页码变化时同步跳转输入框，不在 effect 内 setState；
   // 用 state 记忆上次页码而非 ref（react-hooks/refs 禁止渲染期访问 ref）
   const [lastActivePage, setLastActivePage] = useState(activePage);
@@ -149,25 +144,32 @@ export function AdminPagination({
     onPageSizeChange?.(nextPageSize);
   };
 
+  // 页码：等宽字，当前页 foreground 700 + 2px sky 下划线（同一实例内 layoutId 平移）
+  const pageNumberClassName =
+    "relative inline-flex h-8 min-w-8 items-center justify-center rounded-[var(--radius-ctl)] px-1.5 font-mono text-[0.8125rem] tabular-nums transition-colors duration-150";
+  const idlePageClassName = "text-[var(--text-muted)] hover:bg-[color-mix(in_oklab,var(--foreground)_6%,transparent)] hover:text-[var(--foreground)]";
+  const activePageClassName = "rounded-none font-bold text-[var(--foreground)]";
+
   const renderPageButton = (pageNumber: number) => {
     const isActive = pageNumber === activePage;
     const label = `第 ${pageNumber} 页`;
+    const underline = isActive ? <ActiveUnderline layoutId={`admin-pagination-${underlineId}`} /> : null;
 
     const href = resolvePageHref(pageNumber);
     if (href) {
       return (
-        <PaginationLink
+        <a
+          aria-current={isActive ? "page" : undefined}
           aria-label={label}
+          className={cn(pageNumberClassName, isActive ? activePageClassName : idlePageClassName)}
           href={href}
-          isActive={isActive}
-          size="icon-sm"
           onClick={(event) => {
             if (disabled || isActive) event.preventDefault();
           }}
-          className={cn("rounded-xl", isActive ? "bg-[var(--primary)] text-white hover:bg-[var(--primary)] hover:text-white" : "")}
         >
           {pageNumber}
-        </PaginationLink>
+          {underline}
+        </a>
       );
     }
 
@@ -175,110 +177,110 @@ export function AdminPagination({
       <button
         aria-current={isActive ? "page" : undefined}
         aria-label={label}
-        className={cn(
-          buttonVariants({ variant: isActive ? "default" : "ghost", size: "icon-sm" }),
-          "rounded-xl",
-          isActive ? "bg-[var(--primary)] text-white hover:bg-[var(--primary)]" : "",
-        )}
+        className={cn(pageNumberClassName, isActive ? activePageClassName : idlePageClassName, "disabled:cursor-default")}
         disabled={disabled || isActive}
         onClick={() => goToPage(pageNumber)}
         type="button"
       >
         {pageNumber}
+        {underline}
       </button>
     );
   };
+
+  const stepClassName =
+    "inline-flex size-8 items-center justify-center rounded-[var(--radius-ctl)] text-[var(--text-body)] transition-colors duration-150 hover:bg-[color-mix(in_oklab,var(--foreground)_6%,transparent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-transparent";
 
   const renderStep = (direction: "previous" | "next") => {
     const isPrevious = direction === "previous";
     const targetPage = isPrevious ? activePage - 1 : activePage + 1;
     const blocked = disabled || (isPrevious ? activePage <= 1 : activePage >= totalPages);
     const label = isPrevious ? "上一页" : "下一页";
-    const icon = isPrevious ? <ChevronLeft className="size-4" /> : <ChevronRight className="size-4" />;
+    const icon = isPrevious ? <ChevronLeft aria-hidden="true" className="size-4" /> : <ChevronRight aria-hidden="true" className="size-4" />;
 
     const href = resolvePageHref(targetPage);
     if (href && !blocked) {
       return (
-        <PaginationLink aria-label={label} className="rounded-xl" href={href} size="icon-sm" title={label}>
+        <a aria-label={label} className={stepClassName} href={href} rel={isPrevious ? "prev" : "next"} title={label}>
           {icon}
-        </PaginationLink>
+        </a>
       );
     }
 
     return (
-      <button
-        aria-label={label}
-        className={cn(buttonVariants({ variant: "outline", size: "icon-sm" }), "rounded-xl")}
-        disabled={blocked}
-        onClick={() => goToPage(targetPage)}
-        title={label}
-        type="button"
-      >
+      <button aria-label={label} className={stepClassName} disabled={blocked} onClick={() => goToPage(targetPage)} title={label} type="button">
         {icon}
       </button>
     );
   };
 
   return (
-    <footer className={cn("flex flex-col gap-3 border-t border-[var(--border)] bg-[var(--surface-alt)]/35 px-5 py-4 xl:flex-row xl:items-center xl:justify-between", className)}>
-      <p className="text-sm text-[var(--muted)]">
+    <footer
+      className={cn("flex flex-wrap items-center gap-x-6 gap-y-3 pt-3.5 text-[0.8125rem] text-[var(--text-muted)]", className)}
+      data-slot="admin-pagination"
+    >
+      <p>
         显示第 {firstItem} 到 {lastItem} 条，共 {total} {itemLabel}
       </p>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
-        {canChoosePageSize ? (
-          <label className="flex items-center gap-2 text-sm text-[var(--muted)]">
-            每页
-            <Select disabled={disabled} value={String(pageSize)} onValueChange={handlePageSizeChange}>
-              <SelectTrigger className="h-9 w-[86px] rounded-xl border-[var(--border)] bg-[var(--surface)]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="rounded-xl border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)]">
-                {pageSizeOptions.map((option) => (
-                  <SelectItem key={option} value={String(option)}>
-                    {option}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </label>
-        ) : null}
+      {canChoosePageSize ? (
+        <label className="flex items-center gap-2">
+          每页
+          <Select disabled={disabled} value={String(pageSize)} onValueChange={handlePageSizeChange}>
+            <SelectTrigger aria-label="每页条数" className="w-[76px] font-mono text-[0.8125rem]" size="sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {pageSizeOptions.map((option) => (
+                <SelectItem key={option} value={String(option)}>
+                  {option}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </label>
+      ) : null}
 
-        {canPaginate ? (
-          <>
-            <Pagination className="mx-0 w-auto justify-start sm:justify-center" aria-label="分页">
-              <PaginationContent>
-                <PaginationItem>{renderStep("previous")}</PaginationItem>
-                {pageItems.map((pageItem) => (
-                  <PaginationItem key={pageItem}>
-                    {typeof pageItem === "number" ? renderPageButton(pageItem) : <PaginationEllipsis />}
-                  </PaginationItem>
-                ))}
-                <PaginationItem>{renderStep("next")}</PaginationItem>
-              </PaginationContent>
-            </Pagination>
+      {canPaginate ? (
+        <>
+          <nav aria-label="分页" className="flex items-center gap-0.5 sm:ml-auto">
+            <ul className="flex items-center gap-0.5">
+              <li>{renderStep("previous")}</li>
+              {pageItems.map((pageItem) => (
+                <li key={pageItem}>
+                  {typeof pageItem === "number" ? (
+                    renderPageButton(pageItem)
+                  ) : (
+                    <span aria-hidden="true" className="inline-flex h-8 min-w-6 items-center justify-center font-mono text-[var(--text-muted)]">
+                      …
+                    </span>
+                  )}
+                </li>
+              ))}
+              <li>{renderStep("next")}</li>
+            </ul>
+          </nav>
 
-            <form className="flex items-center gap-2 text-sm text-[var(--muted)]" onSubmit={handleJump}>
-              跳至
-              <input
-                aria-label="跳转页码"
-                className="ui-ring h-9 w-16 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-2 text-center text-sm text-[var(--foreground)]"
-                disabled={disabled}
-                inputMode="numeric"
-                min={1}
-                max={totalPages}
-                onChange={(event) => setJumpValue(event.target.value)}
-                type="number"
-                value={jumpValue}
-              />
-              页
-              <button className={cn(buttonVariants({ variant: "outline", size: "sm" }), "rounded-xl")} disabled={disabled} type="submit">
-                跳转
-              </button>
-            </form>
-          </>
-        ) : null}
-      </div>
+          <form className="flex items-center gap-2" onSubmit={handleJump}>
+            跳至
+            <input
+              aria-label="跳转页码"
+              className="h-8 w-12 rounded-[var(--radius-ctl)] border border-[var(--reader-border-strong)] bg-transparent px-1 text-center font-mono text-[0.8125rem] text-[var(--foreground)] transition-colors [appearance:textfield] hover:border-[var(--text-muted)] focus-visible:border-[var(--foreground)] disabled:opacity-55 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+              disabled={disabled}
+              inputMode="numeric"
+              min={1}
+              max={totalPages}
+              onChange={(event) => setJumpValue(event.target.value)}
+              type="number"
+              value={jumpValue}
+            />
+            页
+            <Button disabled={disabled} size="sm" type="submit" variant="outline">
+              跳转
+            </Button>
+          </form>
+        </>
+      ) : null}
     </footer>
   );
 }

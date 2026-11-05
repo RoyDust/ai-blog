@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Heart } from 'lucide-react'
 import { getOrCreateBrowserId } from '@/lib/browser-id'
-import { motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { springSnappy } from "@/components/motion/transitions";
 import { iconPopVariants } from "@/components/motion/variants";
 import { prefersReducedParticleMotion, spawnParticleBurst, type Particle } from './particle-burst'
@@ -109,29 +109,51 @@ export function LikeButton({ slug, initialLiked, initialCount }: LikeButtonProps
       onClick={handleLike}
       disabled={loading}
       aria-label={liked ? '取消点赞' : '点赞'}
-      whileTap={{ scale: 0.92 }}
-      whileFocus={{ scale: 0.96 }}
+      whileTap={reduceMotion ? undefined : { scale: 0.92 }}
       transition={springSnappy}
-      className={`relative inline-flex h-11 items-center gap-2 rounded-full border px-4 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-60 ${
-        liked
-          ? 'border-[color:color-mix(in_oklab,var(--accent-warm)_60%,var(--reader-border))] bg-[color-mix(in_oklab,var(--accent-warm)_24%,var(--reader-panel))] text-[var(--foreground)]'
-          : 'border-[var(--reader-border)] bg-[color-mix(in_oklab,var(--reader-panel-elevated)_82%,transparent)] text-[var(--text-body)] hover:border-[var(--reader-border-strong)] hover:bg-[var(--reader-panel-elevated)] hover:text-[var(--foreground)]'
-      }`}
+      className="ed-icon-btn article-action-btn disabled:cursor-wait"
+      type="button"
     >
-      <canvas
-        ref={canvasRef}
-        className="pointer-events-none absolute left-1/2 top-1/2 h-[120px] w-[120px] -translate-x-1/2 -translate-y-1/2 overflow-visible"
-      />
+      <canvas ref={canvasRef} aria-hidden="true" className="article-action-btn__burst" />
       <motion.span
         key={liked ? 'liked' : 'idle'}
-        variants={iconPopVariants}
-        initial="hidden"
+        variants={reduceMotion ? undefined : iconPopVariants}
+        initial={reduceMotion ? false : 'hidden'}
         animate="visible"
         className="relative z-10 flex items-center"
       >
-        <Heart className="h-5 w-5" fill={liked ? 'currentColor' : 'none'} />
+        <Heart aria-hidden="true" fill={liked ? 'currentColor' : 'none'} strokeWidth={1.75} />
       </motion.span>
-      <span className="relative z-10">{count}</span>
+      <AnimatedCount value={count} />
     </motion.button>
+  )
+}
+
+/** 等宽计数：数字变化时上下滚动换位（点赞 +1 向上、取消向下） */
+export function AnimatedCount({ value }: { value: number }) {
+  const reduceMotion = useReducedMotion()
+  const [previous, setPrevious] = useState(value)
+  const [direction, setDirection] = useState(1)
+
+  // 渲染期调整：记录变化方向，不在 effect 里 setState
+  if (value !== previous) {
+    setDirection(value > previous ? 1 : -1)
+    setPrevious(value)
+  }
+
+  return (
+    <span className="article-action-btn__count relative z-10">
+      <AnimatePresence initial={false} mode="popLayout">
+        <motion.span
+          key={value}
+          initial={reduceMotion ? false : { y: direction * 10, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={reduceMotion ? undefined : { y: direction * -10, opacity: 0 }}
+          transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+        >
+          {value}
+        </motion.span>
+      </AnimatePresence>
+    </span>
   )
 }

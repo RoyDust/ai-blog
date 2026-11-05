@@ -30,13 +30,19 @@ export interface ConfirmDialogProps {
   onConfirm: () => void | Promise<void>;
 }
 
+/** 危险确认弹窗标题上方的 danger eyebrow「危险操作」（方向 A 第 14 节弹窗规则）。 */
+export function DangerEyebrow({ children = "危险操作" }: { children?: ReactNode }) {
+  return <p className="text-xs font-bold tracking-[0.08em] text-[var(--danger-foreground)]">{children}</p>;
+}
+
 /**
  * 后台通用确认弹窗（基于既有 AlertDialog 封装）。
  *
  * 统一承载发布、清日志、重生成日报、解绑 GitHub、归档封面等确认场景：
- * - tone=danger 时确认按钮使用危险色，其余默认主色
+ * - tone=danger 时标题上方加 danger eyebrow「危险操作」，确认按钮是全站唯一允许的 danger 实心按钮；
+ *   其余确认用 foreground 主按钮
  * - submitting 时确认/取消按钮禁用，确认按钮显示「处理中...」
- * - impacts 渲染在标题描述与底部按钮之间
+ * - impacts 渲染在标题描述与底部按钮之间，上下 1px 细线分隔
  */
 export function ConfirmDialog({
   open,
@@ -57,12 +63,13 @@ export function ConfirmDialog({
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
+          {tone === "danger" ? <DangerEyebrow /> : null}
           <AlertDialogTitle>{title}</AlertDialogTitle>
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
 
         {impacts ? (
-          <div className="space-y-3 px-6 py-4 text-sm leading-6 text-[var(--foreground)]">
+          <div className="space-y-2 border-y border-[var(--border)] py-3 text-sm leading-6 text-[var(--text-body)]">
             {impacts}
           </div>
         ) : null}

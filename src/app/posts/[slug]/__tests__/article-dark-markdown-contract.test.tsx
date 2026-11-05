@@ -6,17 +6,16 @@ function readSource(relativePath: string) {
   return readFileSync(join(process.cwd(), relativePath), 'utf8')
 }
 
-test('article markdown prose uses semantic dark-mode tokens', () => {
+test('article markdown body uses the editorial prose layer instead of typography plugin overrides', () => {
   const source = readSource('src/app/(public)/posts/[slug]/page.tsx')
+  const articleCss = readSource('src/styles/article.css')
 
-  expect(source).toContain('reader-prose prose')
-  expect(source).toContain('prose-pre:bg-[color-mix(in_oklab,var(--reader-panel-elevated)_80%,black_20%)]')
-  expect(source).toContain('prose-pre:text-[var(--foreground)]')
-  expect(source).toContain('prose-pre:border-[var(--reader-border)]')
-  expect(source).toContain('prose-blockquote:border-[var(--accent-warm)]')
-  expect(source).toContain('prose-blockquote:text-[var(--text-body)]')
-  expect(source).toContain('prose-strong:text-[var(--foreground)]')
-  expect(source).toContain('prose-li:marker:text-[var(--text-faint)]')
+  expect(source).toContain('className="article-prose reader-prose')
+  expect(source).not.toContain('prose prose-zinc')
+  expect(articleCss).toContain('.article-prose h2 {')
+  expect(articleCss).toMatch(/\.article-prose h2 \{[^}]*font-family: var\(--font-serif\)/)
+  expect(articleCss).toMatch(/\.article-prose h3 \{[^}]*font-weight: 700/)
+  expect(articleCss).toContain('font-size: 1.0625rem;\n    line-height: 1.85;')
 })
 
 test('public article details use incremental revalidation instead of full runtime rendering', () => {
@@ -38,55 +37,33 @@ test('admin draft preview stays on a dynamic protected route', () => {
   expect(source).toContain('renderArticlePage({ slug, includeDraft: true })')
 })
 
-test('article table of contents rail matches the left sidebar width token', () => {
-  const themeSource = readSource('src/styles/theme-variables.css')
+test('article page widens the paper and lays out article column, 1px rule and toc rail', () => {
   const componentSource = readSource('src/styles/components.css')
+  const articleCss = readSource('src/styles/article.css')
+  const globals = readSource('src/app/globals.css')
 
-  expect(themeSource).toContain('--rail-width: clamp(13.75rem, 12vw, 15rem);')
-  expect(themeSource).toContain('--article-toc-width: var(--rail-width);')
   expect(componentSource).toContain('.reader-shell:has(.article-detail-page)')
-  expect(componentSource).toContain('--article-toc-width: var(--rail-width);')
+  expect(globals).toContain('@import "../styles/article.css";')
+  expect(articleCss).toContain('grid-template-columns: minmax(0, var(--article-reading-max-width)) 1px minmax(9rem, 1fr);')
+  expect(articleCss).toContain('.article-layout__rule')
 })
 
-test('article markdown headings h1 through h5 use semantic heading colors', () => {
-  const source = readSource('src/app/(public)/posts/[slug]/page.tsx')
+test('article quotes keep only the warm 2px rail and code blocks sit on surface-alt with a hairline', () => {
+  const articleCss = readSource('src/styles/article.css')
 
-  expect(source).toContain('prose-headings:text-[var(--foreground)]')
-  expect(source).toContain('prose-h1:text-[var(--foreground)]')
-  expect(source).toContain('prose-h2:text-[var(--foreground)]')
-  expect(source).toContain('prose-h3:text-[var(--foreground)]')
-  expect(source).toContain('prose-h4:text-[var(--foreground)]')
-  expect(source).toContain('prose-h5:text-[var(--foreground)]')
-  expect(source).toContain('prose-h6:text-[var(--foreground)]')
+  expect(articleCss).toMatch(/\.article-prose blockquote \{[^}]*border-left: 2px solid var\(--accent-warm\)/)
+  expect(articleCss).not.toMatch(/\.article-prose blockquote \{[^}]*background/)
+  expect(articleCss).toMatch(/\.article-code \{[^}]*border: 1px solid var\(--reader-border\)[^}]*border-radius: var\(--radius-ctl\)[^}]*background: var\(--surface-alt\)/)
+  expect(articleCss).toMatch(/\.article-code pre \{[^}]*overflow-x: auto[^}]*white-space: pre;/)
 })
 
-test('article markdown polish covers h6, table headers, quote rail and inline code contrast', () => {
-  const source = readSource('src/app/(public)/posts/[slug]/page.tsx')
-
-  expect(source).toContain('prose-h6:text-[var(--foreground)]')
-  expect(source).toContain('prose-th:text-[var(--foreground)]')
-  expect(source).toContain('prose-th:bg-[var(--reader-panel-muted)]')
-  expect(source).toContain('prose-blockquote:border-l-[3px]')
-  expect(source).toContain('prose-code:bg-[color-mix(in_oklab,var(--reader-panel-muted)_82%,black_18%)]')
-  expect(source).toContain('prose-code:text-[color-mix(in_oklab,var(--foreground)_92%,white_8%)]')
-})
-
-test('highlight styles use reader accent tokens instead of hard-coded slate hex colors', () => {
+test('highlight styles use token mixes instead of hard-coded hex colors', () => {
   const source = readSource('src/styles/code-highlight.css')
 
-  expect(source).not.toContain('#0b1220')
-  expect(source).not.toContain('#e5eef9')
-  expect(source).toContain('var(--reader-panel-elevated)')
+  expect(source).not.toMatch(/#[\da-f]{3,8}\b/i)
   expect(source).toContain('var(--accent-warm)')
   expect(source).toContain('var(--accent-cyan)')
   expect(source).toContain('var(--text-muted)')
-})
-
-test('code highlight keeps tokenized night blocks even in light mode', () => {
-  const source = readSource('src/styles/code-highlight.css')
-
-  expect(source).toContain('color-mix(in oklab, var(--reader-panel-elevated) 78%, black 22%)')
-  expect(source).toContain('color: color-mix(in oklab, var(--foreground) 92%, white 8%)')
 })
 
 test('fenced code blocks reset inline code chip background', () => {
@@ -98,10 +75,12 @@ test('fenced code blocks reset inline code chip background', () => {
   expect(source).toContain('border-radius: 0')
 })
 
-test('markdown article images do not use a gray backing wrapper', () => {
+test('markdown article images render as 4px figures with captions', () => {
   const source = readSource('src/app/(public)/posts/[slug]/page.tsx')
+  const articleCss = readSource('src/styles/article.css')
 
-  expect(source).toContain('img: ({ src, alt }) =>')
-  expect(source).not.toContain('bg-[var(--surface-alt)]')
-  expect(source).toContain('className="theme-media my-8 block overflow-hidden rounded-2xl border border-[var(--reader-border)]"')
+  expect(source).toContain('img: ({ src, alt, title }) =>')
+  expect(source).toContain('className="article-figure"')
+  expect(articleCss).toMatch(/\.article-figure \{[^}]*border-radius: var\(--radius-ctl\)/)
+  expect(articleCss).toContain('.article-figure__caption')
 })

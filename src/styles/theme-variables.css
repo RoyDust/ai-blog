@@ -259,96 +259,62 @@
   }
 }
 
+/*
+ * 后台 · 方向 A「编辑排版」（原型 13 第「后台的方向 A 规则」）。
+ *
+ * 后台直接沿用前台 token：亮色是主稿，暗色随 html.dark 套前台暗色 token，这里不再覆盖
+ * 页面底色、纸面、文字与描边。只保留：
+ * - 旧变量别名（--background / --surface / --admin-sidebar-* 等），让尚未迁移的后台代码取到新 token；
+ * - 圆角收敛到 0 / 4px / 6px，阴影、光斑一律关掉；
+ * - 深色侧栏专用色（--sider-*），侧栏当前项 sky 竖线用亮一档的 --sider-accent。
+ * --warning / --success / --chart2 / --sider-bg / --sider-accent 已在 :root 与 :root.dark 定义。
+ */
 .admin-theme {
   color-scheme: light;
-  --primary: oklch(0.52 0.1 var(--hue));
-  --brand: var(--primary);
-  --brand-strong: oklch(0.46 0.11 var(--hue));
-  --admin-sidebar-bg: oklch(0.16 0.03 var(--hue));
-  --admin-sidebar-text: color-mix(in oklab, white 86%, var(--brand) 14%);
-  --admin-sidebar-muted: color-mix(in oklab, white 48%, var(--admin-sidebar-bg) 52%);
-  --admin-sidebar-hover: color-mix(in oklab, white 9%, transparent);
-  --admin-sidebar-border: color-mix(in oklab, white 7%, transparent);
-  --admin-sidebar-active: var(--brand);
-  --admin-sidebar-active-bg: color-mix(in oklab, var(--brand) 22%, transparent);
 
-  --background: #f0f2f5;
-  --surface: #ffffff;
-  --surface-alt: #f5f7fa;
-  --surface-elevated: #ffffff;
-  --surface-contrast: #e2e8f0;
-  --float-panel-bg: #ffffff;
-  --foreground: #0f172a;
-  --text-body: #334155;
-  --text-muted: #64748b;
-  --text-faint: #64748b;
+  --background: var(--page-bg);
+  --surface: var(--card-bg);
+  --surface-elevated: var(--card-bg);
+  --surface-muted: color-mix(in oklab, var(--foreground) 4%, transparent);
+  --float-panel-bg: var(--card-bg);
   --muted: var(--text-muted);
-  --border: rgba(15, 23, 42, 0.06);
-  --border-strong: rgba(15, 23, 42, 0.12);
-  --line-color: rgba(15, 23, 42, 0.06);
-  --btn-content: color-mix(in oklab, var(--brand) 26%, var(--foreground) 74%);
-  --btn-regular-bg: color-mix(in oklab, var(--surface-alt) 84%, var(--brand) 16%);
-  --btn-regular-bg-hover: color-mix(in oklab, var(--surface-alt) 70%, var(--brand) 30%);
-  --btn-regular-bg-active: color-mix(in oklab, var(--surface-alt) 60%, var(--brand) 40%);
-  --btn-plain-bg-hover: color-mix(in oklab, var(--surface-alt) 92%, var(--foreground) 8%);
-  --btn-plain-bg-active: color-mix(in oklab, var(--surface-alt) 82%, var(--foreground) 18%);
-  --btn-card-bg-hover: color-mix(in oklab, var(--surface-alt) 86%, var(--foreground) 6%);
-  --shadow-ambient: 0 8px 30px rgba(15, 23, 42, 0.03);
-  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.02);
-  --shadow-card-hover: 0 6px 20px rgba(15, 23, 42, 0.05), 0 0 0 1px rgba(37, 99, 235, 0.05);
-  --image-filter: none;
-  --image-filter-hover: none;
+  --border-strong: var(--reader-border-strong);
+  --line-color: var(--border);
+
+  --radius-control: var(--radius-ctl);
+  --radius-panel: var(--radius-paper);
+  --radius-card: var(--radius-paper);
+  --radius-large: var(--radius-paper);
+
+  --shadow-ambient: none;
+  --shadow-card: none;
+  --shadow-card-hover: none;
+  --reader-shadow-normal: none;
+  --reader-shadow-hover: none;
+  --reader-shadow: none;
   --ambient-primary: transparent;
   --ambient-secondary: transparent;
-  --post-card-text-accent-line: color-mix(in oklab, var(--brand) 60%, var(--foreground) 40%);
-  --post-card-text-accent-divider: color-mix(in oklab, var(--line-color) 85%, transparent);
-  --post-card-text-accent-label: color-mix(in oklab, var(--brand) 68%, var(--text-body) 32%);
-  --post-card-text-accent-glow: color-mix(in oklab, var(--brand) 15%, transparent);
+
+  /* 深色侧栏：白字 86% / 次要 58% / 悬停 7% / 分隔线 8%，当前项白 8% 底 + 2px sky 竖线 */
+  --sider-fg: rgb(255 255 255 / 0.86);
+  --sider-muted: rgb(255 255 255 / 0.58);
+  --sider-hover: rgb(255 255 255 / 0.07);
+  --sider-line: rgb(255 255 255 / 0.08);
+  --sider-active-bg: rgb(255 255 255 / 0.08);
+  --admin-sidebar-bg: var(--sider-bg);
+  --admin-sidebar-text: var(--sider-fg);
+  --admin-sidebar-muted: var(--sider-muted);
+  --admin-sidebar-hover: var(--sider-hover);
+  --admin-sidebar-border: var(--sider-line);
+  --admin-sidebar-active: var(--sider-accent);
+  --admin-sidebar-active-bg: var(--sider-active-bg);
+
+  /* 后台语义色：info 用 focus；表格行悬停 foreground 3%、勾选行 focus 7% */
+  --admin-info: var(--focus);
+  --admin-row-hover: color-mix(in oklab, var(--foreground) 3%, transparent);
+  --admin-row-selected: color-mix(in oklab, var(--focus) 7%, transparent);
 }
 
 .dark .admin-theme {
   color-scheme: dark;
-  --primary: oklch(0.62 0.1 var(--hue));
-  --brand: var(--primary);
-  --brand-strong: oklch(0.72 0.11 var(--hue));
-  --admin-sidebar-bg: oklch(0.13 0.026 var(--hue));
-  --admin-sidebar-text: color-mix(in oklab, white 84%, var(--brand) 16%);
-  --admin-sidebar-muted: color-mix(in oklab, white 46%, var(--admin-sidebar-bg) 54%);
-  --admin-sidebar-hover: color-mix(in oklab, white 9%, transparent);
-  --admin-sidebar-border: color-mix(in oklab, white 7%, transparent);
-  --admin-sidebar-active: var(--brand);
-  --admin-sidebar-active-bg: color-mix(in oklab, var(--brand) 28%, transparent);
-
-  --background: #141414;
-  --surface: #1f1f1f;
-  --surface-alt: #2d2d2d;
-  --surface-elevated: #242424;
-  --surface-contrast: #374151;
-  --float-panel-bg: #1f1f1f;
-  --foreground: #f8fafc;
-  --text-body: #cbd5e1;
-  --text-muted: #94a3b8;
-  --text-faint: #64748b;
-  --muted: var(--text-muted);
-  --border: rgba(255, 255, 255, 0.08);
-  --border-strong: rgba(255, 255, 255, 0.14);
-  --line-color: rgba(255, 255, 255, 0.08);
-  --btn-content: color-mix(in oklab, var(--brand) 26%, var(--foreground) 74%);
-  --btn-regular-bg: color-mix(in oklab, var(--surface-alt) 82%, var(--brand) 18%);
-  --btn-regular-bg-hover: color-mix(in oklab, var(--surface-alt) 68%, var(--brand) 32%);
-  --btn-regular-bg-active: color-mix(in oklab, var(--surface-alt) 58%, var(--brand) 42%);
-  --btn-plain-bg-hover: color-mix(in oklab, var(--surface-alt) 88%, var(--foreground) 12%);
-  --btn-plain-bg-active: color-mix(in oklab, var(--surface-alt) 78%, var(--foreground) 22%);
-  --btn-card-bg-hover: color-mix(in oklab, var(--surface-alt) 84%, var(--foreground) 10%);
-  --shadow-ambient: 0 10px 40px rgba(0, 0, 0, 0.3);
-  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.2), 0 1px 0 rgba(255, 255, 255, 0.02);
-  --shadow-card-hover: 0 8px 30px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(59, 130, 246, 0.15);
-  --image-filter: brightness(0.85) contrast(1.05);
-  --image-filter-hover: brightness(0.92) contrast(1.02);
-  --ambient-primary: transparent;
-  --ambient-secondary: transparent;
-  --post-card-text-accent-line: color-mix(in oklab, var(--brand) 60%, var(--foreground) 40%);
-  --post-card-text-accent-divider: color-mix(in oklab, var(--line-color) 85%, transparent);
-  --post-card-text-accent-label: color-mix(in oklab, var(--brand) 68%, var(--text-body) 32%);
-  --post-card-text-accent-glow: color-mix(in oklab, var(--brand) 15%, transparent);
 }

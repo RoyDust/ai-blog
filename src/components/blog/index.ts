@@ -25,3 +25,4 @@ export { CopyCodeButton } from "./CopyCodeButton";
 export { SeriesCard } from "./SeriesCard";
 export { SeriesNav } from "./SeriesNav";
 export { NewsletterForm } from "./NewsletterForm";
+export { CommentJumpLink } from "./CommentJumpLink";

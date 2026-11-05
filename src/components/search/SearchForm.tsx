@@ -47,15 +47,22 @@ export function SearchForm({
         </div>
       ) : (
         <>
-          <input
-            aria-label={inputLabel}
-            className="ed-input"
-            defaultValue={defaultValue}
-            id="site-search-input"
-            name="q"
-            placeholder={placeholder}
-            type="search"
-          />
+          <div className="group relative min-w-0 flex-1">
+            <Search
+              aria-hidden="true"
+              className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)] transition-colors duration-200 group-focus-within:text-[var(--foreground)]"
+            />
+            {/* 手机上 16px 字号，避免 iOS Safari 聚焦时自动放大页面 */}
+            <input
+              aria-label={inputLabel}
+              className="ed-input pl-9 text-base sm:text-[0.9375rem]"
+              defaultValue={defaultValue}
+              id="site-search-input"
+              name="q"
+              placeholder={placeholder}
+              type="search"
+            />
+          </div>
           <button className="ed-btn" type="submit">
             {buttonLabel}
           </button>

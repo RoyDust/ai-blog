@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertCircle, Bell, CheckCheck, CircleCheck, Info, Inbox, XCircle } from "lucide-react";
+import { Bell } from "lucide-react";
 import { toast } from "sonner";
 import useSWR from "swr";
 
@@ -13,6 +13,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/admin/ui";
+import { adminIconButtonClassName, adminTextActionClassName } from "@/components/admin/primitives/admin-classes";
+import { SkeletonBar } from "@/components/editorial";
 import { apiFetcher, apiMutate, handleGlobalSwrError, toErrorMessage } from "@/lib/client-api";
 
 type NotificationItem = {
@@ -33,11 +35,12 @@ type NotificationPayload = {
   nextCursor: string | null;
 };
 
+/** 严重级别：去掉彩色图标块，改为 meta 行里的语气色文字（错误 / 提醒 / 完成 / 信息） */
 const severityMeta = {
-  SUCCESS: { icon: CircleCheck, className: "bg-[var(--success-surface)] text-[var(--success-foreground)]" },
-  WARNING: { icon: AlertCircle, className: "bg-[var(--warning-surface)] text-[var(--warning-foreground)]" },
-  ERROR: { icon: XCircle, className: "bg-[var(--danger-surface)] text-[var(--danger-foreground)]" },
-  INFO: { icon: Info, className: "bg-[color-mix(in_oklab,var(--brand)_10%,var(--surface))] text-[var(--brand)]" },
+  SUCCESS: { label: "完成", className: "text-[var(--success)]" },
+  WARNING: { label: "提醒", className: "text-[var(--warning)]" },
+  ERROR: { label: "错误", className: "text-[var(--danger-foreground)]" },
+  INFO: { label: "信息", className: "text-[var(--focus)]" },
 } as const;
 
 function formatUnreadCount(count: number) {
@@ -164,14 +167,13 @@ export function NotificationBell() {
   return (
     <DropdownMenu onOpenChange={(open) => open && void mutate()}>
       <DropdownMenuTrigger asChild>
-        <button
-          aria-label={label}
-          className="relative inline-flex h-11 w-11 items-center justify-center rounded-lg text-[var(--foreground)] transition-colors hover:bg-[var(--surface-alt)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
-          type="button"
-        >
-          <Bell className="h-5 w-5" />
+        <button aria-label={label} className={adminIconButtonClassName} type="button">
+          <Bell aria-hidden="true" className="size-[18px]" strokeWidth={1.75} />
           {unreadCount > 0 ? (
-            <span aria-hidden="true" className="absolute -right-1 -top-1 inline-flex min-w-6 items-center justify-center rounded-full bg-[var(--danger-foreground)] px-1.5 py-0.5 text-xs font-bold leading-none text-[var(--surface)] ring-2 ring-[var(--surface)]">
+            <span
+              aria-hidden="true"
+              className="absolute top-0.5 right-px inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--danger-foreground)] px-1 font-mono text-[10px] leading-4 font-bold text-[var(--card-bg)]"
+            >
               {formatUnreadCount(unreadCount)}
             </span>
           ) : null}
@@ -180,54 +182,54 @@ export function NotificationBell() {
       <DropdownMenuContent align="end" className="w-[min(92vw,390px)] p-0">
         <div className="flex items-center justify-between gap-3 border-b border-[var(--border)] px-4 py-3">
           <div>
-            <p className="text-sm font-semibold text-[var(--foreground)]">通知</p>
-            <p className="mt-0.5 text-xs text-[var(--muted)]">{unreadCount > 0 ? `${unreadCount} 条未读` : "全部已读"}</p>
+            <p className="font-serif text-base font-bold text-[var(--foreground)]">通知</p>
+            <p className="text-xs text-[var(--text-muted)]">{unreadCount > 0 ? `${unreadCount} 条未读` : "全部已读"}</p>
           </div>
-          <button
-            className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-[var(--brand)] transition-colors hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={unreadCount === 0}
-            onClick={() => void markAllRead()}
-            type="button"
-          >
-            <CheckCheck className="h-3.5 w-3.5" />
+          <button className={adminTextActionClassName} disabled={unreadCount === 0} onClick={() => void markAllRead()} type="button">
             全部已读
           </button>
         </div>
 
-        <div className="max-h-[420px] overflow-y-auto p-2">
-          {loading ? <p className="px-3 py-8 text-center text-sm text-[var(--muted)]">正在加载通知...</p> : null}
-          {!loading && error ? <p className="px-3 py-8 text-center text-sm text-[var(--danger-foreground)]">{error}</p> : null}
-          {!loading && !error && items.length === 0 ? (
-            <div className="px-3 py-8 text-center text-sm text-[var(--muted)]">
-              <Inbox className="mx-auto mb-2 h-6 w-6" />
-              暂无新通知
+        <div className="max-h-[420px] overflow-y-auto">
+          {loading ? (
+            <div aria-busy="true" className="space-y-2 px-4 py-4" role="status">
+              <span className="ed-visually-hidden">正在加载通知...</span>
+              <SkeletonBar strong className="h-3.5 w-1/2" />
+              <SkeletonBar className="h-3 w-4/5" />
+              <SkeletonBar className="h-3 w-24" />
             </div>
+          ) : null}
+          {!loading && error ? <p className="px-4 py-4 text-[0.8125rem] text-[var(--danger-foreground)]" role="alert">{error}</p> : null}
+          {!loading && !error && items.length === 0 ? (
+            <p className="px-4 py-5 font-serif text-[0.9375rem] font-bold text-[var(--foreground)]">暂无新通知</p>
           ) : null}
           {!loading && !error
             ? items.map((item) => {
                 const meta = severityMeta[item.severity as keyof typeof severityMeta] ?? severityMeta.INFO;
-                const Icon = meta.icon;
+                const isUnread = !item.readAt;
 
                 return (
                   <DropdownMenuItem
                     key={item.id}
                     aria-label={item.readAt ? item.title : `${item.title}，未读`}
-                    className="items-start gap-3 rounded-xl px-3 py-3"
+                    className="min-h-0 items-start gap-2.5 rounded-none border-b border-[var(--border)] px-4 py-3 last:border-b-0 focus:bg-[color-mix(in_oklab,var(--foreground)_4%,transparent)]"
                     onSelect={(event) => {
                       event.preventDefault();
                       void openNotification(item);
                     }}
                   >
-                    <span className={`mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${meta.className}`}>
-                      <Icon className="h-4 w-4" />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="flex min-w-0 items-start gap-2">
-                        <span className="line-clamp-1 flex-1 text-sm font-semibold text-[var(--foreground)]">{item.title}</span>
-                        {!item.readAt ? <span aria-hidden="true" className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[var(--danger-foreground)]" /> : null}
+                    {/* 未读：标题 700 + 左侧 6px danger 圆点；已读：标题 500 */}
+                    <span
+                      aria-hidden="true"
+                      className={`mt-2 size-1.5 shrink-0 rounded-full transition-colors ${isUnread ? "bg-[var(--danger-foreground)]" : "bg-transparent"}`}
+                    />
+                    <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                      <span className={`line-clamp-1 text-[0.875rem] text-[var(--foreground)] ${isUnread ? "font-bold" : "font-medium"}`}>{item.title}</span>
+                      {item.body ? <span className="line-clamp-2 text-[0.8125rem] leading-5 text-[var(--text-muted)]">{item.body}</span> : null}
+                      <span className="flex items-baseline gap-2 text-xs">
+                        <span className={`font-bold ${meta.className}`}>{meta.label}</span>
+                        <span className="font-mono text-[var(--text-muted)]">{formatRelativeTime(item.createdAt)}</span>
                       </span>
-                      {item.body ? <span className="mt-1 line-clamp-2 block text-xs leading-5 text-[var(--muted)]">{item.body}</span> : null}
-                      <span className="mt-1 block text-xs text-[var(--muted)]">{formatRelativeTime(item.createdAt)}</span>
                     </span>
                   </DropdownMenuItem>
                 );
@@ -237,13 +239,14 @@ export function NotificationBell() {
 
         <DropdownMenuSeparator className="m-0" />
         <DropdownMenuItem
-          className="justify-center rounded-none px-4 py-3 text-sm font-semibold text-[var(--brand)]"
+          className="min-h-0 rounded-none px-4 py-3 text-[0.8125rem] font-bold text-[var(--text-body)] focus:bg-transparent focus:text-[var(--foreground)]"
           onSelect={(event) => {
             event.preventDefault();
             router.push("/admin/notifications");
           }}
         >
-          查看全部通知
+          <span className="underline decoration-[var(--reader-border-strong)] decoration-1 underline-offset-4">查看全部通知</span>
+          <span aria-hidden="true">→</span>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

@@ -2,8 +2,19 @@
 
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Loader2, Sparkles } from "lucide-react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import useSWR from "swr";
+import {
+  EmptyState,
+  ListRowSkeleton,
+  SectionHeading,
+  SkeletonBar,
+  StaggerItem,
+  StaggerList,
+  TextLink,
+  collapseMotion,
+  editorialEase,
+} from "@/components/editorial";
 import { SearchForm } from "@/components/search/SearchForm";
 import { SearchResultCard } from "@/components/search/SearchResultCard";
 import { apiFetcher, apiMutate, toErrorMessage } from "@/lib/client-api";
@@ -27,6 +38,7 @@ interface Post {
   category: { name: string; slug: string } | null;
   tags: Array<{ name: string; slug: string }>;
   _count: { comments: number; likes: number };
+  viewCount?: number;
 }
 
 interface AiSummaryState {
@@ -41,6 +53,8 @@ interface SearchResponse {
   data?: Post[];
   ai?: { summary?: string | null };
 }
+
+type SearchPhase = "start" | "short" | "loading" | "error" | "empty" | "results";
 
 function countQueryCharacters(value: string) {
   return Array.from(value).length;
@@ -71,6 +85,7 @@ function SearchContent() {
   const activeSearchQuery = hasSearchableQuery && countQueryCharacters(debouncedQuery) >= SEARCH_MIN_QUERY_LENGTH ? debouncedQuery : "";
   const searchKey = activeSearchQuery ? `/api/search?q=${encodeURIComponent(activeSearchQuery)}` : null;
   const latestQueryRef = useRef(query);
+  const reduceMotion = useReducedMotion();
   const [aiSummary, setAiSummary] = useState<AiSummaryState>({
     query: "",
     summary: null,
@@ -143,66 +158,141 @@ function SearchContent() {
   const visibleLoading = hasSearchableQuery && !visibleError && (activeSearchQuery !== query || isSearchLoading);
   const isAiLoading = aiSummary.query === query && aiSummary.status === "loading";
   const canRequestAiSummary = hasSearchableQuery && isResolvedForQuery && visiblePosts.length > 0 && !isAiLoading;
+  const isQueryTooShort = hasQuery && !hasSearchableQuery;
+  const showAiBlock = isAiLoading || Boolean(visibleAiSummary);
+
+  const phase: SearchPhase = !hasQuery
+    ? "start"
+    : !hasSearchableQuery
+      ? "short"
+      : visibleError
+        ? "error"
+        : visibleLoading
+          ? "loading"
+          : visiblePosts.length === 0
+            ? "empty"
+            : "results";
+
+  const fade = {
+    initial: { opacity: 0 },
+    animate: { opacity: 1, transition: { duration: reduceMotion ? 0 : 0.22, ease: editorialEase } },
+    exit: { opacity: 0, transition: { duration: reduceMotion ? 0 : 0.14 } },
+  };
+  const keywordAside = <span className="max-w-[12rem] truncate sm:max-w-[16rem]">关键词「{query}」</span>;
+  const exploreLinks = (
+    <>
+      <TextLink href="/posts">浏览全部文章</TextLink>
+      <TextLink href="/tags">全部标签</TextLink>
+    </>
+  );
 
   return (
-    <div className="space-y-6">
-      <section className="ui-surface rounded-2xl p-6">
-        <h1 className="font-display text-3xl font-extrabold tracking-tight text-[var(--foreground)] md:text-4xl">搜索结果</h1>
-        <p className="mt-2 text-sm text-[var(--muted)]">输入关键词，搜索文章标题、摘要、正文、标签与分类。</p>
-        <div className="mt-4">
-          <SearchForm defaultValue={query} />
+    <>
+      <header className="ed-masthead">
+        <div className="space-y-2 pb-5">
+          <p className="ed-eyebrow">搜索</p>
+          <h1 className="ed-serif text-balance text-[clamp(1.5rem,2.6vw,2rem)] leading-[1.15] text-[var(--foreground)]">搜索结果</h1>
+          <p className="text-[0.9375rem] leading-[1.7] text-[var(--text-body)]">输入关键词，搜索文章标题、摘要、正文、标签与分类。</p>
+          <div className="pt-4">
+            <SearchForm defaultValue={query} />
+          </div>
+          <div className="flex min-h-11 flex-wrap items-center gap-x-4 gap-y-2 pt-1">
+            <button className="ed-btn-outline" disabled={!canRequestAiSummary} onClick={requestAiSummary} type="button">
+              {isAiLoading ? "生成中" : "AI 搜索摘要"}
+            </button>
+            <AnimatePresence initial={false}>
+              {isQueryTooShort ? (
+                <motion.p key="too-short" className="text-[0.875rem] text-[var(--text-body)]" {...fade}>
+                  至少输入 {SEARCH_MIN_QUERY_LENGTH} 个字符。
+                </motion.p>
+              ) : null}
+              {visibleAiError ? (
+                <motion.p key="ai-error" className="text-[0.8125rem] text-[var(--danger-foreground)]" role="alert" {...fade}>
+                  {visibleAiError}
+                </motion.p>
+              ) : null}
+            </AnimatePresence>
+          </div>
         </div>
-        <div className="mt-4 flex flex-wrap items-center gap-3">
-          <button
-            className="ui-btn inline-flex items-center gap-2 border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm font-semibold text-[var(--foreground)] transition hover:border-[color:color-mix(in_srgb,var(--primary)_35%,var(--border))] hover:text-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={!canRequestAiSummary}
-            onClick={requestAiSummary}
-            type="button"
-          >
-            {isAiLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-            {isAiLoading ? "生成中" : "AI 搜索摘要"}
-          </button>
-          {hasQuery && !hasSearchableQuery ? <p className="text-sm text-[var(--muted)]">至少输入 {SEARCH_MIN_QUERY_LENGTH} 个字符。</p> : null}
-          {visibleAiError ? <p className="text-sm text-[var(--danger-foreground)]">{visibleAiError}</p> : null}
-        </div>
-      </section>
+        <hr className="ed-rule-strong" />
+      </header>
 
-      {visibleLoading ? <p className="py-12 text-center text-[var(--muted)]">正在搜索...</p> : null}
-      {visibleError ? <p className="py-12 text-center text-[var(--danger-foreground)]">{visibleError}</p> : null}
+      <AnimatePresence initial={false} mode="wait">
+        {phase === "short" ? null : (
+          <motion.div key={phase} className="space-y-[var(--section-gap)]" {...fade}>
+            {phase === "start" ? <EmptyState actions={exploreLinks} title="请输入关键词开始搜索" /> : null}
 
-      {!visibleLoading && !visibleError && visibleAiSummary ? (
-        <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
-          <p className="text-sm font-semibold text-[var(--foreground)]">AI 搜索摘要</p>
-          <p className="mt-2 text-sm leading-7 text-[var(--muted)]">{visibleAiSummary}</p>
-        </section>
-      ) : null}
+            {phase === "error" ? (
+              <EmptyState
+                actions={
+                  <button className="ed-btn-outline" onClick={() => void mutateSearch()} type="button">
+                    重试
+                  </button>
+                }
+                description={visibleError && visibleError !== "搜索失败" ? visibleError : undefined}
+                role="alert"
+                title="搜索失败，请稍后重试"
+                tone="danger"
+              />
+            ) : null}
 
-      {!visibleLoading && !visibleError && hasQuery && visiblePosts.length > 0 ? (
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-          {visiblePosts.map((post) => (
-            <SearchResultCard key={post.id} post={post} query={query} />
-          ))}
-        </div>
-      ) : null}
+            {phase === "results" ? (
+              <AnimatePresence initial={false}>
+                {showAiBlock ? (
+                  <motion.section key="ai-summary" aria-busy={isAiLoading} aria-labelledby="search-ai-summary-title" className="overflow-hidden" {...(reduceMotion ? fade : collapseMotion)}>
+                    <SectionHeading id="search-ai-summary-title" title="AI 搜索摘要" />
+                    <AnimatePresence initial={false} mode="wait">
+                      {isAiLoading ? (
+                        <motion.div key="ai-skeleton" className="space-y-3 pb-1 pt-3" {...fade}>
+                          <span className="ed-visually-hidden" role="status">
+                            正在生成 AI 搜索摘要
+                          </span>
+                          <SkeletonBar className="h-3.5 w-[96%]" />
+                          <SkeletonBar className="h-3.5 w-[92%]" />
+                          <SkeletonBar className="h-3.5 w-[58%]" />
+                        </motion.div>
+                      ) : (
+                        <motion.p key="ai-text" className="pt-2 text-[0.9375rem] leading-[1.85] text-[var(--text-body)]" {...fade}>
+                          {visibleAiSummary}
+                        </motion.p>
+                      )}
+                    </AnimatePresence>
+                  </motion.section>
+                ) : null}
+              </AnimatePresence>
+            ) : null}
 
-      {!visibleLoading && !visibleError ? (
-        <p className="py-12 text-center text-[var(--muted)]">
-          {!hasQuery
-            ? "请输入关键词开始搜索"
-            : !hasSearchableQuery
-              ? `至少输入 ${SEARCH_MIN_QUERY_LENGTH} 个字符再搜索`
-              : visiblePosts.length === 0
-                ? "未找到相关结果"
-                : `找到 ${visiblePosts.length} 条结果`}
-        </p>
-      ) : null}
-    </div>
+            {phase === "loading" || phase === "empty" || phase === "results" ? (
+              <section aria-labelledby="search-results-title" className="space-y-1">
+                <SectionHeading
+                  aside={keywordAside}
+                  count={phase === "loading" ? "…" : visiblePosts.length}
+                  id="search-results-title"
+                  title="结果"
+                />
+                {phase === "loading" ? <ListRowSkeleton count={3} label="正在搜索" /> : null}
+                {phase === "empty" ? <EmptyState actions={exploreLinks} title="未找到相关结果" /> : null}
+                {phase === "results" ? (
+                  <StaggerList as="ol">
+                    {visiblePosts.map((post) => (
+                      <StaggerItem key={post.id} as="li">
+                        <SearchResultCard post={post} query={query} />
+                      </StaggerItem>
+                    ))}
+                  </StaggerList>
+                ) : null}
+              </section>
+            ) : null}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   );
 }
 
 export function SearchPageClient() {
   return (
-    <Suspense fallback={<p className="py-20 text-center text-[var(--muted)]">加载搜索页面...</p>}>
+    <Suspense fallback={<p className="py-6 text-[0.875rem] text-[var(--text-muted)]">加载搜索页面…</p>}>
       <SearchContent />
     </Suspense>
   );

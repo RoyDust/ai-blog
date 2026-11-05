@@ -2,7 +2,8 @@ export const revalidate = 300
 
 import type { Metadata } from 'next'
 
-import { TaxonomyDirectoryCard, TaxonomyHero } from '@/components/taxonomy'
+import { EmptyState, TextLink } from '@/components/editorial'
+import { TagDirectoryGroup, TaxonomyHero, TaxonomyLoadError, type TagDirectoryItem } from '@/components/taxonomy'
 import { getBlogSettings } from '@/lib/blog-settings'
 import { buildPageMetadata } from '@/lib/seo'
 import { getTagDirectory } from '@/lib/taxonomy'
@@ -17,6 +18,9 @@ export async function generateMetadata(): Promise<Metadata> {
     siteUrl: settings.siteUrl,
   })
 }
+
+/** 「常用」取文章数前 12 个（简报 16.5） */
+const POPULAR_TAG_COUNT = 12
 
 type TagDirectoryEntry = Awaited<ReturnType<typeof getTagDirectory>>[number]
 
@@ -33,40 +37,39 @@ export default async function TagsPage() {
 
   const totalPosts = tags.reduce((sum: number, tag: TagDirectoryEntry) => sum + tag._count.posts, 0)
 
+  const items: TagDirectoryItem[] = tags.map((tag: TagDirectoryEntry) => ({
+    id: tag.id,
+    name: tag.name,
+    slug: tag.slug,
+    count: tag._count.posts,
+  }))
+  const popular = items.slice(0, POPULAR_TAG_COUNT)
+
   return (
-    <div className="reader-section">
+    <>
       <TaxonomyHero
-        eyebrow="Tags"
-        title="标签专题"
-        description="标签适合横向发现内容。你可以从某个技术点切入，看到它如何分布在不同文章与不同主题之间。"
-        countLabel={`${tags.length} 个标签 · ${totalPosts} 次内容关联`}
-        primaryHref="/posts"
-        primaryLabel="去筛选文章"
-        secondaryHref="/categories"
-        secondaryLabel="浏览分类专题"
+        eyebrow="标签"
+        title="全部标签"
+        description="用标签快速定位具体话题。"
+        meta={`${tags.length} 个标签 · ${totalPosts} 次文章关联`}
+        links={[{ href: '/posts', label: '全部文章' }]}
       />
 
       {hasLoadError ? (
-        <section role="alert" className="reader-panel border-[var(--danger-border)] bg-[var(--danger-surface)] p-8 text-sm text-[var(--danger-foreground)]">
-          标签专题加载失败，请稍后重试。
-        </section>
-      ) : tags.length > 0 ? (
-        <section className="grid gap-4 md:grid-cols-2">
-          {tags.map((tag: TagDirectoryEntry, index: number) => (
-            <div key={tag.id} className="onload-animation" style={{ animationDelay: `${80 + index * 20}ms` }}>
-              <TaxonomyDirectoryCard
-                href={`/tags/${tag.slug}`}
-                name={`#${tag.name}`}
-                count={tag._count.posts}
-                badge="主题标签"
-                accent={tag.color ?? null}
-              />
-            </div>
-          ))}
-        </section>
+        <TaxonomyLoadError retryHref="/tags" title="标签加载失败，请稍后重试。" />
+      ) : items.length > 0 ? (
+        <>
+          {items.length > POPULAR_TAG_COUNT ? (
+            <TagDirectoryGroup headingId="tags-popular-title" tags={popular} title="常用" />
+          ) : null}
+          <TagDirectoryGroup delay={0.06} headingId="tags-all-title" tags={items} title="全部" />
+        </>
       ) : (
-        <section className="reader-panel p-8 text-sm text-[var(--text-muted)]">当前还没有可展示的标签专题。</section>
+        <EmptyState
+          title="当前还没有可展示的标签"
+          actions={<TextLink href="/posts">浏览全部文章</TextLink>}
+        />
       )}
-    </div>
+    </>
   )
 }
