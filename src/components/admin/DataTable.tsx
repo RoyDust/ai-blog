@@ -49,6 +49,55 @@ interface DataTableProps<T extends { id: string }> {
   }>;
 }
 
+type BulkAction = NonNullable<DataTableProps<{ id: string }>["bulkActions"]>[number];
+
+/** 批量操作条：「已选 N 项」+ 描边按钮（破坏性的用 danger 描边），未勾选时置灰 */
+function BulkActionsBar({ actions, selectedIds }: { actions: BulkAction[]; selectedIds: string[] }) {
+  const hasSelection = selectedIds.length > 0;
+
+  return (
+    <div className="flex shrink-0 flex-wrap items-center gap-3 py-2.5 text-[0.8125rem]">
+      <span className={cn("font-bold tabular-nums", hasSelection ? "text-[var(--foreground)]" : "text-[var(--text-muted)]")}>
+        已选 {selectedIds.length} 项
+      </span>
+      <span aria-hidden="true" className="h-5 w-px bg-[var(--border)]" />
+      <div className="flex items-center gap-2">
+        {actions.map((action) => (
+          <Button
+            key={action.label}
+            disabled={!hasSelection || action.disabled}
+            onClick={() => action.onClick(selectedIds)}
+            size="sm"
+            type="button"
+            variant={action.variant === "danger" ? "outline-danger" : "outline"}
+          >
+            {action.label}
+          </Button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** 加载骨架：保留表头线，每格一根与真实行同高（44px）的细条 */
+function DataTableSkeleton({ className, label, rowCount }: { className?: string; label: string; rowCount: number }) {
+  return (
+    <div aria-busy="true" className={className} role="status">
+      <span className="ed-visually-hidden">{label}</span>
+      <div aria-hidden="true" className="border-t border-[var(--reader-border-strong)]">
+        {Array.from({ length: rowCount }).map((_, index) => (
+          <div key={index} className="flex h-11 items-center gap-6 border-b border-[var(--border)] px-2">
+            <SkeletonBar className="size-4" />
+            <SkeletonBar strong className="h-3.5 w-[34%]" />
+            <SkeletonBar className="h-3 w-[18%]" />
+            <SkeletonBar className="h-3 w-[14%]" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function DataTable<T extends { id: string }>({
   title,
   rows,
@@ -122,7 +171,6 @@ export function DataTable<T extends { id: string }>({
   const reduceMotion = useReducedMotion();
   const statusClassName = fillHeight ? "min-h-0 flex-1" : undefined;
   const emptyStateClassName = fillHeight ? "flex min-h-0 flex-1 items-start" : "flex items-start";
-  const hasSelection = visibleSelectedIds.length > 0;
 
   return (
     <Card
@@ -142,44 +190,10 @@ export function DataTable<T extends { id: string }>({
 
         {toolbar ? <div className="shrink-0 pt-3 pb-3.5">{toolbar}</div> : null}
 
-        {bulkActions.length > 0 ? (
-          <div className="flex shrink-0 flex-wrap items-center gap-3 py-2.5 text-[0.8125rem]">
-            <span className={cn("font-bold tabular-nums", hasSelection ? "text-[var(--foreground)]" : "text-[var(--text-muted)]")}>
-              已选 {visibleSelectedIds.length} 项
-            </span>
-            <span aria-hidden="true" className="h-5 w-px bg-[var(--border)]" />
-            <div className="flex items-center gap-2">
-              {bulkActions.map((action) => (
-                <Button
-                  key={action.label}
-                  disabled={visibleSelectedIds.length === 0 || action.disabled}
-                  onClick={() => action.onClick(visibleSelectedIds)}
-                  size="sm"
-                  type="button"
-                  variant={action.variant === "danger" ? "outline-danger" : "outline"}
-                >
-                  {action.label}
-                </Button>
-              ))}
-            </div>
-          </div>
-        ) : null}
+        {bulkActions.length > 0 ? <BulkActionsBar actions={bulkActions} selectedIds={visibleSelectedIds} /> : null}
 
         {isLoading ? (
-          <div aria-busy="true" className={statusClassName} role="status">
-            <span className="ed-visually-hidden">{loadingLabel}</span>
-            {/* 骨架：保留表头线，每格一根与真实行同高的细条 */}
-            <div aria-hidden="true" className="border-t border-[var(--reader-border-strong)]">
-              {Array.from({ length: Math.min(pageSize, 6) }).map((_, index) => (
-                <div key={index} className="flex h-11 items-center gap-6 border-b border-[var(--border)] px-2">
-                  <SkeletonBar className="size-4" />
-                  <SkeletonBar strong className="h-3.5 w-[34%]" />
-                  <SkeletonBar className="h-3 w-[18%]" />
-                  <SkeletonBar className="h-3 w-[14%]" />
-                </div>
-              ))}
-            </div>
-          </div>
+          <DataTableSkeleton className={statusClassName} label={loadingLabel} rowCount={Math.min(pageSize, 6)} />
         ) : rows.length === 0 ? (
           <div className={emptyStateClassName} role="status">
             {emptyState ?? (
