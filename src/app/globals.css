@@ -321,6 +321,8 @@ html body[data-radix-select-open][data-scroll-locked] {
 }
 
 :root {
+  /* 普惠体按 unicode-range 分片自托管，见 src/styles/fonts/alibaba-puhuiti/500.css */
+  --font-alibaba-puhuiti: "Alibaba PuHuiTi", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
   --radius: 0.75rem;
   --card: var(--surface);
   --card-foreground: var(--foreground);
