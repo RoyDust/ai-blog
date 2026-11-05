@@ -8,7 +8,9 @@ beforeAll(() => {
 
   Object.defineProperty(window, 'matchMedia', {
     writable: true,
-    value: vi.fn().mockImplementation((query: string) => ({
+    // 实现直接传给 vi.fn：restoreAllMocks / mockRestore 会还原到这个实现，而不是清空
+    // （motion 的 useReducedMotion 依赖 matchMedia，被清空后组件会抛错）
+    value: vi.fn((query: string) => ({
       matches: false,
       media: query,
       onchange: null,
