@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import type { Metadata } from "next";
 import { Mail, Send } from "lucide-react";
 import { getBlogSettings } from "@/lib/blog-settings";

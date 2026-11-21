@@ -20,7 +20,15 @@ import { beforeEach, describe, expect, test, vi } from "vitest"
 
 import { DEFAULT_AI_NEWS_SOURCES } from "@/lib/ai-news/default-sources"
 import type { AiModelOption } from "@/lib/ai-models"
-import { runDailyAiNews } from "@/lib/ai-news/run/entry"
+import {
+  __resetAiNewsActiveRunsForTests,
+  runDailyAiNews,
+  STALE_AI_NEWS_RUN_ERROR,
+} from "@/lib/ai-news/run/entry"
+import {
+  AI_NEWS_ADVISORY_LOCK_NAMESPACE,
+  type AiNewsRunRepository,
+} from "@/lib/ai-news/run/steps"
 import { ConflictError } from "@/lib/api-errors"
 
 const mocks = vi.hoisted(() => ({
@@ -287,6 +295,7 @@ function createPipelineFetch({
 describe("runDailyAiNews orchestration behavior", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    __resetAiNewsActiveRunsForTests()
     mocks.resolveDailyAiNewsModel.mockResolvedValue(fakeAiModel)
     mocks.applyAiNewsPostEnhancements.mockResolvedValue({ post: null, applied: [], skipped: [], failed: [] })
   })
@@ -508,7 +517,7 @@ describe("runDailyAiNews orchestration behavior", () => {
     })
   })
 
-  test("branch b: regenerate updates the existing published AI news post and returns operation regenerated", async () => {
+  test("branch b: regenerate updates the existing published AI news post without calling legacy 6000-token draft generator", async () => {
     const runRepository = createRunRepository({
       id: "post-existing",
       title: "旧日报",
@@ -528,13 +537,20 @@ describe("runDailyAiNews orchestration behavior", () => {
       candidateRepository: null,
     })
 
+    const legacyDraftCalls = fetchImpl.mock.calls
+      .filter(([, init]) => init?.method === "POST")
+      .map(([, init]) => String(init?.body ?? ""))
+      .filter((bodyText) => bodyText.includes("请基于候选新闻生成一篇中文 AI 新闻日报博客"))
+    expect(legacyDraftCalls).toHaveLength(0)
+
+    const expectedFallbackTitle = "2026-04-29 AI 日报：OpenAI 发布企业级代理"
     expect(mocks.createAdminPost).not.toHaveBeenCalled()
     expect(mocks.updateAdminPost).toHaveBeenCalledWith({
       id: "post-existing",
       input: expect.objectContaining({
-        title: DRAFT_RESPONSE.title,
+        title: expectedFallbackTitle,
         slug: RUN_SLUG,
-        excerpt: DRAFT_RESPONSE.excerpt,
+        excerpt: "OpenAI 发布企业级代理 的核心事实摘要。",
         published: true,
         generatedByAiNews: true,
       }),
@@ -547,7 +563,7 @@ describe("runDailyAiNews orchestration behavior", () => {
       data: expect.objectContaining({
         status: "SUCCEEDED",
         postId: "post-existing",
-        postTitle: DRAFT_RESPONSE.title,
+        postTitle: expectedFallbackTitle,
         postSlug: RUN_SLUG,
         published: true,
         generationMode: "candidate-pipeline",
@@ -561,9 +577,10 @@ describe("runDailyAiNews orchestration behavior", () => {
     })
   })
 
-  test("branch c: fresh run creates, enhances, and publishes the post with full metrics and generatedByAiNews writeback", async () => {
+  test("branch c: fresh run creates, enhances, and publishes the post with editorialBrief-derived title and zero legacy draft calls", async () => {
     const runRepository = createRunRepository(null)
-    mocks.createAdminPost.mockResolvedValueOnce({ id: "post-1", title: DRAFT_RESPONSE.title, slug: RUN_SLUG, published: false })
+    const expectedEditorialTitle = "2026-04-29 AI 日报：AI 能力从产品走向平台化开放"
+    mocks.createAdminPost.mockResolvedValueOnce({ id: "post-1", title: expectedEditorialTitle, slug: RUN_SLUG, published: false })
     mocks.publishAiDraftPost.mockResolvedValueOnce({ id: "post-1", published: true })
     // 增强结果返回与草稿值不同的差异化字段（形状对照 AiNewsPostEnhancementResult.post / PostForAi），
     // 钉住 entry.ts 的 {...post, ...enhancedPost} 合并：增强值必须覆盖草稿值，
@@ -599,12 +616,18 @@ describe("runDailyAiNews orchestration behavior", () => {
       candidateRepository: null,
     })
 
+    const legacyDraftCalls = fetchImpl.mock.calls
+      .filter(([, init]) => init?.method === "POST")
+      .map(([, init]) => String(init?.body ?? ""))
+      .filter((bodyText) => bodyText.includes("请基于候选新闻生成一篇中文 AI 新闻日报博客"))
+    expect(legacyDraftCalls).toHaveLength(0)
+
     expect(mocks.createAdminPost).toHaveBeenCalledWith({
       authorId: "admin-1",
       input: expect.objectContaining({
-        title: DRAFT_RESPONSE.title,
+        title: expectedEditorialTitle,
         slug: RUN_SLUG,
-        excerpt: DRAFT_RESPONSE.excerpt,
+        excerpt: EDITORIAL_BRIEF_INTRO,
         published: false,
         generatedByAiNews: true,
         // 编辑简报请求已发出且被渲染消费：合法简报的 intro 进入最终正文
@@ -807,26 +830,28 @@ describe("runDailyAiNews orchestration behavior", () => {
     })
   })
 
-  test("branch e: draft step failure records a FAILED run with failureCount and error message before rethrowing", async () => {
-    const runRepository = createRunRepository(null)
-    // 草稿调用返回空内容 → generateDailyAiNewsDraft 抛错
-    const fetchImpl = createPipelineFetch({ scoreByTitle: SCORE_BY_TITLE, draftResponse: "" })
+  test("branch e: fallback draft failure or pipeline persistence failure records FAILED run before rethrowing", async () => {
+    const lowScores = new Map<string, Record<string, unknown>>([
+      ["OpenAI 发布企业级代理", { score: 1, reason: "弱相关", summary: "相关性较弱。", tags: [], riskFlags: [] }],
+      ["NotebookLM adds developer APIs", { score: 2, reason: "弱相关", summary: "相关性较弱。", tags: [], riskFlags: [] }],
+    ])
+    const fallbackRepo = createRunRepository(null)
+    const fallbackFetch = createPipelineFetch({ scoreByTitle: lowScores, draftResponse: "" })
 
     await expect(
       runDailyAiNews({
         authorId: "admin-1",
         date: RUN_DATE,
-        fetchImpl,
-        runRepository,
+        fetchImpl: fallbackFetch,
+        runRepository: fallbackRepo,
         candidateRepository: null,
       }),
     ).rejects.toThrow("AI news generation returned invalid JSON")
 
     expect(mocks.createAdminPost).not.toHaveBeenCalled()
     expect(mocks.publishAiDraftPost).not.toHaveBeenCalled()
-
-    expect(runRepository.aiNewsRun.update).toHaveBeenCalledTimes(2)
-    expect(runRepository.aiNewsRun.update).toHaveBeenLastCalledWith({
+    expect(fallbackRepo.aiNewsRun.update).toHaveBeenCalledTimes(2)
+    expect(fallbackRepo.aiNewsRun.update).toHaveBeenLastCalledWith({
       where: { id: "run-1" },
       data: expect.objectContaining({
         status: "FAILED",
@@ -834,10 +859,35 @@ describe("runDailyAiNews orchestration behavior", () => {
         rawCandidateCount: 2,
         failureCount: 1,
         error: "AI news generation returned invalid JSON",
+        generationMode: "fallback",
+      }),
+    })
+
+    // candidate-pipeline 模式下完全不调用 generateDailyAiNewsDraft（即使 draftResponse 为空也不会触发 JSON 错误），
+    // 下游写库抛错时同样记 FAILED 并重抛。
+    const pipelineRepo = createRunRepository(null)
+    mocks.createAdminPost.mockRejectedValueOnce(new Error("post insert failed"))
+    const pipelineFetch = createPipelineFetch({ scoreByTitle: SCORE_BY_TITLE, draftResponse: "" })
+
+    await expect(
+      runDailyAiNews({
+        authorId: "admin-1",
+        date: RUN_DATE,
+        fetchImpl: pipelineFetch,
+        runRepository: pipelineRepo,
+        candidateRepository: null,
+      }),
+    ).rejects.toThrow("post insert failed")
+
+    expect(pipelineRepo.aiNewsRun.update).toHaveBeenLastCalledWith({
+      where: { id: "run-1" },
+      data: expect.objectContaining({
+        status: "FAILED",
+        failureCount: 1,
+        error: "post insert failed",
         generationMode: "candidate-pipeline",
       }),
     })
-    expect(runRepository.post.updateMany).not.toHaveBeenCalled()
   })
 
   test("branch f: semantic dedupe shrinkage reflects in run-level selectedCandidateCount and dropped candidates never reach draft or fact cards", async () => {
@@ -906,5 +956,207 @@ describe("runDailyAiNews orchestration behavior", () => {
     expect(factCardPrompts).toHaveLength(1)
     expect(factCardPrompts[0]).toContain("Title: OpenAI 发布企业级代理")
     expect(factCardPrompts[0]).not.toContain("NotebookLM")
+  })
+
+  test("acquires date-keyed PostgreSQL advisory lock and rejects concurrent Cron + manual runs without P2002 collision", async () => {
+    let releaseFeedFetch!: () => void
+    const feedGate = new Promise<void>((resolve) => {
+      releaseFeedFetch = resolve
+    })
+    const queryRawUnsafe = vi.fn(async () => [{ locked: true }])
+    const findFirstRun = vi.fn(async () => null)
+    const updateManyRun = vi.fn(async () => ({ count: 0 }))
+    let runSeq = 0
+
+    const runRepository: AiNewsRunRepository = {
+      aiNewsRun: {
+        create: vi.fn(async () => {
+          runSeq += 1
+          return { id: `run-${runSeq}` }
+        }),
+        update: vi.fn(async () => ({})),
+        findFirst: findFirstRun,
+        updateMany: updateManyRun,
+      },
+      post: {
+        findFirst: vi.fn(async () => null),
+        updateMany: vi.fn(async () => ({ count: 1 })),
+      },
+      $queryRawUnsafe: queryRawUnsafe,
+      $transaction: <T>(fn: (tx: AiNewsRunRepository) => Promise<T>) => fn(runRepository),
+    }
+
+    mocks.createAdminPost.mockResolvedValueOnce({ id: "post-1", title: "2026-04-29 AI 日报", slug: RUN_SLUG, published: false })
+    mocks.publishAiDraftPost.mockResolvedValueOnce({ id: "post-1", published: true })
+
+    const baseFetch = createPipelineFetch({ scoreByTitle: SCORE_BY_TITLE })
+    let gatedOnce = false
+    const gatedFetch = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      if (!gatedOnce && String(input) === FEED_URL) {
+        gatedOnce = true
+        await feedGate
+      }
+      return baseFetch(input, init)
+    })
+
+    const onRunCreatedEvents: Array<{ id: string; status: "RUNNING" }> = []
+    const cronPromise = runDailyAiNews({
+      authorId: "admin-1",
+      date: RUN_DATE,
+      trigger: "cron",
+      fetchImpl: gatedFetch as unknown as typeof fetch,
+      onRunCreated: (run) => onRunCreatedEvents.push(run),
+      runRepository,
+      candidateRepository: null,
+    })
+
+    await vi.waitFor(() => {
+      expect(onRunCreatedEvents).toEqual([{ id: "run-1", status: "RUNNING" }])
+    })
+    // Run record was persisted BEFORE external feed fetch resolved
+    expect(runRepository.aiNewsRun.create).toHaveBeenCalledTimes(1)
+    expect(queryRawUnsafe).toHaveBeenCalledWith(
+      "SELECT pg_try_advisory_xact_lock($1::int, $2::int) AS locked",
+      AI_NEWS_ADVISORY_LOCK_NAMESPACE,
+      20260429,
+    )
+
+    // Concurrent manual run for the same date is blocked cleanly with ConflictError + active runId
+    await expect(
+      runDailyAiNews({
+        authorId: "admin-1",
+        date: RUN_DATE,
+        trigger: "manual",
+        fetchImpl: baseFetch as unknown as typeof fetch,
+        runRepository,
+        candidateRepository: null,
+      }),
+    ).rejects.toMatchObject({
+      name: "ConflictError",
+      status: 409,
+      code: "AI_NEWS_ALREADY_RUNNING",
+      runId: "run-1",
+    })
+    expect(runRepository.aiNewsRun.create).toHaveBeenCalledTimes(1)
+
+    releaseFeedFetch()
+    const cronResult = await cronPromise
+    expect(cronResult.run).toEqual({ id: "run-1", status: "SUCCEEDED" })
+
+    // Cross-process PG advisory lock contention (pg_try_advisory_xact_lock -> false) also rejects cleanly
+    queryRawUnsafe.mockResolvedValueOnce([{ locked: false }])
+    findFirstRun.mockResolvedValueOnce({ id: "run-remote-active" } as never)
+    await expect(
+      runDailyAiNews({
+        authorId: "admin-1",
+        date: new Date("2026-04-30T08:00:00.000Z"),
+        trigger: "manual",
+        fetchImpl: baseFetch as unknown as typeof fetch,
+        runRepository,
+        candidateRepository: null,
+      }),
+    ).rejects.toMatchObject({
+      name: "ConflictError",
+      code: "AI_NEWS_ALREADY_RUNNING",
+      runId: "run-remote-active",
+    })
+  })
+
+  test("reaps stale RUNNING runs after simulated process interruption and recovers cleanly on rerun", async () => {
+    type StoredRun = {
+      id: string
+      runDate: Date
+      status: string
+      startedAt: Date
+      finishedAt: Date | null
+      error: string | null
+    }
+    const storedRuns: StoredRun[] = [
+      {
+        id: "run-crashed-1",
+        runDate: RUN_DATE,
+        status: "RUNNING",
+        startedAt: new Date(Date.now() - 20 * 60 * 1000),
+        finishedAt: null,
+        error: null,
+      },
+    ]
+
+    const runRepository: AiNewsRunRepository = {
+      aiNewsRun: {
+        create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => {
+          const id = `run-recovered-${storedRuns.length + 1}`
+          storedRuns.push({
+            id,
+            runDate: data.runDate as Date,
+            status: String(data.status),
+            startedAt: new Date(),
+            finishedAt: null,
+            error: null,
+          })
+          return { id }
+        }),
+        update: vi.fn(async ({ where, data }: { where: { id: string }; data: Record<string, unknown> }) => {
+          const target = storedRuns.find((item) => item.id === where.id)
+          if (target) {
+            if (typeof data.status === "string") target.status = data.status
+            if (data.finishedAt instanceof Date) target.finishedAt = data.finishedAt
+            if (typeof data.error === "string") target.error = data.error
+          }
+          return {}
+        }),
+        findFirst: vi.fn(async ({ where }: { where: Record<string, unknown> }) => {
+          const range = where.runDate as { gte: Date; lt: Date } | undefined
+          return (
+            storedRuns.find(
+              (item) =>
+                item.status === where.status &&
+                (!range || (item.runDate >= range.gte && item.runDate < range.lt)),
+            ) ?? null
+          )
+        }),
+        updateMany: vi.fn(async ({ where, data }: { where: Record<string, unknown>; data: Record<string, unknown> }) => {
+          const cutoff = (where.startedAt as { lte: Date }).lte
+          let count = 0
+          for (const item of storedRuns) {
+            if (item.status === "RUNNING" && item.startedAt <= cutoff) {
+              item.status = String(data.status)
+              item.error = String(data.error)
+              item.finishedAt = data.finishedAt as Date
+              count += 1
+            }
+          }
+          return { count }
+        }),
+      },
+      post: {
+        findFirst: vi.fn(async () => null),
+        updateMany: vi.fn(async () => ({ count: 1 })),
+      },
+      $queryRawUnsafe: vi.fn(async () => [{ locked: true }]),
+      $transaction: <T>(fn: (tx: AiNewsRunRepository) => Promise<T>) => fn(runRepository),
+    }
+
+    // Simulate process restart clearing in-memory state while run-crashed-1 remains RUNNING in DB
+    __resetAiNewsActiveRunsForTests()
+    mocks.createAdminPost.mockResolvedValueOnce({ id: "post-recovered", title: "2026-04-29 AI 日报", slug: RUN_SLUG, published: false })
+    mocks.publishAiDraftPost.mockResolvedValueOnce({ id: "post-recovered", published: true })
+
+    const result = await runDailyAiNews({
+      authorId: "admin-1",
+      date: RUN_DATE,
+      staleRunTimeoutMs: 15 * 60 * 1000,
+      fetchImpl: createPipelineFetch({ scoreByTitle: SCORE_BY_TITLE }),
+      runRepository,
+      candidateRepository: null,
+    })
+
+    expect(storedRuns[0]).toMatchObject({
+      id: "run-crashed-1",
+      status: "FAILED",
+      error: STALE_AI_NEWS_RUN_ERROR,
+      finishedAt: expect.any(Date),
+    })
+    expect(result.run).toEqual({ id: "run-recovered-2", status: "SUCCEEDED" })
   })
 })

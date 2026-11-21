@@ -1,6 +1,7 @@
 export const revalidate = 300;
 
 import type { Metadata } from "next";
+import type { Prisma } from "@prisma/client";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -11,6 +12,36 @@ import { prisma } from "@/lib/prisma";
 import { buildBreadcrumbJsonLd, buildPageMetadata } from "@/lib/seo";
 import { getSeriesViewTransitionName } from "@/lib/view-transition";
 import { JsonLd } from "@/components/seo/JsonLd";
+
+const SERIES_POST_SELECT = {
+  id: true,
+  title: true,
+  slug: true,
+  excerpt: true,
+  coverImage: true,
+  featured: true,
+  generatedByAiNews: true,
+  createdAt: true,
+  publishedAt: true,
+  seriesOrder: true,
+  readingTimeMinutes: true,
+  viewCount: true,
+  author: { select: { id: true, name: true, image: true } },
+  category: {
+    where: { deletedAt: null },
+    select: { id: true, name: true, slug: true },
+  },
+  tags: {
+    where: { deletedAt: null },
+    select: { id: true, name: true, slug: true },
+  },
+  _count: {
+    select: {
+      comments: { where: { deletedAt: null, status: "APPROVED" } },
+      likes: true,
+    },
+  },
+} satisfies Prisma.PostSelect;
 
 async function getPublicSeriesDetail(slug: string) {
   return prisma.series.findFirst({
@@ -30,17 +61,7 @@ async function getPublicSeriesDetail(slug: string) {
           deletedAt: null,
           published: true,
         },
-        include: {
-          author: { select: { id: true, name: true, image: true } },
-          category: true,
-          tags: { where: { deletedAt: null } },
-          _count: {
-            select: {
-              comments: { where: { deletedAt: null, status: "APPROVED" } },
-              likes: true,
-            },
-          },
-        },
+        select: SERIES_POST_SELECT,
         orderBy: [{ seriesOrder: "asc" }, { publishedAt: "desc" }, { createdAt: "desc" }],
       },
       _count: {
@@ -78,6 +99,16 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   });
 }
 
+function formatSeriesDuration(minutes: number) {
+  const safe = Math.max(0, Math.round(minutes));
+  if (safe < 60) {
+    return `${safe} 分钟`;
+  }
+  const hours = Math.floor(safe / 60);
+  const rest = safe % 60;
+  return rest > 0 ? `${hours} 小时 ${rest} 分` : `${hours} 小时`;
+}
+
 export default async function SeriesDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const [series, settings] = await Promise.all([getPublicSeriesDetail(slug), getBlogSettings()]);
@@ -85,6 +116,15 @@ export default async function SeriesDetailPage({ params }: { params: Promise<{ s
   if (!series) {
     notFound();
   }
+
+  const totalMinutes = series.posts.reduce((sum, post) => sum + (post.readingTimeMinutes ?? 0), 0);
+  const seriesMetaLabel = [
+    "连载中",
+    `${series._count.posts} 篇`,
+    totalMinutes > 0 ? `预计 ${formatSeriesDuration(totalMinutes)}` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   const breadcrumbJsonLd = buildBreadcrumbJsonLd([
     { name: "首页", path: "/" },
@@ -104,7 +144,7 @@ export default async function SeriesDetailPage({ params }: { params: Promise<{ s
             <div className="flex flex-wrap items-center gap-2">
               <span className="reader-chip">连载专栏</span>
               <span className="rounded-md bg-[var(--surface-alt)]/75 px-2.5 py-1 font-mono text-xs tabular-nums text-[var(--text-muted)]">
-                {series._count.posts} 篇已发布文章
+                {seriesMetaLabel}
               </span>
             </div>
             <h1

@@ -1,11 +1,13 @@
 import { CheckCircle2, SlidersHorizontal } from "lucide-react";
 
 import { AiModelManager } from "@/components/admin/ai/AiModelManager";
+import { requireAdminPageSession } from "@/lib/admin-page-auth";
 import { getPublicAiModelOptions } from "@/lib/ai-models";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminAiModelsPage() {
+  await requireAdminPageSession();
   const models = await getPublicAiModelOptions();
   const defaultSummaryModel = models.find((model) => model.defaultFor.includes("post-summary")) ?? models.find((model) => model.capabilities.includes("post-summary"));
   const defaultCoverModel = models.find((model) => model.defaultFor.includes("cover-image")) ?? models.find((model) => model.capabilities.includes("cover-image"));
@@ -18,7 +20,7 @@ export default async function AdminAiModelsPage() {
       <section className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="ui-surface rounded-xl p-6 shadow-[var(--shadow-card)]">
           <div className="flex items-start gap-4">
-            <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-[var(--brand)]">
+            <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[var(--brand-soft)] text-[var(--brand)]">
               <SlidersHorizontal className="h-5 w-5" />
             </span>
             <div className="min-w-0">

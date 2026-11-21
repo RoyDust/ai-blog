@@ -11,7 +11,7 @@ import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 import { NextResponse } from "next/server"
 import { toErrorResponse, TooManyRequestsError, ValidationError } from "@/lib/api-errors"
 import { checkAiSearchRateLimit, checkSearchRateLimit } from "@/lib/rate-limit"
-import { searchPublicPosts } from "@/lib/public-search"
+import { searchPublicPosts, type PublicSearchPost } from "@/lib/public-search"
 import { getAiModelForCapability } from "@/lib/ai-models"
 import { createCompletionClientForModel } from "@/lib/ai-completion-client"
 import { clampPagination } from "@/lib/validation"
@@ -20,13 +20,14 @@ const SEARCH_MIN_QUERY_LENGTH = 2
 const SEARCH_MAX_QUERY_LENGTH = 200
 const AI_SEARCH_CACHE_TTL_MS = 5 * 60_000
 const MAX_AI_SEARCH_CACHE_ENTRIES = 500
+const AI_SEARCH_SNIPPET_MAX_LENGTH = 220
 
 type SearchPostCandidate = {
   id: string
   title: string
   slug: string
   excerpt?: string | null
-  content?: string | null
+  contentSnippet?: string | null
   category?: { name?: string | null; slug?: string | null } | null
   tags?: Array<{ name?: string | null; slug?: string | null }>
 }
@@ -170,15 +171,20 @@ async function generateAiSearchResult({ query, items }: { query: string; items: 
     return null
   }
 
-  const candidates = items.slice(0, 8).map((item, index) => ({
-    index: index + 1,
-    slug: item.slug,
-    title: item.title,
-    excerpt: item.excerpt,
-    snippet: item.content?.slice(0, 220),
-    category: item.category?.name,
-    tags: item.tags?.map((tag) => tag.name).filter(Boolean),
-  }))
+  const candidates = items.slice(0, 8).map((item, index) => {
+    const excerpt = item.excerpt?.trim() || null
+    const contentSnippet = item.contentSnippet?.slice(0, AI_SEARCH_SNIPPET_MAX_LENGTH).trim() || null
+
+    return {
+      index: index + 1,
+      slug: item.slug,
+      title: item.title,
+      excerpt,
+      snippet: (contentSnippet || excerpt) ?? undefined,
+      category: item.category?.name,
+      tags: item.tags?.map((tag) => tag.name).filter(Boolean),
+    }
+  })
   const prompt = [
     '请根据用户查询和候选文章生成站内搜索摘要，并在候选范围内给出推荐顺序。',
     '只输出一个 JSON 对象，不要 Markdown、注释或额外说明。',
@@ -275,9 +281,45 @@ async function GETHandler(request: Request) {
       rankedItems = reorderByAiSlugs(rankedItems, ai.rankedSlugs)
     }
 
+    const publicItems = rankedItems.map((item: PublicSearchPost) => ({
+      id: item.id,
+      title: item.title,
+      slug: item.slug,
+      excerpt: item.excerpt ?? null,
+      coverImage: item.coverImage ?? null,
+      ...(item.featured !== undefined ? { featured: item.featured } : {}),
+      createdAt: item.createdAt,
+      ...(item.readingTimeMinutes !== undefined ? { readingTimeMinutes: item.readingTimeMinutes } : {}),
+      ...(item.viewCount !== undefined ? { viewCount: item.viewCount } : {}),
+      author: item.author
+        ? {
+            id: item.author.id,
+            name: item.author.name ?? null,
+            image: item.author.image ?? null,
+          }
+        : null,
+      category: item.category
+        ? {
+            name: item.category.name ?? null,
+            slug: item.category.slug ?? null,
+          }
+        : null,
+      tags: Array.isArray(item.tags)
+        ? item.tags.map((tag) => ({
+            name: tag.name ?? null,
+            slug: tag.slug ?? null,
+          }))
+        : [],
+      _count: {
+        comments: item._count?.comments ?? 0,
+        likes: item._count?.likes ?? 0,
+      },
+      searchMeta: item.searchMeta,
+    }))
+
     return NextResponse.json({
       success: true,
-      data: rankedItems,
+      data: publicItems,
       pagination: {
         page,
         limit,

@@ -5,6 +5,7 @@ import { AiTaskActivitySync } from "@/components/admin/ai/AiTaskActivitySync";
 import { AiTaskDetail } from "@/components/admin/ai/AiTaskDetail";
 import { PageHeader } from "@/components/admin/primitives/PageHeader";
 import { Button } from "@/components/admin/ui";
+import { requireAdminPageSession } from "@/lib/admin-page-auth";
 import { NotFoundError } from "@/lib/api-errors";
 import { getAiTaskDetail } from "@/lib/ai-tasks";
 
@@ -28,6 +29,7 @@ function serializeTask(task: Awaited<ReturnType<typeof getAiTaskDetail>>) {
 }
 
 export default async function AdminAiTaskDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  await requireAdminPageSession();
   const { id } = await params;
   let task: Awaited<ReturnType<typeof getAiTaskDetail>>;
 

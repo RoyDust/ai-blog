@@ -1,6 +1,12 @@
 import type { Prisma } from "@prisma/client";
 
 import { NotFoundError, ValidationError } from "@/lib/api-errors";
+import {
+  createPublicCachedReader,
+  PUBLIC_CACHE_TAGS,
+  PUBLIC_REVALIDATE_SECONDS,
+  revalidateTopicGuides,
+} from "@/lib/cache";
 import { prisma } from "@/lib/prisma";
 import { generatePostSlug } from "@/lib/slug";
 
@@ -118,7 +124,7 @@ export async function createTopicGuide(input: TopicGuideInput) {
   const guide = normalizeTopicGuideInput(input);
   await assertGuidePostsExist(guide.posts);
 
-  return prisma.topicGuide.create({
+  const created = await prisma.topicGuide.create({
     data: {
       title: guide.title,
       slug: guide.slug,
@@ -130,6 +136,10 @@ export async function createTopicGuide(input: TopicGuideInput) {
     },
     include: getAdminTopicGuideInclude(),
   });
+
+  revalidateTopicGuides({ slug: created.slug ?? guide.slug });
+
+  return created;
 }
 
 export function getAdminTopicGuideInclude() {
@@ -217,6 +227,11 @@ export async function updateTopicGuide(id: string, input: Partial<TopicGuideInpu
 
   await prisma.$transaction(operations);
 
+  revalidateTopicGuides({
+    slug,
+    previousSlug: existing.slug,
+  });
+
   return getAdminTopicGuideById(id);
 }
 
@@ -227,55 +242,98 @@ export async function setTopicGuideStatus(id: string, status: TopicGuideStatus) 
 export async function softDeleteTopicGuide(id: string) {
   const guide = await prisma.topicGuide.findFirst({
     where: { id, deletedAt: null },
-    select: { id: true },
+    select: { id: true, slug: true },
   });
 
   if (!guide) {
     throw new NotFoundError("Topic guide not found");
   }
 
-  return prisma.topicGuide.update({
+  const deleted = await prisma.topicGuide.update({
     where: { id },
     data: { deletedAt: new Date() },
   });
+
+  revalidateTopicGuides({
+    previousSlug: guide.slug ?? deleted?.slug,
+  });
+
+  return deleted;
 }
+
+const publicGuidePostSelect = {
+  id: true,
+  title: true,
+  slug: true,
+  generatedByAiNews: true,
+  excerpt: true,
+  coverImage: true,
+  featured: true,
+  createdAt: true,
+  readingTimeMinutes: true,
+  viewCount: true,
+  author: { select: { id: true, name: true, image: true } },
+  category: { select: { id: true, name: true, slug: true } },
+  tags: { where: { deletedAt: null }, select: { id: true, name: true, slug: true } },
+  _count: {
+    select: {
+      comments: { where: { deletedAt: null, status: "APPROVED" } },
+      likes: true,
+    },
+  },
+} satisfies Prisma.PostSelect;
 
 const publicGuidePostInclude = {
   post: {
-    include: {
-      author: { select: { id: true, name: true, image: true } },
-      category: { select: { id: true, name: true, slug: true } },
-      tags: { where: { deletedAt: null }, select: { id: true, name: true, slug: true } },
-      _count: {
-        select: {
-          comments: { where: { deletedAt: null, status: "APPROVED" } },
-          likes: true,
-        },
-      },
-    },
+    select: publicGuidePostSelect,
   },
 } satisfies Prisma.TopicGuidePostInclude;
 
+function reviveDateFields<T extends Record<string, unknown>>(record: T, keys: Array<keyof T>): T {
+  let next = record;
+  for (const key of keys) {
+    const value = next[key];
+    if (typeof value === "string") {
+      next = { ...next, [key]: new Date(value) };
+    }
+  }
+  return next;
+}
+
+async function queryPublicTopicGuides() {
+  return prisma.topicGuide.findMany({
+    where: {
+      status: "published",
+      deletedAt: null,
+      posts: {
+        some: {
+          post: { published: true, deletedAt: null },
+        },
+      },
+    },
+    include: {
+      posts: {
+        where: { post: { published: true, deletedAt: null } },
+        select: { id: true },
+      },
+    },
+    orderBy: [{ createdAt: "desc" }, { id: "asc" }],
+  });
+}
+
+const getCachedPublicTopicGuides = createPublicCachedReader(queryPublicTopicGuides, {
+  keyParts: ["public-topic-guides-list"],
+  revalidate: PUBLIC_REVALIDATE_SECONDS,
+  tags: [PUBLIC_CACHE_TAGS.topicGuides, PUBLIC_CACHE_TAGS.posts],
+  rehydrate: (guides) =>
+    guides.map((guide) =>
+      reviveDateFields(guide as unknown as Record<string, unknown>, ["createdAt", "updatedAt", "deletedAt"]) as typeof guide,
+    ),
+});
+
 export async function listPublicTopicGuides() {
   try {
-    return await prisma.topicGuide.findMany({
-      where: {
-        status: "published",
-        deletedAt: null,
-        posts: {
-          some: {
-            post: { published: true, deletedAt: null },
-          },
-        },
-      },
-      include: {
-        posts: {
-          where: { post: { published: true, deletedAt: null } },
-          select: { id: true },
-        },
-      },
-      orderBy: [{ createdAt: "desc" }, { id: "asc" }],
-    });
+    return await getCachedPublicTopicGuides();
   } catch (error) {
     if (isMissingTopicGuideStorageError(error)) {
       return [];
@@ -285,26 +343,69 @@ export async function listPublicTopicGuides() {
   }
 }
 
+async function queryPublicTopicGuideBySlug(slug: string) {
+  const guide = await prisma.topicGuide.findFirst({
+    where: {
+      slug,
+      status: "published",
+      deletedAt: null,
+    },
+    include: {
+      posts: {
+        where: { post: { published: true, deletedAt: null } },
+        include: publicGuidePostInclude,
+        orderBy: [{ order: "asc" }, { createdAt: "asc" }],
+      },
+    },
+  });
+
+  return guide ?? null;
+}
+
+const getCachedPublicTopicGuideBySlug = createPublicCachedReader(queryPublicTopicGuideBySlug, {
+  keyParts: ["public-topic-guide-detail"],
+  revalidate: PUBLIC_REVALIDATE_SECONDS,
+  tags: [
+    PUBLIC_CACHE_TAGS.topicGuides,
+    PUBLIC_CACHE_TAGS.posts,
+    PUBLIC_CACHE_TAGS.categories,
+    PUBLIC_CACHE_TAGS.tags,
+  ],
+  rehydrate: (guide) => {
+    if (!guide) {
+      return null;
+    }
+
+    const revivedGuide = reviveDateFields(guide as unknown as Record<string, unknown>, [
+      "createdAt",
+      "updatedAt",
+      "deletedAt",
+    ]) as typeof guide;
+
+    if (!Array.isArray(revivedGuide.posts)) {
+      return revivedGuide;
+    }
+
+    return {
+      ...revivedGuide,
+      posts: revivedGuide.posts.map((item) => {
+        const revivedItem = reviveDateFields(item as unknown as Record<string, unknown>, ["createdAt"]) as typeof item;
+        if (!revivedItem.post) {
+          return revivedItem;
+        }
+
+        return {
+          ...revivedItem,
+          post: reviveDateFields(revivedItem.post as unknown as Record<string, unknown>, ["createdAt"]) as typeof revivedItem.post,
+        };
+      }),
+    };
+  },
+});
+
 export async function getPublicTopicGuideBySlug(slug: string) {
   try {
-    const guide = await prisma.topicGuide.findFirst({
-      where: {
-        slug,
-        status: "published",
-        deletedAt: null,
-      },
-      include: {
-        posts: {
-          where: { post: { published: true, deletedAt: null } },
-          include: publicGuidePostInclude,
-          orderBy: [{ order: "asc" }, { createdAt: "asc" }],
-        },
-      },
-    });
-
-    if (!guide) return null;
-
-    return guide;
+    return await getCachedPublicTopicGuideBySlug(slug);
   } catch (error) {
     if (isMissingTopicGuideStorageError(error)) {
       return null;

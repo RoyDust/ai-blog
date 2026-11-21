@@ -1,6 +1,7 @@
 import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 import { NextResponse } from "next/server";
 
+import { handleAdminAiTasksResume } from "@/app/api/admin/ai/tasks/resume/route";
 import { requireAdminSession } from "@/lib/api-auth";
 import { listAiTasks } from "@/lib/ai-tasks";
 import { toErrorResponse } from "@/lib/api-errors";
@@ -24,3 +25,4 @@ async function GETHandler(request: Request) {
 }
 
 export const GET = withApiOperationLogging(GETHandler, { scope: 'admin', operation: 'admin.ai.tasks.read', route: '/api/admin/ai/tasks' });
+export const POST = withApiOperationLogging(handleAdminAiTasksResume, { scope: 'admin', operation: 'admin.ai.tasks.resume', route: '/api/admin/ai/tasks' });

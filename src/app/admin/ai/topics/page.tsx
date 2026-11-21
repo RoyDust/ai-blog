@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/admin/primitives/PageHeader"
 import { StatusBadge } from "@/components/admin/primitives/StatusBadge"
 import { WorkspacePanel } from "@/components/admin/primitives/WorkspacePanel"
 import { Button } from "@/components/admin/ui"
+import { requireAdminPageSession } from "@/lib/admin-page-auth"
 import { requireAdminSession } from "@/lib/api-auth"
 import { createDraftFromTopic, listAiTopics, materializeTopicsFromRecentCandidates, updateAiTopic } from "@/lib/ai-topic-radar"
 
@@ -173,6 +174,7 @@ export default async function AdminAiTopicsPage({
 }: {
   searchParams: Promise<AiTopicsPageSearchParams>
 }) {
+  await requireAdminPageSession()
   const params = await searchParams
   const activeStatus = params.status ?? "NEW"
   const topics = await listAiTopics({ status: activeStatus })

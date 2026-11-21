@@ -14,6 +14,7 @@ import { AdminTodoStrip } from "@/components/admin/dashboard/AdminTodoStrip";
 import { WorkspacePanel } from "@/components/admin/primitives/WorkspacePanel";
 import { StatusBadge } from "@/components/admin/primitives/StatusBadge";
 import { FallbackImage } from "@/components/admin/ui";
+import { requireAdminPageSession } from "@/lib/admin-page-auth";
 import {
   getAdminStatsRangeWindow,
   getAdminTodoCounts,
@@ -475,6 +476,7 @@ function PopularPostsPanel({ posts, range }: { posts: PopularPostListItem[]; ran
  * 使用并发查询一次性拿到首页卡片所需数据，避免串行等待拖慢首屏。
  */
 export default async function AdminPage({ searchParams }: { searchParams?: Promise<{ range?: string }> } = {}) {
+  await requireAdminPageSession();
   const resolvedSearchParams = await searchParams;
   const range = parseAdminStatsRange(resolvedSearchParams?.range);
   const [todoCounts, draftQueue, pendingQueue, popularPosts, aiModels, dashboardComparison, blogSettings] = await Promise.all([

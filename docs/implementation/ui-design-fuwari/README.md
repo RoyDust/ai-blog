@@ -1,6 +1,6 @@
 # Inkforge 前后台统一 UI 设计规范（Fuwari × Shiro 温润独立博客与高效工作台）
 
-- 基线分支：`origin/main`（`d095b90`）→ 改造分支 `feat/fuwari-ui-redesign`
+- 基线分支：`origin/main`（`2e1b657`）→ 改造分支 `feat/fuwari-ui-redesign`
 - 设计取向：去 AI 模板感、去生硬灰线框套娃、保留“真实人的书房与工作室”温度
 
 ## 1. 设计文件目录

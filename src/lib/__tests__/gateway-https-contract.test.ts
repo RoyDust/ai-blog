@@ -251,8 +251,13 @@ set -eu
 printf '%s\\n' "$*" >> "$MOCK_CURL_LOG"
 output_file=""
 write_http_code=0
+request_method="GET"
 while [ "$#" -gt 0 ]; do
   case "$1" in
+    --request|-X)
+      request_method="$2"
+      shift 2
+      ;;
     --output)
       output_file="$2"
       shift 2
@@ -267,7 +272,13 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 if [ -n "$output_file" ]; then
-  printf '{"status":"SUCCEEDED"}' > "$output_file"
+  if [ -n "\${MOCK_CURL_TRIGGER_BODY+x}" ] && [ "$request_method" = "POST" ]; then
+    printf '%s' "$MOCK_CURL_TRIGGER_BODY" > "$output_file"
+  elif [ "$request_method" = "POST" ]; then
+    printf '{"success":true,"data":{"operation":"queued","runId":"run-cron-1","date":"2026-11-22","run":{"id":"run-cron-1","status":"RUNNING"}}}' > "$output_file"
+  else
+    printf '{"success":true,"data":{"operation":"finished","runId":"run-cron-1","run":{"id":"run-cron-1","status":"SUCCEEDED"}}}' > "$output_file"
+  fi
 fi
 if [ "$write_http_code" = "1" ]; then
   printf '200'
@@ -541,6 +552,15 @@ describe("Unit B2: Cron workflows HTTPS enforcement and concurrency guards", () 
         expect(call).toContain("--max-time 30")
         expect(call).toContain(`https://blog.example.com${expectedPathSuffix}`)
         expect(call).not.toContain(`https://blog.example.com//`)
+      }
+      if (relativePath === ".github/workflows/daily-ai-news.yml") {
+        expect(httpsResult.curlCalls[1]).toContain("https://blog.example.com/api/cron/ai-news?runId=run-cron-1")
+        const missingRunIdResult = executeWorkflowRunScript(bashPath, runScript, {
+          PRODUCTION_BASE_URL: "https://blog.example.com",
+          MOCK_CURL_TRIGGER_BODY: '{"success":true,"data":{"operation":"queued"}}',
+        })
+        expect(missingRunIdResult.status).not.toBe(0)
+        expect(missingRunIdResult.stderr).toContain("Missing runId in daily AI news trigger response")
       }
     }
   )

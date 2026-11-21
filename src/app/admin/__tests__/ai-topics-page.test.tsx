@@ -1,14 +1,38 @@
 import { render, screen, within } from "@testing-library/react"
 import React from "react"
-import { describe, expect, test, vi } from "vitest"
+import { beforeEach, describe, expect, test, vi } from "vitest"
 
-const mocks = vi.hoisted(() => ({
-  listAiTopics: vi.fn(),
-  requireAdminSession: vi.fn(),
-  materializeTopicsFromRecentCandidates: vi.fn(),
-  updateAiTopic: vi.fn(),
-  createDraftFromTopic: vi.fn(),
+const mocks = vi.hoisted(() => {
+  const redirectError = new Error("NEXT_REDIRECT")
+  return {
+    getServerSession: vi.fn(),
+    redirectError,
+    redirect: vi.fn(() => {
+      throw redirectError
+    }),
+    listAiTopics: vi.fn(),
+    requireAdminSession: vi.fn(),
+    materializeTopicsFromRecentCandidates: vi.fn(),
+    updateAiTopic: vi.fn(),
+    createDraftFromTopic: vi.fn(),
+  }
+})
+
+vi.mock("next-auth", () => ({
+  getServerSession: mocks.getServerSession,
 }))
+
+vi.mock("@/lib/auth", () => ({
+  authOptions: {},
+}))
+
+vi.mock("next/navigation", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("next/navigation")>()
+  return {
+    ...actual,
+    redirect: mocks.redirect,
+  }
+})
 
 vi.mock("@/lib/ai-topic-radar", () => ({
   listAiTopics: mocks.listAiTopics,
@@ -22,6 +46,21 @@ vi.mock("@/lib/api-auth", () => ({
 }))
 
 describe("admin AI topics page", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mocks.getServerSession.mockResolvedValue({ user: { id: "admin-1", role: "ADMIN" } })
+  })
+
+  test("redirects demoted USER sessions before listing AI topics", async () => {
+    mocks.getServerSession.mockResolvedValueOnce({ user: { id: "user-1", role: "USER" } })
+
+    const { default: AdminAiTopicsPage } = await import("../ai/topics/page")
+
+    await expect(AdminAiTopicsPage({ searchParams: Promise.resolve({ status: "NEW" }) })).rejects.toThrow(mocks.redirectError)
+    expect(mocks.redirect).toHaveBeenCalledWith("/?login=1&error=not-admin&callbackUrl=%2Fadmin")
+    expect(mocks.listAiTopics).not.toHaveBeenCalled()
+  })
+
   test("renders topic radar with status tabs, metrics, sources, and actions", async () => {
     mocks.listAiTopics.mockResolvedValueOnce([
       {

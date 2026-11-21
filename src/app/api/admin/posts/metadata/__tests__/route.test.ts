@@ -13,17 +13,43 @@ vi.mock("@/lib/taxonomy", () => ({
   getTagDirectory: vi.fn(),
 }));
 
+const prismaMocks = vi.hoisted(() => ({
+  findManyMock: vi.fn(),
+  findUniqueMock: vi.fn(),
+  countMock: vi.fn(),
+}));
+
+vi.mock("@/lib/prisma", () => ({
+  prisma: {
+    aiModel: {
+      findMany: prismaMocks.findManyMock,
+      findUnique: prismaMocks.findUniqueMock,
+      count: prismaMocks.countMock,
+    },
+  },
+}));
+
 describe("admin post metadata route", () => {
   const originalEnv = { ...process.env };
 
   beforeEach(async () => {
     vi.resetModules();
     vi.unstubAllGlobals();
+    vi.clearAllMocks();
+    prismaMocks.findManyMock.mockResolvedValue([]);
+    prismaMocks.findUniqueMock.mockResolvedValue(null);
+    prismaMocks.countMock.mockResolvedValue(0);
     process.env = {
       ...originalEnv,
       DASHSCOPE_API_KEY: "test-api-key",
+      DASHSCOPE_BASE_URL: "https://dashscope.aliyuncs.com/compatible-mode/v1",
       DASHSCOPE_MODEL: "qwen3.5-flash",
     };
+    delete process.env.DATABASE_URL;
+    delete process.env.DIRECT_URL;
+    delete process.env.AI_OPENAI_COMPAT_API_KEY;
+    delete process.env.AI_OPENAI_COMPAT_BASE_URL;
+    delete process.env.AI_OPENAI_COMPAT_MODEL;
 
     const { getCategoryDirectory, getTagDirectory } = await import("@/lib/taxonomy");
     vi.mocked(getCategoryDirectory).mockResolvedValue([

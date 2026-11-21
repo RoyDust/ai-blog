@@ -516,6 +516,62 @@ export async function publishAiDraftPost({ postId }: { postId: string }) {
   return published
 }
 
+async function assertActiveAdminPostRelations({
+  categoryId,
+  tagIds,
+  seriesId,
+}: {
+  categoryId?: string | null
+  tagIds?: string[] | null
+  seriesId?: string | null
+}) {
+  const normalizedCategoryId = typeof categoryId === "string" ? categoryId.trim() : ""
+  if (normalizedCategoryId && typeof prisma.category?.findFirst === "function") {
+    const activeCategory = await prisma.category.findFirst({
+      where: { id: normalizedCategoryId, deletedAt: null },
+      select: { id: true },
+    })
+
+    if (!activeCategory) {
+      throw new ValidationError("Invalid categoryId")
+    }
+  }
+
+  const normalizedSeriesId = typeof seriesId === "string" ? seriesId.trim() : ""
+  if (normalizedSeriesId && typeof prisma.series?.findFirst === "function") {
+    const activeSeries = await prisma.series.findFirst({
+      where: { id: normalizedSeriesId, deletedAt: null },
+      select: { id: true },
+    })
+
+    if (!activeSeries) {
+      throw new ValidationError("Invalid seriesId")
+    }
+  }
+
+  if (Array.isArray(tagIds) && tagIds.length > 0 && typeof prisma.tag?.findMany === "function") {
+    const uniqueTagIds = [...new Set(tagIds.map((tagId) => tagId.trim()).filter(Boolean))]
+    if (uniqueTagIds.length > 0) {
+      const activeTags = await prisma.tag.findMany({
+        where: { id: { in: uniqueTagIds }, deletedAt: null },
+        select: { id: true },
+      })
+
+      if (activeTags.length !== uniqueTagIds.length) {
+        throw new ValidationError("Invalid tagIds")
+      }
+    }
+  }
+}
+
+function normalizeAdminTagIds(tagIds?: string[] | null) {
+  if (!tagIds) {
+    return undefined
+  }
+
+  return [...new Set(tagIds.map((tagId) => tagId.trim()).filter(Boolean))]
+}
+
 /**
  * 后台手动创建文章。
  *
@@ -531,6 +587,12 @@ export async function createAdminPost({
   authorId: string
   input: AdminPostInput
 }) {
+  await assertActiveAdminPostRelations({
+    categoryId: input.categoryId,
+    tagIds: input.tagIds,
+    seriesId: input.seriesId,
+  })
+  const normalizedTagIds = normalizeAdminTagIds(input.tagIds)
   const readingTimeMinutes = calculateReadingTimeMinutes(input.content)
   const cover = await resolvePostCoverInput({
     coverImage: input.coverImage,
@@ -557,7 +619,7 @@ export async function createAdminPost({
       scheduledAt: input.scheduledAt ?? null,
       readingTimeMinutes,
       authorId,
-      tags: input.tagIds ? { connect: input.tagIds.map((id) => ({ id })) } : undefined,
+      tags: normalizedTagIds ? { connect: normalizedTagIds.map((id) => ({ id })) } : undefined,
     },
     include: {
       author: { select: { id: true, name: true, image: true } },
@@ -614,6 +676,13 @@ export async function updateAdminPost({
     throw new NotFoundError("Post not found")
   }
 
+  await assertActiveAdminPostRelations({
+    categoryId: input.categoryId,
+    tagIds: input.tagIds,
+    seriesId: input.seriesId,
+  })
+  const normalizedTagIds = normalizeAdminTagIds(input.tagIds)
+
   const shouldAutoAssignCover = input.published === true && !input.scheduledAt && !input.coverImage?.trim() && !existing.coverImage?.trim()
   const cover =
     input.coverAssetId !== undefined || input.coverImage !== undefined || shouldAutoAssignCover
@@ -655,9 +724,9 @@ export async function updateAdminPost({
       generatedByAiNews: input.generatedByAiNews,
       publishedAt: nextPublishedAt,
       scheduledAt: input.scheduledAt,
-      tags: input.tagIds
+      tags: normalizedTagIds
         ? {
-            set: input.tagIds.map((tagId: string) => ({ id: tagId })),
+            set: normalizedTagIds.map((tagId: string) => ({ id: tagId })),
           }
         : undefined,
       featured: input.featured,

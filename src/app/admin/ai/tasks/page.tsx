@@ -5,6 +5,7 @@ import { AiTaskList } from "@/components/admin/ai/AiTaskList";
 import { PageHeader } from "@/components/admin/primitives/PageHeader";
 import { StatusBadge } from "@/components/admin/primitives/StatusBadge";
 import { Button } from "@/components/admin/ui";
+import { requireAdminPageSession } from "@/lib/admin-page-auth";
 import { listAiTasks } from "@/lib/ai-tasks";
 
 export const dynamic = "force-dynamic";
@@ -47,6 +48,7 @@ export default async function AdminAiTasksPage({
 }: {
   searchParams: Promise<AiTaskPageSearchParams>;
 }) {
+  await requireAdminPageSession();
   const params = await searchParams;
   const data = await listAiTasks({ page: params.page, limit: params.limit, status: params.status, type: params.type });
   const activeTaskCount = data.tasks.filter((task) => task.status === "QUEUED" || task.status === "RUNNING").length;

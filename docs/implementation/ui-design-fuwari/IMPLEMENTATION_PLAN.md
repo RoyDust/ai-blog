@@ -1,6 +1,6 @@
 # Inkforge 前后端 UI 改造实施计划（功能零变更）
 
-> **基线分支**：`origin/main`（`d095b90`）→ 改造分支 `feat/fuwari-ui-redesign`
+> **基线分支**：`origin/main`（`2e1b657`）→ 改造分支 `feat/fuwari-ui-redesign`
 > **视觉定稿**：同目录交互设计稿 `01-public-blog-ui.html`、`02-admin-operations-ui.html`、`03-admin-editor-workspace-ui.html`
 > **核心原则**：**只改视觉层、信息密度与响应式交互体验，100% 保留现有路由、API 契约、数据结构、鉴权、缓存失效与业务交互逻辑。**
 

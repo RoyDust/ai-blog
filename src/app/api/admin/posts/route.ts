@@ -10,6 +10,62 @@ import { revalidatePublicContent } from "@/lib/cache"
 import { prisma } from "@/lib/prisma"
 import { parseIdList, parsePostInput } from "@/lib/validation"
 
+const ADMIN_POST_LIST_SELECT = {
+  id: true,
+  title: true,
+  slug: true,
+  excerpt: true,
+  seoTitle: true,
+  seoDescription: true,
+  seoGeneratedAt: true,
+  seoModelId: true,
+  summaryStatus: true,
+  summaryError: true,
+  summaryGeneratedAt: true,
+  summaryJobId: true,
+  summaryModelId: true,
+  coverImage: true,
+  coverAssetId: true,
+  published: true,
+  generatedByAiNews: true,
+  featured: true,
+  viewCount: true,
+  readingTimeMinutes: true,
+  deletedAt: true,
+  createdAt: true,
+  updatedAt: true,
+  publishedAt: true,
+  scheduledAt: true,
+  authorId: true,
+  categoryId: true,
+  seriesId: true,
+  seriesOrder: true,
+  author: {
+    select: { id: true, name: true, email: true },
+  },
+  category: {
+    where: { deletedAt: null },
+    select: { id: true, name: true, slug: true },
+  },
+  series: {
+    where: { deletedAt: null },
+    select: { id: true, title: true, slug: true },
+  },
+  _count: {
+    select: { comments: { where: { deletedAt: null } }, likes: true },
+  },
+} satisfies Prisma.PostSelect
+
+function omitPostContent<T extends Record<string, unknown>>(post: T): Omit<T, "content"> {
+  if (!("content" in post)) {
+    return post
+  }
+
+  const clone = { ...post }
+  delete clone.content
+  return clone
+}
+
 async function GETHandler(request: Request) {
   try {
     await requireAdminSession()
@@ -77,16 +133,7 @@ async function GETHandler(request: Request) {
 
     const posts = await prisma.post.findMany({
       where,
-      include: {
-        author: {
-          select: { id: true, name: true, email: true },
-        },
-        category: true,
-        series: { select: { id: true, title: true, slug: true } },
-        _count: {
-          select: { comments: { where: { deletedAt: null } }, likes: true },
-        },
-      },
+      select: ADMIN_POST_LIST_SELECT,
       orderBy: { createdAt: "desc" },
       skip: getAdminListSkip(pagination),
       take: pagination.limit,
@@ -94,7 +141,7 @@ async function GETHandler(request: Request) {
 
     return NextResponse.json({
       success: true,
-      data: posts,
+      data: posts.map((post) => omitPostContent(post as unknown as Record<string, unknown>)),
       pagination,
       stats: {
         total: allCount,

@@ -1,9 +1,13 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-const prismaMocks = vi.hoisted(() => ({
-  executeRawUnsafe: vi.fn(),
-  queryRawUnsafe: vi.fn(),
-}));
+const prismaMocks = await vi.hoisted(async () => {
+  const { AsyncLocalStorage } = await import("node:async_hooks");
+  globalThis.AsyncLocalStorage ??= AsyncLocalStorage;
+  return {
+    executeRawUnsafe: vi.fn(),
+    queryRawUnsafe: vi.fn(),
+  };
+});
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -361,5 +365,68 @@ describe("blog settings", () => {
         },
       }),
     ).toThrow("发件邮箱必须是有效邮箱");
+  });
+
+  test("does not cache fallback settings during DB-less build errors and caches real DB settings for 300s once reachable", async () => {
+    const store = new Map<string, { value: unknown; revalidate?: number; tags?: string[] }>();
+    const setSpy = vi.fn(async (key: string, value: unknown, ctx?: { tags?: string[] }) => {
+      store.set(key, { value, tags: ctx?.tags });
+    });
+    const globalWithCache = globalThis as unknown as { __incrementalCache?: unknown };
+    const previousCache = globalWithCache.__incrementalCache;
+    globalWithCache.__incrementalCache = {
+      isOnDemandRevalidate: false,
+      generateCacheKey: async (invocationKey: string) => invocationKey,
+      get: async (key: string) => {
+        const hit = store.get(key);
+        return hit ? { isStale: false, value: hit.value } : null;
+      },
+      set: setSpy,
+    };
+
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    try {
+      // 1) Simulate DB-less build failure: fallback "My Blog" must NOT be written into incrementalCache
+      prismaMocks.queryRawUnsafe.mockRejectedValueOnce(new Error("connect ECONNREFUSED 127.0.0.1:1"));
+      await expect(getBlogSettings()).resolves.toMatchObject({
+        siteName: "My Blog",
+      });
+      expect(setSpy).not.toHaveBeenCalled();
+
+      // 2) First runtime visitor with real DB: queries DB once, returns real siteName, and caches for 300s
+      prismaMocks.queryRawUnsafe.mockResolvedValueOnce([
+        {
+          value: {
+            siteName: "Inkforge Live",
+            siteDescription: "Production description",
+            siteUrl: "https://inkforge.example",
+            locale: "zh-CN",
+          },
+        },
+      ]);
+      await expect(getBlogSettings()).resolves.toMatchObject({
+        siteName: "Inkforge Live",
+        siteUrl: "https://inkforge.example",
+      });
+      expect(prismaMocks.queryRawUnsafe).toHaveBeenCalledTimes(2);
+      expect(setSpy).toHaveBeenCalledTimes(1);
+      expect(setSpy.mock.calls[0]?.[2]).toMatchObject({
+        tags: ["blog-settings"],
+      });
+
+      // 3) Second runtime visitor hits unstable_cache without hitting PostgreSQL again
+      await expect(getBlogSettings()).resolves.toMatchObject({
+        siteName: "Inkforge Live",
+      });
+      expect(prismaMocks.queryRawUnsafe).toHaveBeenCalledTimes(2);
+    } finally {
+      consoleError.mockRestore();
+      if (previousCache === undefined) {
+        delete globalWithCache.__incrementalCache;
+      } else {
+        globalWithCache.__incrementalCache = previousCache;
+      }
+    }
   });
 });

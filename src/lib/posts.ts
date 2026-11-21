@@ -6,6 +6,7 @@
  * - 提供精选文章与分页文章列表查询
  * - 统一前台列表页的排序与 offset 分页格式
  */
+import { createPublicCachedReader, PUBLIC_CACHE_TAGS, PUBLIC_REVALIDATE_SECONDS } from '@/lib/cache'
 import { prisma } from '@/lib/prisma'
 
 type PostFindManyArgs = NonNullable<Parameters<typeof prisma.post.findMany>[0]>
@@ -46,6 +47,17 @@ export interface PublicPostRecord {
 }
 
 export const PUBLIC_POST_ORDER_BY: PublicPostOrderBy = [{ featured: 'desc' }, { createdAt: 'desc' }, { id: 'desc' }]
+
+export function rehydratePublicPostRecord(post: PublicPostRecord): PublicPostRecord {
+  if (typeof (post as { createdAt?: unknown }).createdAt !== 'string') {
+    return post
+  }
+
+  return {
+    ...post,
+    createdAt: new Date(post.createdAt),
+  }
+}
 
 /**
  * 返回前台文章卡片使用的 Prisma select。
@@ -101,53 +113,71 @@ interface PublishedPostsPageInput {
   search?: string | null
 }
 
+const getCachedFeaturedPosts = createPublicCachedReader(
+  async (limit: number) =>
+    prisma.post.findMany({
+      where: { published: true, featured: true, deletedAt: null },
+      select: getPublicPostSelect(),
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: limit,
+    }) as unknown as Promise<PublicPostRecord[]>,
+  {
+    keyParts: ['public-featured-posts'],
+    revalidate: PUBLIC_REVALIDATE_SECONDS,
+    tags: [PUBLIC_CACHE_TAGS.posts, PUBLIC_CACHE_TAGS.categories, PUBLIC_CACHE_TAGS.tags],
+    rehydrate: (posts) => posts.map(rehydratePublicPostRecord),
+  },
+)
+
 /**
  * 获取首页 / 专题区使用的精选文章列表。
  */
 export async function getFeaturedPosts(limit = 3) {
-  return prisma.post.findMany({
-    where: { published: true, featured: true, deletedAt: null },
-    select: getPublicPostSelect(),
-    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-    take: limit,
-  }) as unknown as Promise<PublicPostRecord[]>
+  return getCachedFeaturedPosts(limit)
 }
+
+const getCachedHomeLatestPosts = createPublicCachedReader(
+  async (limit: number) =>
+    prisma.post.findMany({
+      where: { published: true, deletedAt: null },
+      select: getPublicPostSelect(),
+      orderBy: [
+        { generatedByAiNews: 'asc' },
+        { featured: 'desc' },
+        { createdAt: 'desc' },
+        { id: 'desc' },
+      ],
+      take: limit,
+    }) as unknown as Promise<PublicPostRecord[]>,
+  {
+    keyParts: ['public-home-latest-posts'],
+    revalidate: PUBLIC_REVALIDATE_SECONDS,
+    tags: [PUBLIC_CACHE_TAGS.posts, PUBLIC_CACHE_TAGS.categories, PUBLIC_CACHE_TAGS.tags],
+    rehydrate: (posts) => posts.map(rehydratePublicPostRecord),
+  },
+)
 
 /**
  * 获取首页最新文章，优先展示人工文章；数量不足时再用 AI 日报文章补足。
  */
 export async function getHomeLatestPosts(limit: number) {
-  return prisma.post.findMany({
-    where: { published: true, deletedAt: null },
-    select: getPublicPostSelect(),
-    orderBy: [
-      { generatedByAiNews: 'asc' },
-      { featured: 'desc' },
-      { createdAt: 'desc' },
-      { id: 'desc' },
-    ],
-    take: limit,
-  }) as unknown as Promise<PublicPostRecord[]>
+  return getCachedHomeLatestPosts(limit)
 }
 
-/**
- * 获取已发布文章分页结果。
- * 支持按分类、标签和关键字过滤，供首页、归档页与搜索页复用。
- */
-export async function getPublishedPostsPage({
-  page,
-  limit,
-  category,
-  tag,
-  search,
-}: PublishedPostsPageInput) {
+async function queryPublishedPostsPage(
+  page: number,
+  limit: number,
+  category: string | null,
+  tag: string | null,
+  search: string | null,
+) {
   const where: NonNullable<Parameters<typeof prisma.post.findMany>[0]>['where'] = {
     published: true,
     deletedAt: null,
   }
 
   if (category) {
-    where.category = { slug: category }
+    where.category = { slug: category, deletedAt: null }
   }
 
   if (tag) {
@@ -183,4 +213,32 @@ export async function getPublishedPostsPage({
     posts,
     pagination: buildOffsetPagination({ page, limit, total }),
   }
+}
+
+const getCachedPublishedPostsPage = createPublicCachedReader(queryPublishedPostsPage, {
+  keyParts: ['public-published-posts-page'],
+  revalidate: PUBLIC_REVALIDATE_SECONDS,
+  tags: [PUBLIC_CACHE_TAGS.posts, PUBLIC_CACHE_TAGS.categories, PUBLIC_CACHE_TAGS.tags],
+  rehydrate: (result) => ({
+    ...result,
+    posts: result.posts.map(rehydratePublicPostRecord),
+  }),
+})
+
+/**
+ * 获取已发布文章分页结果。
+ * 支持按分类、标签和关键字过滤，供首页、归档页与搜索页复用。
+ */
+export async function getPublishedPostsPage({
+  page,
+  limit,
+  category,
+  tag,
+  search,
+}: PublishedPostsPageInput) {
+  const normalizedCategory = category?.trim() || null
+  const normalizedTag = tag?.trim() || null
+  const normalizedSearch = search?.trim() || null
+
+  return getCachedPublishedPostsPage(page, limit, normalizedCategory, normalizedTag, normalizedSearch)
 }

@@ -404,4 +404,91 @@ describe('GET /api/search', () => {
     await GET(new Request('http://localhost/api/search?q=词条2&ai=1', { headers: { 'x-real-ip': ipFor(504) } }))
     expect(fetchMock).toHaveBeenCalledTimes(503)
   })
+
+  test('feeds bounded 220-char contentSnippet to AI search when excerpt is null and strips content/admin fields from response', async () => {
+    process.env.DASHSCOPE_API_KEY = 'test-api-key'
+    const rawPrefix = `前缀上下文-${'正'.repeat(240)}`
+    queryRaw.mockResolvedValue([
+      {
+        total: 1,
+        items: [
+          {
+            id: 'p-no-excerpt',
+            score: 16,
+            hitFields: ['title', 'content'],
+            contentSnippet: rawPrefix.slice(0, 240),
+          },
+        ],
+      },
+    ])
+    findMany.mockResolvedValue([
+      {
+        id: 'p-no-excerpt',
+        title: '无摘要文章的 AI 搜索',
+        slug: 'excerptless-ai-search',
+        excerpt: null,
+        content: '完整超长正文不应泄露'.repeat(50),
+        coverImage: null,
+        createdAt: new Date('2026-03-15T00:00:00Z'),
+        authorId: 'u-internal',
+        summaryError: 'internal summary failure',
+        summaryJobId: 'job-123',
+        summaryModelId: 'model-summary',
+        seoModelId: 'model-seo',
+        coverAssetId: 'cover-asset-1',
+        scheduledAt: new Date('2026-04-01T00:00:00Z'),
+        deletedAt: null,
+        author: { id: 'u1', name: 'Ada', image: null },
+        category: { name: 'AI', slug: 'ai' },
+        tags: [{ name: 'Search', slug: 'search' }],
+        _count: { comments: 1, likes: 3 },
+      },
+    ])
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                summary: 'AI 基于正文前 220 字生成了推荐摘要。',
+                rankedSlugs: ['excerptless-ai-search'],
+              }),
+            },
+          },
+        ],
+      }),
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { GET } = await import('../route')
+    const response = await GET(new Request('http://localhost/api/search?q=搜索&ai=1', { headers: { 'x-real-ip': '198.51.100.88' } }))
+    const payload = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(payload.ai).toEqual({ summary: 'AI 基于正文前 220 字生成了推荐摘要。' })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+
+    const upstreamBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))
+    const promptText = String(upstreamBody.messages?.[1]?.content ?? '')
+    expect(promptText).toContain(rawPrefix.slice(0, 220))
+    expect(promptText).not.toContain('完整超长正文不应泄露')
+
+    const item = payload.data[0]
+    expect(item).not.toHaveProperty('content')
+    expect(item).not.toHaveProperty('contentSnippet')
+    for (const forbiddenField of [
+      'authorId',
+      'summaryError',
+      'summaryJobId',
+      'summaryModelId',
+      'seoModelId',
+      'coverAssetId',
+      'scheduledAt',
+      'deletedAt',
+    ]) {
+      expect(item).not.toHaveProperty(forbiddenField)
+    }
+  })
 })
