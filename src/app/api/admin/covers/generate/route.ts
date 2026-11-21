@@ -2,7 +2,7 @@ import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 import { NextResponse } from "next/server";
 
 import { requireAdminSession } from "@/lib/api-auth";
-import { toErrorResponse } from "@/lib/api-errors";
+import { toErrorResponse, TooManyRequestsError } from "@/lib/api-errors";
 import { generateAiCoverImage, type AiCoverSize } from "@/lib/ai-cover-image";
 import { checkAiCoverRateLimit } from "@/lib/rate-limit";
 
@@ -19,7 +19,7 @@ async function POSTHandler(request: Request) {
   try {
     const rateLimit = await checkAiCoverRateLimit(request);
     if (!rateLimit.allowed) {
-      return NextResponse.json({ success: false, error: "Too many requests" }, { status: 429 });
+      throw new TooManyRequestsError();
     }
 
     const session = await requireAdminSession();

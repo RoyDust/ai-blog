@@ -1,0 +1,26 @@
+# 依赖与 Actions 版本自动跟进。npm 侧按 minor/patch 分组降低 PR 噪音，major 单独成 PR 便于人工评估。
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      timezone: Asia/Shanghai
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch
+    commit-message:
+      prefix: "chore(deps)"
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      timezone: Asia/Shanghai
+    commit-message:
+      prefix: "ci(deps)"

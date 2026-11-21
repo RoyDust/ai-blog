@@ -3,7 +3,7 @@ import crypto from 'node:crypto'
 import { NextResponse } from 'next/server'
 
 import { requireAdminSession } from '@/lib/api-auth'
-import { toErrorResponse } from '@/lib/api-errors'
+import { ApiError, toErrorResponse, TooManyRequestsError } from '@/lib/api-errors'
 import { checkUploadRateLimit } from '@/lib/rate-limit'
 import { parseUploadRequest } from '@/lib/validation'
 
@@ -60,7 +60,7 @@ async function POSTHandler(request: Request) {
   try {
     const rateLimit = await checkUploadRateLimit(request)
     if (!rateLimit.allowed) {
-      return NextResponse.json({ success: false, error: 'Too many requests' }, { status: 429 })
+      throw new TooManyRequestsError()
     }
 
     await requireAdminSession()
@@ -73,7 +73,7 @@ async function POSTHandler(request: Request) {
     const uploadUrl = process.env.QINIU_UPLOAD_URL || defaultUploadUrl
 
     if (!accessKey || !secretKey || !bucket || !domain) {
-      return NextResponse.json({ success: false, error: 'Missing Qiniu config' }, { status: 500 })
+      throw new ApiError(500, 'Missing Qiniu config')
     }
 
     const key = buildUploadKey(filename, purpose)

@@ -132,7 +132,7 @@ async function PATCHHandler(request: Request) {
     const { id, title, slug, description, coverImage, order } = parseSeriesInput(await request.json());
 
     if (!id) {
-      return NextResponse.json({ error: "Id is required" }, { status: 400 });
+      throw new ValidationError("Id is required");
     }
 
     const existing = await prisma.series.findFirst({
@@ -166,7 +166,7 @@ async function DELETEHandler(request: Request) {
 
     const id = parseSeriesId(request);
     if (!id) {
-      return NextResponse.json({ error: "Series ID is required" }, { status: 400 });
+      throw new ValidationError("Series ID is required");
     }
 
     const series = await prisma.series.findFirst({

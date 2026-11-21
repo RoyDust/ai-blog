@@ -1,21 +1,20 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
+
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 const findFirstPost = vi.fn();
 const createVisitLogOperation = vi.fn();
-const getServerSession = vi.fn();
+const readSessionUserId = vi.fn();
 const postUpdate = vi.fn();
-const transaction = vi.fn(async (operations: unknown[]) => operations);
+const writeOrder: string[] = [];
 
 vi.mock("@/lib/visit-log-repository", () => ({
   createVisitLogOperation,
 }));
 
-vi.mock("next-auth", () => ({
-  getServerSession,
-}));
-
-vi.mock("@/lib/auth", () => ({
-  authOptions: {},
+vi.mock("@/lib/session-token", () => ({
+  readSessionUserId,
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -24,16 +23,20 @@ vi.mock("@/lib/prisma", () => ({
       findFirst: findFirstPost,
       update: postUpdate,
     },
-    $transaction: transaction,
   },
 }));
 
 describe("POST /api/analytics/visit", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    getServerSession.mockResolvedValue(null);
-    createVisitLogOperation.mockReturnValue({ kind: "create-visit" });
-    postUpdate.mockReturnValue({ kind: "update-post" });
+    writeOrder.length = 0;
+    readSessionUserId.mockResolvedValue(null);
+    createVisitLogOperation.mockImplementation(async () => {
+      writeOrder.push("create-visit");
+    });
+    postUpdate.mockImplementation(async () => {
+      writeOrder.push("update-post");
+    });
   });
 
   test("writes a normal page visit", async () => {
@@ -56,7 +59,8 @@ describe("POST /api/analytics/visit", () => {
       userAgent: "vitest",
       ipHash: expect.any(String),
     }));
-    expect(transaction).toHaveBeenCalledWith([{ kind: "create-visit" }]);
+    expect(writeOrder).toEqual(["create-visit"]);
+    expect(postUpdate).not.toHaveBeenCalled();
   });
 
   test("links post visits and increments post view count", async () => {
@@ -76,11 +80,11 @@ describe("POST /api/analytics/visit", () => {
     });
     expect(createVisitLogOperation).toHaveBeenCalledWith(expect.objectContaining({ path: "/posts/hello-world", postId: "post-1" }));
     expect(postUpdate).toHaveBeenCalledWith({ where: { id: "post-1" }, data: { viewCount: { increment: 1 } } });
-    expect(transaction).toHaveBeenCalledWith([{ kind: "create-visit" }, { kind: "update-post" }]);
+    expect(writeOrder).toEqual(["create-visit", "update-post"]);
   });
 
-  test("attaches logged-in user id to post visit logs", async () => {
-    getServerSession.mockResolvedValueOnce({ user: { id: "user-1" } });
+  test("attaches the user id decoded from the session cookie without a session lookup", async () => {
+    readSessionUserId.mockResolvedValueOnce("user-1");
     findFirstPost.mockResolvedValueOnce({ id: "post-1" });
 
     const { POST } = await import("../route");
@@ -91,10 +95,18 @@ describe("POST /api/analytics/visit", () => {
     }));
 
     expect(response.status).toBe(200);
+    expect(readSessionUserId).toHaveBeenCalledTimes(1);
     expect(createVisitLogOperation).toHaveBeenCalledWith(expect.objectContaining({
       postId: "post-1",
       userId: "user-1",
     }));
+  });
+
+  test("does not resolve a full NextAuth session on the visit write path", () => {
+    const source = readFileSync(path.join(__dirname, "..", "route.ts"), "utf8");
+
+    expect(source).not.toContain("getServerSession");
+    expect(source).not.toContain("$transaction");
   });
 
   test("skips excluded paths", async () => {
@@ -108,7 +120,7 @@ describe("POST /api/analytics/visit", () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ ok: true, skipped: true });
     expect(createVisitLogOperation).not.toHaveBeenCalled();
-    expect(transaction).not.toHaveBeenCalled();
+    expect(postUpdate).not.toHaveBeenCalled();
   });
 
   test("rejects invalid paths", async () => {

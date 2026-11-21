@@ -98,7 +98,7 @@ function SearchContent() {
     isLoading: isSearchLoading,
     mutate: mutateSearch,
   } = useSWR<SearchResponse>(searchKey, apiFetcher, {
-    keepPreviousData: false,
+    keepPreviousData: true,
     revalidateOnMount: true,
   });
 

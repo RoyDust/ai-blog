@@ -1,3 +1,21 @@
+# 正文字体（阿里巴巴普惠体）
+
+正文与界面字体是阿里巴巴普惠体 3.0 Medium（500），同样按 **unicode-range 分片自托管**：
+
+- `scripts/fonts/slice-alibaba-puhuiti.py` 用 fontTools 把 `public/font/AlibabaPuHuiTi-3-65-Medium.otf` 切成 woff2 分片，分片边界直接复用 `@fontsource/noto-serif-sc` 的 unicode-range（Google 按字频切的那一套），另把这套边界没覆盖到的生僻字按码位切成余量分片，保证不丢字
+- 产物在 `src/styles/fonts/alibaba-puhuiti/`（`500.css` + `files/*.woff2`），由 `src/app/layout.tsx` 直接引入；构建时分片带内容哈希输出到 `_next/static/media`，可长期缓存
+- `globals.css` 的 `:root` 定义 `--font-alibaba-puhuiti` 字体栈，Tailwind `font-sans` / `font-display` 与 `body` 都读它
+- `public/font/` 下的整包文件仍保留：OG 图（`opengraph-image.tsx` 等）在服务端读取整包 woff2，`otf` 是切片脚本的源文件
+
+重新切片（换字体版本或新增字重时）：
+
+```bash
+python3 -m venv /tmp/fontvenv && /tmp/fontvenv/bin/pip install fonttools brotli
+/tmp/fontvenv/bin/python scripts/fonts/slice-alibaba-puhuiti.py public/font/AlibabaPuHuiTi-3-65-Medium.otf 500
+```
+
+新增 700 字重时，把对应的 otf 放进 `public/font/`，以 `700` 为参数再跑一次，并在 layout.tsx 追加引入 `700.css`。
+
 # Display 标题字体
 
 公共阅读端 display 层级标题使用 Noto Serif SC（700/900），当前方案为 **自托管分片**：

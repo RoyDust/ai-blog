@@ -5,7 +5,7 @@ import { createPublicComment } from '@/lib/comments'
 import { createAnonymousActorId } from '@/lib/anonymous-actor'
 import { parseCommentInput } from '@/lib/validation'
 import { checkInteractionRateLimit } from '@/lib/rate-limit'
-import { ForbiddenError, NotFoundError, toErrorResponse } from '@/lib/api-errors'
+import { ForbiddenError, NotFoundError, toErrorResponse, TooManyRequestsError, ValidationError } from '@/lib/api-errors'
 import { requireSession } from '@/lib/api-auth'
 import { createAdminNotification, NOTIFICATION_SEVERITIES, NOTIFICATION_TYPES } from '@/lib/notifications'
 
@@ -13,7 +13,7 @@ async function POSTHandler(request: Request) {
   try {
     const rateLimit = await checkInteractionRateLimit(request)
     if (!rateLimit.allowed) {
-      return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+      throw new TooManyRequestsError()
     }
 
     const anonymousActor = createAnonymousActorId(request.headers)
@@ -87,7 +87,7 @@ async function DELETEHandler(request: Request) {
     const id = searchParams.get('id')
 
     if (!id) {
-      return NextResponse.json({ error: 'Comment ID is required' }, { status: 400 })
+      throw new ValidationError('Comment ID is required')
     }
 
     const comment = await prisma.comment.findFirst({ where: { id, deletedAt: null } })
