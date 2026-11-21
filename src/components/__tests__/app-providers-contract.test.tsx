@@ -28,6 +28,11 @@ describe("app providers contract", () => {
     expect(providersSource).toContain("<SWRConfig value={swrConfig}>");
     expect(providersSource).toContain("fetcher: apiFetcher");
     expect(providersSource).toContain("onError: handleGlobalSwrError");
+    expect(providersSource).toContain("<SessionProvider refetchOnWindowFocus={false}>");
+    expect(providersSource).toContain('import dynamic from "next/dynamic"');
+    expect(providersSource).toContain('import("@/components/auth/GlobalLoginDialog")');
+    expect(providersSource).toContain("ssr: false");
+    expect(providersSource).not.toContain('import { GlobalLoginDialog } from "@/components/auth/GlobalLoginDialog"');
     expect(providersSource).toContain("<AuthProvider>");
     expect(providersSource).toContain("<ThemeProvider>");
     expect(providersSource).toContain("<BlogMotionProvider>");

@@ -9,16 +9,19 @@
  * - 支持图片选择上传与粘贴上传，并自动写回 Markdown 图片语法
  */
 
-import { useId, useRef, useState } from "react";
-import ReactMarkdown from "react-markdown";
+import Link from "next/link";
+import { memo, useDeferredValue, useId, useRef, useState } from "react";
+import ReactMarkdown, { type Components } from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
 import remarkGfm from "remark-gfm";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { FieldLabel, InlineSpinner } from "@/components/admin/workspace/WorkspaceKit";
 import { editorialEase } from "@/components/editorial";
 import { FallbackImage } from "@/components/ui";
-import { cn } from "@/lib/cn";
+import { toErrorMessage } from "@/lib/client-api";
 import { compressImageForUpload } from "@/lib/client-image-compression";
+import { uploadFileToQiniu } from "@/lib/client-qiniu-upload";
+import { cn } from "@/lib/cn";
 
 interface MarkdownEditorProps {
   label?: string;
@@ -57,6 +60,56 @@ const toolbarButtonClassName =
 const previewProseClassName =
   "prose prose-zinc max-w-none text-sm leading-[1.8] prose-headings:font-serif prose-headings:font-bold prose-headings:text-[var(--foreground)] prose-h1:text-xl prose-h2:mt-[18px] prose-h2:mb-2 prose-h2:text-[1.0625rem] prose-h3:text-base prose-h1:text-[var(--foreground)] prose-h2:text-[var(--foreground)] prose-h3:text-[var(--foreground)] prose-h4:text-[var(--foreground)] prose-h5:text-[var(--foreground)] prose-h6:text-[var(--foreground)] prose-p:my-2.5 prose-p:text-[var(--text-body)] prose-a:text-[var(--ed-link)] prose-a:underline prose-a:decoration-[var(--reader-border-strong)] prose-a:underline-offset-4 hover:prose-a:decoration-[var(--accent-sky)] prose-strong:text-[var(--foreground)] prose-li:my-0.5 prose-li:text-[var(--text-body)] prose-li:marker:text-[var(--text-muted)] prose-blockquote:border-l-2 prose-blockquote:border-[var(--reader-border-strong)] prose-blockquote:pl-3.5 prose-blockquote:font-normal prose-blockquote:not-italic prose-blockquote:text-[var(--text-body)] prose-img:rounded-[4px] prose-pre:rounded-[4px] prose-pre:border-0 prose-pre:bg-[var(--surface-elevated)] prose-pre:px-3 prose-pre:py-2.5 prose-pre:text-xs prose-pre:leading-[1.7] prose-pre:text-[var(--foreground)] prose-code:rounded-[2px] prose-code:bg-[var(--ed-press-bg)] prose-code:px-1 prose-code:py-0.5 prose-code:font-mono prose-code:text-[0.8125rem] prose-code:font-normal prose-code:text-[var(--foreground)] prose-code:before:content-none prose-code:after:content-none prose-table:w-full prose-th:text-[var(--foreground)] prose-td:border-[var(--border)] prose-th:border-[var(--reader-border-strong)] dark:prose-invert";
 
+const previewRemarkPlugins = [remarkGfm];
+const previewRehypePlugins = [rehypeHighlight];
+
+const previewComponents: Components = {
+  a: ({ node: _node, href, children, ...props }) => {
+    void _node;
+    if (typeof href === "string" && /^https?:\/\//i.test(href)) {
+      return (
+        <a {...props} href={href} rel="noopener noreferrer" target="_blank">
+          {children}
+        </a>
+      );
+    }
+
+    if (typeof href === "string" && href.startsWith("/") && !href.startsWith("//")) {
+      return (
+        <Link {...props} href={href}>
+          {children}
+        </Link>
+      );
+    }
+
+    return (
+      <a {...props} href={href}>
+        {children}
+      </a>
+    );
+  },
+  img: ({ src, alt }) => {
+    const imageSrc = typeof src === "string" ? src : null;
+    if (!imageSrc) return null;
+
+    return <FallbackImage alt={alt ?? ""} className="theme-media-image h-auto w-full" height={720} src={imageSrc} unoptimized width={1280} />;
+  },
+};
+
+const MarkdownPreviewArticle = memo(function MarkdownPreviewArticle({ content }: { content: string }) {
+  return (
+    <article className={previewProseClassName}>
+      <ReactMarkdown
+        remarkPlugins={previewRemarkPlugins}
+        rehypePlugins={previewRehypePlugins}
+        components={previewComponents}
+      >
+        {content || "_暂无内容_"}
+      </ReactMarkdown>
+    </article>
+  );
+});
+
 /**
  * 在指定选区位置插入预设 Markdown 片段：
  * - 有选区：用成对标记（before/after）包裹选中文本
@@ -94,7 +147,7 @@ function insertImageMarkdown(
   imageUrl: string,
   altText: string,
   selectionStart?: number,
-  selectionEnd?: number
+  selectionEnd?: number,
 ) {
   const markdown = `![${altText}](${imageUrl})`;
 
@@ -129,7 +182,7 @@ function getClipboardImageFile(event: React.ClipboardEvent<HTMLTextAreaElement>)
  *
  * 说明：
  * - 通过 selectionRef 记住插图时的光标位置
- * - 上传图片后会把结果回填为 Markdown，而不是维护独立富媒体结构
+ * - 分屏预览消费 useDeferredValue(value) + memo 子组件，避免长篇含代码块文章输入阻塞按键响应
  */
 export function MarkdownEditor({
   label = "内容",
@@ -140,15 +193,13 @@ export function MarkdownEditor({
   editorPanelClassName,
 }: MarkdownEditorProps) {
   const id = useId();
+  const deferredValue = useDeferredValue(value);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const selectionRef = useRef<{ start: number; end: number } | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
 
-  /**
-   * 同步当前 textarea 选区，供插入图片或其他增强操作复用。
-   */
   const syncSelection = () => {
     const textarea = textareaRef.current;
     if (!textarea) return;
@@ -159,11 +210,6 @@ export function MarkdownEditor({
     };
   };
 
-  /**
-   * 在光标处/选区位置插入格式标记：
-   * 读取 textarea 的 selectionStart/End，选中文本则用成对标记包裹，
-   * 无选区则在光标处插入并把光标置于标记中间；onChange 提交后聚焦 textarea 并恢复选区。
-   */
   const applySnippet = (snippet: Snippet) => {
     const textarea = textareaRef.current;
     if (!textarea) return;
@@ -180,57 +226,26 @@ export function MarkdownEditor({
 
       nextTextarea.focus();
       if (start !== end) {
-        // 选中文本被包裹后，仍保持原文本处于选中状态
         nextTextarea.setSelectionRange(caretStart, caretEnd);
       } else {
-        // 无选区：光标置于成对标记中间
         nextTextarea.setSelectionRange(caretStart, caretStart);
       }
     });
   };
 
-  /**
-   * 向服务端申请上传凭证并完成图片直传。
-   * 返回最终可写入 Markdown 的图片 URL 与默认 alt 文本。
-   */
   const uploadImageFile = async (file: File) => {
     const compressed = await compressImageForUpload(file, "markdown");
     const uploadFile = compressed.file;
-    const tokenResponse = await fetch("/api/admin/uploads/qiniu-token", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ filename: uploadFile.name, contentType: uploadFile.type || file.type }),
-    });
-    const tokenData = await tokenResponse.json();
-
-    if (!tokenResponse.ok || !tokenData.success) {
-      throw new Error(tokenData.error || "获取上传凭证失败");
-    }
-
-    const formData = new FormData();
-    formData.append("file", uploadFile);
-    formData.append("token", tokenData.data.token);
-    formData.append("key", tokenData.data.key);
-
-    const uploadResponse = await fetch(tokenData.data.uploadUrl, {
-      method: "POST",
-      body: formData,
+    const { url } = await uploadFileToQiniu(uploadFile, {
+      contentType: uploadFile.type || file.type,
     });
 
-    if (!uploadResponse.ok) {
-      throw new Error("上传到七牛失败");
-    }
-
-    const normalizedDomain = String(tokenData.data.domain).replace(/\/$/, "");
     return {
-      url: `${normalizedDomain}/${tokenData.data.key}`,
+      url,
       altText: getImageAltText(file.name),
     };
   };
 
-  /**
-   * 处理用户通过文件选择器上传图片的流程。
-   */
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -244,7 +259,7 @@ export function MarkdownEditor({
 
       onChange(insertImageMarkdown(value, url, altText, storedSelection?.start, storedSelection?.end));
     } catch (error) {
-      setUploadError(error instanceof Error ? error.message : "上传失败");
+      setUploadError(toErrorMessage(error, "上传失败"));
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) {
@@ -253,10 +268,6 @@ export function MarkdownEditor({
     }
   };
 
-  /**
-   * 处理截图粘贴上传场景。
-   * 如果剪贴板里没有图片，则保持浏览器默认粘贴行为。
-   */
   const handlePaste = async (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
     const file = getClipboardImageFile(event);
     if (!file) return;
@@ -272,14 +283,13 @@ export function MarkdownEditor({
 
       onChange(insertImageMarkdown(value, url, altText, storedSelection?.start, storedSelection?.end));
     } catch (error) {
-      setUploadError(error instanceof Error ? error.message : "上传失败");
+      setUploadError(toErrorMessage(error, "上传失败"));
     } finally {
       setIsUploading(false);
     }
   };
 
   const reduceMotion = useReducedMotion();
-  // fillHeight：xl 以上由整屏工作台撑满高度；xl 以下页面纵向滚动，给编辑区与预览保底高度，避免被压成 0
   const panelSizeClassName = fillHeight ? "min-h-[20rem] flex-1 xl:min-h-0" : editorPanelClassName ?? "min-h-[26rem] max-h-[700px]";
   const uploadErrorId = `${id}-upload-error`;
 
@@ -370,22 +380,7 @@ export function MarkdownEditor({
                 "overflow-y-auto px-[18px] pt-1.5 pb-4 [scrollbar-color:var(--reader-border-strong)_transparent] [scrollbar-width:thin]",
               )}
             >
-              <article className={previewProseClassName}>
-                <ReactMarkdown
-                  remarkPlugins={[remarkGfm]}
-                  rehypePlugins={[rehypeHighlight]}
-                  components={{
-                    img: ({ src, alt }) => {
-                      const imageSrc = typeof src === "string" ? src : null;
-                      if (!imageSrc) return null;
-
-                      return <FallbackImage alt={alt ?? ""} className="theme-media-image h-auto w-full" height={720} src={imageSrc} unoptimized width={1280} />;
-                    },
-                  }}
-                >
-                  {value || "_暂无内容_"}
-                </ReactMarkdown>
-              </article>
+              <MarkdownPreviewArticle content={deferredValue} />
             </div>
           </div>
         </div>

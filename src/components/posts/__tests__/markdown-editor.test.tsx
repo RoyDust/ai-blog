@@ -295,4 +295,38 @@ describe("markdown editor", () => {
       "Hello ![paste](http://project.roydust.top/posts/content/paste.png)world"
     );
   });
+
+  test("adds safe target and rel attributes to external http(s) links in preview while keeping internal links in-tab", () => {
+    render(
+      <MarkdownEditor
+        value={"[外链](https://example.com/docs) 与 [站内](/posts/hello) 与 [锚点](#sec)"}
+        onChange={vi.fn()}
+      />,
+    );
+
+    const externalLink = screen.getByRole("link", { name: "外链" });
+    expect(externalLink).toHaveAttribute("href", "https://example.com/docs");
+    expect(externalLink).toHaveAttribute("target", "_blank");
+    expect(externalLink).toHaveAttribute("rel", "noopener noreferrer");
+
+    const internalLink = screen.getByRole("link", { name: "站内" });
+    expect(internalLink).toHaveAttribute("href", "/posts/hello");
+    expect(internalLink).not.toHaveAttribute("target");
+
+    const anchorLink = screen.getByRole("link", { name: "锚点" });
+    expect(anchorLink).toHaveAttribute("href", "#sec");
+    expect(anchorLink).not.toHaveAttribute("target");
+  });
+
+  test("normalizes network failures during image upload into Chinese error text", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValueOnce(new TypeError("Failed to fetch")));
+
+    const { container } = render(<MarkdownEditor value="Hello" onChange={vi.fn()} />);
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+    const file = new File(["image"], "demo.png", { type: "image/png" });
+
+    fireEvent.change(input, { target: { files: [file] } });
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("网络异常，请检查网络连接后重试");
+  });
 });

@@ -89,6 +89,7 @@ export function NotificationBell() {
       refreshInterval: 30_000,
       revalidateOnFocus: true,
       onSuccess: (data) => {
+        setError(null);
         setItems(data?.data?.items ?? []);
         setUnreadCount(data?.data?.unreadCount ?? 0);
       },

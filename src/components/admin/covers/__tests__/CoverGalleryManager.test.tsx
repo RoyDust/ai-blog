@@ -78,6 +78,7 @@ describe("CoverGalleryManager 归档确认流", () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
+    window.localStorage.clear();
     toastSuccessMock.mockReset();
     toastErrorMock.mockReset();
   });
@@ -132,6 +133,42 @@ describe("CoverGalleryManager 归档确认流", () => {
 
     await waitFor(() => {
       expect(toastErrorMock).toHaveBeenCalledWith("服务器内部错误，请稍后重试");
+    });
+  });
+
+  test("通过 useFilterMemory 持久化并校验封面筛选记忆", async () => {
+    window.localStorage.setItem(
+      "admin:covers:list-filters",
+      JSON.stringify({
+        query: "editorial",
+        statusFilter: "invalid-status",
+        imageKindFilter: "ai-generated",
+        page: -3,
+        pageSize: 999,
+      }),
+    );
+
+    const fetchMock = mockGalleryFetch();
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderGallery();
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/admin/covers?page=1&limit=24&q=editorial&generatedByAi=true",
+      );
+    });
+
+    fireEvent.change(screen.getByLabelText("搜索封面"), { target: { value: "inkforge" } });
+
+    await waitFor(() => {
+      expect(JSON.parse(window.localStorage.getItem("admin:covers:list-filters") ?? "{}")).toEqual({
+        query: "inkforge",
+        statusFilter: "all",
+        imageKindFilter: "ai-generated",
+        page: 1,
+        pageSize: 24,
+      });
     });
   });
 });
