@@ -7,7 +7,7 @@ import { signOut } from "next-auth/react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Tooltip as TooltipPrimitive } from "radix-ui";
 import { ChevronDown, ChevronsUpDown, LogOut, Settings, Sparkles, X } from "lucide-react";
-import { useAdminLayout } from "./AdminLayoutContext";
+import { MOBILE_MEDIA_QUERY, useAdminLayout } from "./AdminLayoutContext";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/admin/ui";
 import { collapseMotion } from "@/components/editorial";
 import { BrandMark } from "@/components/layout/BrandMark";
@@ -295,8 +295,14 @@ function AdminSiderNavigation({
   );
 }
 
+export { MOBILE_MEDIA_QUERY };
+
 async function signOutAdmin() {
-  clearAllSessionData();
+  try {
+    clearAllSessionData();
+  } catch {
+    // Disabled browser storage must never block signOut().
+  }
   await signOut({ callbackUrl: "/" });
 }
 
@@ -379,7 +385,7 @@ export function AdminSider({ pathname, siteName, user }: AdminSiderProps) {
 }
 
 /**
- * 移动端 / 平板端（< 1024px）后台导航抽屉：沿用 AdminSider 深色编辑排版色板，
+ * 移动端 / 平板端（< 64rem，与 Tailwind lg: 对齐）后台导航抽屉：沿用 AdminSider 深色编辑排版色板，
  * 直接展开全部后台导航条目、账号信息、「设置」与「退出登录」入口。
  */
 export function AdminMobileDrawer({ pathname, siteName, user }: AdminSiderProps) {

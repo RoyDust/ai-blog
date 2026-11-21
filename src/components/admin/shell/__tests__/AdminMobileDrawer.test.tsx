@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { adminNavItems } from "../config";
+import { MOBILE_MEDIA_QUERY } from "../AdminLayoutContext";
 
 const signOut = vi.fn();
 const pathnameState = vi.hoisted(() => ({ value: "/admin" }));
@@ -14,15 +15,17 @@ vi.mock("next-auth/react", () => ({
   signOut,
 }));
 
-function setViewportWidth(width: number) {
+function setViewportWidth(width: number, rootFontSizePx = 16) {
   Object.defineProperty(window, "innerWidth", {
     configurable: true,
     writable: true,
     value: width,
   });
 
+  const desktopMinPx = 64 * rootFontSizePx;
+
   vi.mocked(window.matchMedia).mockImplementation((query: string) => ({
-    matches: query === "(max-width: 1023px)" ? width < 1024 : false,
+    matches: query === "(max-width: 63.999rem)" ? width < desktopMinPx : false,
     media: query,
     onchange: null,
     addListener: vi.fn(),
@@ -248,5 +251,54 @@ describe("Admin mobile navigation drawer (< 1024px)", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "probe-set-true" }));
     expect(screen.getByTestId("drawer-state")).toHaveTextContent("true");
+  });
+
+  test("uses rem-based MOBILE_MEDIA_QUERY (63.999rem) aligned with Tailwind lg: (64rem) when root font-size is scaled to 20px", async () => {
+    expect(MOBILE_MEDIA_QUERY).toBe("(max-width: 63.999rem)");
+
+    // 根字号 20px 时 64rem = 1280px；1100px 虽 >= 1024px 但仍处于移动端抽屉区间
+    setViewportWidth(1100, 20);
+    const { AdminLayout } = await import("../AdminLayout");
+
+    render(
+      <AdminLayout siteName="Inkforge" user={{ label: "RoyDust", role: "ADMIN" }}>
+        <div>Dashboard body</div>
+      </AdminLayout>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "打开导航菜单" }));
+    expect(screen.getByRole("dialog", { name: "后台导航菜单" })).toBeInTheDocument();
+
+    // 跨过 64rem (1280px) 时自动收起抽屉
+    setViewportWidth(1280, 20);
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog", { name: "后台导航菜单" })).not.toBeInTheDocument();
+    });
+  });
+
+  test("never blocks signOut when browser localStorage throws SecurityError", async () => {
+    const removeItemSpy = vi.spyOn(Storage.prototype, "removeItem").mockImplementation(() => {
+      throw new DOMException("Access is denied for this document.", "SecurityError");
+    });
+
+    try {
+      const { AdminLayout } = await import("../AdminLayout");
+
+      render(
+        <AdminLayout siteName="Inkforge" user={{ label: "RoyDust", role: "ADMIN" }}>
+          <div>Dashboard body</div>
+        </AdminLayout>,
+      );
+
+      fireEvent.click(screen.getByRole("button", { name: "打开导航菜单" }));
+      const drawer = screen.getByRole("dialog", { name: "后台导航菜单" });
+      fireEvent.click(within(drawer).getByRole("button", { name: "退出登录" }));
+
+      await waitFor(() => {
+        expect(signOut).toHaveBeenCalledWith({ callbackUrl: "/" });
+      });
+    } finally {
+      removeItemSpy.mockRestore();
+    }
   });
 });

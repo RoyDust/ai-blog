@@ -38,13 +38,14 @@ const HOME_TAB: Tab = { href: "/admin", label: "首页" };
 const ADMIN_COLLAPSED_STORAGE_KEY = "vben_admin_collapsed";
 const ADMIN_TABS_STORAGE_KEY = "vben_admin_tabs";
 const ADMIN_DESKTOP_BREAKPOINT = 1024;
-const ADMIN_MOBILE_MEDIA_QUERY = "(max-width: 1023px)";
+export const MOBILE_MEDIA_QUERY = "(max-width: 63.999rem)";
+const ADMIN_MOBILE_MEDIA_QUERY = MOBILE_MEDIA_QUERY;
 const MAX_ADMIN_TABS = 8;
 
 function isBelowAdminDesktopViewport() {
   if (typeof window === "undefined") return false;
-  if (window.matchMedia?.(ADMIN_MOBILE_MEDIA_QUERY).matches) {
-    return true;
+  if (typeof window.matchMedia === "function") {
+    return window.matchMedia(ADMIN_MOBILE_MEDIA_QUERY).matches;
   }
   return typeof window.innerWidth === "number" && window.innerWidth < ADMIN_DESKTOP_BREAKPOINT;
 }
@@ -76,12 +77,20 @@ const RESTORABLE_ADMIN_HREFS = new Set([
 
 function readInitialCollapsedState() {
   if (typeof window === "undefined") return false;
-  return localStorage.getItem(ADMIN_COLLAPSED_STORAGE_KEY) === "true";
+  try {
+    return window.localStorage.getItem(ADMIN_COLLAPSED_STORAGE_KEY) === "true";
+  } catch {
+    return false;
+  }
 }
 
 function writeTabs(tabs: Tab[]) {
   if (typeof window === "undefined") return;
-  localStorage.setItem(ADMIN_TABS_STORAGE_KEY, JSON.stringify(tabs));
+  try {
+    window.localStorage.setItem(ADMIN_TABS_STORAGE_KEY, JSON.stringify(tabs));
+  } catch {
+    // Ignore storage errors when browser storage is disabled.
+  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -139,10 +148,10 @@ function sanitizeStoredTab(value: unknown): Tab | null {
 function readInitialTabs() {
   if (typeof window === "undefined") return [HOME_TAB];
 
-  const savedTabs = localStorage.getItem(ADMIN_TABS_STORAGE_KEY);
-  if (!savedTabs) return [HOME_TAB];
-
   try {
+    const savedTabs = window.localStorage.getItem(ADMIN_TABS_STORAGE_KEY);
+    if (!savedTabs) return [HOME_TAB];
+
     const parsed: unknown = JSON.parse(savedTabs);
     if (!Array.isArray(parsed) || parsed.length === 0) return [HOME_TAB];
 
@@ -255,7 +264,11 @@ export function AdminLayoutProvider({ children }: { children: React.ReactNode })
   const handleSetCollapsed = (val: boolean) => {
     setIsCollapsedState(val);
     if (typeof window !== "undefined") {
-      localStorage.setItem(ADMIN_COLLAPSED_STORAGE_KEY, String(val));
+      try {
+        window.localStorage.setItem(ADMIN_COLLAPSED_STORAGE_KEY, String(val));
+      } catch {
+        // Ignore storage errors when browser storage is disabled.
+      }
     }
   };
 

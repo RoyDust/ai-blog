@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, useReducedMotion } from "motion/react";
 import useSWR from "swr";
@@ -86,6 +86,106 @@ function formatDate(value: string) {
   });
 }
 
+function NotificationListContent({
+  loading,
+  error,
+  items,
+  reduceMotion,
+  onRetry,
+  onMarkRead,
+  onOpenNotification,
+}: {
+  loading: boolean;
+  error: string | null;
+  items: NotificationItem[];
+  reduceMotion: boolean | null;
+  onRetry: () => void;
+  onMarkRead: (ids: string[]) => void;
+  onOpenNotification: (item: NotificationItem) => void;
+}) {
+  if (loading) {
+    return (
+      <div aria-busy="true">
+        <span className="ed-visually-hidden" role="status">
+          正在加载通知...
+        </span>
+        {Array.from({ length: 5 }, (_, index) => (
+          <div key={index} aria-hidden="true" className="flex items-center gap-4 border-b border-[var(--border)] py-4">
+            <SkeletonBar className="h-3 w-8" />
+            <div className="flex-1 space-y-2">
+              <SkeletonBar strong className="h-3.5 w-[38%]" />
+              <SkeletonBar className="h-3 w-[64%]" />
+            </div>
+            <SkeletonBar className="h-3 w-20" />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <EmptyState
+        actions={
+          <Button onClick={onRetry} size="sm" type="button" variant="outline">
+            重试
+          </Button>
+        }
+        role="alert"
+        title={error}
+        tone="danger"
+      />
+    );
+  }
+
+  if (items.length === 0) {
+    return <EmptyState description="切换筛选查看其他通知。" role="status" title="暂无匹配通知。" />;
+  }
+
+  return (
+    <div>
+      {items.map((item, index) => {
+        const meta = severityMeta[item.severity as keyof typeof severityMeta] ?? severityMeta.INFO;
+        const unread = !item.readAt;
+
+        return (
+          <motion.article
+            key={item.id}
+            animate={{ opacity: 1, y: 0 }}
+            className={`${adminHairlineRowClassName} grid grid-cols-[3rem_minmax(0,1fr)] items-start gap-x-4 gap-y-2 py-3.5 sm:grid-cols-[3rem_minmax(0,1fr)_auto]`}
+            initial={reduceMotion ? false : { opacity: 0, y: 6 }}
+            transition={{ duration: 0.3, ease: editorialEase, delay: reduceMotion ? 0 : Math.min(index, 8) * 0.03 }}
+          >
+            <StatusBadge className="pt-1" tone={meta.tone}>
+              {meta.label}
+            </StatusBadge>
+            <div className="min-w-0">
+              <div className="flex min-w-0 items-baseline gap-2">
+                <h3 className={`truncate font-serif text-[0.9375rem] font-bold ${unread ? "text-[var(--foreground)]" : "text-[var(--text-body)]"}`}>{item.title}</h3>
+                {unread ? <span className="shrink-0 text-xs font-bold text-[var(--focus)]">未读</span> : null}
+              </div>
+              {item.body ? <p className="mt-0.5 truncate text-[0.8125rem] text-[var(--text-muted)]" title={item.body}>{item.body}</p> : null}
+            </div>
+            <div className="col-start-2 flex shrink-0 items-center gap-4 sm:col-start-3">
+              <span className="font-mono text-xs text-[var(--text-muted)] tabular-nums">{formatDate(item.createdAt)}</span>
+              {unread ? (
+                <button className={adminTextActionClassName} onClick={() => onMarkRead([item.id])} type="button">
+                  已读
+                </button>
+              ) : null}
+              {item.actionUrl ? (
+                <button className={adminTextActionClassName} onClick={() => onOpenNotification(item)} type="button">
+                  查看
+                </button>
+              ) : null}
+            </div>
+          </motion.article>
+        );
+      })}
+    </div>
+  );
+}
+
 /**
  * 通知中心完整列表页客户端。
  *
@@ -99,6 +199,23 @@ export function NotificationCenterClient() {
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const filterEpochRef = useRef(0);
+  const loadMoreRequestIdRef = useRef(0);
+
+  const handleFilterChange = useCallback(
+    (nextFilter: NotificationFilter) => {
+      if (nextFilter === activeFilter) {
+        return;
+      }
+      filterEpochRef.current += 1;
+      loadMoreRequestIdRef.current += 1;
+      setLoadingMore(false);
+      setNextCursor(null);
+      setError(null);
+      setActiveFilter(nextFilter);
+    },
+    [activeFilter],
+  );
 
   const unreadIds = useMemo(() => items.filter((item) => !item.readAt).map((item) => item.id), [items]);
 
@@ -110,6 +227,8 @@ export function NotificationCenterClient() {
     {
       revalidateOnFocus: true,
       onSuccess: (data) => {
+        loadMoreRequestIdRef.current += 1;
+        setLoadingMore(false);
         setError(null);
         setItems(data?.data?.items ?? []);
         setUnreadCount(data?.data?.unreadCount ?? 0);
@@ -126,17 +245,30 @@ export function NotificationCenterClient() {
   /**
    * 游标式加载更多：把下一页通知追加到当前列表末尾。
    *
-   * 服务端按 cursor 跳过已读取的最后一条，因此追加不会与现有项重复。
+   * 通过 filterEpochRef / loadMoreRequestIdRef 保护并发：若分页请求在途期间用户切换筛选或列表重取，
+   * 过期分页结果直接丢弃，绝不把旧筛选的数据或 nextCursor 污染到新筛选下。
    */
   const loadMore = useCallback(async () => {
     if (!nextCursor || loadingMore) {
       return;
     }
 
+    const requestEpoch = filterEpochRef.current;
+    const requestFilter = activeFilter;
+    loadMoreRequestIdRef.current += 1;
+    const requestId = loadMoreRequestIdRef.current;
+
     try {
       setLoadingMore(true);
       setError(null);
-      const data = await apiFetcher<{ success?: boolean; data?: NotificationPayload }>(buildNotificationUrl(activeFilter, nextCursor));
+      const data = await apiFetcher<{ success?: boolean; data?: NotificationPayload }>(
+        buildNotificationUrl(requestFilter, nextCursor),
+      );
+
+      if (filterEpochRef.current !== requestEpoch || loadMoreRequestIdRef.current !== requestId) {
+        return;
+      }
+
       const payload = data.data;
       if (!payload) {
         throw new Error("通知加载失败");
@@ -146,9 +278,14 @@ export function NotificationCenterClient() {
       setUnreadCount(payload.unreadCount);
       setNextCursor(payload.nextCursor);
     } catch (loadError) {
+      if (filterEpochRef.current !== requestEpoch || loadMoreRequestIdRef.current !== requestId) {
+        return;
+      }
       setError(toErrorMessage(loadError, "通知加载失败"));
     } finally {
-      setLoadingMore(false);
+      if (filterEpochRef.current === requestEpoch && loadMoreRequestIdRef.current === requestId) {
+        setLoadingMore(false);
+      }
     }
   }, [activeFilter, loadingMore, nextCursor]);
 
@@ -213,90 +350,6 @@ export function NotificationCenterClient() {
 
   const reduceMotion = useReducedMotion();
 
-  const renderList = () => {
-    if (loading) {
-      return (
-        <div aria-busy="true">
-          <span className="ed-visually-hidden" role="status">
-            正在加载通知...
-          </span>
-          {Array.from({ length: 5 }, (_, index) => (
-            <div key={index} aria-hidden="true" className="flex items-center gap-4 border-b border-[var(--border)] py-4">
-              <SkeletonBar className="h-3 w-8" />
-              <div className="flex-1 space-y-2">
-                <SkeletonBar strong className="h-3.5 w-[38%]" />
-                <SkeletonBar className="h-3 w-[64%]" />
-              </div>
-              <SkeletonBar className="h-3 w-20" />
-            </div>
-          ))}
-        </div>
-      );
-    }
-
-    if (error) {
-      return (
-        <EmptyState
-          actions={
-            <Button onClick={() => { setError(null); void mutate(); }} size="sm" type="button" variant="outline">
-              重试
-            </Button>
-          }
-          role="alert"
-          title={error}
-          tone="danger"
-        />
-      );
-    }
-
-    if (items.length === 0) {
-      return <EmptyState description="切换筛选查看其他通知。" role="status" title="暂无匹配通知。" />;
-    }
-
-    return (
-      <div>
-        {items.map((item, index) => {
-          const meta = severityMeta[item.severity as keyof typeof severityMeta] ?? severityMeta.INFO;
-          const unread = !item.readAt;
-
-          return (
-            <motion.article
-              key={item.id}
-              animate={{ opacity: 1, y: 0 }}
-              className={`${adminHairlineRowClassName} grid grid-cols-[3rem_minmax(0,1fr)] items-start gap-x-4 gap-y-2 py-3.5 sm:grid-cols-[3rem_minmax(0,1fr)_auto]`}
-              initial={reduceMotion ? false : { opacity: 0, y: 6 }}
-              transition={{ duration: 0.3, ease: editorialEase, delay: reduceMotion ? 0 : Math.min(index, 8) * 0.03 }}
-            >
-              <StatusBadge className="pt-1" tone={meta.tone}>
-                {meta.label}
-              </StatusBadge>
-              <div className="min-w-0">
-                <div className="flex min-w-0 items-baseline gap-2">
-                  <h3 className={`truncate font-serif text-[0.9375rem] font-bold ${unread ? "text-[var(--foreground)]" : "text-[var(--text-body)]"}`}>{item.title}</h3>
-                  {unread ? <span className="shrink-0 text-xs font-bold text-[var(--focus)]">未读</span> : null}
-                </div>
-                {item.body ? <p className="mt-0.5 truncate text-[0.8125rem] text-[var(--text-muted)]" title={item.body}>{item.body}</p> : null}
-              </div>
-              <div className="col-start-2 flex shrink-0 items-center gap-4 sm:col-start-3">
-                <span className="font-mono text-xs text-[var(--text-muted)] tabular-nums">{formatDate(item.createdAt)}</span>
-                {unread ? (
-                  <button className={adminTextActionClassName} onClick={() => void markRead([item.id])} type="button">
-                    已读
-                  </button>
-                ) : null}
-                {item.actionUrl ? (
-                  <button className={adminTextActionClassName} onClick={() => void openNotification(item)} type="button">
-                    查看
-                  </button>
-                ) : null}
-              </div>
-            </motion.article>
-          );
-        })}
-      </div>
-    );
-  };
-
   return (
     <div>
       <MetricStrip
@@ -310,7 +363,7 @@ export function NotificationCenterClient() {
             note: "点击只看未读",
             tone: unreadCount > 0 ? "info" : "default",
             pressed: activeFilter === "unread",
-            onSelect: () => setActiveFilter(activeFilter === "unread" ? "all" : "unread"),
+            onSelect: () => handleFilterChange(activeFilter === "unread" ? "all" : "unread"),
           },
           { key: "loaded", label: "当前列表", value: items.length.toLocaleString("zh-CN"), note: nextCursor ? "还有更多，可继续加载" : "已全部加载" },
           { key: "page-unread", label: "本页未读", value: unreadIds.length.toLocaleString("zh-CN"), note: "可一键标记已读" },
@@ -335,7 +388,7 @@ export function NotificationCenterClient() {
         />
 
         <Toolbar
-          leading={<ListTabs ariaLabel="通知筛选" items={filters} onChange={setActiveFilter} value={activeFilter} />}
+          leading={<ListTabs ariaLabel="通知筛选" items={filters} onChange={handleFilterChange} value={activeFilter} />}
           trailing={
             <Button disabled={unreadCount === 0} onClick={() => void markAllRead()} size="sm" type="button" variant="outline">
               全部已读
@@ -343,7 +396,20 @@ export function NotificationCenterClient() {
           }
         />
 
-        <div className="border-t border-[var(--reader-border-strong)]">{renderList()}</div>
+        <div className="border-t border-[var(--reader-border-strong)]">
+          <NotificationListContent
+            error={error}
+            items={items}
+            loading={loading}
+            onMarkRead={(ids) => void markRead(ids)}
+            onOpenNotification={(item) => void openNotification(item)}
+            onRetry={() => {
+              setError(null);
+              void mutate();
+            }}
+            reduceMotion={reduceMotion}
+          />
+        </div>
 
         {!loading && !error && nextCursor ? (
           <div className="pt-4">

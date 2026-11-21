@@ -149,12 +149,30 @@ describe("public /profile page", () => {
     }
     expect(container.querySelector(".card-base, .reader-panel, .reader-card, svg")).toBeNull();
     expect(container.querySelectorAll(".ed-btn")).toHaveLength(1);
+    expect(screen.queryByLabelText(/当前登录密码/)).not.toBeInTheDocument();
 
+    // 仅大小写差异不视为更换邮箱，不弹出密码输入框
+    fireEvent.change(screen.getByLabelText(/邮箱/), { target: { value: "  READER@Example.com " } });
+    expect(screen.queryByLabelText(/当前登录密码/)).not.toBeInTheDocument();
+
+    // 修改为新邮箱后，展示方向 A 密码重认证输入框，未填密码时阻止提交并展示中文校验提示
     fireEvent.change(screen.getByLabelText(/显示名称/), { target: { value: "林舟的新名字" } });
-    fireEvent.change(screen.getByLabelText(/邮箱/), { target: { value: "new-reader@example.com" } });
+    fireEvent.change(screen.getByLabelText(/邮箱/), { target: { value: "  New-Reader@Example.com " } });
     fireEvent.change(screen.getByLabelText(/头像链接/), {
       target: { value: "https://example.com/new-avatar.png" },
     });
+
+    const passwordInput = screen.getByLabelText(/当前登录密码/);
+    expect(passwordInput).toHaveClass("ed-input");
+    expect(passwordInput).toHaveAttribute("type", "password");
+    expect(container.querySelector(".card-base, .reader-panel, .reader-card, svg")).toBeNull();
+    expect(container.querySelectorAll(".ed-btn")).toHaveLength(1);
+
+    fireEvent.click(screen.getByRole("button", { name: "保存资料" }));
+    expect(await screen.findByText("修改登录邮箱需验证当前登录密码")).toHaveClass("ed-field-error");
+    expect(apiMutate).not.toHaveBeenCalled();
+
+    fireEvent.change(passwordInput, { target: { value: "reader-secret-123" } });
     fireEvent.click(screen.getByRole("button", { name: "保存资料" }));
 
     await waitFor(() => {
@@ -164,6 +182,7 @@ describe("public /profile page", () => {
           name: "林舟的新名字",
           email: "new-reader@example.com",
           image: "https://example.com/new-avatar.png",
+          currentPassword: "reader-secret-123",
         }),
       });
     });
@@ -176,6 +195,47 @@ describe("public /profile page", () => {
     expect(refresh).toHaveBeenCalledTimes(1);
     expect(toastSuccess).toHaveBeenCalledWith("个人资料已保存");
     expect(screen.getByText("林舟的新名字")).toBeInTheDocument();
+    expect(screen.queryByLabelText(/当前登录密码/)).not.toBeInTheDocument();
+  });
+
+  test("allows saving name and avatar without currentPassword when email stays unchanged", async () => {
+    getServerSession.mockResolvedValueOnce({
+      user: { id: "reader-1", role: "USER" },
+    });
+    findUnique.mockResolvedValueOnce({
+      id: "reader-1",
+      name: "林舟",
+      email: "reader@example.com",
+      image: null,
+      role: "USER",
+      createdAt: new Date("2026-05-12T08:00:00.000Z"),
+    });
+    apiMutate.mockResolvedValueOnce({
+      success: true,
+      data: {
+        id: "reader-1",
+        name: "林舟更新",
+        email: "reader@example.com",
+        image: null,
+      },
+    });
+
+    const ui = await ProfilePage();
+    render(ui as React.ReactElement);
+
+    fireEvent.change(screen.getByLabelText(/显示名称/), { target: { value: "林舟更新" } });
+    fireEvent.click(screen.getByRole("button", { name: "保存资料" }));
+
+    await waitFor(() => {
+      expect(apiMutate).toHaveBeenCalledWith("/api/users/me", {
+        method: "PATCH",
+        body: JSON.stringify({
+          name: "林舟更新",
+          email: "reader@example.com",
+          image: null,
+        }),
+      });
+    });
   });
 
   test("validates fields and maps duplicate email API errors to Chinese toast", async () => {
@@ -205,6 +265,7 @@ describe("public /profile page", () => {
     apiMutate.mockRejectedValueOnce(new Error("Email already in use"));
     fireEvent.change(screen.getByLabelText(/显示名称/), { target: { value: "林舟" } });
     fireEvent.change(screen.getByLabelText(/邮箱/), { target: { value: "taken@example.com" } });
+    fireEvent.change(screen.getByLabelText(/当前登录密码/), { target: { value: "correct-password" } });
     fireEvent.change(screen.getByLabelText(/头像链接/), { target: { value: "" } });
     fireEvent.click(screen.getByRole("button", { name: "保存资料" }));
 

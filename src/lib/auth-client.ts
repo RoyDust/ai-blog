@@ -1,4 +1,4 @@
-export function clearAllSessionData() {
+export function clearAdminSessionStorage() {
   if (typeof window === "undefined") return;
 
   const exactLocalStorageKeys = [
@@ -8,16 +8,27 @@ export function clearAllSessionData() {
   ];
   const localStorageKeyPrefixes = ["author:draft:edit:"];
 
-  exactLocalStorageKeys.forEach((key) => {
-    localStorage.removeItem(key);
-  });
+  try {
+    const storage = window.localStorage;
+    exactLocalStorageKeys.forEach((key) => {
+      storage.removeItem(key);
+    });
 
-  for (let index = localStorage.length - 1; index >= 0; index -= 1) {
-    const key = localStorage.key(index);
-    if (key && localStorageKeyPrefixes.some((prefix) => key.startsWith(prefix))) {
-      localStorage.removeItem(key);
+    for (let index = storage.length - 1; index >= 0; index -= 1) {
+      const key = storage.key(index);
+      if (key && localStorageKeyPrefixes.some((prefix) => key.startsWith(prefix))) {
+        storage.removeItem(key);
+      }
     }
+  } catch {
+    // Ignore SecurityError / QuotaExceededError when browser storage is disabled.
   }
+}
+
+export function clearAllSessionData() {
+  if (typeof window === "undefined") return;
+
+  clearAdminSessionStorage();
 
   const cookieNames = [
     "next-auth.session-token",
@@ -28,12 +39,12 @@ export function clearAllSessionData() {
     "next-auth.verifier",
   ];
 
-  cookieNames.forEach((name) => {
-    document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;`;
-    document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;domain=localhost;`;
-  });
-
   try {
+    cookieNames.forEach((name) => {
+      document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;`;
+      document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;domain=localhost;`;
+    });
+
     const cookies = document.cookie.split(";");
     cookies.forEach((cookie) => {
       const name = cookie.split("=")[0].trim();

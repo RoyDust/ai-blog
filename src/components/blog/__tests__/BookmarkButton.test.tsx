@@ -203,4 +203,30 @@ describe("BookmarkButton", () => {
     );
     expect(fillStyles.join(" ")).not.toMatch(/#[\da-f]{3,8}/i);
   });
+
+  test("renders and handles clicks safely without crashing when browser storage is disabled", () => {
+    mockReducedMotion(true);
+    const getItemSpy = vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new DOMException("Storage disabled", "SecurityError");
+    });
+    const setItemSpy = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new DOMException("Storage disabled", "SecurityError");
+    });
+
+    render(
+      <BookmarkButton
+        slug="storage-blocked-post"
+        initialBookmarked={false}
+        title="Blocked Storage Title"
+        excerpt="Excerpt"
+      />,
+    );
+
+    const button = screen.getByRole("button", { name: "收藏文章" });
+    expect(button).toBeInTheDocument();
+    expect(() => fireEvent.click(button)).not.toThrow();
+
+    getItemSpy.mockRestore();
+    setItemSpy.mockRestore();
+  });
 });
