@@ -1,72 +1,54 @@
 import { beforeEach, describe, expect, test, vi } from "vitest"
 
-const createPost = vi.fn()
-const getServerSession = vi.fn()
-const revalidatePublicContent = vi.fn()
+const getPublishedPostsPage = vi.fn()
 
-vi.mock("next-auth", () => ({
-  getServerSession,
-}))
-
-vi.mock("@/lib/auth", () => ({
-  authOptions: {},
-}))
-
-vi.mock("@/lib/cache", () => ({
-  revalidatePublicContent,
+vi.mock("@/lib/api-operation-log-route", () => ({
+  withApiOperationLogging: (handler: unknown) => handler,
 }))
 
 vi.mock("@/lib/posts", () => ({
-  getPublishedPostsPage: vi.fn(),
+  getPublishedPostsPage,
 }))
 
-vi.mock("@/lib/prisma", () => ({
-  prisma: {
-    post: {
-      create: createPost,
-    },
-  },
-}))
-
-describe("POST /api/posts", () => {
+describe("/api/posts route", () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
 
-  test("forces non-admin post creation to stay unpublished", async () => {
-    getServerSession.mockResolvedValueOnce({ user: { id: "user-1", role: "USER" } })
-    createPost.mockResolvedValueOnce({
-      id: "post-1",
-      slug: "draft-post",
-      published: false,
-      category: null,
-      tags: [],
+  test("only exposes public GET and removes legacy POST write surface", async () => {
+    const routeModule = await import("../route")
+
+    expect(typeof routeModule.GET).toBe("function")
+    expect("POST" in routeModule).toBe(false)
+    expect("PATCH" in routeModule).toBe(false)
+    expect("PUT" in routeModule).toBe(false)
+    expect("DELETE" in routeModule).toBe(false)
+  })
+
+  test("returns paginated public posts with clamped query parameters", async () => {
+    getPublishedPostsPage.mockResolvedValueOnce({
+      posts: [{ id: "post-1", slug: "hello", title: "Hello" }],
+      pagination: { page: 1, limit: 50, total: 1, totalPages: 1 },
     })
 
-    const { POST } = await import("../route")
-    const response = await POST(
-      new Request("http://localhost/api/posts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: "Draft Post",
-          slug: "draft-post",
-          content: "content",
-          published: true,
-        }),
-      }),
+    const { GET } = await import("../route")
+    const response = await GET(
+      new Request("http://localhost/api/posts?page=0&limit=999&category=ai&tag=nextjs&search=agent"),
     )
+    const payload = await response.json()
 
     expect(response.status).toBe(200)
-    expect(createPost).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          authorId: "user-1",
-          published: false,
-          publishedAt: null,
-        }),
-      }),
-    )
-    expect(revalidatePublicContent).not.toHaveBeenCalled()
+    expect(getPublishedPostsPage).toHaveBeenCalledWith({
+      page: 1,
+      limit: 50,
+      category: "ai",
+      tag: "nextjs",
+      search: "agent",
+    })
+    expect(payload).toEqual({
+      success: true,
+      data: [{ id: "post-1", slug: "hello", title: "Hello" }],
+      pagination: { page: 1, limit: 50, total: 1, totalPages: 1 },
+    })
   })
 })

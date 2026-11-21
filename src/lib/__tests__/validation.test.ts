@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'vitest'
+import { ValidationError } from '../api-errors'
 import {
   clampPagination,
+  MAX_POST_CONTENT_LENGTH,
   parseAiDraftInput,
   parseCoverAssetInput,
   parseCoverAssetPatchInput,
@@ -29,6 +31,34 @@ describe('validation helpers', () => {
     }
   })
 
+  test('enforces MAX_POST_CONTENT_LENGTH (512 KiB) across post create, patch, and AI draft inputs', () => {
+    expect(MAX_POST_CONTENT_LENGTH).toBe(524_288)
+
+    const atLimit = 'a'.repeat(MAX_POST_CONTENT_LENGTH)
+    expect(parsePostInput({ title: 'Post', slug: 'post', content: atLimit }).content).toHaveLength(MAX_POST_CONTENT_LENGTH)
+    expect(parsePostPatchInput({ title: 'Post', content: atLimit }).content).toHaveLength(MAX_POST_CONTENT_LENGTH)
+    expect(
+      parseAiDraftInput({
+        externalId: 'draft-1',
+        title: 'Post',
+        slug: 'post',
+        content: atLimit,
+      }).content,
+    ).toHaveLength(MAX_POST_CONTENT_LENGTH)
+
+    const overLimit = 'a'.repeat(MAX_POST_CONTENT_LENGTH + 1)
+    expect(() => parsePostInput({ title: 'Post', slug: 'post', content: overLimit })).toThrow(ValidationError)
+    expect(() => parsePostPatchInput({ title: 'Post', content: overLimit })).toThrow(ValidationError)
+    expect(() =>
+      parseAiDraftInput({
+        externalId: 'draft-1',
+        title: 'Post',
+        slug: 'post',
+        content: overLimit,
+      }),
+    ).toThrow(ValidationError)
+  })
+
   test('clamps page and limit', () => {
     expect(clampPagination({ page: '0', limit: '500' })).toEqual({ page: 1, limit: 50 })
   })
@@ -44,10 +74,10 @@ describe('validation helpers', () => {
   })
 
   test('rejects non-string upload filename', () => {
-    expect(() => parseUploadRequest({ filename: 123 })).toThrow()
+    expect(() => parseUploadRequest({ filename: 123 })).toThrow(ValidationError)
   })
 
-  test('defaults upload purpose to cover and accepts avatar uploads', () => {
+  test('defaults upload purpose to cover and accepts allowlisted image extensions and matching MIME types', () => {
     expect(parseUploadRequest({ filename: 'cover.png' })).toMatchObject({
       filename: 'cover.png',
       purpose: 'cover',
@@ -56,6 +86,53 @@ describe('validation helpers', () => {
       filename: 'avatar.webp',
       purpose: 'avatar',
     })
+    expect(parseUploadRequest({ filename: 'hero.JPG', contentType: 'image/jpeg' })).toMatchObject({
+      filename: 'hero.JPG',
+      contentType: 'image/jpeg',
+      purpose: 'cover',
+    })
+    expect(parseUploadRequest({ filename: 'hero.jpeg', contentType: 'image/jpeg' })).toMatchObject({
+      filename: 'hero.jpeg',
+      contentType: 'image/jpeg',
+    })
+    expect(parseUploadRequest({ filename: 'anim.gif', contentType: 'image/gif' })).toMatchObject({
+      filename: 'anim.gif',
+      contentType: 'image/gif',
+    })
+    expect(parseUploadRequest({ filename: 'banner.avif', contentType: 'image/avif' })).toMatchObject({
+      filename: 'banner.avif',
+      contentType: 'image/avif',
+    })
+  })
+
+  test.each([
+    'xss.svg',
+    'payload.html',
+    'script.js',
+    'evil.png.html',
+    'no-extension',
+    'trailing-dot.',
+    '.png',
+    '../cover.png',
+    'a.b/../../x.png',
+    'nested/cover.png',
+    'nested\\cover.png',
+    'double..dot.png',
+    'null\0byte.png',
+    'cover.png\0.html',
+  ])('rejects unsafe or disallowed upload filename: %s', (filename) => {
+    expect(() => parseUploadRequest({ filename })).toThrow(ValidationError)
+  })
+
+  test.each([
+    { filename: 'cover.png', contentType: 'image/svg+xml' },
+    { filename: 'cover.png', contentType: 'text/html' },
+    { filename: 'cover.jpg', contentType: 'image/jpg' },
+    { filename: 'cover.png', contentType: 'image/webp' },
+    { filename: 'cover.jpeg', contentType: 'image/png' },
+    { filename: 'cover.avif', contentType: 'image/gif' },
+  ])('rejects disallowed or mismatched upload contentType: $filename ($contentType)', (input) => {
+    expect(() => parseUploadRequest(input)).toThrow(ValidationError)
   })
 
   test('rejects unsupported upload purpose values', () => {

@@ -22,6 +22,8 @@ const MAX_EXCERPT_LENGTH = 320
 const MAX_SEO_DESCRIPTION_LENGTH = 500
 const MAX_COMMENT_LENGTH = 5_000
 const MAX_POST_TITLE_LENGTH = 160
+export const MAX_POST_CONTENT_LENGTH = 524_288
+const MAX_UPLOAD_FILENAME_LENGTH = 255
 const MAX_COVER_URL_LENGTH = 2_048
 const MAX_COVER_TEXT_LENGTH = 160
 const MAX_COVER_DESCRIPTION_LENGTH = 1_000
@@ -32,8 +34,26 @@ const AI_EXTERNAL_ID_PATTERN = new RegExp(AI_AUTHORING_PATTERNS.externalId)
 const COVER_ASSET_STATUSES = new Set(["active", "archived"])
 const COVER_ASSET_SOURCES = new Set(["upload", "manual", "ai"])
 const UPLOAD_PURPOSES = ["cover", "avatar"] as const
+export const ALLOWED_UPLOAD_IMAGE_EXTENSION_PATTERN = /^\.(jpe?g|png|webp|avif|gif)$/i
+export const ALLOWED_UPLOAD_IMAGE_MIMES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/avif",
+  "image/gif",
+] as const
 
 export type UploadPurpose = (typeof UPLOAD_PURPOSES)[number]
+export type AllowedUploadImageMime = (typeof ALLOWED_UPLOAD_IMAGE_MIMES)[number]
+
+const UPLOAD_EXTENSION_MIME_MAP: Record<string, AllowedUploadImageMime> = {
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".png": "image/png",
+  ".webp": "image/webp",
+  ".avif": "image/avif",
+  ".gif": "image/gif",
+}
 
 function readString(value: unknown, fieldName: string) {
   if (typeof value !== 'string') {
@@ -276,7 +296,54 @@ export function parseLoginInput(payload: unknown) {
 }
 
 /**
- * 校验上传请求，确保后续上传 token 生成只处理合法字符串。
+ * 校验上传文件名：拦截空字节、路径分隔符、`..` 穿越与非白名单图片后缀。
+ */
+export function parseUploadFilename(value: unknown): {
+  filename: string
+  stem: string
+  ext: string
+  expectedMime: AllowedUploadImageMime
+} {
+  if (typeof value !== 'string' || value.includes('\0')) {
+    throw new ValidationError('Invalid filename')
+  }
+
+  const filename = value.trim()
+  if (!filename) {
+    throw new ValidationError('Invalid filename')
+  }
+
+  assertLength(filename, 'filename', MAX_UPLOAD_FILENAME_LENGTH)
+
+  if (filename.includes('/') || filename.includes('\\') || filename.includes('..')) {
+    throw new ValidationError('Invalid filename')
+  }
+
+  const extIndex = filename.lastIndexOf('.')
+  if (extIndex <= 0) {
+    throw new ValidationError('Unsupported file extension')
+  }
+
+  const ext = filename.slice(extIndex).toLowerCase()
+  if (!ALLOWED_UPLOAD_IMAGE_EXTENSION_PATTERN.test(ext)) {
+    throw new ValidationError('Unsupported file extension')
+  }
+
+  const expectedMime = UPLOAD_EXTENSION_MIME_MAP[ext]
+  if (!expectedMime) {
+    throw new ValidationError('Unsupported file extension')
+  }
+
+  return {
+    filename,
+    stem: filename.slice(0, extIndex),
+    ext,
+    expectedMime,
+  }
+}
+
+/**
+ * 校验上传请求，确保后续上传 token 生成只处理合法栅格图片后缀与匹配 MIME。
  */
 export function parseUploadRequest(payload: unknown) {
   const data = (payload ?? {}) as { filename?: unknown; contentType?: unknown; purpose?: unknown }
@@ -286,9 +353,26 @@ export function parseUploadRequest(payload: unknown) {
     throw new ValidationError('Invalid purpose')
   }
 
+  const { filename, expectedMime } = parseUploadFilename(data.filename)
+  const rawContentType = optionalString(data.contentType, 'contentType')
+  let contentType: AllowedUploadImageMime | undefined
+
+  if (rawContentType !== undefined) {
+    const normalizedMime = rawContentType.toLowerCase()
+    if (!ALLOWED_UPLOAD_IMAGE_MIMES.includes(normalizedMime as AllowedUploadImageMime)) {
+      throw new ValidationError('Unsupported contentType')
+    }
+
+    if (normalizedMime !== expectedMime) {
+      throw new ValidationError('contentType does not match file extension')
+    }
+
+    contentType = normalizedMime as AllowedUploadImageMime
+  }
+
   return {
-    filename: readString(data.filename, 'filename'),
-    contentType: optionalString(data.contentType, 'contentType'),
+    filename,
+    contentType,
     purpose: purpose as UploadPurpose,
   }
 }
@@ -448,6 +532,7 @@ export function parsePostInput(payload: unknown) {
   const excerpt = optionalString(data.excerpt, 'excerpt')
 
   assertLength(title, 'title', MAX_POST_TITLE_LENGTH)
+  assertLength(content, 'content', MAX_POST_CONTENT_LENGTH)
   assertLength(excerpt, 'excerpt', MAX_EXCERPT_LENGTH)
   assertSlug(slug, 'slug')
 
@@ -493,6 +578,7 @@ export function parseAiDraftInput(payload: unknown) {
   const externalId = parseAiDraftExternalId(data.externalId)
 
   assertLength(title, "title", MAX_POST_TITLE_LENGTH)
+  assertLength(content, "content", MAX_POST_CONTENT_LENGTH)
   assertLength(excerpt, "excerpt", MAX_EXCERPT_LENGTH)
   assertSlug(slug, "slug")
 
@@ -537,6 +623,7 @@ export function parsePostPatchInput(payload: unknown) {
   }
 
   assertLength(title, 'title', MAX_POST_TITLE_LENGTH)
+  assertLength(content, 'content', MAX_POST_CONTENT_LENGTH)
   assertLength(optionalString(data.excerpt, 'excerpt'), 'excerpt', MAX_EXCERPT_LENGTH)
   assertLength(optionalNullableString(data.seoDescription, 'seoDescription') ?? undefined, 'seoDescription', MAX_SEO_DESCRIPTION_LENGTH)
 
