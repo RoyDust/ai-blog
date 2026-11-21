@@ -22,6 +22,7 @@ export interface CreateSsrfSafeAgentOptions extends SsrfGuardOptions {
 export interface SafeOutboundFetchOptions extends SsrfGuardOptions {
   fetchImpl?: typeof fetch
   maxRedirects?: number
+  allowCrossOriginRedirects?: boolean
   secrets?: readonly string[]
   dispatcher?: OutboundDispatcherLike | null
 }
@@ -197,10 +198,10 @@ function classifyIpv6Words(words: number[], allowLoopback: boolean): string | nu
   }
   if (wordsAreZero(words, 6)) return 'ipv4-compatible'
   if (isIpv4TransitionPrefix(words)) return 'ipv4-transition'
-  if (words[0] === 0x2002) {
-    const v4Reason = classifyIpv4Octets(extractOctetsFromWordPair(words[1]!, words[2]!), allowLoopback)
-    if (v4Reason) return v4Reason
-  }
+  // 2001:0000::/32 (Teredo tunneling — client IPv4 can be XOR-obfuscated)
+  if (words[0] === 0x2001 && words[1] === 0x0000) return 'ipv6-teredo'
+  // 2002::/16 (6to4 transition prefix — block unconditionally)
+  if (words[0] === 0x2002) return 'ipv6-6to4'
   return classifyHighIpv6Prefix(words[0]!)
 }
 
@@ -428,8 +429,7 @@ function resolveUndiciAgentConstructor(): UndiciAgentConstructor | null {
   if (cachedAgentCtor) {
     return cachedAgentCtor
   }
-  const readGlobalAgentCtor = (): UndiciAgentConstructor | null => {
-    const dispatcher = (globalThis as Record<symbol, unknown>)[UNDICI_GLOBAL_DISPATCHER_SYMBOL]
+  const extractAgentCtor = (dispatcher: unknown): UndiciAgentConstructor | null => {
     if (
       dispatcher &&
       typeof dispatcher === 'object' &&
@@ -437,6 +437,22 @@ function resolveUndiciAgentConstructor(): UndiciAgentConstructor | null {
       dispatcher.constructor.name === 'Agent'
     ) {
       return dispatcher.constructor as unknown as UndiciAgentConstructor
+    }
+    return null
+  }
+  const readGlobalAgentCtor = (): UndiciAgentConstructor | null => {
+    const globalSymbols = globalThis as Record<symbol, unknown>
+    const direct = extractAgentCtor(globalSymbols[UNDICI_GLOBAL_DISPATCHER_SYMBOL])
+    if (direct) {
+      return direct
+    }
+    for (const sym of Object.getOwnPropertySymbols(globalThis)) {
+      if (sym.description?.startsWith('undici.globalDispatcher.')) {
+        const candidate = extractAgentCtor(globalSymbols[sym])
+        if (candidate) {
+          return candidate
+        }
+      }
     }
     return null
   }
@@ -463,6 +479,12 @@ function resolveUndiciAgentConstructor(): UndiciAgentConstructor | null {
   }
 
   return null
+}
+
+export function resetSsrfSafeDispatcherForTests(): void {
+  cachedAgentCtor = null
+  defaultBlockingAgent = null
+  defaultLoopbackAgent = null
 }
 
 export function createSsrfSafeAgent(options: CreateSsrfSafeAgentOptions = {}): OutboundDispatcherLike | null {
@@ -502,6 +524,19 @@ function unwrapBlockedTransportError(error: unknown): ReliabilityError | null {
   return null
 }
 
+function createDispatcherUnavailableError(secrets?: readonly string[]): ReliabilityError & { code: string } {
+  return Object.assign(
+    new ReliabilityError({
+      kind: 'network',
+      retryable: false,
+      upstreamCode: 'OUTBOUND_DISPATCHER_UNAVAILABLE',
+      message: 'Outbound SSRF-safe DNS-validating dispatcher is unavailable',
+      secrets,
+    }),
+    { code: 'OUTBOUND_DISPATCHER_UNAVAILABLE' },
+  )
+}
+
 export async function executeOutboundFetchHop(
   url: URL,
   init: RequestInit,
@@ -509,12 +544,21 @@ export async function executeOutboundFetchHop(
 ): Promise<Response> {
   const customFetch = options.fetchImpl
   const effectiveFetch = customFetch ?? globalThis.fetch
+  if (typeof effectiveFetch !== 'function') {
+    throw createDispatcherUnavailableError(options.secrets)
+  }
+
+  const isMockFetch = isMockFetchFunction(effectiveFetch) || isMockFetchFunction(customFetch)
   const useDispatcher =
     options.dispatcher !== undefined
       ? options.dispatcher
-      : (customFetch === undefined || customFetch === globalThis.fetch) && !isMockFetchFunction(effectiveFetch)
+      : (customFetch === undefined || customFetch === globalThis.fetch) && !isMockFetch
         ? getSsrfSafeDispatcher(options)
         : null
+
+  if (!isMockFetch && (!useDispatcher || typeof useDispatcher !== 'object')) {
+    throw createDispatcherUnavailableError(options.secrets)
+  }
 
   const requestInit: RequestInit & { dispatcher?: OutboundDispatcherLike } = {
     ...init,
@@ -581,6 +625,8 @@ export async function safeOutboundFetch(
 
   let currentUrl = validateOutboundUrl(input, options)
   let method = (init.method ?? 'GET').toUpperCase()
+  const allowCrossOriginRedirects =
+    options.allowCrossOriginRedirects ?? (method === 'GET' || method === 'HEAD')
   let body = init.body
   let headers = normalizeHeadersRecord(init.headers)
 
@@ -660,6 +706,16 @@ export async function safeOutboundFetch(
       }
 
       if (nextUrl.origin !== currentUrl.origin) {
+        if (!allowCrossOriginRedirects) {
+          await cancelResponseBody(response)
+          throw new ReliabilityError({
+            kind: 'upstream-rejected',
+            retryable: false,
+            status: response.status,
+            message: 'Outbound cross-origin redirect blocked',
+            secrets: options.secrets,
+          })
+        }
         headers = stripCrossOriginCredentialHeaders(headers)
       }
 

@@ -20,7 +20,7 @@ async function POSTHandler(request: Request) {
 
     await requireAdminSession()
 
-    const { filename, purpose } = parseUploadRequest(await request.json())
+    const { filename, contentType, purpose } = parseUploadRequest(await request.json())
     const accessKey = process.env.QINIU_ACCESS_KEY
     const secretKey = process.env.QINIU_SECRET_KEY
     const bucket = process.env.QINIU_BUCKET
@@ -37,6 +37,7 @@ async function POSTHandler(request: Request) {
       key,
       accessKey,
       secretKey,
+      mimeType: contentType,
     })
 
     return NextResponse.json({

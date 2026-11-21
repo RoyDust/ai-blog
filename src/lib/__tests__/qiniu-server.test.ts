@@ -6,6 +6,7 @@ import {
   buildUploadKey,
   createQiniuUploadToken,
   extensionFromContentType,
+  mimeTypeFromUploadKey,
   uploadBufferToQiniu,
 } from "../qiniu-server";
 
@@ -70,34 +71,65 @@ describe("qiniu-server", () => {
     }
   });
 
-  test("signs Qiniu upload token with fsizeLimit (10 MiB) and strict image mimeLimit", () => {
-    const token = createQiniuUploadToken({
-      bucket: "inkforge-bucket",
-      key: "covers/test.webp",
-      accessKey: "ak-test",
-      secretKey: "sk-test",
-    });
+  test("signs Qiniu upload token with fsizeLimit (10 MiB) and single extension-bound mimeLimit", () => {
+    const extensionCases = [
+      { key: "covers/test.webp", expectedMime: "image/webp" },
+      { key: "covers/test.png", expectedMime: "image/png" },
+      { key: "covers/test.gif", expectedMime: "image/gif" },
+      { key: "covers/test.avif", expectedMime: "image/avif" },
+      { key: "covers/test.jpg", expectedMime: "image/jpeg" },
+      { key: "covers/test.jpeg", expectedMime: "image/jpeg" },
+    ] as const;
 
-    const { accessKey, encodedSign, encodedPolicy, policy } = decodePutPolicy(token);
-    const expectedSign = crypto
-      .createHmac("sha1", "sk-test")
-      .update(encodedPolicy)
-      .digest("base64")
-      .replace(/\+/g, "-")
-      .replace(/\//g, "_");
+    for (const item of extensionCases) {
+      expect(mimeTypeFromUploadKey(item.key)).toBe(item.expectedMime);
+      const token = createQiniuUploadToken({
+        bucket: "inkforge-bucket",
+        key: item.key,
+        accessKey: "ak-test",
+        secretKey: "sk-test",
+      });
 
-    expect(accessKey).toBe("ak-test");
-    expect(encodedSign).toBe(expectedSign);
-    expect(policy).toMatchObject({
-      scope: "inkforge-bucket:covers/test.webp",
-      fsizeLimit: 10 * 1024 * 1024,
-      mimeLimit: "image/jpeg;image/png;image/webp;image/avif;image/gif",
-      returnBody: '{"key":"$(key)","hash":"$(etag)","fsize":$(fsize)}',
-    });
-    expect(typeof policy.deadline).toBe("number");
+      const { accessKey, encodedSign, encodedPolicy, policy } = decodePutPolicy(token);
+      const expectedSign = crypto
+        .createHmac("sha1", "sk-test")
+        .update(encodedPolicy)
+        .digest("base64")
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_");
+
+      expect(accessKey).toBe("ak-test");
+      expect(encodedSign).toBe(expectedSign);
+      expect(policy).toMatchObject({
+        scope: `inkforge-bucket:${item.key}`,
+        fsizeLimit: 10 * 1024 * 1024,
+        mimeLimit: item.expectedMime,
+        returnBody: '{"key":"$(key)","hash":"$(etag)","fsize":$(fsize)}',
+      });
+      expect(typeof policy.deadline).toBe("number");
+    }
+
+    expect(() =>
+      createQiniuUploadToken({
+        bucket: "inkforge-bucket",
+        key: "covers/test.png",
+        accessKey: "ak-test",
+        secretKey: "sk-test",
+        mimeType: "image/webp",
+      }),
+    ).toThrow(ValidationError);
+
+    expect(() =>
+      createQiniuUploadToken({
+        bucket: "inkforge-bucket",
+        key: "covers/xss.svg",
+        accessKey: "ak-test",
+        secretKey: "sk-test",
+      }),
+    ).toThrow(ValidationError);
   });
 
-  test("uploads buffer to Qiniu using mapped extension and hardened upload policy", async () => {
+  test("uploads buffer to Qiniu using mapped extension and single-MIME upload policy", async () => {
     const fetchMock = vi.fn<typeof fetch>(async () => new Response("{}", { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
 
@@ -114,7 +146,7 @@ describe("qiniu-server", () => {
     const token = String(formData.get("token"));
     const { policy } = decodePutPolicy(token);
     expect(policy.fsizeLimit).toBe(10 * 1024 * 1024);
-    expect(policy.mimeLimit).toBe("image/jpeg;image/png;image/webp;image/avif;image/gif");
+    expect(policy.mimeLimit).toBe("image/avif");
   });
 
   test("throws ValidationError when Qiniu environment configuration is incomplete", async () => {

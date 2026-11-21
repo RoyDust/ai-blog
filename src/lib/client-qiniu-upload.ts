@@ -175,10 +175,14 @@ export async function uploadFileToQiniu(
   }
 
   const formData = new FormData();
-  if (file instanceof File && file.name === filename) {
+  const normalizedBlob =
+    contentType && file.type !== contentType
+      ? new Blob([file], { type: contentType })
+      : file;
+  if (normalizedBlob === file && file instanceof File && file.name === filename) {
     formData.append("file", file);
   } else {
-    formData.append("file", file, filename);
+    formData.append("file", normalizedBlob, filename);
   }
   formData.append("token", tokenPayload.token);
   formData.append("key", tokenPayload.key);

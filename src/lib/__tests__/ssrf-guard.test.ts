@@ -6,7 +6,10 @@ import {
   assertSafeIpAddress,
   createSsrfSafeAgent,
   createSsrfSafeLookup,
+  executeOutboundFetchHop,
+  getSsrfSafeDispatcher,
   isBlockedIpAddress,
+  resetSsrfSafeDispatcherForTests,
   safeOutboundFetch,
   validateOutboundUrl,
 } from '../ssrf-guard'
@@ -14,6 +17,8 @@ import {
 describe('ssrf-guard', () => {
   afterEach(() => {
     vi.unstubAllEnvs()
+    vi.unstubAllGlobals()
+    resetSsrfSafeDispatcherForTests()
   })
 
   describe('validateOutboundUrl & isBlockedIpAddress', () => {
@@ -84,6 +89,12 @@ describe('ssrf-guard', () => {
         'http://[::ffff:100.100.100.200]/',
         'http://[::ffff:169.254.169.254]/',
         'http://[::ffff:93.184.216.34]/',
+        // IPv6 Teredo (2001:0000::/32) & 6to4 (2002::/16) transition prefixes (including public embedded IPv4)
+        'http://[2001::1]/',
+        'http://[2001:0000:4136:e378:8000:63bf:3fff:fdd2]/',
+        'http://[2002:5db8:d822::1]/',
+        'http://[2002:7f00:0001::1]/',
+        'http://[2002:0a00:0001::1]/',
       ]
 
       for (const target of blockedUrls) {
@@ -92,11 +103,15 @@ describe('ssrf-guard', () => {
         )
       }
 
-      // Boundary outside 100.64.0.0/10 and 172.16.0.0/12 must remain allowed
+      // Boundary outside 100.64.0.0/10, 172.16.0.0/12, and non-Teredo 2001::/16 must remain allowed
       expect(isBlockedIpAddress('100.63.255.255')).toBe(false)
       expect(isBlockedIpAddress('100.128.0.1')).toBe(false)
       expect(isBlockedIpAddress('172.15.255.255')).toBe(false)
       expect(isBlockedIpAddress('172.32.0.1')).toBe(false)
+      expect(isBlockedIpAddress('2001:4860:4860::8888')).toBe(false)
+      expect(isBlockedIpAddress('2001::1')).toBe(true)
+      expect(isBlockedIpAddress('2001:0000:4136:e378:8000:63bf:3fff:fdd2')).toBe(true)
+      expect(isBlockedIpAddress('2002:5db8:d822::1')).toBe(true)
       expect(() => assertSafeIpAddress('100.100.100.200')).toThrowError(expect.objectContaining({ kind: 'configuration' }))
     })
 
@@ -126,6 +141,9 @@ describe('ssrf-guard', () => {
           'http://[fc00::1]/',
           'http://[::ffff:100.100.100.200]/',
           'http://[::ffff:169.254.169.254]/',
+          'http://[2001:0000:4136:e378:8000:63bf:3fff:fdd2]/',
+          'http://[2002:7f00:0001::1]/',
+          'http://[2002:5db8:d822::1]/',
         ]) {
           expect(() => validateOutboundUrl(stillBlocked, opts), `expected ${stillBlocked} to stay blocked in ${mode} mode`).toThrowError(
             expect.objectContaining({ kind: 'configuration', retryable: false }),
@@ -153,10 +171,18 @@ describe('ssrf-guard', () => {
           cb(null, [{ address: '169.254.169.254', family: 4 }])
           return
         }
+        if (hostname === 'teredo.rebind.test') {
+          cb(null, [{ address: '2001:0000:4136:e378:8000:63bf:3fff:fdd2', family: 6 }])
+          return
+        }
+        if (hostname === 'sixtofour.rebind.test') {
+          cb(null, [{ address: '2002:5db8:d822::1', family: 6 }])
+          return
+        }
         cb(null, [{ address: '93.184.216.34', family: 4 }])
       }) as unknown as typeof dns.lookup
 
-      const safeLookup = createSsrfSafeLookup({ lookupImpl: fakeLookup })
+      const safeLookup = createSsrfSafeLookup({ lookupImpl: fakeLookup, allowLoopback: true })
 
       const runLookup = (host: string, all = false) =>
         new Promise<{ address: unknown; family?: number }>((resolve, reject) => {
@@ -169,7 +195,83 @@ describe('ssrf-guard', () => {
       await expect(runLookup('mixed.rebind.test', true)).rejects.toMatchObject({ kind: 'configuration' })
       await expect(runLookup('ecs-meta.rebind.test', false)).rejects.toMatchObject({ kind: 'configuration' })
       await expect(runLookup('aws-meta.rebind.test', false)).rejects.toMatchObject({ kind: 'configuration' })
+      await expect(runLookup('teredo.rebind.test', false)).rejects.toMatchObject({ kind: 'configuration' })
+      await expect(runLookup('sixtofour.rebind.test', false)).rejects.toMatchObject({ kind: 'configuration' })
       await expect(runLookup('public.example.test', false)).resolves.toEqual({ address: '93.184.216.34', family: 4 })
+    })
+
+    it('fails closed with OUTBOUND_DISPATCHER_UNAVAILABLE when non-mock fetch lacks a DNS-validating dispatcher', async () => {
+      const realDispatcher = getSsrfSafeDispatcher()
+      expect(realDispatcher).toBeTruthy()
+      expect(realDispatcher?.constructor?.name).toBe('Agent')
+
+      let wrapperCalled = false
+      const wrappedNonMockFetch: typeof fetch = async () => {
+        wrapperCalled = true
+        return new Response('should-not-run', { status: 200 })
+      }
+
+      await expect(
+        executeOutboundFetchHop(new URL('https://openai.com/news/rss.xml'), { method: 'GET' }, { fetchImpl: wrappedNonMockFetch }),
+      ).rejects.toMatchObject({
+        name: 'ReliabilityError',
+        kind: 'network',
+        code: 'OUTBOUND_DISPATCHER_UNAVAILABLE',
+        retryable: false,
+      })
+      expect(wrapperCalled).toBe(false)
+
+      await expect(
+        safeOutboundFetch('https://openai.com/news/rss.xml', { method: 'GET' }, { dispatcher: null }),
+      ).rejects.toMatchObject({
+        name: 'ReliabilityError',
+        kind: 'network',
+        code: 'OUTBOUND_DISPATCHER_UNAVAILABLE',
+        retryable: false,
+      })
+
+      // Simulate runtime where built-in undici Agent constructor cannot be resolved
+      const undiciSymbol = Symbol.for('undici.globalDispatcher.1')
+      const globalRecord = globalThis as Record<symbol, unknown>
+      const savedDispatcher = globalRecord[undiciSymbol]
+      const savedSymbols: Array<[symbol, unknown]> = []
+      for (const sym of Object.getOwnPropertySymbols(globalThis)) {
+        if (sym.description?.startsWith('undici.globalDispatcher.')) {
+          savedSymbols.push([sym, globalRecord[sym]])
+          globalRecord[sym] = null
+        }
+      }
+      globalRecord[undiciSymbol] = null
+      resetSsrfSafeDispatcherForTests()
+      const outboundUrlsSent: string[] = []
+      const nonMockGlobalFetch: typeof fetch = async (input, init) => {
+        if (init?.signal?.aborted) {
+          throw new DOMException('The operation was aborted.', 'AbortError')
+        }
+        outboundUrlsSent.push(String(input))
+        return new Response('unguarded', { status: 200 })
+      }
+      vi.stubGlobal('fetch', nonMockGlobalFetch)
+
+      try {
+        expect(createSsrfSafeAgent()).toBeNull()
+        await expect(
+          safeOutboundFetch('https://openai.com/news/rss.xml', { method: 'GET' }),
+        ).rejects.toMatchObject({
+          name: 'ReliabilityError',
+          kind: 'network',
+          code: 'OUTBOUND_DISPATCHER_UNAVAILABLE',
+          retryable: false,
+        })
+        expect(outboundUrlsSent).toEqual([])
+      } finally {
+        globalRecord[undiciSymbol] = savedDispatcher
+        for (const [sym, val] of savedSymbols) {
+          globalRecord[sym] = val
+        }
+        vi.unstubAllGlobals()
+        resetSsrfSafeDispatcherForTests()
+      }
     })
 
     it('blocks DNS rebinding at socket connect time with real globalThis.fetch and permits loopback only when enabled', async () => {
@@ -263,6 +365,58 @@ describe('ssrf-guard', () => {
       expect(hop2Headers).not.toHaveProperty('Authorization')
       expect(hop2Headers).not.toHaveProperty('Cookie')
       expect(hop2Headers).toHaveProperty('X-Trace', 'trace-1')
+    })
+
+    it('blocks cross-origin redirects on POST/PUT/PATCH/DELETE by default while allowing same-origin 307/308', async () => {
+      for (const method of ['POST', 'PUT', 'PATCH', 'DELETE'] as const) {
+        const crossOriginFetch = vi.fn<typeof fetch>(async () =>
+          new Response(null, { status: 307, headers: { location: 'https://third-party.example/collect' } }),
+        )
+
+        await expect(
+          safeOutboundFetch(
+            'https://api.example.com/v1/completions',
+            { method, body: JSON.stringify({ draft: 'unpublished secret' }) },
+            { fetchImpl: crossOriginFetch },
+          ),
+        ).rejects.toMatchObject({
+          kind: 'upstream-rejected',
+          status: 307,
+          retryable: false,
+        })
+        expect(crossOriginFetch).toHaveBeenCalledTimes(1)
+      }
+
+      const sameOriginResponses = [
+        new Response(null, { status: 308, headers: { location: 'https://api.example.com/v2/completions' } }),
+        new Response('{"ok":true}', { status: 200 }),
+      ]
+      const sameOriginFetch = vi.fn<typeof fetch>(async () => sameOriginResponses.shift()!)
+      const okRes = await safeOutboundFetch(
+        'https://api.example.com/v1/completions',
+        {
+          method: 'POST',
+          headers: { Authorization: 'Bearer sk-1' },
+          body: '{"prompt":"safe"}',
+        },
+        { fetchImpl: sameOriginFetch },
+      )
+      expect(await okRes.text()).toBe('{"ok":true}')
+      expect(sameOriginFetch).toHaveBeenCalledTimes(2)
+      expect(sameOriginFetch.mock.calls[1]?.[0]).toBe('https://api.example.com/v2/completions')
+      expect(sameOriginFetch.mock.calls[1]?.[1]?.body).toBe('{"prompt":"safe"}')
+
+      const explicitBlockGet = vi.fn<typeof fetch>(async () =>
+        new Response(null, { status: 302, headers: { location: 'https://cdn.other.example/img.png' } }),
+      )
+      await expect(
+        safeOutboundFetch(
+          'https://api.example.com/img',
+          { method: 'GET' },
+          { fetchImpl: explicitBlockGet, allowCrossOriginRedirects: false },
+        ),
+      ).rejects.toMatchObject({ kind: 'upstream-rejected', retryable: false })
+      expect(explicitBlockGet).toHaveBeenCalledTimes(1)
     })
   })
 })
