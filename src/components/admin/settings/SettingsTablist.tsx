@@ -2,6 +2,8 @@
 
 import type { KeyboardEvent } from "react";
 
+import { ActiveUnderline } from "@/components/editorial";
+
 import { settingsTabs, type SettingsTabId } from "./settings-shared";
 
 type SettingsTablistProps = {
@@ -10,7 +12,8 @@ type SettingsTablistProps = {
 };
 
 /**
- * 设置页顶部分类 tab 栏（roving tabindex 键盘导航）。
+ * 设置页顶部分类 tab 栏（方向 A 第 15 节）：一行 7 格文字页签（名称 + 一行说明），格间 1px 细线，
+ * 当前格 2px sky 下划线（layoutId 平移）；roving tabindex 键盘导航（左右 / Home / End）。
  * 纯展示组件：激活 tab 与切换动作全部经 props 上抛。
  */
 export function SettingsTablist({ activeTab, onTabChange }: SettingsTablistProps) {
@@ -39,26 +42,23 @@ export function SettingsTablist({ activeTab, onTabChange }: SettingsTablistProps
   };
 
   return (
-    <div className="overflow-x-auto pb-1">
+    <div className="overflow-x-auto">
       <div
         aria-label="设置分类"
-        className="inline-flex min-w-full gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-1"
+        className="flex min-w-max border-b border-[var(--border)]"
         onKeyDown={handleKeyDown}
         role="tablist"
       >
-        {settingsTabs.map((tab) => {
-          const Icon = tab.icon;
+        {settingsTabs.map((tab, index) => {
           const isActive = activeTab === tab.id;
 
           return (
             <button
               aria-controls="settings-panel"
               aria-selected={isActive}
-              className={`flex min-w-[150px] flex-1 items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] ${
-                isActive
-                  ? "bg-[var(--surface-alt)] text-[var(--foreground)] shadow-sm"
-                  : "text-[var(--muted)] hover:bg-[var(--surface-alt)] hover:text-[var(--foreground)]"
-              }`}
+              className={`group relative flex min-w-[8.5rem] flex-1 cursor-pointer flex-col items-start gap-0.5 px-3.5 pt-2.5 pb-3 text-left transition-colors duration-150 ${
+                index > 0 ? "before:absolute before:top-2.5 before:bottom-3 before:left-0 before:w-px before:bg-[var(--border)] before:content-['']" : ""
+              } ${isActive ? "text-[var(--foreground)]" : "text-[var(--text-muted)] hover:bg-[color-mix(in_oklab,var(--foreground)_3%,transparent)] hover:text-[var(--foreground)]"}`}
               id={`settings-tab-${tab.id}`}
               key={tab.id}
               onClick={() => onTabChange(tab.id)}
@@ -66,11 +66,9 @@ export function SettingsTablist({ activeTab, onTabChange }: SettingsTablistProps
               tabIndex={isActive ? 0 : -1}
               type="button"
             >
-              <Icon className="h-4 w-4 shrink-0" />
-              <span className="min-w-0">
-                <span className="block truncate text-sm font-semibold">{tab.label}</span>
-                <span className="mt-0.5 block truncate text-xs opacity-75">{tab.description}</span>
-              </span>
+              <span className="block truncate text-sm font-bold">{tab.label}</span>
+              <span className={`block truncate text-xs ${isActive ? "text-[var(--text-body)]" : "text-[var(--text-muted)]"}`}>{tab.description}</span>
+              {isActive ? <ActiveUnderline layoutId="settings-tab-underline" className="ed-underline -bottom-px" /> : null}
             </button>
           );
         })}

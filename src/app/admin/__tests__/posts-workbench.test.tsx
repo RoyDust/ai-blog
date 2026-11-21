@@ -99,7 +99,7 @@ describe("posts workbench", () => {
 
     expect(fetchMock).toHaveBeenCalledWith("/api/admin/posts?page=1&limit=10");
     expect(screen.getByText("仅看草稿")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "非 AI 日报" })).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "非 AI 日报" })).not.toBeChecked();
     expect(screen.getByRole("button", { name: "切换为已发布" })).toBeInTheDocument();
     expect(screen.getAllByText("评论 2").length).toBeGreaterThan(0);
     expect(screen.getByText("勾选文章后显示批量操作")).toBeInTheDocument();
@@ -113,7 +113,7 @@ describe("posts workbench", () => {
     expect(container.firstElementChild).toHaveClass("h-full", "min-h-0", "overflow-hidden");
     expect(screen.getByTestId("admin-data-table-scroll")).toHaveClass("min-h-0", "flex-1", "overflow-auto");
 
-    fireEvent.click(screen.getByRole("button", { name: "非 AI 日报" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "非 AI 日报" }));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith("/api/admin/posts?page=1&limit=10&type=non-ai-daily");
@@ -473,7 +473,8 @@ describe("posts workbench", () => {
       expect(screen.getByText("Draft 1")).toBeInTheDocument();
     });
     expect(screen.getByText("第 1 / 2 页")).toBeInTheDocument();
-    expect(screen.getByText("10 条记录")).toBeInTheDocument();
+    // 区块标题右侧是总记录数（第 X / N 页 · N 条记录），不随当前页行数变化
+    expect(screen.getByText("11 条记录")).toBeInTheDocument();
     // 客户端路径渲染为按钮而非链接，翻页不会触发整页刷新
     expect(screen.queryByRole("link", { name: "下一页" })).not.toBeInTheDocument();
 
@@ -484,7 +485,7 @@ describe("posts workbench", () => {
     });
     expect(await screen.findByText("Draft 11")).toBeInTheDocument();
     expect(screen.getByText("第 2 / 2 页")).toBeInTheDocument();
-    expect(screen.getByText("1 条记录")).toBeInTheDocument();
+    expect(screen.getByText("11 条记录")).toBeInTheDocument();
     // 页面壳仍在原处渲染，未被整页刷新替换
     expect(screen.getByRole("heading", { name: "AI 内容队列" })).toBeInTheDocument();
   });

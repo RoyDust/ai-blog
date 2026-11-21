@@ -1,9 +1,11 @@
 "use client";
 
+import { motion, useReducedMotion } from "motion/react";
 import Link from "next/link";
 
-import { StatusBadge } from "@/components/admin/primitives/StatusBadge";
 import { Button, Modal } from "@/components/admin/ui";
+import { StaggerItem, StaggerList, editorialEase } from "@/components/editorial";
+import { cn } from "@/lib/cn";
 import type { AiArticleInfoPreview } from "./hooks/useAiActions";
 import type { CategoryOption, TagOption } from "./workspace-types";
 
@@ -19,10 +21,33 @@ function formatPreviewValue(value: string) {
   return value.trim() || "未设置";
 }
 
-function getQualityTone(status?: string) {
-  if (status === "ok") return "success";
-  if (status === "danger") return "danger";
-  return "warning";
+const toneTextClassNames = {
+  success: "text-[var(--success)]",
+  warning: "text-[var(--warning)]",
+  danger: "text-[var(--danger-foreground)]",
+  info: "text-[var(--focus)]",
+  muted: "text-[var(--text-muted)]",
+} as const;
+
+function getQualityToneClassName(status?: string) {
+  if (status === "ok") return toneTextClassNames.success;
+  if (status === "danger") return toneTextClassNames.danger;
+  return toneTextClassNames.warning;
+}
+
+/** 变化列语气：将替换 warning、将补全 success、不覆盖 muted、标签增删为等宽 info */
+function getChangeClassName(change: string) {
+  if (change === "将替换") return toneTextClassNames.warning;
+  if (change === "将补全") return toneTextClassNames.success;
+  if (change === "不覆盖") return toneTextClassNames.muted;
+  return cn(toneTextClassNames.info, "font-mono");
+}
+
+const placeholderValues = new Set(["未设置", "未选择", "未匹配", "保留原值"]);
+
+function valueClassName(value: string, emphasis: boolean) {
+  if (placeholderValues.has(value)) return "text-[var(--text-muted)]";
+  return emphasis ? "text-[var(--foreground)]" : "text-[var(--text-body)]";
 }
 
 function getTagNames(ids: string[], tags: TagOption[]) {
@@ -106,6 +131,13 @@ export function ArticleInfoPreviewModal({
   onApply,
 }: ArticleInfoPreviewModalProps) {
   const rows = getArticleInfoPreviewRows({ categories, preview, tags });
+  const reduceMotion = useReducedMotion();
+
+  const metricsLine = preview.metrics
+    .filter((metric) => metric.action)
+    .map((metric) => `${articleInfoActionLabels[metric.action] ?? metric.action} ${metric.durationMs}ms`)
+    .join(" / ");
+  const qualityScore = preview.quality?.score;
 
   return (
     <Modal
@@ -113,99 +145,110 @@ export function ArticleInfoPreviewModal({
       onClose={onClose}
       title="确认一键 AI 生成结果"
       size="3xl"
-      contentClassName="space-y-4 px-4 py-4 sm:px-6"
+      contentClassName="flex flex-col gap-4 px-6 py-4"
     >
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-sm font-medium text-[var(--foreground)]">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <p className="min-w-0 text-[0.8125rem] text-[var(--text-body)]">
+          <span className={cn("mr-2 text-xs font-bold", preview.partial ? toneTextClassNames.warning : toneTextClassNames.muted)}>
             {preview.partial ? "部分字段可用" : "生成结果待确认"}
-          </p>
-          <p className="mt-1 text-xs text-[var(--muted)]">标题和正文不会被覆盖；不覆盖项会保留当前表单值。</p>
-        </div>
-        <Link className="text-sm font-medium text-[var(--brand)] hover:underline" href={preview.taskHref}>
+          </span>
+          标题和正文不会被覆盖；不覆盖项会保留当前表单值。
+        </p>
+        <Link
+          className="inline-flex min-h-6 items-center text-[0.8125rem] font-bold text-[var(--text-body)] underline decoration-[var(--reader-border-strong)] decoration-1 underline-offset-4 transition-[color,text-decoration-color] duration-150 hover:text-[var(--foreground)] hover:decoration-[var(--accent-sky)]"
+          href={preview.taskHref}
+        >
           查看 AI 任务
         </Link>
       </div>
 
-      <div className="space-y-2 sm:hidden">
+      <StaggerList as="ul" className="sm:hidden" stagger={0.04}>
         {rows.map((row) => (
-          <div key={row.key} className="rounded-xl border border-[var(--border)] bg-[var(--surface-alt)] px-3 py-3">
-            <div className="flex items-start justify-between gap-3">
-              <span className="text-sm font-semibold text-[var(--foreground)]">{row.label}</span>
-              <span className="shrink-0 text-xs font-medium text-[var(--brand)]">{row.change}</span>
+          <StaggerItem as="li" key={row.key} className="border-b border-[var(--border)] py-3 first:border-t first:border-t-[var(--reader-border-strong)]">
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="text-[0.8125rem] font-bold text-[var(--foreground)]">{row.label}</span>
+              <span className={cn("shrink-0 text-xs font-bold", getChangeClassName(row.change))}>{row.change}</span>
             </div>
-            <div className="mt-3 grid gap-2">
-              <div className="min-w-0">
-                <p className="text-xs font-medium text-[var(--muted)]">当前</p>
-                <p className="mt-1 break-words text-sm leading-6 text-[var(--muted)]">{row.current}</p>
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs font-medium text-[var(--muted)]">AI 建议</p>
-                <p className="mt-1 break-words text-sm leading-6 text-[var(--foreground)]">{row.next}</p>
-              </div>
-            </div>
-          </div>
+            <p className="mt-1.5 text-xs text-[var(--text-muted)]">当前</p>
+            <p className={cn("break-words text-[0.8125rem] leading-[1.6]", valueClassName(row.current, false))}>{row.current}</p>
+            <p className="mt-1.5 text-xs text-[var(--text-muted)]">AI 建议</p>
+            <p className={cn("break-words text-[0.8125rem] leading-[1.6]", valueClassName(row.next, true))}>{row.next}</p>
+          </StaggerItem>
         ))}
-      </div>
+      </StaggerList>
 
-      <div className="hidden overflow-hidden rounded-2xl border border-[var(--border)] sm:block">
-        <div className="grid grid-cols-[6rem_minmax(0,1fr)_minmax(0,1fr)_7rem] gap-0 border-b border-[var(--border)] bg-[var(--surface-alt)] text-xs font-semibold text-[var(--muted)]">
-          <span className="px-3 py-2">字段</span>
-          <span className="px-3 py-2">当前</span>
-          <span className="px-3 py-2">AI 建议</span>
-          <span className="px-3 py-2">变化</span>
-        </div>
-        <div className="divide-y divide-[var(--border)]">
-          {rows.map((row) => (
-            <div key={row.key} className="grid grid-cols-[6rem_minmax(0,1fr)_minmax(0,1fr)_7rem] gap-0 text-sm">
-              <span className="px-3 py-3 font-medium text-[var(--foreground)]">{row.label}</span>
-              <span className="min-w-0 break-words px-3 py-3 text-[var(--muted)]">{row.current}</span>
-              <span className="min-w-0 break-words px-3 py-3 text-[var(--foreground)]">{row.next}</span>
-              <span className="px-3 py-3 text-xs font-medium text-[var(--brand)]">{row.change}</span>
-            </div>
+      <table className="hidden w-full table-fixed border-collapse text-[0.8125rem] sm:table" data-slot="ai-preview-table">
+        <colgroup>
+          <col className="w-24" />
+          <col />
+          <col />
+          <col className="w-36" />
+        </colgroup>
+        <thead>
+          <tr className="border-b border-[var(--reader-border-strong)] text-left text-xs font-bold text-[var(--text-muted)]">
+            <th scope="col" className="h-9 pr-3 font-bold">字段</th>
+            <th scope="col" className="h-9 pr-3 font-bold">当前</th>
+            <th scope="col" className="h-9 pr-3 font-bold">AI 建议</th>
+            <th scope="col" className="h-9 font-bold">变化</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, index) => (
+            <motion.tr
+              key={row.key}
+              className="border-b border-[var(--border)] align-top"
+              initial={reduceMotion ? false : { opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0, transition: { duration: 0.32, ease: editorialEase, delay: reduceMotion ? 0 : 0.04 * index } }}
+            >
+              <th scope="row" className="py-3 pr-3 text-left font-bold text-[var(--foreground)]">{row.label}</th>
+              <td className={cn("min-w-0 break-words py-3 pr-3 leading-[1.6]", row.key === "slug" && "font-mono text-xs", valueClassName(row.current, false))}>
+                {row.current}
+              </td>
+              <td className={cn("min-w-0 break-words py-3 pr-3 leading-[1.6]", row.key === "slug" && "font-mono text-xs", valueClassName(row.next, true))}>
+                {row.next}
+              </td>
+              <td className={cn("py-3 text-xs font-bold", getChangeClassName(row.change))}>{row.change}</td>
+            </motion.tr>
           ))}
-        </div>
-      </div>
+        </tbody>
+      </table>
 
       {preview.quality ? (
-        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-alt)] p-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-sm font-medium text-[var(--foreground)]">质量评分</p>
-            <StatusBadge tone={(preview.quality.score ?? 0) >= 80 ? "success" : "warning"}>
-              {preview.quality.score ?? "-"} / 100
-            </StatusBadge>
+        <div className="grid gap-x-6 gap-y-3 sm:grid-cols-[8rem_minmax(0,1fr)]" data-slot="ai-preview-quality">
+          <div>
+            <p className="text-xs font-bold text-[var(--text-muted)]">质量评分</p>
+            <p className="mt-1 font-mono text-[var(--foreground)] tabular-nums">
+              <span className={cn("text-xl font-bold", (qualityScore ?? 0) >= 80 ? "text-[var(--foreground)]" : toneTextClassNames.warning)}>
+                {qualityScore ?? "-"}
+              </span>
+              <span className="text-[0.8125rem] text-[var(--text-muted)]"> / 100</span>
+            </p>
           </div>
-          <div className="mt-3 grid gap-2">
+          <ul className="space-y-1">
             {(preview.quality.checks ?? []).map((check) => (
-              <div key={check.key || check.label} className="flex items-start justify-between gap-3 rounded-xl bg-[var(--surface)] px-3 py-2">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-[var(--foreground)]">{check.label}</p>
-                  <p className="mt-1 text-xs leading-5 text-[var(--muted)]">{check.message}</p>
-                </div>
-                <StatusBadge tone={getQualityTone(check.status)}>{check.status === "danger" ? "阻止" : check.status === "ok" ? "通过" : "注意"}</StatusBadge>
-              </div>
+              <li key={check.key || check.label} className="grid grid-cols-[3rem_minmax(0,1fr)] gap-2 text-[0.8125rem] leading-[1.6]">
+                <span className={cn("text-xs font-bold leading-[1.85]", getQualityToneClassName(check.status))}>
+                  {check.status === "danger" ? "阻止" : check.status === "ok" ? "通过" : "注意"}
+                </span>
+                <span className="min-w-0 text-[var(--text-body)]">
+                  <span className="text-[var(--foreground)]">{check.label}</span>
+                  {check.message ? <span className="block text-xs text-[var(--text-muted)]">{check.message}</span> : null}
+                </span>
+              </li>
             ))}
-          </div>
+          </ul>
         </div>
       ) : null}
 
       {preview.failures.length > 0 ? (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        <p role="status" className="border-l-2 border-[var(--warning)] py-0.5 pl-3 text-[0.8125rem] font-bold text-[var(--warning)]">
           {preview.failures.map((failure) => articleInfoActionLabels[failure.action] ?? failure.action).join("、")} 生成失败，其余字段可确认应用。
-        </div>
-      ) : null}
-
-      {preview.metrics.length > 0 ? (
-        <p className="text-xs text-[var(--muted)]">
-          耗时：
-          {preview.metrics
-            .filter((metric) => metric.action)
-            .map((metric) => `${articleInfoActionLabels[metric.action] ?? metric.action} ${metric.durationMs}ms`)
-            .join(" / ")}
         </p>
       ) : null}
 
-      <div className="flex flex-wrap justify-end gap-2">
+      {metricsLine ? <p className="font-mono text-xs text-[var(--text-muted)]">耗时：{metricsLine}</p> : null}
+
+      <div className="-mx-6 -mb-4 flex flex-wrap justify-end gap-2.5 border-t border-[var(--border)] px-6 py-3.5">
         <Button type="button" variant="outline" onClick={onClose}>
           取消
         </Button>

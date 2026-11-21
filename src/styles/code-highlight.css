@@ -1,62 +1,17 @@
-.reader-prose pre {
-  background:
-    radial-gradient(circle at 14% 0%, color-mix(in oklab, var(--accent-sky) 16%, transparent), transparent 38%),
-    color-mix(in oklab, var(--reader-panel-elevated) 78%, black 22%);
-  box-shadow:
-    inset 0 1px 0 color-mix(in oklab, white 7%, transparent),
-    0 18px 48px color-mix(in oklab, black 24%, transparent);
-}
+/*
+ * 代码高亮 token 配色（文章正文 .reader-prose 与后台 Markdown 预览 .prose 共用）。
+ *
+ * 方向 A：代码块是 --surface-alt 底（亮暗各一套），不再固定「夜间深色块」。
+ * 亮色用 token 与 --foreground 混合压暗，保证在浅色 surface-alt 上可读；暗色用 token 与白色混合提亮。
+ * 代码块容器样式在 src/styles/article.css 的 .article-code。
+ */
 
 .reader-prose pre code.hljs,
 .prose pre code.hljs {
   display: block;
   overflow-x: auto;
-  border-radius: 0.75rem;
   background: transparent;
-  color: color-mix(in oklab, var(--foreground) 92%, white 8%);
-  padding: 0.9rem 1rem;
-}
-
-.reader-prose .hljs-comment,
-.reader-prose .hljs-quote,
-.prose .hljs-comment,
-.prose .hljs-quote {
-  color: color-mix(in oklab, var(--text-muted) 82%, white 18%);
-  font-style: italic;
-}
-
-.reader-prose .hljs-keyword,
-.reader-prose .hljs-selector-tag,
-.reader-prose .hljs-subst,
-.prose .hljs-keyword,
-.prose .hljs-selector-tag,
-.prose .hljs-subst {
-  color: color-mix(in oklab, var(--accent-sky) 84%, white 16%);
-}
-
-.reader-prose .hljs-string,
-.reader-prose .hljs-attr,
-.reader-prose .hljs-template-tag,
-.prose .hljs-string,
-.prose .hljs-attr,
-.prose .hljs-template-tag {
-  color: color-mix(in oklab, var(--accent-cyan) 86%, white 14%);
-}
-
-.reader-prose .hljs-number,
-.reader-prose .hljs-literal,
-.prose .hljs-number,
-.prose .hljs-literal {
-  color: color-mix(in oklab, var(--accent-warm) 88%, white 12%);
-}
-
-.reader-prose .hljs-title,
-.reader-prose .hljs-function,
-.reader-prose .hljs-built_in,
-.prose .hljs-title,
-.prose .hljs-function,
-.prose .hljs-built_in {
-  color: color-mix(in oklab, var(--accent-warm) 78%, var(--foreground) 22%);
+  color: var(--foreground);
 }
 
 .reader-prose pre code,
@@ -67,53 +22,127 @@
   color: inherit;
 }
 
-.reader-prose pre code .code-line,
-.prose pre code .code-line {
-  display: block;
-  min-height: 1.5em;
-  min-width: 100%;
-  padding-left: 3.25rem;
-  position: relative;
+/* ── 亮色 ──────────────────────────────────────────────────────── */
+.reader-prose .hljs-comment,
+.reader-prose .hljs-quote,
+.prose .hljs-comment,
+.prose .hljs-quote {
+  color: var(--text-muted);
+  font-style: normal;
 }
 
-.reader-prose pre code .numbered-code-line::before,
-.prose pre code .numbered-code-line::before {
-  border-right: 1px solid color-mix(in oklab, var(--reader-border) 60%, transparent);
-  color: var(--text-faint);
-  content: attr(data-line-number);
-  font-size: 0.75em;
-  left: 0;
-  line-height: 1.5em;
-  padding-right: 0.75rem;
-  pointer-events: none;
-  position: absolute;
-  text-align: right;
-  user-select: none;
-  width: 2.75rem;
+.reader-prose .hljs-keyword,
+.reader-prose .hljs-selector-tag,
+.reader-prose .hljs-subst,
+.reader-prose .hljs-meta,
+.prose .hljs-keyword,
+.prose .hljs-selector-tag,
+.prose .hljs-subst,
+.prose .hljs-meta {
+  color: color-mix(in oklab, var(--accent-sky) 58%, var(--foreground) 42%);
 }
 
+.reader-prose .hljs-string,
+.reader-prose .hljs-regexp,
+.reader-prose .hljs-template-tag,
+.prose .hljs-string,
+.prose .hljs-regexp,
+.prose .hljs-template-tag {
+  color: color-mix(in oklab, var(--accent-warm) 62%, var(--foreground) 38%);
+}
+
+.reader-prose .hljs-attr,
+.reader-prose .hljs-attribute,
+.reader-prose .hljs-property,
+.prose .hljs-attr,
+.prose .hljs-attribute,
+.prose .hljs-property {
+  color: color-mix(in oklab, var(--accent-cyan) 60%, var(--foreground) 40%);
+}
+
+.reader-prose .hljs-number,
+.reader-prose .hljs-literal,
+.reader-prose .hljs-symbol,
+.prose .hljs-number,
+.prose .hljs-literal,
+.prose .hljs-symbol {
+  color: color-mix(in oklab, var(--accent-sky) 58%, var(--foreground) 42%);
+}
+
+.reader-prose .hljs-title,
+.reader-prose .hljs-function,
+.reader-prose .hljs-built_in,
+.reader-prose .hljs-type,
+.prose .hljs-title,
+.prose .hljs-function,
+.prose .hljs-built_in,
+.prose .hljs-type {
+  color: var(--foreground);
+  font-weight: 600;
+}
+
+.reader-prose .hljs-addition,
+.prose .hljs-addition {
+  background: color-mix(in oklab, var(--success) 12%, transparent);
+  color: var(--foreground);
+}
+
+.reader-prose .hljs-deletion,
+.prose .hljs-deletion {
+  background: color-mix(in oklab, var(--danger-foreground) 12%, transparent);
+  color: var(--foreground);
+}
+
+/* ── 暗色 ──────────────────────────────────────────────────────── */
 html.dark .reader-prose .hljs-comment,
 html.dark .reader-prose .hljs-quote,
 html.dark .prose .hljs-comment,
 html.dark .prose .hljs-quote {
   color: color-mix(in oklab, var(--text-muted) 70%, white 30%);
-  font-style: italic;
 }
 
 html.dark .reader-prose .hljs-keyword,
 html.dark .reader-prose .hljs-selector-tag,
 html.dark .reader-prose .hljs-subst,
+html.dark .reader-prose .hljs-meta,
+html.dark .reader-prose .hljs-number,
+html.dark .reader-prose .hljs-literal,
+html.dark .reader-prose .hljs-symbol,
 html.dark .prose .hljs-keyword,
 html.dark .prose .hljs-selector-tag,
-html.dark .prose .hljs-subst {
+html.dark .prose .hljs-subst,
+html.dark .prose .hljs-meta,
+html.dark .prose .hljs-number,
+html.dark .prose .hljs-literal,
+html.dark .prose .hljs-symbol {
   color: color-mix(in oklab, var(--accent-sky) 72%, white 28%);
 }
 
 html.dark .reader-prose .hljs-string,
-html.dark .reader-prose .hljs-attr,
+html.dark .reader-prose .hljs-regexp,
 html.dark .reader-prose .hljs-template-tag,
 html.dark .prose .hljs-string,
-html.dark .prose .hljs-attr,
+html.dark .prose .hljs-regexp,
 html.dark .prose .hljs-template-tag {
+  color: color-mix(in oklab, var(--accent-warm) 80%, white 20%);
+}
+
+html.dark .reader-prose .hljs-attr,
+html.dark .reader-prose .hljs-attribute,
+html.dark .reader-prose .hljs-property,
+html.dark .prose .hljs-attr,
+html.dark .prose .hljs-attribute,
+html.dark .prose .hljs-property {
   color: color-mix(in oklab, var(--accent-cyan) 72%, white 28%);
+}
+
+html.dark .reader-prose .hljs-title,
+html.dark .reader-prose .hljs-function,
+html.dark .reader-prose .hljs-built_in,
+html.dark .reader-prose .hljs-type,
+html.dark .prose .hljs-title,
+html.dark .prose .hljs-function,
+html.dark .prose .hljs-built_in,
+html.dark .prose .hljs-type {
+  color: var(--foreground);
 }

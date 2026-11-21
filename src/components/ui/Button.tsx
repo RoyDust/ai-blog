@@ -3,31 +3,37 @@ import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/cn";
 
-const buttonVariants = cva(
-  "ui-btn ui-ring inline-flex items-center justify-center rounded-xl font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50",
-  {
-    variants: {
-      variant: {
-        primary: "bg-[var(--primary)] text-white hover:opacity-92 focus-visible:ring-[var(--ring)]",
-        secondary:
-          "bg-[var(--surface-alt)] text-[var(--foreground)] hover:bg-[color-mix(in_oklab,var(--surface-alt)_70%,var(--foreground)_8%)] focus-visible:ring-[var(--ring)]",
-        outline: "border border-[var(--border)] bg-transparent text-[var(--foreground)] hover:bg-[var(--surface-alt)] focus-visible:ring-[var(--ring)]",
-        ghost: "bg-transparent text-[var(--foreground)] hover:bg-[var(--surface-alt)] focus-visible:ring-[var(--ring)]",
-        danger: "bg-rose-600 text-white hover:bg-rose-700 focus-visible:ring-rose-400",
-      },
-      size: {
-        sm: "px-3 py-1.5 text-sm",
-        md: "px-4 py-2 text-base",
-        lg: "px-6 py-3 text-lg",
-        icon: "h-10 w-10",
-      },
+/**
+ * 前台通用按钮，样式全部映射到方向 A 的按钮三级（src/styles/editorial.css）：
+ * - primary → .ed-btn（foreground 实底，每页最多一个）
+ * - secondary / outline → .ed-btn-outline（描边）
+ * - danger → .ed-btn-danger
+ * - ghost → 透明底，hover 时 foreground 6% 底（同 .ed-icon-btn）
+ *
+ * focus 环走全站 :focus-visible 规则（2px var(--focus)，偏移 2px），不再单独写 ring。
+ */
+const buttonVariants = cva("focus-visible:outline-none disabled:pointer-events-none", {
+  variants: {
+    variant: {
+      primary: "ed-btn",
+      secondary: "ed-btn-outline",
+      outline: "ed-btn-outline",
+      ghost:
+        "inline-flex min-h-11 items-center justify-center gap-2 rounded-[var(--radius-ctl)] bg-transparent px-3 text-[0.9375rem] font-bold text-[var(--text-body)] transition-[background-color,color,transform] duration-150 hover:bg-[var(--ed-press-bg)] hover:text-[var(--foreground)] active:scale-[0.98] disabled:opacity-45",
+      danger: "ed-btn-danger",
     },
-    defaultVariants: {
-      variant: "primary",
-      size: "md",
+    size: {
+      sm: "ed-btn--sm",
+      md: "",
+      lg: "min-h-12 px-6 text-base",
+      icon: "h-11 w-11 min-w-11 px-0",
     },
   },
-);
+  defaultVariants: {
+    variant: "primary",
+    size: "md",
+  },
+});
 
 export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,

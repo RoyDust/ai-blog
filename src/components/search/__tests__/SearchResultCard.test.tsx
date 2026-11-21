@@ -88,3 +88,24 @@ test('does not render hit field tags', () => {
   expect(queryByText('摘要命中')).not.toBeInTheDocument()
   expect(queryByText('正文命中')).not.toBeInTheDocument()
 })
+
+test('renders as the shared editorial list row with text-only meta', () => {
+  const { container, getByRole, getByText } = render(
+    <SearchResultCard post={{ ...basePost, viewCount: 1204 }} query="搜索" />,
+  )
+
+  expect(container.querySelector('article.ed-row')).not.toBeNull()
+  expect(getByRole('link', { name: /React 搜索\s?体验优化/ })).toHaveAttribute('href', '/posts/react-search-experience')
+  expect(getByRole('link', { name: '前端' })).toHaveAttribute('href', '/categories/frontend')
+  expect(getByRole('link', { name: '#React' })).toHaveAttribute('href', '/tags/react')
+  expect(container).toHaveTextContent('阅读 1,204')
+  expect(container).toHaveTextContent('评论 3')
+  expect(container).toHaveTextContent('点赞 5')
+  expect(getByText('摘要')).toBeInTheDocument()
+  // 单作者博客，不再写「作者 X · 结果已保留原始内容片段…」
+  expect(container).not.toHaveTextContent('结果已保留原始内容片段')
+  const marks = container.querySelectorAll('mark')
+  expect(marks.length).toBeGreaterThan(0)
+  expect(marks[0].className).toContain('bg-[var(--ed-highlight)]')
+  expect(container.querySelector('svg')).toBeNull()
+})

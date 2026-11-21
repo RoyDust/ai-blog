@@ -2,12 +2,14 @@
 
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Inbox } from "lucide-react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { SkeletonBar } from "@/components/editorial";
 import { Button } from "@/components/shadcn/ui/button";
-import { Card, CardHeader, CardTitle } from "@/components/shadcn/ui/card";
+import { Card } from "@/components/shadcn/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/shadcn/ui/table";
-import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/shadcn/ui/empty";
+import { Empty, EmptyHeader, EmptyTitle } from "@/components/shadcn/ui/empty";
 import { AdminPagination } from "@/components/admin/primitives/AdminPagination";
+import { AdminSectionHeader } from "@/components/admin/primitives/SectionHeader";
 import { cn } from "@/lib/utils";
 
 export interface DataColumn<T> {
@@ -45,6 +47,86 @@ interface DataTableProps<T extends { id: string }> {
     disabled?: boolean;
     variant?: "default" | "danger";
   }>;
+}
+
+type BulkAction = NonNullable<DataTableProps<{ id: string }>["bulkActions"]>[number];
+
+/**
+ * 批量操作条：勾选后才出现（与文章、评论列表一致，README 第 14 节），「已选 N 项」+ 描边按钮，
+ * 破坏性的用 danger 描边；出现 / 收起带高度过渡。
+ */
+function BulkActionsBar({ actions, selectedIds }: { actions: BulkAction[]; selectedIds: string[] }) {
+  const hasSelection = selectedIds.length > 0;
+  const reduce = useReducedMotion();
+
+  return (
+    <AnimatePresence initial={false}>
+      {hasSelection ? (
+        <motion.div
+          key="bulk-bar"
+          className="shrink-0 overflow-hidden"
+          initial={reduce ? { opacity: 0 } : { opacity: 0, height: 0 }}
+          animate={reduce ? { opacity: 1 } : { opacity: 1, height: "auto" }}
+          exit={reduce ? { opacity: 0 } : { opacity: 0, height: 0 }}
+          transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
+        >
+          <BulkActionsBarContent actions={actions} hasSelection={hasSelection} selectedIds={selectedIds} />
+        </motion.div>
+      ) : null}
+    </AnimatePresence>
+  );
+}
+
+function BulkActionsBarContent({
+  actions,
+  hasSelection,
+  selectedIds,
+}: {
+  actions: BulkAction[];
+  hasSelection: boolean;
+  selectedIds: string[];
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-3 py-2.5 text-[0.8125rem]">
+      <span className={cn("font-bold tabular-nums", hasSelection ? "text-[var(--foreground)]" : "text-[var(--text-muted)]")}>
+        已选 {selectedIds.length} 项
+      </span>
+      <span aria-hidden="true" className="h-5 w-px bg-[var(--border)]" />
+      <div className="flex items-center gap-2">
+        {actions.map((action) => (
+          <Button
+            key={action.label}
+            disabled={!hasSelection || action.disabled}
+            onClick={() => action.onClick(selectedIds)}
+            size="sm"
+            type="button"
+            variant={action.variant === "danger" ? "outline-danger" : "outline"}
+          >
+            {action.label}
+          </Button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** 加载骨架：保留表头线，每格一根与真实行同高（44px）的细条 */
+function DataTableSkeleton({ className, label, rowCount }: { className?: string; label: string; rowCount: number }) {
+  return (
+    <div aria-busy="true" className={className} role="status">
+      <span className="ed-visually-hidden">{label}</span>
+      <div aria-hidden="true" className="border-t border-[var(--reader-border-strong)]">
+        {Array.from({ length: rowCount }).map((_, index) => (
+          <div key={index} className="flex h-11 items-center gap-6 border-b border-[var(--border)] px-2">
+            <SkeletonBar className="size-4" />
+            <SkeletonBar strong className="h-3.5 w-[34%]" />
+            <SkeletonBar className="h-3 w-[18%]" />
+            <SkeletonBar className="h-3 w-[14%]" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export function DataTable<T extends { id: string }>({
@@ -117,69 +199,40 @@ export function DataTable<T extends { id: string }>({
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]));
   };
 
-  const statusClassName = fillHeight
-    ? "flex min-h-0 flex-1 items-center justify-center px-4 py-16 text-center text-sm text-[var(--text-muted)]"
-    : "px-4 py-16 text-center text-sm text-[var(--text-muted)]";
-  const emptyStateClassName = fillHeight
-    ? "flex min-h-0 flex-1 items-center justify-center px-4 py-8"
-    : "flex items-center justify-center px-4 py-8";
+  const reduceMotion = useReducedMotion();
+  const statusClassName = fillHeight ? "min-h-0 flex-1" : undefined;
+  const emptyStateClassName = fillHeight ? "flex min-h-0 flex-1 items-start" : "flex items-start";
 
   return (
     <Card
       className={cn(
-        "gap-0 overflow-hidden rounded-[var(--radius-panel)] border-[var(--border)] bg-[var(--surface)] py-0 text-[var(--foreground)] shadow-none",
-        fillHeight && "flex min-h-0 flex-1 flex-col",
+        "gap-0 text-[var(--foreground)]",
+        fillHeight && "flex min-h-0 flex-1 flex-col overflow-hidden",
       )}
     >
       <section className={cn(fillHeight && "flex min-h-0 flex-1 flex-col")}>
-        <CardHeader className="shrink-0 gap-0 border-b border-[var(--border)] px-4 py-3">
-          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-            <div className="min-w-0">
-              <CardTitle className="text-base font-semibold text-[var(--foreground)]">{title}</CardTitle>
-              <p className="mt-1 text-xs text-[var(--text-muted)]">{summary ?? `共 ${totalRows} 条记录`}</p>
-            </div>
-            {densityLabel ? (
-              <span className="rounded-[var(--radius-control)] border border-[var(--border)] bg-[var(--surface-alt)] px-2.5 py-1 text-xs font-medium text-[var(--text-body)]">{densityLabel}</span>
-            ) : null}
-          </div>
-        </CardHeader>
+        {/* 区块标题：衬线标题 + muted 说明 + 1px 细线 + 右侧等宽计数 */}
+        <AdminSectionHeader
+          aside={
+            <span className="ed-mono">
+              {densityLabel ?? `第 ${activePage} / ${Math.max(totalPages, 1)} 页 · ${totalRows} 条记录`}
+            </span>
+          }
+          className="shrink-0"
+          description={summary}
+          title={title}
+        />
 
-        {toolbar ? <div className="shrink-0 border-b border-[var(--border)] bg-[var(--surface)] px-4 py-3">{toolbar}</div> : null}
+        {toolbar ? <div className="shrink-0 pt-3 pb-3.5">{toolbar}</div> : null}
 
-        {bulkActions.length > 0 ? (
-          <div className="flex shrink-0 flex-wrap items-center gap-3 border-b border-[var(--border)] bg-[var(--surface-alt)]/80 px-4 py-3">
-            <span className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">批量操作</span>
-            <span className="rounded-[var(--radius-control)] border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-xs font-medium text-[var(--text-body)]">已选 {visibleSelectedIds.length} 项</span>
-            <div className="flex items-center gap-2">
-              {bulkActions.map((action) => (
-                <Button
-                  key={action.label}
-                  disabled={visibleSelectedIds.length === 0 || action.disabled}
-                  onClick={() => action.onClick(visibleSelectedIds)}
-                  size="sm"
-                  type="button"
-                  variant={action.variant === "danger" ? "destructive" : "outline"}
-                  className={cn(
-                    "h-8 rounded-[var(--radius-control)] shadow-none",
-                    action.variant !== "danger" && "!border-[var(--border)] !bg-[var(--surface)] !text-[var(--foreground)] hover:!bg-[var(--surface-alt)]",
-                  )}
-                >
-                  {action.label}
-                </Button>
-              ))}
-            </div>
-          </div>
-        ) : null}
+        {bulkActions.length > 0 ? <BulkActionsBar actions={bulkActions} selectedIds={visibleSelectedIds} /> : null}
 
         {isLoading ? (
-          <p className={statusClassName} role="status">{loadingLabel}</p>
+          <DataTableSkeleton className={statusClassName} label={loadingLabel} rowCount={Math.min(pageSize, 6)} />
         ) : rows.length === 0 ? (
           <div className={emptyStateClassName} role="status">
             {emptyState ?? (
-              <Empty className="border-0">
-                <EmptyMedia variant="icon">
-                  <Inbox className="size-5" />
-                </EmptyMedia>
+              <Empty>
                 <EmptyHeader>
                   <EmptyTitle>{emptyText}</EmptyTitle>
                 </EmptyHeader>
@@ -189,9 +242,9 @@ export function DataTable<T extends { id: string }>({
         ) : (
           <div className={cn(fillHeight ? "min-h-0 flex-1 overflow-auto" : "overflow-x-auto")} data-testid="admin-data-table-scroll">
             <Table className="min-w-[860px] table-fixed xl:min-w-[1080px]">
-              <TableHeader className={cn("border-b border-[var(--border)] bg-[var(--surface-alt)] shadow-[0_1px_0_rgba(15,23,42,0.06)]", fillHeight && "sticky top-0 z-10")}>
-                <TableRow className="border-0 hover:bg-transparent">
-                  <TableHead className="w-12 px-4 py-3.5 text-center">
+              <TableHeader className={cn("bg-[var(--card-bg)]", fillHeight && "sticky top-0 z-10")}>
+                <TableRow>
+                  <TableHead className="w-10 px-2">
                     <input
                       ref={headerCheckboxRef}
                       checked={allCurrentPageSelected}
@@ -199,45 +252,48 @@ export function DataTable<T extends { id: string }>({
                       type="checkbox"
                       aria-label="选择当前页"
                       aria-checked={isCurrentPagePartiallySelected ? "mixed" : allCurrentPageSelected}
-                      className="size-4 cursor-pointer rounded border-[var(--border-strong)] bg-[var(--surface)] text-[var(--brand)] focus:ring-[var(--ring)] focus:ring-offset-0"
+                      className="ed-checkbox align-middle"
                     />
                   </TableHead>
                   {columns.map((column) => (
-                    <TableHead key={column.key} className="py-3.5 text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">
-                      {column.label}
-                    </TableHead>
+                    <TableHead key={column.key}>{column.label}</TableHead>
                   ))}
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {paginatedRows.map((row, rowIndex) => {
-                  const isRowSelected = visibleSelectedIds.includes(row.id);
-                  const rowNumber = (activePage - 1) * pageSize + rowIndex + 1;
-                  return (
-                    <TableRow
-                      key={row.id}
-                      className={cn(
-                        "border-[var(--border)] transition-colors hover:bg-[var(--surface-alt)]/80",
-                        isRowSelected && "bg-[color-mix(in_oklab,var(--brand)_8%,var(--surface))] hover:bg-[color-mix(in_oklab,var(--brand)_10%,var(--surface))]",
-                      )}
-                    >
-                      <TableCell className="px-4 py-4 text-center align-top">
-                        <input
-                          checked={isRowSelected}
-                          onChange={() => toggleOne(row.id)}
-                          type="checkbox"
-                          aria-label={`选择第 ${rowNumber} 行`}
-                          className="size-4 cursor-pointer rounded border-[var(--border-strong)] bg-[var(--surface)] text-[var(--brand)] focus:ring-[var(--ring)] focus:ring-offset-0"
-                        />
-                      </TableCell>
-                      {columns.map((column) => (
-                        <TableCell className={cn("whitespace-normal py-4 align-top text-sm text-[var(--text-body)]", column.className)} key={column.key}>
-                          {column.render(row)}
+                <AnimatePresence initial={false}>
+                  {paginatedRows.map((row, rowIndex) => {
+                    const isRowSelected = visibleSelectedIds.includes(row.id);
+                    const rowNumber = (activePage - 1) * pageSize + rowIndex + 1;
+                    return (
+                      <motion.tr
+                        key={row.id}
+                        animate={{ opacity: 1 }}
+                        data-slot="table-row"
+                        data-state={isRowSelected ? "selected" : undefined}
+                        exit={reduceMotion ? undefined : { opacity: 0 }}
+                        initial={reduceMotion ? false : { opacity: 0 }}
+                        transition={{ duration: 0.18 }}
+                        className="border-b border-[var(--border)] transition-colors duration-150 hover:bg-[color-mix(in_oklab,var(--foreground)_3%,transparent)] data-[state=selected]:bg-[color-mix(in_oklab,var(--focus)_7%,transparent)]"
+                      >
+                        <TableCell className="px-2">
+                          <input
+                            checked={isRowSelected}
+                            onChange={() => toggleOne(row.id)}
+                            type="checkbox"
+                            aria-label={`选择第 ${rowNumber} 行`}
+                            className="ed-checkbox align-middle"
+                          />
                         </TableCell>
-                      ))}
-                    </TableRow>
-                  );
-                })}
+                        {columns.map((column) => (
+                          <TableCell className={cn("overflow-hidden text-[0.8125rem] text-ellipsis", column.className)} key={column.key}>
+                            {column.render(row)}
+                          </TableCell>
+                        ))}
+                      </motion.tr>
+                    );
+                  })}
+                </AnimatePresence>
               </TableBody>
             </Table>
           </div>

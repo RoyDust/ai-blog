@@ -1,11 +1,14 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { CheckCircle2, ImageIcon, KeyRound, Network, Pencil, Plus, RadioTower, Sparkles, TestTube2, Trash2 } from "lucide-react";
+import { useState } from "react";
 
-import { WorkspacePanel } from "@/components/admin/primitives/WorkspacePanel";
-import { StatusBadge } from "@/components/admin/primitives/StatusBadge";
+import { AdminSectionHeader } from "@/components/admin/primitives/SectionHeader";
+import { adminTextActionClassName, adminTextActionDangerClassName } from "@/components/admin/primitives/admin-classes";
 import { Button } from "@/components/admin/ui";
+import { ConfirmDialog } from "@/components/admin/ui/confirm-dialog";
+import { FadeBanner } from "@/components/admin/workspace/WorkspaceKit";
+import { Reveal, StaggerItem, StaggerList } from "@/components/editorial";
+import { cn } from "@/lib/cn";
 import { Checkbox } from "@/components/shadcn/ui/checkbox";
 import {
   Form,
@@ -32,9 +35,15 @@ const capabilityDescriptions: Record<Capability, string> = {
   "cover-image": "文章封面 AI 生图流程使用，生成后会落库并上传七牛。",
 };
 
-function statusTone(status: string) {
-  return status === "ready" ? "success" : status === "disabled" ? "neutral" : "warning";
+function statusToneClassName(status: string) {
+  return status === "ready" ? "text-[var(--success)]" : status === "disabled" ? "text-[var(--text-muted)]" : "text-[var(--warning)]";
 }
+
+const requiredMark = (
+  <span aria-hidden="true" className="ml-1 text-[0.8125rem] font-medium text-[var(--text-muted)]">
+    *
+  </span>
+);
 
 function statusLabel(status: string) {
   if (status === "ready") return "可用";
@@ -43,19 +52,17 @@ function statusLabel(status: string) {
 }
 
 /**
- * Renders one capability-specific default selector.
- * The model list is shared, but each capability keeps its own default choice.
+ * 按能力的默认模型单选组（方向 A）：衬线小标题 + 说明 + 语气色「已选择 / 待选择」，
+ * 下面是细线分隔的单选行（名称、等宽模型 ID、语气色状态）。每种能力独立单选。
  */
 function CapabilityDefaultCard({
   capability,
-  icon,
   models,
   defaultModel,
   switchingId,
   onSwitch,
 }: {
   capability: Capability;
-  icon: ReactNode;
   models: PublicAiModelOption[];
   defaultModel?: PublicAiModelOption;
   switchingId: string | null;
@@ -64,21 +71,18 @@ function CapabilityDefaultCard({
   const availableModels = models.filter((model) => model.capabilities.includes(capability));
 
   return (
-    <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-sm">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-start gap-3">
-          <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-alt)] p-2 text-[var(--brand)]">{icon}</div>
-          <div>
-            <h3 className="text-base font-semibold text-[var(--foreground)]">{capabilityLabels[capability]}</h3>
-            <p className="mt-1 text-sm leading-6 text-[var(--muted)]">{capabilityDescriptions[capability]}</p>
-          </div>
-        </div>
-        <StatusBadge tone={defaultModel?.status === "ready" ? "success" : "warning"}>
+    <section className="min-w-0" aria-labelledby={`ai-capability-${capability}`}>
+      <div className="flex items-baseline justify-between gap-3">
+        <h3 id={`ai-capability-${capability}`} className="font-serif text-base font-bold text-[var(--foreground)]">
+          {capabilityLabels[capability]}
+        </h3>
+        <span className={cn("text-xs font-bold", defaultModel?.status === "ready" ? "text-[var(--success)]" : "text-[var(--warning)]")}>
           {defaultModel ? "已选择" : "待选择"}
-        </StatusBadge>
+        </span>
       </div>
+      <p className="mt-0.5 text-xs leading-5 text-[var(--text-muted)]">{capabilityDescriptions[capability]}</p>
 
-      <div className="mt-4 space-y-2">
+      <div className="mt-3 border-t border-[var(--reader-border-strong)]">
         {availableModels.map((model) => {
           const checked = model.defaultFor.includes(capability);
           const disabled = Boolean(switchingId) || model.status !== "ready";
@@ -86,40 +90,341 @@ function CapabilityDefaultCard({
           return (
             <label
               key={`${capability}-${model.id}`}
-              className={`flex cursor-pointer items-start gap-3 rounded-xl border px-3 py-3 transition ${
-                checked
-                  ? "border-[var(--brand)] bg-[var(--surface-alt)]"
-                  : "border-[var(--border)] bg-[var(--surface)] hover:border-[var(--border-strong)]"
-              } ${disabled ? "cursor-not-allowed opacity-70" : ""}`}
+              className={cn(
+                "flex min-h-11 cursor-pointer items-center gap-3 border-b border-[var(--border)] px-1 py-2 transition-colors duration-150 hover:bg-[color-mix(in_oklab,var(--foreground)_3%,transparent)]",
+                disabled && "cursor-not-allowed opacity-60 hover:bg-transparent",
+              )}
             >
               <input
                 aria-label={`选择 ${capabilityLabels[capability]} ${model.name}`}
                 checked={checked}
-                className="ui-checkbox mt-1 h-4 w-4"
+                className="grid size-4 shrink-0 cursor-pointer appearance-none place-content-center rounded-full border border-[var(--reader-border-strong)] transition-colors duration-150 before:size-2 before:scale-0 before:rounded-full before:bg-[var(--foreground)] before:transition-transform before:duration-150 before:content-[''] checked:border-[var(--foreground)] checked:before:scale-100 disabled:cursor-not-allowed motion-reduce:before:transition-none"
                 disabled={disabled}
                 name={`ai-model-${capability}`}
                 onChange={() => onSwitch(model, capability)}
                 type="radio"
                 value={model.id}
               />
-              <span className="min-w-0 flex-1">
-                <span className="flex flex-wrap items-center gap-2 text-sm font-semibold text-[var(--foreground)]">
-                  {model.name}
-                  {checked ? <StatusBadge tone="success">当前默认</StatusBadge> : null}
-                  <StatusBadge tone={statusTone(model.status)}>{statusLabel(model.status)}</StatusBadge>
-                </span>
-                <span className="mt-1 block truncate text-xs text-[var(--muted)]">{model.model}</span>
+              <span className="flex min-w-0 flex-1 items-baseline gap-2">
+                <span className="shrink-0 text-sm font-medium text-[var(--foreground)]">{model.name}</span>
+                <span className="min-w-0 truncate font-mono text-xs text-[var(--text-muted)]">{model.model}</span>
               </span>
+              {checked ? <span className="shrink-0 text-xs font-bold text-[var(--foreground)]">当前默认</span> : null}
+              <span className={cn("shrink-0 text-xs font-bold", statusToneClassName(model.status))}>{statusLabel(model.status)}</span>
             </label>
           );
         })}
         {availableModels.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-[var(--border)] px-4 py-5 text-sm text-[var(--muted)]">
-            暂无支持{capabilityLabels[capability]}的模型。
-          </div>
+          <p className="ed-empty__title py-4">暂无支持{capabilityLabels[capability]}的模型。</p>
         ) : null}
       </div>
     </section>
+  );
+}
+
+/** 模型库的一行：衬线名称 + 语气色状态，右侧下划线文字按钮（测试 / 修改 / 删除），下面一行描述与等宽配置摘要 */
+function ModelLibraryItem({
+  model,
+  testing,
+  deleting,
+  onTest,
+  onEdit,
+  onDelete,
+}: {
+  model: PublicAiModelOption;
+  testing: boolean;
+  deleting: boolean;
+  onTest: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <StaggerItem
+      as="article"
+      className="border-b border-[var(--border)] py-3.5 transition-colors duration-150 hover:bg-[color-mix(in_oklab,var(--foreground)_2%,transparent)]"
+    >
+      <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-2">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <h3 className="font-serif text-base font-bold text-[var(--foreground)]">{model.name}</h3>
+            <span className={cn("text-xs font-bold", statusToneClassName(model.status))}>{statusLabel(model.status)}</span>
+            {model.defaultFor.map((capability) => (
+              <span key={capability} className="text-xs font-bold text-[var(--success)]">
+                {capabilityLabels[capability]}默认
+              </span>
+            ))}
+            <span className="text-xs text-[var(--text-muted)]">{model.source === "environment" ? "环境变量" : "数据库"}</span>
+          </div>
+          <p className="mt-1 line-clamp-1 text-[0.8125rem] text-[var(--text-body)]">{model.description || "未填写描述。"}</p>
+        </div>
+
+        <div className="flex shrink-0 items-center gap-3.5">
+          <button
+            aria-busy={testing || undefined}
+            className={adminTextActionClassName}
+            disabled={testing}
+            onClick={onTest}
+            type="button"
+          >
+            {testing ? "测试中" : "测试"}
+          </button>
+          <button className={adminTextActionClassName} disabled={!model.editable} onClick={onEdit} type="button">
+            修改
+          </button>
+          <button
+            className={adminTextActionDangerClassName}
+            disabled={!model.deletable || deleting}
+            onClick={onDelete}
+            type="button"
+          >
+            删除
+          </button>
+        </div>
+      </div>
+
+      <dl className="mt-2 grid grid-cols-1 gap-x-6 gap-y-1 text-xs md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]">
+        <div className="flex min-w-0 gap-2">
+          <dt className="shrink-0 text-[var(--text-muted)]">Endpoint</dt>
+          <dd className="min-w-0 truncate font-mono text-[var(--foreground)]" title={`${model.baseUrl}${model.requestPath}`}>
+            {model.baseUrl}
+            {model.requestPath}
+          </dd>
+        </div>
+        <div className="flex min-w-0 gap-2">
+          <dt className="shrink-0 text-[var(--text-muted)]">Model</dt>
+          <dd className="min-w-0 truncate font-mono text-[var(--foreground)]">{model.model}</dd>
+        </div>
+        <div className="flex min-w-0 gap-2">
+          <dt className="shrink-0 text-[var(--text-muted)]">Secret</dt>
+          <dd className="min-w-0 truncate font-mono text-[var(--foreground)]">{model.hasApiKey ? "已配置" : model.apiKeyEnv}</dd>
+        </div>
+        <div className="flex min-w-0 gap-2">
+          <dt className="shrink-0 text-[var(--text-muted)]">能力</dt>
+          <dd className="min-w-0 truncate text-[var(--foreground)]">
+            {model.capabilities.map((capability) => capabilityLabels[capability] ?? capability).join(" · ")}
+          </dd>
+        </div>
+      </dl>
+      {model.lastTestMessage ? (
+        <p className="mt-1.5 text-xs text-[var(--text-muted)]">
+          最近测试：
+          <span className={cn("font-bold", model.lastTestStatus === "success" ? "text-[var(--success)]" : "text-[var(--danger-foreground)]")}>
+            {model.lastTestStatus === "success" ? "通过" : "失败"}
+          </span>{" "}
+          · {model.lastTestMessage}
+        </p>
+      ) : null}
+    </StaggerItem>
+  );
+}
+
+type ModelFormHook = ReturnType<typeof useModelForm>;
+
+/** 新增 / 修改模型表单（区块标题 + 两列字段 + 「启用与能力」组 + 右侧取消 / 保存模型） */
+function ModelFormSection({
+  form,
+  methods,
+  capabilities,
+  isSubmitting,
+  onSubmit,
+  onCancel,
+  onToggleCapability,
+}: {
+  form: NonNullable<ModelFormHook["form"]>;
+  methods: ModelFormHook["methods"];
+  capabilities: Capability[];
+  isSubmitting: boolean;
+  onSubmit: () => void;
+  onCancel: () => void;
+  onToggleCapability: ModelFormHook["toggleCapability"];
+}) {
+  return (
+    <Reveal as="section" aria-labelledby="ai-model-form-title" className="max-w-[760px]">
+      <AdminSectionHeader
+        id="ai-model-form-title"
+        title={form.id ? "修改模型" : "新增模型"}
+        description="编辑已有模型时，API Key 留空会保留原值。"
+      />
+      <p className="mt-1 text-xs text-[var(--text-muted)]">保存后可立即测试连接。</p>
+      <div className="pt-4">
+      <Form {...methods}>
+        <form className="flex flex-col gap-5" onSubmit={onSubmit}>
+          <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
+            <FormField
+              control={methods.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <div className="flex items-baseline">
+                    <FormLabel>模型名称</FormLabel>
+                    {requiredMark}
+                  </div>
+                  <FormControl><Input {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={methods.control}
+              name="model"
+              render={({ field }) => (
+                <FormItem>
+                  <div className="flex items-baseline">
+                    <FormLabel>模型 ID</FormLabel>
+                    {requiredMark}
+                  </div>
+                  <FormControl><Input className="font-mono" placeholder="qwen3.5-flash / wan2.6-t2i" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={methods.control}
+              name="baseUrl"
+              render={({ field }) => (
+                <FormItem>
+                  <div className="flex items-baseline">
+                    <FormLabel>Base URL</FormLabel>
+                    {requiredMark}
+                  </div>
+                  <FormControl><Input className="font-mono" placeholder="https://api.openai.com/v1" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={methods.control}
+              name="requestPath"
+              render={({ field }) => (
+                <FormItem>
+                  <div className="flex items-baseline">
+                    <FormLabel>Request Path</FormLabel>
+                    {requiredMark}
+                  </div>
+                  <FormControl><Input className="font-mono" placeholder="/chat/completions / /images/generations" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={methods.control}
+              name="apiKey"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{form.id ? "API Key（留空保持不变）" : "API Key"}</FormLabel>
+                  <FormControl><Input type="password" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          <FormField
+            control={methods.control}
+            name="description"
+            render={({ field }) => (
+              <FormItem>
+                <div className="flex items-baseline">
+                  <FormLabel>描述</FormLabel>
+                  <span className="ml-1 text-[0.8125rem] font-medium text-[var(--text-muted)]">（可选）</span>
+                </div>
+                <FormControl><Textarea className="min-h-24" {...field} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <p className="border-b border-[var(--border)] pb-1.5 text-xs font-bold text-[var(--text-muted)]">启用与能力</p>
+          <div className="grid gap-x-6 gap-y-3 lg:grid-cols-3">
+            <FormField
+              control={methods.control}
+              name="enabled"
+              render={({ field }) => (
+                <FormItem className="flex items-center gap-2">
+                  <FormControl>
+                    <Checkbox checked={field.value} onCheckedChange={(checked) => field.onChange(checked === true)} />
+                  </FormControl>
+                  <FormLabel className="font-normal">启用模型</FormLabel>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={methods.control}
+              name="capabilities"
+              render={() => (
+                <FormItem className="lg:col-span-2">
+                  <FormLabel>模型能力</FormLabel>
+                  <FormControl>
+                    <div className="grid gap-3 sm:grid-cols-2" role="group">
+                      <label className="flex items-center gap-2 text-sm text-[var(--foreground)]">
+                        <Checkbox
+                          checked={capabilities.includes("post-summary")}
+                          onCheckedChange={(checked) => onToggleCapability("post-summary", checked === true)}
+                        />
+                        文章摘要能力
+                      </label>
+                      <label className="flex items-center gap-2 text-sm text-[var(--foreground)]">
+                        <Checkbox
+                          checked={capabilities.includes("cover-image")}
+                          onCheckedChange={(checked) => onToggleCapability("cover-image", checked === true)}
+                        />
+                        封面生图能力
+                      </label>
+                    </div>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={methods.control}
+              name="isDefaultForSummary"
+              render={({ field }) => (
+                <FormItem className="flex items-center gap-2">
+                  <FormControl>
+                    <Checkbox
+                      checked={field.value}
+                      disabled={!capabilities.includes("post-summary")}
+                      onCheckedChange={(checked) => field.onChange(checked === true)}
+                    />
+                  </FormControl>
+                  <FormLabel className="font-normal">设为文章摘要默认</FormLabel>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={methods.control}
+              name="isDefaultForCoverImage"
+              render={({ field }) => (
+                <FormItem className="flex items-center gap-2">
+                  <FormControl>
+                    <Checkbox
+                      checked={field.value}
+                      disabled={!capabilities.includes("cover-image")}
+                      onCheckedChange={(checked) => field.onChange(checked === true)}
+                    />
+                  </FormControl>
+                  <FormLabel className="font-normal">设为封面生图默认</FormLabel>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          <div className="flex flex-wrap justify-end gap-2.5">
+            <Button type="button" variant="outline" onClick={onCancel}>
+              取消
+            </Button>
+            <Button disabled={isSubmitting} type="submit">
+              {isSubmitting ? "保存中..." : "保存模型"}
+            </Button>
+          </div>
+        </form>
+      </Form>
+      </div>
+    </Reveal>
   );
 }
 
@@ -151,32 +456,32 @@ export function AiModelManager({ initialModels }: { initialModels: PublicAiModel
     await saveModel({ ...values });
   });
 
-  return (
-    <div className="space-y-5">
-      {message || error ? (
-        <div
-          role={error ? "alert" : "status"}
-          className={`rounded-lg border px-4 py-3 text-sm ${error ? "ui-alert-danger" : "ui-status-success"}`}
-        >
-          {error || message}
-        </div>
-      ) : null}
+  const [pendingDelete, setPendingDelete] = useState<PublicAiModelOption | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
-      <WorkspacePanel
-        title="按能力选择默认模型"
-        description={`文章摘要：${defaultSummaryModel?.name ?? "未配置"}；封面生图：${defaultCoverModel?.name ?? "未配置"}。每种能力独立单选，互不影响。`}
-        actions={
-          <Button size="sm" type="button" onClick={startCreate} className="rounded-lg">
-            <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
-            新增模型
-          </Button>
-        }
-        className="border border-[var(--border)]"
-      >
-        <div className="grid gap-4 xl:grid-cols-2">
+  return (
+    <div className="flex flex-col gap-9">
+      <FadeBanner message={error || message} tone={error ? "danger" : "success"} />
+
+      <section aria-labelledby="ai-model-defaults-title">
+        <AdminSectionHeader
+          id="ai-model-defaults-title"
+          title="按能力选择默认模型"
+          description="每种能力独立单选，互不影响。"
+          aside={
+            <Button size="sm" type="button" variant="outline" onClick={startCreate}>
+              新增模型
+            </Button>
+          }
+        />
+        <p className="mt-1.5 text-[0.8125rem] text-[var(--text-body)]">
+          文章摘要：<span className="font-bold text-[var(--foreground)]">{defaultSummaryModel?.name ?? "未配置"}</span>
+          <span aria-hidden="true" className="mx-1.5 text-[var(--text-muted)]">·</span>
+          封面生图：<span className="font-bold text-[var(--foreground)]">{defaultCoverModel?.name ?? "未配置"}</span>
+        </p>
+        <div className="mt-4 grid gap-x-10 gap-y-6 xl:grid-cols-2">
           <CapabilityDefaultCard
             capability="post-summary"
-            icon={<Sparkles className="h-5 w-5" aria-hidden="true" />}
             models={models}
             defaultModel={defaultSummaryModel}
             switchingId={switchingId}
@@ -184,293 +489,65 @@ export function AiModelManager({ initialModels }: { initialModels: PublicAiModel
           />
           <CapabilityDefaultCard
             capability="cover-image"
-            icon={<ImageIcon className="h-5 w-5" aria-hidden="true" />}
             models={models}
             defaultModel={defaultCoverModel}
             switchingId={switchingId}
             onSwitch={(model, capability) => void setDefaultModel(model, capability)}
           />
         </div>
-      </WorkspacePanel>
-
-      <WorkspacePanel
-        title="模型库"
-        description="统一维护环境变量内置模型与数据库自定义模型。模型可同时支持多种能力，但默认选择按能力独立设置。"
-        className="border border-[var(--border)]"
-      >
-        <div className="grid gap-3">
-          {models.map((model) => (
-            <article
-              key={model.id}
-              className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 transition hover:border-[var(--border-strong)]"
-            >
-              <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-start">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="text-base font-semibold text-[var(--foreground)]">{model.name}</h3>
-                    {model.defaultFor.map((capability) => (
-                      <StatusBadge key={capability} tone="success">
-                        {capabilityLabels[capability]}默认
-                      </StatusBadge>
-                    ))}
-                    <StatusBadge tone={statusTone(model.status)}>{statusLabel(model.status)}</StatusBadge>
-                    {model.source === "environment" ? <StatusBadge>环境变量</StatusBadge> : <StatusBadge>数据库</StatusBadge>}
-                  </div>
-                  <p className="mt-2 max-w-4xl text-sm leading-6 text-[var(--muted)]">{model.description || "未填写描述。"}</p>
-                </div>
-
-                <div className="flex flex-wrap gap-2 xl:justify-end">
-                  <Button
-                    disabled={testingId === model.id}
-                    onClick={() => void testModel(model)}
-                    size="sm"
-                    type="button"
-                    variant="outline"
-                    className="rounded-lg"
-                  >
-                    <TestTube2 className="mr-2 h-4 w-4" aria-hidden="true" />
-                    {testingId === model.id ? "测试中" : "测试"}
-                  </Button>
-                  <Button
-                    disabled={!model.editable}
-                    onClick={() => startEdit(model)}
-                    size="sm"
-                    type="button"
-                    variant="secondary"
-                    className="rounded-lg"
-                  >
-                    <Pencil className="mr-2 h-4 w-4" aria-hidden="true" />
-                    修改
-                  </Button>
-                  <Button
-                    disabled={!model.deletable || deletingId === model.id}
-                    onClick={() => void deleteModel(model)}
-                    size="sm"
-                    type="button"
-                    variant="danger"
-                    className="rounded-lg"
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" aria-hidden="true" />
-                    删除
-                  </Button>
-                </div>
-              </div>
-
-              <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-4">
-                <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] p-3">
-                  <div className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
-                    <Network className="h-4 w-4" aria-hidden="true" />
-                    Endpoint
-                  </div>
-                  <p className="mt-2 break-all text-sm font-medium text-[var(--foreground)]">
-                    {model.baseUrl}
-                    {model.requestPath}
-                  </p>
-                </div>
-                <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] p-3">
-                  <div className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
-                    <RadioTower className="h-4 w-4" aria-hidden="true" />
-                    Model
-                  </div>
-                  <p className="mt-2 break-all text-sm font-medium text-[var(--foreground)]">{model.model}</p>
-                </div>
-                <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] p-3">
-                  <div className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
-                    <KeyRound className="h-4 w-4" aria-hidden="true" />
-                    Secret
-                  </div>
-                  <p className="mt-2 break-all text-sm font-medium text-[var(--foreground)]">{model.hasApiKey ? "已配置" : model.apiKeyEnv}</p>
-                </div>
-                <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] p-3">
-                  <div className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
-                    <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
-                    能力
-                  </div>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {model.capabilities.map((capability) => (
-                      <StatusBadge key={capability}>{capabilityLabels[capability] ?? capability}</StatusBadge>
-                    ))}
-                  </div>
-                </div>
-              </div>
-              {model.lastTestMessage ? (
-                <p className="mt-3 text-sm text-[var(--muted)]">
-                  最近测试：{model.lastTestStatus === "success" ? "通过" : "失败"} · {model.lastTestMessage}
-                </p>
-              ) : null}
-            </article>
-          ))}
-        </div>
-      </WorkspacePanel>
+      </section>
 
       {form ? (
-        <WorkspacePanel
-          title={form.id ? "修改模型" : "新增模型"}
-          description="保存后可立即测试连接；编辑已有模型时，API Key 留空会保留原值。"
-          className="border border-[var(--border)]"
-        >
-          <Form {...methods}>
-            <form className="space-y-4" onSubmit={handleSubmit}>
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                <FormField
-                  control={methods.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>模型名称</FormLabel>
-                      <FormControl><Input {...field} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={methods.control}
-                  name="model"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>模型 ID</FormLabel>
-                      <FormControl><Input placeholder="qwen3.5-flash / wan2.6-t2i" {...field} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={methods.control}
-                  name="baseUrl"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Base URL</FormLabel>
-                      <FormControl><Input placeholder="https://api.openai.com/v1" {...field} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={methods.control}
-                  name="requestPath"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Request Path</FormLabel>
-                      <FormControl><Input placeholder="/chat/completions / /images/generations" {...field} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={methods.control}
-                  name="apiKey"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{form.id ? "API Key（留空保持不变）" : "API Key"}</FormLabel>
-                      <FormControl><Input type="password" {...field} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <FormField
-                control={methods.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>描述</FormLabel>
-                    <FormControl><Textarea className="min-h-24" {...field} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <div className="grid gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-alt)] p-4 lg:grid-cols-3">
-                <FormField
-                  control={methods.control}
-                  name="enabled"
-                  render={({ field }) => (
-                    <FormItem className="flex items-center gap-2">
-                      <FormControl>
-                        <Checkbox checked={field.value} onCheckedChange={(checked) => field.onChange(checked === true)} />
-                      </FormControl>
-                      <FormLabel className="font-normal">启用模型</FormLabel>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={methods.control}
-                  name="capabilities"
-                  render={() => (
-                    <FormItem className="lg:col-span-2">
-                      <FormLabel>模型能力</FormLabel>
-                      <FormControl>
-                        <div className="grid gap-3 sm:grid-cols-2" role="group">
-                          <label className="flex items-center gap-2 text-sm text-[var(--foreground)]">
-                            <Checkbox
-                              checked={capabilities.includes("post-summary")}
-                              onCheckedChange={(checked) => toggleCapability("post-summary", checked === true)}
-                            />
-                            文章摘要能力
-                          </label>
-                          <label className="flex items-center gap-2 text-sm text-[var(--foreground)]">
-                            <Checkbox
-                              checked={capabilities.includes("cover-image")}
-                              onCheckedChange={(checked) => toggleCapability("cover-image", checked === true)}
-                            />
-                            封面生图能力
-                          </label>
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={methods.control}
-                  name="isDefaultForSummary"
-                  render={({ field }) => (
-                    <FormItem className="flex items-center gap-2">
-                      <FormControl>
-                        <Checkbox
-                          checked={field.value}
-                          disabled={!capabilities.includes("post-summary")}
-                          onCheckedChange={(checked) => field.onChange(checked === true)}
-                        />
-                      </FormControl>
-                      <FormLabel className="font-normal">设为文章摘要默认</FormLabel>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={methods.control}
-                  name="isDefaultForCoverImage"
-                  render={({ field }) => (
-                    <FormItem className="flex items-center gap-2">
-                      <FormControl>
-                        <Checkbox
-                          checked={field.value}
-                          disabled={!capabilities.includes("cover-image")}
-                          onCheckedChange={(checked) => field.onChange(checked === true)}
-                        />
-                      </FormControl>
-                      <FormLabel className="font-normal">设为封面生图默认</FormLabel>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <div className="flex flex-wrap justify-end gap-2">
-                <Button type="button" variant="outline" onClick={resetForm} className="rounded-lg">
-                  取消
-                </Button>
-                <Button disabled={isSubmitting} type="submit" className="rounded-lg">
-                  {isSubmitting ? "保存中..." : "保存模型"}
-                </Button>
-              </div>
-            </form>
-          </Form>
-        </WorkspacePanel>
+        <ModelFormSection
+          form={form}
+          methods={methods}
+          capabilities={capabilities}
+          isSubmitting={isSubmitting}
+          onSubmit={handleSubmit}
+          onCancel={resetForm}
+          onToggleCapability={toggleCapability}
+        />
       ) : null}
+
+      <section aria-labelledby="ai-model-library-title">
+        <AdminSectionHeader
+          id="ai-model-library-title"
+          title="模型库"
+          aside={<span className="font-mono">{models.length} 个模型</span>}
+          description="统一维护环境变量内置模型与数据库自定义模型；默认选择按能力独立设置。"
+        />
+        <StaggerList className="mt-2 border-t border-[var(--reader-border-strong)]" stagger={0.04}>
+          {models.map((model) => (
+            <ModelLibraryItem
+              key={model.id}
+              model={model}
+              testing={testingId === model.id}
+              deleting={deletingId === model.id}
+              onTest={() => void testModel(model)}
+              onEdit={() => startEdit(model)}
+              onDelete={() => {
+                setPendingDelete(model);
+                setDeleteConfirmOpen(true);
+              }}
+            />
+          ))}
+        </StaggerList>
+      </section>
+
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        onOpenChange={setDeleteConfirmOpen}
+        tone="danger"
+        title="删除模型"
+        description={pendingDelete ? `删除模型「${pendingDelete.name}」？` : ""}
+        confirmLabel="确认删除"
+        submitting={Boolean(pendingDelete && deletingId === pendingDelete.id)}
+        onConfirm={async () => {
+          if (!pendingDelete) return;
+          await deleteModel(pendingDelete);
+          setDeleteConfirmOpen(false);
+        }}
+      />
     </div>
   );
 }

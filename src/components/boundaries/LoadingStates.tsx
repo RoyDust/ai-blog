@@ -1,59 +1,63 @@
+import { SkeletonBar } from "@/components/editorial";
+import { cn } from "@/lib/cn";
+
+/*
+ * 路由级加载骨架（简报 16.1「骨架」）：不画灰色圆角块，只画与真实内容同尺寸的细条
+ * （foreground 6% 底、2px 圆角），区块之间照样画 1px 细线 / 2px 报头线。
+ */
+
 const skeletonItems = [0, 1, 2];
 
-function SkeletonLine({ className = "" }: { className?: string }) {
-  return <div className={`reader-skeleton rounded-full ${className}`} />;
+function SkeletonLine({ className = "", strong = false }: { className?: string; strong?: boolean }) {
+  return <SkeletonBar className={cn("block", className)} strong={strong} />;
 }
 
 export function ArticleLoadingState() {
   return (
-    <div aria-label="文章加载中" className="article-detail-page relative overflow-x-clip pb-16" data-testid="article-loading">
-      <div className="grid gap-[var(--layout-rail-gap)] xl:grid-cols-[minmax(0,1fr)_var(--article-toc-width)] xl:items-start">
+    <div aria-label="文章加载中" aria-busy="true" className="article-detail-page relative overflow-x-clip pb-16" data-testid="article-loading">
+      <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_1px_var(--article-toc-width)] xl:items-start">
         <div className="min-w-0 space-y-8">
-          <article className="article-shell reader-card overflow-hidden">
-            <div className="reader-banner min-h-[22rem] px-6 py-10 md:px-10">
-              <div className="relative z-10 max-w-3xl space-y-5">
-                <SkeletonLine className="h-7 w-32" />
-                <div className="space-y-3">
-                  <SkeletonLine className="h-10 w-5/6 max-w-3xl" />
-                  <SkeletonLine className="h-10 w-2/3 max-w-2xl" />
-                </div>
-                <SkeletonLine className="h-4 w-2/3 max-w-xl" />
-              </div>
+          <header className="space-y-4 border-b-2 border-[var(--reader-border)] pb-6">
+            <SkeletonLine className="h-3 w-40" />
+            <div className="space-y-3">
+              <SkeletonLine strong className="h-8 w-5/6 max-w-3xl" />
+              <SkeletonLine strong className="h-8 w-2/3 max-w-2xl" />
             </div>
+            <SkeletonLine className="h-4 w-2/3 max-w-xl" />
+            <SkeletonLine className="h-3 w-56" />
+          </header>
 
-            <div className="px-5 py-8 sm:px-8 lg:px-10 lg:py-10">
-              <div className="mx-auto max-w-[var(--article-reading-max-width)] space-y-5">
-                {skeletonItems.concat([3, 4]).map((item) => (
-                  <div className="space-y-3" key={item}>
-                    <SkeletonLine className="h-4 w-full" />
-                    <SkeletonLine className="h-4 w-11/12" />
-                    <SkeletonLine className="h-4 w-4/5" />
-                  </div>
-                ))}
+          <div className="mx-auto max-w-[var(--article-reading-max-width)] space-y-6">
+            {skeletonItems.concat([3, 4]).map((item) => (
+              <div className="space-y-3" key={item}>
+                <SkeletonLine className="h-4 w-full" />
+                <SkeletonLine className="h-4 w-11/12" />
+                <SkeletonLine className="h-4 w-4/5" />
               </div>
-            </div>
-          </article>
+            ))}
+          </div>
 
-          <section className="reader-panel space-y-5 p-6 sm:p-8">
-            <SkeletonLine className="h-6 w-32" />
+          <section className="space-y-4 border-t border-[var(--border)] pt-6">
+            <SkeletonLine strong className="h-5 w-32" />
             <SkeletonLine className="h-4 w-2/3" />
-            <div className="flex flex-wrap gap-3">
-              <SkeletonLine className="h-11 w-28" />
-              <SkeletonLine className="h-11 w-28" />
-              <SkeletonLine className="h-11 w-28" />
+            <div className="flex flex-wrap gap-5">
+              <SkeletonLine className="h-4 w-20" />
+              <SkeletonLine className="h-4 w-20" />
+              <SkeletonLine className="h-4 w-20" />
             </div>
           </section>
         </div>
 
+        <span aria-hidden="true" className="hidden self-stretch bg-[var(--border)] xl:block" />
+
         <aside className="hidden xl:block">
-          <div className="reader-panel max-h-[var(--article-toc-card-max-height)] space-y-4 overflow-hidden p-5">
-            <SkeletonLine className="h-4 w-24" />
-            <SkeletonLine className="h-6 w-20" />
-            <div className="space-y-3 pt-2">
-              <SkeletonLine className="h-4 w-full" />
-              <SkeletonLine className="h-4 w-5/6" />
-              <SkeletonLine className="h-4 w-3/4" />
-              <SkeletonLine className="h-4 w-4/5" />
+          <div className="space-y-4">
+            <SkeletonLine strong className="h-5 w-20" />
+            <div className="space-y-3 border-t border-[var(--border)] pt-4">
+              <SkeletonLine className="h-3.5 w-full" />
+              <SkeletonLine className="h-3.5 w-5/6" />
+              <SkeletonLine className="h-3.5 w-3/4" />
+              <SkeletonLine className="h-3.5 w-4/5" />
             </div>
           </div>
         </aside>
@@ -64,60 +68,67 @@ export function ArticleLoadingState() {
 
 export function AdminLoadingState() {
   return (
-    <div aria-label="后台加载中" className="space-y-5 2xl:space-y-6" data-testid="admin-loading">
-      <section className="grid grid-cols-1 gap-5 2xl:gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(440px,0.75fr)]">
-        <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-5">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <SkeletonLine className="h-6 w-28" />
-            <SkeletonLine className="h-8 w-40" />
+    <div aria-label="后台加载中" aria-busy="true" className="space-y-7" data-testid="admin-loading">
+      <header className="space-y-2.5 border-b-2 border-[var(--reader-border)] pb-4">
+        <SkeletonLine className="h-3 w-20" />
+        <SkeletonLine strong className="h-7 w-40" />
+        <SkeletonLine className="h-3 w-56" />
+      </header>
+
+      <section className="grid grid-cols-1 gap-x-8 gap-y-7 xl:grid-cols-[minmax(0,1.45fr)_1px_minmax(440px,0.75fr)]">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] pb-3">
+            <SkeletonLine strong className="h-5 w-28" />
+            <SkeletonLine className="h-4 w-40" />
           </div>
-          <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="mt-5 grid grid-cols-2 sm:grid-cols-4">
             {[0, 1, 2, 3].map((item) => (
-              <div className="rounded-lg bg-[var(--surface-alt)] px-4 py-3" key={item}>
+              <div className={cn("px-4 py-1 first:pl-0", item > 0 && "sm:border-l sm:border-[var(--border)]")} key={item}>
                 <SkeletonLine className="h-3 w-16" />
-                <SkeletonLine className="mt-3 h-6 w-20" />
+                <SkeletonLine strong className="mt-3 h-6 w-20" />
               </div>
             ))}
           </div>
-          <div className="mt-6 h-[265px] rounded-lg border border-[var(--border)] bg-[var(--surface-alt)]">
-            <div className="flex h-full items-end gap-3 p-5">
-              {[0, 1, 2, 3, 4, 5, 6].map((item) => (
-                <div className="reader-skeleton flex-1 rounded-t-lg" key={item} style={{ height: `${32 + item * 8}%` }} />
-              ))}
-            </div>
+          <div
+            aria-hidden="true"
+            className="mt-6 grid h-[265px] grid-rows-4 border-b border-[var(--border)]"
+          >
+            {[0, 1, 2, 3].map((row) => (
+              <div className="border-t border-[var(--border)]" key={row} />
+            ))}
           </div>
         </div>
 
-        <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-5">
-          <SkeletonLine className="h-6 w-28" />
-          <div className="mt-6 space-y-5">
+        <span aria-hidden="true" className="hidden self-stretch bg-[var(--border)] xl:block" />
+
+        <div className="min-w-0">
+          <div className="border-b border-[var(--border)] pb-3">
+            <SkeletonLine strong className="h-5 w-28" />
+          </div>
+          <div>
             {skeletonItems.map((item) => (
-              <div className="space-y-3 border-b border-[var(--border)] pb-5 last:border-b-0" key={item}>
-                <SkeletonLine className="h-5 w-3/5" />
-                <SkeletonLine className="h-4 w-full" />
-                <SkeletonLine className="h-4 w-2/3" />
+              <div className="space-y-2.5 border-b border-[var(--border)] py-4" key={item}>
+                <SkeletonLine strong className="h-4 w-3/5" />
+                <SkeletonLine className="h-3.5 w-full" />
+                <SkeletonLine className="h-3 w-2/3" />
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      <section className="grid grid-cols-1 gap-5 2xl:gap-6 xl:grid-cols-3">
+      <section className="grid grid-cols-1 gap-x-8 gap-y-7 xl:grid-cols-3">
         {skeletonItems.map((item) => (
-          <div className="min-h-[22rem] rounded-lg border border-[var(--border)] bg-[var(--surface)] p-5" key={item}>
-            <div className="flex items-center justify-between gap-3">
-              <SkeletonLine className="h-6 w-28" />
-              <SkeletonLine className="h-8 w-16" />
+          <div className={cn("min-w-0", item > 0 && "xl:border-l xl:border-[var(--border)] xl:pl-8")} key={item}>
+            <div className="flex items-center justify-between gap-3 border-b border-[var(--border)] pb-3">
+              <SkeletonLine strong className="h-5 w-28" />
+              <SkeletonLine className="h-4 w-14" />
             </div>
-            <div className="mt-6 space-y-5">
+            <div>
               {skeletonItems.map((row) => (
-                <div className="flex gap-4" key={row}>
-                  <div className="reader-skeleton h-11 w-11 shrink-0 rounded-full" />
-                  <div className="min-w-0 flex-1 space-y-3">
-                    <SkeletonLine className="h-5 w-3/5" />
-                    <SkeletonLine className="h-4 w-full" />
-                    <SkeletonLine className="h-4 w-2/3" />
-                  </div>
+                <div className="space-y-2.5 border-b border-[var(--border)] py-3.5" key={row}>
+                  <SkeletonLine strong className="h-4 w-3/5" />
+                  <SkeletonLine className="h-3 w-2/3" />
                 </div>
               ))}
             </div>

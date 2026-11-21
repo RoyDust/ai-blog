@@ -32,7 +32,7 @@ describe("AccountEntry", () => {
 
     render(<AccountEntry />);
 
-    expect(screen.getByRole("status", { name: "正在加载账号" })).toHaveClass("reader-icon-btn");
+    expect(screen.getByRole("status", { name: "正在加载账号" })).toHaveClass("ed-icon-btn");
   });
 
   test("opens the generic login dialog for guests", async () => {

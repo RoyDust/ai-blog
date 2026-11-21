@@ -10,7 +10,7 @@ export function ThemeToggle() {
   return (
     <button
       onClick={() => toggleTheme()}
-      className="reader-icon-btn theme-toggle-btn text-current hover:text-[var(--accent-sky)]"
+      className="ed-icon-btn theme-toggle-btn"
       data-theme={theme}
       aria-label={theme === 'dark' ? '切换到日间主题' : '切换到夜间主题'}
       title={theme === 'dark' ? '切换到日间主题' : '切换到夜间主题'}

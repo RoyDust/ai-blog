@@ -120,6 +120,15 @@ function isSourceListUrl(url: string) {
   return url.startsWith("/api/admin/ai-news/sources?")
 }
 
+/** 方向 A 把数值放进等宽 <span>：按元素完整 textContent 匹配（取最内层那个元素） */
+function getByFullText(text: string) {
+  const matches = screen.getAllByText((_, element) => {
+    if (!element || element.textContent?.replace(/\s+/g, " ").trim() !== text) return false
+    return Array.from(element.children).every((child) => child.textContent?.replace(/\s+/g, " ").trim() !== text)
+  })
+  return matches[0]
+}
+
 describe("admin AI news page", () => {
   test("triggers daily AI news generation and links to the created post", async () => {
     const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
@@ -178,8 +187,8 @@ describe("admin AI news page", () => {
     })
 
     expect(await screen.findByText("2026-04-29 AI 日报")).toBeInTheDocument()
-    expect(screen.getByText("候选新闻 8 条")).toBeInTheDocument()
-    expect(screen.getAllByText("生成模型 日报模型（qwen-news）").length).toBeGreaterThan(0)
+    expect(getByFullText("候选新闻 8 条")).toBeInTheDocument()
+    expect(getByFullText("生成模型 日报模型（qwen-news）")).toBeInTheDocument()
     expect(screen.getByRole("link", { name: "编辑文章" })).toHaveAttribute("href", "/admin/posts/post-1/edit")
     expect(screen.getByRole("link", { name: "查看前台" })).toHaveAttribute("href", "/posts/ai-daily-2026-04-29")
   })
@@ -238,7 +247,7 @@ describe("admin AI news page", () => {
     })
 
     expect(await screen.findByText("2026-04-29 AI 日报：重新生成")).toBeInTheDocument()
-    expect(screen.getByText("生成模型 日报模型（qwen-news）")).toBeInTheDocument()
+    expect(getByFullText("生成模型 日报模型（qwen-news）")).toBeInTheDocument()
   })
 
   test("sends selected sources for one-off generation", async () => {
@@ -280,7 +289,7 @@ describe("admin AI news page", () => {
 
     expect(await screen.findByText("OpenAI Blog")).toBeInTheDocument()
     fireEvent.click(screen.getByRole("button", { name: "选中来源" }))
-    fireEvent.click(screen.getByRole("button", { name: "选择 Disabled Feed" }))
+    fireEvent.click(screen.getByRole("checkbox", { name: "选择 Disabled Feed" }))
     fireEvent.change(screen.getByLabelText("生成日期"), { target: { value: "2026-04-29" } })
     fireEvent.click(screen.getByRole("button", { name: "生成今日 AI 日报" }))
 
@@ -293,7 +302,7 @@ describe("admin AI news page", () => {
         }),
       )
     })
-    expect(await screen.findByText("来源 2 个")).toBeInTheDocument()
+    await waitFor(() => expect(getByFullText("来源 2 个")).toBeInTheDocument())
   })
 
   test("renders recent run history with failure reasons", async () => {
@@ -417,8 +426,8 @@ describe("admin AI news page", () => {
     expect(await screen.findByRole("link", { name: "OpenAI ships an update" })).toHaveAttribute("href", "https://example.com/openai")
     expect(screen.getByText("入选")).toBeInTheDocument()
     expect(screen.getByText("未入选")).toBeInTheDocument()
-    expect(screen.getByText("88 分")).toBeInTheDocument()
-    expect(screen.getByText("引用 2")).toBeInTheDocument()
+    expect(getByFullText("88 分")).toBeInTheDocument()
+    expect(getByFullText("引用 2")).toBeInTheDocument()
     expect(screen.getByText("model")).toBeInTheDocument()
     expect(fetchMock).toHaveBeenCalledWith("/api/admin/ai-news/candidates?runId=run-1")
   })

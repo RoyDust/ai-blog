@@ -11,7 +11,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { Crop, ImagePlus, RotateCcw } from "lucide-react";
+import { ImagePlus } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { Button } from "./button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "./dialog";
@@ -55,8 +55,9 @@ const defaultCrop: CropState = {
   offsetX: 0,
   offsetY: 0,
 };
-const viewportSize = 288;
-const cropFrameInset = 24;
+// 裁切区 220px（原型 15 状态画板 F3）；元素尺寸与遮罩内缩都由这两个常量驱动，保证与计算一致
+const viewportSize = 220;
+const cropFrameInset = 16;
 const cropFrameSize = viewportSize - cropFrameInset * 2;
 const keyboardCropStep = 8;
 const keyboardCropLargeStep = 24;
@@ -437,7 +438,7 @@ export function ImageCropUploadDialog({
       <button
         aria-label={triggerLabel}
         className={cn(
-          "group relative inline-flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-[var(--surface)] text-xl font-semibold text-[var(--foreground)] ring-1 ring-[var(--border)] transition hover:ring-[var(--brand)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]",
+          "group relative inline-flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-[var(--surface-alt)] text-xl font-bold text-[var(--foreground)] ring-1 ring-[var(--reader-border-strong)] transition hover:ring-[var(--foreground)]",
           className,
         )}
         onClick={() => inputRef.current?.click()}
@@ -461,12 +462,12 @@ export function ImageCropUploadDialog({
             <DialogDescription>拖动图片、滚动触控板或使用方向键调整位置，也可以用滑块精调，生成 1:1 头像后上传到图床。</DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-5 px-6 py-5 lg:grid-cols-[minmax(0,1fr)_220px]">
-            <div className="flex justify-center rounded-2xl border border-[var(--border)] bg-[var(--surface-alt)] p-4">
+          <div className="grid gap-6 py-2 lg:grid-cols-[minmax(0,1fr)_220px]">
+            <div className="flex justify-center rounded-[var(--radius-ctl)] border border-[var(--reader-border)] bg-[var(--surface-alt)] p-4">
               <div
                 aria-label="拖动图片调整头像位置"
                 className={cn(
-                  "relative h-72 w-72 touch-none overflow-hidden rounded-2xl bg-[var(--surface)]",
+                  "relative shrink-0 touch-none overflow-hidden rounded-[var(--radius-ctl)] bg-[var(--card-bg)]",
                   imageSize ? "cursor-grab" : "cursor-default",
                   dragging ? "cursor-grabbing" : null,
                 )}
@@ -477,6 +478,7 @@ export function ImageCropUploadDialog({
                 onKeyDown={handleCropKeyDown}
                 onWheel={handleWheel}
                 role="group"
+                style={{ width: viewportSize, height: viewportSize }}
                 tabIndex={0}
               >
                 {sourceUrl ? (
@@ -490,18 +492,22 @@ export function ImageCropUploadDialog({
                     style={previewStyle}
                   />
                 ) : null}
-                <div className="pointer-events-none absolute inset-6 rounded-full ring-2 ring-white shadow-[0_0_0_999px_rgba(15,23,42,0.38)]" />
+                <div
+                  className="pointer-events-none absolute rounded-full ring-1 ring-white/90 shadow-[0_0_0_999px_rgba(0,0,0,0.42)]"
+                  style={{ inset: cropFrameInset }}
+                />
               </div>
             </div>
 
             <div className="space-y-4">
               <div>
-                <label className="mb-2 block text-sm font-medium text-[var(--foreground)]" htmlFor="avatar-crop-zoom">
+                <label className="mb-2 flex items-baseline justify-between text-[0.8125rem] font-bold text-[var(--foreground)]" htmlFor="avatar-crop-zoom">
                   缩放
+                  <span className="ed-mono text-[0.75rem] font-normal text-[var(--text-muted)]">{`${crop.zoom.toFixed(2)}×`}</span>
                 </label>
                 <input
                   id="avatar-crop-zoom"
-                  className="w-full accent-[var(--brand)]"
+                  className="w-full accent-[var(--foreground)]"
                   max="3"
                   min="1"
                   onChange={(event) => updateCrop({ ...crop, zoom: Number(event.target.value) })}
@@ -511,12 +517,13 @@ export function ImageCropUploadDialog({
                 />
               </div>
               <div>
-                <label className="mb-2 block text-sm font-medium text-[var(--foreground)]" htmlFor="avatar-crop-offset-x">
+                <label className="mb-2 flex items-baseline justify-between text-[0.8125rem] font-bold text-[var(--foreground)]" htmlFor="avatar-crop-offset-x">
                   横向位置
+                  <span className="ed-mono text-[0.75rem] font-normal text-[var(--text-muted)]">{Math.round(crop.offsetX)}</span>
                 </label>
                 <input
                   id="avatar-crop-offset-x"
-                  className="w-full accent-[var(--brand)]"
+                  className="w-full accent-[var(--foreground)]"
                   disabled={!offsetBounds.maxX}
                   max={offsetBounds.maxX}
                   min={-offsetBounds.maxX}
@@ -526,12 +533,13 @@ export function ImageCropUploadDialog({
                 />
               </div>
               <div>
-                <label className="mb-2 block text-sm font-medium text-[var(--foreground)]" htmlFor="avatar-crop-offset-y">
+                <label className="mb-2 flex items-baseline justify-between text-[0.8125rem] font-bold text-[var(--foreground)]" htmlFor="avatar-crop-offset-y">
                   纵向位置
+                  <span className="ed-mono text-[0.75rem] font-normal text-[var(--text-muted)]">{Math.round(crop.offsetY)}</span>
                 </label>
                 <input
                   id="avatar-crop-offset-y"
-                  className="w-full accent-[var(--brand)]"
+                  className="w-full accent-[var(--foreground)]"
                   disabled={!offsetBounds.maxY}
                   max={offsetBounds.maxY}
                   min={-offsetBounds.maxY}
@@ -540,28 +548,24 @@ export function ImageCropUploadDialog({
                   value={crop.offsetY}
                 />
               </div>
-              <Button className="w-full" onClick={() => setCrop(defaultCrop)} type="button" variant="outline">
-                <RotateCcw className="mr-2 h-4 w-4" />
+              <Button onClick={() => setCrop(defaultCrop)} size="sm" type="button" variant="text">
                 重置裁切
               </Button>
             </div>
           </div>
 
-          {error ? <p className="mx-6 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p> : null}
+          {error ? (
+            <p className="ed-banner ed-banner--danger" role="alert">
+              {error}
+            </p>
+          ) : null}
 
           <DialogFooter>
             <Button disabled={uploading} onClick={resetEditor} type="button" variant="outline">
               取消
             </Button>
             <Button disabled={uploading || !imageSize} onClick={() => void handleUpload()} type="button">
-              {uploading ? (
-                "上传中..."
-              ) : (
-                <>
-                  <Crop className="mr-2 h-4 w-4" />
-                  裁切并上传
-                </>
-              )}
+              {uploading ? "上传中..." : "裁切并上传"}
             </Button>
           </DialogFooter>
         </DialogContent>

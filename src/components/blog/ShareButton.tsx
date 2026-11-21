@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Share2 } from "lucide-react";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { springSnappy } from "@/components/motion/transitions";
 
 interface ShareButtonProps {
@@ -34,6 +34,7 @@ export function buildArticleShareText({
 
 export function ShareButton({ title, slug, authorName, sourceName }: ShareButtonProps) {
   const [copied, setCopied] = useState(false);
+  const reduce = useReducedMotion();
 
   const handleShare = async () => {
     const url = `${window.location.origin}/posts/${slug}`;
@@ -51,20 +52,20 @@ export function ShareButton({ title, slug, authorName, sourceName }: ShareButton
   return (
     <motion.button
       aria-label="分享文章"
-      className="inline-flex h-11 items-center gap-2 rounded-full border border-[var(--reader-border)] bg-[color-mix(in_oklab,var(--reader-panel-elevated)_82%,transparent)] px-4 text-sm font-semibold text-[var(--text-body)] transition-colors hover:border-[var(--reader-border-strong)] hover:bg-[var(--reader-panel-elevated)] hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+      className="ed-icon-btn article-action-btn"
       onClick={handleShare}
       type="button"
-      whileTap={{ scale: 0.92 }}
-      whileFocus={{ scale: 0.96 }}
+      whileTap={reduce ? undefined : { scale: 0.92 }}
       transition={springSnappy}
     >
-      <Share2 className="h-4 w-4" />
+      <Share2 aria-hidden="true" strokeWidth={1.75} />
       <AnimatePresence mode="wait" initial={false}>
         <motion.span
           key={copied ? "copied" : "idle"}
-          initial={{ opacity: 0, y: 4 }}
+          className="article-action-btn__label"
+          initial={reduce ? false : { opacity: 0, y: 4 }}
           animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -4 }}
+          exit={reduce ? undefined : { opacity: 0, y: -4 }}
           transition={{ duration: 0.14 }}
         >
           {copied ? "已复制" : "分享"}

@@ -1,36 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import {
-  ArrowUpRight,
-  BookOpen,
-  Briefcase,
-  Code2,
-  Database,
-  Github,
-  Mail,
-  Monitor,
-  NotebookPen,
-  Palette,
-  Radio,
-  Twitter,
-  Zap,
-} from "lucide-react";
+import { Reveal, SectionHeading, StaggerItem, StaggerList, TextAnchor } from "@/components/editorial";
 import { getBlogSettings } from "@/lib/blog-settings";
+import { formatIndex } from "@/lib/editorial-format";
 import { buildCanonicalUrl, buildPageMetadata, buildPersonJsonLd } from "@/lib/seo";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { getPublicProfile } from "@/lib/public-profile";
-import type { PublicProfileLinkKind } from "@/lib/public-profile-data";
 import { FallbackImage } from "@/components/ui";
-
-const linkIcons: Record<PublicProfileLinkKind, typeof Github> = {
-  email: Mail,
-  github: Github,
-  link: ArrowUpRight,
-  twitter: Twitter,
-};
-
-const highlightIcons = [NotebookPen, Palette, Briefcase];
-const stackIcons = [Zap, Code2, Database, Monitor];
+import { cn } from "@/lib/cn";
 
 export async function generateMetadata(): Promise<Metadata> {
   const [profile, settings] = await Promise.all([getPublicProfile(), getBlogSettings()]);
@@ -44,11 +21,22 @@ export async function generateMetadata(): Promise<Metadata> {
   });
 }
 
+function isExternalUrl(url: string) {
+  return url.startsWith("http");
+}
+
+/**
+ * 关于页（原型 12 第 1 张，方向 A）：
+ * - 页头：左列 112px 圆形头像，右列 eyebrow「关于」、衬线 h1、tagline、bio、intro 与「GitHub ↗ / Twitter ↗ / Email →」文字链接，2px 粗线收尾；
+ * - 「关于我」与「我在做什么」1.15 : 0.85 并排，中间 1px 竖线；「我在做什么」是带等宽序号的细线列表；
+ * - 三条亮点是三栏文字（1px 竖线分隔，不加区块标题）；技术栈是两列细线列表；
+ * - 末尾「联系我」：一段话 + 描边按钮「联系我」+ 文字链接「访问 GitHub ↗」，本页不设主按钮。
+ */
 export default async function AboutPage() {
   const [profile, settings] = await Promise.all([getPublicProfile(), getBlogSettings()]);
   const about = settings.about;
   const githubLink = profile.links.find((link) => link.kind === "github");
-  const sameAsLinks = profile.links.filter((link) => link.url.startsWith("http")).map((link) => link.url);
+  const sameAsLinks = profile.links.filter((link) => isExternalUrl(link.url)).map((link) => link.url);
   const personJsonLd = buildPersonJsonLd({
     name: profile.name,
     url: buildCanonicalUrl("/about", settings.siteUrl),
@@ -58,160 +46,145 @@ export default async function AboutPage() {
   });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-7" data-testid="about-page">
       <JsonLd data={personJsonLd} />
       {sameAsLinks.map((url) => (
         <link key={url} rel="me" href={url} />
       ))}
-      <section className="card-base onload-animation relative overflow-hidden px-6 py-8 md:px-10 md:py-10">
-        <div className="pointer-events-none absolute top-0 right-0 h-40 w-40 rounded-full bg-[color:color-mix(in_srgb,var(--primary)_10%,transparent)] blur-3xl" />
-        <div className="pointer-events-none absolute bottom-0 left-10 h-24 w-24 rounded-full bg-[color:color-mix(in_srgb,var(--primary)_8%,transparent)] blur-2xl" />
 
-        <div className="grid gap-8 lg:grid-cols-[160px_minmax(0,1fr)] lg:items-start">
-          <div
-            className="onload-animation relative h-32 w-32 overflow-hidden rounded-3xl ring-1 ring-black/8 ring-offset-4 ring-offset-[var(--card-bg)] dark:ring-white/10 md:h-40 md:w-40"
-            style={{ animationDelay: "80ms" }}
-          >
+      <Reveal>
+        <header
+          className="grid gap-x-6 gap-y-4 border-b-2 border-[var(--foreground)] pb-5 sm:grid-cols-[112px_minmax(0,1fr)] sm:items-start"
+          data-about-section="intro"
+        >
+          <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full bg-[var(--surface-alt)] sm:h-28 sm:w-28">
             {profile.avatar ? (
-              <FallbackImage alt={profile.name} className="object-cover" fill priority sizes="160px" src={profile.avatar} />
+              <FallbackImage alt={profile.name} className="object-cover" fill priority sizes="112px" src={profile.avatar} />
             ) : (
-              <div className="flex h-full w-full items-center justify-center bg-[color:color-mix(in_srgb,var(--primary)_12%,transparent)] text-4xl font-bold text-[var(--foreground)]">
+              <span
+                aria-hidden="true"
+                className="ed-serif flex h-full w-full items-center justify-center text-[1.75rem] text-[var(--foreground)]"
+              >
                 {profile.initials}
-              </div>
+              </span>
             )}
           </div>
 
-          <div className="space-y-5">
-            <div className="onload-animation space-y-3" style={{ animationDelay: "140ms" }}>
-              <p className="text-50 text-xs font-medium uppercase tracking-[0.32em]">About</p>
-              <div className="space-y-2">
-                <h1 className="text-90 font-display text-3xl font-bold tracking-tight md:text-4xl">{profile.name}</h1>
-                <p className="text-[var(--primary)] text-sm font-medium md:text-base">{profile.tagline}</p>
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <p className="ed-eyebrow">关于</p>
+            <h1 className="ed-serif text-balance text-[clamp(1.5rem,2.6vw,2rem)] leading-[1.15] text-[var(--foreground)]">{profile.name}</h1>
+            <p className="text-[0.875rem] font-bold text-[var(--text-body)]">{profile.tagline}</p>
+            <p className="mt-2 max-w-[42rem] text-pretty text-[1.0625rem] leading-[1.8] text-[var(--foreground)]">{profile.bio}</p>
+            <p className="max-w-[42rem] text-pretty text-[0.9375rem] leading-[1.8] text-[var(--text-muted)]">{profile.intro}</p>
+            {profile.links.length > 0 ? (
+              <div className="mt-0.5 flex flex-wrap items-center gap-x-5">
+                {profile.links.map((link) => {
+                  const external = isExternalUrl(link.url);
+                  return (
+                    <TextAnchor
+                      key={link.name}
+                      arrow={external ? "external" : "right"}
+                      className="min-h-11 items-center"
+                      href={link.url}
+                      rel={external ? "noopener noreferrer" : undefined}
+                      target={external ? "_blank" : undefined}
+                    >
+                      {link.name}
+                    </TextAnchor>
+                  );
+                })}
               </div>
-              <p className="text-75 max-w-3xl text-base leading-8 md:text-lg">{profile.bio}</p>
-              <p className="text-75 max-w-3xl text-sm leading-7 md:text-[15px]">{profile.intro}</p>
-            </div>
-
-            <div className="onload-animation flex flex-wrap gap-3" style={{ animationDelay: "200ms" }}>
-              {profile.links.map((link) => {
-                const Icon = linkIcons[link.kind];
-                return (
-                  <Link
-                    key={link.name}
-                    href={link.url}
-                    rel={link.url.startsWith("http") ? "noopener noreferrer" : undefined}
-                    target={link.url.startsWith("http") ? "_blank" : undefined}
-                    className="btn-regular scale-animation inline-flex h-11 items-center gap-2 rounded-xl px-5"
-                  >
-                    <Icon className="h-4 w-4" />
-                    {link.name}
-                  </Link>
-                );
-              })}
-            </div>
+            ) : null}
           </div>
-        </div>
-      </section>
+        </header>
+      </Reveal>
 
-      <section className="onload-animation grid gap-6 lg:grid-cols-[1.15fr_0.85fr]" style={{ animationDelay: "90ms" }}>
-        <div className="card-base p-6 md:p-8">
-          <div className="mb-5 flex items-center gap-2">
-            <BookOpen className="h-5 w-5 text-[var(--primary)]" />
-            <h2 className="text-90 text-2xl font-bold">{about.aboutTitle}</h2>
-          </div>
-          <div className="space-y-4 text-[15px] leading-8 text-[var(--muted)]">
-            {about.aboutParagraphs.map((paragraph) => (
-              <p key={paragraph}>{paragraph}</p>
-            ))}
-          </div>
-        </div>
-
-        <div className="card-base p-6 md:p-8">
-          <div className="mb-5 flex items-center gap-2">
-            <Radio className="h-5 w-5 text-[var(--primary)]" />
-            <h2 className="text-90 text-2xl font-bold">{about.nowTitle}</h2>
-          </div>
-          <div className="space-y-3">
-            {about.nowItems.map((item) => (
-              <div key={item} className="rounded-2xl bg-black/[0.03] px-4 py-4 text-sm leading-7 text-[var(--muted)] dark:bg-white/[0.04]">
-                {item}
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="stagger-children grid gap-4 md:grid-cols-3">
-        {about.highlights.map((item, index) => {
-          const Icon = highlightIcons[index % highlightIcons.length];
-          return (
-            <article
-              key={item.title}
-              className="group card-base p-6 transition-all duration-300 hover:-translate-y-1 hover:bg-[var(--btn-card-bg-hover)] hover:shadow-[0_18px_45px_-24px_rgba(15,23,42,0.35)]"
-            >
-              <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-[color:color-mix(in_srgb,var(--primary)_12%,transparent)] text-[var(--primary)] transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-3">
-                <Icon className="h-5 w-5" />
-              </div>
-              <h3 className="text-90 mb-2 text-lg font-bold transition-colors duration-300 group-hover:text-[var(--primary)]">
-                {item.title}
-              </h3>
-              <p className="text-75 text-sm leading-7">{item.description}</p>
-            </article>
-          );
-        })}
-      </section>
-
-      <section className="card-base onload-animation p-6 md:p-8" style={{ animationDelay: "140ms" }}>
-        <div className="mb-6 flex items-center gap-2">
-          <Monitor className="h-5 w-5 text-[var(--primary)]" />
-          <h2 className="text-90 text-2xl font-bold">{about.stackTitle}</h2>
-        </div>
-        <div className="stagger-children grid gap-4 md:grid-cols-2">
-          {about.stack.map((item, index) => {
-            const Icon = stackIcons[index % stackIcons.length];
-            return (
-              <div
-                key={item.title}
-                className="group rounded-2xl border border-black/5 bg-black/[0.02] p-5 transition-all duration-300 hover:-translate-y-1 hover:border-[color:color-mix(in_srgb,var(--primary)_22%,transparent)] hover:bg-[color:color-mix(in_srgb,var(--primary)_6%,transparent)] dark:border-white/8 dark:bg-white/[0.03]"
-              >
-                <h3 className="text-90 mb-2 flex items-center gap-2 font-bold transition-colors duration-300 group-hover:text-[var(--primary)]">
-                  <Icon className="h-5 w-5 text-[var(--primary)] transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-                  {item.title}
-                </h3>
-                <p className="text-75 text-sm leading-7">{item.description}</p>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-      <section
-        className="card-base onload-animation flex flex-col gap-5 p-6 md:flex-row md:items-center md:justify-between md:p-8"
-        style={{ animationDelay: "180ms" }}
+      <Reveal
+        as="section"
+        aria-label="关于我与近况"
+        className="grid gap-y-7 lg:grid-cols-[minmax(0,1.15fr)_1px_minmax(0,0.85fr)] lg:gap-x-6"
+        data-about-section="story"
       >
-        <div className="space-y-2">
-          <h2 className="text-90 text-2xl font-bold">{about.contactTitle}</h2>
-          <p className="text-75 max-w-2xl text-sm leading-7">
-            {about.contactDescription}
-          </p>
+        <div className="min-w-0">
+          <SectionHeading title={about.aboutTitle} />
+          <div className="mt-2 space-y-3.5">
+            {about.aboutParagraphs.map((paragraph) => (
+              <p key={paragraph} className="text-pretty text-[0.9375rem] leading-[1.85] text-[var(--text-body)]">
+                {paragraph}
+              </p>
+            ))}
+          </div>
         </div>
-        <div className="flex flex-wrap gap-3">
-          <Link className="btn-plain scale-animation inline-flex h-11 items-center gap-2 rounded-xl px-5" href="/contact">
-            <Mail className="h-4 w-4" />联系我
+
+        <span aria-hidden="true" className="hidden bg-[var(--border)] lg:block" />
+
+        <div className="min-w-0">
+          <SectionHeading title={about.nowTitle} />
+          <StaggerList as="ol" inView className="mt-1">
+            {about.nowItems.map((item, index) => (
+              <StaggerItem
+                as="li"
+                key={item}
+                className="grid grid-cols-[1.75rem_minmax(0,1fr)] gap-1.5 border-b border-[var(--border)] py-3"
+              >
+                <span aria-hidden="true" className="ed-mono text-[0.8125rem] leading-[1.6rem] text-[var(--text-muted)]">
+                  {formatIndex(index + 1)}
+                </span>
+                <span className="text-[0.875rem] leading-[1.7] text-[var(--text-body)]">{item}</span>
+              </StaggerItem>
+            ))}
+          </StaggerList>
+        </div>
+      </Reveal>
+
+      {about.highlights.length > 0 ? (
+        <section aria-label="亮点" data-about-section="highlights">
+          <StaggerList inView className="grid border-t border-[var(--border)] md:grid-cols-3 md:pt-5">
+            {about.highlights.map((item, index) => (
+              <StaggerItem
+                as="article"
+                key={item.title}
+                className={cn(
+                  "min-w-0 py-4 md:py-0",
+                  index > 0 && "border-t border-[var(--border)] md:border-l md:border-t-0",
+                  index === 0 ? "md:pr-5" : "md:px-5",
+                  index === about.highlights.length - 1 && index > 0 && "md:pr-0",
+                )}
+              >
+                <h3 className="ed-serif mb-1.5 text-[1.0625rem] leading-[1.45] text-[var(--foreground)]">{item.title}</h3>
+                <p className="text-[0.875rem] leading-[1.75] text-[var(--text-muted)]">{item.description}</p>
+              </StaggerItem>
+            ))}
+          </StaggerList>
+        </section>
+      ) : null}
+
+      <Reveal as="section" aria-labelledby="about-stack-title" data-about-section="stack">
+        <SectionHeading id="about-stack-title" title={about.stackTitle} count={about.stack.length} />
+        <StaggerList inView className="mt-1 grid gap-x-8 sm:grid-cols-2">
+          {about.stack.map((item) => (
+            <StaggerItem key={item.title} className="border-b border-[var(--border)] py-3.5">
+              <h3 className="ed-serif mb-1 text-[1rem] leading-[1.45] text-[var(--foreground)]">{item.title}</h3>
+              <p className="text-[0.875rem] leading-[1.7] text-[var(--text-muted)]">{item.description}</p>
+            </StaggerItem>
+          ))}
+        </StaggerList>
+      </Reveal>
+
+      <Reveal as="section" aria-labelledby="about-contact-title" data-about-section="contact">
+        <SectionHeading id="about-contact-title" title={about.contactTitle} />
+        <p className="mt-2 max-w-[36em] text-pretty text-[0.9375rem] leading-[1.8] text-[var(--text-body)]">{about.contactDescription}</p>
+        <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-3">
+          <Link className="ed-btn-outline" href="/contact">
+            联系我
           </Link>
           {githubLink ? (
-            <Link
-              className="btn-plain scale-animation inline-flex h-11 items-center gap-2 rounded-xl px-5"
-              href={githubLink.url}
-              rel="noopener noreferrer"
-              target="_blank"
-            >
-              <Github className="h-4 w-4" />访问 GitHub
-              <ArrowUpRight className="h-4 w-4" />
-            </Link>
+            <TextAnchor arrow="external" className="min-h-11 items-center" href={githubLink.url} rel="noopener noreferrer" target="_blank">
+              访问 GitHub
+            </TextAnchor>
           ) : null}
         </div>
-      </section>
+      </Reveal>
     </div>
   );
 }

@@ -2,9 +2,10 @@
 
 import type { UseFormReturn } from "react-hook-form";
 
-import { WorkspacePanel } from "@/components/admin/primitives/WorkspacePanel";
-import { Button, Input, Textarea } from "@/components/admin/ui";
-import { Form } from "@/components/shadcn/ui/form";
+import { Form, FormControl, FormField } from "@/components/shadcn/ui/form";
+import { Input } from "@/components/shadcn/ui/input";
+import { Textarea } from "@/components/shadcn/ui/textarea";
+import { SettingsFieldItem, SettingsGroupTitle, SettingsSaveRow, SettingsSection } from "./SettingsFormParts";
 import { fromMultiline, toMultiline, type BlogSettingsFormValues } from "./settings-shared";
 
 type AboutSettingsPanelProps = {
@@ -15,93 +16,174 @@ type AboutSettingsPanelProps = {
 
 /**
  * 「关于页面」设置面板：介绍段落、动态、亮点卡片、技术栈与联系文案。
+ * 亮点 / 技术栈从描边框改为组标题（.75rem 700 muted + 细线）下的两列字段。
  * 纯展示组件，表单实例与提交动作经 props 注入。
  */
 export function AboutSettingsPanel({ blogDraft, blogForm, onSubmit }: AboutSettingsPanelProps) {
   return (
-    <Form {...blogForm}>
-      <form className="space-y-5" onSubmit={onSubmit}>
-        <WorkspacePanel title="关于页面内容" description="同步控制 /about 页面中的介绍、动态、亮点、技术栈和联系文案。">
-          <div className="space-y-5">
-            <Input
-              label="关于模块标题"
-              onChange={(event) => blogForm.setValue("about.aboutTitle", event.target.value, { shouldDirty: true, shouldValidate: true })}
-              value={blogDraft.about.aboutTitle}
-            />
-            <Textarea
-              helperText="每行一段，最多保存 4 段。"
-              label="关于模块段落"
-              onChange={(event) => blogForm.setValue("about.aboutParagraphs", fromMultiline(event.target.value), { shouldDirty: true, shouldValidate: true })}
-              value={toMultiline(blogDraft.about.aboutParagraphs)}
-            />
-            <Input
-              label="动态模块标题"
-              onChange={(event) => blogForm.setValue("about.nowTitle", event.target.value, { shouldDirty: true, shouldValidate: true })}
-              value={blogDraft.about.nowTitle}
-            />
-            <Textarea
-              helperText="每行一条，最多保存 6 条。"
-              label="动态条目"
-              onChange={(event) => blogForm.setValue("about.nowItems", fromMultiline(event.target.value), { shouldDirty: true, shouldValidate: true })}
-              value={toMultiline(blogDraft.about.nowItems)}
-            />
-            <div className="space-y-4 rounded-xl border border-[var(--border)] p-4">
-              <p className="text-sm font-semibold text-[var(--foreground)]">亮点卡片</p>
-              {blogDraft.about.highlights.map((item, index) => (
-                <div className="grid gap-3 md:grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)]" key={`highlight-${index}`}>
-                  <Input
-                    label={`亮点 ${index + 1} 标题`}
-                    onChange={(event) => blogForm.setValue(`about.highlights.${index}.title`, event.target.value, { shouldDirty: true, shouldValidate: true })}
-                    value={item.title}
+    <SettingsSection title="关于页面内容" description="同步控制 /about 页面中的介绍、动态、亮点、技术栈和联系文案。">
+      <Form {...blogForm}>
+        <form className="flex flex-col gap-5" onSubmit={onSubmit}>
+          <FormField
+            control={blogForm.control}
+            name="about.aboutTitle"
+            render={({ field }) => (
+              <SettingsFieldItem label="关于模块标题">
+                <FormControl>
+                  <Input {...field} />
+                </FormControl>
+              </SettingsFieldItem>
+            )}
+          />
+          <FormField
+            control={blogForm.control}
+            name="about.aboutParagraphs"
+            render={({ field }) => (
+              <SettingsFieldItem label="关于模块段落" description="每行一段，最多保存 4 段。">
+                <FormControl>
+                  <Textarea
+                    className="min-h-28 resize-y"
+                    name={field.name}
+                    onBlur={field.onBlur}
+                    onChange={(event) => field.onChange(fromMultiline(event.target.value))}
+                    ref={field.ref}
+                    value={toMultiline(field.value)}
                   />
-                  <Input
-                    label={`亮点 ${index + 1} 描述`}
-                    onChange={(event) => blogForm.setValue(`about.highlights.${index}.description`, event.target.value, { shouldDirty: true, shouldValidate: true })}
-                    value={item.description}
+                </FormControl>
+              </SettingsFieldItem>
+            )}
+          />
+          <FormField
+            control={blogForm.control}
+            name="about.nowTitle"
+            render={({ field }) => (
+              <SettingsFieldItem label="动态模块标题">
+                <FormControl>
+                  <Input {...field} />
+                </FormControl>
+              </SettingsFieldItem>
+            )}
+          />
+          <FormField
+            control={blogForm.control}
+            name="about.nowItems"
+            render={({ field }) => (
+              <SettingsFieldItem label="动态条目" description="每行一条，最多保存 6 条。">
+                <FormControl>
+                  <Textarea
+                    className="min-h-28 resize-y"
+                    name={field.name}
+                    onBlur={field.onBlur}
+                    onChange={(event) => field.onChange(fromMultiline(event.target.value))}
+                    ref={field.ref}
+                    value={toMultiline(field.value)}
+                  />
+                </FormControl>
+              </SettingsFieldItem>
+            )}
+          />
+
+          {blogDraft.about.highlights.length > 0 ? (
+            <div className="flex flex-col gap-4">
+              <SettingsGroupTitle>亮点卡片</SettingsGroupTitle>
+              {blogDraft.about.highlights.map((_, index) => (
+                <div className="grid gap-x-6 gap-y-4 md:grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)]" key={`highlight-${index}`}>
+                  <FormField
+                    control={blogForm.control}
+                    name={`about.highlights.${index}.title`}
+                    render={({ field }) => (
+                      <SettingsFieldItem label={`亮点 ${index + 1} 标题`}>
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
+                      </SettingsFieldItem>
+                    )}
+                  />
+                  <FormField
+                    control={blogForm.control}
+                    name={`about.highlights.${index}.description`}
+                    render={({ field }) => (
+                      <SettingsFieldItem label={`亮点 ${index + 1} 描述`}>
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
+                      </SettingsFieldItem>
+                    )}
                   />
                 </div>
               ))}
             </div>
-            <Input
-              label="技术栈标题"
-              onChange={(event) => blogForm.setValue("about.stackTitle", event.target.value, { shouldDirty: true, shouldValidate: true })}
-              value={blogDraft.about.stackTitle}
-            />
-            <div className="space-y-4 rounded-xl border border-[var(--border)] p-4">
-              <p className="text-sm font-semibold text-[var(--foreground)]">技术栈卡片</p>
-              {blogDraft.about.stack.map((item, index) => (
-                <div className="grid gap-3 md:grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)]" key={`stack-${index}`}>
-                  <Input
-                    label={`技术栈 ${index + 1} 标题`}
-                    onChange={(event) => blogForm.setValue(`about.stack.${index}.title`, event.target.value, { shouldDirty: true, shouldValidate: true })}
-                    value={item.title}
+          ) : null}
+
+          <FormField
+            control={blogForm.control}
+            name="about.stackTitle"
+            render={({ field }) => (
+              <SettingsFieldItem label="技术栈标题">
+                <FormControl>
+                  <Input {...field} />
+                </FormControl>
+              </SettingsFieldItem>
+            )}
+          />
+
+          {blogDraft.about.stack.length > 0 ? (
+            <div className="flex flex-col gap-4">
+              <SettingsGroupTitle>技术栈卡片</SettingsGroupTitle>
+              {blogDraft.about.stack.map((_, index) => (
+                <div className="grid gap-x-6 gap-y-4 md:grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)]" key={`stack-${index}`}>
+                  <FormField
+                    control={blogForm.control}
+                    name={`about.stack.${index}.title`}
+                    render={({ field }) => (
+                      <SettingsFieldItem label={`技术栈 ${index + 1} 标题`}>
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
+                      </SettingsFieldItem>
+                    )}
                   />
-                  <Input
-                    label={`技术栈 ${index + 1} 描述`}
-                    onChange={(event) => blogForm.setValue(`about.stack.${index}.description`, event.target.value, { shouldDirty: true, shouldValidate: true })}
-                    value={item.description}
+                  <FormField
+                    control={blogForm.control}
+                    name={`about.stack.${index}.description`}
+                    render={({ field }) => (
+                      <SettingsFieldItem label={`技术栈 ${index + 1} 描述`}>
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
+                      </SettingsFieldItem>
+                    )}
                   />
                 </div>
               ))}
             </div>
-            <Input
-              label="联系模块标题"
-              onChange={(event) => blogForm.setValue("about.contactTitle", event.target.value, { shouldDirty: true, shouldValidate: true })}
-              value={blogDraft.about.contactTitle}
-            />
-            <Textarea
-              label="联系模块描述"
-              onChange={(event) => blogForm.setValue("about.contactDescription", event.target.value, { shouldDirty: true, shouldValidate: true })}
-              value={blogDraft.about.contactDescription}
-            />
-            <div className="flex justify-end">
-              <Button disabled={blogForm.formState.isSubmitting} type="submit" variant="outline">
-                {blogForm.formState.isSubmitting ? "保存中..." : "保存博客配置"}
-              </Button>
-            </div>
-          </div>
-        </WorkspacePanel>
-      </form>
-    </Form>
+          ) : null}
+
+          <FormField
+            control={blogForm.control}
+            name="about.contactTitle"
+            render={({ field }) => (
+              <SettingsFieldItem label="联系模块标题">
+                <FormControl>
+                  <Input {...field} />
+                </FormControl>
+              </SettingsFieldItem>
+            )}
+          />
+          <FormField
+            control={blogForm.control}
+            name="about.contactDescription"
+            render={({ field }) => (
+              <SettingsFieldItem label="联系模块描述">
+                <FormControl>
+                  <Textarea className="min-h-24 resize-y" {...field} />
+                </FormControl>
+              </SettingsFieldItem>
+            )}
+          />
+          <SettingsSaveRow label="保存博客配置" submitting={blogForm.formState.isSubmitting} />
+        </form>
+      </Form>
+    </SettingsSection>
   );
 }

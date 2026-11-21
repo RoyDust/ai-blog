@@ -45,6 +45,7 @@ const post = {
   slug: "first-post",
   excerpt: "Read first",
   coverImage: null,
+  readingTimeMinutes: 6,
   createdAt: new Date("2026-03-01T00:00:00.000Z"),
   author: { id: "u1", name: "Ada", image: null },
   category: { id: "c1", name: "Engineering", slug: "engineering" },
@@ -69,8 +70,16 @@ describe("series public pages", () => {
 
     const { container } = render(ui as React.ReactElement);
 
-    expect(screen.getByRole("heading", { name: "文章系列" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "全部系列" })).toBeInTheDocument();
+    expect(screen.getByText("1 个系列 · 1 篇文章")).toBeInTheDocument();
+    // 系列目录的次级链接写「全部文章 →」，不放「在列表页中筛选」
+    expect(screen.getByRole("link", { name: "全部文章" })).toHaveAttribute("href", "/posts");
+    expect(screen.queryByRole("link", { name: "在列表页中筛选" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "工程系列" })).toHaveAttribute("href", "/series/engineering");
+    // 状态写在 meta 开头，不用 chip；没有「进入系列 →」
+    expect(screen.getByText("连载中")).toBeInTheDocument();
+    expect(container.querySelector(".reader-chip")).toBeNull();
+    expect(screen.queryByRole("link", { name: /进入系列/ })).not.toBeInTheDocument();
     expect(container.querySelector(".onload-animation")).toBeNull();
     expect(findMany).toHaveBeenCalledWith(expect.objectContaining({
       where: {
@@ -83,6 +92,17 @@ describe("series public pages", () => {
         },
       },
     }));
+  });
+
+  test("/series marks daily series as 每日更新", async () => {
+    findMany.mockResolvedValueOnce([
+      { id: "s2", title: "AI 日报", slug: "ai-daily", description: null, coverImage: null, _count: { posts: 3 } },
+    ]);
+
+    const { default: SeriesPage } = await import("../page");
+    render((await SeriesPage()) as React.ReactElement);
+
+    expect(screen.getByText("每日更新")).toBeInTheDocument();
   });
 
   test("/series/[slug] renders published posts and filters unpublished or deleted posts in the query", async () => {
@@ -100,7 +120,14 @@ describe("series public pages", () => {
 
     const { container } = render(ui as React.ReactElement);
 
-    expect(screen.getByRole("heading", { name: "工程系列" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "工程系列" })).toBeInTheDocument();
+    expect(screen.getByText("连载中 · 1 篇 · 预计 6 分钟")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "全部系列" })).toHaveAttribute("href", "/series");
+    expect(screen.getByRole("heading", { name: "文章 1" })).toBeInTheDocument();
+    expect(screen.getByText("按阅读顺序")).toBeInTheDocument();
+    // 左列两位序号，日期移进 meta
+    expect(container.querySelector(".ed-row__index")).toHaveTextContent("01");
+    expect(container).toHaveTextContent("2026-03-01");
     expect(screen.getAllByRole("link", { name: "First Post" })[0]).toHaveAttribute("href", "/posts/first-post");
     expect(container.querySelector(".onload-animation")).toBeNull();
     expect(JSON.parse(container.querySelector('script[type="application/ld+json"]')?.textContent ?? "{}")).toMatchObject({

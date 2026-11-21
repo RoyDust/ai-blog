@@ -1,10 +1,12 @@
 "use client";
 
+import { motion, useReducedMotion } from "motion/react";
 import type { UseFormReturn } from "react-hook-form";
 
-import { WorkspacePanel } from "@/components/admin/primitives/WorkspacePanel";
-import { Button, Input } from "@/components/admin/ui";
-import { Form, FormField, FormItem, FormMessage } from "@/components/shadcn/ui/form";
+import { FramedInput } from "@/components/admin/workspace/WorkspaceKit";
+import { editorialEase } from "@/components/editorial";
+import { Form, FormControl, FormField } from "@/components/shadcn/ui/form";
+import { SettingsFieldItem, SettingsSaveRow, SettingsSection } from "./SettingsFormParts";
 import type { LogSettingsFormValues, OperationLogSettings } from "./settings-shared";
 
 type LogSettingsPanelProps = {
@@ -15,55 +17,83 @@ type LogSettingsPanelProps = {
 };
 
 /**
- * 「日志策略」设置面板：容量上限与当前占用进度条。
+ * 「日志策略」设置面板（方向 A 第 15 节 F2）：240px 数字框 + 后缀「MB」（越界时 danger 边框 + 错误文案），
+ * 细线下方「当前占用」等宽「6.2 / 10 MB」+ 8px 进度条（chart2 色，role=meter）+ 保留条数。
  * 纯展示组件，表单实例与提交动作经 props 注入。
  */
 export function LogSettingsPanel({ logForm, logSettings, usagePercent, onSubmit }: LogSettingsPanelProps) {
+  const reduceMotion = useReducedMotion();
+  const [currentValue, ...currentUnitParts] = logSettings.currentStorageLabel.split(" ");
+  const currentUnit = currentUnitParts.join(" ");
+
   return (
-    <WorkspacePanel title="日志设置" description="控制后台接口日志表的总占用，超过上限后优先清理最旧日志。">
+    <SettingsSection title="日志设置" description="控制后台接口日志表的总占用，超过上限后优先清理最旧日志。">
       <Form {...logForm}>
-        <form className="space-y-4" noValidate onSubmit={onSubmit}>
+        <form className="flex flex-col gap-5" noValidate onSubmit={onSubmit}>
           <FormField
             control={logForm.control}
             name="maxStorageMb"
-            render={({ field }) => (
-              <FormItem>
-                <Input
-                  helperText="默认 10 MB。保存后会立即按新上限裁剪旧日志，保留最新记录。"
-                  label="日志大小限制"
-                  min={1}
-                  max={512}
-                  onChange={(event) => field.onChange(Number(event.target.value) || 1)}
-                  rightSlot={<span className="px-2 text-sm font-medium text-[var(--muted)]">MB</span>}
-                  step="1"
-                  type="number"
-                  value={field.value}
-                />
-                <FormMessage />
-              </FormItem>
+            render={({ field, fieldState }) => (
+              <SettingsFieldItem
+                label="日志大小限制"
+                required
+                description={fieldState.error ? undefined : "默认 10 MB。保存后会立即按新上限裁剪旧日志，保留最新记录。"}
+              >
+                <FormControl>
+                  <FramedInput
+                    className="w-60"
+                    inputClassName="font-mono"
+                    invalid={Boolean(fieldState.error)}
+                    min={1}
+                    max={512}
+                    name={field.name}
+                    onBlur={field.onBlur}
+                    onChange={(event) => field.onChange(Number(event.target.value) || 1)}
+                    step="1"
+                    suffix={<span className="pr-1.5 text-[0.8125rem] text-[var(--text-muted)]">MB</span>}
+                    type="number"
+                    value={field.value}
+                  />
+                </FormControl>
+              </SettingsFieldItem>
             )}
           />
 
-          <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-alt)] p-4">
-            <div className="flex items-center justify-between gap-3 text-sm">
-              <span className="font-medium text-[var(--foreground)]">当前占用</span>
-              <span className="text-[var(--muted)]">
-                {logSettings.currentStorageLabel} / {logSettings.maxStorageMb} MB
+          <div className="border-t border-[var(--border)] pt-4">
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="text-[0.8125rem] text-[var(--text-body)]">当前占用</span>
+              <span className="font-mono text-[var(--foreground)] tabular-nums">
+                <span className="text-xl font-bold">{currentValue}</span>
+                {currentUnit && currentUnit !== "MB" ? <span className="text-xs text-[var(--text-muted)]"> {currentUnit}</span> : null}
+                <span className="text-[var(--text-muted)]"> / </span>
+                <span className="text-xl font-bold">{logSettings.maxStorageMb}</span>
+                <span className="font-sans text-xs text-[var(--text-muted)]"> MB</span>
               </span>
             </div>
-            <div className="mt-3 h-2 overflow-hidden rounded-full bg-[var(--surface)]">
-              <div className="h-full rounded-full bg-[var(--brand)] transition-[width]" style={{ width: `${usagePercent}%` }} />
+            <div
+              role="meter"
+              aria-label="日志占用"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={usagePercent}
+              aria-valuetext={`${logSettings.currentStorageLabel} / ${logSettings.maxStorageMb} MB`}
+              className="mt-2.5 h-2 overflow-hidden rounded-[2px] bg-[var(--ed-skeleton)]"
+            >
+              <motion.div
+                className="h-full bg-[var(--chart2)]"
+                initial={reduceMotion ? false : { width: 0 }}
+                animate={{ width: `${usagePercent}%` }}
+                transition={{ duration: reduceMotion ? 0 : 0.6, ease: editorialEase }}
+              />
             </div>
-            <p className="mt-3 text-sm text-[var(--muted)]">当前保留 {logSettings.rowCount} 条接口日志。</p>
+            <p className="mt-2.5 text-[0.8125rem] text-[var(--text-muted)]">
+              当前保留 <span className="font-mono text-[var(--foreground)]">{logSettings.rowCount.toLocaleString("zh-CN")}</span> 条接口日志。
+            </p>
           </div>
 
-          <div className="flex justify-end">
-            <Button disabled={logForm.formState.isSubmitting} type="submit">
-              {logForm.formState.isSubmitting ? "保存中..." : "保存日志设置"}
-            </Button>
-          </div>
+          <SettingsSaveRow label="保存日志设置" submitting={logForm.formState.isSubmitting} />
         </form>
       </Form>
-    </WorkspacePanel>
+    </SettingsSection>
   );
 }

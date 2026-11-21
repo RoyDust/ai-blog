@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { SWRConfig, mutate as clearSwrCache } from 'swr'
 
@@ -39,6 +39,18 @@ function createPost(id: string) {
   }
 }
 
+function expectInitialSkeleton() {
+  const listing = screen.getByTestId('posts-listing')
+  expect(listing).toHaveAttribute('aria-busy', 'true')
+  expect(screen.getByRole('status')).toHaveTextContent('正在加载文章')
+  // 与真实行同尺寸的 4 行细条骨架，首屏不画置顶精选
+  const skeletonRows = listing.querySelectorAll('.ed-row[aria-hidden="true"]')
+  expect(skeletonRows).toHaveLength(4)
+  expect(listing.querySelectorAll('.ed-skel').length).toBeGreaterThan(0)
+  expect(screen.queryByTestId('post-featured')).not.toBeInTheDocument()
+  expect(screen.queryAllByTestId('post-list-row')).toHaveLength(0)
+}
+
 function SwrTestProvider({ children }: { children: React.ReactNode }) {
   return <SWRConfig value={{ provider: () => new Map(), dedupingInterval: 0 }}>{children}</SWRConfig>
 }
@@ -50,7 +62,8 @@ function renderListing(ui: React.ReactElement) {
 describe('PostsListingClient', () => {
   beforeEach(async () => {
     currentSearchParams = new URLSearchParams()
-    vi.restoreAllMocks()
+    // 只撤销 fetch 桩；不要 restoreAllMocks，否则 setup 中 matchMedia 的 mock 实现会被清空（useReducedMotion 依赖它）
+    vi.unstubAllGlobals()
     // SWR 全局缓存在用例间共享，逐用例清空保证独立性（需等待清空完成）
     await clearSwrCache(() => true, undefined, { revalidate: false })
   })
@@ -84,13 +97,7 @@ describe('PostsListingClient', () => {
       />,
     )
 
-    expect(screen.getAllByTestId('post-card-skeleton')).toHaveLength(6)
-    expect(screen.getAllByTestId('post-card-skeleton')[0]).toHaveClass('reader-feed-card')
-    expect(
-      screen
-        .getAllByTestId('post-card-skeleton')
-        .every((skeleton) => !skeleton.parentElement?.classList.contains('onload-animation')),
-    ).toBe(true)
+    expectInitialSkeleton()
 
     deferred.resolve({
       ok: true,
@@ -148,14 +155,27 @@ describe('PostsListingClient', () => {
       expect(screen.getAllByText('Post 1').length).toBeGreaterThan(0)
     })
 
-    expect(screen.getAllByText('精选文章')).toHaveLength(2)
-    expect(screen.getByTestId('posts-listing')).toHaveClass('reader-section')
-    expect(screen.getByTestId('posts-listing').firstElementChild).toHaveClass('grid', 'gap-2', 'md:gap-3')
+    // 无筛选时首篇精选置顶，用置顶精选样式；其余精选只在 meta 开头写「精选」
+    const pinned = screen.getByTestId('post-featured')
+    expect(within(pinned).getByRole('heading', { level: 2, name: 'Post 1' })).toBeInTheDocument()
+    expect(within(pinned).getByText('精选')).toHaveClass('ed-seal')
+
+    const rows = screen.getAllByTestId('post-list-row')
+    expect(rows).toHaveLength(5)
+    expect(rows.every((row) => row.classList.contains('ed-row'))).toBe(true)
+    expect(within(rows[0]).getByRole('heading', { name: 'Post 2' })).toBeInTheDocument()
+    expect(within(rows[0]).getByText('精选')).toBeInTheDocument()
+    expect(within(rows[1]).queryByText('精选')).not.toBeInTheDocument()
+    expect(screen.queryByText('精选文章')).not.toBeInTheDocument()
+    expect(screen.getByTestId('posts-listing').className).not.toContain('reader-section')
 
     // 所有 6 篇文章均已渲染（Motion variants 不限制渲染数量）
     for (const id of ['1', '2', '3', '4', '5', '6']) {
       expect(screen.getByRole('heading', { name: `Post ${id}` })).toBeInTheDocument()
     }
+
+    // 单页列表不显示「已显示全部」
+    expect(screen.queryByText(/已显示全部/)).not.toBeInTheDocument()
   })
 
   test('shows skeleton cards again when search params change', async () => {
@@ -210,7 +230,7 @@ describe('PostsListingClient', () => {
       />,
     )
 
-    expect(screen.getAllByTestId('post-card-skeleton')).toHaveLength(6)
+    expectInitialSkeleton()
     expect(screen.queryAllByText('First post')).toHaveLength(0)
 
     deferred.resolve({
@@ -268,5 +288,130 @@ describe('PostsListingClient', () => {
     expect(fetch).toHaveBeenCalledWith(
       '/api/posts?page=1&limit=12&category=frontend&tag=nextjs&q=react+server&search=react+server',
     )
+  })
+  test('does not pin a featured post when filters are active', async () => {
+    const posts = [createPost('1'), createPost('2')]
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ data: posts, pagination: { page: 1, limit: 10, total: 2, totalPages: 1 } }),
+      }),
+    )
+
+    renderListing(
+      <PostsListingClient
+        filters={{ category: 'tech' }}
+        initialPagination={{ page: 0, limit: 10, total: 0, totalPages: 0 }}
+        initialPosts={[]}
+      />,
+    )
+
+    await waitFor(() => {
+      expect(screen.getAllByTestId('post-list-row')).toHaveLength(2)
+    })
+
+    expect(screen.queryByTestId('post-featured')).not.toBeInTheDocument()
+    expect(within(screen.getAllByTestId('post-list-row')[0]).getByText('精选')).toBeInTheDocument()
+  })
+
+  test('renders server-provided posts without fetching and does not pin a non-featured first post', () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+
+    renderListing(
+      <PostsListingClient
+        initialPagination={{ page: 1, limit: 10, total: 2, totalPages: 1 }}
+        initialPosts={[createPost('2'), createPost('3')]}
+      />,
+    )
+
+    expect(screen.queryByTestId('post-featured')).not.toBeInTheDocument()
+    expect(screen.getAllByTestId('post-list-row')).toHaveLength(2)
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  test('shows an empty state with a clear-filters link when a filter has no posts', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ data: [], pagination: { page: 1, limit: 10, total: 0, totalPages: 0 } }),
+      }),
+    )
+
+    renderListing(
+      <PostsListingClient
+        filters={{ tag: 'missing' }}
+        initialPagination={{ page: 0, limit: 10, total: 0, totalPages: 0 }}
+        initialPosts={[]}
+      />,
+    )
+
+    expect(await screen.findByText('这个筛选下还没有文章')).toHaveClass('ed-empty__title')
+    expect(screen.getByRole('link', { name: '清空筛选' })).toHaveAttribute('href', '/posts')
+  })
+
+  test('shows a danger error with a retry button that reloads the failed page', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        json: async () => ({ success: false, error: 'Internal server error' }),
+      })
+      .mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          data: [createPost('2')],
+          pagination: { page: 1, limit: 10, total: 1, totalPages: 1 },
+        }),
+      })
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(
+      <SWRConfig value={{ provider: () => new Map(), dedupingInterval: 0, shouldRetryOnError: false }}>
+        <PostsListingClient initialPagination={{ page: 0, limit: 10, total: 0, totalPages: 0 }} initialPosts={[]} />
+      </SWRConfig>,
+    )
+
+    const alert = await screen.findByRole('alert')
+    expect(within(alert).getByText('文章加载失败，请稍后重试')).toHaveClass('ed-empty__title', 'ed-empty__title--danger')
+
+    const retry = within(alert).getByRole('button', { name: '重试' })
+    expect(retry).toHaveClass('ed-btn-outline')
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+
+    fireEvent.click(retry)
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Post 2' })).toBeInTheDocument()
+    })
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(fetchMock).toHaveBeenLastCalledWith('/api/posts?page=1&limit=10')
+    await waitFor(() => {
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    })
+  })
+
+  test('shows the end-of-list summary with a back-to-top link once every page is loaded', () => {
+    vi.stubGlobal('fetch', vi.fn())
+
+    renderListing(
+      <PostsListingClient
+        initialPagination={{ page: 2, limit: 10, total: 12, totalPages: 2 }}
+        initialPosts={[createPost('11'), createPost('12')]}
+      />,
+    )
+
+    const summary = screen.getByText(/已显示全部/).closest('p')
+    expect(summary).toHaveTextContent('已显示全部 12 篇·回到顶部')
+    expect(within(summary!).getByText('12')).toHaveClass('ed-mono')
+
+    const backToTop = within(summary!).getByRole('button', { name: '回到顶部' })
+    expect(backToTop).toHaveClass('ed-link')
+    fireEvent.click(backToTop)
+    expect(window.scrollTo).toHaveBeenCalledWith({ top: 0, behavior: 'smooth' })
   })
 })

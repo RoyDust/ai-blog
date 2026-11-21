@@ -55,7 +55,7 @@ describe('admin create post', () => {
     const contentGrid = workspace?.querySelector('.grid.min-h-0.flex-1')
     expect(contentGrid).toHaveClass('overflow-y-auto', 'xl:overflow-hidden', 'xl:grid-rows-[minmax(0,1fr)]')
     expect(screen.getByRole('heading', { name: '发布设置' }).closest('aside')).toHaveClass(
-      'overflow-y-auto',
+      'xl:overflow-y-auto',
       'xl:h-full',
       'xl:max-h-full',
     )
@@ -447,7 +447,10 @@ describe('admin create post', () => {
 
     renderCreatePage()
 
-    expect(screen.getByText('标签：未选择')).toBeInTheDocument()
-    expect(screen.getByText('分类：未选择')).toBeInTheDocument()
+    // 发布设置摘要是 64px 键列的定义列表：<dt>标签</dt><dd>未选择</dd>
+    const summaryValue = (term: string) =>
+      screen.getAllByText(term).find((element) => element.tagName === 'DT')?.nextElementSibling?.textContent
+    expect(summaryValue('标签')).toBe('未选择')
+    expect(summaryValue('分类')).toBe('未选择')
   })
 })

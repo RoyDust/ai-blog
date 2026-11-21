@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Wand2 } from "lucide-react";
 import { toast } from "sonner";
 import useSWR from "swr";
 
+import { ListSearchInput, MetricStrip } from "@/components/admin/lists";
 import { AdminPagination } from "@/components/admin/primitives/AdminPagination";
 import { PageHeader } from "@/components/admin/primitives/PageHeader";
+import { AdminSectionHeader } from "@/components/admin/primitives/SectionHeader";
 import { Toolbar } from "@/components/admin/primitives/Toolbar";
 import { WorkspacePanel } from "@/components/admin/primitives/WorkspacePanel";
 import { Button, Modal } from "@/components/admin/ui";
@@ -24,8 +25,8 @@ import { CoverAssetGrid } from "./CoverAssetGrid";
 import { CoverUploadDropzone } from "./CoverUploadDropzone";
 import type { CoverAsset, CoverAssetListResponse } from "./types";
 
-const adminSelectTriggerClassName = "w-[140px] rounded-xl border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--foreground)] shadow-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]";
-const adminSelectContentClassName = "rounded-xl border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)]";
+const adminSelectTriggerClassName = "w-full text-[0.8125rem] sm:w-[124px]";
+const adminSelectContentClassName = "";
 const coverGalleryMemoryKey = "admin:covers:list-filters";
 const statusFilters = ["all", "active", "archived"] as const;
 const imageKindFilters = ["all", "uploaded", "ai-generated"] as const;
@@ -233,34 +234,58 @@ export function CoverGalleryManager() {
     }
   };
 
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const activeOnPage = assets.filter((asset) => asset.status === "active").length;
+  const aiOnPage = assets.filter((asset) => asset.generatedByAi).length;
+
   return (
-    <div className="space-y-5">
+    <div>
       <PageHeader
-        eyebrow="Media"
+        eyebrow="媒体库"
         title="封面图库"
         description="集中管理文章封面，上传后的图片可以在编辑器中直接复用。"
         action={
-          <Button type="button" size="sm" variant="outline" onClick={randomizeMissingPosts} disabled={randomizing}>
-            <Wand2 className="mr-1 h-4 w-4" aria-hidden="true" />
+          <Button type="button" variant="outline" onClick={randomizeMissingPosts} disabled={randomizing}>
             {randomizing ? "补齐中..." : "随机补齐无图文章"}
           </Button>
         }
       />
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
-        <section className="space-y-4">
+      <MetricStrip
+        ariaLabel="封面图库概况"
+        className="mt-1"
+        items={[
+          { key: "total", label: "匹配封面", value: total.toLocaleString("zh-CN"), note: "当前筛选下的总数" },
+          { key: "page", label: "本页", value: assets.length.toLocaleString("zh-CN"), note: `第 ${page} / ${totalPages} 页` },
+          { key: "active", label: "本页可用", value: activeOnPage.toLocaleString("zh-CN"), note: "可在编辑器中选择", tone: "success" },
+          { key: "ai", label: "本页 AI 生成", value: aiOnPage.toLocaleString("zh-CN"), note: "生图模型产出" },
+        ]}
+      />
+
+      <div className="mt-6 grid gap-x-8 gap-y-8 xl:grid-cols-[minmax(0,1fr)_340px]">
+        <section aria-labelledby="admin-covers-title" className="min-w-0">
+          <AdminSectionHeader
+            aside={
+              <span className="ed-mono">
+                第 {page} / {totalPages} 页<span className="ed-meta-sep">·</span>共 {total} 张
+              </span>
+            }
+            description="图片、来源、状态与使用次数"
+            id="admin-covers-title"
+            title="封面列表"
+          />
           <Toolbar
             leading={
               <>
-                <input
-                  aria-label="搜索封面"
-                  className="ui-ring min-w-[240px] flex-1 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--foreground)] placeholder:text-[var(--muted)] focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
-                  placeholder="搜索标题、URL、标签"
-                  value={query}
-                  onChange={(event) => {
-                    setQuery(event.target.value);
+                <ListSearchInput
+                  ariaLabel="搜索封面"
+                  className="sm:w-[260px]"
+                  onChange={(value) => {
+                    setQuery(value);
                     setPage(1);
                   }}
+                  placeholder="搜索标题、URL、标签"
+                  value={query}
                 />
                 <Select value={statusFilter} onValueChange={(value) => {
                   setStatusFilter(value as typeof statusFilter);
@@ -290,14 +315,15 @@ export function CoverGalleryManager() {
                 </Select>
               </>
             }
-            trailing={<span className="text-sm text-[var(--muted)]">共 {total} 张</span>}
           />
 
-          <CoverAssetGrid assets={assets} loading={loading} onEdit={setEditing} onDelete={archiveAsset} />
+          <div className="border-t border-[var(--reader-border-strong)] pt-5">
+            <CoverAssetGrid assets={assets} loading={loading} onEdit={setEditing} onDelete={archiveAsset} />
+          </div>
 
           {total > 0 ? (
             <AdminPagination
-              className="rounded-2xl border border-[var(--border)]"
+              className="mt-5 border-t border-[var(--border)]"
               disabled={loading}
               itemLabel="张封面"
               onPageChange={setPage}
@@ -309,13 +335,13 @@ export function CoverGalleryManager() {
               pageSize={pageSize}
               pageSizeOptions={pageSizeOptions}
               total={total}
-              totalPages={Math.max(1, Math.ceil(total / pageSize))}
+              totalPages={totalPages}
             />
           ) : null}
         </section>
 
-        <aside className="space-y-4 xl:self-start">
-          <WorkspacePanel title="上传封面" description="进入图库后，文章编辑器就能直接选择。" fillHeight={false}>
+        <aside className="space-y-6 xl:self-start">
+          <WorkspacePanel title="上传封面" description="进入图库后，文章编辑器就能直接选择。" fillHeight={false} variant="pane">
             <CoverUploadDropzone
               onCreated={() => {
                 handleCreated();
@@ -324,7 +350,7 @@ export function CoverGalleryManager() {
             />
           </WorkspacePanel>
 
-          <WorkspacePanel title="添加已有链接" description="适合已经在图床中的旧封面。" fillHeight={false}>
+          <WorkspacePanel title="添加已有链接" description="适合已经在图床中的旧封面。" fillHeight={false} variant="pane">
             <CoverAssetForm
               onSaved={() => {
                 handleCreated();

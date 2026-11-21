@@ -1,12 +1,12 @@
 export const revalidate = 300;
 
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { PostCard } from "@/components/blog/PostCard";
-import { InViewReveal } from "@/components/motion";
+import { EmptyState, TextLink } from "@/components/editorial";
+import { getSeriesStatusLabel, TaxonomyHero, TaxonomyPostGrid } from "@/components/taxonomy";
 import { getBlogSettings } from "@/lib/blog-settings";
+import { formatDuration } from "@/lib/editorial-format";
 import { prisma } from "@/lib/prisma";
 import { buildBreadcrumbJsonLd, buildPageMetadata } from "@/lib/seo";
 import { getSeriesViewTransitionName } from "@/lib/view-transition";
@@ -92,44 +92,43 @@ export default async function SeriesDetailPage({ params }: { params: Promise<{ s
     { name: series.title, path: `/series/${series.slug}` },
   ], { siteUrl: settings.siteUrl });
 
-  return (
-    <div className="reader-section">
-      <JsonLd data={breadcrumbJsonLd} />
-      <section
-        className="reader-banner px-6 py-8 md:px-8 md:py-10"
-        style={{ viewTransitionName: getSeriesViewTransitionName("cover", series.slug) }}
-      >
-        <div className="relative z-10 flex min-h-[calc(var(--reader-banner-height)-4rem)] flex-col justify-end gap-6">
-          <span className="reader-chip w-fit">Series</span>
-          <div className="max-w-3xl space-y-3">
-            <h1
-              className="text-90 font-display text-3xl font-black leading-tight tracking-tight md:text-4xl"
-              style={{ viewTransitionName: getSeriesViewTransitionName("title", series.slug) }}
-            >
-              {series.title}
-            </h1>
-            <p className="max-w-2xl text-sm leading-7 text-[var(--text-body)] md:text-base">
-              {series.description || "这个系列按推荐阅读顺序组织文章，帮助你从起点进入主题并逐步补齐上下文。"}
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="reader-panel rounded-2xl px-4 py-3 text-sm font-medium text-[var(--foreground)]">
-              {series._count.posts} 篇已发布文章
-            </span>
-            <Link href="/series" className="reader-link text-sm font-semibold">
-              返回全部系列
-            </Link>
-          </div>
-        </div>
-      </section>
+  const totalMinutes = series.posts.reduce((sum, post) => sum + (post.readingTimeMinutes ?? 0), 0);
+  const meta = [
+    getSeriesStatusLabel(series),
+    `${series._count.posts} 篇`,
+    totalMinutes > 0 ? `预计 ${formatDuration(totalMinutes)}` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
-      <section className="space-y-4">
-        {series.posts.map((post, index) => (
-          <InViewReveal key={post.id} delay={Math.min(index, 3) * 0.06}>
-            <PostCard post={post} />
-          </InViewReveal>
-        ))}
-      </section>
-    </div>
+  return (
+    <>
+      <JsonLd data={breadcrumbJsonLd} />
+      <TaxonomyHero
+        eyebrow="系列"
+        title={<span style={{ viewTransitionName: getSeriesViewTransitionName("title", series.slug) }}>{series.title}</span>}
+        description={series.description || "这个系列按推荐阅读顺序组织文章，从起点进入主题、逐步补齐上下文。"}
+        meta={meta}
+        links={[{ href: "/series", label: "全部系列" }]}
+      />
+
+      <TaxonomyPostGrid
+        aside="按阅读顺序"
+        count={series._count.posts}
+        dateStyle="index"
+        posts={series.posts}
+        empty={
+          <EmptyState
+            title="这个系列还没有已发布的文章"
+            actions={
+              <>
+                <TextLink href="/series">全部系列</TextLink>
+                <TextLink href="/posts">浏览全部文章</TextLink>
+              </>
+            }
+          />
+        }
+      />
+    </>
   );
 }

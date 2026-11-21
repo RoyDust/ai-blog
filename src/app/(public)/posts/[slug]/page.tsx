@@ -16,21 +16,21 @@ export const dynamicParams = true;
  */
 
 import type { Metadata } from "next";
-import { Suspense, use, type ReactNode } from "react";
-import ReactMarkdown from "react-markdown";
+import { Suspense, isValidElement, use, type ComponentProps, type ReactNode } from "react";
+import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
-import rehypeHighlightCodeLines from "rehype-highlight-code-lines";
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArticleHero, ArticleReadTracker, ArticleRelatedPosts, ArticleSection, ArticleTocDrawer, ArticleTocRail, BackToTopButton, BookmarkButton, CopyCodeButton, LikeButton, NewsletterForm, ReadingProgress, SectionHeader, SeriesNav, ShareButton } from "@/components/blog";
-import { InViewReveal } from "@/components/motion";
+import { ArticleContinuation, ArticleHero, ArticleReadTracker, ArticleRelatedPosts, ArticleSection, ArticleTocDrawer, ArticleTocRail, BackToTopButton, BookmarkButton, CommentJumpLink, CopyCodeButton, LikeButton, NewsletterForm, ReadingProgress, SeriesNav, ShareButton } from "@/components/blog";
+import { Reveal, Seal, SectionHeading, SkeletonBar, StaggerItem, StaggerList, TagLine } from "@/components/editorial";
 import { CommentAuthGate } from "@/components/CommentAuthGate";
+import { CommentReply } from "@/components/CommentReply";
 import { FallbackImage } from "@/components/ui";
 import { getBlogSettings } from "@/lib/blog-settings";
 import { prisma } from "@/lib/prisma";
 import { getRecommendedPostsForPost } from "@/lib/recommendations";
 import { stripLeadingTitleHeading } from "@/lib/article-content";
+import { formatIsoDate } from "@/lib/editorial-format";
 import { buildArticleJsonLd, buildArticleMetadata, buildBreadcrumbJsonLd } from "@/lib/seo";
 import { JsonLd } from "@/components/seo/JsonLd";
 
@@ -213,65 +213,266 @@ function getCommentLabel(comment: { author?: { name?: string | null } | null; au
   return comment.author?.name || comment.authorLabel || '匿名读者'
 }
 
+const CODE_LANGUAGE_LABELS: Record<string, string> = {
+  bash: 'Shell',
+  c: 'C',
+  cpp: 'C++',
+  css: 'CSS',
+  diff: 'Diff',
+  dockerfile: 'Dockerfile',
+  go: 'Go',
+  graphql: 'GraphQL',
+  html: 'HTML',
+  java: 'Java',
+  javascript: 'JavaScript',
+  js: 'JavaScript',
+  json: 'JSON',
+  jsx: 'JSX',
+  kotlin: 'Kotlin',
+  markdown: 'Markdown',
+  md: 'Markdown',
+  prisma: 'Prisma',
+  py: 'Python',
+  python: 'Python',
+  rs: 'Rust',
+  rust: 'Rust',
+  scss: 'SCSS',
+  sh: 'Shell',
+  shell: 'Shell',
+  sql: 'SQL',
+  swift: 'Swift',
+  ts: 'TypeScript',
+  tsx: 'TSX',
+  typescript: 'TypeScript',
+  xml: 'XML',
+  yaml: 'YAML',
+  yml: 'YAML',
+  zsh: 'Shell',
+}
+
+/** 从 <pre><code class="language-xx"> 里取出代码块左上角显示的语言名 */
+function getCodeLanguage(children: ReactNode) {
+  const child = Array.isArray(children) ? children[0] : children
+  const className = isValidElement<{ className?: string }>(child) ? child.props.className ?? '' : ''
+  const language = /(?:^|\s)language-([\w+#-]+)/.exec(className)?.[1]?.toLowerCase()
+  if (!language || language === 'text' || language === 'plaintext') return null
+
+  return CODE_LANGUAGE_LABELS[language] ?? language
+}
+
+function CommentAvatar({ name, image }: { name: string; image?: string | null }) {
+  return (
+    <span aria-hidden="true" className="article-comment__avatar">
+      {image ? (
+        <FallbackImage alt="" className="h-full w-full object-cover" height={32} src={image} width={32} />
+      ) : (
+        name.slice(0, 1)
+      )}
+    </span>
+  )
+}
+
+function CommentItem({
+  comment,
+  postId,
+  postAuthorId,
+  replyParentId,
+}: {
+  comment: ArticleComment | ArticleReply
+  postId: string
+  postAuthorId: string
+  replyParentId: string
+}) {
+  const label = getCommentLabel(comment)
+  const isPostAuthor = Boolean(comment.author?.id && comment.author.id === postAuthorId)
+
+  return (
+    <article className="article-comment__item">
+      <CommentAvatar image={comment.author?.image} name={label} />
+      <div className="flex min-w-0 flex-col gap-0.5">
+        <header className="article-comment__head">
+          <span className="article-comment__name">{label}</span>
+          {isPostAuthor ? <Seal>作者</Seal> : null}
+          <time className="article-comment__date" dateTime={new Date(comment.createdAt).toISOString()}>
+            {formatIsoDate(comment.createdAt)}
+          </time>
+        </header>
+        <p className="article-comment__body">{comment.content}</p>
+        <CommentReply authorLabel={label} parentId={replyParentId} postId={postId} />
+      </div>
+    </article>
+  )
+}
+
 function CommentListSkeleton() {
   return (
-    <div className="mt-8 space-y-6" aria-label="评论加载中">
-      {[0, 1, 2].map((item) => (
-        <div className="border-b border-[var(--reader-border)] pb-6 last:border-b-0 last:pb-0" key={item}>
-          <div className="mb-3 flex items-center gap-3">
-            <div className="reader-skeleton h-8 w-8 rounded-full" />
-            <div className="reader-skeleton h-4 w-24 rounded-full" />
-            <div className="reader-skeleton h-3 w-16 rounded-full" />
-          </div>
-          <div className="ml-11 space-y-2">
-            <div className="reader-skeleton h-4 w-full rounded-full" />
-            <div className="reader-skeleton h-4 w-2/3 rounded-full" />
-          </div>
-        </div>
-      ))}
+    <div aria-busy="true">
+      <span className="ed-visually-hidden" role="status">评论加载中</span>
+      <ol aria-hidden="true" className="article-comments__list">
+        {['w-[86%]', 'w-[78%]', 'w-[90%]'].map((width, item) => (
+          <li className="article-comment" key={item}>
+            <div className="article-comment__item">
+              <SkeletonBar className="h-8 w-8 rounded-full" />
+              <div className="space-y-2.5">
+                <div className="flex min-h-8 items-center gap-2">
+                  <SkeletonBar className="h-3.5 w-14" />
+                  <SkeletonBar className="h-3 w-20" />
+                </div>
+                <SkeletonBar className={`h-3.5 ${width}`} />
+                <SkeletonBar className="h-3.5 w-1/2" />
+                <div className="flex min-h-11 items-center">
+                  <SkeletonBar className="h-3 w-8" />
+                </div>
+              </div>
+            </div>
+          </li>
+        ))}
+      </ol>
     </div>
   )
 }
 
-function CommentList({ commentsPromise }: { commentsPromise: Promise<Awaited<ReturnType<typeof getPostComments>>> }) {
+type CommentsPromise = Promise<Awaited<ReturnType<typeof getPostComments>>>
+
+function CommentsHeading({ count }: { count: ReactNode }) {
+  return (
+    <SectionHeading
+      aside={<span className="hidden sm:inline">友善讨论，审核后公开</span>}
+      count={count}
+      id="comments-heading"
+      title="评论"
+    />
+  )
+}
+
+function ResolvedCommentsHeading({ commentsPromise, count }: { commentsPromise: CommentsPromise; count: number }) {
+  use(commentsPromise)
+
+  return <CommentsHeading count={`(${count})`} />
+}
+
+function CommentList({
+  commentsPromise,
+  postId,
+  postAuthorId,
+}: {
+  commentsPromise: CommentsPromise
+  postId: string
+  postAuthorId: string
+}) {
   const comments = use(commentsPromise)
 
+  if (comments.length === 0) {
+    return (
+      <div className="border-t border-[var(--border)] pt-5">
+        <p className="ed-empty__title">还没有评论，来说第一句。</p>
+      </div>
+    )
+  }
+
   return (
-    <div className="mt-8 space-y-6">
+    <StaggerList as="ol" className="article-comments__list" inView>
       {comments.map((comment: ArticleComment) => (
-        <div className="border-b border-[var(--reader-border)] pb-6 last:border-b-0 last:pb-0" key={comment.id}>
-          <div className="mb-2 flex items-center gap-3">
-            {comment.author?.image ? (
-              <FallbackImage alt={getCommentLabel(comment)} className="theme-media-image rounded-full object-cover" height={32} src={comment.author.image} width={32} />
-            ) : (
-              <div className="h-8 w-8 rounded-full border border-[var(--reader-border)] bg-[var(--reader-panel-muted)]" />
-            )}
-            <span className="font-medium text-[var(--foreground)]">{getCommentLabel(comment)}</span>
-            <span className="text-xs text-[var(--text-muted)]">{new Date(comment.createdAt).toLocaleDateString("zh-CN")}</span>
-          </div>
-          <p className="ml-11 leading-7 text-[var(--text-body)]">{comment.content}</p>
-
-          {comment.replies.length > 0 && (
-            <div className="ml-11 mt-4 space-y-4">
+        <StaggerItem as="li" className="article-comment" key={comment.id}>
+          <CommentItem comment={comment} postAuthorId={postAuthorId} postId={postId} replyParentId={comment.id} />
+          {comment.replies.length > 0 ? (
+            <ol className="article-comment__replies">
               {comment.replies.map((reply: ArticleReply) => (
-                <div className="border-l-2 border-[var(--reader-border)] pl-4" key={reply.id}>
-                  <div className="mb-1 flex items-center gap-2">
-                    <span className="font-medium text-[var(--foreground)]">{getCommentLabel(reply)}</span>
-                    <span className="text-xs text-[var(--text-muted)]">{new Date(reply.createdAt).toLocaleDateString("zh-CN")}</span>
-                  </div>
-                  <p className="leading-7 text-[var(--text-body)]">{reply.content}</p>
-                </div>
+                <li key={reply.id}>
+                  <CommentItem comment={reply} postAuthorId={postAuthorId} postId={postId} replyParentId={comment.id} />
+                </li>
               ))}
-            </div>
-          )}
-        </div>
+            </ol>
+          ) : null}
+        </StaggerItem>
       ))}
-
-      {comments.length === 0 ? (
-        <p className="rounded-2xl border border-dashed border-[var(--reader-border)] py-8 text-center text-sm text-[var(--text-muted)]">暂无评论</p>
-      ) : null}
-    </div>
+    </StaggerList>
   )
+}
+
+/** 连载条与文末「上一篇 / 下一篇」用的系列邻居；已软删除的系列不显示 */
+function getSeriesNeighbors(post: ArticlePost) {
+  const series = post.series && !post.series.deletedAt ? post.series : null
+  const index = series ? series.posts.findIndex((item) => item.slug === post.slug) : -1
+
+  return {
+    series,
+    previousInSeries: series && index > 0 ? series.posts[index - 1] : null,
+    nextInSeries: series && index >= 0 && index < series.posts.length - 1 ? series.posts[index + 1] : null,
+  }
+}
+
+/** react-markdown 会把 hast 节点作为 node 传给自定义组件，透传到 DOM 前去掉 */
+function withoutNode<T extends { node?: unknown }>(props: T): Omit<T, 'node'> {
+  const rest = { ...props }
+  delete rest.node
+  return rest
+}
+
+type HeadingTag = 'h1' | 'h2' | 'h3' | 'h4' | 'h5'
+
+/**
+ * 正文 Markdown 渲染：标题带锚点 id 与 hover「#」；图片带图注；代码块左上语言名、右上复制按钮、块内横向滚动；
+ * 表格包一层横向滚动容器。
+ */
+function buildMarkdownComponents(getHeadingId: (children: ReactNode) => string): Components {
+  const heading = (Tag: HeadingTag) => {
+    function MarkdownHeading({ children, ...props }: ComponentProps<'h2'> & { node?: unknown }) {
+      const id = getHeadingId(children)
+      return (
+        <Tag id={id} {...withoutNode(props)}>
+          <a aria-hidden="true" className="article-heading-anchor" href={`#${id}`} tabIndex={-1}>
+            #
+          </a>
+          {children}
+        </Tag>
+      )
+    }
+
+    return MarkdownHeading
+  }
+
+  return {
+    h1: heading('h1'),
+    h2: heading('h2'),
+    h3: heading('h3'),
+    h4: heading('h4'),
+    h5: heading('h5'),
+    img: ({ src, alt, title }) => {
+      const imageSrc = typeof src === 'string' ? src : null
+      if (!imageSrc) return null
+
+      return (
+        <span className="article-figure-wrap block">
+          <span className="article-figure">
+            <FallbackImage alt={alt ?? ''} height={900} src={imageSrc} unoptimized width={1600} />
+          </span>
+          {title ? <span className="article-figure__caption">{title}</span> : null}
+        </span>
+      )
+    },
+    pre: ({ children, ...props }) => {
+      const code = nodeText(children).replace(/\n$/, '')
+      const language = getCodeLanguage(children)
+
+      return (
+        <div className="article-code">
+          <div className="article-code__bar">
+            <span className="article-code__lang">{language ?? ''}</span>
+            <CopyCodeButton code={code} />
+          </div>
+          <pre {...withoutNode(props)} tabIndex={0}>
+            {children}
+          </pre>
+        </div>
+      )
+    },
+    table: ({ children, ...props }) => (
+      <div className="article-table">
+        <table {...withoutNode(props)}>{children}</table>
+      </div>
+    ),
+  }
 }
 
 /**
@@ -289,12 +490,25 @@ export async function renderArticlePage({ slug, includeDraft = false }: { slug: 
 
   const relatedPosts = isDraftPreview ? [] : await getRecommendedPostsForPost({ postId: post.id, limit: 3 })
   const commentsPromise = isDraftPreview ? null : getPostComments(post.id)
+  const settings = await getBlogSettings()
 
+  return renderArticleView({ post, isDraftPreview, relatedPosts, commentsPromise, settings })
+}
+
+type ArticleViewData = {
+  post: ArticlePost
+  isDraftPreview: boolean
+  relatedPosts: Awaited<ReturnType<typeof getRecommendedPostsForPost>>
+  commentsPromise: CommentsPromise | null
+  settings: Awaited<ReturnType<typeof getBlogSettings>>
+}
+
+/** 纯渲染：拿到已装配好的数据后拼出整页（便于单独预览与测试） */
+export function renderArticleView({ post, isDraftPreview, relatedPosts, commentsPromise, settings }: ArticleViewData) {
   const articleContent = stripLeadingTitleHeading(post.content, post.title)
   const headings = extractHeadings(articleContent);
   const renderedHeadingCounters = new Map<string, number>()
   const getRenderedHeadingId = (children: ReactNode) => getUniqueHeadingId(nodeText(children), renderedHeadingCounters)
-  const settings = await getBlogSettings()
   const description = post.seoDescription || post.excerpt || `${post.title} - ${settings.siteName}`
   const articleJsonLd = buildArticleJsonLd({
     title: post.title,
@@ -315,8 +529,12 @@ export async function renderArticlePage({ slug, includeDraft = false }: { slug: 
     { name: post.title, path: `/posts/${post.slug}` },
   ], { siteUrl: settings.siteUrl })
 
+  const { series, previousInSeries, nextInSeries } = getSeriesNeighbors(post)
+
+  const markdownComponents = buildMarkdownComponents(getRenderedHeadingId)
+
   return (
-    <div className="article-detail-page relative overflow-x-clip pb-16">
+    <div className="article-detail-page relative overflow-x-clip pb-4">
       {isDraftPreview ? null : <JsonLd data={[articleJsonLd, breadcrumbJsonLd]} />}
       {isDraftPreview ? null : <ArticleReadTracker postId={post.id} />}
       <ReadingProgress />
@@ -324,15 +542,14 @@ export async function renderArticlePage({ slug, includeDraft = false }: { slug: 
       <ArticleTocDrawer headings={headings} />
 
       {isDraftPreview ? (
-        <div className="mb-6 rounded-2xl border border-amber-300/70 bg-amber-50 px-5 py-4 text-sm font-medium text-amber-900 dark:border-amber-500/40 dark:bg-amber-950/40 dark:text-amber-100">
+        <div className="ed-banner ed-banner--warning mb-6" role="status">
           草稿预览仅后台管理员可见，公开阅读、点赞、收藏、评论和阅读统计已停用。
         </div>
       ) : null}
 
-      <div className="grid gap-[var(--layout-rail-gap)] xl:grid-cols-[minmax(0,1fr)_var(--article-toc-width)] xl:items-start">
-        <div className="min-w-0 space-y-8">
-          <ArticleSection animate="visible" initial="hidden">
-          <article className="article-shell reader-card overflow-hidden">
+      <div className="article-layout" data-testid="article-layout">
+        <div className="article-column space-y-9">
+          <ArticleSection animate="visible" initial="hidden" aria-label="文章">
             <ArticleHero
               slug={post.slug}
               title={post.title}
@@ -345,157 +562,84 @@ export async function renderArticlePage({ slug, includeDraft = false }: { slug: 
               readingTimeMinutes={post.readingTimeMinutes}
             />
 
-            <div className="px-5 py-8 sm:px-8 lg:px-10 lg:py-10">
-              <div className="mx-auto max-w-[var(--article-reading-max-width)]">
-                <div className="reader-prose prose prose-zinc max-w-none prose-headings:font-display prose-headings:scroll-mt-28 prose-headings:mt-12 prose-headings:mb-5 prose-headings:text-[var(--foreground)] prose-h1:text-[var(--foreground)] prose-h2:text-[var(--foreground)] prose-h3:text-[var(--foreground)] prose-h4:text-[var(--foreground)] prose-h5:text-[var(--foreground)] prose-h6:text-[var(--foreground)] prose-p:my-5 prose-p:leading-8 prose-p:text-[var(--text-body)] prose-a:text-[var(--accent-sky)] prose-a:no-underline hover:prose-a:text-[var(--foreground)] hover:prose-a:underline prose-strong:text-[var(--foreground)] prose-li:text-[var(--text-body)] prose-li:marker:text-[var(--text-faint)] prose-blockquote:rounded-2xl prose-blockquote:border-[var(--accent-warm)] prose-blockquote:border-l-[3px] prose-blockquote:bg-[color-mix(in_oklab,var(--accent-warm)_10%,transparent)] prose-blockquote:px-5 prose-blockquote:py-1 prose-blockquote:text-[var(--text-body)] prose-blockquote:font-medium prose-hr:border-[var(--reader-border)] prose-img:rounded-2xl prose-pre:rounded-2xl prose-pre:border prose-pre:border-[var(--reader-border)] prose-pre:bg-[color-mix(in_oklab,var(--reader-panel-elevated)_80%,black_20%)] prose-pre:text-[var(--foreground)] prose-code:rounded prose-code:bg-[color-mix(in_oklab,var(--reader-panel-muted)_82%,black_18%)] prose-code:px-1.5 prose-code:py-0.5 prose-code:text-[color-mix(in_oklab,var(--foreground)_92%,white_8%)] prose-code:font-[var(--font-code)] prose-code:before:content-none prose-code:after:content-none prose-table:w-full prose-th:bg-[var(--reader-panel-muted)] prose-th:text-[var(--foreground)] prose-td:border-[var(--reader-border)] prose-th:border-[var(--reader-border)] dark:prose-invert">
-                  <ReactMarkdown
-                    remarkPlugins={[remarkGfm]}
-                    rehypePlugins={[rehypeHighlight, [rehypeHighlightCodeLines, { showLineNumbers: true }]]}
-                    components={{
-                      h1: ({ children, ...props }) => (
-                        <h1 id={getRenderedHeadingId(children)} {...props}>
-                          {children}
-                        </h1>
-                      ),
-                      h2: ({ children, ...props }) => (
-                        <h2 id={getRenderedHeadingId(children)} {...props}>
-                          {children}
-                        </h2>
-                      ),
-                      h3: ({ children, ...props }) => (
-                        <h3 id={getRenderedHeadingId(children)} {...props}>
-                          {children}
-                        </h3>
-                      ),
-                      h4: ({ children, ...props }) => (
-                        <h4 id={getRenderedHeadingId(children)} {...props}>
-                          {children}
-                        </h4>
-                      ),
-                      h5: ({ children, ...props }) => (
-                        <h5 id={getRenderedHeadingId(children)} {...props}>
-                          {children}
-                        </h5>
-                      ),
-                      img: ({ src, alt }) => {
-                        const imageSrc = typeof src === 'string' ? src : null
-                        if (!imageSrc) return null
-
-                        return (
-                          <span className="theme-media my-8 block overflow-hidden rounded-2xl border border-[var(--reader-border)]">
-                            <FallbackImage
-                              alt={alt ?? ''}
-                              className="theme-media-image h-auto w-full"
-                              height={900}
-                              src={imageSrc}
-                              unoptimized
-                              width={1600}
-                            />
-                          </span>
-                        )
-                      },
-                      pre: ({ children, ...props }) => {
-                        const code = nodeText(children).replace(/\n$/, "")
-
-                        return (
-                          <div className="group relative my-6">
-                            <CopyCodeButton code={code} />
-                            <pre {...props}>{children}</pre>
-                          </div>
-                        )
-                      },
-                    }}
-                  >
-                    {articleContent}
-                  </ReactMarkdown>
-                </div>
-
-                {post.tags.length > 0 ? (
-                  <div className="mt-10 flex flex-wrap gap-2 border-t border-[var(--reader-border)] pt-8">
-                    {post.tags.map((tag: ArticlePost['tags'][number]) => (
-                      <Link
-                        className="reader-chip"
-                        href={`/tags/${tag.slug}`}
-                        key={tag.slug}
-                      >
-                        #{tag.name}
-                      </Link>
-                    ))}
-                  </div>
-                ) : null}
+            {series ? (
+              <div className="mt-5">
+                <SeriesNav
+                  currentSlug={post.slug}
+                  posts={series.posts}
+                  series={{ title: series.title, slug: series.slug }}
+                />
               </div>
-            </div>
-          </article>
+            ) : null}
+
+            <article className="article-prose reader-prose mt-8">
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                rehypePlugins={[rehypeHighlight]}
+                components={markdownComponents}
+              >
+                {articleContent}
+              </ReactMarkdown>
+            </article>
+
+            {post.tags.length > 0 ? (
+              <div className="mt-8 border-t border-[var(--border)] pt-6">
+                <TagLine className="[&_a]:min-h-11 sm:[&_a]:min-h-[1.875rem]" tags={post.tags} />
+              </div>
+            ) : null}
           </ArticleSection>
 
-          {post.series && !post.series.deletedAt ? (
-            <InViewReveal>
-              <SeriesNav
-                currentSlug={post.slug}
-                posts={post.series.posts}
-                series={{ title: post.series.title, slug: post.series.slug }}
-              />
-            </InViewReveal>
+          {previousInSeries || nextInSeries ? (
+            <Reveal>
+              <ArticleContinuation nextPost={nextInSeries} previousPost={previousInSeries} />
+            </Reveal>
           ) : null}
 
           {!isDraftPreview && relatedPosts.length > 0 ? (
-            <InViewReveal>
+            <Reveal>
               <ArticleRelatedPosts posts={relatedPosts} />
-            </InViewReveal>
+            </Reveal>
           ) : null}
 
           {isDraftPreview ? null : (
-          <InViewReveal className="reader-panel w-full space-y-6 p-6 sm:p-8">
-            <SectionHeader
-              eyebrow="读后"
-              title="读后操作"
-              description="保存、分享，或直接跳到评论区。"
-            />
-
-            <div className="flex flex-wrap items-center gap-3">
-              <LikeButton initialCount={post._count.likes} initialLiked={false} slug={post.slug} />
-              <BookmarkButton excerpt={post.excerpt} initialBookmarked={false} slug={post.slug} title={post.title} />
-              <ShareButton
-                authorName={post.author.name || settings.siteName}
-                slug={post.slug}
-                sourceName={settings.siteName}
-                title={post.title}
-              />
-              <Link
-                className="inline-flex h-11 items-center justify-center rounded-full border border-[color:color-mix(in_oklab,var(--accent-sky)_58%,var(--reader-border))] bg-[color-mix(in_oklab,var(--accent-sky)_88%,black_12%)] px-4 text-sm font-semibold text-[color-mix(in_oklab,var(--foreground)_12%,white_88%)] transition hover:bg-[var(--accent-sky)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
-                href="#comments"
-              >
-                发表评论
-              </Link>
-            </div>
-
-          </InViewReveal>
+            <Reveal>
+              <section aria-label="文末操作" className="article-actions">
+                <LikeButton initialCount={post._count.likes} initialLiked={false} slug={post.slug} />
+                <BookmarkButton excerpt={post.excerpt} initialBookmarked={false} slug={post.slug} title={post.title} />
+                <ShareButton
+                  authorName={post.author.name || settings.siteName}
+                  slug={post.slug}
+                  sourceName={settings.siteName}
+                  title={post.title}
+                />
+                <span className="flex-1" />
+                <CommentJumpLink />
+              </section>
+            </Reveal>
           )}
 
           {!isDraftPreview && settings.newsletter.enabled ? (
-            <InViewReveal className="reader-panel w-full space-y-4 p-6 sm:p-8">
-              <SectionHeader
-                eyebrow="Newsletter"
-                title="订阅后续文章"
-                description="新内容发布后发送确认邮件，不会把未验证或已退订地址加入发送列表。"
-              />
-              <NewsletterForm />
-            </InViewReveal>
+            <Reveal>
+              <NewsletterForm buttonVariant="outline" />
+            </Reveal>
           ) : null}
 
           {commentsPromise ? (
-          <InViewReveal aria-labelledby="comments-heading" className="reader-panel w-full p-6 sm:p-8" id="comments">
-            <h2 id="comments-heading" className="mb-3 font-display text-2xl font-bold text-[var(--foreground)]">评论 ({post._count.comments})</h2>
-            <p className="mb-6 text-sm leading-6 text-[var(--text-muted)]">欢迎分享你的观点或补充事实和论据，但请避免人身攻击或侮辱他人。</p>
+            <section aria-labelledby="comments-heading" className="scroll-mt-24 space-y-4" id="comments">
+              <Suspense fallback={<CommentsHeading count="(…)" />}>
+                <ResolvedCommentsHeading commentsPromise={commentsPromise} count={post._count.comments} />
+              </Suspense>
 
-            <CommentAuthGate postId={post.id} />
+              <CommentAuthGate postId={post.id} />
 
-            <Suspense fallback={<CommentListSkeleton />}>
-              <CommentList commentsPromise={commentsPromise} />
-            </Suspense>
-          </InViewReveal>
+              <Suspense fallback={<CommentListSkeleton />}>
+                <CommentList commentsPromise={commentsPromise} postAuthorId={post.author.id} postId={post.id} />
+              </Suspense>
+            </section>
           ) : null}
         </div>
+
+        <span aria-hidden="true" className="article-layout__rule" />
 
         <ArticleTocRail headings={headings} />
       </div>

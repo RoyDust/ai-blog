@@ -1,35 +1,36 @@
 "use client";
 
-import { useCallback, useState } from "react";
-import { CheckCircle2, Eye, RefreshCw, Search, SearchX, Trash2, XCircle } from "lucide-react";
+import { useCallback, useState, type ReactNode } from "react";
+import { RefreshCw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import useSWR from "swr";
 
-import { AdminPagination } from "@/components/admin/primitives/AdminPagination";
 import {
+  ListCheckboxToggle,
+  ListSearchInput,
+  LoadingStatus,
+  MetricStrip,
+  MotionTableRow,
+  SkeletonTableRows,
+  TableStateRow,
+} from "@/components/admin/lists";
+import { AdminPagination } from "@/components/admin/primitives/AdminPagination";
+import { adminTextActionClassName } from "@/components/admin/primitives/admin-classes";
+import { AdminSectionHeader } from "@/components/admin/primitives/SectionHeader";
+import { Toolbar, ToolbarDivider } from "@/components/admin/primitives/Toolbar";
+import {
+  Button,
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/admin/ui";
 import { ConfirmDialog } from "@/components/admin/ui/confirm-dialog";
-import { Button } from "@/components/shadcn/ui/button";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@/components/shadcn/ui/empty";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/shadcn/ui/table";
+import { EmptyState } from "@/components/editorial";
+import { TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/shadcn/ui/table";
 import {
   Select,
   SelectContent,
@@ -38,6 +39,7 @@ import {
   SelectValue,
 } from "@/components/shadcn/ui/select";
 import { apiFetcher, apiMutate, toErrorMessage } from "@/lib/client-api";
+import { cn } from "@/lib/cn";
 
 type LogItem = {
   id: string;
@@ -101,7 +103,9 @@ const statusOptions = [
 const scopeOptions = ["", "admin", "public", "auth", "ai", "ai-usage", "cron", "analytics", "account"];
 const allFilterValue = "__all__";
 const defaultPageSize = 40;
-const selectTriggerClassName = "h-10 w-full rounded-xl border-[var(--border)] bg-[var(--surface)] px-3 text-sm font-medium text-[var(--foreground)] shadow-none";
+const selectTriggerClassName = "w-full text-[0.8125rem] sm:w-[124px]";
+const logColumnCount = 8;
+const logSkeletonBars = ["w-24", "w-8", "w-10", "w-[70%]", "w-16", "w-12", "w-[80%]", "w-8"];
 
 const EMPTY_PAYLOAD: LogPayload = {
   items: [],
@@ -135,28 +139,211 @@ function formatActor(item: LogItem) {
   return item.actorType ?? "unknown";
 }
 
-function statusClassName(success: boolean) {
-  return success ? "bg-[var(--success-surface)] text-[var(--success-foreground)]" : "bg-[var(--danger-surface)] text-[var(--danger-foreground)]";
+/** 状态码：等宽 700 语气色数字（2xx success、3xx muted、4xx warning、5xx danger），不再有彩色底 */
+function statusToneClassName(statusCode: number | null) {
+  if (statusCode === null) return "text-[var(--text-muted)]";
+  if (statusCode >= 500) return "text-[var(--danger-foreground)]";
+  if (statusCode >= 400) return "text-[var(--warning)]";
+  if (statusCode >= 300) return "text-[var(--text-muted)]";
+  return "text-[var(--success)]";
 }
 
-function methodClassName(method: string) {
-  if (method === "GET") return "bg-[color-mix(in_oklab,var(--brand)_10%,var(--surface))] text-[var(--brand)]";
-  if (method === "POST") return "bg-[var(--success-surface)] text-[var(--success-foreground)]";
-  if (method === "PATCH") return "bg-[var(--warning-surface)] text-[var(--warning-foreground)]";
-  if (method === "DELETE") return "bg-[var(--danger-surface)] text-[var(--danger-foreground)]";
-  return "bg-[var(--surface-alt)] text-[var(--muted)]";
+/** 路径后面同一行接的说明：operation · scope；没有 operation 时退回 scope · route */
+function formatOperationLine(item: LogItem) {
+  if (item.scope === "ai-usage") return `${item.operation ?? item.route ?? item.scope} · AI 用量`;
+  if (item.operation) return `${item.operation} · ${item.scope}`;
+  return item.route ? `${item.scope} · ${item.route}` : item.scope;
 }
+
+function DetailField({ label, children, mono = false }: { label: string; children: ReactNode; mono?: boolean }) {
+  return (
+    <div className="min-w-0">
+      <p className="text-xs font-bold text-[var(--text-muted)]">{label}</p>
+      <p className={cn("mt-1 text-[0.8125rem] break-all text-[var(--foreground)]", mono && "font-mono")}>{children}</p>
+    </div>
+  );
+}
+
+const jsonBlockClassName =
+  "max-h-52 overflow-auto rounded-[var(--radius-ctl)] border border-[var(--border)] bg-[color-mix(in_oklab,var(--foreground)_3%,transparent)] px-3 py-2.5 font-mono text-xs leading-5 whitespace-pre-wrap break-all text-[var(--foreground)]";
 
 function JsonBlock({ value }: { value: unknown }) {
   if (value === null || value === undefined) {
-    return <p className="text-sm text-[var(--muted)]">无</p>;
+    return <p className={jsonBlockClassName}>无</p>;
   }
 
+  return <pre className={jsonBlockClassName}>{JSON.stringify(value, null, 2)}</pre>;
+}
+
+function JsonSection({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <pre className="max-h-52 overflow-auto rounded-xl bg-[var(--surface-alt)] p-3 text-xs leading-5 text-[var(--foreground)]">
-      {JSON.stringify(value, null, 2)}
-    </pre>
+    <section className="min-w-0">
+      <h3 className="mb-1.5 text-[0.8125rem] font-bold text-[var(--text-body)]">{title}</h3>
+      {children}
+    </section>
   );
+}
+
+/** 接口日志详情（方向 A 状态画板 E）：请求信息三列、错误摘要（左 2px danger 线）、四个 JSON 块 */
+function LogDetailDialog({ selectedLog, onClose }: { selectedLog: LogItem | null; onClose: () => void }) {
+  // 详情：选中条目时才请求（条件 key）
+  const {
+    data: detailResponse,
+    error: detailError,
+    isLoading: detailLoading,
+  } = useSWR<{ success?: boolean; data?: LogItem }>(
+    selectedLog ? `/api/admin/logs/${selectedLog.id}` : null,
+    apiFetcher,
+  );
+  const detailLog = detailResponse?.data ?? selectedLog;
+
+  return (
+    <Dialog open={Boolean(selectedLog)} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-h-[calc(100dvh-2rem)] max-w-[56rem] gap-0 overflow-y-auto p-0 sm:max-w-[56rem]">
+        <DialogHeader className="px-6 pt-5 pb-4">
+          <DialogTitle className="text-[1.375rem]">接口日志详情</DialogTitle>
+          <DialogDescription className="font-mono text-[0.875rem] text-[var(--foreground)]">
+            {detailLog ? `${detailLog.method} ${detailLog.path}` : ""}
+          </DialogDescription>
+        </DialogHeader>
+        {detailLog ? (
+          <div className="space-y-4 px-6 pb-5">
+            {detailLoading ? <p className="text-[0.8125rem] text-[var(--text-muted)]">正在加载详情...</p> : null}
+            {detailError ? (
+              <p className="text-[0.8125rem] text-[var(--danger-foreground)]" role="alert">
+                {toErrorMessage(detailError, "接口日志详情加载失败")}
+              </p>
+            ) : null}
+            <div className="grid gap-4 border-y border-[var(--border)] py-3.5 md:grid-cols-3">
+              <DetailField label="Request ID" mono>
+                {detailLog.requestId}
+              </DetailField>
+              <DetailField label="Operation">
+                {detailLog.operation ?? "未标记"}
+                {detailLog.scope === "ai-usage" ? " · AI 用量" : ""}
+              </DetailField>
+              <DetailField label="Actor" mono>
+                {formatActor(detailLog)}
+              </DetailField>
+            </div>
+            {detailLog.errorMessage ? (
+              <div className="border-l-2 border-[var(--danger-foreground)] pl-3 text-[0.8125rem] leading-6 text-[var(--danger-foreground)]" role="note">
+                <p className="font-mono font-bold">{detailLog.errorName ?? "Error"}</p>
+                <p>{detailLog.errorMessage}</p>
+              </div>
+            ) : null}
+            <div className="grid gap-x-6 gap-y-4 lg:grid-cols-2">
+              <JsonSection title="Query">
+                <JsonBlock value={detailLog.query} />
+              </JsonSection>
+              <JsonSection title="Request Body">
+                <JsonBlock value={detailLog.requestBody} />
+              </JsonSection>
+              <JsonSection title="Metadata">
+                <JsonBlock value={detailLog.metadata} />
+              </JsonSection>
+              <JsonSection title="User Agent">
+                <p className={jsonBlockClassName}>{detailLog.userAgent ?? "无"}</p>
+              </JsonSection>
+            </div>
+          </div>
+        ) : null}
+        <DialogFooter className="border-t border-[var(--border)] px-6 py-4">
+          <DialogClose asChild>
+            <Button type="button" variant="outline">
+              关闭
+            </Button>
+          </DialogClose>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** 请求记录表体：骨架（36px，保留表头）→ 加载失败（重试）→ 空结果 → 单行数据行 */
+function LogsTableBody({
+  items,
+  isLoading,
+  listError,
+  errorMessage,
+  onRetry,
+  onSelect,
+}: {
+  items: LogItem[];
+  isLoading: boolean;
+  listError: unknown;
+  errorMessage: string;
+  onRetry: () => void;
+  onSelect: (item: LogItem) => void;
+}) {
+  if (isLoading) {
+    return <SkeletonTableRows bars={logSkeletonBars} rowHeightClassName="h-9" rows={8} />;
+  }
+
+  if (listError) {
+    return (
+      <TableStateRow colSpan={logColumnCount}>
+        <EmptyState
+          actions={
+            <Button onClick={onRetry} size="sm" type="button" variant="outline">
+              重试
+            </Button>
+          }
+          role="alert"
+          title={errorMessage}
+          tone="danger"
+        />
+      </TableStateRow>
+    );
+  }
+
+  if (items.length === 0) {
+    return (
+      <TableStateRow colSpan={logColumnCount}>
+        <EmptyState description="调整筛选条件后重新查询，或等待新的接口请求产生日志。" role="status" title="暂无匹配日志" />
+      </TableStateRow>
+    );
+  }
+
+  return items.map((item) => {
+    const isServerError = (item.statusCode ?? 0) >= 500;
+    return (
+      <MotionTableRow key={item.id}>
+        <TableCell className="h-9 py-0 font-mono text-xs text-[var(--text-body)] tabular-nums">{formatDate(item.createdAt)}</TableCell>
+        <TableCell className={cn("h-9 py-0 font-mono text-[0.8125rem] font-bold tabular-nums", statusToneClassName(item.statusCode))}>
+          {item.statusCode ?? "NA"}
+        </TableCell>
+        <TableCell className="h-9 py-0 font-mono text-xs font-bold text-[var(--foreground)]">{item.method}</TableCell>
+        <TableCell className="h-9 overflow-hidden py-0">
+          <span className="flex min-w-0 items-baseline gap-2">
+            <span className="max-w-[72%] shrink-0 truncate font-mono text-[0.8125rem] text-[var(--foreground)]" title={item.path}>
+              {item.path}
+            </span>
+            <span className="min-w-0 flex-1 truncate font-mono text-[0.6875rem] text-[var(--text-muted)]">{formatOperationLine(item)}</span>
+          </span>
+        </TableCell>
+        <TableCell className={cn("h-9 truncate py-0 text-[0.8125rem]", formatActor(item) === "unknown" ? "text-[var(--text-muted)]" : "text-[var(--text-body)]")}>
+          {formatActor(item)}
+        </TableCell>
+        <TableCell
+          className={cn(
+            "h-9 py-0 text-right font-mono text-xs tabular-nums",
+            isServerError ? "text-[var(--danger-foreground)]" : "text-[var(--text-body)]",
+          )}
+        >
+          {item.durationMs ?? 0} ms
+        </TableCell>
+        <TableCell className="h-9 truncate py-0 font-mono text-[0.6875rem] text-[var(--text-muted)]" title={item.requestId}>
+          {item.requestId}
+        </TableCell>
+        <TableCell className="h-9 py-0">
+          <button aria-label="查看接口日志详情" className={cn(adminTextActionClassName, "min-h-7")} onClick={() => onSelect(item)} type="button">
+            详情
+          </button>
+        </TableCell>
+      </MotionTableRow>
+    );
+  });
 }
 
 export function ApiOperationLogsClient() {
@@ -194,16 +381,6 @@ export function ApiOperationLogsClient() {
   const payload = logsResponse?.data ?? EMPTY_PAYLOAD;
   const errorMessage = toErrorMessage(listError, "接口日志加载失败");
 
-  // 详情：选中条目时才请求（条件 key）
-  const {
-    data: detailResponse,
-    error: detailError,
-    isLoading: detailLoading,
-  } = useSWR<{ success?: boolean; data?: LogItem }>(
-    selectedLog ? `/api/admin/logs/${selectedLog.id}` : null,
-    apiFetcher,
-  );
-  const detailLog = detailResponse?.data ?? selectedLog;
 
   const purgeOldLogs = useCallback(async () => {
     setPurging(true);
@@ -223,242 +400,190 @@ export function ApiOperationLogsClient() {
   }, [mutate]);
 
   const pagination = payload.pagination;
+  const rangeLabel = rangeOptions.find((option) => option.value === range)?.label ?? `${range} 天`;
+  const hasRows = !isLoading && !listError && payload.items.length > 0;
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
-      <section className="grid shrink-0 gap-3 md:grid-cols-3">
-        <div className="ui-surface rounded-2xl px-4 py-3">
-          <p className="text-xs font-medium uppercase text-[var(--muted)]">总请求</p>
-          <p className="mt-2 text-2xl font-semibold text-[var(--foreground)]">{payload.summary.totalCount}</p>
-        </div>
-        <div className="ui-surface rounded-2xl px-4 py-3">
-          <p className="text-xs font-medium uppercase text-[var(--muted)]">成功</p>
-          <p className="mt-2 text-2xl font-semibold text-[var(--success-foreground)]">{payload.summary.successCount}</p>
-        </div>
-        <div className="ui-surface rounded-2xl px-4 py-3">
-          <p className="text-xs font-medium uppercase text-[var(--muted)]">失败</p>
-          <p className="mt-2 text-2xl font-semibold text-[var(--danger-foreground)]">{payload.summary.failedCount}</p>
-        </div>
-      </section>
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden max-lg:flex-none max-lg:overflow-visible">
+      <MetricStrip
+        ariaLabel="接口请求概况"
+        className="mt-1 shrink-0"
+        items={[
+          { key: "total", label: "总请求", value: payload.summary.totalCount.toLocaleString("zh-CN"), note: `近 ${rangeLabel}` },
+          { key: "success", label: "成功", value: payload.summary.successCount.toLocaleString("zh-CN"), note: "2xx / 3xx", tone: "success" },
+          {
+            key: "failed",
+            label: "失败",
+            value: payload.summary.failedCount.toLocaleString("zh-CN"),
+            note: "4xx / 5xx",
+            tone: payload.summary.failedCount > 0 ? "danger" : "default",
+          },
+        ]}
+      />
 
-      <section className="ui-surface shrink-0 rounded-2xl p-3">
-        <div className="grid gap-3 lg:grid-cols-[repeat(4,minmax(0,1fr))_minmax(240px,1.4fr)_auto]">
-          <Select value={range} onValueChange={(value) => {
-            setRange(value);
-            setPage(1);
-          }}>
-            <SelectTrigger className={selectTriggerClassName}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className="rounded-xl border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)]">
-              {rangeOptions.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <Select value={filterValue(method)} onValueChange={(value) => {
-            setMethod(normalizeFilterValue(value));
-            setPage(1);
-          }}>
-            <SelectTrigger className={selectTriggerClassName}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className="rounded-xl border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)]">
-              {methodOptions.map((option) => (
-                <SelectItem key={option || allFilterValue} value={option || allFilterValue}>
-                  {option || "全部方法"}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={filterValue(status)} onValueChange={(value) => {
-            setStatus(normalizeFilterValue(value));
-            setPage(1);
-          }}>
-            <SelectTrigger className={selectTriggerClassName}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className="rounded-xl border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)]">
-              {statusOptions.map((option) => (
-                <SelectItem key={option.value || allFilterValue} value={option.value || allFilterValue}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={filterValue(scope)} onValueChange={(value) => {
-            setScope(normalizeFilterValue(value));
-            setPage(1);
-          }}>
-            <SelectTrigger className={selectTriggerClassName}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className="rounded-xl border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)]">
-              {scopeOptions.map((option) => (
-                <SelectItem key={option || allFilterValue} value={option || allFilterValue}>
-                  {option || "全部范围"}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <label className="relative block">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--muted)]" />
-            <input
-              className="ui-ring w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] py-2 pl-9 pr-3 text-sm"
+      <AdminSectionHeader
+        aside={
+          <span className="ed-mono">
+            第 {pagination.page} / {Math.max(pagination.totalPages, 1)} 页
+          </span>
+        }
+        className="mt-6 shrink-0"
+        description={`${payload.summary.totalCount.toLocaleString("zh-CN")} 条匹配记录`}
+        title="请求记录"
+      />
+
+      <Toolbar
+        className="shrink-0"
+        leading={
+          <>
+            <Select
+              value={range}
+              onValueChange={(value) => {
+                setRange(value);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger aria-label="时间范围" className={selectTriggerClassName}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {rangeOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={filterValue(method)}
+              onValueChange={(value) => {
+                setMethod(normalizeFilterValue(value));
+                setPage(1);
+              }}
+            >
+              <SelectTrigger aria-label="请求方法" className={selectTriggerClassName}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {methodOptions.map((option) => (
+                  <SelectItem key={option || allFilterValue} value={option || allFilterValue}>
+                    {option || "全部方法"}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={filterValue(status)}
+              onValueChange={(value) => {
+                setStatus(normalizeFilterValue(value));
+                setPage(1);
+              }}
+            >
+              <SelectTrigger aria-label="状态码" className={selectTriggerClassName}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {statusOptions.map((option) => (
+                  <SelectItem key={option.value || allFilterValue} value={option.value || allFilterValue}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={filterValue(scope)}
+              onValueChange={(value) => {
+                setScope(normalizeFilterValue(value));
+                setPage(1);
+              }}
+            >
+              <SelectTrigger aria-label="请求范围" className={selectTriggerClassName}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {scopeOptions.map((option) => (
+                  <SelectItem key={option || allFilterValue} value={option || allFilterValue}>
+                    {option || "全部范围"}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <ListSearchInput
+              ariaLabel="搜索接口日志"
+              className="min-w-[14rem] flex-1 sm:w-auto"
+              onChange={(value) => {
+                setQuery(value);
+                setPage(1);
+              }}
               placeholder="搜索 path / operation / requestId"
               value={query}
-              onChange={(event) => {
-                setQuery(event.target.value);
+            />
+            <ListCheckboxToggle
+              checked={includeSelf}
+              label="显示自身"
+              onChange={(checked) => {
+                setIncludeSelf(checked);
                 setPage(1);
               }}
             />
-          </label>
-          <div className="flex flex-wrap items-center gap-2">
-            <label className="inline-flex items-center gap-2 whitespace-nowrap rounded-xl border border-[var(--border)] px-3 py-2 text-sm text-[var(--foreground)]">
-              <input checked={includeSelf} onChange={(event) => {
-                setIncludeSelf(event.target.checked);
-                setPage(1);
-              }} type="checkbox" />
-              显示自身
-            </label>
-            <Button aria-label="刷新接口日志" disabled={isValidating} onClick={() => void mutate()} size="icon" type="button" variant="outline">
-              <RefreshCw className={`h-4 w-4 ${isValidating ? "animate-spin" : ""}`} />
+            <ToolbarDivider />
+            <Button aria-label="刷新接口日志" disabled={isValidating} onClick={() => void mutate()} size="icon" title="刷新" type="button" variant="outline">
+              <RefreshCw aria-hidden="true" className={cn("size-4", isValidating && "animate-spin motion-reduce:animate-none")} />
             </Button>
-            <Button aria-label="清理旧日志" disabled={purging} onClick={() => setPurgeDialogOpen(true)} size="icon" type="button" variant="outline">
-              <Trash2 className="h-4 w-4" />
+            <Button aria-label="清理旧日志" disabled={purging} onClick={() => setPurgeDialogOpen(true)} size="icon" title="清理旧日志" type="button" variant="outline">
+              <Trash2 aria-hidden="true" className="size-4" />
             </Button>
-          </div>
-        </div>
-      </section>
-
-      <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)]">
-        <div className="shrink-0 border-b border-[var(--border)] px-4 py-3">
-          <div>
-            <h2 className="text-base font-semibold text-[var(--foreground)]">请求记录</h2>
-            <p className="mt-1 text-xs text-[var(--text-muted)]">{payload.summary.totalCount} 条匹配记录</p>
-          </div>
-        </div>
-
-        {isLoading ? <p className="px-5 py-10 text-center text-sm text-[var(--text-muted)]">正在加载接口日志...</p> : null}
-        {!isLoading && listError ? <p className="px-5 py-10 text-center text-sm text-rose-600">{errorMessage}</p> : null}
-        {!isLoading && !listError && payload.items.length === 0 ? (
-          <Empty className="border-0" role="status">
-            <EmptyMedia variant="icon">
-              <SearchX className="size-5" />
-            </EmptyMedia>
-            <EmptyHeader>
-              <EmptyTitle>暂无匹配日志</EmptyTitle>
-              <EmptyDescription>调整筛选条件后重新查询，或等待新的接口请求产生日志。</EmptyDescription>
-            </EmptyHeader>
-          </Empty>
-        ) : null}
-
-        {!isLoading && !listError && payload.items.length > 0 ? (
-          <>
-            <div className="min-h-0 flex-1 overflow-auto">
-              <Table className="min-w-[980px] table-fixed">
-                <TableHeader className="sticky top-0 z-10 border-b border-[var(--border)] bg-[var(--surface-alt)] shadow-[0_1px_0_rgba(15,23,42,0.06)]">
-                  <TableRow className="border-0 hover:bg-transparent">
-                    <TableHead className="w-[120px] text-xs uppercase tracking-wide text-[var(--text-muted)]">时间</TableHead>
-                    <TableHead className="w-[96px] text-xs uppercase tracking-wide text-[var(--text-muted)]">状态</TableHead>
-                    <TableHead className="w-[90px] text-xs uppercase tracking-wide text-[var(--text-muted)]">方法</TableHead>
-                    <TableHead className="text-xs uppercase tracking-wide text-[var(--text-muted)]">路径</TableHead>
-                    <TableHead className="w-[170px] text-xs uppercase tracking-wide text-[var(--text-muted)]">调用方</TableHead>
-                    <TableHead className="w-[90px] text-xs uppercase tracking-wide text-[var(--text-muted)]">耗时</TableHead>
-                    <TableHead className="w-[190px] text-xs uppercase tracking-wide text-[var(--text-muted)]">Request ID</TableHead>
-                    <TableHead className="w-[76px] text-xs uppercase tracking-wide text-[var(--text-muted)]">详情</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {payload.items.map((item) => (
-                    <TableRow key={item.id} className="border-[var(--border)] transition-colors hover:bg-[var(--surface-alt)]/80">
-                      <TableCell className="whitespace-nowrap align-top text-xs text-[var(--text-muted)]">{formatDate(item.createdAt)}</TableCell>
-                      <TableCell>
-                        <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${statusClassName(item.success)}`}>
-                          {item.success ? <CheckCircle2 className="h-3.5 w-3.5" /> : <XCircle className="h-3.5 w-3.5" />}
-                          {item.statusCode ?? "NA"}
-                        </span>
-                      </TableCell>
-                      <TableCell><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${methodClassName(item.method)}`}>{item.method}</span></TableCell>
-                      <TableCell className="whitespace-normal align-top">
-                        <p className="truncate font-medium text-[var(--foreground)]">{item.path}</p>
-                        <p className="mt-1 truncate text-xs text-[var(--text-muted)]">{item.operation ?? item.route ?? item.scope}{item.scope === "ai-usage" ? " · AI 用量" : ""}</p>
-                      </TableCell>
-                      <TableCell className="truncate align-top text-[var(--text-body)]">{formatActor(item)}</TableCell>
-                      <TableCell className="whitespace-nowrap align-top text-[var(--text-body)]">{item.durationMs ?? 0} ms</TableCell>
-                      <TableCell className="truncate align-top text-xs text-[var(--text-muted)]">{item.requestId}</TableCell>
-                      <TableCell>
-                        <Button aria-label="查看接口日志详情" className="size-8 rounded-md !border-[var(--border)] !bg-[var(--surface)] !text-[var(--text-body)] hover:!bg-[var(--surface-alt)]" onClick={() => void setSelectedLog(item)} size="icon-sm" type="button" variant="outline">
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-            {pagination.total > 0 ? (
-              <AdminPagination
-                className="shrink-0"
-                disabled={isValidating}
-                itemLabel="条记录"
-                onPageChange={setPage}
-                onPageSizeChange={(nextPageSize) => {
-                  setPageSize(nextPageSize);
-                  setPage(1);
-                }}
-                page={pagination.page}
-                pageSize={pagination.limit}
-                pageSizeOptions={[20, 40, 80, 100]}
-                total={pagination.total}
-                totalPages={pagination.totalPages}
-              />
-            ) : null}
           </>
-        ) : null}
-      </section>
+        }
+      />
 
-      <Dialog open={Boolean(selectedLog)} onOpenChange={(open) => !open && setSelectedLog(null)}>
-        <DialogContent className="max-w-4xl">
-          <DialogHeader>
-            <DialogTitle>接口日志详情</DialogTitle>
-            <DialogDescription>{detailLog ? `${detailLog.method} ${detailLog.path}` : ""}</DialogDescription>
-          </DialogHeader>
-          {detailLog ? (
-            <div className="max-h-[70dvh] space-y-4 overflow-y-auto px-6 py-5">
-              {detailLoading ? <p className="text-sm text-[var(--muted)]">正在加载详情...</p> : null}
-              {detailError ? <p className="text-sm text-rose-600">{toErrorMessage(detailError, "接口日志详情加载失败")}</p> : null}
-              <div className="grid gap-3 md:grid-cols-3">
-                <div><p className="text-xs text-[var(--muted)]">Request ID</p><p className="mt-1 break-all text-sm">{detailLog.requestId}</p></div>
-                <div><p className="text-xs text-[var(--muted)]">Operation</p><p className="mt-1 text-sm">{detailLog.operation ?? "未标记"}{detailLog.scope === "ai-usage" ? " · AI 用量" : ""}</p></div>
-                <div><p className="text-xs text-[var(--muted)]">Actor</p><p className="mt-1 text-sm">{formatActor(detailLog)}</p></div>
-              </div>
-              {detailLog.errorMessage ? (
-                <div className="rounded-xl bg-rose-50 p-3 text-sm text-rose-700">
-                  <p className="font-medium">{detailLog.errorName ?? "Error"}</p>
-                  <p className="mt-1">{detailLog.errorMessage}</p>
-                </div>
-              ) : null}
-              <div className="grid gap-4 lg:grid-cols-2">
-                <section>
-                  <h3 className="mb-2 text-sm font-semibold">Query</h3>
-                  <JsonBlock value={detailLog.query} />
-                </section>
-                <section>
-                  <h3 className="mb-2 text-sm font-semibold">Request Body</h3>
-                  <JsonBlock value={detailLog.requestBody} />
-                </section>
-                <section>
-                  <h3 className="mb-2 text-sm font-semibold">Metadata</h3>
-                  <JsonBlock value={detailLog.metadata} />
-                </section>
-                <section>
-                  <h3 className="mb-2 text-sm font-semibold">User Agent</h3>
-                  <p className="rounded-xl bg-[var(--surface-alt)] p-3 text-xs leading-5 text-[var(--foreground)]">{detailLog.userAgent ?? "无"}</p>
-                </section>
-              </div>
-            </div>
-          ) : null}
-        </DialogContent>
-      </Dialog>
+      <div aria-busy={isLoading || undefined} className="min-h-0 flex-1 overflow-auto max-lg:flex-none" data-testid="admin-logs-table-scroll">
+        {isLoading ? <LoadingStatus label="正在加载接口日志..." /> : null}
+        <table className="w-full min-w-[980px] table-fixed caption-bottom text-sm" data-slot="table">
+          <TableHeader className="sticky top-0 z-10 bg-[var(--card-bg)]">
+            <TableRow>
+              <TableHead className="w-[132px]">时间</TableHead>
+              <TableHead className="w-[64px]">状态</TableHead>
+              <TableHead className="w-[76px]">方法</TableHead>
+              <TableHead>路径</TableHead>
+              <TableHead className="w-[150px]">调用方</TableHead>
+              <TableHead className="w-[88px] text-right">耗时</TableHead>
+              <TableHead className="w-[176px]">Request ID</TableHead>
+              <TableHead className="w-[56px]">详情</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <LogsTableBody
+              errorMessage={errorMessage}
+              isLoading={isLoading}
+              items={payload.items}
+              listError={listError}
+              onRetry={() => void mutate()}
+              onSelect={setSelectedLog}
+            />
+          </TableBody>
+        </table>
+      </div>
+
+      {hasRows && pagination.total > 0 ? (
+        <AdminPagination
+          className="shrink-0"
+          disabled={isValidating}
+          itemLabel="条记录"
+          onPageChange={setPage}
+          onPageSizeChange={(nextPageSize) => {
+            setPageSize(nextPageSize);
+            setPage(1);
+          }}
+          page={pagination.page}
+          pageSize={pagination.limit}
+          pageSizeOptions={[20, 40, 80, 100]}
+          total={pagination.total}
+          totalPages={pagination.totalPages}
+        />
+      ) : null}
+
+      <LogDetailDialog onClose={() => setSelectedLog(null)} selectedLog={selectedLog} />
 
       <ConfirmDialog
         cancelLabel="取消"

@@ -5,8 +5,8 @@ export type { InputProps } from "./input";
 export { Textarea } from "./textarea";
 export type { TextareaProps } from "./textarea";
 export { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "./card";
-export { Badge, badgeVariants } from "./badge";
-export type { BadgeProps } from "./badge";
+export { Badge, badgeToneClassNames, badgeVariants } from "./badge";
+export type { BadgeProps, BadgeTone } from "./badge";
 export { Modal } from "./modal";
 export type { ModalProps } from "./modal";
 export {

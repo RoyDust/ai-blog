@@ -136,6 +136,10 @@ export const settingsTabs = [
   { id: "logs", label: "日志策略", description: "后台运维", icon: HardDrive },
 ] satisfies Array<{ id: SettingsTabId; label: string; description: string; icon: typeof UserRound }>;
 
+export function isSettingsTabId(value: string | null | undefined): value is SettingsTabId {
+  return settingsTabs.some((tab) => tab.id === value);
+}
+
 export function toMultiline(items: string[]) {
   return items.join("\n");
 }

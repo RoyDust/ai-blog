@@ -16,7 +16,12 @@ test('renders a GET search form targeting the search page', () => {
   expect(input).toHaveAttribute('aria-label', '搜索站内内容')
   expect(input).toHaveAttribute('placeholder', '搜索文章、标签或分类')
   expect(button).toBeInTheDocument()
-  expect(button.className).toContain('bg-[var(--primary)]')
+  // 方向 A：44px 描边输入框（左侧搜索图标）+ 本页唯一的实心主按钮
+  expect(button.className).toContain('ed-btn')
+  expect(input?.className).toContain('ed-input')
+  expect(input?.parentElement?.querySelector('svg[aria-hidden="true"]')).not.toBeNull()
+  // 手机 16px，避免 iOS 聚焦缩放
+  expect(input?.className).toContain('text-base')
 })
 
 test('fills its navbar slot without breakpoint width steps and keeps native search semantics', () => {
@@ -34,7 +39,7 @@ test('fills its navbar slot without breakpoint width steps and keeps native sear
   expect(inputWrapper?.className).toContain('w-full')
   expect(input.className).toContain('w-full')
   expect(input.className).not.toMatch(/(?:^|\s)(?:lg|xl|2xl):w-[^\s]+/)
-  expect(input.className).toContain('transition-[background-color,border-color,box-shadow]')
+  expect(input.className).toContain('transition-[border-color]')
   expect(input.className).toContain('duration-200')
   expect(input.className).toContain('ease-out')
   expect(input.className).not.toMatch(/transition-\[[^\]]*(?:width|max-width)[^\]]*\]/)

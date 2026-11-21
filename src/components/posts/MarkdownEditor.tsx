@@ -13,8 +13,11 @@ import { useId, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
 import remarkGfm from "remark-gfm";
-import { Bold, Code, Heading2, Italic, Link2, List, Quote, Upload } from "lucide-react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { FieldLabel, InlineSpinner } from "@/components/admin/workspace/WorkspaceKit";
+import { editorialEase } from "@/components/editorial";
 import { FallbackImage } from "@/components/ui";
+import { cn } from "@/lib/cn";
 import { compressImageForUpload } from "@/lib/client-image-compression";
 
 interface MarkdownEditorProps {
@@ -28,16 +31,31 @@ interface MarkdownEditorProps {
 
 type Snippet = { before: string; after?: string };
 
-const snippets: Array<{ label: string; icon: typeof Heading2; snippet: Snippet }> = [
-  { label: "二级标题", icon: Heading2, snippet: { before: "## ", after: "" } },
-  { label: "加粗", icon: Bold, snippet: { before: "**", after: "**" } },
-  { label: "斜体", icon: Italic, snippet: { before: "*", after: "*" } },
-  { label: "引用", icon: Quote, snippet: { before: "> ", after: "" } },
-  { label: "行内代码", icon: Code, snippet: { before: "`", after: "`" } },
-  { label: "代码块", icon: Code, snippet: { before: "\n```ts\n", after: "\n```\n" } },
-  { label: "链接", icon: Link2, snippet: { before: "[text](", after: ")" } },
-  { label: "列表", icon: List, snippet: { before: "- ", after: "" } },
+/**
+ * 工具栏按钮（方向 A）：去掉图标只留文字，按「标题 / 强调」「引用 / 代码」「链接 / 列表」三组，组间 1px 竖线。
+ */
+const snippetGroups: Array<Array<{ label: string; snippet: Snippet }>> = [
+  [
+    { label: "二级标题", snippet: { before: "## ", after: "" } },
+    { label: "加粗", snippet: { before: "**", after: "**" } },
+    { label: "斜体", snippet: { before: "*", after: "*" } },
+  ],
+  [
+    { label: "引用", snippet: { before: "> ", after: "" } },
+    { label: "行内代码", snippet: { before: "`", after: "`" } },
+    { label: "代码块", snippet: { before: "\n```ts\n", after: "\n```\n" } },
+  ],
+  [
+    { label: "链接", snippet: { before: "[text](", after: ")" } },
+    { label: "列表", snippet: { before: "- ", after: "" } },
+  ],
 ];
+
+const toolbarButtonClassName =
+  "inline-flex h-7 shrink-0 cursor-pointer items-center gap-1.5 rounded-[2px] px-[7px] text-[0.8125rem] font-bold whitespace-nowrap text-[var(--text-body)] transition-colors duration-150 hover:bg-[var(--ed-press-bg)] hover:text-[var(--foreground)] active:bg-[color-mix(in_oklab,var(--foreground)_10%,transparent)] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-transparent";
+
+const previewProseClassName =
+  "prose prose-zinc max-w-none text-sm leading-[1.8] prose-headings:font-serif prose-headings:font-bold prose-headings:text-[var(--foreground)] prose-h1:text-xl prose-h2:mt-[18px] prose-h2:mb-2 prose-h2:text-[1.0625rem] prose-h3:text-base prose-h1:text-[var(--foreground)] prose-h2:text-[var(--foreground)] prose-h3:text-[var(--foreground)] prose-h4:text-[var(--foreground)] prose-h5:text-[var(--foreground)] prose-h6:text-[var(--foreground)] prose-p:my-2.5 prose-p:text-[var(--text-body)] prose-a:text-[var(--ed-link)] prose-a:underline prose-a:decoration-[var(--reader-border-strong)] prose-a:underline-offset-4 hover:prose-a:decoration-[var(--accent-sky)] prose-strong:text-[var(--foreground)] prose-li:my-0.5 prose-li:text-[var(--text-body)] prose-li:marker:text-[var(--text-muted)] prose-blockquote:border-l-2 prose-blockquote:border-[var(--reader-border-strong)] prose-blockquote:pl-3.5 prose-blockquote:font-normal prose-blockquote:not-italic prose-blockquote:text-[var(--text-body)] prose-img:rounded-[4px] prose-pre:rounded-[4px] prose-pre:border-0 prose-pre:bg-[var(--surface-elevated)] prose-pre:px-3 prose-pre:py-2.5 prose-pre:text-xs prose-pre:leading-[1.7] prose-pre:text-[var(--foreground)] prose-code:rounded-[2px] prose-code:bg-[var(--ed-press-bg)] prose-code:px-1 prose-code:py-0.5 prose-code:font-mono prose-code:text-[0.8125rem] prose-code:font-normal prose-code:text-[var(--foreground)] prose-code:before:content-none prose-code:after:content-none prose-table:w-full prose-th:text-[var(--foreground)] prose-td:border-[var(--border)] prose-th:border-[var(--reader-border-strong)] dark:prose-invert";
 
 /**
  * 在指定选区位置插入预设 Markdown 片段：
@@ -260,92 +278,134 @@ export function MarkdownEditor({
     }
   };
 
-  const panelSizeClassName = fillHeight ? "min-h-0 flex-1 max-h-none" : editorPanelClassName ?? "min-h-[26rem] max-h-[700px]";
-  const columnClassName = fillHeight ? "flex min-h-0 flex-col" : "";
+  const reduceMotion = useReducedMotion();
+  // fillHeight：xl 以上由整屏工作台撑满高度；xl 以下页面纵向滚动，给编辑区与预览保底高度，避免被压成 0
+  const panelSizeClassName = fillHeight ? "min-h-[20rem] flex-1 xl:min-h-0" : editorPanelClassName ?? "min-h-[26rem] max-h-[700px]";
+  const uploadErrorId = `${id}-upload-error`;
 
   return (
-    <div className={fillHeight ? "flex min-h-0 flex-1 flex-col gap-3" : "space-y-3"}>
-      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface-alt)] p-2">
-        {snippets.map((item) => {
-          const Icon = item.icon;
-          return (
-            <button
-              key={item.label}
-              type="button"
-              title={item.label}
-              className="ui-btn rounded-lg border border-transparent px-2 py-1 text-xs text-[var(--muted)] hover:border-[var(--border)] hover:bg-[var(--surface)] hover:text-[var(--foreground)]"
-              onClick={() => applySnippet(item.snippet)}
-            >
-              <span className="inline-flex items-center gap-1">
-                <Icon className="h-3.5 w-3.5" />
-                {item.label}
-              </span>
-            </button>
-          );
-        })}
-
-        <input ref={fileInputRef} accept="image/*" className="hidden" type="file" onChange={handleImageUpload} />
-        <button
-          type="button"
-          className="ui-btn rounded-lg border border-transparent px-2 py-1 text-xs text-[var(--muted)] hover:border-[var(--border)] hover:bg-[var(--surface)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-50"
-          onClick={() => {
-            syncSelection();
-            fileInputRef.current?.click();
-          }}
-          disabled={isUploading}
-        >
-          <span className="inline-flex items-center gap-1">
-            <Upload className="h-3.5 w-3.5" />
-            {isUploading ? "上传中..." : "上传图片"}
-          </span>
-        </button>
+    <div className={fillHeight ? "flex flex-1 flex-col xl:min-h-0" : "flex flex-col"} data-slot="markdown-editor">
+      <div className="mb-1.5">
+        <FieldLabel htmlFor={id} required>
+          {label}
+        </FieldLabel>
       </div>
 
-      {uploadError ? <p className="text-sm text-rose-500">{uploadError}</p> : null}
+      <div
+        className={cn(
+          "flex min-w-0 flex-col overflow-hidden rounded-[var(--radius-ctl)] border border-[var(--reader-border-strong)] transition-[border-color] duration-150 has-[textarea:focus-visible]:outline-2 has-[textarea:focus-visible]:outline-offset-2 has-[textarea:focus-visible]:outline-[var(--focus)]",
+          fillHeight && "flex-1 xl:min-h-0",
+        )}
+        data-slot="markdown-frame"
+      >
+        <div
+          role="toolbar"
+          aria-label="Markdown 格式"
+          className="flex h-10 shrink-0 items-center gap-0.5 overflow-x-auto border-b border-[var(--border)] px-1.5"
+        >
+          {snippetGroups.map((group, groupIndex) => (
+            <span key={group[0].label} className="flex shrink-0 items-center gap-0.5">
+              {groupIndex > 0 ? <span aria-hidden="true" className="mx-1.5 h-4 w-px shrink-0 bg-[var(--border)]" /> : null}
+              {group.map((item) => (
+                <button
+                  key={item.label}
+                  type="button"
+                  title={item.label}
+                  className={toolbarButtonClassName}
+                  onClick={() => applySnippet(item.snippet)}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </span>
+          ))}
 
-      <div className={fillHeight ? "grid min-h-0 flex-1 grid-cols-1 gap-4 xl:grid-cols-2" : "grid grid-cols-1 gap-4 xl:grid-cols-2"}>
-        <div className={columnClassName}>
-          <label htmlFor={id} className="mb-1 block text-sm font-medium text-[var(--foreground)]">
-            {label}
-          </label>
-          <textarea
-            ref={textareaRef}
-            id={id}
-            value={value}
-            rows={minRows}
-            placeholder="用 Markdown 写作..."
-            required
-            onChange={(e) => onChange(e.target.value)}
-            onClick={syncSelection}
-            onKeyUp={syncSelection}
-            onPaste={handlePaste}
-            onSelect={syncSelection}
-            className={`ui-ring ${panelSizeClassName} w-full overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4 font-[var(--font-code)] text-sm text-[var(--foreground)] placeholder:text-[var(--muted)] focus-visible:ring-2 focus-visible:ring-[var(--ring)]`}
-          />
+          <input ref={fileInputRef} accept="image/*" className="hidden" type="file" onChange={handleImageUpload} />
+          <button
+            type="button"
+            aria-busy={isUploading || undefined}
+            aria-describedby={uploadError ? uploadErrorId : undefined}
+            className={cn(toolbarButtonClassName, "ml-auto")}
+            onClick={() => {
+              syncSelection();
+              fileInputRef.current?.click();
+            }}
+            disabled={isUploading}
+          >
+            {isUploading ? <InlineSpinner /> : null}
+            {isUploading ? "上传中..." : "上传图片"}
+          </button>
         </div>
 
-        <div className={columnClassName}>
-          <p className="mb-1 block text-sm font-medium text-[var(--foreground)]">实时预览</p>
-          <div className={`${panelSizeClassName} overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4`}>
-            <article className="prose prose-zinc max-w-none prose-headings:font-display prose-headings:text-[var(--foreground)] prose-h1:text-[var(--foreground)] prose-h2:text-[var(--foreground)] prose-h3:text-[var(--foreground)] prose-h4:text-[var(--foreground)] prose-h5:text-[var(--foreground)] prose-h6:text-[var(--foreground)] prose-p:text-[var(--text-body)] prose-a:text-[var(--brand)] prose-a:no-underline hover:prose-a:underline prose-strong:text-[var(--foreground)] prose-li:text-[var(--text-body)] prose-li:marker:text-[var(--text-faint)] prose-blockquote:border-[var(--border-strong)] prose-blockquote:border-l-[3px] prose-blockquote:text-[var(--text-body)] prose-img:rounded-xl prose-pre:rounded-xl prose-pre:border prose-pre:border-[var(--border)] prose-pre:bg-[var(--surface-elevated)] prose-pre:text-[var(--foreground)] prose-code:rounded prose-code:bg-[color-mix(in_oklab,var(--surface-contrast)_82%,black_18%)] prose-code:px-1.5 prose-code:py-0.5 prose-code:text-[color-mix(in_oklab,var(--foreground)_92%,white_8%)] prose-code:font-[var(--font-code)] prose-code:before:content-none prose-code:after:content-none prose-table:w-full prose-th:bg-[var(--surface-contrast)] prose-th:text-[var(--foreground)] prose-td:border-[var(--border)] prose-th:border-[var(--border)] dark:prose-invert">
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                rehypePlugins={[rehypeHighlight]}
-                components={{
-                  img: ({ src, alt }) => {
-                    const imageSrc = typeof src === "string" ? src : null;
-                    if (!imageSrc) return null;
+        <div className={cn("grid grid-cols-1 xl:grid-cols-2 xl:grid-rows-[minmax(0,1fr)]", fillHeight && "flex-1 xl:min-h-0")}>
+          <div className="flex min-h-0 min-w-0 flex-col">
+            <div aria-hidden="true" className="shrink-0 px-4 pt-2 text-[0.6875rem] font-bold tracking-[0.08em] text-[var(--text-muted)]">
+              Markdown
+            </div>
+            <textarea
+              ref={textareaRef}
+              id={id}
+              value={value}
+              rows={minRows}
+              placeholder="用 Markdown 写作..."
+              required
+              aria-required="true"
+              onChange={(e) => onChange(e.target.value)}
+              onClick={syncSelection}
+              onKeyUp={syncSelection}
+              onPaste={handlePaste}
+              onSelect={syncSelection}
+              className={cn(
+                panelSizeClassName,
+                "block w-full resize-none overflow-y-auto border-0 bg-transparent px-4 pt-1.5 pb-4 font-mono text-[0.8125rem] leading-[1.75] text-[var(--foreground)] [scrollbar-color:var(--reader-border-strong)_transparent] [scrollbar-width:thin] outline-none placeholder:text-[var(--text-muted)] focus-visible:outline-none",
+              )}
+            />
+          </div>
 
-                    return <FallbackImage alt={alt ?? ""} className="theme-media-image h-auto w-full" height={720} src={imageSrc} unoptimized width={1280} />;
-                  },
-                }}
-              >
-                {value || "_暂无内容_"}
-              </ReactMarkdown>
-            </article>
+          <div className="flex min-h-0 min-w-0 flex-col border-t border-[var(--border)] bg-[color-mix(in_oklab,var(--foreground)_2%,transparent)] xl:border-t-0 xl:border-l">
+            <p className="shrink-0 px-4 pt-2 text-[0.6875rem] font-bold tracking-[0.08em] text-[var(--text-muted)]">实时预览</p>
+            <div
+              className={cn(
+                panelSizeClassName,
+                "overflow-y-auto px-[18px] pt-1.5 pb-4 [scrollbar-color:var(--reader-border-strong)_transparent] [scrollbar-width:thin]",
+              )}
+            >
+              <article className={previewProseClassName}>
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  rehypePlugins={[rehypeHighlight]}
+                  components={{
+                    img: ({ src, alt }) => {
+                      const imageSrc = typeof src === "string" ? src : null;
+                      if (!imageSrc) return null;
+
+                      return <FallbackImage alt={alt ?? ""} className="theme-media-image h-auto w-full" height={720} src={imageSrc} unoptimized width={1280} />;
+                    },
+                  }}
+                >
+                  {value || "_暂无内容_"}
+                </ReactMarkdown>
+              </article>
+            </div>
           </div>
         </div>
       </div>
+
+      <AnimatePresence initial={false}>
+        {uploadError ? (
+          <motion.p
+            key="upload-error"
+            id={uploadErrorId}
+            role="alert"
+            className="mt-1.5 shrink-0 text-[0.8125rem] text-[var(--danger-foreground)]"
+            initial={reduceMotion ? false : { opacity: 0, y: -2 }}
+            animate={{ opacity: 1, y: 0, transition: { duration: 0.2, ease: editorialEase } }}
+            exit={{ opacity: 0, transition: { duration: reduceMotion ? 0 : 0.14 } }}
+          >
+            {uploadError}
+          </motion.p>
+        ) : null}
+      </AnimatePresence>
     </div>
   );
 }

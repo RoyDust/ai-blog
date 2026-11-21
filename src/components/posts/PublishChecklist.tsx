@@ -9,7 +9,13 @@
  * - 适配 panel / inline / bar 三种展示模式，供不同后台布局复用
  */
 
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useState } from "react";
+
+import { Button } from "@/components/admin/ui";
+import { InlineSpinner } from "@/components/admin/workspace/WorkspaceKit";
+import { editorialEase } from "@/components/editorial";
+import { cn } from "@/lib/cn";
 
 interface PublishChecklistProps {
   title: string;
@@ -54,6 +60,14 @@ export function PublishChecklist({
   const [isReviewing, setIsReviewing] = useState(false);
   const [reviewError, setReviewError] = useState("");
   const [review, setReview] = useState<AiReviewReport | null>(null);
+  const reduceMotion = useReducedMotion();
+  const fadeProps = reduceMotion
+    ? {}
+    : {
+        initial: { opacity: 0, y: -4 },
+        animate: { opacity: 1, y: 0, transition: { duration: 0.28, ease: editorialEase } },
+        exit: { opacity: 0, transition: { duration: 0.14 } },
+      };
   const normalizedSlug = slug.trim();
   const normalizedSeoDescription = seoDescription.trim();
   const hasSearchDescription = Boolean(normalizedSeoDescription || excerpt.trim());
@@ -67,7 +81,6 @@ export function PublishChecklist({
     { label: "封面图已设置", done: coverImage.trim().length > 0 },
   ];
   const completed = checks.filter((item) => item.done).length;
-  const summary = `完成 ${completed}/${checks.length} 项后更适合直接发布。`;
 
   /**
    * 触发服务端 AI 审稿。
@@ -99,86 +112,122 @@ export function PublishChecklist({
     }
   };
 
+  const reviewTone = review ? (review.verdict === "ready" ? "success" : "warning") : null;
   const aiReviewNode = (
-    <>
-      {reviewError ? <p className="mt-3 text-sm text-rose-500">{reviewError}</p> : null}
+    <AnimatePresence initial={false} mode="popLayout">
+      {reviewError ? (
+        <motion.p
+          key="review-error"
+          role="alert"
+          className="mt-3.5 border-l-2 border-[var(--danger-foreground)] py-0.5 pl-3 text-[0.8125rem] leading-normal font-bold text-[var(--danger-foreground)]"
+          {...fadeProps}
+        >
+          {reviewError}
+        </motion.p>
+      ) : null}
       {review ? (
-        <div className="mt-4 rounded-2xl border border-[var(--border)] bg-[var(--surface-alt)] p-4">
-          <p className="text-sm font-semibold text-[var(--foreground)]">
+        <motion.div
+          key="review-report"
+          className={cn(
+            "mt-3.5 border-l-2 py-0.5 pl-3",
+            reviewTone === "success" ? "border-[var(--success)]" : "border-[var(--warning)]",
+          )}
+          data-slot="ai-review-report"
+          {...fadeProps}
+        >
+          <p
+            className={cn(
+              "text-[0.8125rem] leading-normal font-bold",
+              reviewTone === "success" ? "text-[var(--success)]" : "text-[var(--warning)]",
+            )}
+          >
             AI 审稿：{getVerdictLabel(review.verdict)} · {review.score} 分
           </p>
-          <p className="mt-2 text-sm leading-6 text-[var(--muted)]">{review.summary}</p>
+          <p className="mt-1.5 text-[0.8125rem] leading-[1.65] text-[var(--text-body)]">{review.summary}</p>
           {review.checks.length > 0 ? (
-            <ul className="mt-3 space-y-1.5">
+            <ul className="mt-2 space-y-1">
               {review.checks.map((item) => (
-                <li key={`${item.label}-${item.detail}`} className="text-sm text-[var(--foreground)]">
+                <li key={`${item.label}-${item.detail}`} className="text-[0.8125rem] leading-[1.6] text-[var(--text-body)]">
                   {item.label}：{item.detail}
                 </li>
               ))}
             </ul>
           ) : null}
           {review.suggestions.length > 0 ? (
-            <div className="mt-3">
-              <p className="text-sm font-medium text-[var(--foreground)]">修改建议</p>
-              <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-[var(--muted)]">
+            <div className="mt-2">
+              <p className="text-xs font-bold text-[var(--text-muted)]">修改建议</p>
+              <ol className="mt-1 list-decimal space-y-0.5 pl-[1.2em] text-[0.8125rem] leading-[1.65] text-[var(--text-body)]">
                 {review.suggestions.map((item) => (
                   <li key={item}>{item}</li>
                 ))}
-              </ul>
+              </ol>
             </div>
           ) : null}
-        </div>
+        </motion.div>
       ) : null}
-    </>
+    </AnimatePresence>
   );
 
   const reviewButton = (
-    <button
+    <Button
       type="button"
-      className="ui-btn ui-ring rounded-xl border border-[var(--border)] px-3 py-1.5 text-sm font-medium text-[var(--foreground)] hover:bg-[var(--surface-alt)] disabled:cursor-not-allowed disabled:opacity-50"
+      size="sm"
+      variant="outline"
+      aria-busy={isReviewing || undefined}
       disabled={isReviewing || !title.trim() || !slug.trim() || !content.trim()}
       onClick={handleReview}
     >
+      {isReviewing ? <InlineSpinner className="mr-0.5" /> : null}
       {isReviewing ? "审稿中..." : "AI 审稿"}
-    </button>
+    </Button>
+  );
+
+  const summaryNode = (
+    <p className="text-[0.8125rem] text-[var(--text-muted)]">
+      完成{" "}
+      <span className="font-mono font-bold text-[var(--foreground)] tabular-nums">
+        {completed}/{checks.length}
+      </span>{" "}
+      项后更适合直接发布。
+    </p>
+  );
+
+  const checklistNode = (
+    <ul className="mt-2" aria-label="发布检查项">
+      {checks.map((item) => (
+        <li
+          className={cn(
+            "flex items-baseline gap-2 border-b border-[var(--border)] py-[5px] text-[0.8125rem] leading-normal transition-colors duration-200",
+            item.done ? "text-[var(--foreground)]" : "text-[var(--text-muted)]",
+          )}
+          key={item.label}
+        >
+          <span aria-hidden="true" className={cn("w-3 shrink-0 text-[0.6875rem]", item.done ? "text-[var(--success)]" : "text-[var(--text-muted)]")}>
+            {item.done ? "●" : "○"}
+          </span>
+          <span>{item.label}</span>
+          <span className="ed-visually-hidden">{item.done ? "已完成" : "未完成"}</span>
+        </li>
+      ))}
+    </ul>
   );
 
   const contentNode = (
     <>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-[var(--muted)]">{summary}</p>
-        {reviewButton}
-      </div>
-      <ul className="space-y-2">
-        {checks.map((item) => (
-          <li className="flex items-center gap-2 text-sm" key={item.label}>
-            <span className={item.done ? "text-[var(--success-foreground)]" : "text-[var(--muted)]"}>{item.done ? "●" : "○"}</span>
-            <span className={item.done ? "text-[var(--foreground)]" : "text-[var(--muted)]"}>{item.label}</span>
-          </li>
-        ))}
-      </ul>
+      {summaryNode}
+      {checklistNode}
       {aiReviewNode}
     </>
   );
 
   if (variant === "bar") {
     return (
-      <div className="flex min-w-0 flex-1 flex-col gap-3 2xl:flex-row 2xl:items-center 2xl:justify-between">
+      <div className="flex min-w-0 flex-1 flex-col gap-3">
         <div className="flex shrink-0 flex-wrap items-center gap-3">
-          <p className="text-sm text-[var(--muted)]">{summary}</p>
+          {summaryNode}
           {reviewButton}
         </div>
-        <ul className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
-          {checks.map((item) => (
-            <li
-              className="flex min-w-0 items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface-alt)] px-3 py-2 text-sm"
-              key={item.label}
-            >
-              <span className={item.done ? "text-[var(--success-foreground)]" : "text-[var(--muted)]"}>{item.done ? "●" : "○"}</span>
-              <span className={item.done ? "truncate text-[var(--foreground)]" : "truncate text-[var(--muted)]"}>{item.label}</span>
-            </li>
-          ))}
-        </ul>
+        {checklistNode}
         {aiReviewNode}
       </div>
     );
@@ -187,9 +236,15 @@ export function PublishChecklist({
   if (variant === "inline") return contentNode;
 
   return (
-    <section className="ui-surface rounded-2xl p-5">
-      <h3 className="mb-3 font-display text-lg font-semibold text-[var(--foreground)]">发布设置</h3>
-      {contentNode}
+    <section className="flex flex-col" data-slot="publish-checklist">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="font-serif text-base leading-snug font-bold text-[var(--foreground)]">发布清单</h2>
+          <p className="mt-0.5 text-xs leading-5 text-[var(--text-muted)]">发布前检查标题、正文、SEO 与封面。</p>
+        </div>
+        {reviewButton}
+      </div>
+      <div className="mt-2.5">{contentNode}</div>
     </section>
   );
 }

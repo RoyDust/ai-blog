@@ -12,8 +12,8 @@
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
-import { StatusBadge } from "@/components/admin/primitives/StatusBadge";
 import { Button } from "@/components/admin/ui";
+import { FadeBanner, InlineSpinner } from "@/components/admin/workspace/WorkspaceKit";
 import { getApiErrorMessage } from "@/lib/admin-api-client";
 
 type AppliedPost = {
@@ -257,53 +257,65 @@ export function PostAiWorkspace({
   }
 
   return (
-    <div className="space-y-4">
-      <p className="text-sm leading-6 text-[var(--muted)]">单项生成只提供建议，确认后再应用到当前表单或文章。</p>
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-        {actions.map((item) => (
-          <button
-            key={item.action}
-            type="button"
-            disabled={disabled || Boolean(runningAction)}
-            className="ui-ring rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-left transition-colors hover:bg-[var(--surface-alt)] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
-            onClick={() => void runAction(item.action)}
-          >
-            <span className="flex items-center justify-between gap-2">
-              <span className="text-sm font-medium text-[var(--foreground)]">{item.label}</span>
-              {runningAction === item.action ? <StatusBadge tone="warning">生成中</StatusBadge> : null}
-            </span>
-            <span className="mt-1 block text-xs text-[var(--muted)]">{item.hint}</span>
-          </button>
-        ))}
+    <div className="flex flex-col gap-4">
+      <p className="text-[0.8125rem] leading-6 text-[var(--text-body)]">单项生成只提供建议，确认后再应用到当前表单或文章。</p>
+      <div className="grid grid-cols-1 border-t border-[var(--reader-border-strong)] sm:grid-cols-2 sm:gap-x-6 lg:grid-cols-3">
+        {actions.map((item) => {
+          const running = runningAction === item.action;
+          return (
+            <button
+              key={item.action}
+              type="button"
+              aria-busy={running || undefined}
+              disabled={disabled || Boolean(runningAction)}
+              className="group -mx-2 cursor-pointer rounded-[2px] border-b border-[var(--border)] px-2 py-2.5 text-left transition-colors duration-150 hover:bg-[var(--admin-row-hover,color-mix(in_oklab,var(--foreground)_3%,transparent))] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-transparent"
+              onClick={() => void runAction(item.action)}
+            >
+              <span className="flex items-center justify-between gap-2">
+                <span className="text-sm font-bold text-[var(--foreground)]">{item.label}</span>
+                {running ? (
+                  <span className="inline-flex items-center gap-1.5 text-xs font-bold text-[var(--focus)]">
+                    <InlineSpinner className="size-2.5" />
+                    生成中
+                  </span>
+                ) : null}
+              </span>
+              <span className="mt-0.5 block text-xs leading-5 text-[var(--text-muted)]">{item.hint}</span>
+            </button>
+          );
+        })}
       </div>
 
-      <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-alt)] p-4">
+      <section className="border-l-2 border-[var(--reader-border-strong)] py-0.5 pl-3" aria-live="polite">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-sm font-medium text-[var(--foreground)]">{result ? `${actionLabels[result.action]}预览` : "结果预览"}</p>
+          <h3 className="font-serif text-base font-bold text-[var(--foreground)]">{result ? `${actionLabels[result.action]}预览` : "结果预览"}</h3>
           {result ? (
-            <a className="text-xs text-[var(--brand)] hover:underline" href={`/admin/ai/tasks/${result.taskId}`}>
+            <a
+              className="text-[0.8125rem] font-bold text-[var(--text-body)] underline decoration-[var(--reader-border-strong)] decoration-1 underline-offset-4 transition-[color,text-decoration-color] duration-150 hover:text-[var(--foreground)] hover:decoration-[var(--accent-sky)]"
+              href={`/admin/ai/tasks/${result.taskId}`}
+            >
               查看任务
             </a>
           ) : null}
         </div>
-        <pre className="mt-3 max-h-56 whitespace-pre-wrap break-words rounded-xl bg-[var(--surface)] p-3 text-sm leading-6 text-[var(--foreground)]">
-          {preview || "AI 未返回可展示内容"}
+        <pre className="mt-2.5 max-h-56 overflow-y-auto rounded-[var(--radius-ctl)] bg-[color-mix(in_oklab,var(--foreground)_4%,transparent)] px-3 py-2.5 font-sans text-[0.8125rem] leading-6 whitespace-pre-wrap break-words text-[var(--foreground)]">
+          {preview || <span className="text-[var(--text-muted)]">AI 未返回可展示内容</span>}
         </pre>
         {result ? (
-          <div className="mt-3 flex flex-wrap items-center gap-2">
+          <div className="mt-3 flex flex-wrap items-center gap-2.5">
             <Button type="button" size="sm" disabled={applying} onClick={() => void applyResult()}>
               {applying ? "应用中..." : "应用建议"}
             </Button>
             <Button type="button" size="sm" variant="outline" disabled={applying} onClick={() => setResult(null)}>
               忽略
             </Button>
-            <span className="text-xs text-[var(--muted)]">模型：{result.modelId}</span>
+            <span className="font-mono text-xs text-[var(--text-muted)]">模型：{result.modelId}</span>
           </div>
         ) : null}
-      </div>
+      </section>
 
-      {disabled ? <p className="text-sm text-[var(--muted)]">{disabledMessage ?? "保存文章正文后再运行 AI 动作。"}</p> : null}
-      {error ? <p className="text-sm text-rose-600">{error}</p> : null}
+      {disabled ? <p className="text-[0.8125rem] text-[var(--text-muted)]">{disabledMessage ?? "保存文章正文后再运行 AI 动作。"}</p> : null}
+      <FadeBanner message={error} tone="danger" />
     </div>
   );
 }

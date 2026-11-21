@@ -1,15 +1,16 @@
 export const revalidate = 300
 
 import type { Metadata } from 'next'
-import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
-import { TaxonomyHero, TaxonomyPostGrid } from '@/components/taxonomy'
+import { EmptyState, TextLink } from '@/components/editorial'
+import { getLatestDate, TaxonomyHero, TaxonomyPostGrid } from '@/components/taxonomy'
 import { getBlogSettings } from '@/lib/blog-settings'
 import { buildBreadcrumbJsonLd, buildPageMetadata } from '@/lib/seo'
 import { JsonLd } from '@/components/seo/JsonLd'
 import { getCategoryDetail, TAXONOMY_PAGE_SIZE } from '@/lib/taxonomy'
 import { clampPagination } from '@/lib/validation'
+import { formatIsoDate } from '@/lib/editorial-format'
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params
@@ -58,43 +59,57 @@ export default async function CategoryPage({
     { name: category.name, path: `/categories/${category.slug}` },
   ], { siteUrl: settings.siteUrl })
 
+  const latest = category.pagination.page === 1 ? getLatestDate(category.posts) : null
+  const meta = [`${category._count.posts} 篇文章`, latest ? `最近更新 ${formatIsoDate(latest)}` : null].filter(Boolean).join(' · ')
+  const basePath = `/categories/${category.slug}`
+
   return (
-    <div className="reader-section">
+    <>
       <JsonLd data={breadcrumbJsonLd} />
       <TaxonomyHero
-        eyebrow="Category"
+        eyebrow="分类"
         title={category.name}
-        description={category.description || '这是一个按主题组织的专题页。你可以在这里连续浏览该方向下的最新文章，并快速回到全站列表继续探索。'}
-        countLabel={`${category._count.posts} 篇已发布文章`}
-        primaryHref={`/posts?category=${encodeURIComponent(category.slug)}`}
-        primaryLabel="在列表页中筛选"
-        secondaryHref="/categories"
-        secondaryLabel="返回全部分类"
+        description={category.description || `浏览「${category.name}」分类下的全部已发布文章。`}
+        meta={meta}
+        links={[
+          { href: `/posts?category=${encodeURIComponent(category.slug)}`, label: '在列表页中筛选' },
+          { href: '/categories', label: '全部分类' },
+        ]}
       />
 
-      {category.posts.length > 0 ? (
-        <TaxonomyPostGrid
-          title={`最新 ${category._count.posts} 篇内容中的近期更新`}
-          description="优先展示这个专题下最近发布的文章，帮助你顺着主题继续读下去。"
-          posts={category.posts}
-        />
-      ) : isOutOfRangePage ? (
-        <section className="reader-panel p-8 text-sm text-[var(--text-muted)]">
-          当前页没有内容。你可以返回
-          <Link href={`/categories/${category.slug}?page=1`} className="reader-link mx-1 font-medium">
-            返回第一页
-          </Link>
-          继续浏览这个分类下的文章。
-        </section>
-      ) : (
-        <section className="reader-panel p-8 text-sm text-[var(--text-muted)]">
-          这个分类下暂时还没有已发布文章。你可以先返回
-          <Link href="/posts" className="reader-link mx-1 font-medium">
-            全部文章
-          </Link>
-          看看其他内容。
-        </section>
-      )}
-    </div>
+      <TaxonomyPostGrid
+        count={category._count.posts}
+        posts={category.posts}
+        hideCategory
+        pagination={{ page: category.pagination.page, totalPages: category.pagination.totalPages, basePath }}
+        empty={
+          isOutOfRangePage ? (
+            <EmptyState
+              title={`第 ${category.pagination.page} 页不存在，这个分类共 ${category.pagination.totalPages} 页`}
+              actions={
+                <>
+                  <TextLink href={`${basePath}?page=1`}>回到第 1 页</TextLink>
+                  {category.pagination.totalPages > 1 ? (
+                    <TextLink href={`${basePath}?page=${category.pagination.totalPages}`}>
+                      {`跳到第 ${category.pagination.totalPages} 页`}
+                    </TextLink>
+                  ) : null}
+                </>
+              }
+            />
+          ) : (
+            <EmptyState
+              title="这个分类下还没有文章"
+              actions={
+                <>
+                  <TextLink href="/posts">浏览全部文章</TextLink>
+                  <TextLink href="/categories">全部分类</TextLink>
+                </>
+              }
+            />
+          )
+        }
+      />
+    </>
   )
 }

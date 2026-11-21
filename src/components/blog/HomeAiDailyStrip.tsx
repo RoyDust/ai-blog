@@ -1,5 +1,7 @@
 import Link from "next/link";
-import { ArrowRight, CalendarDays } from "lucide-react";
+
+import { Reveal, SectionHeading, TextLink } from "@/components/editorial";
+import { formatIsoDate, formatMonthDay } from "@/lib/editorial-format";
 
 interface AiDailyItem {
   id: string;
@@ -12,72 +14,87 @@ interface AiDailyItem {
 
 interface HomeAiDailyStripProps {
   posts: AiDailyItem[];
+  /** 判断「今日」用的当前时间，测试可注入 */
+  now?: Date;
 }
 
-function formatDailyDate(value: Date | string | null | undefined) {
-  if (!value) {
-    return "近期";
-  }
+const AI_DAILY_HREF = "/series/ai-daily";
 
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "近期";
-  }
-
-  return date.toLocaleDateString("zh-CN", {
-    month: "2-digit",
-    day: "2-digit",
-  });
+function getDailyDate(post: AiDailyItem) {
+  return post.publishedAt ?? post.createdAt;
 }
 
-function trimDailyTitle(title: string) {
-  return title.replace(/^\d{4}-\d{2}-\d{2}\s*AI\s*日报[：:]\s*/, "");
-}
-
-export function HomeAiDailyStrip({ posts }: HomeAiDailyStripProps) {
+/**
+ * 首页 AI 日报（简报 15.9 第 3 条）：区块标题 +「全部日报 →」，下面 2:3 两栏、中间 1px 竖线。
+ * 左栏是最新一期（当天的写 sky 小字「今日」），右栏往期 4 行；手机上今日在上、往期在下。
+ * 当天还没生成时，左栏显示「今日日报生成中」。
+ */
+export function HomeAiDailyStrip({ posts, now = new Date() }: HomeAiDailyStripProps) {
   if (posts.length === 0) {
     return null;
   }
 
-  return (
-    <section className="reader-panel p-4 sm:p-5" aria-labelledby="home-ai-daily-title">
-      <div className="mb-4 flex items-center justify-between gap-4">
-        <h2 id="home-ai-daily-title" className="reader-section-heading">
-          AI 日报
-        </h2>
-        <Link
-          href="/series/ai-daily"
-          className="reader-link inline-flex min-h-11 shrink-0 items-center gap-1 rounded-lg px-2 text-xs font-bold text-[color:color-mix(in_oklab,var(--accent-sky)_66%,var(--foreground)_34%)]"
-        >
-          查看全部
-          <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
-        </Link>
-      </div>
+  const [latest, ...rest] = posts;
+  const todayKey = formatIsoDate(now);
+  const isToday = formatIsoDate(getDailyDate(latest)) === todayKey;
+  const lead = isToday ? latest : null;
+  const archive = (isToday ? rest : posts).slice(0, 4);
 
-      <ol
-        aria-label="AI 日报列表"
-        className="reader-scrollbar-hidden -mx-1 flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain px-1 pb-1 md:mx-0 md:grid md:grid-cols-5 md:overflow-visible md:px-0 md:pb-0"
-      >
-        {posts.slice(0, 5).map((post) => (
-          <li
-            className="min-w-[82%] snap-start border-l border-[var(--reader-border)] pl-3 first:border-l-0 first:pl-0 md:min-w-0"
-            key={post.id}
-          >
-            <Link
-              href={`/posts/${post.slug}`}
-              className="group block h-full min-w-0 py-1"
-            >
-              <span className="mb-2 flex items-center gap-1.5 text-[0.72rem] font-medium tabular-nums text-[var(--text-muted)]">
-                <CalendarDays aria-hidden="true" className="h-3.5 w-3.5 text-[var(--accent-sky)]" />
-                {formatDailyDate(post.publishedAt ?? post.createdAt)}
-              </span>
-              <span className="line-clamp-2 text-xs font-medium leading-5 text-[var(--text-body)] transition-colors group-hover:text-[var(--foreground)]">
-                {trimDailyTitle(post.title)}
-              </span>
-            </Link>
-          </li>
-        ))}
-      </ol>
-    </section>
+  return (
+    <Reveal as="section" aria-labelledby="home-ai-daily-title" className="space-y-4">
+      <SectionHeading id="home-ai-daily-title" title="AI 日报" aside={<TextLink href={AI_DAILY_HREF}>全部日报</TextLink>} />
+
+      <div className="grid gap-5 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] md:gap-0">
+        <div className="min-w-0 md:border-r md:border-[var(--border)] md:pr-6">
+          {lead ? (
+            <article className="flex h-full flex-col">
+              <p className="ed-mono flex items-center gap-2 text-[0.8125rem] text-[var(--text-muted)]">
+                <time dateTime={formatIsoDate(getDailyDate(lead))}>{formatIsoDate(getDailyDate(lead))}</time>
+                <span className="font-sans text-[0.75rem] font-bold text-[var(--accent-sky)]">今日</span>
+              </p>
+              <h3 className="mt-2 text-[0.9375rem] font-bold leading-[1.5] text-[var(--foreground)]">
+                <Link className="underline decoration-transparent underline-offset-4 transition-[text-decoration-color] hover:decoration-[var(--reader-border-strong)]" href={`/posts/${lead.slug}`}>
+                  {lead.title}
+                </Link>
+              </h3>
+              {lead.excerpt ? (
+                <p className="mt-2 line-clamp-3 text-[0.9375rem] leading-[1.7] text-[var(--text-body)]">{lead.excerpt}</p>
+              ) : null}
+              <div className="mt-auto pt-4">
+                <TextLink href={`/posts/${lead.slug}`}>阅读今日日报</TextLink>
+              </div>
+            </article>
+          ) : (
+            <div className="flex h-full flex-col">
+              <p className="ed-mono flex items-center gap-2 text-[0.8125rem] text-[var(--text-muted)]">
+                <time dateTime={todayKey}>{todayKey}</time>
+                <span className="font-sans text-[0.75rem] font-bold text-[var(--accent-sky)]">今日</span>
+              </p>
+              <p className="mt-2 text-[0.9375rem] leading-[1.7] text-[var(--text-body)]">今日日报生成中</p>
+            </div>
+          )}
+        </div>
+
+        {archive.length > 0 ? (
+          <ol aria-label="AI 日报列表" className="min-w-0 border-t border-[var(--border)] md:border-t-0 md:pl-6">
+            {archive.map((post) => (
+              <li key={post.id} className="border-b border-[var(--border)] last:border-b-0 md:last:border-b">
+                <Link
+                  href={`/posts/${post.slug}`}
+                  className="group flex min-h-11 items-center gap-4 py-2 text-[0.875rem] leading-[1.5] text-[var(--text-body)] transition-colors hover:text-[var(--foreground)]"
+                >
+                  <time className="ed-mono shrink-0 text-[0.8125rem] text-[var(--text-muted)]" dateTime={formatIsoDate(getDailyDate(post))}>
+                    {formatMonthDay(getDailyDate(post))}
+                  </time>
+                  <span className="min-w-0 truncate underline decoration-transparent underline-offset-4 transition-[text-decoration-color] group-hover:decoration-[var(--reader-border-strong)]">
+                    {post.title}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ol>
+        ) : null}
+      </div>
+    </Reveal>
   );
 }

@@ -32,8 +32,16 @@ describe("app shell", () => {
     expect(container.querySelector('[data-testid="reader-ambient-banner"]')).not.toBeInTheDocument();
     expect(screen.getByRole("navigation", { name: "Primary" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "跳到主要内容" })).toHaveAttribute("href", "#main-content");
-    expect(screen.getByRole("link", { name: "跳到主要内容" }).className).toContain("reader-panel");
+    // 跳转链接平时隐藏，聚焦时以实底主按钮出现
+    expect(screen.getByRole("link", { name: "跳到主要内容" })).toHaveClass("ed-btn", "sr-only", "focus:not-sr-only");
+    expect(screen.getByRole("link", { name: "跳到主要内容" }).className).not.toContain("reader-panel");
     expect(container.querySelector("main div.max-w-\\[var\\(--content-max-width\\)\\]")).toBeInTheDocument();
+    // 一张纸面包住侧栏、主列和页脚
+    const paper = container.querySelector(".ed-paper");
+    expect(paper).toBeInTheDocument();
+    expect(paper?.contains(sidebarRail)).toBe(true);
+    expect(paper?.contains(mainContent)).toBe(true);
+    expect(paper?.querySelector("footer")).toBeInTheDocument();
     expect(container.querySelector(".reader-layout-frame")).toBeInTheDocument();
     expect(container.querySelector(".reader-content-frame")).toBeInTheDocument();
     expect(sidebarRail).toBeInTheDocument();
@@ -47,6 +55,9 @@ describe("app shell", () => {
     expect(sidebarRail.className).toContain("xl:w-[var(--rail-width)]");
     expect(sidebarRail.className).toContain("hidden");
     expect(sidebarRail.className).toContain("xl:block");
+    // 侧栏与主列之间一条 1px 竖线
+    expect(sidebarRail.className).toContain("xl:border-r");
+    expect(sidebarRail.className).toContain("xl:border-[var(--border)]");
     expect(shellColumns?.className).toContain("flex-col");
     expect(shellColumns?.className).toContain("xl:flex-row");
     expect(sidebarRail.compareDocumentPosition(mainContent) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
@@ -86,15 +97,11 @@ describe("app shell", () => {
     expect(globalsSource).toMatch(
       /@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?::view-transition-group\(\*\),[\s\S]*?::view-transition-old\(\*\),[\s\S]*?::view-transition-new\(\*\)\s*\{[\s\S]*?animation:\s*none !important;/,
     );
-    expect(navbarSource).toMatch(
-      /<motion\.div\s+layout\s+transition=\{headerResizeTransition\}\s+className="reader-nav\s/,
-    );
-    expect(navbarSource).not.toMatch(
-      /<motion\.div\s+layout="size"\s+transition=\{headerResizeTransition\}\s+className="reader-nav\s/,
-    );
-    expect(navbarSource).toContain('layout="size"');
-    expect(navbarSource).toContain('layout="position"');
-    expect(navbarSource).toContain("headerResizeTransition");
+    // 方向 A 导航条宽度固定、不再随路由伸缩：不做 layout 投影，只在导航项之间平移当前项下划线
+    expect(navbarSource).toMatch(/<motion\.div[\s\S]*?className="reader-nav\s/);
+    expect(navbarSource).not.toMatch(/\blayout(?:="(?:size|position)")?\s/);
+    expect(navbarSource).toContain("<LayoutGroup");
+    expect(navbarSource).toContain('<ActiveUnderline layoutId="reader-nav-active-indicator"');
     expect(motionSource).toContain("export const headerResizeTransition");
     expect(motionProviderSource).toContain('<MotionConfig reducedMotion="user"');
   });

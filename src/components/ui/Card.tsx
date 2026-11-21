@@ -1,6 +1,8 @@
 import React from "react";
 import { cn } from "@/lib/cn";
 
+/** 方向 A：一张纸（card-bg + 1px 描边 + 6px 圆角），不加投影、不做 hover 上浮。 */
+
 export interface CardProps {
   children: React.ReactNode;
   className?: string;
@@ -12,8 +14,8 @@ export function Card({ children, className = '', hover = false, onClick }: CardP
   return (
     <div
       className={cn(
-        "card-base ui-surface rounded-2xl shadow-sm",
-        hover && "cursor-pointer transition-shadow hover:shadow-lg",
+        "rounded-[var(--radius-paper)] border border-[var(--reader-border)] bg-[var(--card-bg)] text-[var(--foreground)]",
+        hover && "cursor-pointer transition-colors duration-200 hover:border-[var(--reader-border-strong)]",
         className
       )}
       onClick={onClick}

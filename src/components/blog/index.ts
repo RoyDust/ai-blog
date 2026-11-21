@@ -22,6 +22,6 @@ export { BackToTopButton } from "./BackToTopButton";
 export { ArticleContinuation } from "./ArticleContinuation";
 export { ArticleRelatedPosts } from "./ArticleRelatedPosts";
 export { CopyCodeButton } from "./CopyCodeButton";
-export { SeriesCard } from "./SeriesCard";
 export { SeriesNav } from "./SeriesNav";
 export { NewsletterForm } from "./NewsletterForm";
+export { CommentJumpLink } from "./CommentJumpLink";

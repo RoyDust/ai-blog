@@ -139,7 +139,7 @@ describe("BookmarkButton", () => {
     expect(fillStyles.length).toBeGreaterThan(0);
     expect(fillStyles).toEqual(
       expect.arrayContaining([
-        expect.stringMatching(/^hsl\((206|224|234|254|274) 88% \d+%\)$/),
+        expect.stringMatching(/^hsl\((206|224|234|254|274) 52% \d+%\)$/),
       ]),
     );
     expect(fillStyles.join(" ")).not.toMatch(/#[\da-f]{3,8}/i);

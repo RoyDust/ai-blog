@@ -63,3 +63,12 @@ export type AiNewsSourceSummary = {
   enabledCount: number
   enabledSourceIds: string[]
 }
+
+/** 来源分类值保持英文 key，界面显示与来源控制台分类页签一致的中文名 */
+export const aiNewsCategoryLabels: Record<string, string> = {
+  official: "官方",
+  industry: "媒体",
+  developer: "开发者",
+  community: "社区",
+  "github-release": "GitHub",
+}

@@ -5,19 +5,17 @@ import { Slot } from "radix-ui"
 import { cn } from "@/lib/utils"
 
 const badgeVariants = cva(
-  "inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border border-transparent px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3",
+  // 方向 A：徽标不再是药丸，改为 .75rem 700 的语气色文字
+  "inline-flex w-fit shrink-0 items-center gap-1 text-xs leading-snug font-bold whitespace-nowrap transition-colors [&>svg]:pointer-events-none [&>svg]:size-3",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground [a&]:hover:bg-primary/90",
-        secondary:
-          "bg-secondary text-secondary-foreground [a&]:hover:bg-secondary/90",
-        destructive:
-          "bg-destructive text-white focus-visible:ring-destructive/20 dark:bg-destructive/60 dark:focus-visible:ring-destructive/40 [a&]:hover:bg-destructive/90",
-        outline:
-          "border-border text-foreground [a&]:hover:bg-accent [a&]:hover:text-accent-foreground",
-        ghost: "[a&]:hover:bg-accent [a&]:hover:text-accent-foreground",
-        link: "text-primary underline-offset-4 [a&]:hover:underline",
+        default: "text-[var(--foreground)]",
+        secondary: "text-[var(--text-muted)]",
+        destructive: "text-[var(--danger-foreground)]",
+        outline: "text-[var(--text-body)]",
+        ghost: "text-[var(--text-muted)]",
+        link: "text-[var(--text-body)] underline decoration-[var(--reader-border-strong)] underline-offset-4 [a&]:hover:decoration-[var(--accent-sky)]",
       },
     },
     defaultVariants: {

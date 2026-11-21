@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 
 export default function AdminNotificationsPage() {
   return (
-    <div className="space-y-6">
+    <div>
       <PageHeader
         eyebrow="后台"
         title="通知中心"

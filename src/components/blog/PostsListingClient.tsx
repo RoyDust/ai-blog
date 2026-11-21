@@ -1,36 +1,26 @@
 'use client'
 
 /**
- * 前台文章列表客户端增强层。
+ * 前台文章列表客户端增强层（方向 A，简报 16.3）。
  *
  * 职责：
  * - 在服务端首屏数据之上接管无限滚动加载
- * - 根据文章类型选择普通卡片或精选卡片展示
- * - 处理加载中、错误态与“已加载全部”提示
+ * - 第一页、无筛选、首篇为精选时，首篇用置顶精选展示；其余精选只在 meta 开头写「精选」
+ * - 处理首屏骨架、加载下一页（2 行骨架）、已显示全部、空态与错误重试
  */
 
 import { useCallback } from 'react'
 
-import { AnimatePresence, motion } from "motion/react";
-import { featuredPostRevealVariants, postCardRevealVariants, postListContainerVariants } from "@/components/motion/variants";
-import { PostCard } from './PostCard'
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
+import { EmptyState, ListRowSkeleton, TextLink } from '@/components/editorial'
+import { editorialEase } from '@/components/editorial/motion'
+import { PostCard, type PostCardPost } from './PostCard'
 import { PostCardFeatured } from './PostCardFeatured'
-import { PostCardSkeleton } from './PostCardSkeleton'
 import { useInfinitePosts } from './useInfinitePosts'
 
-interface ListingPost {
-  id: string
-  title: string
-  slug: string
+type ListingPost = PostCardPost & {
   excerpt: string | null
   featured: boolean
-  createdAt: Date | string
-  coverImage?: string | null
-  author: { id: string; name: string | null; image: string | null }
-  category: { id?: string; name: string; slug: string } | null
-  tags: Array<{ id?: string; name: string; slug: string }>
-  _count: { comments: number; likes: number }
-  viewCount?: number
 }
 
 interface PostsListingClientProps {
@@ -48,6 +38,11 @@ interface PostsListingClientProps {
   }
 }
 
+function scrollToTop() {
+  const reduce = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+  window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' })
+}
+
 /**
  * 文章列表客户端容器。
  * buildUrl 定义了翻页 API 规则，具体的分页状态与观察器逻辑交给 useInfinitePosts。
@@ -57,6 +52,8 @@ export function PostsListingClient({ initialPosts, initialPagination, filters }:
   const tagFilter = filters?.tag
   const searchFilter = filters?.search
   const resetKey = JSON.stringify(filters ?? {})
+  const hasFilters = Boolean(categoryFilter || tagFilter || searchFilter)
+  const reduce = useReducedMotion()
 
   const buildUrl = useCallback(
     (page: number) => {
@@ -77,7 +74,7 @@ export function PostsListingClient({ initialPosts, initialPagination, filters }:
     [categoryFilter, initialPagination.limit, searchFilter, tagFilter],
   )
 
-  const { posts, pagination, isLoading, error, hasNextPage, observerTargetRef } = useInfinitePosts({
+  const { posts, pagination, isLoading, error, hasNextPage, observerTargetRef, loadNextPage } = useInfinitePosts({
     initialPosts,
     initialPagination,
     buildUrl,
@@ -86,54 +83,90 @@ export function PostsListingClient({ initialPosts, initialPagination, filters }:
   })
 
   const isInitialLoading = isLoading && posts.length === 0
+  const pinnedPost = !hasFilters && posts[0]?.featured ? posts[0] : null
+  const rowPosts = pinnedPost ? posts.slice(1) : posts
 
   return (
-    <div className="reader-section" data-testid="posts-listing">
+    <div data-testid="posts-listing" aria-busy={isLoading}>
       {isInitialLoading ? (
-        Array.from({ length: 6 }).map((_, index) => (
-          <div key={`skeleton-${index}`}>
-            <PostCardSkeleton />
-          </div>
-        ))
+        // 首屏骨架不画置顶精选：加载前不知道有没有精选
+        <ListRowSkeleton count={4} />
       ) : posts.length > 0 ? (
-        <motion.div
-          className="grid gap-2 md:gap-3"
-          variants={postListContainerVariants}
-          initial="hidden"
-          animate="visible"
-        >
-          {/* 不设 initial={false}：presence 首挂载抑制会吞掉容器 stagger 入场 */}
-          <AnimatePresence mode="popLayout">
-            {posts.map((post) => (
-              <motion.div
-                key={post.id}
-                layout
-                variants={post.featured ? featuredPostRevealVariants : postCardRevealVariants}
-              >
-                {post.featured ? <PostCardFeatured post={post} /> : <PostCard post={post} />}
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        </motion.div>
-      ) : (
-        <div className="reader-panel p-8 text-sm text-[var(--text-muted)]">暂无文章。</div>
-      )}
+        <>
+          {pinnedPost ? (
+            <motion.div
+              initial={reduce ? false : { opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, ease: editorialEase }}
+            >
+              <PostCardFeatured post={pinnedPost} />
+            </motion.div>
+          ) : null}
+          <div>
+            <AnimatePresence initial={!reduce}>
+              {rowPosts.map((post, index) => (
+                <motion.div
+                  key={post.id}
+                  initial={reduce ? false : { opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.42, ease: editorialEase, delay: Math.min(index % initialPagination.limit, 8) * 0.04 }}
+                >
+                  <PostCard post={post} />
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
+        </>
+      ) : !error ? (
+        <EmptyState
+          role="status"
+          title={hasFilters ? '这个筛选下还没有文章' : '还没有发布文章'}
+          actions={hasFilters ? <TextLink href="/posts">清空筛选</TextLink> : <TextLink href="/">回到首页</TextLink>}
+        />
+      ) : null}
 
-      {!isInitialLoading && isLoading && (
-        <div className="reader-panel px-5 py-4 text-sm text-[var(--text-muted)]">正在加载下一页...</div>
-      )}
-      {error && (
-        <div
-          role="alert"
-          className="reader-panel border-[var(--danger-border)] px-5 py-4 text-sm text-[var(--danger-foreground)]"
-        >
-          {error}
-        </div>
-      )}
+      {!isInitialLoading && isLoading && !error ? <ListRowSkeleton count={2} label="正在加载下一页" /> : null}
+
+      <AnimatePresence>
+        {error ? (
+          <motion.div
+            key="error"
+            initial={reduce ? false : { opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3, ease: editorialEase }}
+          >
+            <EmptyState
+              role="alert"
+              tone="danger"
+              title={posts.length > 0 ? error : '文章加载失败，请稍后重试'}
+              actions={
+                <button className="ed-btn-outline" type="button" onClick={() => void loadNextPage()}>
+                  重试
+                </button>
+              }
+            />
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+
       {hasNextPage && <div ref={observerTargetRef} aria-hidden="true" className="h-4 w-full" />}
-      {!hasNextPage && posts.length > 0 && pagination.totalPages > 1 && (
-        <div className="px-2 py-2 text-center text-sm text-[var(--text-faint)]">已加载全部文章</div>
-      )}
+
+      {!hasNextPage && !isLoading && posts.length > 0 && pagination.totalPages > 1 ? (
+        <p className="flex flex-wrap items-center justify-center gap-x-2 py-6 text-[0.875rem] text-[var(--text-muted)]">
+          <span>
+            已显示全部 <span className="ed-mono">{pagination.total}</span> 篇
+          </span>
+          <span aria-hidden="true">·</span>
+          <button className="ed-link" type="button" onClick={scrollToTop}>
+            <span>回到顶部</span>
+            <span aria-hidden="true" className="ed-link__arrow ed-link__arrow--right">
+              →
+            </span>
+          </button>
+        </p>
+      ) : null}
     </div>
   )
 }

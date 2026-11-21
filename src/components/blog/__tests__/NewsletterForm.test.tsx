@@ -23,8 +23,37 @@ describe("NewsletterForm", () => {
     fireEvent.change(screen.getByLabelText("邮箱地址"), { target: { value: "not-an-email" } });
     fireEvent.submit(screen.getByRole("button", { name: "订阅" }).closest("form")!);
 
-    expect(await screen.findByText("请输入有效的邮箱地址")).toBeInTheDocument();
+    const error = await screen.findByText("请输入有效的邮箱地址");
+    expect(error).toHaveAttribute("role", "alert");
+    expect(error).toHaveAttribute("id", "newsletter-email-error");
+    expect(error).toHaveClass("text-[var(--danger-foreground)]");
+    const input = screen.getByLabelText("邮箱地址");
+    expect(input).toHaveAttribute("aria-invalid", "true");
+    expect(input).toHaveAttribute("aria-describedby", "newsletter-email-error");
     expect(apiMutateMock).not.toHaveBeenCalled();
+  });
+
+  test("renders the editorial band with a primary button and RSS link by default", () => {
+    render(<NewsletterForm />);
+
+    expect(screen.getByRole("region", { name: "订阅 Newsletter" })).toBeInTheDocument();
+    expect(screen.getByText("每周一封，精选文章与 AI 日报摘要。")).toHaveClass("ed-serif");
+    expect(screen.getByLabelText("邮箱地址")).toHaveClass("ed-input");
+    expect(screen.getByLabelText("邮箱地址")).not.toHaveAttribute("aria-invalid");
+    const button = screen.getByRole("button", { name: "订阅" });
+    expect(button).toHaveClass("ed-btn");
+    expect(button).not.toHaveClass("ed-btn-outline");
+    expect(screen.getByRole("link", { name: "RSS 订阅" })).toHaveAttribute("href", "/rss.xml");
+  });
+
+  test("uses an outline button, custom pitch and no RSS link when configured", () => {
+    render(<NewsletterForm buttonVariant="outline" pitch="喜欢这篇？订阅更新。" showRss={false} />);
+
+    const button = screen.getByRole("button", { name: "订阅" });
+    expect(button).toHaveClass("ed-btn-outline");
+    expect(button).not.toHaveClass("ed-btn");
+    expect(screen.getByText("喜欢这篇？订阅更新。")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "RSS 订阅" })).not.toBeInTheDocument();
   });
 
   test("subscribes through apiMutate and shows success feedback", async () => {
@@ -55,6 +84,8 @@ describe("NewsletterForm", () => {
     fireEvent.change(screen.getByLabelText("邮箱地址"), { target: { value: "reader@example.com" } });
     fireEvent.submit(screen.getByRole("button", { name: "订阅" }).closest("form")!);
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("该邮箱已经订阅");
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("该邮箱已经订阅");
+    expect(alert).toHaveClass("text-[var(--danger-foreground)]");
   });
 });

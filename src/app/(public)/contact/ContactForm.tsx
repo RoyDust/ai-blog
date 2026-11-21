@@ -13,6 +13,8 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/shadcn/ui/form";
+import { fieldErrorMotionClassName } from "@/components/ui/Input";
+import { cn } from "@/lib/cn";
 
 const contactSchema = z.object({
   name: z.string().optional(),
@@ -29,10 +31,23 @@ export function buildContactMailto(to: string, data: ContactFormValues) {
   return `mailto:${to}?subject=${encodeURIComponent(data.subject)}&body=${encodeURIComponent(body)}`;
 }
 
-const readerInputClassName =
-  "ui-ring w-full rounded-xl border border-[var(--reader-border)] bg-[var(--reader-panel-elevated)] px-4 py-2.5 text-sm text-[var(--foreground)] placeholder:text-[var(--text-faint)] focus-visible:ring-2 focus-visible:ring-[var(--ring)]";
-const readerLabelClassName = "text-sm font-medium text-[var(--foreground)]";
-const readerMessageClassName = "text-xs text-rose-500";
+/*
+ * 方向 A 表单写法（简报第 12 节）：标签在上方 .8125rem 700，必填写 muted 灰「*」、可选写「（可选）」；
+ * 输入框 44px、4px 圆角、1px --reader-border-strong 描边、透明底；字段错误时边框变 danger，
+ * 下方一句 .8125rem danger 文案并淡入。手机端字号 16px，避免 iOS 聚焦放大。
+ */
+const fieldItemClassName = "content-start gap-0";
+const fieldLabelClassName = "ed-label block leading-[1.4] data-[error=true]:text-[var(--foreground)]";
+const fieldInputClassName = "ed-input text-base sm:text-[0.9375rem]";
+const fieldMessageClassName = cn("ed-field-error", fieldErrorMotionClassName);
+
+function RequiredMark() {
+  return (
+    <span aria-hidden="true" className="ed-label__required">
+      *
+    </span>
+  );
+}
 
 export function ContactForm() {
   const form = useForm<ContactFormValues>({
@@ -55,24 +70,25 @@ export function ContactForm() {
 
   return (
     <Form {...form}>
-      <form className="space-y-5" noValidate onSubmit={form.handleSubmit(onSubmit)}>
+      <form className="flex flex-col gap-5" noValidate onSubmit={form.handleSubmit(onSubmit)}>
         <div className="grid gap-5 sm:grid-cols-2">
           <FormField
             control={form.control}
             name="name"
             render={({ field }) => (
-              <FormItem className="gap-1.5">
-                <FormLabel className={readerLabelClassName}>
-                  姓名 <span className="text-[var(--text-faint)]">（可选）</span>
+              <FormItem className={fieldItemClassName}>
+                <FormLabel className={fieldLabelClassName}>
+                  姓名
+                  <span className="ed-label__optional">（可选）</span>
                 </FormLabel>
                 <FormControl>
                   <input
-                    className={readerInputClassName}
+                    className={fieldInputClassName}
                     placeholder="你的名字"
                     {...field}
                   />
                 </FormControl>
-                <FormMessage className={readerMessageClassName} />
+                <FormMessage className={fieldMessageClassName} />
               </FormItem>
             )}
           />
@@ -81,19 +97,21 @@ export function ContactForm() {
             control={form.control}
             name="email"
             render={({ field }) => (
-              <FormItem className="gap-1.5">
-                <FormLabel className={readerLabelClassName}>
-                  邮箱 <span className="text-rose-500">*</span>
+              <FormItem className={fieldItemClassName}>
+                <FormLabel className={fieldLabelClassName}>
+                  邮箱
+                  <RequiredMark />
                 </FormLabel>
                 <FormControl>
                   <input
-                    className={readerInputClassName}
+                    className={fieldInputClassName}
+                    aria-required="true"
                     placeholder="you@example.com"
                     type="email"
                     {...field}
                   />
                 </FormControl>
-                <FormMessage className={readerMessageClassName} />
+                <FormMessage className={fieldMessageClassName} />
               </FormItem>
             )}
           />
@@ -103,18 +121,20 @@ export function ContactForm() {
           control={form.control}
           name="subject"
           render={({ field }) => (
-            <FormItem className="gap-1.5">
-              <FormLabel className={readerLabelClassName}>
-                主题 <span className="text-rose-500">*</span>
+            <FormItem className={fieldItemClassName}>
+              <FormLabel className={fieldLabelClassName}>
+                主题
+                <RequiredMark />
               </FormLabel>
               <FormControl>
                 <input
-                  className={readerInputClassName}
-                  placeholder="简短描述你的问题或想法"
+                  className={fieldInputClassName}
+                  aria-required="true"
+                    placeholder="简短描述你的问题或想法"
                   {...field}
                 />
               </FormControl>
-              <FormMessage className={readerMessageClassName} />
+              <FormMessage className={fieldMessageClassName} />
             </FormItem>
           )}
         />
@@ -123,30 +143,30 @@ export function ContactForm() {
           control={form.control}
           name="message"
           render={({ field }) => (
-            <FormItem className="gap-1.5">
-              <FormLabel className={readerLabelClassName}>
-                内容 <span className="text-rose-500">*</span>
+            <FormItem className={fieldItemClassName}>
+              <FormLabel className={fieldLabelClassName}>
+                内容
+                <RequiredMark />
               </FormLabel>
               <FormControl>
                 <textarea
-                  className="ui-ring min-h-40 w-full resize-y rounded-xl border border-[var(--reader-border)] bg-[var(--reader-panel-elevated)] px-4 py-3 text-sm leading-6 text-[var(--foreground)] placeholder:text-[var(--text-faint)] focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+                  className="ed-textarea min-h-40 px-3 py-2.5 text-base leading-[1.7] sm:text-[0.9375rem]"
+                  aria-required="true"
                   placeholder="详细描述..."
                   rows={6}
                   {...field}
                 />
               </FormControl>
-              <FormMessage className={readerMessageClassName} />
+              <FormMessage className={fieldMessageClassName} />
             </FormItem>
           )}
         />
 
-        <button
-          className="inline-flex h-11 items-center justify-center rounded-full bg-[var(--accent-sky)] px-6 text-sm font-semibold text-white transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-50"
-          disabled={form.formState.isSubmitting}
-          type="submit"
-        >
-          发送邮件
-        </button>
+        <div className="flex items-center gap-4">
+          <button className="ed-btn" disabled={form.formState.isSubmitting} type="submit">
+            发送邮件
+          </button>
+        </div>
       </form>
     </Form>
   );

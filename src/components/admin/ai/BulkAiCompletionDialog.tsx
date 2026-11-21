@@ -4,7 +4,9 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 
-import { Button, Modal } from "@/components/admin/ui";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+
+import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/admin/ui";
 import { apiMutate, toErrorMessage } from "@/lib/client-api";
 
 type AiBatchAction = "summary" | "seo-description" | "tags" | "category" | "cover-image";
@@ -92,95 +94,106 @@ export function BulkAiCompletionDialog({
     }
   }
 
-  return (
-    <Modal isOpen={open} onClose={onClose} title="AI 批量补全" size="lg">
-      <div className="space-y-5">
-        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-alt)] px-4 py-3">
-          <p className="text-sm font-medium text-[var(--foreground)]">已选择 {selectedIds.length} 篇文章</p>
-          <p className="mt-1 text-xs text-[var(--muted)]">任务创建后可在 AI 任务详情里查看每条输出。</p>
-        </div>
+  const reduceMotion = useReducedMotion();
+  const optionRowClassName =
+    "flex cursor-pointer items-start gap-3 border-b border-[var(--border)] py-2.5 text-[var(--foreground)]";
 
-        <fieldset className="space-y-2">
-          <legend className="text-sm font-medium text-[var(--foreground)]">补全内容</legend>
-          <div className="grid gap-2 sm:grid-cols-2">
+  return (
+    <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
+      <DialogContent className="max-h-[calc(100dvh-2rem)] max-w-2xl gap-0 overflow-y-auto p-0 sm:max-w-2xl">
+        <DialogHeader className="px-6 pt-5 pb-4">
+          <DialogTitle className="text-[1.375rem]">AI 批量补全</DialogTitle>
+          <DialogDescription>
+            已选择 <span className="font-mono font-bold text-[var(--foreground)]">{selectedIds.length}</span> 篇文章
+            <span className="ed-meta-sep">·</span>
+            任务创建后可在 AI 任务详情里查看每条输出。
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="grid gap-x-7 gap-y-5 px-6 pb-5 sm:grid-cols-2">
+          <fieldset>
+            <legend className="mb-1 w-full border-b border-[var(--reader-border-strong)] pb-1.5 text-xs font-bold text-[var(--text-muted)]">补全内容</legend>
             {actionOptions.map((option) => {
               const checked = actions.includes(option.value);
               return (
-                <label
-                  key={option.value}
-                  className="flex cursor-pointer items-start gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3 text-sm text-[var(--foreground)]"
-                >
-                  <input
-                    type="checkbox"
-                    className="mt-1 h-4 w-4 rounded border-[var(--border)]"
-                    checked={checked}
-                    onChange={() => toggleAction(option.value)}
-                  />
-                  <span>
-                    <span className="block font-medium">{option.label}</span>
-                    <span className="mt-1 block text-xs text-[var(--muted)]">{option.hint}</span>
+                <label key={option.value} className={optionRowClassName}>
+                  <input type="checkbox" className="ed-checkbox mt-0.5" checked={checked} onChange={() => toggleAction(option.value)} />
+                  <span className="min-w-0">
+                    <span className="block text-[0.875rem] font-bold">{option.label}</span>
+                    <span className="mt-0.5 block text-xs text-[var(--text-muted)]">{option.hint}</span>
                   </span>
                 </label>
               );
             })}
-          </div>
-        </fieldset>
+          </fieldset>
 
-        <fieldset className="space-y-2">
-          <legend className="text-sm font-medium text-[var(--foreground)]">处理模式</legend>
-          <div className="grid gap-2">
+          <fieldset>
+            <legend className="mb-1 w-full border-b border-[var(--reader-border-strong)] pb-1.5 text-xs font-bold text-[var(--text-muted)]">处理模式</legend>
             {modeOptions.map((option) => (
-              <label
-                key={option.value}
-                className="flex cursor-pointer items-start gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3 text-sm text-[var(--foreground)]"
-              >
+              <label key={option.value} className={optionRowClassName}>
                 <input
                   type="radio"
-                  className="mt-1 h-4 w-4 border-[var(--border)]"
+                  name="bulk-ai-mode"
+                  className="mt-0.5 size-4 shrink-0 cursor-pointer accent-[var(--foreground)]"
                   checked={mode === option.value}
                   onChange={() => setMode(option.value)}
                 />
-                <span>
-                  <span className="block font-medium">{option.label}</span>
-                  <span className="mt-1 block text-xs text-[var(--muted)]">{option.hint}</span>
+                <span className="min-w-0">
+                  <span className="block text-[0.875rem] font-bold">{option.label}</span>
+                  <span className="mt-0.5 block text-xs text-[var(--text-muted)]">{option.hint}</span>
                 </span>
               </label>
             ))}
-          </div>
-        </fieldset>
+          </fieldset>
 
-        <label className="flex items-start gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3 text-sm text-[var(--foreground)]">
-          <input
-            type="checkbox"
-            className="mt-1 h-4 w-4 rounded border-[var(--border)]"
-            checked={applySafeFields && !safeApplyDisabled}
-            disabled={safeApplyDisabled}
-            onChange={(event) => setApplySafeFields(event.target.checked)}
-          />
-          <span>
-            <span className="block font-medium">自动应用摘要、SEO 描述和封面</span>
-            <span className="mt-1 block text-xs text-[var(--muted)]">标签和分类仍只生成建议，不会批量覆盖；封面只在任务输出成功后回填。</span>
-          </span>
-        </label>
-
-        {taskId ? (
-          <div className="rounded-2xl border border-[var(--success-border)] bg-[var(--success-surface)] px-4 py-3 text-sm text-[var(--success-foreground)]">
-            任务已创建：
-            <Link className="font-medium underline" href={`/admin/ai/tasks/${taskId}`}>
-              查看详情
-            </Link>
-          </div>
-        ) : null}
-
-        <div className="flex flex-wrap justify-end gap-2">
-          <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>
-            关闭
-          </Button>
-          <Button type="button" disabled={submitting || selectedIds.length === 0 || actions.length === 0} onClick={() => void startBatch()}>
-            {submitting ? "启动中..." : "开始补全"}
-          </Button>
+          <label
+            className={`flex items-start gap-3 sm:col-span-2 ${safeApplyDisabled ? "cursor-not-allowed opacity-55" : "cursor-pointer"}`}
+          >
+            <input
+              type="checkbox"
+              className="ed-checkbox mt-0.5 disabled:cursor-not-allowed"
+              checked={applySafeFields && !safeApplyDisabled}
+              disabled={safeApplyDisabled}
+              onChange={(event) => setApplySafeFields(event.target.checked)}
+            />
+            <span>
+              <span className="block text-[0.875rem] font-bold text-[var(--foreground)]">自动应用摘要、SEO 描述和封面</span>
+              <span className="mt-0.5 block text-xs text-[var(--text-muted)]">标签和分类仍只生成建议，不会批量覆盖；封面只在任务输出成功后回填。</span>
+            </span>
+          </label>
         </div>
-      </div>
-    </Modal>
+
+        <DialogFooter className="items-center border-t border-[var(--border)] px-6 py-4 sm:justify-between">
+          <AnimatePresence initial={false}>
+            {taskId ? (
+              <motion.p
+                key="task-created"
+                animate={{ opacity: 1, y: 0 }}
+                className="text-[0.8125rem] text-[var(--success)]"
+                initial={reduceMotion ? false : { opacity: 0, y: 4 }}
+                role="status"
+                transition={{ duration: 0.2 }}
+              >
+                任务已创建：
+                <Link className="ed-link font-bold" href={`/admin/ai/tasks/${taskId}`}>
+                  查看详情
+                </Link>
+                <span aria-hidden="true"> →</span>
+              </motion.p>
+            ) : (
+              <span />
+            )}
+          </AnimatePresence>
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>
+              关闭
+            </Button>
+            <Button type="button" disabled={submitting || selectedIds.length === 0 || actions.length === 0} onClick={() => void startBatch()}>
+              {submitting ? "启动中..." : "开始补全"}
+            </Button>
+          </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

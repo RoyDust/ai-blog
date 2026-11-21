@@ -7,7 +7,8 @@ import { useForm, useWatch } from "react-hook-form";
 import useSWR from "swr";
 import { z } from "zod";
 import { EditorWorkspace, PublishChecklist } from "@/components/posts";
-import { Button } from "@/components/ui";
+import { Button } from "@/components/admin/ui";
+import { FadeBanner, InlineSpinner } from "@/components/admin/workspace/WorkspaceKit";
 import { apiFetcher, apiMutate, toErrorMessage } from "@/lib/client-api";
 
 const postFormSchema = z.object({
@@ -135,23 +136,34 @@ export default function EditPostPage({ params }: { params: Promise<{ slug: strin
   const error = submitError || (loadError ? toErrorMessage(loadError, "加载失败") : "");
 
   if (!routeSlug || (fetching && !postResponse)) {
-    return <p className="py-20 text-center text-[var(--muted)]">正在加载编辑器...</p>;
+    return (
+      <p role="status" className="flex items-center gap-2 px-4 py-10 text-sm text-[var(--text-muted)]">
+        <InlineSpinner />
+        正在加载编辑器...
+      </p>
+    );
   }
 
   return (
-    <form className="space-y-6" noValidate onSubmit={form.handleSubmit(handleSubmit)}>
-      <section className="ui-surface rounded-2xl p-6">
-        <h1 className="font-display text-3xl font-extrabold text-[var(--foreground)]">编辑文章</h1>
-        <p className="mt-2 text-sm text-[var(--muted)]">你正在编辑：{formData.title || routeSlug}</p>
-      </section>
-      {error && <p className="rounded-xl border border-rose-300 bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
-      {validationErrors.length > 0 ? (
-        <div className="rounded-xl border border-rose-300 bg-rose-50 p-3 text-sm text-rose-700">
-          {validationErrors.map((message) => (
-            <p key={message}>{message}</p>
-          ))}
-        </div>
-      ) : null}
+    <form className="mx-auto flex w-full max-w-[1440px] flex-col gap-4 px-4 py-6 sm:px-6" noValidate onSubmit={form.handleSubmit(handleSubmit)}>
+      <header className="border-b-2 border-[var(--foreground)] pb-3">
+        <p className="ed-eyebrow">写作</p>
+        <h1 className="font-serif text-[1.75rem] leading-[1.2] font-bold text-[var(--foreground)]">编辑文章</h1>
+        <p className="mt-1 text-sm text-[var(--text-body)]">你正在编辑：{formData.title || routeSlug}</p>
+      </header>
+      <FadeBanner message={error} tone="danger" />
+      <FadeBanner
+        tone="danger"
+        message={
+          validationErrors.length > 0 ? (
+            <>
+              {validationErrors.map((message) => (
+                <p key={message}>{message}</p>
+              ))}
+            </>
+          ) : null
+        }
+      />
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
         <EditorWorkspace
           content={formData.content}
@@ -166,13 +178,13 @@ export default function EditPostPage({ params }: { params: Promise<{ slug: strin
           onTitleChange={(value) => updateTextField("title", value)}
         />
 
-        <div className="space-y-4">
+        <aside className="flex flex-col gap-5 border-t border-[var(--border)] pt-4 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-6">
           <PublishChecklist content={formData.content} coverImage={formData.coverImage} slug={formData.slug} title={formData.title} />
-          <section className="ui-surface rounded-2xl p-5">
+          <section className="border-t border-[var(--reader-border-strong)] pt-4">
             <label className="mb-3 flex items-center gap-2 text-sm text-[var(--foreground)]">
               <input
                 checked={formData.published}
-                className="h-4 w-4 rounded border-[var(--border)]"
+                className="ed-checkbox"
                 onChange={(e) => updatePublished(e.target.checked)}
                 type="checkbox"
               />
@@ -187,7 +199,7 @@ export default function EditPostPage({ params }: { params: Promise<{ slug: strin
               </Button>
             </div>
           </section>
-        </div>
+        </aside>
       </div>
     </form>
   );

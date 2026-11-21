@@ -38,7 +38,7 @@ describe("markdown editor", () => {
     expect(screen.getByLabelText("内容")).toBeInTheDocument();
     expect(screen.getByText("实时预览")).toBeInTheDocument();
     expect(screen.getByText("bold")).toBeInTheDocument();
-    expect(container.querySelector(".prose")?.className).toContain("prose-pre:rounded-xl");
+    expect(container.querySelector(".prose")?.className).toContain("prose-pre:rounded-[4px]");
   });
 
   test("applies syntax highlighting in live preview fenced code blocks", () => {

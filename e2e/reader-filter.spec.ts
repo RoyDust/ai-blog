@@ -43,7 +43,7 @@ test("E02 posts listing filter applies and resets", async ({ page }) => {
     await expect(page).toHaveURL((url) => url.pathname === "/posts" && url.searchParams.get("category") === category.slug)
     await expect(matchingLink).toBeVisible()
     await expect(otherLink).toHaveCount(0)
-    await expect(page.getByRole("link", { name: `分类: ${category.slug}`, exact: true })).toBeVisible()
+    await expect(page.getByRole("link", { name: `移除分类：${category.name}`, exact: true })).toBeVisible()
 
     await page.getByRole("link", { name: "清空筛选", exact: true }).click()
     await expect(page).toHaveURL((url) => url.pathname === "/posts" && url.search === "")

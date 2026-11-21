@@ -1,9 +1,8 @@
 "use client";
 
 import { useEffect } from "react";
-import Link from "next/link";
-import { AlertTriangle, Home, RefreshCw } from "lucide-react";
-import { Button } from "@/components/ui/Button";
+import { Reveal, TextLink } from "@/components/editorial";
+import { cn } from "@/lib/cn";
 
 type ErrorScope = "root" | "public" | "admin";
 
@@ -36,32 +35,20 @@ const scopeCopy: Record<ErrorScope, { eyebrow: string; title: string; descriptio
 
 function getFrameClassName(scope: ErrorScope) {
   if (scope === "admin") {
-    return "admin-theme flex min-h-[calc(100vh-8rem)] items-center justify-center text-[var(--foreground)]";
+    return "admin-theme flex min-h-[calc(100vh-8rem)] items-center py-10 text-[var(--foreground)]";
   }
 
   if (scope === "root") {
-    return "reader-shell flex min-h-screen items-center justify-center px-4 py-12 text-[var(--foreground)]";
+    return "flex min-h-screen items-center bg-[var(--page-bg)] px-4 py-12 text-[var(--foreground)] sm:px-6";
   }
 
-  return "flex min-h-[52vh] items-center justify-center py-10 text-[var(--foreground)]";
+  return "flex min-h-[40vh] items-center py-10 text-[var(--foreground)]";
 }
 
-function getPanelClassName(scope: ErrorScope) {
-  if (scope === "admin") {
-    return "w-full max-w-2xl overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm sm:p-8";
-  }
-
-  return "reader-panel w-full max-w-2xl overflow-hidden p-6 sm:p-8";
-}
-
-function getDigestClassName(scope: ErrorScope) {
-  if (scope === "admin") {
-    return "mt-4 break-all rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] px-3 py-2 text-xs text-[var(--text-muted)]";
-  }
-
-  return "mt-4 break-all rounded-lg border border-[var(--reader-border)] bg-[var(--reader-panel-muted)] px-3 py-2 text-xs text-[var(--text-muted)]";
-}
-
+/**
+ * 路由错误边界（简报 16.1「空态与错误态」）：不加容器，一句 danger 色衬线文案 +
+ * 描边按钮「重试」+ 文字链接，整体左对齐；后台按第 13 节用 36px 小号按钮。
+ */
 export function RouteErrorState({ error, reset, scope = "public" }: RouteErrorStateProps) {
   const copy = scopeCopy[scope];
 
@@ -71,38 +58,24 @@ export function RouteErrorState({ error, reset, scope = "public" }: RouteErrorSt
 
   return (
     <div className={getFrameClassName(scope)} data-testid={`${scope}-route-error`}>
-      <section className={getPanelClassName(scope)} role="alert">
-        <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-[var(--danger-border)] bg-[var(--danger-surface)] text-[var(--danger-foreground)]">
-            <AlertTriangle className="h-6 w-6" aria-hidden="true" />
+      <Reveal className={cn("w-full", scope === "root" && "mx-auto max-w-[36rem]")}>
+        <section className="space-y-3" role="alert">
+          <p className="ed-eyebrow">{copy.eyebrow}</p>
+          <h1 className="ed-empty__title ed-empty__title--danger text-[1.0625rem] sm:text-[1.25rem]">{copy.title}</h1>
+          <p className="max-w-prose text-[0.875rem] leading-6 text-[var(--text-muted)]">{copy.description}</p>
+
+          {error.digest ? (
+            <p className="ed-mono break-all text-[0.75rem] text-[var(--text-muted)]">错误编号：{error.digest}</p>
+          ) : null}
+
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 pt-1">
+            <button className={cn("ed-btn-outline", scope === "admin" && "ed-btn--sm")} onClick={reset} type="button">
+              重试
+            </button>
+            <TextLink href={copy.homeHref}>{scope === "admin" ? "回到后台" : "回到首页"}</TextLink>
           </div>
-
-          <div className="min-w-0 flex-1">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--danger-foreground)]">{copy.eyebrow}</p>
-            <h1 className="mt-3 text-2xl font-bold leading-tight text-[var(--foreground)] sm:text-3xl">{copy.title}</h1>
-            <p className="mt-3 max-w-prose text-sm leading-6 text-[var(--text-body)] sm:text-base">{copy.description}</p>
-
-            {error.digest ? (
-              <p className={getDigestClassName(scope)}>
-                错误编号：{error.digest}
-              </p>
-            ) : null}
-
-            <div className="mt-6 flex flex-wrap gap-3">
-              <Button className="gap-2 rounded-full" onClick={reset} type="button">
-                <RefreshCw className="h-4 w-4" aria-hidden="true" />
-                重试
-              </Button>
-              <Button asChild className="gap-2 rounded-full" variant="secondary">
-                <Link href={copy.homeHref}>
-                  <Home className="h-4 w-4" aria-hidden="true" />
-                  {scope === "admin" ? "回到后台" : "回到首页"}
-                </Link>
-              </Button>
-            </div>
-          </div>
-        </div>
-      </section>
+        </section>
+      </Reveal>
     </div>
   );
 }

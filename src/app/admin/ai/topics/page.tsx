@@ -2,10 +2,13 @@ import Link from "next/link"
 import { revalidatePath } from "next/cache"
 import type { ReactNode } from "react"
 
+import { MetricStrip } from "@/components/admin/lists"
+import { adminHairlineRowClassName, adminTabClassName, adminTextActionClassName } from "@/components/admin/primitives/admin-classes"
 import { PageHeader } from "@/components/admin/primitives/PageHeader"
+import { AdminSectionHeader } from "@/components/admin/primitives/SectionHeader"
 import { StatusBadge } from "@/components/admin/primitives/StatusBadge"
-import { WorkspacePanel } from "@/components/admin/primitives/WorkspacePanel"
 import { Button } from "@/components/admin/ui"
+import { ActiveUnderline, EmptyState } from "@/components/editorial"
 import { requireAdminSession } from "@/lib/api-auth"
 import { createDraftFromTopic, listAiTopics, materializeTopicsFromRecentCandidates, updateAiTopic } from "@/lib/ai-topic-radar"
 
@@ -26,11 +29,11 @@ const statusTabs = [
 ] as const
 
 const statusTone = {
-  NEW: "neutral",
+  NEW: "info",
   WATCHING: "warning",
   PLANNED: "success",
   DRAFTED: "success",
-  ARCHIVED: "neutral",
+  ARCHIVED: "muted",
 } as const
 
 const statusLabels: Record<string, string> = {
@@ -86,7 +89,7 @@ function TopicActionButton({ topicId, status, children }: { topicId: string; sta
     <form action={updateTopicStatusAction}>
       <input name="topicId" type="hidden" value={topicId} />
       <input name="status" type="hidden" value={status} />
-      <Button size="sm" type="submit" variant="outline">{children}</Button>
+      <button className={adminTextActionClassName} type="submit">{children}</button>
     </form>
   )
 }
@@ -95,9 +98,9 @@ function DraftActionButton({ topic }: { topic: AiTopicListItem }) {
   return (
     <form action={createDraftAction}>
       <input name="topicId" type="hidden" value={topic.id} />
-      <Button size="sm" type="submit" variant="outline" disabled={topic.status === "DRAFTED"}>
+      <button className={adminTextActionClassName} type="submit" disabled={topic.status === "DRAFTED"}>
         生成草稿
-      </Button>
+      </button>
     </form>
   )
 }
@@ -109,59 +112,68 @@ function TopicCard({ topic }: { topic: AiTopicListItem }) {
     .filter((candidate): candidate is NonNullable<typeof candidate> => Boolean(candidate))
 
   return (
-    <article className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+    <article className={`${adminHairlineRowClassName} py-4`}>
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between lg:gap-8">
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-baseline gap-x-1 text-xs text-[var(--text-muted)]">
             <StatusBadge tone={tone}>{statusLabels[topic.status] ?? topic.status}</StatusBadge>
-            <span className="text-sm text-[var(--muted)]">热度 {topic.heat}</span>
-            <span className="text-sm text-[var(--muted)]">评分 {topic.score}</span>
-            <span className="text-sm text-[var(--muted)]">来源 {topic.sourceCount}</span>
+            <span className="ed-meta-sep">·</span>
+            <span className="font-mono tabular-nums">热度 {topic.heat}</span>
+            <span className="ed-meta-sep">·</span>
+            <span className="font-mono tabular-nums">评分 {topic.score}</span>
+            <span className="ed-meta-sep">·</span>
+            <span className="font-mono tabular-nums">来源 {topic.sourceCount}</span>
+            <span className="ed-meta-sep">·</span>
+            <span className="font-mono tabular-nums">首次 {formatDate(topic.firstSeenAt)}</span>
+            <span className="ed-meta-sep">·</span>
+            <span className="font-mono tabular-nums">最近 {formatDate(topic.lastSeenAt)}</span>
+            {topic.postId ? (
+              <>
+                <span className="ed-meta-sep">·</span>
+                <span className="font-mono">草稿 {topic.postId}</span>
+              </>
+            ) : null}
           </div>
-          <h2 className="mt-3 text-lg font-semibold text-[var(--foreground)]">{topic.title}</h2>
-          {topic.summary ? <p className="mt-2 text-sm leading-6 text-[var(--muted)]">{topic.summary}</p> : null}
-          {topic.angle ? <p className="mt-2 text-sm leading-6 text-[var(--muted)]">{topic.angle}</p> : null}
+          <h2 className="mt-1.5 font-serif text-[1.0625rem] leading-snug font-bold text-[var(--foreground)]">{topic.title}</h2>
+          {topic.summary ? <p className="mt-1 text-[0.875rem] leading-6 text-[var(--text-body)]">{topic.summary}</p> : null}
+          {topic.angle ? <p className="mt-1 border-l-2 border-[var(--focus)] pl-3 text-[0.8125rem] leading-6 text-[var(--text-muted)]">{topic.angle}</p> : null}
 
-          <div className="mt-3 flex flex-wrap gap-2">
-            {topic.tags.map((tag) => (
-              <span key={tag} className="rounded-md border border-[var(--border)] px-2 py-1 text-xs text-[var(--muted)]">
-                {tag}
-              </span>
-            ))}
-            {topic.riskFlags.map((flag) => (
-              <span key={flag} className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-amber-700">
-                {flag}
-              </span>
-            ))}
-          </div>
+          {topic.tags.length > 0 || topic.riskFlags.length > 0 ? (
+            <p className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs">
+              {topic.tags.map((tag) => (
+                <span key={tag} className="ed-tag">
+                  #{tag}
+                </span>
+              ))}
+              {topic.riskFlags.map((flag) => (
+                <span key={flag} className="font-bold text-[var(--warning)]">
+                  {flag}
+                </span>
+              ))}
+            </p>
+          ) : null}
+
+          {candidates.length > 0 ? (
+            <ul className="mt-2.5 border-t border-[var(--border)]">
+              {candidates.map((candidate) => (
+                <li key={candidate.id} className="flex min-w-0 items-baseline gap-2 border-b border-[var(--border)] py-1.5 text-[0.8125rem]">
+                  <a className="min-w-0 truncate text-[var(--text-body)] underline decoration-[var(--reader-border-strong)] decoration-1 underline-offset-4 transition-colors hover:text-[var(--foreground)] hover:decoration-[var(--accent-sky)]" href={candidate.url} target="_blank" rel="noreferrer">
+                    {candidate.title}
+                  </a>
+                  <span className="shrink-0 text-xs text-[var(--text-muted)]">
+                    {candidate.sourceName} · {candidate.aiScore == null ? "未评分" : `评分 ${candidate.aiScore}`}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
         </div>
 
-        <div className="flex flex-wrap gap-2 lg:justify-end">
+        <div className="flex shrink-0 flex-wrap items-center gap-3.5 lg:justify-end">
           <TopicActionButton topicId={topic.id} status="WATCHING">设为观察</TopicActionButton>
           <TopicActionButton topicId={topic.id} status="PLANNED">加入规划</TopicActionButton>
           <DraftActionButton topic={topic} />
           <TopicActionButton topicId={topic.id} status="ARCHIVED">归档</TopicActionButton>
-        </div>
-      </div>
-
-      <div className="mt-4 border-t border-[var(--border)] pt-4">
-        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-[var(--muted)]">
-          <span>首次发现 {formatDate(topic.firstSeenAt)}</span>
-          <span>最近发现 {formatDate(topic.lastSeenAt)}</span>
-          {topic.postId ? <span>草稿 {topic.postId}</span> : null}
-        </div>
-
-        <div className="mt-3 space-y-2">
-          {candidates.map((candidate) => (
-            <div key={candidate.id} className="rounded-lg bg-[var(--surface-muted)] px-3 py-2">
-              <a className="text-sm font-medium text-[var(--brand)] hover:underline" href={candidate.url} target="_blank" rel="noreferrer">
-                {candidate.title}
-              </a>
-              <p className="mt-1 text-xs text-[var(--muted)]">
-                {candidate.sourceName} · {candidate.aiScore == null ? "未评分" : `评分 ${candidate.aiScore}`}
-              </p>
-            </div>
-          ))}
         </div>
       </div>
     </article>
@@ -177,8 +189,12 @@ export default async function AdminAiTopicsPage({
   const activeStatus = params.status ?? "NEW"
   const topics = await listAiTopics({ status: activeStatus })
 
+  const riskyCount = topics.filter((topic) => topic.riskFlags.length > 0).length
+  const topHeat = topics.reduce((max, topic) => Math.max(max, topic.heat), 0)
+  const activeLabel = statusLabels[activeStatus] ?? activeStatus
+
   return (
-    <div className="space-y-6">
+    <div>
       <PageHeader
         eyebrow="AI 雷达"
         title="AI 选题池 / 内容雷达"
@@ -190,39 +206,44 @@ export default async function AdminAiTopicsPage({
         }
       />
 
-      <section className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3">
-        <div className="flex flex-wrap items-center gap-2">
+      <MetricStrip
+        ariaLabel="选题概况"
+        className="mt-1"
+        items={[
+          { key: "count", label: activeLabel, value: topics.length.toLocaleString("zh-CN"), note: "当前状态下的选题" },
+          { key: "heat", label: "最高热度", value: topHeat.toLocaleString("zh-CN"), note: "按来源数与时效加权" },
+          { key: "risk", label: "带风险标记", value: riskyCount.toLocaleString("zh-CN"), note: "成稿前需要人工核实", tone: riskyCount > 0 ? "warning" : "default" },
+        ]}
+      />
+
+      <section aria-labelledby="admin-ai-topics-title" className="mt-6">
+        <AdminSectionHeader
+          aside={<span className="ed-mono">{activeLabel}：{topics.length} 个选题</span>}
+          description="热度、分数、来源与编辑状态"
+          id="admin-ai-topics-title"
+          title="选题雷达"
+        />
+        <nav aria-label="选题状态" className="flex flex-wrap items-center gap-1 pt-3 pb-3.5">
           {statusTabs.map((tab) => {
             const active = activeStatus === tab.status
 
             return (
-              <Link
-                key={tab.status}
-                href={topicHref(tab.status)}
-                className={
-                  active
-                    ? "rounded-md bg-[var(--primary)] px-3 py-2 text-sm text-white"
-                    : "rounded-md border border-[var(--border)] px-3 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--surface-muted)]"
-                }
-              >
+              <Link key={tab.status} aria-current={active ? "page" : undefined} className={adminTabClassName} href={topicHref(tab.status)}>
                 {tab.label}
+                {active ? <ActiveUnderline layoutId="admin-ai-topic-status" /> : null}
               </Link>
             )
           })}
+        </nav>
+
+        <div className="border-t border-[var(--reader-border-strong)]">
+          {topics.length === 0 ? (
+            <EmptyState description="点击「重新生成选题」从最近 7 天的候选里沉淀。" role="status" title="当前状态下暂无选题。" />
+          ) : (
+            topics.map((topic) => <TopicCard key={topic.id} topic={topic} />)
+          )}
         </div>
       </section>
-
-      <WorkspacePanel title="选题雷达" description={`${statusLabels[activeStatus] ?? activeStatus}：${topics.length} 个选题`} className="border border-[var(--border)]">
-        {topics.length === 0 ? (
-          <p className="text-sm text-[var(--muted)]">当前状态下暂无选题。</p>
-        ) : (
-          <div className="space-y-4">
-            {topics.map((topic) => (
-              <TopicCard key={topic.id} topic={topic} />
-            ))}
-          </div>
-        )}
-      </WorkspacePanel>
     </div>
   )
 }

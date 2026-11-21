@@ -36,6 +36,23 @@ describe("DataTable", () => {
     expect(onBulk).toHaveBeenCalledWith(["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]);
   });
 
+  test("shows the bulk bar only after something is selected", () => {
+    render(
+      <DataTable
+        bulkActions={[{ label: "执行批量", onClick: vi.fn() }]}
+        columns={[{ key: "name", label: "名称", render: (row) => row.name }]}
+        emptyText="暂无数据"
+        pageSize={10}
+        rows={rows}
+        title="测试表格"
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: "执行批量" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("checkbox", { name: "选择当前页" }));
+    expect(screen.getByRole("button", { name: "执行批量" })).toBeEnabled();
+  });
+
   test("marks the header checkbox as mixed when only part of the current page is selected", () => {
     render(
       <DataTable

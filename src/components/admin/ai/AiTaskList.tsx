@@ -1,11 +1,13 @@
 import Link from "next/link";
-import { ListChecks } from "lucide-react";
+import type { ReactNode } from "react";
 
+import { MotionTableRow } from "@/components/admin/lists";
 import { AdminPagination } from "@/components/admin/primitives/AdminPagination";
+import { adminTextActionClassName } from "@/components/admin/primitives/admin-classes";
+import { AdminSectionHeader } from "@/components/admin/primitives/SectionHeader";
 import { StatusBadge } from "@/components/admin/primitives/StatusBadge";
-import { Button } from "@/components/admin/ui";
-import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/shadcn/ui/empty";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/shadcn/ui/table";
+import { EmptyState } from "@/components/editorial";
+import { TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/shadcn/ui/table";
 
 type Task = {
   id: string;
@@ -62,7 +64,8 @@ const statusLabels: Record<string, string> = {
 function statusTone(status: string) {
   if (status === "SUCCEEDED") return "success";
   if (status === "FAILED" || status === "PARTIAL_FAILED") return "danger";
-  if (status === "RUNNING" || status === "QUEUED") return "warning";
+  if (status === "RUNNING") return "info";
+  if (status === "QUEUED") return "warning";
   return "neutral";
 }
 
@@ -101,75 +104,83 @@ export function AiTaskList({
   tasks,
   pagination,
   searchParams,
+  toolbar,
 }: {
   tasks: Task[];
   pagination: Pagination;
   searchParams?: AiTaskListSearchParams;
+  /** 区块标题之下、表格之上的工具栏（状态筛选） */
+  toolbar?: ReactNode;
 }) {
   return (
-    <section className="overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)]">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] px-4 py-3">
-        <div>
-          <h2 className="text-base font-semibold text-[var(--foreground)]">任务记录</h2>
-          <p className="mt-1 text-xs text-[var(--text-muted)]">共 {pagination.total} 个 AI 任务，按最近创建排序。</p>
-        </div>
-        <span className="rounded-md border border-[var(--border)] bg-[var(--surface-alt)] px-2.5 py-1 text-xs font-medium text-[var(--text-body)]">
-          第 {pagination.page} / {pagination.totalPages} 页
-        </span>
-      </header>
+    <section aria-labelledby="admin-ai-tasks-title">
+      <AdminSectionHeader
+        aside={
+          <span className="ed-mono">
+            第 {pagination.page} / {Math.max(pagination.totalPages, 1)} 页<span className="ed-meta-sep">·</span>
+            {pagination.total} 个任务
+          </span>
+        }
+        description={`共 ${pagination.total} 个 AI 任务，按最近创建排序。`}
+        id="admin-ai-tasks-title"
+        title="任务记录"
+      />
+      {toolbar ? <div className="pt-3 pb-3.5">{toolbar}</div> : <div className="pt-3" />}
 
       {tasks.length === 0 ? (
-        <Empty className="border-0" role="status">
-          <EmptyMedia variant="icon">
-            <ListChecks className="size-5" />
-          </EmptyMedia>
-          <EmptyHeader>
-            <EmptyTitle>暂无 AI 任务记录</EmptyTitle>
-            <EmptyDescription>去文章列表选择内容并运行 AI 任务后，记录会出现在这里。</EmptyDescription>
-          </EmptyHeader>
-        </Empty>
+        <div className="border-t border-[var(--reader-border-strong)]">
+          <EmptyState description="去文章列表选择内容并运行 AI 任务后，记录会出现在这里。" role="status" title="暂无 AI 任务记录" />
+        </div>
       ) : (
         <div className="overflow-x-auto">
-          <Table className="min-w-[900px] table-fixed">
-            <TableHeader className="border-b border-[var(--border)] bg-[var(--surface-alt)] shadow-[0_1px_0_rgba(15,23,42,0.06)]">
-              <TableRow className="border-0 hover:bg-transparent">
-                {["任务", "状态", "进度", "耗时", "创建时间", "最近错误", "操作"].map((label) => (
-                  <TableHead key={label} className="px-4 py-3.5 text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">
-                    {label}
-                  </TableHead>
-                ))}
+          <table className="w-full min-w-[900px] table-fixed caption-bottom text-sm" data-slot="table">
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[26%]">任务</TableHead>
+                <TableHead className="w-[84px]">状态</TableHead>
+                <TableHead className="w-[136px]">进度</TableHead>
+                <TableHead className="w-[80px] text-right">耗时</TableHead>
+                <TableHead className="w-[120px]">创建时间</TableHead>
+                <TableHead>最近错误</TableHead>
+                <TableHead className="w-[64px]">操作</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {tasks.map((task) => (
-                <TableRow key={task.id} className="border-[var(--border)] transition-colors hover:bg-[var(--surface-alt)]/80">
-                  <TableCell className="whitespace-normal px-4 py-4 align-top">
-                    <div className="space-y-1">
-                      <p className="font-medium text-[var(--foreground)]">{taskTypeLabels[task.type] ?? task.type}</p>
-                      <p className="text-xs text-[var(--text-muted)]">{task.source} · {task.modelId ?? "默认模型"}</p>
-                    </div>
+                <MotionTableRow key={task.id}>
+                  <TableCell className="overflow-hidden">
+                    <span className="flex min-w-0 items-baseline gap-2">
+                      {/* 每行只保留一个指向详情的链接（操作列「查看」），避免同 href 重复 */}
+                      <span className="shrink-0 font-serif text-[0.9375rem] font-bold text-[var(--foreground)]">{taskTypeLabels[task.type] ?? task.type}</span>
+                      <span className="min-w-0 truncate text-xs text-[var(--text-muted)]">
+                        {task.source} · {task.modelId ?? "默认模型"}
+                      </span>
+                    </span>
                   </TableCell>
-                  <TableCell className="px-4 py-4 align-top">
+                  <TableCell>
                     <StatusBadge tone={statusTone(task.status)}>{statusLabels[task.status] ?? task.status}</StatusBadge>
                   </TableCell>
-                  <TableCell className="whitespace-normal px-4 py-4 align-top text-sm text-[var(--foreground)]">
+                  <TableCell className="font-mono text-[0.8125rem] text-[var(--foreground)] tabular-nums">
                     {task.succeededCount}/{task.requestedCount} 成功
-                    {task.failedCount > 0 ? <span className="ml-2 text-rose-600">{task.failedCount} 失败</span> : null}
+                    {task.failedCount > 0 ? <span className="ml-2 font-bold text-[var(--danger-foreground)]">{task.failedCount} 失败</span> : null}
                   </TableCell>
-                  <TableCell className="px-4 py-4 align-top text-sm text-[var(--text-muted)]">{formatDuration(task)}</TableCell>
-                  <TableCell className="px-4 py-4 align-top text-sm text-[var(--text-muted)]">{formatDate(task.createdAt)}</TableCell>
-                  <TableCell className="whitespace-normal px-4 py-4 align-top text-sm text-[var(--text-muted)]">
-                    <span className="line-clamp-2">{task.lastError ?? "-"}</span>
+                  <TableCell className="text-right font-mono text-[0.8125rem] text-[var(--text-muted)] tabular-nums">{formatDuration(task)}</TableCell>
+                  <TableCell className="font-mono text-[0.8125rem] text-[var(--text-muted)] tabular-nums">{formatDate(task.createdAt)}</TableCell>
+                  <TableCell
+                    className={`truncate text-[0.8125rem] ${task.lastError ? "text-[var(--danger-foreground)]" : "text-[var(--text-muted)]"}`}
+                    title={task.lastError ?? undefined}
+                  >
+                    {task.lastError ?? "-"}
                   </TableCell>
-                  <TableCell className="px-4 py-4 align-top">
-                    <Link href={`/admin/ai/tasks/${task.id}`}>
-                      <Button size="sm" variant="outline" type="button">查看</Button>
+                  <TableCell>
+                    <Link className={adminTextActionClassName} href={`/admin/ai/tasks/${task.id}`}>
+                      查看
                     </Link>
                   </TableCell>
-                </TableRow>
+                </MotionTableRow>
               ))}
             </TableBody>
-          </Table>
+          </table>
         </div>
       )}
 

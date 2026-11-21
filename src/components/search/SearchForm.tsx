@@ -34,10 +34,10 @@ export function SearchForm({
 
       {isNavbar ? (
         <div className="group relative w-full">
-          <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)] transition-colors duration-200 group-focus-within:text-[var(--accent-sky)]" />
+          <Search aria-hidden="true" className="pointer-events-none absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-[var(--text-muted)] transition-colors duration-200 group-focus-within:text-[var(--foreground)]" />
           <input
             aria-label={inputLabel}
-            className="ui-ring h-9 w-full rounded-lg border border-[var(--reader-border)] bg-[color:color-mix(in_oklab,var(--reader-panel-muted)_62%,transparent)] pr-3 pl-9 text-[0.78rem] text-[var(--foreground)] placeholder:text-[var(--text-muted)] shadow-[inset_0_1px_0_color-mix(in_oklab,var(--foreground)_6%,transparent)] transition-[background-color,border-color,box-shadow] duration-200 ease-out focus-visible:border-[color:color-mix(in_oklab,var(--accent-sky)_38%,var(--reader-border))] focus-visible:bg-[var(--reader-panel-elevated)] focus-visible:ring-2 focus-visible:ring-[color:color-mix(in_oklab,var(--accent-sky)_22%,transparent)]"
+            className="h-9 w-full rounded-[var(--radius-ctl)] border border-[var(--reader-border-strong)] bg-transparent pr-3 pl-8 text-[0.8125rem] text-[var(--foreground)] transition-[border-color] duration-200 ease-out placeholder:text-[var(--text-muted)] hover:border-[var(--text-muted)]"
             defaultValue={defaultValue}
             id="site-search-input"
             name="q"
@@ -47,16 +47,23 @@ export function SearchForm({
         </div>
       ) : (
         <>
-          <input
-            aria-label={inputLabel}
-            className="ui-ring w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--foreground)] placeholder:text-[var(--muted)] focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
-            defaultValue={defaultValue}
-            id="site-search-input"
-            name="q"
-            placeholder={placeholder}
-            type="search"
-          />
-          <button className="ui-btn shrink-0 bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-white hover:opacity-90" type="submit">
+          <div className="group relative min-w-0 flex-1">
+            <Search
+              aria-hidden="true"
+              className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)] transition-colors duration-200 group-focus-within:text-[var(--foreground)]"
+            />
+            {/* 手机上 16px 字号，避免 iOS Safari 聚焦时自动放大页面 */}
+            <input
+              aria-label={inputLabel}
+              className="ed-input pl-9 text-base sm:text-[0.9375rem]"
+              defaultValue={defaultValue}
+              id="site-search-input"
+              name="q"
+              placeholder={placeholder}
+              type="search"
+            />
+          </div>
+          <button className="ed-btn" type="submit">
             {buttonLabel}
           </button>
         </>

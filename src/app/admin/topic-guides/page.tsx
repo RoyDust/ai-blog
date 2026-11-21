@@ -8,12 +8,19 @@ import { toast } from "sonner";
 import useSWR from "swr";
 import { z } from "zod";
 
+import { EntityFormShell } from "@/components/admin/forms/EntityFormShell";
+import { ListSearchInput, LoadingStatus, MetricStrip, MotionTableRow, SkeletonTableRows, TableStateRow } from "@/components/admin/lists";
+import { adminTextActionClassName, adminTextActionDangerClassName } from "@/components/admin/primitives/admin-classes";
 import { PageHeader } from "@/components/admin/primitives/PageHeader";
+import { AdminSectionHeader } from "@/components/admin/primitives/SectionHeader";
 import { StatusBadge } from "@/components/admin/primitives/StatusBadge";
-import { WorkspacePanel } from "@/components/admin/primitives/WorkspacePanel";
+import { Toolbar } from "@/components/admin/primitives/Toolbar";
 import { Button } from "@/components/admin/ui";
+import { EmptyState } from "@/components/editorial";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/shadcn/ui/form";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/shadcn/ui/table";
+import { Input } from "@/components/shadcn/ui/input";
+import { TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/shadcn/ui/table";
+import { Textarea } from "@/components/shadcn/ui/textarea";
 import { apiFetcher, apiMutate, handleGlobalSwrError, toErrorMessage } from "@/lib/client-api";
 
 type GuideStatus = "draft" | "published" | "archived";
@@ -89,10 +96,10 @@ const statusLabels: Record<GuideStatus, string> = {
   archived: "已归档",
 };
 
-const statusTone: Record<GuideStatus, "neutral" | "success" | "warning"> = {
-  draft: "neutral",
+const statusTone: Record<GuideStatus, "muted" | "success" | "warning"> = {
+  draft: "warning",
   published: "success",
-  archived: "warning",
+  archived: "muted",
 };
 
 function toSlug(value: string) {
@@ -250,22 +257,112 @@ export default function AdminTopicGuidesPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div>
       <PageHeader
         eyebrow="内容编排"
         title="专题导读"
         description="把已发布文章编排成可连续阅读的导读路径。第一版使用确定顺序和编辑备注，不接入 AI 排序。"
         action={
-          <Link href="/guides">
-            <Button size="sm" variant="outline">
-              前台预览
-            </Button>
-          </Link>
+          <Button asChild variant="outline">
+            <Link href="/guides">前台预览</Link>
+          </Button>
         }
       />
 
-      <section className="grid gap-6 xl:grid-cols-[420px_minmax(0,1fr)]">
-        <WorkspacePanel title={editingGuideId ? "编辑专题" : "新建专题"} description="选择已发布文章后，可用上移/下移调整阅读顺序。" fillHeight={false}>
+      <MetricStrip
+        className="mt-1"
+        items={[
+          { key: "total", label: "专题", value: guides.length.toLocaleString("zh-CN"), note: "全部专题导读" },
+          { key: "published", label: "已发布", value: guides.filter((guide) => guide.status === "published").length.toLocaleString("zh-CN"), note: "前台可见", tone: "success" },
+          { key: "draft", label: "草稿", value: guides.filter((guide) => guide.status === "draft").length.toLocaleString("zh-CN"), note: "待完善后发布" },
+          { key: "options", label: "可选文章", value: postOptions.length.toLocaleString("zh-CN"), note: "最近 50 篇已发布" },
+        ]}
+      />
+
+      <section className="mt-6 grid gap-x-8 gap-y-8 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="min-w-0">
+          <AdminSectionHeader
+            aside={<span className="ed-mono">共 {filteredGuides.length} 个专题导读</span>}
+            description="状态、文章顺序与发布操作"
+            title="专题列表"
+          />
+          <Toolbar leading={<ListSearchInput ariaLabel="搜索专题导读" onChange={setQuery} placeholder="搜索标题或 slug" value={query} />} />
+          <div aria-busy={loading || undefined} className="overflow-x-auto">
+            {loading ? <LoadingStatus label="正在加载专题导读..." /> : null}
+            <table className="w-full min-w-[640px] table-fixed caption-bottom text-sm" data-slot="table">
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[30%]">专题</TableHead>
+                  <TableHead className="w-[64px]">状态</TableHead>
+                  <TableHead>文章顺序</TableHead>
+                  <TableHead className="w-[224px]">操作</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <SkeletonTableRows bars={["w-[70%]", "w-10", "w-[80%]", "w-40"]} rows={4} />
+                ) : filteredGuides.length > 0 ? (
+                  filteredGuides.map((guide) => (
+                    <MotionTableRow key={guide.id}>
+                      <TableCell className="overflow-hidden">
+                        <span className="flex min-w-0 items-baseline gap-2" title={guide.description ?? undefined}>
+                          <span className="shrink-0 font-serif text-[0.9375rem] font-bold text-[var(--foreground)]">{guide.title}</span>
+                          <span className="min-w-0 truncate font-mono text-xs text-[var(--text-muted)]">/guides/{guide.slug}</span>
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <StatusBadge tone={statusTone[guide.status]}>{statusLabels[guide.status]}</StatusBadge>
+                      </TableCell>
+                      <TableCell className="overflow-hidden">
+                        <span className="block truncate text-xs text-[var(--text-muted)]">
+                          {guide.posts.slice(0, 4).map((item) => (
+                            <span key={item.id} className="mr-3">
+                              {item.order}. {item.post.title}
+                            </span>
+                          ))}
+                          {guide.posts.length > 4 ? <span>另 {guide.posts.length - 4} 篇</span> : null}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <span className="flex items-center gap-3">
+                          <button type="button" className={adminTextActionClassName} onClick={() => guideForm.reset(guideToForm(guide))}>
+                            编辑
+                          </button>
+                          {guide.status !== "published" ? (
+                            <button type="button" className={adminTextActionClassName} onClick={() => void patchGuideStatus(guide, "published")}>
+                              发布
+                            </button>
+                          ) : (
+                            <button type="button" className={adminTextActionClassName} onClick={() => void patchGuideStatus(guide, "draft")}>
+                              下线
+                            </button>
+                          )}
+                          {guide.status !== "archived" ? (
+                            <button type="button" className={adminTextActionClassName} onClick={() => void patchGuideStatus(guide, "archived")}>
+                              归档
+                            </button>
+                          ) : null}
+                          <Link className={adminTextActionClassName} href={`/guides/${guide.slug}`}>
+                            预览
+                          </Link>
+                          <button type="button" className={adminTextActionDangerClassName} onClick={() => void deleteGuide(guide)}>
+                            删除
+                          </button>
+                        </span>
+                      </TableCell>
+                    </MotionTableRow>
+                  ))
+                ) : (
+                  <TableStateRow colSpan={4}>
+                    <EmptyState description={query.trim() ? "换个关键词再试。" : "在表单里新建第一个专题导读。"} role="status" title="暂无专题导读" />
+                  </TableStateRow>
+                )}
+              </TableBody>
+            </table>
+          </div>
+        </div>
+
+        <EntityFormShell title={editingGuideId ? "编辑专题" : "新建专题"} description="选择已发布文章后，可用上移/下移调整阅读顺序。">
           <Form {...guideForm}>
             <form onSubmit={guideForm.handleSubmit(submitGuide)} className="space-y-4">
               <FormField
@@ -275,8 +372,7 @@ export default function AdminTopicGuidesPage() {
                   <FormItem>
                     <FormLabel>标题</FormLabel>
                     <FormControl>
-                      <input
-                        className="ui-ring w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm"
+                      <Input
                         {...field}
                         onChange={(event) => {
                           field.onChange(event);
@@ -298,11 +394,7 @@ export default function AdminTopicGuidesPage() {
                   <FormItem>
                     <FormLabel>Slug</FormLabel>
                     <FormControl>
-                      <input
-                        className="ui-ring w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm"
-                        {...field}
-                        onChange={(event) => field.onChange(toSlug(event.target.value))}
-                      />
+                      <Input className="font-mono" {...field} onChange={(event) => field.onChange(toSlug(event.target.value))} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -316,7 +408,7 @@ export default function AdminTopicGuidesPage() {
                   <FormItem>
                     <FormLabel>描述</FormLabel>
                     <FormControl>
-                      <textarea className="ui-ring min-h-24 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm" {...field} />
+                      <Textarea className="min-h-24" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -330,7 +422,7 @@ export default function AdminTopicGuidesPage() {
                   <FormItem>
                     <FormLabel>状态</FormLabel>
                     <FormControl>
-                      <select className="ui-ring w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm" {...field}>
+                      <select className="ed-select ed-select--sm w-full" {...field}>
                         <option value="draft">草稿</option>
                         <option value="published">发布</option>
                         <option value="archived">归档</option>
@@ -348,22 +440,22 @@ export default function AdminTopicGuidesPage() {
                   <FormItem>
                     <FormLabel>选择文章</FormLabel>
                     <FormDescription>只从已发布文章列表选择，公开页仍会再次过滤草稿和已删除文章。</FormDescription>
-                    <div className="max-h-56 space-y-2 overflow-y-auto rounded-xl border border-[var(--border)] p-2">
+                    <div className="max-h-56 overflow-y-auto rounded-[var(--radius-ctl)] border border-[var(--reader-border-strong)] px-2">
                       {postOptions.length > 0 ? postOptions.map((post) => (
-                        <label key={post.id} className="flex cursor-pointer items-start gap-2 rounded-lg px-2 py-2 text-sm hover:bg-[var(--surface-muted)]">
+                        <label key={post.id} className="flex cursor-pointer items-start gap-2.5 border-b border-[var(--border)] py-2 text-sm last:border-b-0">
                           <input
                             type="checkbox"
-                            className="mt-1"
+                            className="ed-checkbox mt-0.5"
                             checked={selectedPostIds.includes(post.id)}
                             onChange={() => togglePost(post)}
                           />
                           <span className="min-w-0">
                             <span className="block truncate font-medium text-[var(--foreground)]">{post.title}</span>
-                            <span className="block truncate font-mono text-xs text-[var(--muted)]">/posts/{post.slug}</span>
+                            <span className="block truncate font-mono text-xs text-[var(--text-muted)]">/posts/{post.slug}</span>
                           </span>
                         </label>
                       )) : (
-                        <p className="px-2 py-4 text-sm text-[var(--muted)]">暂无可选文章</p>
+                        <p className="py-4 text-sm text-[var(--text-muted)]">暂无可选文章</p>
                       )}
                     </div>
                     <FormMessage />
@@ -372,14 +464,14 @@ export default function AdminTopicGuidesPage() {
               />
 
             {selectedPosts.length > 0 ? (
-              <div className="space-y-2">
-                <h3 className="text-sm font-semibold text-[var(--foreground)]">阅读顺序</h3>
+              <div>
+                <h3 className="border-b border-[var(--reader-border-strong)] pb-1.5 text-xs font-bold text-[var(--text-muted)]">阅读顺序</h3>
                 {selectedPosts.map((post, index) => (
-                  <div key={post.id} className="rounded-xl border border-[var(--border)] p-3">
+                  <div key={post.id} className="border-b border-[var(--border)] py-3">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-[var(--foreground)]">{index + 1}. {post.title}</p>
-                        <p className="truncate font-mono text-xs text-[var(--muted)]">/posts/{post.slug}</p>
+                        <p className="truncate text-sm font-bold text-[var(--foreground)]"><span className="mr-1.5 font-mono text-[var(--text-muted)]">{String(index + 1).padStart(2, "0")}</span>{post.title}</p>
+                        <p className="truncate font-mono text-xs text-[var(--text-muted)]">/posts/{post.slug}</p>
                       </div>
                       <div className="flex shrink-0 gap-1">
                         <Button
@@ -404,7 +496,7 @@ export default function AdminTopicGuidesPage() {
                     </div>
                     <textarea
                       aria-label={`${post.title} 导读备注`}
-                      className="ui-ring mt-2 min-h-16 w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm"
+                      className="mt-2 min-h-16 w-full resize-y rounded-[var(--radius-ctl)] border border-[var(--reader-border-strong)] bg-transparent px-2.5 py-2 text-base text-[var(--foreground)] transition-[border-color] duration-150 placeholder:text-[var(--text-muted)] hover:border-[var(--text-muted)] focus-visible:border-[var(--foreground)] md:text-sm"
                       placeholder="这篇文章在专题中的阅读提示"
                       value={notesByPostId[post.id] ?? ""}
                       onChange={(event) =>
@@ -417,110 +509,18 @@ export default function AdminTopicGuidesPage() {
             ) : null}
 
             <div className="flex flex-wrap gap-2">
-              <Button disabled={guideForm.formState.isSubmitting} size="sm" type="submit">
+              <Button disabled={guideForm.formState.isSubmitting} type="submit">
                 {guideForm.formState.isSubmitting ? "保存中..." : editingGuideId ? "保存专题" : "创建专题"}
               </Button>
               {editingGuideId ? (
-                <Button disabled={guideForm.formState.isSubmitting} size="sm" type="button" variant="outline" onClick={() => guideForm.reset(emptyForm)}>
+                <Button disabled={guideForm.formState.isSubmitting} type="button" variant="outline" onClick={() => guideForm.reset(emptyForm)}>
                   取消编辑
                 </Button>
               ) : null}
             </div>
             </form>
           </Form>
-        </WorkspacePanel>
-
-        <WorkspacePanel
-          title="专题列表"
-          description={`共 ${filteredGuides.length} 个专题导读`}
-          actions={
-            <input
-              aria-label="搜索专题导读"
-              className="ui-ring min-w-[220px] rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm"
-              placeholder="搜索标题或 slug"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-            />
-          }
-        >
-          <Table className="min-w-[760px] table-fixed">
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[38%]">专题</TableHead>
-                <TableHead className="w-[96px]">状态</TableHead>
-                <TableHead className="w-[28%]">文章顺序</TableHead>
-                <TableHead>操作</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                <TableRow>
-                  <TableCell colSpan={4} className="py-8 text-center text-[var(--muted)]">
-                    正在加载专题导读...
-                  </TableCell>
-                </TableRow>
-              ) : filteredGuides.length > 0 ? (
-                filteredGuides.map((guide) => (
-                  <TableRow key={guide.id}>
-                    <TableCell className="whitespace-normal align-top">
-                      <div className="space-y-1">
-                        <div className="font-medium text-[var(--foreground)]">{guide.title}</div>
-                        <div className="font-mono text-xs text-[var(--muted)]">/guides/{guide.slug}</div>
-                        {guide.description ? <p className="line-clamp-2 text-xs leading-5 text-[var(--muted)]">{guide.description}</p> : null}
-                      </div>
-                    </TableCell>
-                    <TableCell className="align-top">
-                      <StatusBadge tone={statusTone[guide.status]}>{statusLabels[guide.status]}</StatusBadge>
-                    </TableCell>
-                    <TableCell className="whitespace-normal align-top">
-                      <ol className="space-y-1 text-xs text-[var(--muted)]">
-                        {guide.posts.slice(0, 4).map((item) => (
-                          <li key={item.id} className="line-clamp-1">
-                            {item.order}. {item.post.title}
-                          </li>
-                        ))}
-                      </ol>
-                      {guide.posts.length > 4 ? <p className="mt-1 text-xs text-[var(--muted)]">另 {guide.posts.length - 4} 篇</p> : null}
-                    </TableCell>
-                    <TableCell className="whitespace-normal align-top">
-                      <div className="flex flex-wrap items-center gap-3">
-                        <button type="button" className="text-[var(--brand)] hover:underline" onClick={() => guideForm.reset(guideToForm(guide))}>
-                          编辑
-                        </button>
-                        {guide.status !== "published" ? (
-                          <button type="button" className="text-emerald-700 hover:underline" onClick={() => void patchGuideStatus(guide, "published")}>
-                            发布
-                          </button>
-                        ) : (
-                          <button type="button" className="text-amber-700 hover:underline" onClick={() => void patchGuideStatus(guide, "draft")}>
-                            下线
-                          </button>
-                        )}
-                        {guide.status !== "archived" ? (
-                          <button type="button" className="text-[var(--foreground)] hover:underline" onClick={() => void patchGuideStatus(guide, "archived")}>
-                            归档
-                          </button>
-                        ) : null}
-                        <Link className="text-[var(--foreground)] hover:text-[var(--brand)]" href={`/guides/${guide.slug}`}>
-                          预览
-                        </Link>
-                        <button type="button" className="text-rose-600 hover:underline" onClick={() => void deleteGuide(guide)}>
-                          删除
-                        </button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={4} className="py-8 text-center text-[var(--muted)]">
-                    暂无专题导读
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </WorkspacePanel>
+        </EntityFormShell>
       </section>
     </div>
   );

@@ -3,7 +3,6 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { Card, CardContent } from "@/components/ui";
 import { getPostLoginRedirect } from "@/lib/login-redirect";
 
 export default function AuthRedirectPage() {
@@ -19,10 +18,10 @@ export default function AuthRedirectPage() {
   }, [router, session?.user?.role, status]);
 
   return (
-    <Card className="rounded-3xl border-[var(--border)] bg-[var(--surface)]">
-      <CardContent>
-        <div className="p-6 text-center text-sm text-75">正在进入...</div>
-      </CardContent>
-    </Card>
+    <div className="space-y-3 py-2" role="status" aria-live="polite">
+      <p className="ed-eyebrow">账号</p>
+      <p className="ed-empty__title">正在进入...</p>
+      <span aria-hidden="true" className="ed-skel block h-[2px] w-24" />
+    </div>
   );
 }

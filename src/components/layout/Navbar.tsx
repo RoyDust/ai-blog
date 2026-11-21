@@ -1,44 +1,55 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
-import { Archive, BookOpenText, Home, ListTree, Menu, Moon, Palette, Search, Sun, UserRound } from "lucide-react";
+import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from "motion/react";
+import { Menu, Search } from "lucide-react";
 
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useTheme } from "@/components/ThemeProvider";
 import { AccountEntry } from "@/components/auth/AccountEntry";
+import { ActiveUnderline, editorialEase } from "@/components/editorial";
 import { SearchForm } from "@/components/search/SearchForm";
-import { HuePicker } from "@/components/ui/HuePicker";
 import { useScrollHide } from "@/hooks/useScrollHide";
 import { cn } from "@/lib/cn";
-import { LayoutGroup, motion } from "motion/react";
-import { headerResizeTransition, panelTransition } from "@/components/motion/transitions";
+import { BrandMark } from "./BrandMark";
 
 const navLinks = [
-  { name: "首页", href: "/", icon: Home },
-  { name: "文章", href: "/posts", icon: BookOpenText },
-  { name: "系列", href: "/series", icon: ListTree },
-  { name: "归档", href: "/archives", icon: Archive },
-  { name: "关于", href: "/about", icon: UserRound },
+  { name: "首页", href: "/" },
+  { name: "文章", href: "/posts" },
+  { name: "系列", href: "/series" },
+  { name: "归档", href: "/archives" },
+  { name: "关于", href: "/about" },
 ];
 
-const navItemClass =
-  "reader-link relative inline-flex h-10 items-center gap-1.5 rounded-lg px-3 text-[0.8rem] font-bold text-[var(--text-body)] transition-colors hover:bg-[color:color-mix(in_oklab,var(--accent-sky)_10%,transparent)] hover:text-foreground focus-visible:bg-[color:color-mix(in_oklab,var(--accent-sky)_14%,transparent)]";
+function isActivePath(pathname: string | null, href: string) {
+  if (!pathname) return false;
+  return href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
+}
 
 interface NavbarProps {
   siteName?: string;
 }
 
+/**
+ * 方向 A 导航条（简报 15.3）：6px 圆角实底条，导航项只有文字，当前项 2px sky 下划线在项间平移。
+ * 向下滚动隐藏、向上滚动出现；md 以下收进就地展开的菜单面板（无遮罩），明暗切换在 sm 以下收进菜单。
+ */
 // Keep this fallback aligned with DEFAULT_BLOG_SETTINGS without importing server-only settings code.
 export function Navbar({ siteName = "My Blog" }: NavbarProps) {
-  const [showHuePicker, setShowHuePicker] = useState(false);
-  const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuPath, setMenuPath] = useState<string | null>(null);
   const { theme, toggleTheme } = useTheme();
   const isHidden = useScrollHide({ threshold: 100, delta: 720 });
   const navbarRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
+  const reduce = useReducedMotion();
+
+  // 路由变化时收起菜单（渲染期调整，避免 effect 内同步 setState）
+  if (menuOpen && menuPath !== pathname) {
+    setMenuOpen(false);
+  }
 
   useEffect(() => {
     const root = document.documentElement;
@@ -57,174 +68,164 @@ export function Navbar({ siteName = "My Blog" }: NavbarProps) {
     };
   }, [isHidden]);
 
+  useEffect(() => {
+    if (!menuOpen) return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMenuOpen(false);
+    };
+    const onPointerDown = (event: PointerEvent) => {
+      if (navbarRef.current && !navbarRef.current.contains(event.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("pointerdown", onPointerDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("pointerdown", onPointerDown);
+    };
+  }, [menuOpen]);
+
+  const toggleMenu = () => {
+    setMenuPath(pathname);
+    setMenuOpen((open) => !open);
+  };
+
+  const themeLabel = theme === "dark" ? "切换到日间主题" : "切换到夜间主题";
+
   return (
     <div
       ref={navbarRef}
       id="navbar"
-      className={`onload-animation sticky top-0 z-50 px-3 pt-[var(--reader-nav-offset)] pb-2 transition-transform duration-300 sm:px-4 ${isHidden ? "-translate-y-full" : "translate-y-0"}`}
+      data-hidden={isHidden ? "true" : "false"}
+      className={cn(
+        "sticky top-0 z-50 px-3 pb-2 pt-[var(--reader-nav-offset)] transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] sm:px-4",
+        isHidden && !menuOpen ? "-translate-y-full" : "translate-y-0",
+      )}
     >
       <motion.div
-        layout
-        transition={headerResizeTransition}
-        className="reader-nav relative mx-auto flex h-[var(--reader-nav-height)] w-full max-w-[var(--page-width)] items-center justify-between gap-2 px-3 sm:gap-3 sm:px-4 md:grid md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]"
+        initial={reduce ? false : { opacity: 0, y: -8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.42, ease: editorialEase }}
+        className="reader-nav relative mx-auto flex h-[var(--reader-nav-height)] w-full max-w-[var(--reader-nav-width)] items-center justify-between gap-2 px-2 sm:gap-3 sm:px-3 md:grid md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]"
       >
-        <motion.div layout="position" transition={headerResizeTransition} className="min-w-0 justify-self-start">
+        <div className="min-w-0 justify-self-start">
           <Link
             href="/"
-            className="reader-link inline-flex h-10 min-w-0 max-w-full shrink-0 items-center gap-2 rounded-lg px-2 text-sm font-bold text-[var(--foreground)] transition-colors hover:bg-accent-sky-10 focus-visible:bg-accent-sky-14"
+            className="inline-flex h-11 min-w-0 max-w-full shrink-0 items-center gap-2.5 rounded-[var(--radius-ctl)] px-1.5 text-[var(--foreground)]"
           >
-            <span className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-lg border border-accent-sky-34 bg-accent-sky-16">
-              <Image alt="" aria-hidden="true" className="h-full w-full object-cover" height={28} priority src="/icons/icon-192.png" width={28} />
-            </span>
-            <span className="min-w-0 truncate text-[0.92rem] tracking-normal">{siteName}</span>
+            <BrandMark siteName={siteName} size={28} />
+            <span className="min-w-0 truncate text-[0.92rem] font-bold">{siteName}</span>
           </Link>
-        </motion.div>
-
-        <motion.nav
-          layout="position"
-          transition={headerResizeTransition}
-          className="hidden min-w-0 items-center justify-center justify-self-center md:flex"
-          aria-label="Primary"
-        >
-          <LayoutGroup id="reader-nav">
-            <div className="flex items-center gap-1">
-              {navLinks.map((link) => {
-                const Icon = link.icon;
-                const isActive = link.href === "/" ? pathname === "/" : pathname?.startsWith(link.href);
-                return (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    className={cn(
-                      navItemClass,
-                      isActive &&
-                        "bg-accent-sky-10 text-accent-sky-72",
-                    )}
-                  >
-                    <Icon className="h-3.5 w-3.5" />
-                    <span>{link.name}</span>
-                    {isActive && (
-                      <motion.span
-                        layoutId="reader-nav-active-indicator"
-                        className="absolute bottom-0 left-3 right-3 h-0.5 rounded-full bg-[var(--accent-sky)]"
-                      />
-                    )}
-                  </Link>
-                );
-              })}
-            </div>
-          </LayoutGroup>
-        </motion.nav>
-
-        <div className="flex min-w-0 items-center justify-end gap-1 sm:gap-2 md:w-full md:justify-self-end">
-          <motion.div
-            layout="size"
-            transition={headerResizeTransition}
-            className="reader-nav-search hidden min-w-0 flex-1 lg:flex lg:max-w-[18rem] lg:justify-end"
-          >
-            <SearchForm appearance="navbar" compact placeholder="搜索" />
-          </motion.div>
-
-          <motion.div layout="position" transition={headerResizeTransition} className="flex shrink-0 items-center gap-1 sm:gap-2">
-            <Link
-              href="/search"
-              aria-label="搜索"
-              title="搜索"
-              className="reader-icon-btn lg:hidden"
-            >
-              <Search className="h-5 w-5" />
-            </Link>
-
-            <button
-              aria-label="主题设置"
-              aria-expanded={showHuePicker}
-              className="reader-icon-btn hidden sm:inline-flex"
-              onClick={() => setShowHuePicker(!showHuePicker)}
-              type="button"
-            >
-              <Palette className="h-5 w-5" />
-            </button>
-
-            <span className="hidden sm:flex">
-              <ThemeToggle />
-            </span>
-
-            <AccountEntry />
-
-            <button
-              aria-label="菜单"
-              aria-expanded={showMobileMenu}
-              aria-controls="mobile-reader-menu"
-              className="reader-icon-btn md:hidden"
-              onClick={() => setShowMobileMenu(!showMobileMenu)}
-              type="button"
-            >
-              <Menu className="h-5 w-5" />
-            </button>
-          </motion.div>
         </div>
 
-        <motion.div
-          id="mobile-reader-menu"
-          aria-hidden={!showMobileMenu}
-          data-state={showMobileMenu ? "open" : "closed"}
-          className={`reader-panel absolute top-[calc(var(--reader-nav-height)+0.75rem)] right-2 left-2 origin-top p-2 md:hidden ${showMobileMenu ? "visible" : "invisible"}`}
-          animate={{
-            opacity: showMobileMenu ? 1 : 0,
-            scale: showMobileMenu ? 1 : 0.97,
-            y: showMobileMenu ? 0 : -6,
-            pointerEvents: showMobileMenu ? "auto" : "none",
-          }}
-          initial={false}
-          transition={panelTransition}
-        >
-          <div className="grid gap-1">
-            {navLinks.map((link) => {
-              const Icon = link.icon;
-              return (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className="reader-link flex h-11 w-full items-center justify-start gap-3 rounded-xl px-4 text-sm font-semibold text-[var(--text-body)] transition-colors hover:bg-accent-sky-12 hover:text-[var(--foreground)]"
-                  onClick={() => setShowMobileMenu(false)}
-                  tabIndex={showMobileMenu ? undefined : -1}
-                >
-                  <Icon className="h-4 w-4" />
-                  {link.name}
-                </Link>
-              );
-            })}
+        <nav className="hidden min-w-0 items-center justify-center justify-self-center md:flex" aria-label="Primary">
+          <LayoutGroup id="reader-nav">
+            <ul className="flex items-center gap-1">
+              {navLinks.map((link) => {
+                const isActive = isActivePath(pathname, link.href);
+                return (
+                  <li key={link.href}>
+                    <Link
+                      href={link.href}
+                      aria-current={isActive ? "page" : undefined}
+                      className="ed-tab reader-nav-link h-11 px-3 text-[0.8125rem]"
+                    >
+                      {link.name}
+                      {isActive ? (
+                        <ActiveUnderline layoutId="reader-nav-active-indicator" className="ed-underline left-3 right-3 -bottom-[3px]" />
+                      ) : null}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </LayoutGroup>
+        </nav>
 
-            <button
-              type="button"
-              className="reader-link flex h-11 w-full items-center justify-start gap-3 rounded-xl border-t border-[var(--reader-border)] px-4 text-sm font-semibold text-[var(--text-body)] transition-colors hover:bg-accent-sky-12 hover:text-[var(--foreground)] sm:hidden"
-              onClick={() => {
-                toggleTheme();
-                setShowMobileMenu(false);
-              }}
-              tabIndex={showMobileMenu ? undefined : -1}
-            >
-              {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-              {theme === "dark" ? "切换到日间主题" : "切换到夜间主题"}
-            </button>
-
-            <button
-              type="button"
-              aria-expanded={showHuePicker}
-              className="reader-link flex h-11 w-full items-center justify-start gap-3 rounded-xl px-4 text-sm font-semibold text-[var(--text-body)] transition-colors hover:bg-accent-sky-12 hover:text-[var(--foreground)] sm:hidden"
-              onClick={() => {
-                setShowMobileMenu(false);
-                setShowHuePicker(true);
-              }}
-              tabIndex={showMobileMenu ? undefined : -1}
-            >
-              <Palette className="h-4 w-4" />
-              主题色
-            </button>
+        <div className="flex min-w-0 items-center justify-end gap-0.5 md:w-full md:justify-self-end">
+          <div className="reader-nav-search hidden min-w-0 flex-1 lg:flex lg:max-w-[10.5rem] lg:justify-end xl:max-w-[12rem]">
+            <SearchForm appearance="navbar" compact placeholder="搜索" />
           </div>
-        </motion.div>
 
-        <HuePicker isOpen={showHuePicker} />
+          <Link href="/search" aria-label="搜索" title="搜索" className="ed-icon-btn lg:hidden">
+            <Search aria-hidden="true" className="h-[1.125rem] w-[1.125rem]" />
+          </Link>
+
+          <span className="hidden sm:flex">
+            <ThemeToggle />
+          </span>
+
+          <AccountEntry />
+
+          <button
+            aria-label="菜单"
+            aria-expanded={menuOpen}
+            aria-controls="mobile-reader-menu"
+            className="ed-icon-btn md:hidden"
+            onClick={toggleMenu}
+            type="button"
+          >
+            <Menu aria-hidden="true" className="h-5 w-5" />
+          </button>
+        </div>
+
+        <AnimatePresence initial={false}>
+          {menuOpen ? (
+            <motion.div
+              key="mobile-menu"
+              id="mobile-reader-menu"
+              data-state="open"
+              className="ed-popover absolute left-2 right-2 top-[calc(var(--reader-nav-height)+0.5rem)] origin-top overflow-hidden md:hidden"
+              initial={reduce ? { opacity: 0 } : { opacity: 0, y: -6, clipPath: "inset(0 0 100% 0)" }}
+              animate={reduce ? { opacity: 1 } : { opacity: 1, y: 0, clipPath: "inset(0 0 0% 0)" }}
+              exit={reduce ? { opacity: 0 } : { opacity: 0, y: -4, clipPath: "inset(0 0 100% 0)" }}
+              transition={{ duration: 0.32, ease: editorialEase }}
+            >
+              <nav aria-label="移动端导航" className="p-1.5">
+                <ul className="grid">
+                  {navLinks.map((link, index) => {
+                    const isActive = isActivePath(pathname, link.href);
+                    return (
+                      <motion.li
+                        key={link.href}
+                        initial={reduce ? false : { opacity: 0, x: -6 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.3, ease: editorialEase, delay: 0.04 + index * 0.035 }}
+                      >
+                        <Link
+                          href={link.href}
+                          aria-current={isActive ? "page" : undefined}
+                          className="flex min-h-11 items-center rounded-[var(--radius-ctl)] px-3 text-[0.9375rem] font-bold text-[var(--text-muted)] transition-colors hover:bg-[var(--ed-press-bg)] hover:text-[var(--foreground)] aria-[current=page]:text-[var(--foreground)]"
+                          onClick={() => setMenuOpen(false)}
+                        >
+                          <span className="relative py-1">
+                            {link.name}
+                            {isActive ? <span aria-hidden="true" className="ed-underline -bottom-0.5" /> : null}
+                          </span>
+                        </Link>
+                      </motion.li>
+                    );
+                  })}
+                </ul>
+                <div className="mt-1 border-t border-[var(--border)] pt-1 sm:hidden">
+                  <button
+                    type="button"
+                    className="flex min-h-11 w-full items-center rounded-[var(--radius-ctl)] px-3 text-left text-[0.9375rem] font-bold text-[var(--text-body)] transition-colors hover:bg-[var(--ed-press-bg)] hover:text-[var(--foreground)]"
+                    onClick={() => {
+                      toggleTheme();
+                      setMenuOpen(false);
+                    }}
+                  >
+                    {themeLabel}
+                  </button>
+                </div>
+              </nav>
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
       </motion.div>
     </div>
   );

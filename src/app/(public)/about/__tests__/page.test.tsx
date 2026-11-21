@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import React from "react";
 import { expect, test, vi } from "vitest";
 
@@ -54,7 +54,7 @@ test("about page renders configured personal homepage content", async () => {
 
   const { container } = render(ui as React.ReactElement);
 
-  expect(screen.getByRole("heading", { name: "RoyDust" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { level: 1, name: "RoyDust" })).toBeInTheDocument();
   expect(screen.getByText("后台个人信息驱动的作者资料。")).toBeInTheDocument();
   expect(screen.getByText("内容创作 / 前端体验 / 开源实践")).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "后台配置的关于" })).toBeInTheDocument();
@@ -63,13 +63,14 @@ test("about page renders configured personal homepage content", async () => {
   expect(screen.getByText("后台配置的事项")).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "后台配置的亮点" })).toBeInTheDocument();
   expect(screen.getByText("后台配置的亮点描述")).toBeInTheDocument();
-  expect(screen.getByRole("heading", { name: "后台配置的技术栈" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: /后台配置的技术栈/ })).toBeInTheDocument();
   expect(screen.getByText("后台配置的技术描述")).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "后台配置的联系" })).toBeInTheDocument();
   expect(screen.getByText("后台配置的联系描述")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "GitHub" })).toHaveAttribute("href", "https://github.com/RoyDust");
   expect(screen.getByRole("link", { name: "Email" })).toHaveAttribute("href", "mailto:roy@example.com");
   expect(screen.getByRole("link", { name: "联系我" })).toHaveAttribute("href", "/contact");
+  expect(screen.getByRole("link", { name: "访问 GitHub" })).toHaveAttribute("href", "https://github.com/RoyDust");
 
   const jsonLd = JSON.parse(container.querySelector('script[type="application/ld+json"]')?.textContent ?? "{}");
   expect(jsonLd).toMatchObject({
@@ -83,38 +84,54 @@ test("about page renders configured personal homepage content", async () => {
   expect(document.querySelector('link[rel="me"][href="https://github.com/RoyDust"]')).toBeInTheDocument();
 });
 
-test("about page wires in staged motion classes", async () => {
+test("about header uses the editorial masthead: eyebrow, round avatar, text links and a 2px rule", async () => {
   const { default: AboutPage } = await import("../page");
   const ui = await AboutPage();
 
   const { container } = render(ui as React.ReactElement);
+  const header = container.querySelector("[data-about-section='intro']");
 
-  const sections = container.querySelectorAll("section");
+  expect(header).toHaveClass("border-b-2", "border-[var(--foreground)]");
+  expect(header?.querySelector(".ed-eyebrow")).toHaveTextContent("关于");
+  expect(header?.querySelector("h1")).toHaveClass("ed-serif");
+  expect(header?.querySelector(".rounded-full")).toBeInTheDocument();
 
-  expect(sections).toHaveLength(5);
-  expect(sections[0]).toHaveClass("onload-animation");
-  expect(sections[1]).toHaveClass("onload-animation");
-  expect(sections[2]).toHaveClass("stagger-children");
-  expect(sections[3]).toHaveClass("onload-animation");
-  expect(sections[3].querySelector(".grid")).toHaveClass("stagger-children");
-  expect(sections[4]).toHaveClass("onload-animation");
+  // 站外链接加 ↗，邮箱用 →；都是文字链接，不再是带图标的按钮
+  const github = screen.getByRole("link", { name: "GitHub" });
+  const email = screen.getByRole("link", { name: "Email" });
+  expect(github).toHaveClass("ed-link");
+  expect(github).toHaveAttribute("target", "_blank");
+  expect(github).toHaveTextContent("↗");
+  expect(email).toHaveClass("ed-link");
+  expect(email).toHaveTextContent("→");
+  expect(container.querySelector("svg")).toBeNull();
+
+  // 去掉光斑、光环与 onload 动画
+  expect(container.querySelector(".blur-3xl, .blur-2xl, .ring-1, .onload-animation, .card-base")).toBeNull();
 });
 
-test("about page cards include richer hover feedback hooks", async () => {
+test("about body keeps sections on the paper: side-by-side story, indexed now list, highlight columns and stack list", async () => {
   const { default: AboutPage } = await import("../page");
   const ui = await AboutPage();
 
   const { container } = render(ui as React.ReactElement);
 
-  const sections = container.querySelectorAll("section");
-  const highlightCards = sections[2].querySelectorAll("article");
-  const stackCards = sections[3].querySelectorAll(".grid > div");
+  const story = container.querySelector("[data-about-section='story']");
+  expect(story).toHaveClass("lg:grid-cols-[minmax(0,1.15fr)_1px_minmax(0,0.85fr)]");
+  const nowItem = within(story as HTMLElement).getByText("后台配置的事项").closest("li");
+  expect(nowItem).toHaveClass("border-b");
+  expect(nowItem?.querySelector(".ed-mono")).toHaveTextContent("01");
 
-  expect(highlightCards[0]).toHaveClass("group");
-  expect(highlightCards[0]).toHaveClass("hover:-translate-y-1");
-  expect(highlightCards[0]).toHaveClass("duration-300");
+  const highlights = container.querySelector("[data-about-section='highlights']");
+  expect(highlights?.querySelector(".md\\:grid-cols-3")).toBeInTheDocument();
+  expect(within(highlights as HTMLElement).getByRole("heading", { name: "后台配置的亮点" })).toHaveClass("ed-serif");
 
-  expect(stackCards[0]).toHaveClass("group");
-  expect(stackCards[0]).toHaveClass("hover:-translate-y-1");
-  expect(stackCards[0]).toHaveClass("transition-all");
+  const stack = container.querySelector("[data-about-section='stack']");
+  expect(stack?.querySelector(".sm\\:grid-cols-2")).toBeInTheDocument();
+  expect(within(stack as HTMLElement).getByText("1")).toHaveClass("ed-mono");
+
+  // 关于页不设主按钮：「联系我」是描边按钮
+  expect(screen.getByRole("link", { name: "联系我" })).toHaveClass("ed-btn-outline");
+  expect(container.querySelector(".ed-btn")).toBeNull();
+  expect(container.querySelector("[class*='hover:-translate-y']")).toBeNull();
 });

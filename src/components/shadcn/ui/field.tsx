@@ -55,7 +55,7 @@ function FieldGroup({ className, ...props }: React.ComponentProps<"div">) {
 }
 
 const fieldVariants = cva(
-  "group/field flex w-full gap-3 data-[invalid=true]:text-destructive",
+  "group/field flex w-full gap-1.5",
   {
     variants: {
       orientation: {
@@ -115,9 +115,9 @@ function FieldLabel({
     <Label
       data-slot="field-label"
       className={cn(
-        "group/field-label peer/field-label flex w-fit gap-2 leading-snug group-data-[disabled=true]/field:opacity-50",
-        "has-[>[data-slot=field]]:w-full has-[>[data-slot=field]]:flex-col has-[>[data-slot=field]]:rounded-md has-[>[data-slot=field]]:border [&>*]:data-[slot=field]:p-4",
-        "has-data-[state=checked]:border-primary has-data-[state=checked]:bg-primary/5 dark:has-data-[state=checked]:bg-primary/10",
+        "group/field-label peer/field-label flex w-fit gap-2 text-[0.8125rem] leading-snug font-bold text-[var(--foreground)] group-data-[disabled=true]/field:opacity-50",
+        "has-[>[data-slot=field]]:w-full has-[>[data-slot=field]]:flex-col has-[>[data-slot=field]]:rounded-[4px] has-[>[data-slot=field]]:border has-[>[data-slot=field]]:border-[var(--reader-border-strong)] [&>*]:data-[slot=field]:p-4",
+        "has-data-[state=checked]:border-[var(--foreground)]",
         className
       )}
       {...props}
@@ -143,7 +143,7 @@ function FieldDescription({ className, ...props }: React.ComponentProps<"p">) {
     <p
       data-slot="field-description"
       className={cn(
-        "text-sm leading-normal font-normal text-muted-foreground group-has-[[data-orientation=horizontal]]/field:text-balance",
+        "text-[0.8125rem] leading-normal font-normal text-[var(--text-muted)] group-has-[[data-orientation=horizontal]]/field:text-balance",
         "last:mt-0 nth-last-2:-mt-1 [[data-variant=legend]+&]:-mt-1.5",
         "[&>a]:underline [&>a]:underline-offset-4 [&>a:hover]:text-primary",
         className
@@ -226,7 +226,7 @@ function FieldError({
     <div
       role="alert"
       data-slot="field-error"
-      className={cn("text-sm font-normal text-destructive", className)}
+      className={cn("text-[0.8125rem] font-normal text-[var(--danger-foreground)]", className)}
       {...props}
     >
       {content}

@@ -5,9 +5,11 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
-import { StatusBadge } from "@/components/admin/primitives/StatusBadge";
+import { AdminSectionHeader } from "@/components/admin/primitives/SectionHeader";
+import { adminTextActionClassName } from "@/components/admin/primitives/admin-classes";
 import { Button } from "@/components/admin/ui";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/shadcn/ui/table";
+import { cn } from "@/lib/cn";
 import { apiMutate, toErrorMessage } from "@/lib/client-api";
 
 type TaskItem = {
@@ -91,13 +93,17 @@ const statusLabels: Record<string, string> = {
 };
 
 /**
- * 将任务和任务项状态映射到后台统一的状态徽标色调。
+ * 将任务和任务项状态映射到语气色文字（方向 A：状态是 .75rem 700 语气色文字，不是药丸）。
  */
-function statusTone(status: string) {
-  if (status === "SUCCEEDED") return "success";
-  if (status === "FAILED" || status === "PARTIAL_FAILED") return "danger";
-  if (status === "RUNNING" || status === "QUEUED") return "warning";
-  return "neutral";
+function statusToneClassName(status: string) {
+  if (status === "SUCCEEDED") return "text-[var(--success)]";
+  if (status === "FAILED" || status === "PARTIAL_FAILED") return "text-[var(--danger-foreground)]";
+  if (status === "RUNNING" || status === "QUEUED") return "text-[var(--focus)]";
+  return "text-[var(--text-muted)]";
+}
+
+function StatusText({ status }: { status: string }) {
+  return <span className={cn("text-xs font-bold whitespace-nowrap", statusToneClassName(status))}>{statusLabels[status] ?? status}</span>;
 }
 
 /**
@@ -280,145 +286,198 @@ export function AiTaskDetail({ task }: { task: TaskDetail }) {
     }
   }
 
-  return (
-    <div className="space-y-5">
-      <section className="ui-surface rounded-3xl p-5 shadow-[var(--shadow-card)]">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <p className="text-xs uppercase tracking-[0.22em] text-[var(--muted)]">AI Task</p>
-            <h2 className="mt-1 font-display text-2xl font-semibold text-[var(--foreground)]">
-              {taskTypeLabels[task.type] ?? task.type}
-            </h2>
-            <p className="mt-2 text-sm text-[var(--muted)]">
-              {task.source} · {task.modelId ?? "默认模型"} · {task.createdBy?.name ?? task.createdBy?.email ?? "系统"}
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <StatusBadge tone={statusTone(task.status)}>{statusLabels[task.status] ?? task.status}</StatusBadge>
-            <Button type="button" size="sm" variant="outline" disabled={retryDisabled} onClick={() => void retryFailedItems()}>
-              {retrying ? "重试中..." : oneClickArticleInfoTask && failedCount > 0 ? "回编辑器重试" : "重试失败项"}
-            </Button>
-          </div>
-        </div>
+  const metrics: Array<[string, string | number]> = [
+    ["请求项", task.requestedCount],
+    ["成功", task.succeededCount],
+    ["失败", task.failedCount],
+    ["耗时", formatDuration(task)],
+    ["创建时间", formatDate(task.createdAt)],
+  ];
 
-        <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-          {[
-            ["请求项", task.requestedCount],
-            ["成功", task.succeededCount],
-            ["失败", task.failedCount],
-            ["耗时", formatDuration(task)],
-            ["创建时间", formatDate(task.createdAt)],
-          ].map(([label, value]) => (
-            <div key={label} className="rounded-2xl border border-[var(--border)] bg-[var(--surface-alt)] px-4 py-3">
-              <p className="text-xs text-[var(--muted)]">{label}</p>
-              <p className="mt-1 text-sm font-semibold text-[var(--foreground)]">{value}</p>
+  return (
+    <div className="flex flex-col gap-8">
+      <section aria-labelledby="ai-task-summary-title">
+        <AdminSectionHeader
+          id="ai-task-summary-title"
+          title={taskTypeLabels[task.type] ?? task.type}
+          aside={
+            <>
+              <StatusText status={task.status} />
+              <Button type="button" size="sm" variant="outline" disabled={retryDisabled} onClick={() => void retryFailedItems()}>
+                {retrying ? "重试中..." : oneClickArticleInfoTask && failedCount > 0 ? "回编辑器重试" : "重试失败项"}
+              </Button>
+            </>
+          }
+        />
+        <p className="mt-1.5 font-mono text-[0.8125rem] text-[var(--text-muted)]">
+          {task.source}
+          <span className="ed-meta-sep" aria-hidden="true"> · </span>
+          {task.modelId ?? "默认模型"}
+          <span className="ed-meta-sep" aria-hidden="true"> · </span>
+          <span className="font-sans">{task.createdBy?.name ?? task.createdBy?.email ?? "系统"}</span>
+        </p>
+
+        <dl className="mt-4 grid grid-cols-2 border-y border-[var(--border)] sm:grid-cols-5">
+          {metrics.map(([label, value], index) => (
+            <div key={label} className={cn("min-w-0 px-4 py-3", index > 0 && "sm:border-l sm:border-[var(--border)]", index % 2 === 1 && "border-l border-[var(--border)]")}>
+              <dt className="text-xs text-[var(--text-muted)]">{label}</dt>
+              <dd
+                className={cn(
+                  "mt-1 truncate font-mono text-lg font-bold tabular-nums",
+                  label === "失败" && Number(value) > 0 ? "text-[var(--danger-foreground)]" : "text-[var(--foreground)]",
+                )}
+              >
+                {value}
+              </dd>
             </div>
           ))}
-        </div>
+        </dl>
 
-        {task.lastError ? <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{task.lastError}</p> : null}
+        {task.lastError ? (
+          <p role="alert" className="ed-banner ed-banner--danger mt-4">
+            {task.lastError}
+          </p>
+        ) : null}
         {oneClickArticleInfoTask && failedCount > 0 ? (
-          <p className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <p role="status" className="ed-banner ed-banner--warning mt-4">
             一键文章信息任务不会在任务中心直接写库；请回到文章编辑器确认可用结果或重新生成失败项。
           </p>
         ) : null}
       </section>
 
       {articleInfoSummary ? (
-        <section className="ui-surface rounded-3xl p-5 shadow-[var(--shadow-card)]">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h3 className="font-display text-lg font-semibold text-[var(--foreground)]">文章信息结果</h3>
-              <p className="mt-1 text-sm text-[var(--muted)]">组合查看一键生成结果，逐项明细仍保留在下方。</p>
-            </div>
-            {typeof articleInfoSummary.quality.score === "number" ? (
-              <StatusBadge tone={articleInfoSummary.quality.score >= 80 ? "success" : "warning"}>{articleInfoSummary.quality.score} / 100</StatusBadge>
-            ) : articleInfoSummary.partial ? (
-              <StatusBadge tone="warning">部分成功</StatusBadge>
-            ) : null}
-          </div>
-          <div className="mt-4 grid gap-3 md:grid-cols-2">
+        <section aria-labelledby="ai-task-article-info-title">
+          <AdminSectionHeader
+            id="ai-task-article-info-title"
+            title="文章信息结果"
+            description="组合查看一键生成结果，逐项明细仍保留在下方。"
+            aside={
+              typeof articleInfoSummary.quality.score === "number" ? (
+                <span className="font-mono text-[var(--foreground)] tabular-nums">
+                  <span className={cn("text-base font-bold", articleInfoSummary.quality.score >= 80 ? "" : "text-[var(--warning)]")}>
+                    {articleInfoSummary.quality.score}
+                  </span>{" "}
+                  / 100
+                </span>
+              ) : articleInfoSummary.partial ? (
+                <span className="text-xs font-bold text-[var(--warning)]">部分成功</span>
+              ) : null
+            }
+          />
+          <dl className="mt-2 grid grid-cols-[6rem_minmax(0,1fr)] text-[0.8125rem]">
             {[
               ["Slug", articleInfoSummary.slug],
               ["摘要", articleInfoSummary.excerpt],
               ["SEO 描述", articleInfoSummary.seoDescription],
               ["分类", articleInfoSummary.categoryName],
               ["标签", Array.isArray(articleInfoSummary.tagNames) ? articleInfoSummary.tagNames.join("、") : ""],
-            ].map(([label, value]) => (
-              <div key={label} className="min-w-0 rounded-2xl border border-[var(--border)] bg-[var(--surface-alt)] px-4 py-3">
-                <p className="text-xs text-[var(--muted)]">{label}</p>
-                <p className="mt-1 break-words text-sm font-medium leading-6 text-[var(--foreground)]">{typeof value === "string" && value.trim() ? value : "-"}</p>
-              </div>
-            ))}
-          </div>
+            ].map(([label, value]) => {
+              const hasValue = typeof value === "string" && value.trim().length > 0;
+              return (
+                <div key={label} className="contents">
+                  <dt className="border-b border-[var(--border)] py-2.5 text-[var(--text-muted)]">{label}</dt>
+                  <dd
+                    className={cn(
+                      "min-w-0 border-b border-[var(--border)] py-2.5 leading-6 break-words",
+                      hasValue ? "text-[var(--foreground)]" : "text-[var(--text-muted)]",
+                      label === "Slug" && hasValue && "font-mono text-xs",
+                    )}
+                  >
+                    {hasValue ? value : "-"}
+                  </dd>
+                </div>
+              );
+            })}
+          </dl>
         </section>
       ) : null}
 
-      <section className="overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)]">
-        <header className="border-b border-[var(--border)] px-4 py-3">
-          <h3 className="text-base font-semibold text-[var(--foreground)]">任务项</h3>
-          <p className="mt-1 text-xs text-[var(--text-muted)]">逐条查看输出、失败原因和应用状态。</p>
-        </header>
-        <div className="overflow-x-auto">
-          <Table className="min-w-[980px] table-fixed">
-            <TableHeader className="border-b border-[var(--border)] bg-[var(--surface-alt)] shadow-[0_1px_0_rgba(15,23,42,0.06)]">
-              <TableRow className="border-0 hover:bg-transparent">
-                {["文章", "动作", "状态", "输出预览", "错误", "应用", "更新时间"].map((label) => (
-                  <TableHead key={label} className="px-4 py-3.5 text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">
-                    {label}
-                  </TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {items.map((item) => (
-                <TableRow key={item.id} className="border-[var(--border)] transition-colors hover:bg-[var(--surface-alt)]/80">
-                  <TableCell className="whitespace-normal px-4 py-4 align-top">
+      <section aria-labelledby="ai-task-items-title">
+        <AdminSectionHeader
+          id="ai-task-items-title"
+          title="任务项"
+          description="逐条查看输出、失败原因和应用状态。"
+          aside={<span className="font-mono">{items.length} 项</span>}
+        />
+        <Table className="mt-2 min-w-[980px] table-fixed">
+          <colgroup>
+            <col className="w-[22%]" />
+            <col className="w-20" />
+            <col className="w-20" />
+            <col />
+            <col className="w-[18%]" />
+            <col className="w-24" />
+            <col className="w-28" />
+          </colgroup>
+          <TableHeader>
+            <TableRow>
+              {["文章", "动作", "状态", "输出预览", "错误", "应用", "更新时间"].map((label) => (
+                <TableHead key={label}>{label}</TableHead>
+              ))}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {items.map((item) => {
+              const preview = renderOutput(item);
+              return (
+                <TableRow key={item.id}>
+                  <TableCell className="overflow-hidden">
                     {item.post ? (
-                      <Link className="font-medium text-[var(--foreground)] hover:text-[var(--brand)]" href={`/admin/posts/${item.post.id}/edit`}>
+                      <Link
+                        className="block truncate font-medium text-[var(--foreground)] underline decoration-transparent underline-offset-4 transition-[text-decoration-color] duration-150 hover:decoration-[var(--accent-sky)]"
+                        href={`/admin/posts/${item.post.id}/edit`}
+                        title={item.post.title}
+                      >
                         {item.post.title}
                       </Link>
                     ) : task.source === "draft-post" ? (
-                      <span className="text-sm text-[var(--text-muted)]">未保存草稿</span>
+                      <span className="text-[0.8125rem] text-[var(--text-muted)]">未保存草稿</span>
                     ) : (
-                      <span className="text-sm text-[var(--text-muted)]">文章不存在</span>
+                      <span className="text-[0.8125rem] text-[var(--text-muted)]">文章不存在</span>
                     )}
                   </TableCell>
-                  <TableCell className="px-4 py-4 align-top text-sm text-[var(--foreground)]">{actionLabels[item.action] ?? item.action}</TableCell>
-                  <TableCell className="px-4 py-4 align-top">
-                    <StatusBadge tone={statusTone(item.status)}>{statusLabels[item.status] ?? item.status}</StatusBadge>
+                  <TableCell className="text-[0.8125rem] text-[var(--foreground)]">{actionLabels[item.action] ?? item.action}</TableCell>
+                  <TableCell>
+                    <StatusText status={item.status} />
                   </TableCell>
-                  <TableCell className="whitespace-normal px-4 py-4 align-top text-sm leading-6 text-[var(--text-muted)]">
-                    <span className="line-clamp-3">{renderOutput(item)}</span>
+                  <TableCell className="overflow-hidden text-[0.8125rem] text-[var(--text-body)]">
+                    <span className="block truncate" title={preview}>
+                      {preview}
+                    </span>
                   </TableCell>
-                  <TableCell className="whitespace-normal px-4 py-4 align-top text-sm text-rose-600">
-                    <span className="line-clamp-3">{item.error ?? "-"}</span>
+                  <TableCell className="overflow-hidden text-[0.8125rem] text-[var(--danger-foreground)]">
+                    {item.error ? (
+                      <span className="block truncate" title={item.error}>
+                        {item.error}
+                      </span>
+                    ) : (
+                      <span className="text-[var(--text-muted)]">-</span>
+                    )}
                   </TableCell>
-                  <TableCell className="px-4 py-4 align-top">
+                  <TableCell>
                     {oneClickArticleInfoTask && item.status === "SUCCEEDED" ? (
-                      <StatusBadge tone="warning">待表单确认</StatusBadge>
+                      <span className="text-xs font-bold text-[var(--warning)]">待表单确认</span>
                     ) : item.applied ? (
-                      <StatusBadge tone="success">已应用</StatusBadge>
+                      <span className="text-xs font-bold text-[var(--success)]">已应用</span>
                     ) : canApply(task, item) ? (
-                      <Button
+                      <button
                         type="button"
-                        size="sm"
-                        variant="outline"
+                        className={adminTextActionClassName}
                         disabled={applyingItemId === item.id}
                         onClick={() => void applyItem(item.id)}
                       >
                         {applyingItemId === item.id ? "应用中..." : "应用"}
-                      </Button>
+                      </button>
                     ) : (
-                      <span className="text-sm text-[var(--text-muted)]">-</span>
+                      <span className="text-[0.8125rem] text-[var(--text-muted)]">-</span>
                     )}
                   </TableCell>
-                  <TableCell className="px-4 py-4 align-top text-sm text-[var(--text-muted)]">{formatDate(item.updatedAt)}</TableCell>
+                  <TableCell className="font-mono text-xs text-[var(--text-muted)] tabular-nums">{formatDate(item.updatedAt)}</TableCell>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+              );
+            })}
+          </TableBody>
+        </Table>
       </section>
     </div>
   );

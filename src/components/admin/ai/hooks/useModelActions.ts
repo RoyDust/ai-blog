@@ -99,8 +99,8 @@ export function useModelActions(
   };
 
   const deleteModel = async (model: PublicAiModelOption) => {
+    // 确认在站内 ConfirmDialog 里完成（AiModelManager），这里只执行删除
     if (!model.deletable) return;
-    if (!window.confirm(`删除模型「${model.name}」？`)) return;
 
     setDeletingId(model.id);
     clearFeedback();

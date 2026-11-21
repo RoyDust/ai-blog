@@ -231,12 +231,16 @@ describe("admin overview", () => {
     expect(screen.getByRole("heading", { name: "访问趋势" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "阅读统计" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "互动统计" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "最近草稿" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "待审评论" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /^最近草稿/ })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /^待审评论/ })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "热门文章" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "AI 模型清单" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "博客后台总览" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "发布清单" })).not.toBeInTheDocument();
+
+    expect(screen.getByRole("heading", { level: 1, name: "今日概览" })).toBeInTheDocument();
+    expect(screen.getByText("后台首页")).toBeInTheDocument();
+    expect(screen.getByText(/^统计截至 \d{2}:\d{2}$/)).toBeInTheDocument();
 
     expect(screen.getByRole("region", { name: "今日待办" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "待审评论 4 条，点击进入评论审核" })).toHaveAttribute("href", "/admin/comments");
@@ -244,7 +248,9 @@ describe("admin overview", () => {
     expect(screen.getByRole("link", { name: "滞留草稿 3 条，点击进入文章工作台" })).toHaveAttribute("href", "/admin/posts");
     expect(screen.getByRole("link", { name: "待处理 Newsletter 1 条，点击进入Newsletter" })).toHaveAttribute("href", "/admin/newsletter");
     expect(screen.getByText("7 日发布数")).toBeInTheDocument();
-    expect(screen.getByText("6 篇")).toBeInTheDocument();
+    // 指标值等宽、单位 muted 小字分开排；无障碍名称仍是完整一句
+    expect(screen.getByLabelText("7 日发布数 6 篇，较上期 +4 篇")).toBeInTheDocument();
+    expect(screen.getByText("较上期 +4 篇")).toHaveClass("text-[var(--success)]");
     expect(screen.getByText("阅读时长")).toBeInTheDocument();
     expect(screen.getByText("互动率")).toBeInTheDocument();
     expect(screen.getByText("订阅净增")).toBeInTheDocument();
@@ -256,15 +262,19 @@ describe("admin overview", () => {
     expect(screen.getByText("30 天")).toBeInTheDocument();
     expect(screen.getByText("区间 PV")).toBeInTheDocument();
     expect(screen.getByText("区间 UV")).toBeInTheDocument();
-    expect(screen.getByText("有效阅读")).toBeInTheDocument();
-    expect(screen.getByText("深度完成")).toBeInTheDocument();
-    expect(screen.getAllByText("13 分钟")).toHaveLength(2);
+    // 指标行与 6px 合格分布条各一处
+    expect(screen.getAllByText("有效阅读")).toHaveLength(2);
+    expect(screen.getAllByText("深度完成")).toHaveLength(2);
+    expect(screen.getByLabelText("阅读时长 13 分钟，较上期 +8 分钟")).toBeInTheDocument();
+    expect(screen.getByText("总阅读时长")).toBeInTheDocument();
+    expect(screen.getByRole("progressbar", { name: "有效阅读 80%" })).toHaveAttribute("aria-valuenow", "80");
     expect(screen.getByText("总互动")).toBeInTheDocument();
-    expect(screen.getByText("评论")).toBeInTheDocument();
-    expect(screen.getByText("点赞")).toBeInTheDocument();
+    // 指标标签与图例各出现一次
+    expect(screen.getAllByText("评论").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("点赞").length).toBeGreaterThanOrEqual(1);
 
     expect(screen.getByText("Queued Draft")).toBeInTheDocument();
-    const recentDraftsPanel = screen.getByRole("heading", { name: "最近草稿" }).closest("section");
+    const recentDraftsPanel = screen.getByRole("heading", { name: /^最近草稿/ }).closest("section");
     expect(recentDraftsPanel).not.toBeNull();
     expect(within(recentDraftsPanel as HTMLElement).queryByRole("img", { name: /封面/ })).not.toBeInTheDocument();
     expect(within(recentDraftsPanel as HTMLElement).getByText("这是第一篇草稿的内容摘要，用于后台快速查看。"));
@@ -273,14 +283,15 @@ describe("admin overview", () => {
     expect(within(recentDraftsPanel as HTMLElement).getAllByRole("link", { name: "继续编辑" })[0]).toHaveAttribute("href", "/admin/posts/post-draft-1/edit");
     expect(screen.getByText("待处理评论内容")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "批准" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "垃圾" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "标为垃圾" })).toBeInTheDocument();
 
     const popularPanel = screen.getByRole("heading", { name: "热门文章" }).closest("section");
     expect(popularPanel).not.toBeNull();
     expect(within(popularPanel as HTMLElement).getByText("Most Viewed Post")).toBeInTheDocument();
     expect(within(popularPanel as HTMLElement).getByText("Second Viewed Post")).toBeInTheDocument();
     expect(within(popularPanel as HTMLElement).getByText("近 7 天")).toBeInTheDocument();
-    expect(within(popularPanel as HTMLElement).getByText("120 浏览")).toBeInTheDocument();
+    expect(within(popularPanel as HTMLElement).getByText("120 次浏览")).toBeInTheDocument();
+    expect(within(popularPanel as HTMLElement).getByText("01")).toHaveClass("text-[var(--foreground)]");
 
     expect(postFindManyMock).toHaveBeenCalledWith({
       where: { deletedAt: null, published: false },

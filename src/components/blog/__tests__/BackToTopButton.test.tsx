@@ -16,16 +16,33 @@ function mockReducedMotion(matches: boolean) {
   }));
 }
 
+function getButton() {
+  const button = screen.getByText("回到顶部").closest("button");
+  if (!button) throw new Error("back-to-top button missing");
+  return button;
+}
+
 describe("BackToTopButton", () => {
   beforeEach(() => {
     vi.mocked(window.scrollTo).mockClear();
     mockReducedMotion(false);
   });
 
+  test("renders an outline text button that stays out of the tab order until the reader scrolls", () => {
+    render(<BackToTopButton />);
+
+    const button = getButton();
+    expect(button.className).toContain("ed-btn-outline");
+    expect(button.className).toContain("article-float-btn");
+    expect(button).toHaveAttribute("aria-hidden", "true");
+    expect(button).toHaveAttribute("tabindex", "-1");
+    expect(button.querySelector("svg")).toBeNull();
+  });
+
   test("uses smooth scrolling when reduced motion is not requested", () => {
     render(<BackToTopButton />);
 
-    fireEvent.click(screen.getByRole("button", { name: "返回顶部" }));
+    fireEvent.click(getButton());
 
     expect(window.scrollTo).toHaveBeenCalledWith({ top: 0, behavior: "smooth" });
   });
@@ -34,7 +51,7 @@ describe("BackToTopButton", () => {
     mockReducedMotion(true);
     render(<BackToTopButton />);
 
-    fireEvent.click(screen.getByRole("button", { name: "返回顶部" }));
+    fireEvent.click(getButton());
 
     expect(window.scrollTo).toHaveBeenCalledWith({ top: 0, behavior: "auto" });
   });
