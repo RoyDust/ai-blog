@@ -7,12 +7,14 @@ import {
   runDailyAiNews,
   type DailyAiNewsRunResult,
 } from "@/lib/ai-news"
-import { ConflictError, NotFoundError, toErrorResponse, ValidationError } from "@/lib/api-errors"
+import { ConflictError, NotFoundError, scrubErrorDiagnostic, toErrorResponse, ValidationError } from "@/lib/api-errors"
+import { mergeApiOperationMetadata, setApiOperationError } from "@/lib/api-operation-log-context"
 import { requireInternalSecret } from "@/lib/internal-secrets"
 import { prisma } from "@/lib/prisma"
 
 const STALE_RUN_TIMEOUT_MS = 15 * 60 * 1000
 const STALE_RUN_ERROR = "Stale RUNNING AI news run reaped after process interruption"
+const PUBLIC_CRON_RUN_FAILED_MESSAGE = "Daily AI news run failed"
 const RUN_STATUS_SELECT = {
   id: true,
   runDate: true,
@@ -114,7 +116,7 @@ async function reapStaleCronRuns() {
   await delegate.updateMany({
     where: {
       status: "RUNNING",
-      startedAt: { lte: new Date(now.getTime() - STALE_RUN_TIMEOUT_MS) },
+      updatedAt: { lte: new Date(now.getTime() - STALE_RUN_TIMEOUT_MS) },
     },
     data: {
       status: "FAILED",
@@ -280,7 +282,13 @@ async function GETHandler(request: Request) {
     }
 
     if (run.status === "FAILED") {
-      return NextResponse.json({ success: false, error: run.error ?? "Daily AI news generation failed", data: { operation: "failed", runId: run.id, date: dateId, run } }, { status: 500 })
+      setApiOperationError({
+        errorName: "AiNewsRunFailed",
+        errorMessage: scrubErrorDiagnostic(run.error, PUBLIC_CRON_RUN_FAILED_MESSAGE),
+      })
+      mergeApiOperationMetadata({ runId: run.id, date: dateId })
+      const sanitizedRun = { ...run, error: PUBLIC_CRON_RUN_FAILED_MESSAGE }
+      return NextResponse.json({ success: false, error: PUBLIC_CRON_RUN_FAILED_MESSAGE, data: { operation: "failed", runId: run.id, date: dateId, run: sanitizedRun } }, { status: 500 })
     }
 
     return NextResponse.json({ success: true, data: { operation: "finished", runId: run.id, date: dateId, run } })

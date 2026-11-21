@@ -40,6 +40,14 @@ function makeFetchMock(posts: PostRow[]) {
       return new Response(JSON.stringify({ success: true, data: { count: 1 } }), { status: 200 });
     }
 
+    if (url === "/api/admin/posts/summarize/bulk" && method === "POST") {
+      return new Response(JSON.stringify({ success: true, data: { resumed: 1 } }), { status: 202 });
+    }
+
+    if (url === "/api/admin/posts/summarize/bulk" && method === "GET") {
+      return new Response(JSON.stringify({ success: true, data: { active: true, counts: { QUEUED: 1 }, posts: [] } }), { status: 200 });
+    }
+
     return new Response(JSON.stringify({ success: false }), { status: 404 });
   });
 }
@@ -145,5 +153,27 @@ describe("usePostsList 发布确认（仅发布方向弹窗）", () => {
         expect.objectContaining({ method: "PATCH", body: JSON.stringify({ ids: ["p2"], published: false }) }),
       );
     });
+  });
+
+  test("活跃摘要任务：触发一次性 POST resume 并以只读 GET 轮询，不在 GET 上携带 resume=1", async () => {
+    const queuedPost: PostRow = { ...buildPost("p-queued", false), summaryStatus: "QUEUED" };
+    const { fetchMock } = renderListHook([queuedPost]);
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/admin/posts/summarize/bulk",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({ action: "resume" }),
+        }),
+      );
+      expect(fetchMock).toHaveBeenCalledWith("/api/admin/posts/summarize/bulk");
+    });
+
+    for (const [url, init] of fetchMock.mock.calls) {
+      if (!init || (init.method ?? "GET").toUpperCase() === "GET") {
+        expect(String(url)).not.toContain("resume=1");
+      }
+    }
   });
 });

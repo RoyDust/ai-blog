@@ -166,28 +166,28 @@ describe("admin bulk post summarize route", () => {
     });
   });
 
-  test("returns current job status and resumes active jobs", async () => {
+  test("keeps GET strictly read-only without resuming active jobs and exposes resume on POST", async () => {
     const { getServerSession } = await import("next-auth");
-    vi.mocked(getServerSession).mockResolvedValueOnce({ user: { id: "admin-1", role: "ADMIN" } } as never);
-    prismaMocks.findManyMock
-      .mockResolvedValueOnce([{ summaryJobId: "job-1", summaryModelId: "post-summary-openai-compatible" }])
-      .mockResolvedValueOnce([
-        {
-          id: "post-1",
-          title: "第一篇",
-          excerpt: null,
-          summaryStatus: "GENERATING",
-          summaryError: null,
-          summaryGeneratedAt: null,
-          summaryJobId: "job-1",
-        },
-      ]);
+    vi.mocked(getServerSession).mockResolvedValue({ user: { id: "admin-1", role: "ADMIN" } } as never);
+    prismaMocks.findManyMock.mockResolvedValueOnce([
+      {
+        id: "post-1",
+        title: "第一篇",
+        excerpt: null,
+        summaryStatus: "GENERATING",
+        summaryError: null,
+        summaryGeneratedAt: null,
+        summaryJobId: "job-1",
+      },
+    ]);
 
-    const { GET } = await import("../route");
+    const { GET, POST } = await import("../route");
     const response = await GET(new Request("http://localhost/api/admin/posts/summarize/bulk?resume=1"));
     const data = await response.json();
 
     expect(response.status).toBe(200);
+    // Strictly 1 snapshot query on GET (no resumePostSummaryJobs query/scheduling side effect)
+    expect(prismaMocks.findManyMock).toHaveBeenCalledTimes(1);
     expect(data).toMatchObject({
       success: true,
       data: {
@@ -195,6 +195,22 @@ describe("admin bulk post summarize route", () => {
         counts: { GENERATING: 1 },
         posts: [{ id: "post-1", summaryStatus: "GENERATING", summaryJobId: "job-1" }],
       },
+    });
+
+    prismaMocks.findManyMock.mockResolvedValueOnce([
+      { summaryJobId: "job-1", summaryModelId: "post-summary-openai-compatible" },
+    ]);
+    const resumeRes = await POST(
+      new Request("http://localhost/api/admin/posts/summarize/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "resume" }),
+      }),
+    );
+    expect(resumeRes.status).toBe(202);
+    await expect(resumeRes.json()).resolves.toEqual({
+      success: true,
+      data: { resumed: 1 },
     });
   });
 });

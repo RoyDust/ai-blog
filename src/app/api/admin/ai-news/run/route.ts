@@ -87,6 +87,26 @@ function isAlreadyRunningConflict(error: unknown) {
   )
 }
 
+async function parseOptionalJsonObject(request: Request) {
+  const raw = await request.text()
+  if (!raw.trim()) {
+    return {}
+  }
+
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(raw)
+  } catch {
+    throw new ValidationError("Invalid JSON body")
+  }
+
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new ValidationError("Invalid JSON body")
+  }
+
+  return parsed as Record<string, unknown>
+}
+
 async function reapStaleAdminRuns() {
   const delegate = prisma.aiNewsRun as unknown as {
     updateMany?: (args: { where: Record<string, unknown>; data: Record<string, unknown> }) => Promise<unknown>
@@ -99,7 +119,7 @@ async function reapStaleAdminRuns() {
   await delegate.updateMany({
     where: {
       status: "RUNNING",
-      startedAt: { lte: new Date(now.getTime() - STALE_RUN_TIMEOUT_MS) },
+      updatedAt: { lte: new Date(now.getTime() - STALE_RUN_TIMEOUT_MS) },
     },
     data: {
       status: "FAILED",
@@ -188,8 +208,7 @@ async function startManualDailyAiNewsRun({
 async function POSTHandler(request: Request) {
   try {
     const session = await requireAdminSession()
-    const body = await request.json().catch(() => ({}))
-    const payload = body as {
+    const payload = (await parseOptionalJsonObject(request)) as {
       date?: unknown
       modelId?: unknown
       regenerate?: unknown

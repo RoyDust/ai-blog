@@ -54,6 +54,7 @@ export type ActiveAiNewsRunRecord = {
   id: string
   startedAt?: Date | string
   createdAt?: Date | string
+  updatedAt?: Date | string
   status?: string
 }
 
@@ -416,7 +417,7 @@ export async function buildDailyAiNewsDraftFromSelectedCandidates({
 }
 
 /**
- * Reaps orphaned RUNNING AiNewsRun rows stuck past the staleness threshold after a prior process crash/restart.
+ * Reaps orphaned RUNNING AiNewsRun rows whose heartbeat (`updatedAt`) is older than the staleness threshold.
  * Gracefully skips when lightweight mock repositories do not expose aiNewsRun.updateMany.
  */
 export async function reapStaleAiNewsRuns({
@@ -434,11 +435,11 @@ export async function reapStaleAiNewsRuns({
     return 0
   }
 
-  const staleBefore = new Date(now.getTime() - staleRunTimeoutMs)
+  const staleCutoff = new Date(now.getTime() - staleRunTimeoutMs)
   const result = await repository.aiNewsRun.updateMany({
     where: {
       status: "RUNNING",
-      startedAt: { lte: staleBefore },
+      updatedAt: { lte: staleCutoff },
       ...(excludeRunIds.length > 0 ? { id: { notIn: excludeRunIds } } : {}),
     },
     data: {
@@ -452,7 +453,42 @@ export async function reapStaleAiNewsRuns({
 }
 
 /**
- * Finalizes a run record with status, metrics, and elapsed time.
+ * Refreshes `updatedAt` heartbeat for an active RUNNING run and verifies execution ownership.
+ * Returns `false` if the run has already been reaped or transitioned out of RUNNING.
+ */
+export async function touchAiNewsRunHeartbeat({
+  runId,
+  repository,
+  now = new Date(),
+}: {
+  runId: string
+  repository: Pick<AiNewsRunRepository, "aiNewsRun">
+  now?: Date
+}): Promise<boolean> {
+  if (typeof repository.aiNewsRun.updateMany === "function") {
+    const updated = await repository.aiNewsRun.updateMany({
+      where: { id: runId, status: "RUNNING" },
+      data: { updatedAt: now },
+    })
+    return updated.count > 0
+  }
+
+  if (typeof repository.aiNewsRun.findFirst === "function") {
+    const current = await repository.aiNewsRun.findFirst({
+      where: { id: runId },
+      select: { id: true, status: true },
+    })
+    if (current?.status && current.status !== "RUNNING") {
+      return false
+    }
+  }
+
+  return true
+}
+
+/**
+ * Finalizes a run record with status, metrics, and elapsed time only while still RUNNING.
+ * Returns `false` when the run was already reaped/marked terminal so zombie runs never overwrite FAILED.
  */
 export async function finishAiNewsRun({
   runId,
@@ -464,13 +500,35 @@ export async function finishAiNewsRun({
   startedAtMs: number
   data: Record<string, unknown> & { status: AiNewsRunStatusValue }
   repository: AiNewsRunRepository
-}) {
+}): Promise<boolean> {
+  const finishedAt = new Date()
+  const payload = {
+    ...data,
+    finishedAt,
+    durationMs: Math.max(0, finishedAt.getTime() - startedAtMs),
+  }
+
+  if (typeof repository.aiNewsRun.updateMany === "function") {
+    const updated = await repository.aiNewsRun.updateMany({
+      where: { id: runId, status: "RUNNING" },
+      data: payload,
+    })
+    return updated.count > 0
+  }
+
+  if (typeof repository.aiNewsRun.findFirst === "function") {
+    const current = await repository.aiNewsRun.findFirst({
+      where: { id: runId },
+      select: { id: true, status: true },
+    })
+    if (current?.status && current.status !== "RUNNING") {
+      return false
+    }
+  }
+
   await repository.aiNewsRun.update({
     where: { id: runId },
-    data: {
-      ...data,
-      finishedAt: new Date(),
-      durationMs: Math.max(0, Date.now() - startedAtMs),
-    },
+    data: payload,
   })
+  return true
 }
