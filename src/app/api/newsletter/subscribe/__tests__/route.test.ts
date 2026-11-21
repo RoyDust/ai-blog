@@ -61,7 +61,7 @@ describe("POST /api/newsletter/subscribe", () => {
     process.env.NEXT_PUBLIC_SITE_URL = "https://blog.example";
   });
 
-  test("subscribes a valid email and attempts verification delivery", async () => {
+  test("subscribes a valid email, sends public verification page URL, and returns a generic response", async () => {
     const { POST } = await import("../route");
     const response = await POST(
       new Request("http://localhost/api/newsletter/subscribe", {
@@ -72,18 +72,19 @@ describe("POST /api/newsletter/subscribe", () => {
     );
 
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toMatchObject({
+    const payload = await response.json();
+    expect(payload).toEqual({
       success: true,
+      message: "订阅请求已提交，请检查邮箱完成确认。",
       data: {
-        email: "reader@example.com",
-        status: "pending",
-        verificationRequired: true,
-        mail: {
-          delivered: false,
-          reason: "provider_not_configured",
-        },
+        accepted: true,
+        message: "订阅请求已提交，请检查邮箱完成确认。",
       },
     });
+    expect(payload.data).not.toHaveProperty("status");
+    expect(payload.data).not.toHaveProperty("verificationRequired");
+    expect(payload.data).not.toHaveProperty("mail");
+
     expect(mocks.subscribe).toHaveBeenCalledWith("reader@example.com", {
       ip: "203.0.113.10",
       userAgent: null,
@@ -98,8 +99,66 @@ describe("POST /api/newsletter/subscribe", () => {
     expect(mocks.sendVerificationEmail).toHaveBeenCalledWith({
       email: "reader@example.com",
       verificationToken: "token-1",
-      verificationUrl: "https://blog.example/api/newsletter/verify?token=token-1",
+      verificationUrl: "https://blog.example/newsletter/verify?token=token-1",
     });
+  });
+
+  test("returns identical anti-enumeration responses for new pending, re-sent pending, and already verified subscribers", async () => {
+    const { POST } = await import("../route");
+
+    // 1) New pending subscriber
+    mocks.subscribe.mockResolvedValueOnce({
+      email: "new@example.com",
+      status: "pending",
+      verificationToken: "fresh-token",
+    });
+    const newRes = await POST(
+      new Request("http://localhost/api/newsletter/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: "new@example.com" }),
+      }),
+    );
+
+    // 2) Already active / verified subscriber (no verificationToken -> no email sent)
+    mocks.subscribe.mockResolvedValueOnce({
+      email: "active@example.com",
+      status: "verified",
+      verificationToken: null,
+    });
+    const activeRes = await POST(
+      new Request("http://localhost/api/newsletter/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: "active@example.com" }),
+      }),
+    );
+
+    // 3) Re-subscribed pending subscriber
+    mocks.subscribe.mockResolvedValueOnce({
+      email: "pending@example.com",
+      status: "pending",
+      verificationToken: "resent-token",
+    });
+    const resentRes = await POST(
+      new Request("http://localhost/api/newsletter/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: "pending@example.com" }),
+      }),
+    );
+
+    expect(newRes.status).toBe(200);
+    expect(activeRes.status).toBe(200);
+    expect(resentRes.status).toBe(200);
+
+    const newBody = await newRes.json();
+    const activeBody = await activeRes.json();
+    const resentBody = await resentRes.json();
+
+    expect(activeBody).toEqual(newBody);
+    expect(resentBody).toEqual(newBody);
+    expect(mocks.sendVerificationEmail).toHaveBeenCalledTimes(2);
   });
 
   test("rejects invalid email before writing", async () => {

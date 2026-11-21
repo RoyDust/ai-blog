@@ -14,11 +14,13 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
+import { ValidationError } from "@/lib/api-errors";
 import { createNewsletterMailer } from "@/lib/newsletter-mailer";
 import {
   NEWSLETTER_STATUS_PENDING,
   NEWSLETTER_STATUS_UNSUBSCRIBED,
   NEWSLETTER_STATUS_VERIFIED,
+  NEWSLETTER_VERIFICATION_TTL_MS,
   createNewsletterUnsubscribeToken,
   listVerifiedSubscribers,
   subscribe,
@@ -27,6 +29,7 @@ import {
 } from "@/lib/newsletter";
 
 function subscriber(overrides: Record<string, unknown> = {}) {
+  const now = new Date();
   return {
     id: "sub-1",
     email: "reader@example.com",
@@ -34,8 +37,8 @@ function subscriber(overrides: Record<string, unknown> = {}) {
     verificationToken: "token-1",
     verifiedAt: null,
     unsubscribedAt: null,
-    createdAt: new Date("2026-05-16T00:00:00.000Z"),
-    updatedAt: new Date("2026-05-16T00:00:00.000Z"),
+    createdAt: now,
+    updatedAt: now,
     ...overrides,
   };
 }
@@ -65,13 +68,20 @@ describe("newsletter", () => {
     });
   });
 
-  test("duplicate subscribe is idempotent for pending and verified subscribers", async () => {
-    const pending = subscriber();
+  test("re-subscribing refreshes token/timestamp for pending subscribers while keeping verified subscribers intact", async () => {
+    const expiredDate = new Date(Date.now() - NEWSLETTER_VERIFICATION_TTL_MS - 60_000);
+    const pending = subscriber({ verificationToken: "old-token", createdAt: expiredDate, updatedAt: expiredDate });
     prismaMocks.findUnique.mockResolvedValueOnce(pending);
+    prismaMocks.update.mockImplementationOnce(async (args) => subscriber({ ...pending, ...args.data }));
 
-    await expect(subscribe("reader@example.com")).resolves.toBe(pending);
-    expect(prismaMocks.update).not.toHaveBeenCalled();
+    const refreshed = await subscribe("reader@example.com");
+    expect(prismaMocks.update).toHaveBeenCalledTimes(1);
+    expect(refreshed.status).toBe(NEWSLETTER_STATUS_PENDING);
+    expect(refreshed.verificationToken).toMatch(/^[A-Za-z0-9_-]{40,}$/);
+    expect(refreshed.verificationToken).not.toBe("old-token");
+    expect(refreshed.updatedAt.getTime()).toBeGreaterThan(expiredDate.getTime());
 
+    vi.clearAllMocks();
     const verified = subscriber({ status: NEWSLETTER_STATUS_VERIFIED, verificationToken: null, verifiedAt: new Date() });
     prismaMocks.findUnique.mockResolvedValueOnce(verified);
 
@@ -96,8 +106,9 @@ describe("newsletter", () => {
     expect(result.verificationToken).not.toBe(unsubscribed.verificationToken);
   });
 
-  test("verifies pending subscribers by token", async () => {
-    prismaMocks.findUnique.mockResolvedValueOnce(subscriber());
+  test("verifies pending subscribers within the 48h window", async () => {
+    const recent = new Date(Date.now() - 47 * 60 * 60 * 1000);
+    prismaMocks.findUnique.mockResolvedValueOnce(subscriber({ createdAt: recent, updatedAt: recent }));
     prismaMocks.update.mockImplementationOnce(async (args) => subscriber({ ...args.data }));
 
     const result = await verify("token-1");
@@ -105,6 +116,16 @@ describe("newsletter", () => {
     expect(result?.status).toBe(NEWSLETTER_STATUS_VERIFIED);
     expect(result?.verificationToken).toBeNull();
     expect(result?.verifiedAt).toBeInstanceOf(Date);
+  });
+
+  test("rejects verification tokens older than 48 hours with ValidationError without updating DB", async () => {
+    const expired = new Date(Date.now() - NEWSLETTER_VERIFICATION_TTL_MS - 1_000);
+    prismaMocks.findUnique.mockResolvedValueOnce(
+      subscriber({ verificationToken: "expired-token", createdAt: expired, updatedAt: expired }),
+    );
+
+    await expect(verify("expired-token")).rejects.toThrow(ValidationError);
+    expect(prismaMocks.update).not.toHaveBeenCalled();
   });
 
   test("unsubscribe accepts verification tokens and signed unsubscribe tokens", async () => {
@@ -138,7 +159,9 @@ describe("newsletter", () => {
   });
 
   test("listVerifiedSubscribers excludes unsubscribed and unverified rows at the query boundary", async () => {
-    prismaMocks.findMany.mockResolvedValueOnce([subscriber({ status: NEWSLETTER_STATUS_VERIFIED, verificationToken: null, verifiedAt: new Date() })]);
+    prismaMocks.findMany.mockResolvedValueOnce([
+      subscriber({ status: NEWSLETTER_STATUS_VERIFIED, verificationToken: null, verifiedAt: new Date() }),
+    ]);
 
     await listVerifiedSubscribers(25);
 
@@ -158,11 +181,13 @@ describe("newsletter", () => {
 
     await listVerifiedSubscribers(25, "sub-25");
 
-    expect(prismaMocks.findMany).toHaveBeenCalledWith(expect.objectContaining({
-      cursor: { id: "sub-25" },
-      skip: 1,
-      take: 25,
-    }));
+    expect(prismaMocks.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        cursor: { id: "sub-25" },
+        skip: 1,
+        take: 25,
+      }),
+    );
   });
 
   test("newsletter mailer is predictable when provider is not configured", async () => {
@@ -181,7 +206,7 @@ describe("newsletter", () => {
     expect(mailer.configured).toBe(false);
   });
 
-  test("log mailer redacts verification tokens from diagnostic output", async () => {
+  test("log mailer redacts verification and List-Unsubscribe tokens from diagnostic output", async () => {
     const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
     const mailer = createNewsletterMailer({ provider: "log", fromEmail: "news@example.com", replyTo: "reply@example.com" });
 
@@ -189,7 +214,7 @@ describe("newsletter", () => {
       mailer.sendVerificationEmail({
         email: "reader@example.com",
         verificationToken: "token-1",
-        verificationUrl: "https://blog.example/api/newsletter/verify?token=token-1",
+        verificationUrl: "https://blog.example/newsletter/verify?token=token-1",
       }),
     ).resolves.toEqual({
       delivered: true,
@@ -200,9 +225,40 @@ describe("newsletter", () => {
       email: "reader@example.com",
       fromEmail: "news@example.com",
       replyTo: "reply@example.com",
-      verificationUrl: "https://blog.example/api/newsletter/verify?token=%5Bredacted%5D",
+      verificationUrl: "https://blog.example/newsletter/verify?token=%5Bredacted%5D",
     });
+
+    await expect(
+      mailer.sendCampaignEmail?.({
+        to: "reader@example.com",
+        subject: "Weekly",
+        html: "<p>Weekly</p>",
+        text: "Weekly",
+        headers: {
+          "List-Unsubscribe": "<https://blog.example/api/newsletter/unsubscribe?token=secret-unsub-token>",
+          "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+        },
+      }),
+    ).resolves.toEqual({
+      delivered: true,
+      provider: "log",
+      simulated: true,
+    });
+
     expect(JSON.stringify(info.mock.calls)).not.toContain("token-1");
+    expect(JSON.stringify(info.mock.calls)).not.toContain("secret-unsub-token");
     info.mockRestore();
+  });
+
+  test("maps deprecated NEWSLETTER_PROVIDER=console alias to log with a warning", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    process.env.NEWSLETTER_PROVIDER = "console";
+
+    const mailer = createNewsletterMailer();
+
+    expect(mailer.provider).toBe("log");
+    expect(mailer.configured).toBe(true);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('NEWSLETTER_PROVIDER="console"'));
+    warn.mockRestore();
   });
 });

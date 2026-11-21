@@ -55,6 +55,7 @@ function createFetchMock() {
           },
         ],
         pagination: { page: 1, limit: 20, total: 3, totalPages: 1 },
+        mailer: { enabled: true, provider: "log", configured: true, simulated: true, fromEmail: "news@example.com" },
       }),
     })
     .mockResolvedValueOnce({
@@ -132,6 +133,8 @@ describe("admin newsletter page", () => {
     expect(screen.getAllByRole("button", { name: /重试失败/ }).length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: /恢复状态/ })).toBeInTheDocument();
     expect(screen.getByText("失败 1")).toBeInTheDocument();
+    expect(screen.getByText("模拟发送模式 · log")).toBeInTheDocument();
+    expect(screen.queryByLabelText(/定时/)).not.toBeInTheDocument();
   });
 
   test("creates a campaign draft from the form", async () => {

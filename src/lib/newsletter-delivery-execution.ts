@@ -34,23 +34,45 @@ async function aggregateCampaign(tx: Prisma.TransactionClient, campaign: Newslet
   return { ...updated, deliveryStats: buildDeliveryStats(deliveries) };
 }
 
+async function attachCampaignDeliveryStats(tx: Prisma.TransactionClient, campaign: NewsletterCampaign) {
+  const deliveries = await tx.newsletterDelivery.findMany({
+    where: { campaignId: campaign.id },
+    select: { status: true },
+  });
+
+  return {
+    ...campaign,
+    deliveryStats: buildDeliveryStats(deliveries),
+  };
+}
+
 async function claimCampaign(campaignId: string, mode: "pending" | "failed") {
+  const normalizedId = typeof campaignId === "string" ? campaignId.trim() : "";
+  if (!normalizedId) {
+    throw new ValidationError("Campaign ID is required");
+  }
+
   return prisma.$transaction(async (tx) => {
-    const campaign = await lockCampaign(tx, campaignId);
+    const campaign = await lockCampaign(tx, normalizedId);
     if (campaign.status === "SENDING") throw new ConflictError("活动正在发送，不能重复执行");
     if (campaign.status === "DRAFT" && mode === "pending") {
-      if (campaign.audienceFrozenAt || await tx.newsletterDelivery.count({ where: { campaignId } })) {
+      if (campaign.audienceFrozenAt || await tx.newsletterDelivery.count({ where: { campaignId: normalizedId } })) {
         throw new ConflictError("历史活动缺少可信受众快照，请人工修复");
       }
       // This single statement snapshots all recipients. SENDING and the complete audience commit together.
       await tx.$executeRaw`INSERT INTO newsletter_deliveries (id, "campaignId", "subscriberId", email, status, "createdAt", "updatedAt")
         SELECT gen_random_uuid()::text, ${campaign.id}, id, email, 'pending', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
         FROM newsletter_subscribers WHERE status = 'verified' AND "verifiedAt" IS NOT NULL AND "unsubscribedAt" IS NULL`;
-      return tx.newsletterCampaign.update({ where: { id: campaign.id }, data: { status: "SENDING", audienceFrozenAt: new Date() } });
+      const updated = await tx.newsletterCampaign.update({
+        where: { id: campaign.id },
+        data: { status: "SENDING", audienceFrozenAt: new Date() },
+      });
+      return attachCampaignDeliveryStats(tx, updated);
     }
     if (!campaign.audienceFrozenAt) throw new ConflictError("历史活动未冻结受众，不能按当前订阅者重建，请人工修复");
     if (campaign.status !== "PARTIAL_FAILED" && campaign.status !== "FAILED") throw new ConflictError("当前活动状态不允许发送");
-    return tx.newsletterCampaign.update({ where: { id: campaign.id }, data: { status: "SENDING" } });
+    const updated = await tx.newsletterCampaign.update({ where: { id: campaign.id }, data: { status: "SENDING" } });
+    return attachCampaignDeliveryStats(tx, updated);
   });
 }
 
@@ -96,8 +118,13 @@ async function persistOutcome(delivery: NewsletterDelivery, outcome: DeliveryOut
   });
 }
 
-async function executeCampaign(campaignId: string, mode: "pending" | "failed") {
-  const campaign = await claimCampaign(campaignId, mode);
+export type ExecuteNewsletterCampaignOptions = {
+  background?: boolean;
+  onBackgroundComplete?: (promise: Promise<Awaited<ReturnType<typeof aggregateCampaign>>>) => void;
+};
+
+async function runClaimedCampaignDeliveries(campaign: NewsletterCampaign, mode: "pending" | "failed") {
+  const campaignId = campaign.id;
   const { newsletter } = await getBlogSettings();
   const posts = await prisma.post.findMany({ where: { id: { in: campaign.postIds }, deletedAt: null, published: true }, select: { id: true, title: true, slug: true, excerpt: true } });
   const position = new Map(campaign.postIds.map((id, index) => [id, index]));
@@ -109,7 +136,12 @@ async function executeCampaign(campaignId: string, mode: "pending" | "failed") {
     if (!attempt) continue;
     let outcome: DeliveryOutcome;
     try {
-      outcome = mailOutcome(await sendNewsletterEmail({ to: attempt.email, subject: email.subject, html: email.html, text: email.text }, newsletter));
+      outcome = mailOutcome(
+        await sendNewsletterEmail(
+          { to: attempt.email, subject: email.subject, html: email.html, text: email.text, headers: email.headers },
+          newsletter,
+        ),
+      );
     } catch (error) {
       outcome = { status: "unknown", error: error instanceof Error ? error.message : "上游接受结果未知" };
     }
@@ -123,8 +155,31 @@ async function executeCampaign(campaignId: string, mode: "pending" | "failed") {
   });
 }
 
-export async function sendNewsletterCampaign(campaignId: string) { return executeCampaign(campaignId, "pending"); }
-export async function retryNewsletterCampaignFailures(campaignId: string) { return executeCampaign(campaignId, "failed"); }
+async function executeCampaign(campaignId: string, mode: "pending" | "failed", options?: ExecuteNewsletterCampaignOptions) {
+  const claimed = await claimCampaign(campaignId, mode);
+  if (options?.background) {
+    const backgroundTask = Promise.resolve().then(() => runClaimedCampaignDeliveries(claimed, mode));
+    backgroundTask.catch((error: unknown) => {
+      console.error("[newsletter] background campaign delivery halted", {
+        campaignId: claimed.id,
+        mode,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    });
+    options.onBackgroundComplete?.(backgroundTask);
+    return claimed;
+  }
+
+  return runClaimedCampaignDeliveries(claimed, mode);
+}
+
+export async function sendNewsletterCampaign(campaignId: string, options?: ExecuteNewsletterCampaignOptions) {
+  return executeCampaign(campaignId, "pending", options);
+}
+
+export async function retryNewsletterCampaignFailures(campaignId: string, options?: ExecuteNewsletterCampaignOptions) {
+  return executeCampaign(campaignId, "failed", options);
+}
 
 export async function recoverSendingNewsletterCampaign(campaignId: string, confirmation?: { senderStopped?: unknown }) {
   if (confirmation?.senderStopped !== true) throw new ValidationError("请先确认旧发送进程已经停止");

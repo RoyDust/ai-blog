@@ -25,6 +25,27 @@ function normalizeSiteUrl(siteUrl: string) {
   return siteUrl.replace(/\/+$/, "");
 }
 
+export function buildNewsletterVerifyUrl(siteUrl: string, verificationToken: string) {
+  return `${normalizeSiteUrl(siteUrl)}/newsletter/verify?token=${encodeURIComponent(verificationToken)}`;
+}
+
+export function buildNewsletterUnsubscribeUrl(siteUrl: string, unsubscribeToken: string) {
+  return `${normalizeSiteUrl(siteUrl)}/newsletter/unsubscribe?token=${encodeURIComponent(unsubscribeToken)}`;
+}
+
+export function buildNewsletterOneClickUnsubscribeUrl(siteUrl: string, unsubscribeToken: string) {
+  return `${normalizeSiteUrl(siteUrl)}/api/newsletter/unsubscribe?token=${encodeURIComponent(unsubscribeToken)}`;
+}
+
+export function buildNewsletterUnsubscribeHeaders(siteUrl: string, unsubscribeToken: string): Record<string, string> {
+  const oneClickUnsubscribeUrl = buildNewsletterOneClickUnsubscribeUrl(siteUrl, unsubscribeToken);
+
+  return {
+    "List-Unsubscribe": `<${oneClickUnsubscribeUrl}>`,
+    "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+  };
+}
+
 export function renderNewsletterEmail({
   subject,
   intro,
@@ -33,7 +54,9 @@ export function renderNewsletterEmail({
   unsubscribeToken,
 }: RenderNewsletterEmailInput) {
   const normalizedSiteUrl = normalizeSiteUrl(siteUrl);
-  const unsubscribeUrl = `${normalizedSiteUrl}/api/newsletter/unsubscribe?token=${encodeURIComponent(unsubscribeToken)}`;
+  const unsubscribeUrl = buildNewsletterUnsubscribeUrl(normalizedSiteUrl, unsubscribeToken);
+  const oneClickUnsubscribeUrl = buildNewsletterOneClickUnsubscribeUrl(normalizedSiteUrl, unsubscribeToken);
+  const headers = buildNewsletterUnsubscribeHeaders(normalizedSiteUrl, unsubscribeToken);
   const items = posts
     .map((post) => {
       const url = `${normalizedSiteUrl}/posts/${encodeURIComponent(post.slug)}`;
@@ -66,5 +89,5 @@ export function renderNewsletterEmail({
     .filter(Boolean)
     .join("\n");
 
-  return { subject, html, text, unsubscribeUrl };
+  return { subject, html, text, unsubscribeUrl, oneClickUnsubscribeUrl, headers };
 }

@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 export const NEWSLETTER_STATUS_PENDING = "pending";
 export const NEWSLETTER_STATUS_VERIFIED = "verified";
 export const NEWSLETTER_STATUS_UNSUBSCRIBED = "unsubscribed";
+export const NEWSLETTER_VERIFICATION_TTL_MS = 48 * 60 * 60 * 1000;
 
 const EMAIL_MAX_LENGTH = 254;
 const DEFAULT_BATCH_SIZE = 100;
@@ -68,6 +69,41 @@ function normalizeToken(token: unknown) {
   }
 
   return normalized;
+}
+
+export async function extractNewsletterRequestToken(request: Request): Promise<string> {
+  const urlToken = new URL(request.url).searchParams.get("token")?.trim() ?? "";
+  const contentType = request.headers.get("content-type")?.toLowerCase() ?? "";
+
+  if (contentType.includes("multipart/form-data")) {
+    const formData = await request.formData().catch(() => null);
+    const formToken = formData?.get("token");
+    if (typeof formToken === "string" && formToken.trim()) {
+      return formToken.trim();
+    }
+    return urlToken;
+  }
+
+  const rawBody = await request.text().catch(() => "");
+  const trimmedBody = rawBody.trim();
+  if (!trimmedBody) {
+    return urlToken;
+  }
+
+  if (contentType.includes("application/json") || trimmedBody.startsWith("{")) {
+    try {
+      const parsed = JSON.parse(trimmedBody) as { token?: unknown };
+      if (typeof parsed?.token === "string" && parsed.token.trim()) {
+        return parsed.token.trim();
+      }
+    } catch {
+      return urlToken;
+    }
+    return urlToken;
+  }
+
+  const bodyToken = new URLSearchParams(trimmedBody).get("token")?.trim();
+  return bodyToken || urlToken;
 }
 
 function createVerificationToken() {
@@ -148,7 +184,11 @@ export async function subscribe(email: string, requestContext: NewsletterRequest
     });
   }
 
-  if (existing.status === NEWSLETTER_STATUS_UNSUBSCRIBED || existing.unsubscribedAt) {
+  if (
+    existing.status === NEWSLETTER_STATUS_PENDING ||
+    existing.status === NEWSLETTER_STATUS_UNSUBSCRIBED ||
+    existing.unsubscribedAt
+  ) {
     return client.update({
       where: { id: existing.id },
       data: {
@@ -156,6 +196,7 @@ export async function subscribe(email: string, requestContext: NewsletterRequest
         verificationToken: createVerificationToken(),
         verifiedAt: null,
         unsubscribedAt: null,
+        updatedAt: new Date(),
       },
     });
   }
@@ -163,7 +204,7 @@ export async function subscribe(email: string, requestContext: NewsletterRequest
   return existing;
 }
 
-export async function verify(token: string) {
+export async function verify(token: string, now: Date = new Date()) {
   const verificationToken = normalizeToken(token);
   const client = newsletterClient();
   const subscriber = await client.findUnique({ where: { verificationToken } });
@@ -176,12 +217,17 @@ export async function verify(token: string) {
     return subscriber;
   }
 
+  const issuedAt = subscriber.updatedAt ?? subscriber.createdAt;
+  if (issuedAt instanceof Date && now.getTime() - issuedAt.getTime() > NEWSLETTER_VERIFICATION_TTL_MS) {
+    throw new ValidationError("验证链接已过期，请重新提交订阅申请");
+  }
+
   return client.update({
     where: { id: subscriber.id },
     data: {
       status: NEWSLETTER_STATUS_VERIFIED,
       verificationToken: null,
-      verifiedAt: new Date(),
+      verifiedAt: now,
       unsubscribedAt: null,
     },
   });
