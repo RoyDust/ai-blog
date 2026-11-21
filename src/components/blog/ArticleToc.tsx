@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type CSSProperties, type MouseEvent } from "react";
+import { useEffect, useId, useMemo, useState, type CSSProperties, type MouseEvent } from "react";
 import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from "motion/react";
 import { collapseMotion } from "@/components/editorial";
 import { cn } from "@/lib/cn";
@@ -106,6 +106,7 @@ export function scrollToHeading(id: string, reduce: boolean | null) {
  * 文字 foreground 700；h3 只在所属 h2 激活时展开（高度过渡）。层级缩进 10px。
  */
 export function ArticleToc({ headings, variant = "rail", onNavigate, deferScroll = false }: ArticleTocProps) {
+  const layoutGroupId = useId();
   const activeId = useActiveHeading(headings);
   const reduce = useReducedMotion();
   const groups = useMemo(() => groupHeadings(headings), [headings]);
@@ -153,7 +154,7 @@ export function ArticleToc({ headings, variant = "rail", onNavigate, deferScroll
   };
 
   return (
-    <LayoutGroup id={`article-toc-${variant}`}>
+    <LayoutGroup id={layoutGroupId}>
       <ul className={cn("article-toc__list", variant === "drawer" && "article-toc--drawer")}>
         {groups.map((group, groupIndex) => {
           const groupActive = activeId === group.head.id || group.children.some((child) => child.id === activeId);

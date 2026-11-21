@@ -19,6 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/shadcn/ui/select";
+import { readPositiveInteger, useFilterMemory } from "@/hooks/useFilterMemory";
 import { apiFetcher, apiMutate, handleGlobalSwrError, toErrorMessage } from "@/lib/client-api";
 import { CoverAssetForm } from "./CoverAssetForm";
 import { CoverAssetGrid } from "./CoverAssetGrid";
@@ -26,7 +27,6 @@ import { CoverUploadDropzone } from "./CoverUploadDropzone";
 import type { CoverAsset, CoverAssetListResponse } from "./types";
 
 const adminSelectTriggerClassName = "w-full text-[0.8125rem] sm:w-[124px]";
-const adminSelectContentClassName = "";
 const coverGalleryMemoryKey = "admin:covers:list-filters";
 const statusFilters = ["all", "active", "archived"] as const;
 const imageKindFilters = ["all", "uploaded", "ai-generated"] as const;
@@ -42,50 +42,58 @@ type CoverGalleryMemory = {
   pageSize: number;
 };
 
-function readPositiveInteger(value: unknown, fallback: number) {
-  const number = Number(value);
-  return Number.isInteger(number) && number > 0 ? number : fallback;
-}
+const fallbackCoverGalleryMemory: CoverGalleryMemory = {
+  query: "",
+  statusFilter: "all",
+  imageKindFilter: "all",
+  page: 1,
+  pageSize: 24,
+};
 
-function readCoverGalleryMemory(): CoverGalleryMemory {
-  const fallback: CoverGalleryMemory = {
-    query: "",
-    statusFilter: "all",
-    imageKindFilter: "all",
-    page: 1,
-    pageSize: 24,
+function validateCoverGalleryMemory(
+  parsed: Partial<CoverGalleryMemory>,
+  fallback: CoverGalleryMemory,
+): CoverGalleryMemory {
+  const nextPageSize = readPositiveInteger(parsed.pageSize, fallback.pageSize);
+
+  return {
+    query: typeof parsed.query === "string" ? parsed.query : fallback.query,
+    statusFilter: statusFilters.includes(parsed.statusFilter as CoverStatusFilter)
+      ? (parsed.statusFilter as CoverStatusFilter)
+      : fallback.statusFilter,
+    imageKindFilter: imageKindFilters.includes(parsed.imageKindFilter as CoverImageKindFilter)
+      ? (parsed.imageKindFilter as CoverImageKindFilter)
+      : fallback.imageKindFilter,
+    page: readPositiveInteger(parsed.page, fallback.page),
+    pageSize: pageSizeOptions.includes(nextPageSize) ? nextPageSize : fallback.pageSize,
   };
-
-  if (typeof window === "undefined") {
-    return fallback;
-  }
-
-  try {
-    const parsed = JSON.parse(window.localStorage.getItem(coverGalleryMemoryKey) ?? "{}") as Partial<CoverGalleryMemory>;
-    const nextPageSize = readPositiveInteger(parsed.pageSize, fallback.pageSize);
-
-    return {
-      query: typeof parsed.query === "string" ? parsed.query : fallback.query,
-      statusFilter: statusFilters.includes(parsed.statusFilter as CoverStatusFilter) ? (parsed.statusFilter as CoverStatusFilter) : fallback.statusFilter,
-      imageKindFilter: imageKindFilters.includes(parsed.imageKindFilter as CoverImageKindFilter) ? (parsed.imageKindFilter as CoverImageKindFilter) : fallback.imageKindFilter,
-      page: readPositiveInteger(parsed.page, fallback.page),
-      pageSize: pageSizeOptions.includes(nextPageSize) ? nextPageSize : fallback.pageSize,
-    };
-  } catch {
-    return fallback;
-  }
 }
 
-function writeCoverGalleryMemory(value: CoverGalleryMemory) {
-  if (typeof window === "undefined") {
-    return;
+function buildCoverGalleryUrl(memory: CoverGalleryMemory): string {
+  const next = new URLSearchParams({ page: String(memory.page), limit: String(memory.pageSize) });
+  if (memory.query.trim()) next.set("q", memory.query.trim());
+  if (memory.statusFilter !== "all") next.set("status", memory.statusFilter);
+  if (memory.imageKindFilter === "uploaded") {
+    next.set("source", "upload");
+    next.set("generatedByAi", "false");
+  } else if (memory.imageKindFilter === "ai-generated") {
+    next.set("generatedByAi", "true");
   }
+  return `/api/admin/covers?${next.toString()}`;
+}
 
-  try {
-    window.localStorage.setItem(coverGalleryMemoryKey, JSON.stringify(value));
-  } catch {
-    // localStorage can be unavailable in private or constrained browser contexts.
-  }
+function replaceCoverAssetInResponse(
+  current: { data?: CoverAssetListResponse } | undefined,
+  asset: CoverAsset,
+) {
+  if (!current?.data) return current;
+  return {
+    ...current,
+    data: {
+      ...current.data,
+      items: current.data.items.map((item) => (item.id === asset.id ? asset : item)),
+    },
+  };
 }
 
 /**
@@ -95,7 +103,11 @@ function writeCoverGalleryMemory(value: CoverGalleryMemory) {
  * 所有持久化写入都通过 /api/admin/covers 系列接口完成。
  */
 export function CoverGalleryManager() {
-  const [initialMemory] = useState(readCoverGalleryMemory);
+  const { initialMemory, persist } = useFilterMemory(
+    coverGalleryMemoryKey,
+    fallbackCoverGalleryMemory,
+    validateCoverGalleryMemory,
+  );
   const [query, setQuery] = useState(initialMemory.query);
   const [statusFilter, setStatusFilter] = useState<CoverStatusFilter>(initialMemory.statusFilter);
   const [imageKindFilter, setImageKindFilter] = useState<CoverImageKindFilter>(initialMemory.imageKindFilter);
@@ -106,27 +118,12 @@ export function CoverGalleryManager() {
   const [archivingAsset, setArchivingAsset] = useState<CoverAsset | null>(null);
   const [archiving, setArchiving] = useState(false);
 
-  /**
-   * 将页面筛选状态转换成图库查询 URL（作为 SWR key，筛选变化自然触发重取）。
-   */
-  const coverUrl = useMemo(() => {
-    const next = new URLSearchParams({ page: String(page), limit: String(pageSize) });
-    if (query.trim()) next.set("q", query.trim());
-    if (statusFilter !== "all") next.set("status", statusFilter);
-    if (imageKindFilter === "uploaded") {
-      next.set("source", "upload");
-      next.set("generatedByAi", "false");
-    } else if (imageKindFilter === "ai-generated") {
-      next.set("generatedByAi", "true");
-    }
-    return `/api/admin/covers?${next.toString()}`;
-  }, [imageKindFilter, page, pageSize, query, statusFilter]);
+  const coverUrl = useMemo(
+    () => buildCoverGalleryUrl({ query, statusFilter, imageKindFilter, page, pageSize }),
+    [imageKindFilter, page, pageSize, query, statusFilter],
+  );
 
-  const {
-    data,
-    isLoading,
-    mutate,
-  } = useSWR<{ data?: CoverAssetListResponse }>(coverUrl, apiFetcher, {
+  const { data, isLoading: loading, mutate } = useSWR<{ data?: CoverAssetListResponse }>(coverUrl, apiFetcher, {
     keepPreviousData: true,
     revalidateOnMount: true,
     onError: (swrError, key) => {
@@ -137,57 +134,21 @@ export function CoverGalleryManager() {
 
   const assets = useMemo(() => data?.data?.items ?? [], [data?.data?.items]);
   const total = data?.data?.total ?? 0;
-  const loading = isLoading;
 
-  // 筛选记忆持久化（纯副作用，无 setState）
   useEffect(() => {
-    writeCoverGalleryMemory({
-      query,
-      statusFilter,
-      imageKindFilter,
-      page,
-      pageSize,
-    });
-  }, [imageKindFilter, page, pageSize, query, statusFilter]);
+    persist({ query, statusFilter, imageKindFilter, page, pageSize });
+  }, [imageKindFilter, page, pageSize, persist, query, statusFilter]);
 
-  /**
-   * 编辑弹窗保存后，就地替换当前页中的对应卡片（乐观更新，不重取）。
-   */
   const patchAsset = (asset: CoverAsset) => {
-    void mutate(
-      (current) => {
-        if (!current?.data) {
-          return current;
-        }
-
-        return {
-          ...current,
-          data: {
-            ...current.data,
-            items: current.data.items.map((item) => (item.id === asset.id ? asset : item)),
-          },
-        };
-      },
-      { revalidate: false },
-    );
+    void mutate((current) => replaceCoverAssetInResponse(current, asset), { revalidate: false });
   };
 
-  /**
-   * 上传或外链新增成功后回到第一页并刷新。
-   */
   const handleCreated = () => {
     if (page === 1) {
       void mutate();
     } else {
       setPage(1);
     }
-  };
-
-  /**
-   * 归档图库资产：先弹确认弹窗，确认后再执行归档请求。
-   */
-  const archiveAsset = (asset: CoverAsset) => {
-    setArchivingAsset(asset);
   };
 
   const confirmArchive = async () => {
@@ -211,20 +172,20 @@ export function CoverGalleryManager() {
     }
   };
 
-  /**
-   * 批量给已发布且缺少封面的文章随机补齐封面。
-   */
   const randomizeMissingPosts = async () => {
     setRandomizing(true);
 
     try {
-      const data = await apiMutate<{ data?: { updated?: number; skippedReason?: string } }>("/api/admin/covers/randomize-posts", {
-        method: "POST",
-        body: JSON.stringify({ publishedOnly: true }),
-      });
+      const result = await apiMutate<{ data?: { updated?: number; skippedReason?: string } }>(
+        "/api/admin/covers/randomize-posts",
+        {
+          method: "POST",
+          body: JSON.stringify({ publishedOnly: true }),
+        },
+      );
 
-      const updated = Number(data.data?.updated ?? 0);
-      const skippedReason = data.data?.skippedReason;
+      const updated = Number(result.data?.updated ?? 0);
+      const skippedReason = result.data?.skippedReason;
       toast.success(skippedReason === "NO_ACTIVE_COVERS" ? "暂无可用封面" : `已补齐 ${updated} 篇文章封面`);
       void mutate();
     } catch (error) {
@@ -287,27 +248,33 @@ export function CoverGalleryManager() {
                   placeholder="搜索标题、URL、标签"
                   value={query}
                 />
-                <Select value={statusFilter} onValueChange={(value) => {
-                  setStatusFilter(value as typeof statusFilter);
-                  setPage(1);
-                }}>
+                <Select
+                  value={statusFilter}
+                  onValueChange={(value) => {
+                    setStatusFilter(value as CoverStatusFilter);
+                    setPage(1);
+                  }}
+                >
                   <SelectTrigger aria-label="封面状态" className={adminSelectTriggerClassName}>
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className={adminSelectContentClassName}>
+                  <SelectContent>
                     <SelectItem value="all">全部状态</SelectItem>
                     <SelectItem value="active">可用</SelectItem>
                     <SelectItem value="archived">归档</SelectItem>
                   </SelectContent>
                 </Select>
-                <Select value={imageKindFilter} onValueChange={(value) => {
-                  setImageKindFilter(value as typeof imageKindFilter);
-                  setPage(1);
-                }}>
+                <Select
+                  value={imageKindFilter}
+                  onValueChange={(value) => {
+                    setImageKindFilter(value as CoverImageKindFilter);
+                    setPage(1);
+                  }}
+                >
                   <SelectTrigger aria-label="图片类型" className={adminSelectTriggerClassName}>
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className={adminSelectContentClassName}>
+                  <SelectContent>
                     <SelectItem value="all">全部图片</SelectItem>
                     <SelectItem value="uploaded">上传图片</SelectItem>
                     <SelectItem value="ai-generated">AI 生成</SelectItem>
@@ -318,7 +285,7 @@ export function CoverGalleryManager() {
           />
 
           <div className="border-t border-[var(--reader-border-strong)] pt-5">
-            <CoverAssetGrid assets={assets} loading={loading} onEdit={setEditing} onDelete={archiveAsset} />
+            <CoverAssetGrid assets={assets} loading={loading} onEdit={setEditing} onDelete={setArchivingAsset} />
           </div>
 
           {total > 0 ? (

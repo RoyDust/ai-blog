@@ -110,6 +110,7 @@ export function NotificationCenterClient() {
     {
       revalidateOnFocus: true,
       onSuccess: (data) => {
+        setError(null);
         setItems(data?.data?.items ?? []);
         setUnreadCount(data?.data?.unreadCount ?? 0);
         setNextCursor(data?.data?.nextCursor ?? null);
