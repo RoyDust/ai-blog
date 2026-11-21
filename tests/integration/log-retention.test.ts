@@ -18,8 +18,10 @@ beforeEach(async () => {
 })
 afterEach(async () => {
   await pool.query('DROP TRIGGER IF EXISTS p2_log_delete_fault ON api_operation_logs')
+  await pool.query('DROP TRIGGER IF EXISTS p2_log_delete_stmt_fault ON api_operation_logs')
   await pool.query('DROP FUNCTION IF EXISTS p2_log_delete_fault()')
   await prisma.apiOperationLog.deleteMany({ where: { requestId: { startsWith: prefix } } })
+  await prisma.rateLimitEntry.deleteMany({ where: { key: { startsWith: prefix } } })
   if (original) await pool.query('UPDATE system_settings SET value = $1::jsonb WHERE key = $2', [JSON.stringify(original.value), settingKey])
   else await prisma.systemSetting.deleteMany({ where: { key: settingKey } })
   vi.unstubAllEnvs()
@@ -91,5 +93,56 @@ describe('bounded log retention in PostgreSQL', () => {
     expect(await prisma.apiOperationLog.count()).toBe(900)
     await pool.query('DROP TRIGGER p2_log_delete_fault ON api_operation_logs')
     expect((await runApiOperationLogRetention('cron')).status).toBe('completed')
+  })
+  test('short-circuits log scan when below maxStorageBytes while deleting expired rate_limit_entries and preserving active ones', async () => {
+    await seed(20)
+    await pool.query(
+      `INSERT INTO "rate_limit_entries" ("key", "count", "reset_at")
+       VALUES
+         ($1, 5, NOW() - INTERVAL '5 minutes'),
+         ($2, 2, NOW() - INTERVAL '1 millisecond'),
+         ($3, 3, NOW() + INTERVAL '5 minutes')`,
+      [prefix + ':expired-old', prefix + ':expired-boundary', prefix + ':active'],
+    )
+    await pool.query("CREATE FUNCTION p2_log_delete_fault() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'unexpected log delete statement'; END $$")
+    await pool.query('CREATE TRIGGER p2_log_delete_stmt_fault BEFORE DELETE ON api_operation_logs FOR EACH STATEMENT EXECUTE FUNCTION p2_log_delete_fault()')
+
+    const result = await runApiOperationLogRetention('cron')
+
+    expect(result.status).toBe('completed')
+    expect(result.deletedCount).toBe(0)
+    expect(result.remainingExcessBytes).toBe(0)
+    expect(result.before?.rowCount).toBe(20)
+    expect(result.after).toEqual(result.before)
+    expect(result.expiredRateLimitDeletedCount).toBeGreaterThanOrEqual(2)
+    expect(await prisma.apiOperationLog.count()).toBe(20)
+
+    const remainingRateLimits = await prisma.rateLimitEntry.findMany({
+      where: { key: { startsWith: prefix } },
+      orderBy: { key: 'asc' },
+    })
+    expect(remainingRateLimits.map((entry) => entry.key)).toEqual([prefix + ':active'])
+    expect(remainingRateLimits[0]?.count).toBe(3)
+  })
+  test('prunes expired rate_limit_entries alongside batch log deletion when storage exceeds maxStorageBytes', async () => {
+    await seed(900)
+    await pool.query(
+      `INSERT INTO "rate_limit_entries" ("key", "count", "reset_at")
+       VALUES
+         ($1, 8, NOW() - INTERVAL '1 minute'),
+         ($2, 1, NOW() + INTERVAL '10 minutes')`,
+      [prefix + ':expired', prefix + ':active'],
+    )
+
+    const result = await runApiOperationLogRetention('admin')
+
+    expect(result.status).toBe('completed')
+    expect(result.deletedCount).toBeGreaterThan(0)
+    expect(result.expiredRateLimitDeletedCount).toBeGreaterThanOrEqual(1)
+
+    const remainingRateLimits = await prisma.rateLimitEntry.findMany({
+      where: { key: { startsWith: prefix } },
+    })
+    expect(remainingRateLimits.map((entry) => entry.key)).toEqual([prefix + ':active'])
   })
 })

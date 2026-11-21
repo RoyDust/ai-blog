@@ -38,10 +38,19 @@ function hasCurrentModelDelegates(client: PrismaClient | undefined) {
   )
 }
 
-function readPoolMax() {
+export const DEFAULT_PRODUCTION_POOL_MAX = 8
+export const DEFAULT_NON_PRODUCTION_POOL_MAX = 1
+
+export function readPoolMax() {
   const value = Number(process.env.DATABASE_POOL_MAX)
 
-  return Number.isInteger(value) && value > 0 ? value : 1
+  if (Number.isInteger(value) && value > 0) {
+    return value
+  }
+
+  return process.env.NODE_ENV === 'production'
+    ? DEFAULT_PRODUCTION_POOL_MAX
+    : DEFAULT_NON_PRODUCTION_POOL_MAX
 }
 
 /**

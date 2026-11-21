@@ -19,6 +19,7 @@ import { clampPagination } from "@/lib/validation"
 const SEARCH_MIN_QUERY_LENGTH = 2
 const SEARCH_MAX_QUERY_LENGTH = 200
 const AI_SEARCH_CACHE_TTL_MS = 5 * 60_000
+const MAX_AI_SEARCH_CACHE_ENTRIES = 500
 
 type SearchPostCandidate = {
   id: string
@@ -82,24 +83,66 @@ function buildAiSearchCacheKey(query: string, items: SearchPostCandidate[]) {
   return `${query.toLowerCase()}::${candidateSignature}`
 }
 
+function sweepExpiredAiSearchCacheFromHead(now: number) {
+  for (const [key, entry] of aiSearchCache) {
+    if (entry.expiresAt > now) {
+      break
+    }
+    aiSearchCache.delete(key)
+  }
+}
+
+function sweepAllExpiredAiSearchCache(now: number) {
+  for (const [key, entry] of aiSearchCache) {
+    if (entry.expiresAt <= now) {
+      aiSearchCache.delete(key)
+    }
+  }
+}
+
 function readAiSearchCache(cacheKey: string) {
+  const now = Date.now()
+  sweepExpiredAiSearchCacheFromHead(now)
+
   const cached = aiSearchCache.get(cacheKey)
 
   if (!cached) {
     return null
   }
 
-  if (cached.expiresAt <= Date.now()) {
+  if (cached.expiresAt <= now) {
     aiSearchCache.delete(cacheKey)
     return null
   }
+
+  aiSearchCache.delete(cacheKey)
+  aiSearchCache.set(cacheKey, cached)
 
   return cached.value
 }
 
 function writeAiSearchCache(cacheKey: string, value: AiSearchResult) {
+  const now = Date.now()
+  sweepExpiredAiSearchCacheFromHead(now)
+
+  if (aiSearchCache.has(cacheKey)) {
+    aiSearchCache.delete(cacheKey)
+  }
+
+  if (aiSearchCache.size >= MAX_AI_SEARCH_CACHE_ENTRIES) {
+    sweepAllExpiredAiSearchCache(now)
+
+    while (aiSearchCache.size >= MAX_AI_SEARCH_CACHE_ENTRIES) {
+      const oldestKey = aiSearchCache.keys().next().value
+      if (oldestKey === undefined) {
+        break
+      }
+      aiSearchCache.delete(oldestKey)
+    }
+  }
+
   aiSearchCache.set(cacheKey, {
-    expiresAt: Date.now() + AI_SEARCH_CACHE_TTL_MS,
+    expiresAt: now + AI_SEARCH_CACHE_TTL_MS,
     value,
   })
 }

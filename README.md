@@ -137,6 +137,7 @@ pnpm ai-news:check  # 检查 AI 新闻流水线就绪状态
 | 变量 | 必填 | 说明 |
 | --- | --- | --- |
 | `DATABASE_URL` | 是 | PostgreSQL 连接串 |
+| `DATABASE_POOL_MAX` | 否 | PostgreSQL 连接池最大连接数（生产环境默认 `8`，开发与测试默认 `1`） |
 | `AUTH_SECRET` | 是 | 应用认证密钥 |
 | `NEXTAUTH_SECRET` | 是 | NextAuth 会话密钥 |
 | `NEXTAUTH_URL` | 是 | 登录回调基准地址 |
