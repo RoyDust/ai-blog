@@ -1,12 +1,19 @@
 import type { Prisma, NewsletterDelivery as DeliveryRecord, NewsletterCampaign as CampaignRecord } from "@prisma/client";
 import { ConflictError, NotFoundError, ValidationError } from "@/lib/api-errors";
+import { getBlogSettings } from "@/lib/blog-settings";
 import { buildDeliveryStats, type DeliveryStats } from "@/lib/newsletter-delivery-stats";
-
-
-
+import { createNewsletterMailer } from "@/lib/newsletter-mailer";
 import { prisma } from "@/lib/prisma";
 import { renderNewsletterEmail } from "@/lib/newsletter-renderer";
 import { getSiteUrl } from "@/lib/seo";
+
+export type NewsletterMailerStatus = {
+  enabled: boolean;
+  provider: "noop" | "log";
+  configured: boolean;
+  simulated: boolean;
+  fromEmail: string | null;
+};
 
 type NewsletterCampaignStatus = "DRAFT" | "SENDING" | "SENT" | "PARTIAL_FAILED" | "FAILED";
 
@@ -73,17 +80,23 @@ function normalizePostIds(value: unknown) {
   return Array.from(new Set(value.map((item) => (typeof item === "string" ? item.trim() : "")).filter(Boolean)));
 }
 
-function normalizeDate(value: unknown) {
-  if (!value) {
-    return null;
+function assertSchedulingUnsupported(value: unknown) {
+  if (value !== undefined && value !== null && String(value).trim() !== "") {
+    throw new ValidationError("定时发送尚未接入调度器，请创建草稿后手动发送");
   }
+}
 
-  const date = value instanceof Date ? value : new Date(String(value));
-  if (Number.isNaN(date.getTime())) {
-    throw new ValidationError("Scheduled time is invalid");
-  }
+export async function getNewsletterMailerStatus(): Promise<NewsletterMailerStatus> {
+  const { newsletter } = await getBlogSettings();
+  const mailer = createNewsletterMailer(newsletter);
 
-  return date;
+  return {
+    enabled: newsletter.enabled,
+    provider: mailer.provider,
+    configured: mailer.configured,
+    simulated: mailer.provider === "log",
+    fromEmail: newsletter.fromEmail || null,
+  };
 }
 
 function normalizePositiveInteger(value: unknown, fallback: number, max = MAX_PAGE_SIZE) {
@@ -213,6 +226,8 @@ async function loadCampaignPosts(postIds: string[]) {
 }
 
 export async function createNewsletterCampaign(input: CreateCampaignInput) {
+  assertSchedulingUnsupported(input.scheduledAt);
+
   return newsletterClient().newsletterCampaign.create({
     data: {
       title: normalizeText(input.title, "Title"),
@@ -220,12 +235,12 @@ export async function createNewsletterCampaign(input: CreateCampaignInput) {
       intro: normalizeOptionalText(input.intro),
       postIds: normalizePostIds(input.postIds),
       createdById: input.createdById ?? null,
-      ...(input.scheduledAt !== undefined ? { scheduledAt: normalizeDate(input.scheduledAt) } : {}),
     },
   });
 }
 
 export async function updateNewsletterCampaign(campaignId: string, input: UpdateCampaignInput) {
+  assertSchedulingUnsupported(input.scheduledAt);
   const campaign = await loadCampaign(campaignId);
 
   if (campaign.status !== "DRAFT") {
@@ -239,7 +254,6 @@ export async function updateNewsletterCampaign(campaignId: string, input: Update
       ...(input.subject !== undefined ? { subject: normalizeText(input.subject, "Subject") } : {}),
       ...(input.intro !== undefined ? { intro: normalizeOptionalText(input.intro) } : {}),
       ...(input.postIds !== undefined ? { postIds: normalizePostIds(input.postIds) } : {}),
-      ...(input.scheduledAt !== undefined ? { scheduledAt: normalizeDate(input.scheduledAt) } : {}),
     },
   }).catch((error: unknown) => {
     if (error && typeof error === 'object' && 'code' in error && error.code === 'P2025') {
@@ -253,17 +267,21 @@ export async function listNewsletterCampaigns(options: ListCampaignsOptions = {}
   const where = buildCampaignWhere(options);
   const total = await newsletterClient().newsletterCampaign.count({ where });
   const pagination = buildPagination(options.page, options.limit, total);
-  const campaigns = await newsletterClient().newsletterCampaign.findMany({
-    where,
-    include: { deliveries: { select: { status: true } } },
-    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-    skip: (pagination.page - 1) * pagination.limit,
-    take: pagination.limit,
-  });
+  const [campaigns, mailer] = await Promise.all([
+    newsletterClient().newsletterCampaign.findMany({
+      where,
+      include: { deliveries: { select: { status: true } } },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      skip: (pagination.page - 1) * pagination.limit,
+      take: pagination.limit,
+    }),
+    getNewsletterMailerStatus(),
+  ]);
 
   return {
     data: campaigns.map(toPublicCampaign),
     pagination,
+    mailer,
   };
 }
 
@@ -328,6 +346,12 @@ export async function listNewsletterSubscribers(options: ListSubscribersOptions 
   };
 }
 
-export { sendNewsletterCampaign, retryNewsletterCampaignFailures, recoverSendingNewsletterCampaign, reconcileNewsletterDelivery } from "@/lib/newsletter-delivery-execution";
+export {
+  sendNewsletterCampaign,
+  retryNewsletterCampaignFailures,
+  recoverSendingNewsletterCampaign,
+  reconcileNewsletterDelivery,
+  type ExecuteNewsletterCampaignOptions,
+} from "@/lib/newsletter-delivery-execution";
 
 export { sendNewsletterEmail, type NewsletterOutboundMessage } from "@/lib/newsletter-outbound";

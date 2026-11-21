@@ -116,10 +116,11 @@ describe("admin newsletter routes", () => {
     expect(campaignMocks.createNewsletterCampaign).not.toHaveBeenCalled();
   });
 
-  test("sends a campaign by id", async () => {
+  test("starts sending a campaign asynchronously and returns 202 Accepted", async () => {
     campaignMocks.sendNewsletterCampaign.mockResolvedValueOnce({
       id: "campaign-1",
-      status: "SENT",
+      status: "SENDING",
+      deliveryStats: { total: 10, pending: 10, sent: 0, failed: 0, sending: 0, skipped: 0, unknown: 0 },
     });
 
     const { POST } = await import("../[id]/send/route");
@@ -129,14 +130,15 @@ describe("admin newsletter routes", () => {
     const payload = await response.json();
 
     expect(response.status).toBe(202);
-    expect(payload.data.status).toBe("SENT");
-    expect(campaignMocks.sendNewsletterCampaign).toHaveBeenCalledWith("campaign-1");
+    expect(payload.data.status).toBe("SENDING");
+    expect(campaignMocks.sendNewsletterCampaign).toHaveBeenCalledWith("campaign-1", { background: true });
   });
 
-  test("retries a campaign by id", async () => {
+  test("starts retrying a campaign asynchronously and returns 202 Accepted", async () => {
     campaignMocks.retryNewsletterCampaignFailures.mockResolvedValueOnce({
       id: "campaign-1",
-      status: "SENT",
+      status: "SENDING",
+      deliveryStats: { total: 10, pending: 0, sent: 8, failed: 2, sending: 0, skipped: 0, unknown: 0 },
     });
 
     const { POST } = await import("../[id]/retry/route");
@@ -146,8 +148,8 @@ describe("admin newsletter routes", () => {
     const payload = await response.json();
 
     expect(response.status).toBe(202);
-    expect(payload.data.status).toBe("SENT");
-    expect(campaignMocks.retryNewsletterCampaignFailures).toHaveBeenCalledWith("campaign-1");
+    expect(payload.data.status).toBe("SENDING");
+    expect(campaignMocks.retryNewsletterCampaignFailures).toHaveBeenCalledWith("campaign-1", { background: true });
   });
 
   test("recovers a stuck sending campaign by id", async () => {

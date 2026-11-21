@@ -11,13 +11,29 @@ export async function runApiOperationLogRetention(source: 'cron' | 'admin') {
       const [lock] = await tx.$queryRawUnsafe<Array<{ acquired: boolean }>>(
         'SELECT pg_try_advisory_xact_lock($1::int, $2::int) AS acquired', ...API_LOG_RETENTION_LOCK,
       )
-      if (!lock.acquired) return {
+      if (!lock?.acquired) return {
         source, status: 'skipped_locked' as const, maxStorageBytes: null, batchLimit: API_LOG_RETENTION_BATCH_LIMIT,
-        before: null, after: null, deletedCount: 0, remainingExcessBytes: null,
+        before: null, after: null, deletedCount: 0, expiredRateLimitDeletedCount: 0, remainingExcessBytes: null,
       }
+      const expiredRateLimitDeletedCount = Number(
+        await tx.$executeRawUnsafe('DELETE FROM "rate_limit_entries" WHERE "reset_at" <= NOW()'),
+      )
       const maxStorageBytes = await getApiOperationLogMaxStorageBytes(tx)
       const before = await getApiOperationLogStorageStats(tx)
-      const deletedCount = await tx.$executeRawUnsafe(`
+      if (before.bytes <= maxStorageBytes) {
+        return {
+          source,
+          status: 'completed' as const,
+          maxStorageBytes,
+          batchLimit: API_LOG_RETENTION_BATCH_LIMIT,
+          before,
+          after: before,
+          deletedCount: 0,
+          expiredRateLimitDeletedCount,
+          remainingExcessBytes: 0,
+        }
+      }
+      const deletedCount = Number(await tx.$executeRawUnsafe(`
         WITH sized AS (
           SELECT "id", "createdAt", pg_column_size(logs.*)::bigint AS row_size FROM "api_operation_logs" logs
         ), ranked AS (
@@ -26,11 +42,12 @@ export async function runApiOperationLogRetention(source: 'cron' | 'admin') {
           SELECT "id" FROM ranked WHERE newest_bytes > $1 ORDER BY "createdAt" ASC, "id" ASC LIMIT $2
         )
         DELETE FROM "api_operation_logs" WHERE "id" IN (SELECT "id" FROM candidates)
-      `, maxStorageBytes, API_LOG_RETENTION_BATCH_LIMIT)
+      `, maxStorageBytes, API_LOG_RETENTION_BATCH_LIMIT))
       const after = await getApiOperationLogStorageStats(tx)
       return {
         source, status: after.bytes <= maxStorageBytes ? 'completed' as const : 'more_remaining' as const,
         maxStorageBytes, batchLimit: API_LOG_RETENTION_BATCH_LIMIT, before, after, deletedCount,
+        expiredRateLimitDeletedCount,
         remainingExcessBytes: Math.max(0, after.bytes - maxStorageBytes),
       }
     }, { maxWait: 2000, timeout: 30000 })

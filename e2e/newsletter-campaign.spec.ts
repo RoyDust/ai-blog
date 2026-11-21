@@ -16,7 +16,10 @@ test("E23 newsletter campaign delivers to its verified subscriber", async ({ pag
       try {
         const subscribed = await page.request.post("/api/newsletter/subscribe", { data: { email } })
         expect(subscribed.ok()).toBe(true)
-        expect((await subscribed.json()).data.mail).toMatchObject({ delivered: true, provider: "log" })
+        expect((await subscribed.json()).data).toMatchObject({
+          accepted: true,
+          message: "订阅请求已提交，请检查邮箱完成确认。",
+        })
         await verifyNewsletterSubscriber(page.request, pool, email)
         post = await createPostViaApi(page.request, { published: true })
 

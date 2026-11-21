@@ -1,9 +1,9 @@
 import { describe, expect, test } from "vitest";
 
-import { renderNewsletterEmail } from "../newsletter-renderer";
+import { buildNewsletterVerifyUrl, renderNewsletterEmail } from "../newsletter-renderer";
 
 describe("newsletter renderer", () => {
-  test("renders subject, html, text, and unsubscribe url", () => {
+  test("renders public confirmation unsubscribe link in body and RFC 8058 One-Click headers", () => {
     const email = renderNewsletterEmail({
       subject: "本周精选",
       intro: "三篇文章值得读。",
@@ -17,9 +17,22 @@ describe("newsletter renderer", () => {
 
     expect(email.subject).toBe("本周精选");
     expect(email.html).toContain("https://example.com/posts/post-one");
-    expect(email.html).toContain("https://example.com/api/newsletter/unsubscribe?token=u.token");
+    expect(email.html).toContain("https://example.com/newsletter/unsubscribe?token=u.token");
+    expect(email.html).not.toContain("/api/newsletter/unsubscribe");
     expect(email.text).toContain("文章一");
-    expect(email.unsubscribeUrl).toBe("https://example.com/api/newsletter/unsubscribe?token=u.token");
+    expect(email.text).toContain("取消订阅：https://example.com/newsletter/unsubscribe?token=u.token");
+    expect(email.unsubscribeUrl).toBe("https://example.com/newsletter/unsubscribe?token=u.token");
+    expect(email.oneClickUnsubscribeUrl).toBe("https://example.com/api/newsletter/unsubscribe?token=u.token");
+    expect(email.headers).toEqual({
+      "List-Unsubscribe": "<https://example.com/api/newsletter/unsubscribe?token=u.token>",
+      "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+    });
+  });
+
+  test("builds public verification confirmation URL without trailing slash duplication", () => {
+    expect(buildNewsletterVerifyUrl("https://example.com///", "v.token+1")).toBe(
+      "https://example.com/newsletter/verify?token=v.token%2B1",
+    );
   });
 
   test("escapes html content while keeping deterministic post links", () => {

@@ -834,3 +834,12 @@ model Bookmark {
   @@index([userId])
   @@map("bookmarks")
 }
+
+model RateLimitEntry {
+  key     String   @id
+  count   Int
+  resetAt DateTime @map("reset_at") @db.Timestamptz(6)
+
+  @@index([resetAt], map: "rate_limit_entries_reset_at_idx")
+  @@map("rate_limit_entries")
+}

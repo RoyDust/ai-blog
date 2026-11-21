@@ -4,10 +4,13 @@ import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 import { getClientIpFromHeaders } from "@/lib/api-operation-logs";
 import { ForbiddenError, toErrorResponse, TooManyRequestsError } from "@/lib/api-errors";
 import { getBlogSettings } from "@/lib/blog-settings";
-import { getSiteUrl } from "@/lib/seo";
 import { createNewsletterMailer } from "@/lib/newsletter-mailer";
+import { buildNewsletterVerifyUrl } from "@/lib/newsletter-renderer";
 import { normalizeNewsletterEmail, subscribe } from "@/lib/newsletter";
 import { checkInteractionRateLimit } from "@/lib/rate-limit";
+import { getSiteUrl } from "@/lib/seo";
+
+const SUBSCRIBE_CONFIRMATION_MESSAGE = "订阅请求已提交，请检查邮箱完成确认。";
 
 function getRequestContext(request: Request) {
   return {
@@ -31,24 +34,21 @@ async function POSTHandler(request: Request) {
     }
 
     const subscriber = await subscribe(email, getRequestContext(request));
-    const verificationUrl = subscriber.verificationToken
-      ? `${getSiteUrl()}/api/newsletter/verify?token=${encodeURIComponent(subscriber.verificationToken)}`
-      : null;
-    const mailResult = subscriber.verificationToken
-      ? await createNewsletterMailer(settings.newsletter).sendVerificationEmail({
-          email: subscriber.email,
-          verificationToken: subscriber.verificationToken,
-          verificationUrl: verificationUrl ?? undefined,
-        })
-      : null;
+    if (subscriber.verificationToken) {
+      const verificationUrl = buildNewsletterVerifyUrl(getSiteUrl(), subscriber.verificationToken);
+      await createNewsletterMailer(settings.newsletter).sendVerificationEmail({
+        email: subscriber.email,
+        verificationToken: subscriber.verificationToken,
+        verificationUrl,
+      });
+    }
 
     return NextResponse.json({
       success: true,
+      message: SUBSCRIBE_CONFIRMATION_MESSAGE,
       data: {
-        email: subscriber.email,
-        status: subscriber.status,
-        verificationRequired: Boolean(subscriber.verificationToken),
-        mail: mailResult,
+        accepted: true,
+        message: SUBSCRIBE_CONFIRMATION_MESSAGE,
       },
     });
   } catch (error) {

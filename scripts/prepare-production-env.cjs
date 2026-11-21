@@ -15,7 +15,7 @@ try {
   if ((!env.NEXTAUTH_SECRET?.trim() || isPlaceholderAuthSecret(env.NEXTAUTH_SECRET)) &&
       env.AUTH_SECRET?.trim() && !isPlaceholderAuthSecret(env.AUTH_SECRET)) {
     env.NEXTAUTH_SECRET = env.AUTH_SECRET;
-    // Both Bash source and Compose resolve this alias without rewriting AUTH_SECRET.
+    // Docker Compose and Node preflight resolve this alias without rewriting AUTH_SECRET.
     additions.push('NEXTAUTH_SECRET="${AUTH_SECRET}"');
     normalized = true;
   }
@@ -28,7 +28,10 @@ try {
     process.exitCode = 1;
   } else {
     if (env.COMPOSE_PROJECT_NAME !== project) additions.push('COMPOSE_PROJECT_NAME=' + project);
-    if (additions.length) fs.appendFileSync(file, '\n' + additions.join('\n') + '\n');
+    if (additions.length) {
+      const separator = source.length > 0 && !source.endsWith('\n') ? '\n' : '';
+      fs.appendFileSync(file, separator + additions.join('\n') + '\n');
+    }
     if (normalized) console.log('NEXTAUTH_SECRET aligned with existing AUTH_SECRET');
     console.log('Production environment preflight passed');
   }

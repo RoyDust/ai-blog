@@ -13,7 +13,7 @@ async function POSTHandler(_: Request, { params }: CampaignSendRouteContext) {
   try {
     await requireAdminSession();
     const { id } = await params;
-    const campaign = await sendNewsletterCampaign(id);
+    const campaign = await sendNewsletterCampaign(id, { background: true });
 
     return NextResponse.json({ success: true, data: campaign }, { status: 202 });
   } catch (error) {

@@ -32,17 +32,31 @@ export async function withNewsletterSettings<T>(
   }
 }
 
-/** token 不由公开 API 返回，使用测试进程的数据库连接读取，再走真实验证 API。 */
+/** token 不由公开 API 返回，使用测试进程的数据库连接读取；先校验 GET 不改库，再走 POST 真实验证 API。 */
 export async function verifyNewsletterSubscriber(request: APIRequestContext, pool: pg.Pool, email: string) {
   const row = await pool.query<{ verificationToken: string; status: string }>(
     'SELECT "verificationToken", status FROM newsletter_subscribers WHERE email = $1', [email],
   )
   const token = row.rows[0]?.verificationToken
   if (row.rows[0]?.status !== "pending" || !token) throw new Error("Test subscription did not create a pending token")
-  const response = await request.get(`/api/newsletter/verify?token=${encodeURIComponent(token)}`)
+
+  const redirectResponse = await request.get(`/api/newsletter/verify?token=${encodeURIComponent(token)}`, {
+    maxRedirects: 0,
+  })
+  if (redirectResponse.status() !== 302) {
+    throw new Error(`Expected GET /api/newsletter/verify to redirect (302), got ${redirectResponse.status()}`)
+  }
+  const afterGet = await pool.query<{ status: string }>(
+    "SELECT status FROM newsletter_subscribers WHERE email = $1", [email],
+  )
+  if (afterGet.rows[0]?.status !== "pending") {
+    throw new Error("GET /api/newsletter/verify must not mutate pending subscriber before POST confirmation")
+  }
+
+  const response = await request.post("/api/newsletter/verify", { data: { token } })
   if (!response.ok()) throw new Error(`Verify test subscriber failed: ${response.status()}`)
-  const subscriber = (await response.json()).data
-  if (subscriber?.email !== email || subscriber?.status !== "verified") {
+  const payload = (await response.json()).data
+  if (payload?.verified !== true || payload?.status !== "verified") {
     throw new Error("Test subscriber was not verified")
   }
 }
