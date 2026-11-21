@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import React from "react";
 import { describe, expect, test, vi } from "vitest";
 
@@ -12,6 +12,7 @@ vi.mock("@/lib/prisma", () => ({
           slug: "new-post",
           createdAt: new Date("2026-03-01T08:00:00Z"),
           excerpt: "latest",
+          generatedByAiNews: false,
           category: { name: "前端", slug: "frontend" },
         },
         {
@@ -20,6 +21,7 @@ vi.mock("@/lib/prisma", () => ({
           slug: "old-post",
           createdAt: new Date("2025-12-01T08:00:00Z"),
           excerpt: "older",
+          generatedByAiNews: true,
           category: { name: "后端", slug: "backend" },
         },
       ]),
@@ -28,7 +30,7 @@ vi.mock("@/lib/prisma", () => ({
 }));
 
 describe("archives page", () => {
-  test("renders timeline with latest posts first", async () => {
+  test("renders timeline with latest posts first and filters original vs AI daily", async () => {
     const { default: ArchivesPage } = await import("@/app/(public)/archives/page");
     const ui = await ArchivesPage();
 
@@ -41,5 +43,9 @@ describe("archives page", () => {
     const links = container.querySelectorAll('a[href^="/posts/"]');
     expect(links[0]).toHaveTextContent("New Post");
     expect(links[1]).toHaveTextContent("Old Post");
+
+    fireEvent.click(screen.getByRole("button", { name: /原创文章/ }));
+    expect(screen.getByText("New Post")).toBeInTheDocument();
+    expect(screen.queryByText("Old Post")).not.toBeInTheDocument();
   });
 });

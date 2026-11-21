@@ -24,4 +24,12 @@ describe('utility page metadata', () => {
     expect(bookmarksMetadata.alternates?.canonical).toBe('https://blog.example/bookmarks')
     expect(authLayout.metadata.robots).toEqual({ index: false, follow: true })
   })
+
+  test('uses an absolute title on the homepage to avoid duplicate siteName | siteName', async () => {
+    const homePage = await import('@/app/(public)/page')
+    const homeMetadata = await homePage.generateMetadata()
+
+    expect(homeMetadata.title).toEqual({ absolute: 'Configured Blog' })
+    expect(homeMetadata.alternates?.canonical).toBe('https://blog.example/')
+  })
 })

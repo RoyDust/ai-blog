@@ -67,8 +67,8 @@ export default async function AdminAiTasksPage({
         }
       />
 
-      <section className="ui-surface rounded-3xl px-4 py-3">
-        <div className="flex flex-wrap items-center gap-2">
+      <section className="ui-surface rounded-xl px-4 py-3">
+        <div className="flex flex-wrap items-center gap-1.5">
           {filters.map((filter) => {
             const active = (params.status ?? null) === filter.status;
             const href = buildTasksHref(params, { status: filter.status, page: "1" });
@@ -79,8 +79,8 @@ export default async function AdminAiTasksPage({
                 href={href}
                 className={
                   active
-                    ? "ui-btn rounded-xl bg-[var(--primary)] px-3 py-2 text-sm text-white"
-                    : "ui-btn rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--surface-alt)]"
+                    ? "ui-btn rounded-lg bg-[var(--btn-regular-bg)] px-3 py-1.5 text-xs font-semibold text-[var(--btn-content)]"
+                    : "ui-btn rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-1.5 text-xs font-medium text-[var(--foreground)] hover:bg-[var(--surface-alt)]"
                 }
               >
                 {filter.label}

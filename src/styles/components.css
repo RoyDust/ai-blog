@@ -542,4 +542,9 @@
     outline-offset: 2.5px !important;
     box-shadow: 0 0 0 4px color-mix(in oklab, var(--ring) 18%, transparent) !important;
   }
+
+  input[cmdk-input]:focus-visible {
+    outline: none !important;
+    box-shadow: none !important;
+  }
 }

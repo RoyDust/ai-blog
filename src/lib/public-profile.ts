@@ -3,19 +3,39 @@ import { cache } from "react";
 import { getBlogSettings } from "@/lib/blog-settings";
 import { mergePublicProfileUser, type PublicProfile } from "@/lib/public-profile-data";
 
+const SYNTHETIC_ADMIN_EXCLUSION = [
+  { email: { endsWith: ".local" } },
+  { email: { endsWith: ".test" } },
+  { name: { in: ["E2E Admin", "Codex Browser Test"] } },
+];
+
 async function readPublicProfile(): Promise<PublicProfile> {
   const settings = await getBlogSettings();
 
   try {
     const { prisma } = await import("@/lib/prisma");
-    const user = await prisma.user.findFirst({
-      where: { role: "ADMIN" },
-      orderBy: [{ updatedAt: "desc" }, { createdAt: "asc" }],
+    const primaryAdmin = await prisma.user.findFirst({
+      where: {
+        role: "ADMIN",
+        NOT: SYNTHETIC_ADMIN_EXCLUSION,
+      },
+      orderBy: [{ createdAt: "asc" }],
       select: {
         name: true,
         image: true,
       },
     });
+
+    const user =
+      primaryAdmin ??
+      (await prisma.user.findFirst({
+        where: { role: "ADMIN" },
+        orderBy: [{ createdAt: "asc" }],
+        select: {
+          name: true,
+          image: true,
+        },
+      }));
 
     return mergePublicProfileUser(user, settings.profile);
   } catch {

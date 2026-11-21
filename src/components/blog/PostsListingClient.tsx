@@ -45,6 +45,7 @@ interface PostsListingClientProps {
     category?: string
     tag?: string
     search?: string
+    type?: 'original' | 'ai-daily'
   }
 }
 
@@ -56,6 +57,7 @@ export function PostsListingClient({ initialPosts, initialPagination, filters }:
   const categoryFilter = filters?.category
   const tagFilter = filters?.tag
   const searchFilter = filters?.search
+  const typeFilter = filters?.type
   const resetKey = JSON.stringify(filters ?? {})
 
   const buildUrl = useCallback(
@@ -71,10 +73,11 @@ export function PostsListingClient({ initialPosts, initialPagination, filters }:
         params.set('q', searchFilter)
         params.set('search', searchFilter)
       }
+      if (typeFilter) params.set('type', typeFilter)
 
       return `/api/posts?${params.toString()}`
     },
-    [categoryFilter, initialPagination.limit, searchFilter, tagFilter],
+    [categoryFilter, initialPagination.limit, searchFilter, tagFilter, typeFilter],
   )
 
   const { posts, pagination, isLoading, error, hasNextPage, observerTargetRef } = useInfinitePosts({

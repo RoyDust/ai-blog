@@ -7,9 +7,10 @@ import { springSnappy } from "@/components/motion/transitions";
 
 interface CopyCodeButtonProps {
   code: string;
+  variant?: "floating" | "header";
 }
 
-export function CopyCodeButton({ code }: CopyCodeButtonProps) {
+export function CopyCodeButton({ code, variant = "floating" }: CopyCodeButtonProps) {
   const [state, setState] = useState<"idle" | "copied" | "failed">("idle");
 
   useEffect(() => {
@@ -34,11 +35,15 @@ export function CopyCodeButton({ code }: CopyCodeButtonProps) {
   }
 
   const copied = state === "copied";
+  const buttonClassName =
+    variant === "header"
+      ? "inline-flex h-6.5 items-center gap-1 rounded-md px-2 text-xs font-medium text-[var(--text-muted)] transition-colors hover:bg-[var(--btn-regular-bg)] hover:text-[var(--btn-content)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+      : "absolute right-3 top-3 z-10 inline-flex h-8 items-center gap-1.5 rounded-lg border border-[var(--reader-border)] bg-[var(--reader-panel-elevated)] px-2.5 text-xs font-medium text-[var(--text-muted)] opacity-100 shadow-sm transition hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100";
 
   return (
     <motion.button
       aria-label={copied ? "代码已复制" : "复制代码"}
-      className="absolute right-3 top-3 z-10 inline-flex h-8 items-center gap-1.5 rounded-lg border border-[var(--reader-border)] bg-[color-mix(in_oklab,var(--reader-panel-elevated)_92%,black_8%)] px-2.5 text-xs font-medium text-[var(--text-muted)] opacity-100 shadow-sm transition hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100"
+      className={buttonClassName}
       onClick={handleCopy}
       type="button"
       whileTap={{ scale: 0.92 }}

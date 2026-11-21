@@ -67,8 +67,18 @@ test('article markdown polish covers h6, table headers, quote rail and inline co
   expect(source).toContain('prose-th:text-[var(--foreground)]')
   expect(source).toContain('prose-th:bg-[var(--reader-panel-muted)]')
   expect(source).toContain('prose-blockquote:border-l-[3px]')
-  expect(source).toContain('prose-code:bg-[color-mix(in_oklab,var(--reader-panel-muted)_82%,black_18%)]')
-  expect(source).toContain('prose-code:text-[color-mix(in_oklab,var(--foreground)_92%,white_8%)]')
+  expect(source).toContain('prose-code:bg-[var(--btn-regular-bg)]')
+  expect(source).toContain('prose-code:text-[var(--btn-content)]')
+  expect(source).toContain('<CodeBlock {...props}>{children}</CodeBlock>')
+})
+
+test('code blocks eliminate double-spaced line gaps via flex column layout and dual-theme shell', () => {
+  const source = readSource('src/styles/code-highlight.css')
+
+  expect(source).toContain('.code-block-shell')
+  expect(source).toContain('.code-block-header')
+  expect(source).toContain('.reader-prose pre code:has(.code-line)')
+  expect(source).toContain('flex-direction: column')
 })
 
 test('highlight styles use reader accent tokens instead of hard-coded slate hex colors', () => {

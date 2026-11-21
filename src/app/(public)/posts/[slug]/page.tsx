@@ -23,7 +23,7 @@ import rehypeHighlight from "rehype-highlight";
 import rehypeHighlightCodeLines from "rehype-highlight-code-lines";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArticleHero, ArticleReadTracker, ArticleRelatedPosts, ArticleSection, ArticleTocDrawer, ArticleTocRail, BackToTopButton, BookmarkButton, CopyCodeButton, LikeButton, NewsletterForm, ReadingProgress, SeriesNav, ShareButton } from "@/components/blog";
+import { ArticleHero, ArticleImageZoom, ArticleReadTracker, ArticleRelatedPosts, ArticleSection, ArticleTocDrawer, ArticleTocRail, BackToTopButton, BookmarkButton, CodeBlock, LikeButton, NewsletterForm, ReadingProgress, SeriesNav, ShareButton } from "@/components/blog";
 import { InViewReveal } from "@/components/motion";
 import { CommentAuthGate } from "@/components/CommentAuthGate";
 import { FallbackImage } from "@/components/ui";
@@ -371,7 +371,7 @@ export async function renderArticlePage({ slug, includeDraft = false }: { slug: 
 
             <div className="px-5 pt-3 pb-6 sm:px-7 lg:px-9 lg:pb-8">
               <div className="mx-auto max-w-[var(--article-reading-max-width)]">
-                <div className="reader-prose prose prose-zinc max-w-none prose-headings:font-display prose-headings:scroll-mt-28 prose-headings:mt-9 prose-headings:mb-3.5 prose-headings:text-[var(--foreground)] prose-h1:text-[var(--foreground)] prose-h2:text-[var(--foreground)] [&_h2]:before:mr-2 [&_h2]:before:font-mono [&_h2]:before:font-semibold [&_h2]:before:text-[var(--brand)] [&_h2]:before:content-['#'] prose-h3:text-[var(--foreground)] prose-h4:text-[var(--foreground)] prose-h5:text-[var(--foreground)] prose-h6:text-[var(--foreground)] prose-p:my-4 prose-p:leading-[1.82] prose-p:text-[var(--text-body)] prose-a:text-[var(--brand)] prose-a:no-underline hover:prose-a:text-[var(--brand-strong)] hover:prose-a:underline prose-strong:text-[var(--foreground)] prose-li:text-[var(--text-body)] prose-li:marker:text-[var(--text-faint)] prose-blockquote:rounded-xl prose-blockquote:border-[var(--accent-warm)] prose-blockquote:border-l-[3px] prose-blockquote:bg-[color-mix(in_oklab,var(--accent-warm)_8%,transparent)] prose-blockquote:px-4 prose-blockquote:py-1 prose-blockquote:text-[var(--text-body)] prose-blockquote:font-medium prose-hr:border-[var(--reader-border)] prose-img:rounded-2xl prose-pre:rounded-2xl prose-pre:border prose-pre:border-[var(--reader-border)] prose-pre:bg-[var(--surface-elevated)] prose-pre:text-[var(--foreground)] prose-code:rounded prose-code:bg-[color-mix(in_oklab,var(--reader-panel-muted)_82%,black_18%)] prose-code:px-1.5 prose-code:py-0.5 prose-code:text-[color-mix(in_oklab,var(--foreground)_92%,white_8%)] prose-code:font-[var(--font-code)] prose-code:before:content-none prose-code:after:content-none prose-table:w-full prose-th:bg-[var(--reader-panel-muted)] prose-th:text-[var(--foreground)] prose-td:border-[var(--reader-border)] prose-th:border-[var(--reader-border)] dark:prose-invert">
+                <div className="reader-prose prose prose-zinc max-w-none prose-headings:font-display prose-headings:scroll-mt-28 prose-headings:mt-9 prose-headings:mb-3.5 prose-headings:text-[var(--foreground)] prose-h1:text-[var(--foreground)] prose-h2:text-[var(--foreground)] [&_h2]:before:mr-2 [&_h2]:before:font-mono [&_h2]:before:font-semibold [&_h2]:before:text-[var(--brand)] [&_h2]:before:content-['#'] prose-h3:text-[var(--foreground)] prose-h4:text-[var(--foreground)] prose-h5:text-[var(--foreground)] prose-h6:text-[var(--foreground)] prose-p:my-4 prose-p:leading-[1.82] prose-p:text-[var(--text-body)] prose-a:text-[var(--brand)] prose-a:no-underline hover:prose-a:text-[var(--brand-strong)] hover:prose-a:underline prose-strong:text-[var(--foreground)] prose-li:text-[var(--text-body)] prose-li:marker:text-[var(--text-faint)] prose-blockquote:rounded-xl prose-blockquote:border-[var(--accent-warm)] prose-blockquote:border-l-[3px] prose-blockquote:bg-[color-mix(in_oklab,var(--accent-warm)_8%,transparent)] prose-blockquote:px-4 prose-blockquote:py-1 prose-blockquote:text-[var(--text-body)] prose-blockquote:font-medium prose-hr:border-[var(--reader-border)] prose-img:rounded-2xl prose-pre:rounded-2xl prose-pre:border prose-pre:border-[var(--reader-border)] prose-pre:bg-[var(--surface-elevated)] prose-pre:text-[var(--foreground)] prose-code:rounded-md prose-code:border prose-code:border-[var(--line-color)] prose-code:bg-[var(--btn-regular-bg)] prose-code:px-1.5 prose-code:py-0.5 prose-code:text-[0.875em] prose-code:font-medium prose-code:text-[var(--btn-content)] prose-code:font-[var(--font-code)] prose-code:before:content-none prose-code:after:content-none prose-table:w-full prose-th:bg-[var(--reader-panel-muted)] prose-th:text-[var(--foreground)] prose-td:border-[var(--reader-border)] prose-th:border-[var(--reader-border)] dark:prose-invert">
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm]}
                     rehypePlugins={[rehypeHighlight, [rehypeHighlightCodeLines, { showLineNumbers: true }]]}
@@ -406,28 +406,14 @@ export async function renderArticlePage({ slug, includeDraft = false }: { slug: 
                         if (!imageSrc) return null
 
                         return (
-                          <span className="theme-media my-8 block overflow-hidden rounded-2xl border border-[var(--reader-border)]">
-                            <FallbackImage
-                              alt={alt ?? ''}
-                              className="theme-media-image h-auto w-full"
-                              height={900}
-                              src={imageSrc}
-                              unoptimized
-                              width={1600}
-                            />
-                          </span>
+                          <ArticleImageZoom
+                            alt={alt ?? ''}
+                            className="theme-media my-8 block overflow-hidden rounded-2xl border border-[var(--reader-border)]"
+                            src={imageSrc}
+                          />
                         )
                       },
-                      pre: ({ children, ...props }) => {
-                        const code = nodeText(children).replace(/\n$/, "")
-
-                        return (
-                          <div className="group relative my-6">
-                            <CopyCodeButton code={code} />
-                            <pre {...props}>{children}</pre>
-                          </div>
-                        )
-                      },
+                      pre: ({ children, ...props }) => <CodeBlock {...props}>{children}</CodeBlock>,
                     }}
                   >
                     {articleContent}

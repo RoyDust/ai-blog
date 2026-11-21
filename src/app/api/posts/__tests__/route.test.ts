@@ -51,4 +51,24 @@ describe("/api/posts route", () => {
       pagination: { page: 1, limit: 50, total: 1, totalPages: 1 },
     })
   })
+
+  test("forwards content type filter when type=original is requested", async () => {
+    getPublishedPostsPage.mockResolvedValueOnce({
+      posts: [{ id: "post-2", slug: "essay", title: "Original Essay" }],
+      pagination: { page: 1, limit: 10, total: 1, totalPages: 1 },
+    })
+
+    const { GET } = await import("../route")
+    const response = await GET(new Request("http://localhost/api/posts?page=1&limit=10&type=original"))
+
+    expect(response.status).toBe(200)
+    expect(getPublishedPostsPage).toHaveBeenCalledWith({
+      page: 1,
+      limit: 10,
+      category: null,
+      tag: null,
+      search: null,
+      type: "original",
+    })
+  })
 })

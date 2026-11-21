@@ -160,7 +160,7 @@ export function PostsTable({
                       isSelected && "bg-[color-mix(in_oklab,var(--brand)_8%,var(--surface))] hover:bg-[color-mix(in_oklab,var(--brand)_10%,var(--surface))]",
                     )}
                   >
-                    <TableCell className="px-4 align-top">
+                    <TableCell className="px-4 py-2 align-middle">
                       <Checkbox
                         aria-label={`选择 ${row.id}`}
                         className="!border-[var(--border-strong)] !bg-[var(--surface)] data-[state=checked]:!border-[var(--brand)] data-[state=checked]:!bg-[var(--brand)]"
@@ -168,56 +168,60 @@ export function PostsTable({
                         onCheckedChange={(checked) => onToggleOne(row.id, checked === true)}
                       />
                     </TableCell>
-                    <TableCell className="whitespace-normal align-top">
-                      <div className="min-w-0 space-y-1">
-                        <Link className="line-clamp-1 font-medium text-[var(--foreground)] hover:text-[var(--brand)]" href={`/admin/posts/${row.id}/edit`}>
+                    <TableCell className="whitespace-normal py-2 align-middle">
+                      <div className="min-w-0 space-y-0.5">
+                        <Link className="line-clamp-1 text-sm font-medium text-[var(--foreground)] hover:text-[var(--brand)]" href={`/admin/posts/${row.id}/edit`}>
                           {titleText}
                         </Link>
-                        <p className="line-clamp-1 font-mono text-xs text-[var(--text-muted)]">{slugText}</p>
-                        <p className="line-clamp-1 text-xs text-[var(--text-muted)] xl:hidden">
+                        <p className="line-clamp-1 font-mono text-[11px] text-[var(--text-muted)]">{slugText}</p>
+                        <p className="line-clamp-1 text-[11px] text-[var(--text-muted)] xl:hidden">
                           {authorName} / {formatDate(row.createdAt)}
                         </p>
                       </div>
                     </TableCell>
-                    <TableCell className="hidden whitespace-normal align-top xl:table-cell">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-[var(--foreground)]">{authorName}</p>
-                        {authorEmail && authorEmail !== authorName ? (
-                          <p className="mt-1 truncate text-xs text-[var(--text-muted)]">{authorEmail}</p>
-                        ) : null}
-                      </div>
+                    <TableCell className="hidden whitespace-normal py-2 align-middle xl:table-cell">
+                      <p className="truncate text-xs font-medium text-[var(--foreground)]" title={authorEmail || authorName}>
+                        {authorName}
+                      </p>
                     </TableCell>
-                    <TableCell className="whitespace-normal align-top">
-                      <div className="max-w-[300px] space-y-1.5">
-                        <StatusPill tone={summaryMeta.tone} icon={summaryMeta.icon}>{summaryMeta.label}</StatusPill>
-                        <p className={cn("line-clamp-2 text-xs leading-5 text-[var(--text-muted)]", summaryStatus === "FAILED" && "text-[var(--danger-foreground)]")}>
-                          {summaryText}
-                        </p>
-                        <div className="flex flex-wrap gap-x-2 gap-y-1 text-[11px] text-[var(--text-muted)] 2xl:hidden">
+                    <TableCell className="whitespace-normal py-2 align-middle">
+                      <div className="max-w-[320px] space-y-1">
+                        <div className="flex min-w-0 items-center gap-1.5">
+                          <span className="shrink-0">
+                            <StatusPill tone={summaryMeta.tone} icon={summaryMeta.icon}>{summaryMeta.label}</StatusPill>
+                          </span>
+                          <p
+                            title={summaryText}
+                            className={cn("min-w-0 flex-1 truncate text-xs text-[var(--text-muted)]", summaryStatus === "FAILED" && "text-[var(--danger-foreground)]")}
+                          >
+                            {summaryText}
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap gap-x-2.5 gap-y-0.5 text-[11px] text-[var(--text-muted)] 2xl:hidden">
                           <span>阅读 {formatNumber(row.viewCount)}</span>
                           <span>评论 {formatNumber(row._count?.comments)}</span>
                           <span>点赞 {formatNumber(row._count?.likes)}</span>
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell className="whitespace-normal align-top">
+                    <TableCell className="whitespace-normal py-2 align-middle">
                       <PublishToggleTag
                         busy={busyRowIds.includes(row.id)}
                         onRequestTogglePublish={() => onRequestTogglePublish(row)}
                         published={row.published}
                       />
                     </TableCell>
-                    <TableCell className="hidden whitespace-normal pl-6 align-top 2xl:table-cell">
-                      <div className="grid gap-1 text-xs text-[var(--text-muted)]">
-                        <span className="flex items-center gap-1.5"><Eye className="size-3.5" />阅读 {formatNumber(row.viewCount)}</span>
-                        <span className="flex items-center gap-1.5"><MessageSquare className="size-3.5" />评论 {formatNumber(row._count?.comments)}</span>
-                        <span className="flex items-center gap-1.5"><Heart className="size-3.5" />点赞 {formatNumber(row._count?.likes)}</span>
+                    <TableCell className="hidden whitespace-normal py-2 pl-6 align-middle 2xl:table-cell">
+                      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-[var(--text-muted)]">
+                        <span className="inline-flex items-center gap-1"><Eye className="size-3.5" />阅读 {formatNumber(row.viewCount)}</span>
+                        <span className="inline-flex items-center gap-1"><MessageSquare className="size-3.5" />评论 {formatNumber(row._count?.comments)}</span>
+                        <span className="inline-flex items-center gap-1"><Heart className="size-3.5" />点赞 {formatNumber(row._count?.likes)}</span>
                       </div>
                     </TableCell>
-                    <TableCell className="hidden align-top font-mono text-xs tabular-nums text-[var(--text-muted)] xl:table-cell">
+                    <TableCell className="hidden py-2 align-middle font-mono text-xs tabular-nums text-[var(--text-muted)] xl:table-cell">
                       {formatDate(row.createdAt)}
                     </TableCell>
-                    <TableCell className="align-top">
+                    <TableCell className="py-2 align-middle">
                       <div className="flex justify-end gap-1">
                         <IconAction label="编辑">
                           <Button asChild aria-label="编辑" className="size-8 rounded-md !text-[var(--text-body)] hover:!bg-[var(--surface-alt)] hover:!text-[var(--brand)]" size="icon-sm" variant="ghost">

@@ -21,13 +21,21 @@ const HOME_LATEST_POST_LIMIT = 5
 
 export async function generateMetadata(): Promise<Metadata> {
   const settings = await getBlogSettings()
-
-  return buildPageMetadata({
-    title: settings.siteName,
+  const subtitle = settings.profile?.subtitle?.trim()
+  const displayTitle = subtitle ? `${settings.siteName} · ${subtitle}` : settings.siteName
+  const baseMetadata = buildPageMetadata({
+    title: displayTitle,
     description: settings.siteDescription,
     path: '/',
     siteUrl: settings.siteUrl,
   })
+
+  return {
+    ...baseMetadata,
+    title: {
+      absolute: displayTitle,
+    },
+  }
 }
 
 /**

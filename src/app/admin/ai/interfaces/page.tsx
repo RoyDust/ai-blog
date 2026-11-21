@@ -61,7 +61,7 @@ function InterfaceCard({ baseUrl, item }: { baseUrl: string; item: AiInterfaceCa
   const canOpenDirectly = item.methods.includes("GET") && item.auth === "公开";
 
   return (
-    <article className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
+    <article className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
@@ -149,7 +149,7 @@ export default async function AdminAiInterfacesPage() {
       />
 
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <div className="ui-surface rounded-2xl p-5">
+        <div className="ui-surface rounded-xl p-4">
           <div className="flex items-center gap-3">
             <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--success-surface)] text-[var(--success-foreground)]">
               <Bot className="h-5 w-5" />
@@ -160,7 +160,7 @@ export default async function AdminAiInterfacesPage() {
             </div>
           </div>
         </div>
-        <div className="ui-surface rounded-2xl p-5">
+        <div className="ui-surface rounded-xl p-4">
           <div className="flex items-center gap-3">
             <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[color-mix(in_oklab,var(--brand)_10%,var(--surface))] text-[var(--brand)]">
               <ShieldCheck className="h-5 w-5" />
@@ -171,7 +171,7 @@ export default async function AdminAiInterfacesPage() {
             </div>
           </div>
         </div>
-        <div className="ui-surface rounded-2xl p-5">
+        <div className="ui-surface rounded-xl p-4">
           <div className="flex items-center gap-3">
             <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--warning-surface)] text-[var(--warning-foreground)]">
               <Route className="h-5 w-5" />
@@ -184,7 +184,7 @@ export default async function AdminAiInterfacesPage() {
         </div>
       </section>
 
-      <section className="ui-surface overflow-hidden rounded-3xl">
+      <section className="ui-surface overflow-hidden rounded-xl">
         <div className="grid grid-cols-1 gap-0 xl:grid-cols-[320px_minmax(0,1fr)]">
           <div className="border-b border-[var(--border)] bg-[var(--surface-alt)] p-6 xl:border-b-0 xl:border-r">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">Agent Prompt</p>

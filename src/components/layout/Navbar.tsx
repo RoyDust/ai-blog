@@ -9,6 +9,7 @@ import { Archive, BookOpenText, Home, ListTree, Menu, Moon, Palette, Search, Sun
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useTheme } from "@/components/ThemeProvider";
 import { AccountEntry } from "@/components/auth/AccountEntry";
+import { PublicCommandSearch } from "@/components/search/PublicCommandSearch";
 import { SearchForm } from "@/components/search/SearchForm";
 import { HuePicker } from "@/components/ui/HuePicker";
 import { useScrollHide } from "@/hooks/useScrollHide";
@@ -120,6 +121,8 @@ export function Navbar({ siteName = "My Blog" }: NavbarProps) {
           </motion.div>
 
           <motion.div layout="position" transition={headerResizeTransition} className="flex shrink-0 items-center gap-1">
+            <PublicCommandSearch />
+
             <Link
               href="/search"
               aria-label="搜索"

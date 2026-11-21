@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import React from 'react'
 import { describe, expect, test } from 'vitest'
 import { HomeAiDailyStrip } from '../HomeAiDailyStrip'
@@ -36,6 +36,12 @@ describe('HomeAiDailyStrip', () => {
     expect(within(list).getAllByText(/^\d{2}\/\d{2}$/)).toHaveLength(5)
     expect(within(list).queryByText(/^\d{2}:\d{2}$/)).not.toBeInTheDocument()
     expect(screen.getAllByRole('link', { name: '查看全部' })).toHaveLength(1)
+
+    const digest = screen.getByTestId('ai-daily-digest')
+    expect(digest).toHaveTextContent('Daily excerpt 1')
+    fireEvent.click(within(digest).getByRole('button', { name: /08\/05/ }))
+    expect(digest).toHaveTextContent('Daily excerpt 3')
+    expect(within(digest).getByRole('link', { name: /阅读当期全文/ })).toHaveAttribute('href', '/posts/ai-daily-2026-08-05')
   })
 
   test('does not render an empty landmark', () => {

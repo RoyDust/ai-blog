@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type MouseEvent } from "react";
+import { useEffect, useState, type MouseEvent } from "react";
 import { List } from "lucide-react";
 import { Drawer } from "vaul";
 import { ArticleToc } from "./ArticleToc";
@@ -17,6 +17,29 @@ interface ArticleTocDrawerProps {
 
 export function ArticleTocDrawer({ headings }: ArticleTocDrawerProps) {
   const [open, setOpen] = useState(false);
+  const [progress, setProgress] = useState(0);
+
+  useEffect(() => {
+    if (headings.length === 0) return;
+
+    const updateProgress = () => {
+      const scrollable = document.documentElement.scrollHeight - window.innerHeight;
+      if (scrollable <= 0) {
+        setProgress(0);
+        return;
+      }
+      const next = Math.min(100, Math.max(0, Math.round((window.scrollY / scrollable) * 100)));
+      setProgress(next);
+    };
+
+    updateProgress();
+    window.addEventListener("scroll", updateProgress, { passive: true });
+    window.addEventListener("resize", updateProgress, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", updateProgress);
+      window.removeEventListener("resize", updateProgress);
+    };
+  }, [headings.length]);
 
   if (headings.length === 0) {
     return null;
@@ -38,7 +61,7 @@ export function ArticleTocDrawer({ headings }: ArticleTocDrawerProps) {
           type="button"
         >
           <List aria-hidden="true" className="h-3.5 w-3.5" />
-          目录
+          <span className="font-mono tabular-nums">{progress > 0 ? `${progress}% · 目录` : "目录"}</span>
         </button>
       </Drawer.Trigger>
 

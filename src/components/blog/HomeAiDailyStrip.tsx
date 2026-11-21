@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useState } from "react";
 import { ArrowRight } from "lucide-react";
 import { cn } from "@/lib/cn";
 
@@ -36,11 +39,16 @@ function trimDailyTitle(title: string) {
 }
 
 export function HomeAiDailyStrip({ posts }: HomeAiDailyStripProps) {
+  const [activeIndex, setActiveIndex] = useState(0);
+
   if (posts.length === 0) {
     return null;
   }
 
   const items = posts.slice(0, 5);
+  const safeActiveIndex = activeIndex < items.length ? activeIndex : 0;
+  const activePost = items[safeActiveIndex] ?? items[0];
+  const activeExcerpt = activePost.excerpt?.trim() || trimDailyTitle(activePost.title);
 
   return (
     <section className="reader-panel px-4 py-3 sm:px-5 sm:py-3.5" aria-labelledby="home-ai-daily-title">
@@ -69,6 +77,7 @@ export function HomeAiDailyStrip({ posts }: HomeAiDailyStripProps) {
       >
         {items.map((post, index) => {
           const isLead = index === 0;
+          const isActive = index === safeActiveIndex;
           return (
             <li
               className={cn(
@@ -76,21 +85,26 @@ export function HomeAiDailyStrip({ posts }: HomeAiDailyStripProps) {
                 isLead && "md:col-span-2",
               )}
               key={post.id}
+              onMouseEnter={() => setActiveIndex(index)}
             >
               <Link
                 href={`/posts/${post.slug}`}
+                onFocus={() => setActiveIndex(index)}
                 className={cn(
                   "group flex min-w-0 items-baseline justify-between gap-3 rounded-lg transition-colors",
                   isLead
                     ? "bg-[color:color-mix(in_oklab,var(--btn-regular-bg)_58%,transparent)] px-3 py-2 hover:bg-[var(--btn-regular-bg)]"
-                    : "px-2 py-1.5 hover:bg-[var(--btn-plain-bg-hover)]",
+                    : cn(
+                        "px-2 py-1.5 hover:bg-[var(--btn-plain-bg-hover)]",
+                        isActive && "bg-[var(--btn-plain-bg-hover)]",
+                      ),
                 )}
               >
                 <span className="flex min-w-0 items-baseline gap-2">
                   <span
                     className={cn(
                       "shrink-0 rounded px-1.5 py-0.5 font-mono text-[0.6875rem] font-bold tabular-nums",
-                      isLead
+                      isActive
                         ? "bg-[var(--btn-regular-bg)] text-[var(--btn-content)]"
                         : "bg-[color:color-mix(in_oklab,var(--foreground)_6%,transparent)] text-[var(--text-muted)] group-hover:text-[var(--brand)]",
                     )}
@@ -121,6 +135,46 @@ export function HomeAiDailyStrip({ posts }: HomeAiDailyStripProps) {
           );
         })}
       </ol>
+
+      <div
+        data-testid="ai-daily-digest"
+        className="mt-2.5 flex flex-col gap-2 rounded-xl border border-dashed border-[var(--line-color)] bg-[color:color-mix(in_oklab,var(--surface-alt)_50%,transparent)] px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between"
+      >
+        <div className="min-w-0 flex-1 space-y-1">
+          {items.length > 1 ? (
+            <div className="flex flex-wrap items-center gap-1" role="group" aria-label="切换日报期数预览">
+              {items.map((item, index) => {
+                const dateLabel = formatDailyDate(item.publishedAt ?? item.createdAt);
+                const selected = index === safeActiveIndex;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    aria-pressed={selected}
+                    aria-label={`预览 ${dateLabel} 日报摘要`}
+                    onClick={() => setActiveIndex(index)}
+                    className={cn(
+                      "rounded-md px-1.5 py-0.5 font-mono text-[11px] font-semibold tabular-nums transition-colors",
+                      selected
+                        ? "bg-[var(--btn-regular-bg)] text-[var(--btn-content)]"
+                        : "text-[var(--text-muted)] hover:bg-[var(--btn-plain-bg-hover)] hover:text-[var(--foreground)]",
+                    )}
+                  >
+                    {dateLabel}
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
+          <p className="line-clamp-2 text-xs leading-5 text-[var(--text-body)]">{activeExcerpt}</p>
+        </div>
+        <Link
+          href={`/posts/${activePost.slug}`}
+          className="shrink-0 self-end text-xs font-semibold text-[var(--brand)] transition-colors hover:text-[var(--brand-strong)] sm:self-center"
+        >
+          阅读当期全文 ›
+        </Link>
+      </div>
     </section>
   );
 }

@@ -34,10 +34,19 @@ function firstSearchParam(value: string | string[] | undefined) {
 
 export default async function PostsPage({ searchParams }: { searchParams?: PostsPageSearchParams } = {}) {
   const resolvedSearchParams = searchParams ? await searchParams : {};
-  const filters = {
+  const rawType = firstSearchParam(resolvedSearchParams.type);
+  const contentType: "original" | "ai-daily" | undefined =
+    rawType === "original" || rawType === "ai-daily" ? rawType : undefined;
+  const filters: {
+    category?: string;
+    tag?: string;
+    search?: string;
+    type?: "original" | "ai-daily";
+  } = {
     category: firstSearchParam(resolvedSearchParams.category),
     tag: firstSearchParam(resolvedSearchParams.tag),
     search: firstSearchParam(resolvedSearchParams.q),
+    ...(contentType ? { type: contentType } : {}),
   };
   const { limit } = clampPagination({
     limit: firstSearchParam(resolvedSearchParams.limit) ?? String(POSTS_PAGE_SIZE),
@@ -56,6 +65,7 @@ export default async function PostsPage({ searchParams }: { searchParams?: Posts
       category: filters.category,
       tag: filters.tag,
       search: filters.search,
+      ...(filters.type ? { type: filters.type } : {}),
     }),
     getCategoryDirectory(),
     getTagDirectory(),
@@ -94,6 +104,7 @@ export default async function PostsPage({ searchParams }: { searchParams?: Posts
             search={filters.search}
             tag={filters.tag}
             tags={tags}
+            type={filters.type}
           />
         </div>
       </section>

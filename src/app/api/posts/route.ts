@@ -14,8 +14,17 @@ async function GETHandler(request: Request) {
     const category = searchParams.get("category")
     const tag = searchParams.get("tag")
     const search = searchParams.get("search")
+    const rawType = searchParams.get("type")?.trim()
+    const type = rawType === "original" || rawType === "ai-daily" ? rawType : undefined
 
-    const { posts, pagination } = await getPublishedPostsPage({ page, limit, category, tag, search })
+    const { posts, pagination } = await getPublishedPostsPage({
+      page,
+      limit,
+      category,
+      tag,
+      search,
+      ...(type ? { type } : {}),
+    })
 
     return NextResponse.json({
       success: true,

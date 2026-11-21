@@ -1,27 +1,171 @@
-.reader-prose pre {
+/* ── Code Block Shell & Header (Fuwari × Editorial Dual-Theme) ────────── */
+
+.code-block-shell {
+  overflow: hidden;
+  border-radius: 0.875rem;
+  border: 1px solid color-mix(in oklab, var(--foreground) 9%, transparent);
+  background: oklch(0.976 0.006 var(--hue));
+  box-shadow: 0 2px 10px rgb(15 23 42 / 0.035);
+}
+
+.code-block-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  height: 2.125rem;
+  padding: 0 0.75rem 0 0.95rem;
+  border-bottom: 1px solid color-mix(in oklab, var(--foreground) 7.5%, transparent);
+  background: oklch(0.952 0.009 var(--hue));
+}
+
+.code-block-lang {
+  font-family: var(--font-code), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  user-select: none;
+}
+
+/* Standalone <pre> fallback (when rendered without .code-block-shell) */
+.reader-prose pre,
+.prose pre {
+  margin: 0;
+  overflow-x: auto;
+  border-radius: 0.875rem;
+  background: oklch(0.976 0.006 var(--hue));
+  color: oklch(0.22 0.022 var(--hue));
+}
+
+.code-block-shell pre {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+/* ── Dark Mode Surface Overrides ─────────────────────────────────────── */
+
+html.dark .code-block-shell {
+  border-color: rgba(255, 255, 255, 0.08);
   background:
-    radial-gradient(circle at 14% 0%, color-mix(in oklab, var(--accent-sky) 16%, transparent), transparent 38%),
+    radial-gradient(circle at 14% 0%, color-mix(in oklab, var(--accent-sky) 12%, transparent), transparent 42%),
     color-mix(in oklab, var(--reader-panel-elevated) 78%, black 22%);
   box-shadow:
-    inset 0 1px 0 color-mix(in oklab, white 7%, transparent),
-    0 18px 48px color-mix(in oklab, black 24%, transparent);
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 12px 32px rgba(0, 0, 0, 0.24);
+}
+
+html.dark .code-block-header {
+  border-bottom-color: rgba(255, 255, 255, 0.07);
+  background: color-mix(in oklab, var(--reader-panel-elevated) 62%, black 38%);
+}
+
+html.dark .reader-prose pre,
+html.dark .prose pre {
+  background: color-mix(in oklab, var(--reader-panel-elevated) 78%, black 22%);
+  color: color-mix(in oklab, var(--foreground) 92%, white 8%);
+}
+
+html.dark .code-block-shell pre {
+  background: transparent;
+}
+
+/* ── Fenced Code Element Reset & Single-Spaced Line Layout ───────────── */
+
+.reader-prose pre code,
+.prose pre code {
+  display: block;
+  background: transparent;
+  border: 0;
+  padding: 0.85rem 1rem;
+  border-radius: 0;
+  font-family: var(--font-code), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.84375rem;
+  line-height: 1.65;
+  tab-size: 2;
+  color: inherit;
 }
 
 .reader-prose pre code.hljs,
 .prose pre code.hljs {
   display: block;
-  overflow-x: auto;
-  border-radius: 0.75rem;
+  overflow-x: visible;
   background: transparent;
-  color: color-mix(in oklab, var(--foreground) 92%, white 8%);
-  padding: 0.9rem 1rem;
+  color: oklch(0.22 0.022 var(--hue));
+  padding: 0.85rem 1rem;
 }
+
+html.dark .reader-prose pre code.hljs,
+html.dark .prose pre code.hljs {
+  color: color-mix(in oklab, var(--foreground) 92%, white 8%);
+}
+
+/*
+ * rehype-highlight-code-lines emits `<span class="code-line">...</span>\n`.
+ * Making `code:has(.code-line)` a column flex container suppresses the inter-span
+ * `\n` whitespace text nodes per CSS Flexbox §4, eliminating double-spaced blank
+ * gaps while keeping `white-space: pre` indentation intact inside each `.code-line`.
+ */
+.reader-prose pre code:has(.code-line),
+.prose pre code:has(.code-line) {
+  display: flex;
+  flex-direction: column;
+  width: max-content;
+  min-width: 100%;
+  padding: 0.7rem 0;
+}
+
+.reader-prose pre code .code-line,
+.prose pre code .code-line {
+  display: block;
+  white-space: pre;
+  line-height: 1.65;
+  min-height: 1.65em;
+  min-width: 100%;
+  padding: 0.04rem 1.125rem 0.04rem 3.35rem;
+  position: relative;
+  transition: background-color 120ms ease;
+}
+
+.reader-prose pre code .code-line:hover,
+.prose pre code .code-line:hover {
+  background: color-mix(in oklab, var(--brand) 6.5%, transparent);
+}
+
+.reader-prose pre code .numbered-code-line::before,
+.prose pre code .numbered-code-line::before {
+  border-right: 1px solid color-mix(in oklab, var(--foreground) 9%, transparent);
+  color: var(--text-faint);
+  content: attr(data-line-number);
+  font-size: 0.74rem;
+  font-variant-numeric: tabular-nums;
+  left: 0;
+  top: 0.04rem;
+  line-height: 1.65rem;
+  padding-right: 0.65rem;
+  pointer-events: none;
+  position: absolute;
+  text-align: right;
+  user-select: none;
+  width: 2.65rem;
+}
+
+html.dark .reader-prose pre code .numbered-code-line::before,
+html.dark .prose pre code .numbered-code-line::before {
+  border-right-color: rgba(255, 255, 255, 0.08);
+}
+
+/* ── Light Mode High-Contrast Syntax Tokens (WCAG AA/AAA) ────────────── */
 
 .reader-prose .hljs-comment,
 .reader-prose .hljs-quote,
 .prose .hljs-comment,
 .prose .hljs-quote {
-  color: color-mix(in oklab, var(--text-muted) 82%, white 18%);
+  color: color-mix(in oklab, var(--text-muted) 88%, var(--foreground) 12%);
   font-style: italic;
 }
 
@@ -31,66 +175,59 @@
 .prose .hljs-keyword,
 .prose .hljs-selector-tag,
 .prose .hljs-subst {
-  color: color-mix(in oklab, var(--accent-sky) 84%, white 16%);
+  color: oklch(0.45 0.16 252);
+  font-weight: 500;
+}
+
+.reader-prose .hljs-attribute,
+.reader-prose .hljs-property,
+.reader-prose .hljs-variable,
+.reader-prose .hljs-template-variable,
+.prose .hljs-attribute,
+.prose .hljs-property,
+.prose .hljs-variable,
+.prose .hljs-template-variable {
+  color: oklch(0.38 0.115 215);
 }
 
 .reader-prose .hljs-string,
 .reader-prose .hljs-attr,
 .reader-prose .hljs-template-tag,
+.reader-prose .hljs-regexp,
 .prose .hljs-string,
 .prose .hljs-attr,
-.prose .hljs-template-tag {
-  color: color-mix(in oklab, var(--accent-cyan) 86%, white 14%);
+.prose .hljs-template-tag,
+.prose .hljs-regexp {
+  color: color-mix(in oklab, var(--accent-cyan) 42%, oklch(0.36 0.12 168) 58%);
 }
 
 .reader-prose .hljs-number,
 .reader-prose .hljs-literal,
+.reader-prose .hljs-symbol,
+.reader-prose .hljs-bullet,
 .prose .hljs-number,
-.prose .hljs-literal {
-  color: color-mix(in oklab, var(--accent-warm) 88%, white 12%);
+.prose .hljs-literal,
+.prose .hljs-symbol,
+.prose .hljs-bullet {
+  color: color-mix(in oklab, var(--accent-warm) 36%, oklch(0.42 0.15 42) 64%);
 }
 
 .reader-prose .hljs-title,
 .reader-prose .hljs-function,
 .reader-prose .hljs-built_in,
+.reader-prose .hljs-type,
+.reader-prose .hljs-selector-class,
+.reader-prose .hljs-selector-id,
 .prose .hljs-title,
 .prose .hljs-function,
-.prose .hljs-built_in {
-  color: color-mix(in oklab, var(--accent-warm) 78%, var(--foreground) 22%);
+.prose .hljs-built_in,
+.prose .hljs-type,
+.prose .hljs-selector-class,
+.prose .hljs-selector-id {
+  color: oklch(0.44 0.145 284);
 }
 
-.reader-prose pre code,
-.prose pre code {
-  background: transparent;
-  padding: 0;
-  border-radius: 0;
-  color: inherit;
-}
-
-.reader-prose pre code .code-line,
-.prose pre code .code-line {
-  display: block;
-  min-height: 1.5em;
-  min-width: 100%;
-  padding-left: 3.25rem;
-  position: relative;
-}
-
-.reader-prose pre code .numbered-code-line::before,
-.prose pre code .numbered-code-line::before {
-  border-right: 1px solid color-mix(in oklab, var(--reader-border) 60%, transparent);
-  color: var(--text-faint);
-  content: attr(data-line-number);
-  font-size: 0.75em;
-  left: 0;
-  line-height: 1.5em;
-  padding-right: 0.75rem;
-  pointer-events: none;
-  position: absolute;
-  text-align: right;
-  user-select: none;
-  width: 2.75rem;
-}
+/* ── Dark Mode Luminous Syntax Tokens ────────────────────────────────── */
 
 html.dark .reader-prose .hljs-comment,
 html.dark .reader-prose .hljs-quote,
@@ -109,11 +246,50 @@ html.dark .prose .hljs-subst {
   color: color-mix(in oklab, var(--accent-sky) 72%, white 28%);
 }
 
+html.dark .reader-prose .hljs-attribute,
+html.dark .reader-prose .hljs-property,
+html.dark .reader-prose .hljs-variable,
+html.dark .reader-prose .hljs-template-variable,
+html.dark .prose .hljs-attribute,
+html.dark .prose .hljs-property,
+html.dark .prose .hljs-variable,
+html.dark .prose .hljs-template-variable {
+  color: oklch(0.83 0.075 215);
+}
+
 html.dark .reader-prose .hljs-string,
 html.dark .reader-prose .hljs-attr,
 html.dark .reader-prose .hljs-template-tag,
+html.dark .reader-prose .hljs-regexp,
 html.dark .prose .hljs-string,
 html.dark .prose .hljs-attr,
-html.dark .prose .hljs-template-tag {
+html.dark .prose .hljs-template-tag,
+html.dark .prose .hljs-regexp {
   color: color-mix(in oklab, var(--accent-cyan) 72%, white 28%);
+}
+
+html.dark .reader-prose .hljs-number,
+html.dark .reader-prose .hljs-literal,
+html.dark .reader-prose .hljs-symbol,
+html.dark .reader-prose .hljs-bullet,
+html.dark .prose .hljs-number,
+html.dark .prose .hljs-literal,
+html.dark .prose .hljs-symbol,
+html.dark .prose .hljs-bullet {
+  color: color-mix(in oklab, var(--accent-warm) 84%, white 16%);
+}
+
+html.dark .reader-prose .hljs-title,
+html.dark .reader-prose .hljs-function,
+html.dark .reader-prose .hljs-built_in,
+html.dark .reader-prose .hljs-type,
+html.dark .reader-prose .hljs-selector-class,
+html.dark .reader-prose .hljs-selector-id,
+html.dark .prose .hljs-title,
+html.dark .prose .hljs-function,
+html.dark .prose .hljs-built_in,
+html.dark .prose .hljs-type,
+html.dark .prose .hljs-selector-class,
+html.dark .prose .hljs-selector-id {
+  color: oklch(0.82 0.095 284);
 }
