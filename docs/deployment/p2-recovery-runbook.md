@@ -4,13 +4,16 @@
 
 ## 发布门禁与软链时序
 
-1. **检出提交与目录一致性（`RESOLVED_SHA`）**：`deploy.yml` 在 `actions/checkout`（支持 `inputs.ref` 任意分支、Tag 或历史 SHA）后立即执行 `RESOLVED_SHA=$(git rev-parse HEAD)`，所有远端目录 `releases/${RESOLVED_SHA}`、`RELEASE_SHA` 与部署摘要统一使用真实检出提交，消除 `inputs.ref` 回滚时与 `${{ github.sha }}` 错位的问题。
-2. **安全环境解析与 SSH 主机指纹校验**：流水线写入 `app.env` 追加内部密钥前强制补齐末尾换行，并通过 `scripts/deploy/read-dotenv.cjs`（基于 `dotenv.parse` 严格字面解析）按白名单读取标量构建/代理参数，禁止在 Bash 中执行 `source app.env` 或 `source .env`。SSH 连接使用预置 `DEPLOY_KNOWN_HOSTS` 密钥校验远端指纹，不再动态执行 `ssh-keyscan`。
-3. **迁移前备份与停旧容器边界**：候选镜像（Next.js `output: "standalone"` + 非特权 `USER node`）通过 `node scripts/check-web-readiness.cjs` 预检后，执行 `scripts/deploy/backup-production.sh`：
-   - **存在运行中旧容器**：从旧容器环境读取连接信息、拉取同主版本 PostgreSQL 客户端导出 custom-format 备份（`shared/backups/pre-${RELEASE_SHA}-${stamp}.dump`，目录 `700`、文件 `600`）并通过 `pg_restore --list` 校验，为旧镜像打上 `my-next-app:pre-${RELEASE_SHA}-${stamp}` 标签，**随后主动执行 `docker stop --time 30` 停止旧容器及其进程内 Newsletter 发送者**。备份失败不会停止旧容器，临时凭据自动清理。
-   - **首次部署或前次部署中断导致旧容器已停止**：脚本通过 `read-dotenv.cjs` 从 `shared/.env`（或 `.env`）安全解析 `DATABASE_URL` 完成数据库版本预检、`pg_dump` 与 `pg_restore --list` 校验；若存在已停止的旧 `app` 容器，同样为其镜像保留 `my-next-app:pre-${RELEASE_SHA}-${stamp}` 标签。
+1. **检出提交与目录一致性（`RESOLVED_SHA`）及 Shell 安全传参**：`deploy.yml` 在 `actions/checkout`（支持 `inputs.ref` 任意分支、Tag 或历史 SHA）后立即执行 `RESOLVED_SHA=$(git rev-parse HEAD)`，所有远端目录 `releases/${RESOLVED_SHA}`、`RELEASE_SHA` 与部署摘要统一使用真实检出提交；`inputs.ref`、`DEPLOY_HOST`、`DEPLOY_PORT`、`DEPLOY_USER`、`DEPLOY_PATH` 均经 step `env:` 注入并校验/转义，严禁在 Bash 源码字符串中直接内插 `${{ ... }}`。
+2. **每版本 `0600` `.env` 快照隔离、`$` 字面安全序列化与历史提交回滚兜底**：
+   - 流水线写入 `app.env` 追加 `AI_NEWS_CRON_SECRET` / `CRON_SECRET` 前强制补齐末尾换行，并对无单引号密钥使用单引号字面量序列化（`KEY='...'`），确保 `dotenv.parse`、`read-dotenv.cjs` 与 Docker Compose `env_file` 对含 `$` 字符的密钥均保持 100% 字面一致、不触发变量展开。
+   - `app.env`（权限 `0600`）直接上传至候选版本目录 `${DEPLOY_PATH}/releases/${RESOLVED_SHA}/.env`，**不在健康检查前覆盖 `${DEPLOY_PATH}/shared/.env`**，避免新版本部署失败污染上一健康版本的环境文件。
+   - 构建阶段优先调用 `scripts/deploy/read-dotenv.cjs`；若 `inputs.ref` 回滚至 `#60` 之前的历史提交（缺少 `read-dotenv.cjs`），自动回退至内联 `node -e` NUL 分隔 `dotenv.parse` 读取，禁止执行 `source app.env` 或 `source .env`。远端宿主机需预装 `node`（Node.js 20+），SSH 连接使用预置 `DEPLOY_KNOWN_HOSTS` 严格校验主机指纹。
+3. **迁移前目标库备份（含跨库切换双备份）与停旧容器边界**：候选镜像（Next.js `output: "standalone"` + 非特权 `USER node`）通过 `node scripts/check-web-readiness.cjs`（生产环境强制非回环 `NEXTAUTH_URL` / `NEXT_PUBLIC_SITE_URL` 使用 `https://`）预检后，执行 `scripts/deploy/backup-production.sh`：
+   - **存在运行中旧容器**：同时核对旧容器运行环境与候选版本 `.env` 的目标 `DATABASE_URL`。若指向同一数据库，导出 `shared/backups/pre-${RELEASE_SHA}-${stamp}.dump`；若候选版本切换到了新的目标 `DATABASE_URL`，在停容器与执行迁移前**同时预检、导出并通过 `pg_restore --list` 校验运行库（`pre-running-${RELEASE_SHA}-${stamp}.dump`）与候选目标库（`pre-${RELEASE_SHA}-${stamp}.dump`）两份备份**，为旧镜像打上 `my-next-app:pre-${RELEASE_SHA}-${stamp}` 标签，**随后主动执行 `docker stop --time 30` 停止旧容器及其进程内 Newsletter 发送者**。任一备份失败均不会停止旧容器，临时凭据自动清理。
+   - **首次部署或前次部署中断导致旧容器已停止**：优先从当前候选版本 `.env`（回退 `shared/.env`）安全解析目标 `DATABASE_URL` 完成数据库版本预检、`pg_dump` 与 `pg_restore --list` 校验（若 `shared/.env` 存在且指向不同数据库，同样一并备份）；若存在已停止的旧 `app` 容器，同样为其镜像保留 `my-next-app:pre-${RELEASE_SHA}-${stamp}` 标签。
 4. **严格迁移门禁（无 `db push` 兜底）**：`deploy-remote.sh` 要求 `prisma/migrations/*/` 非空并执行 `pnpm prisma migrate deploy`；若缺失迁移目录则直接打印 `Missing Prisma migrations in prisma/migrations` 并以非零状态退出，严禁回退执行 `prisma db push`。
-5. **延后切换 `current` 软链与健康门禁**：远端激活直接在 `${DEPLOY_PATH}/releases/${RESOLVED_SHA}` 目录内执行 `deploy-remote.sh`。替换服务后最多观察 12 次（间隔 5 秒），仅在容器达到 `running healthy`（Docker 健康探针请求 `http://127.0.0.1:3000/api/health/ready` 返回 `200`）后才将 `${DEPLOY_PATH}/current` 原子切换至新版本目录。若迁移或健康检查失败，`current` 软链保持指向前一个健康版本。
+5. **健康通过后更新 `shared/.env`、`last-healthy-release` 与 `current` 软链**：远端激活直接在 `${DEPLOY_PATH}/releases/${RESOLVED_SHA}` 目录内执行 `deploy-remote.sh`。替换服务后最多观察 12 次（间隔 5 秒），仅在容器达到 `running healthy`（Docker 健康探针请求 `http://127.0.0.1:3000/api/health/ready` 返回 `200`）后才依次更新 `${DEPLOY_PATH}/shared/.env`（`install -m 600`，若旧 `current/.env` 为历史遗留软链则先物化独立快照）、写入 `${DEPLOY_PATH}/shared/last-healthy-release`（记录 `RELEASE_SHA`、`IMAGE_ID`、`LAST_BACKUP_DIR`）并将 `${DEPLOY_PATH}/current` 原子切换至新版本目录。若迁移或健康检查失败，上一版本的 `.env`、`shared/.env`、`shared/last-healthy-release` 与 `current` 软链均保持原状。
 6. **上传前断库冒烟与产物保留策略**：
    - 上传 release 前，`scripts/deploy/smoke-web-health.sh` 在隔离 PostgreSQL 容器上验证 `live=200 -> ready=200 (healthy) -> 停库 live=200 & ready=503 (unhealthy) -> 恢复 ready=200 (healthy)`。
    - 部署健康通过后自动执行保留清理（`scripts/deploy/prune-artifacts.cjs`）：仅保留最近 **5** 个 `releases/*` 目录（绝不删除当前 `current` 指向目录与当前运行版本）、最近 **5** 个 `shared/backups/*.dump` 备份文件及最近 **5** 个 `my-next-app:pre-*` 镜像标签；容器启用 `init: true` 与 `json-file` 日志轮转（`10m x 5`）。
@@ -39,11 +42,12 @@
    - **情形 B（迁移已产生不兼容结构变更且确需回退库）**：先将 `shared/backups/pre-${FAILED_RELEASE_SHA}-<ts>.dump` 导入独立临时库核验完整性与业务影响，确认无误后再执行恢复。切回旧镜像本身不会撤销已提交的数据库迁移。
    - 注意：旧版本代码不理解新版本新增的 `unknown` / `attempt` 核对语义时，恢复后不得用旧版本自动重试处于新状态的活动。
 
-### 第二步：定位保留的 `my-next-app:pre-*` 镜像并重打标签
+### 第二步：核对 `shared/last-healthy-release` 并重打保留的 `my-next-app:pre-*` 镜像标签
 
-从最近保留的 5 个迁移前镜像标签中选取本次部署前保留的镜像并校验其完整 `sha256` 摘要：
+先查看最近一次健康发布的记录（`RELEASE_SHA`、`IMAGE_ID`、`LAST_BACKUP_DIR`），并从最近保留的 5 个迁移前镜像标签中选取本次部署前保留的镜像校验其完整 `sha256` 摘要：
 
 ```bash
+cat "${DEPLOY_PATH}/shared/last-healthy-release"
 PREV_TAG=$(docker image ls --format '{{.Repository}}:{{.Tag}}' 'my-next-app:pre-*' | head -n 1)
 echo "Recovering with image tag: ${PREV_TAG}"
 PREV_IMAGE_ID=$(docker image inspect "${PREV_TAG}" --format '{{.Id}}')
@@ -101,7 +105,7 @@ sent 表示适配器明确接受，不保证送达收件箱。log 为模拟接�
 
 > 2026-10-13 已配置并验证：GitHub production environment 设 `CRON_SECRET`（32 字节强随机）与 `PRODUCTION_BASE_URL`；`deploy.yml` 在写 `app.env` 时与 `AI_NEWS_CRON_SECRET` 一样 append `CRON_SECRET`（不再要求手改 `APP_ENV_FILE`）；本地 `.env` 同步同值。实测：错密钥 → 401，正确密钥 → 200 且正常删批。此前服务端缺配时该接口 fail-closed 503，workflow 每轮在 guard 处 `exit 1`。
 
-每轮持有事务 advisory lock，沿用累计 pg_column_size 口径，从最旧超限记录最多删除 1000 条。返回 before/after、deletedCount、remainingExcessBytes、耗时及状态：
+每轮在交互式事务内持有事务 advisory lock，沿用累计 pg_column_size 口径从最旧超限记录最多删除 1000 条 `api_operation_logs`；事务提交后在事务外分批清理过期 `rate_limit_entries`（每批 `LIMIT 5000`，单轮最多 20 批），避免 `rate_limit_entries` 积压触发 30 秒交互式事务超时并连带回滚日志保留结果。`.github/workflows/log-retention.yml`（及 `publish-scheduled.yml`）显式校验 HTTP `200` 与 JSON `payload.success === true`，防止域名 `301`/`302` 重定向静默变绿。返回 before/after、deletedCount、expiredRateLimitDeletedCount、remainingExcessBytes、耗时及状态：
 
 | status | 处理 |
 | --- | --- |

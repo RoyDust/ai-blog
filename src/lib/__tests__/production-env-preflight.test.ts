@@ -57,4 +57,51 @@ describe('production environment preflight', () => {
     expect(r.status).toBe(1)
     expect(r.content).toBe(r.original)
   })
+  test('accepts https public URLs and loopback http URLs while rejecting plaintext non-loopback URLs', () => {
+    expect(prepare({ ...valid, NEXTAUTH_URL: 'https://blog.example.com', NEXT_PUBLIC_SITE_URL: 'https://blog.example.com' }).status).toBe(0)
+    expect(prepare({ ...valid, NEXTAUTH_URL: 'http://127.0.0.1:3000', NEXT_PUBLIC_SITE_URL: 'http://127.0.0.1:3000' }).status).toBe(0)
+
+    for (const insecureUrl of ['http://blog.example.com', 'http://47.98.167.32']) {
+      const badAuthUrl = prepare({ ...valid, NEXTAUTH_URL: insecureUrl })
+      expect(badAuthUrl.status).toBe(1)
+      expect(badAuthUrl.content).toBe(badAuthUrl.original)
+
+      const badSiteUrl = prepare({ ...valid, NEXT_PUBLIC_SITE_URL: insecureUrl })
+      expect(badSiteUrl.status).toBe(1)
+      expect(badSiteUrl.content).toBe(badSiteUrl.original)
+    }
+  })
+  test('preserves literal $ in single-quoted cron secrets across dotenv.parse and read-dotenv.cjs', () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { parseEnvFile, parseDotenvFallback } = require(path.join(root, 'scripts/deploy/read-dotenv.cjs')) as {
+      parseEnvFile: (filePath: string) => Record<string, string>
+      parseDotenvFallback: (source: string) => Record<string, string>
+    }
+    const dir = mkdtempSync(path.join(tmpdir(), 'inkforge-env-dollar-'))
+    const file = path.join(dir, 'app.env')
+    const aiSecret = 'ai$secret${UNSET}$$literal"slash\\end'
+    const cronSecret = 'cron$secret${PATH}$$123!#space '
+    try {
+      const raw = [
+        ...Object.entries(valid).map(([k, v]) => `${k}=${JSON.stringify(v)}`),
+        `AI_NEWS_CRON_SECRET='${aiSecret}'`,
+        `CRON_SECRET='${cronSecret}'`,
+      ].join('\n') + '\n'
+      writeFileSync(file, raw)
+      const res = spawnSync(process.execPath, [path.join(root, 'scripts/prepare-production-env.cjs'), file], {
+        encoding: 'utf8',
+        env: { ...process.env, DEPLOY_COMPOSE_PROJECT_NAME: 'current' },
+      })
+      expect(res.status).toBe(0)
+      const finalContent = readFileSync(file, 'utf8')
+      expect(parse(finalContent).AI_NEWS_CRON_SECRET).toBe(aiSecret)
+      expect(parse(finalContent).CRON_SECRET).toBe(cronSecret)
+      expect(parseEnvFile(file).AI_NEWS_CRON_SECRET).toBe(aiSecret)
+      expect(parseEnvFile(file).CRON_SECRET).toBe(cronSecret)
+      expect(parseDotenvFallback(finalContent).AI_NEWS_CRON_SECRET).toBe(aiSecret)
+      expect(parseDotenvFallback(finalContent).CRON_SECRET).toBe(cronSecret)
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
 })

@@ -77,6 +77,9 @@ if [[ ! -f .env ]]; then
   echo "Missing .env in $APP_DIR" >&2
   exit 1
 fi
+if [[ ! -L .env ]]; then
+  chmod 600 .env 2>/dev/null || true
+fi
 
 load_scalar_dotenv_vars ".env" \
   NEXTAUTH_URL \
@@ -207,6 +210,33 @@ print_deployment_diagnostics() (
   exit 0
 )
 
+write_last_healthy_release() {
+  local resolved_release_sha="${RELEASE_SHA:-}"
+  if [[ -z "$resolved_release_sha" ]]; then
+    resolved_release_sha="$(basename "$APP_DIR_REAL")"
+  fi
+  local healthy_image_id=""
+  healthy_image_id="$(docker image inspect my-next-app:latest --format '{{.Id}}' 2>/dev/null | tr -d '\r' || true)"
+  local last_backup_dir=""
+  if [[ "${BACKUP_BEFORE_DEPLOY:-0}" == 1 || -d "$DEPLOY_ROOT_REAL/shared/backups" ]]; then
+    last_backup_dir="$DEPLOY_ROOT_REAL/shared/backups"
+  elif [[ -f "$DEPLOY_ROOT_REAL/shared/last-healthy-release" ]]; then
+    last_backup_dir="$(sed -n 's/^LAST_BACKUP_DIR=//p' "$DEPLOY_ROOT_REAL/shared/last-healthy-release" | head -n 1 | tr -d '\r')"
+  fi
+
+  mkdir -p "$DEPLOY_ROOT_REAL/shared"
+  local meta_tmp="$DEPLOY_ROOT_REAL/shared/.last-healthy-release.tmp.$$"
+  (
+    umask 077
+    printf 'RELEASE_SHA=%s\nIMAGE_ID=%s\nLAST_BACKUP_DIR=%s\n' \
+      "$resolved_release_sha" \
+      "$healthy_image_id" \
+      "$last_backup_dir" > "$meta_tmp"
+  )
+  chmod 600 "$meta_tmp" 2>/dev/null || true
+  mv -f "$meta_tmp" "$DEPLOY_ROOT_REAL/shared/last-healthy-release"
+}
+
 fail_deployment() {
   echo "Deployment failed: $1" >&2
   print_deployment_diagnostics "${2:-}" >&2 || true
@@ -226,9 +256,19 @@ for attempt in {1..12}; do
   case "$state" in
     'running healthy')
       if [[ -n "${RELEASE_DIR:-}" || "$APP_DIR_REAL" == "$DEPLOY_ROOT_REAL/releases/"* ]]; then
+        if [[ -L "$DEPLOY_ROOT_REAL/current/.env" && -f "$DEPLOY_ROOT_REAL/shared/.env" && ! "$DEPLOY_ROOT_REAL/current" -ef "$APP_DIR_REAL" ]]; then
+          prev_env_tmp="$DEPLOY_ROOT_REAL/current/.env.snapshot.$$"
+          install -m 600 "$DEPLOY_ROOT_REAL/shared/.env" "$prev_env_tmp"
+          mv -f "$prev_env_tmp" "$DEPLOY_ROOT_REAL/current/.env"
+        fi
+        mkdir -p "$DEPLOY_ROOT_REAL/shared"
+        if [[ ! "$APP_DIR_REAL/.env" -ef "$DEPLOY_ROOT_REAL/shared/.env" ]]; then
+          install -m 600 "$APP_DIR_REAL/.env" "$DEPLOY_ROOT_REAL/shared/.env"
+        fi
         ln -sfn "$APP_DIR_REAL" "$DEPLOY_ROOT_REAL/current" 2>/dev/null ||
           node "$(to_host_path "$SCRIPT_DIR/prune-artifacts.cjs")" --switch-current "$(to_host_path "$APP_DIR_REAL")" "$(to_host_path "$DEPLOY_ROOT_REAL/current")"
       fi
+      write_last_healthy_release
       node "$(to_host_path "$SCRIPT_DIR/prune-artifacts.cjs")" --prune-files "$(to_host_path "$DEPLOY_ROOT_REAL")" "$(to_host_path "$APP_DIR_REAL")" || true
       prune_old_image_tags
       echo 'Deployment succeeded: app is healthy'

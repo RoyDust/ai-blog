@@ -35,12 +35,35 @@ jobs:
 
           endpoint="${PRODUCTION_BASE_URL%/}/api/cron/publish-scheduled"
           echo "Triggering scheduled publish endpoint: ${endpoint}"
-          curl --fail-with-body --show-error --silent \
+          response_file="$(mktemp)"
+          trap 'rm -f "$response_file"' EXIT
+          http_status="$(curl --show-error --silent \
             --proto '=https' --tlsv1.2 --max-time 30 \
             --request POST \
+            --output "$response_file" \
+            -w '%{http_code}' \
             --header "Authorization: Bearer ${PUBLISH_SCHEDULED_CRON_SECRET}" \
             --header "Content-Type: application/json" \
-            "$endpoint"
-          echo
+            "$endpoint")"
+          body="$(cat "$response_file")"
+          rm -f "$response_file"
+          if [ "$http_status" != "200" ]; then
+            echo "Scheduled publish endpoint returned unexpected HTTP ${http_status}" >&2
+            exit 1
+          fi
+          RESPONSE_BODY="$body" node -e '
+            let payload;
+            try {
+              payload = JSON.parse(process.env.RESPONSE_BODY || "");
+            } catch {
+              console.error("Scheduled publish endpoint returned invalid JSON payload");
+              process.exit(1);
+            }
+            if (!payload || payload.success !== true) {
+              console.error("Scheduled publish endpoint did not report success: true");
+              process.exit(1);
+            }
+          '
+          echo "$body"
         env:
           PUBLISH_SCHEDULED_CRON_SECRET: ${{ secrets.CRON_SECRET || secrets.AI_NEWS_CRON_SECRET }}

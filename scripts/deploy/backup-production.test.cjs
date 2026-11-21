@@ -16,6 +16,9 @@ function backup(mode, options = {}) {
     fs.mkdirSync(path.join(dir, 'shared'), { recursive: true });
     fs.writeFileSync(path.join(dir, 'shared/.env'), options.sharedEnv);
   }
+  if (options.candidateEnv !== undefined) {
+    fs.writeFileSync(path.join(dir, '.env'), options.candidateEnv);
+  }
   if (options.existingDumps) {
     const backupDir = path.join(dir, 'shared/backups');
     fs.mkdirSync(backupDir, { recursive: true });
@@ -55,7 +58,11 @@ function backup(mode, options = {}) {
     '      prev="$arg"',
     '    done',
     '    cp "$env_arg" "$MOCK_ROOT/captured-raw-env"',
-    '    printf "%s\\n" "PG_VERSION=16" "DATABASE_URL=postgresql://user:test-only-backup-secret@database/test" ;;',
+    '    if grep -q "new-database" "$env_arg" 2>/dev/null; then',
+    '      printf "%s\\n" "PG_VERSION=16" "DATABASE_URL=postgresql://user:target-secret@new-database:5432/next_db"',
+    '    else',
+    '      printf "%s\\n" "PG_VERSION=16" "DATABASE_URL=postgresql://user:test-only-backup-secret@database/test"',
+    '    fi ;;',
     '  inspect*)',
     '    if [[ "$*" == *".Image"* ]]; then echo sha256:old-image;',
     '    elif [[ "$*" == *".NetworkSettings.Networks"* ]]; then echo inkforge_default;',
@@ -184,4 +191,28 @@ test('retains only the newest 5 dump backups and newest 5 pre-deploy image tags'
   assert.match(result.calls, new RegExp('image rm ' + existingTags[5]));
   assert.match(result.calls, new RegExp('image rm ' + existingTags[4]));
   assert.doesNotMatch(result.calls, new RegExp('image rm ' + existingTags[0]));
+});
+
+test('backs up both running DB and candidate target DB before stopping when candidate .env switches DATABASE_URL', () => {
+  const candidateEnv = 'DATABASE_URL="postgresql://user:target-secret@new-database:5432/next_db?schema=public"\n';
+  const result = backup('success', { candidateEnv });
+  assert.equal(result.status, 0, result.stderr);
+  const dumps = result.files.filter((file) => file.endsWith('.dump'));
+  assert.equal(dumps.length, 2, 'both running DB and candidate target DB must be backed up');
+  assert.ok(dumps.some((f) => f.startsWith('pre-' + 'a'.repeat(40))));
+  assert.ok(dumps.some((f) => f.startsWith('pre-running-' + 'a'.repeat(40))));
+  assert.equal(result.files.length, 2, 'temporary credentials must be removed');
+  const stopIdx = result.calls.indexOf('stop --time 30 owned-old-container');
+  const lastRestoreIdx = result.calls.lastIndexOf('pg_restore --list');
+  assert.ok(stopIdx > lastRestoreIdx, 'old container must only stop after both dumps are validated');
+  assert.doesNotMatch(result.stdout + result.stderr, /target-secret|test-only-backup-secret/);
+});
+
+test('does not stop running container when candidate target DATABASE_URL preflight fails', () => {
+  const candidateEnv = 'DATABASE_URL="postgresql://user:target-secret@new-database:5432/next_db?schema=public"\n';
+  const result = backup('preflight-failure', { candidateEnv });
+  assert.notEqual(result.status, 0);
+  assert.doesNotMatch(result.calls, /^stop /m);
+  assert.equal(result.files.length, 0);
+  assert.doesNotMatch(result.stdout + result.stderr, /target-secret|test-only-backup-secret/);
 });
