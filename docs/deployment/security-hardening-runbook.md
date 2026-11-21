@@ -38,10 +38,14 @@ openssl rand -hex 32
 - 因此仓库侧暂缓了 CSP `upgrade-insecure-requests` 与 `img-src` 收紧（见 `security-headers.ts` 注释）。
 
 执行步骤：
-1. 为 `roydust.top` 与 `project.roydust.top` 申请证书（Let's Encrypt / certbot），在 nginx/caddy 上终结 TLS；http → https 301 跳转。
+1. 为 `roydust.top` 与 `project.roydust.top` 申请证书（Let's Encrypt / certbot），部署 `deploy/nginx.my-next-app.conf` 到 `/etc/nginx/conf.d/my-next-app.conf` 终结 TLS（`listen 443 ssl http2;`、`TLSv1.2 TLSv1.3`）：
+   - 80 端口放行 `/.well-known/acme-challenge/`（`root /var/www/certbot;`，使用 webroot 续期前请确保目录已创建），其余流量全部 `301` 跳转 `https://$host$request_uri`；
+   - 重载前将配置中的 `server_name` 及证书占位路径（`/etc/letsencrypt/live/inkforge/fullchain.pem` 与 `/etc/letsencrypt/live/inkforge/privkey.pem`）替换为实际签发目录（如 `/etc/letsencrypt/live/roydust.top/fullchain.pem` 与 `privkey.pem`），执行 `sudo nginx -t && sudo systemctl reload nginx`；
+   - 网关层已同步开启 `server_tokens off;`、`client_max_body_size 10m;`、`map $http_upgrade $connection_upgrade`（修复非 WebSocket 请求上游连接语义），并对同步 AI 交互端点（`/api/admin/ai/`、`/api/admin/covers/generate`、`/api/admin/posts/`、`/api/ai/drafts`）单独设置 `proxy_read_timeout 180s;` / `proxy_send_timeout 180s;`。
 2. 更新 `shared/.env`：`NEXTAUTH_URL=https://...`、`NEXT_PUBLIC_SITE_URL=https://...`、`SITE_URL=https://...`。会话 cookie 自动带 `Secure`（`auth-cookies.ts`）。
-3. HSTS 已随本次代码在生产环境自动下发（浏览器此前只见过 http 时不会预加载，无风险）。
-4. TLS 稳定运行后，回仓库完成剩余两项：
+3. 在 GitHub `production` environment（或仓库 Secrets）中必须显式配置 `PRODUCTION_BASE_URL=https://<生产域名>`：`daily-ai-news.yml`、`log-retention.yml`、`publish-scheduled.yml` 已移除明文 `http://` 回退地址，缺失或非 `https://` 前缀会在工作流启动时立即非零退出，且所有 `curl` 调用强制启用 `--proto '=https' --tlsv1.2 --max-time 30` 与 `concurrency` 防重叠保护。
+4. HSTS 已随代码与 Nginx 配置在生产环境自动下发（浏览器此前只见过 http 时不会预加载，无风险）。
+5. TLS 稳定运行后，回仓库完成剩余两项：
    - `security-headers.ts`：CSP 增加 `upgrade-insecure-requests`、`img-src` 收紧为 `'self' https: data: blob:`，并更新 `security-headers.test.ts` 中对应用例；
    - `next.config.ts`：`remotePatterns` 删除 http 条目。
 
