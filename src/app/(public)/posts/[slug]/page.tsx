@@ -16,6 +16,7 @@ export const dynamicParams = true;
  */
 
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Suspense, isValidElement, use, type ComponentProps, type ReactNode } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -27,6 +28,12 @@ import { CommentAuthGate } from "@/components/CommentAuthGate";
 import { CommentReply } from "@/components/CommentReply";
 import { FallbackImage } from "@/components/ui";
 import { getBlogSettings } from "@/lib/blog-settings";
+import {
+  classifyMarkdownLink,
+  createHeadingSlugger,
+  extractHeadingText,
+  extractHeadings,
+} from "@/lib/markdown-headings";
 import { prisma } from "@/lib/prisma";
 import { getRecommendedPostsForPost } from "@/lib/recommendations";
 import { stripLeadingTitleHeading } from "@/lib/article-content";
@@ -155,49 +162,6 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   })
 
   return metadata;
-}
-
-/**
- * 把标题文本转为目录锚点可用的基础 id。
- */
-function slugify(text: string) {
-  return text
-    .toLowerCase()
-    .trim()
-    .replace(/[^\w\u4e00-\u9fa5\s-]/g, "")
-    .replace(/\s+/g, "-");
-}
-
-function getUniqueHeadingId(text: string, counters: Map<string, number>) {
-  const baseId = slugify(text) || "section"
-  const count = (counters.get(baseId) ?? 0) + 1
-  counters.set(baseId, count)
-
-  return count === 1 ? baseId : `${baseId}-${count}`
-}
-
-/**
- * 从 Markdown 正文中提取 1-3 级标题，供侧边目录组件使用。
- */
-function extractHeadings(content: string) {
-  const counters = new Map<string, number>()
-  const headings: Array<{ id: string; text: string; level: 1 | 2 | 3 }> = []
-
-  content
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => /^#{1,5}\s+/.test(line))
-    .forEach((line) => {
-      const level = line.match(/^#+/)?.[0].length ?? 1
-      const text = line.replace(/^#{1,5}\s+/, "")
-      const id = getUniqueHeadingId(text, counters)
-
-      if (level <= 3) {
-        headings.push({ id, text, level: level as 1 | 2 | 3 })
-      }
-    })
-
-  return headings
 }
 
 function nodeText(node: ReactNode): string {
@@ -409,11 +373,22 @@ function withoutNode<T extends { node?: unknown }>(props: T): Omit<T, 'node'> {
   return rest
 }
 
-type HeadingTag = 'h1' | 'h2' | 'h3' | 'h4' | 'h5'
+function sanitizeAnchorProps<T extends { node?: unknown; href?: unknown; target?: unknown; rel?: unknown }>(
+  props: T,
+): Omit<T, 'node' | 'href' | 'target' | 'rel'> {
+  const rest = { ...props }
+  delete rest.node
+  delete rest.href
+  delete rest.target
+  delete rest.rel
+  return rest
+}
+
+type HeadingTag = 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6'
 
 /**
- * 正文 Markdown 渲染：标题带锚点 id 与 hover「#」；图片带图注；代码块左上语言名、右上复制按钮、块内横向滚动；
- * 表格包一层横向滚动容器。
+ * 正文 Markdown 渲染：标题带锚点 id 与 hover「#」；外链安全新窗、站内链接走 Next.js Link、危险协议降级；
+ * 图片带图注；代码块左上语言名、右上复制按钮、块内横向滚动；表格包一层横向滚动容器。
  */
 function buildMarkdownComponents(getHeadingId: (children: ReactNode) => string): Components {
   const heading = (Tag: HeadingTag) => {
@@ -438,6 +413,41 @@ function buildMarkdownComponents(getHeadingId: (children: ReactNode) => string):
     h3: heading('h3'),
     h4: heading('h4'),
     h5: heading('h5'),
+    h6: heading('h6'),
+    a: ({ href, children, ...props }) => {
+      const anchorProps = sanitizeAnchorProps(props)
+      const classified = classifyMarkdownLink(typeof href === 'string' ? href : undefined)
+
+      if (classified.kind === 'unsafe') {
+        return (
+          <span className={anchorProps.className} title={anchorProps.title}>
+            {children}
+          </span>
+        )
+      }
+
+      if (classified.kind === 'internal') {
+        return (
+          <Link {...anchorProps} href={classified.href}>
+            {children}
+          </Link>
+        )
+      }
+
+      if (classified.kind === 'external') {
+        return (
+          <a {...anchorProps} href={classified.href} rel={classified.rel} target={classified.target}>
+            {children}
+          </a>
+        )
+      }
+
+      return (
+        <a {...anchorProps} href={classified.href}>
+          {children}
+        </a>
+      )
+    },
     img: ({ src, alt, title }) => {
       const imageSrc = typeof src === 'string' ? src : null
       if (!imageSrc) return null
@@ -507,8 +517,8 @@ type ArticleViewData = {
 export function renderArticleView({ post, isDraftPreview, relatedPosts, commentsPromise, settings }: ArticleViewData) {
   const articleContent = stripLeadingTitleHeading(post.content, post.title)
   const headings = extractHeadings(articleContent);
-  const renderedHeadingCounters = new Map<string, number>()
-  const getRenderedHeadingId = (children: ReactNode) => getUniqueHeadingId(nodeText(children), renderedHeadingCounters)
+  const renderedHeadingSlugger = createHeadingSlugger()
+  const getRenderedHeadingId = (children: ReactNode) => renderedHeadingSlugger.slug(extractHeadingText(children))
   const description = post.seoDescription || post.excerpt || `${post.title} - ${settings.siteName}`
   const articleJsonLd = buildArticleJsonLd({
     title: post.title,
