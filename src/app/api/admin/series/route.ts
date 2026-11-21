@@ -3,6 +3,7 @@ import { requireAdminSession } from "@/lib/api-auth";
 import { NotFoundError, ValidationError, toErrorResponse } from "@/lib/api-errors";
 import { revalidatePublicContent } from "@/lib/cache";
 import { prisma } from "@/lib/prisma";
+import { parseIdList } from "@/lib/validation";
 import { NextResponse } from "next/server";
 
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -83,11 +84,6 @@ function parseSeriesInput(payload: unknown) {
   return { id, title, slug, description, coverImage, order };
 }
 
-function parseSeriesId(request: Request) {
-  const { searchParams } = new URL(request.url);
-  return searchParams.get("id")?.trim() || "";
-}
-
 async function GETHandler() {
   try {
     await requireAdminSession();
@@ -164,26 +160,56 @@ async function DELETEHandler(request: Request) {
   try {
     await requireAdminSession();
 
-    const id = parseSeriesId(request);
-    if (!id) {
+    const ids = parseIdList(new URL(request.url).searchParams);
+    if (ids.length === 0) {
       throw new ValidationError("Series ID is required");
     }
 
-    const series = await prisma.series.findFirst({
-      where: { id, deletedAt: null },
-      select: { id: true, slug: true },
+    const deletedAt = new Date();
+    const { deletedSeries, affectedPosts } = await prisma.$transaction(async (tx) => {
+      const existingSeries = await tx.series.findMany({
+        where: { id: { in: ids }, deletedAt: null },
+        select: { id: true, slug: true },
+      });
+
+      if (existingSeries.length === 0) {
+        throw new NotFoundError("Series not found");
+      }
+
+      const resolvedIds = existingSeries.map((item) => item.id);
+      const posts = await tx.post.findMany({
+        where: { seriesId: { in: resolvedIds }, deletedAt: null },
+        select: {
+          slug: true,
+          category: { select: { slug: true, deletedAt: true } },
+          tags: { where: { deletedAt: null }, select: { slug: true } },
+        },
+      });
+
+      await tx.series.updateMany({
+        where: { id: { in: resolvedIds }, deletedAt: null },
+        data: { deletedAt },
+      });
+
+      await tx.post.updateMany({
+        where: { seriesId: { in: resolvedIds }, deletedAt: null },
+        data: { seriesId: null },
+      });
+
+      return { deletedSeries: existingSeries, affectedPosts: posts };
     });
 
-    if (!series) {
-      throw new NotFoundError("Series not found");
+    for (const item of deletedSeries) {
+      revalidatePublicContent({ previousSeriesSlug: item.slug });
     }
 
-    await prisma.series.update({
-      where: { id: series.id },
-      data: { deletedAt: new Date() },
-    });
-
-    revalidatePublicContent({ previousSeriesSlug: series.slug });
+    for (const post of affectedPosts) {
+      revalidatePublicContent({
+        slug: post.slug,
+        categorySlug: post.category && !post.category.deletedAt ? post.category.slug : null,
+        tagSlugs: post.tags.map((tag) => tag.slug),
+      });
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

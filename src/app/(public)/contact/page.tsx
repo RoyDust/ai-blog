@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import type { Metadata } from "next";
 import { Masthead, Reveal, SectionHeading } from "@/components/editorial";
 import { getBlogSettings } from "@/lib/blog-settings";

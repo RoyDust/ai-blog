@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { AI_AUTHORING_ENDPOINTS, AI_AUTHORING_LIMITS } from "@/lib/ai-contract";
 import { getBlogSettings } from "@/lib/blog-settings";
 
