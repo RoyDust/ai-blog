@@ -194,11 +194,18 @@ describe("ai news aggregation", () => {
       ok: true,
       text: async () => `<?xml version="1.0"?><rss><channel><item><title>Anthropic 发布研究</title><link>https://example.com/anthropic</link><description>研究摘要</description><pubDate>Wed, 29 Apr 2026 02:00:00 GMT</pubDate></item></channel></rss>`,
     })
-    const completionFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        choices: [{ message: { content: JSON.stringify({ title: "2026-04-29 AI 日报", excerpt: "摘要", content: "# 今日摘要\n\n内容" }) } }],
-      }),
+    const completionFetch = vi.fn().mockImplementation(async (_input: string | URL | Request, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body ?? "{}")) as { messages?: Array<{ role?: string; content?: string }> }
+      const userContent = String(body.messages?.find((message) => message.role === "user")?.content ?? "")
+      const payload = userContent.includes("score/reason/summary/tags/riskFlags")
+        ? { score: 9, reason: "重点研究进展", summary: "Anthropic 发布最新研究进展与评测摘要。", tags: ["research"], riskFlags: [] }
+        : { title: "2026-04-29 AI 日报", excerpt: "摘要", content: "# 今日摘要\n\n内容" }
+      return {
+        ok: true,
+        json: async () => ({
+          choices: [{ message: { content: JSON.stringify(payload) } }],
+        }),
+      }
     })
     const fetchImpl = vi.fn((input: string | URL | Request, init?: RequestInit) => {
       if (init?.method === "POST") return completionFetch(input, init)
@@ -486,10 +493,7 @@ describe("ai news aggregation", () => {
         reviewSummary: null,
       }),
     })
-    expect(updateManyPost).toHaveBeenCalledWith({
-      where: { id: "post-1", generatedByAiNews: false },
-      data: { generatedByAiNews: true },
-    })
+    expect(updateManyPost).not.toHaveBeenCalled()
     expect(result).toMatchObject({
       operation: "created",
       published: true,
@@ -510,7 +514,13 @@ describe("ai news aggregation", () => {
   })
 
   test("skips generation when the daily slug already exists", async () => {
-    findFirst.mockResolvedValueOnce({ id: "post-existing", title: "已存在", slug: "ai-daily-2026-04-29", published: true })
+    findFirst.mockResolvedValueOnce({
+      id: "post-existing",
+      title: "已存在",
+      slug: "ai-daily-2026-04-29",
+      published: true,
+      generatedByAiNews: true,
+    })
     updateManyPost.mockResolvedValue({ count: 1 })
 
     const { runDailyAiNews } = await import("@/lib/ai-news")
@@ -527,10 +537,7 @@ describe("ai news aggregation", () => {
       where: { id: "run-1" },
       data: expect.objectContaining({ status: "SKIPPED", postId: "post-existing", published: true }),
     })
-    expect(updateManyPost).toHaveBeenCalledWith({
-      where: { id: "post-existing", generatedByAiNews: false },
-      data: { generatedByAiNews: true },
-    })
+    expect(updateManyPost).not.toHaveBeenCalled()
     expect(result).toMatchObject({
       operation: "skipped",
       reason: "Daily AI news already exists",
@@ -538,9 +545,14 @@ describe("ai news aggregation", () => {
     })
   })
 
-  test("publishes an existing unpublished daily AI news post before skipping generation", async () => {
-    findFirst.mockResolvedValueOnce({ id: "post-existing", title: "已存在草稿", slug: "ai-daily-2026-04-29", published: false })
-    publishAiDraftPost.mockResolvedValueOnce({ id: "post-existing", published: true })
+  test("keeps an existing unpublished daily AI news draft pending review when skipping generation", async () => {
+    findFirst.mockResolvedValueOnce({
+      id: "post-existing",
+      title: "已存在草稿",
+      slug: "ai-daily-2026-04-29",
+      published: false,
+      generatedByAiNews: true,
+    })
 
     const { runDailyAiNews } = await import("@/lib/ai-news")
     const result = await runDailyAiNews({
@@ -550,15 +562,17 @@ describe("ai news aggregation", () => {
       fetchImpl: vi.fn() as unknown as typeof fetch,
     })
 
-    expect(publishAiDraftPost).toHaveBeenCalledWith({ postId: "post-existing" })
+    expect(publishAiDraftPost).not.toHaveBeenCalled()
+    expect(updateManyPost).not.toHaveBeenCalled()
     expect(updateAiNewsRun).toHaveBeenCalledWith({
       where: { id: "run-1" },
-      data: expect.objectContaining({ status: "SKIPPED", postId: "post-existing", published: true }),
+      data: expect.objectContaining({ status: "SKIPPED", postId: "post-existing", published: false }),
     })
     expect(result).toMatchObject({
       operation: "skipped",
-      published: true,
-      post: { id: "post-existing", published: true },
+      reason: "Daily AI news draft is pending review",
+      published: false,
+      post: { id: "post-existing", published: false, generatedByAiNews: true },
     })
   })
 
@@ -577,7 +591,13 @@ describe("ai news aggregation", () => {
       if (init?.method === "POST") return completionFetch(input, init)
       return rssFetch(input, init)
     }) as typeof fetch
-    findFirst.mockResolvedValueOnce({ id: "post-existing", title: "旧日报", slug: "ai-daily-2026-04-29", published: true })
+    findFirst.mockResolvedValueOnce({
+      id: "post-existing",
+      title: "旧日报",
+      slug: "ai-daily-2026-04-29",
+      published: true,
+      generatedByAiNews: true,
+    })
     updateAdminPost.mockResolvedValueOnce({ id: "post-existing", slug: "ai-daily-2026-04-29", published: true })
     const { runDailyAiNews } = await import("@/lib/ai-news")
     const result = await runDailyAiNews({

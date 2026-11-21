@@ -48,10 +48,10 @@ import type {
  * run 编排依赖的结构化仓储。
  *
  * 与 AiNewsCandidateRepository 相同的结构探测风格：
- * aiNewsRun 负责运行记录的 create/update，post 负责按 slug 存在性检查与
- * generatedByAiNews 回写。aiNewsSource 是可选 delegate（形状与 sources.ts
- * 的 loader options 一致），供 loadDailyAiNewsSources / loadSelectedDailyAiNewsSources
- * 结构探测；缺失（fake 仓储）或表不存在时回退默认源清单。
+ * aiNewsRun 负责运行记录的 create/update，post 负责按 slug 存在性与归属检查。
+ * aiNewsSource 是可选 delegate（形状与 sources.ts 的 loader options 一致），
+ * 供 loadDailyAiNewsSources / loadSelectedDailyAiNewsSources 结构探测；
+ * 缺失（fake 仓储）或表不存在时回退默认源清单。
  * 方法签名保持宽松，便于 fake 仓储与全局 prisma 同时满足。
  */
 export type AiNewsRunPostSummary = {
@@ -59,6 +59,7 @@ export type AiNewsRunPostSummary = {
   title: string
   slug: string
   published: boolean
+  generatedByAiNews: boolean
 }
 
 export type AiNewsRunRepository = {
@@ -71,7 +72,7 @@ export type AiNewsRunRepository = {
       where: Record<string, unknown>
       select?: Record<string, boolean>
     }): Promise<AiNewsRunPostSummary | null>
-    updateMany(args: { where: Record<string, unknown>; data: Record<string, unknown> }): Promise<{ count: number }>
+    updateMany?: (args: { where: Record<string, unknown>; data: Record<string, unknown> }) => Promise<{ count: number }>
   }
   aiNewsSource?: {
     findMany?: (args?: unknown) => Promise<unknown[]>
@@ -387,8 +388,6 @@ export async function finishAiNewsRun({
   data: Record<string, unknown> & { status: AiNewsRunStatusValue }
   repository: AiNewsRunRepository
 }) {
-  const postId = typeof data.postId === "string" && data.postId.trim() ? data.postId : null
-
   await repository.aiNewsRun.update({
     where: { id: runId },
     data: {
@@ -397,11 +396,4 @@ export async function finishAiNewsRun({
       durationMs: Math.max(0, Date.now() - startedAtMs),
     },
   })
-
-  if (postId) {
-    await repository.post.updateMany({
-      where: { id: postId, generatedByAiNews: false },
-      data: { generatedByAiNews: true },
-    })
-  }
 }

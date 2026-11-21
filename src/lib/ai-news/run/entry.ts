@@ -59,6 +59,7 @@ import {
   toRunQualityScore,
 } from "@/lib/ai-news/run/tools"
 import type { AiNewsJsonObject, AiNewsSourceFailure } from "@/lib/ai-news/types"
+import { ConflictError } from "@/lib/api-errors"
 import { prisma } from "@/lib/prisma"
 
 /** 日报结果中文章对象的公共字段；其余字段随创建/增强结果透传。 */
@@ -154,14 +155,13 @@ function getAiNewsRunRepository(): AiNewsRunRepository {
     typeof runDelegate.create === "function" &&
     typeof runDelegate.update === "function" &&
     postDelegate &&
-    typeof postDelegate.findFirst === "function" &&
-    typeof postDelegate.updateMany === "function"
+    typeof postDelegate.findFirst === "function"
   ) {
     return client as AiNewsRunRepository
   }
 
   throw new Error(
-    "AI news run repository is unavailable: prisma client is missing aiNewsRun.create/update or post.findFirst/updateMany delegates",
+    "AI news run repository is unavailable: prisma client is missing aiNewsRun.create/update or post.findFirst delegates",
   )
 }
 
@@ -288,16 +288,49 @@ export async function runDailyAiNews({
   try {
     const existing = await runRepository.post.findFirst({
       where: { slug, deletedAt: null },
-      select: { id: true, title: true, slug: true, published: true },
+      select: { id: true, title: true, slug: true, published: true, generatedByAiNews: true },
     })
 
-    if (existing && !regenerate) {
-      let published = existing.published
-      if (!published) {
-        await publishAiDraftPost({ postId: existing.id })
-        published = true
+    if (existing && existing.generatedByAiNews !== true) {
+      if (regenerate) {
+        throw new ConflictError("Daily AI news slug is occupied by a manual post")
       }
-      const publishedPost = { ...existing, published }
+
+      const conflictReason = "Daily AI news slug conflicts with a manual post"
+      await finishAiNewsRun({
+        runId: run.id,
+        startedAtMs,
+        repository: runRepository,
+        data: {
+          status: "SKIPPED",
+          sourceCount: 0,
+          failureCount: 0,
+          rawCandidateCount: 0,
+          dedupedCandidateCount: 0,
+          scoredCandidateCount: 0,
+          selectedCandidateCount: 0,
+          postId: null,
+          postTitle: existing.title,
+          postSlug: existing.slug,
+          published: existing.published,
+          error: conflictReason,
+        },
+      })
+
+      return {
+        operation: "skipped",
+        reason: conflictReason,
+        published: existing.published,
+        post: existing,
+        sourceCount: 0,
+        failures: [],
+        run: { id: run.id, status: "SKIPPED" },
+      }
+    }
+
+    if (existing && !regenerate) {
+      const published = existing.published
+      const reason = published ? "Daily AI news already exists" : "Daily AI news draft is pending review"
 
       await finishAiNewsRun({
         runId: run.id,
@@ -320,9 +353,9 @@ export async function runDailyAiNews({
 
       return {
         operation: "skipped",
-        reason: "Daily AI news already exists",
+        reason,
         published,
-        post: publishedPost,
+        post: { ...existing, published },
         sourceCount: 0,
         failures: [],
         run: { id: run.id, status: "SKIPPED" },
@@ -465,7 +498,7 @@ export async function runDailyAiNews({
     }
     const finalPost = { ...post, ...enhancedPost }
 
-    if (!published) {
+    if (!published && generationMode !== "fallback") {
       await publishAiDraftPost({ postId: post.id })
       published = true
     }
