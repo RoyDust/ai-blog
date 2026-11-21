@@ -1,4 +1,10 @@
-import { ExternalContentClient } from "@/lib/external-content-client"
+import {
+  DEFAULT_EXTERNAL_CONTENT_ATTEMPT_TIMEOUT_MS,
+  DEFAULT_EXTERNAL_CONTENT_BUDGET_MS,
+  ReliabilityError,
+} from "@/lib/external-reliability"
+import { ExternalContentClient, type ExternalContentClientLike } from "@/lib/external-content-client"
+import { validateOutboundUrl, type SsrfGuardOptions } from "@/lib/ssrf-guard"
 /**
  * AI 日报抓取器集合。
  *
@@ -9,10 +15,12 @@ import { ExternalContentClient } from "@/lib/external-content-client"
  */
 import type { AiNewsRawItem, AiNewsSourceConfig, AiNewsSourceFailure } from "@/lib/ai-news/types"
 
-type FetchAiNewsRawItemsOptions = {
+type FetchAiNewsRawItemsOptions = SsrfGuardOptions & {
   sources: AiNewsSourceConfig[]
   since: Date
   fetchImpl?: typeof fetch
+  timeoutMs?: number
+  maxAttempts?: number
 }
 
 type HackerNewsItem = {
@@ -43,7 +51,9 @@ type GitHubRelease = {
 const TRACKING_PARAMS = new Set(["utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content", "utm_id", "fbclid", "gclid"])
 const HACKER_NEWS_API_BASE = "https://hacker-news.firebaseio.com/v0"
 const HACKER_NEWS_DISCUSSION_BASE = "https://news.ycombinator.com/item?id="
+const HACKER_NEWS_MAX_CONCURRENCY = 6
 const DEFAULT_USER_AGENT = "Inkforge-AiNews/1.0"
+const SAFE_GITHUB_IDENTIFIER = /^[A-Za-z0-9._-]+$/
 
 function xmlDecode(value: string) {
   return value
@@ -101,6 +111,36 @@ function getSourceConfig(source: AiNewsSourceConfig) {
   return source.config && typeof source.config === "object" && !Array.isArray(source.config) ? source.config : {}
 }
 
+async function mapWithConcurrency<T, R>(
+  items: readonly T[],
+  concurrency: number,
+  worker: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  if (items.length === 0) return []
+  const limit = Math.max(1, Math.min(concurrency, items.length))
+  const results = new Array<R>(items.length)
+  let nextIndex = 0
+
+  const runners = Array.from({ length: limit }, async () => {
+    while (true) {
+      const current = nextIndex
+      nextIndex += 1
+      if (current >= items.length) break
+      results[current] = await worker(items[current]!, current)
+    }
+  })
+
+  await Promise.all(runners)
+  return results
+}
+
+function formatHttpReliabilityError(error: unknown, label: string): never {
+  if (error instanceof ReliabilityError && typeof error.status === "number") {
+    throw new Error(`${label} HTTP ${error.status}`)
+  }
+  throw error
+}
+
 /**
  * 对抓取阶段的 URL 做轻量规范化，便于生成稳定 item id 与 canonicalUrl。
  */
@@ -133,16 +173,6 @@ function createFailure(source: AiNewsSourceConfig, stage: AiNewsSourceFailure["s
     stage,
     message: error instanceof Error ? error.message : String(error || "Unknown AI news source error"),
   }
-}
-
-function assertOkResponse(response: Response, label: string) {
-  if (!response.ok) {
-    throw new Error(`${label} HTTP ${response.status}`)
-  }
-}
-
-async function readJson<T>(response: Response): Promise<T> {
-  return (await response.json()) as T
 }
 
 /**
@@ -184,9 +214,8 @@ export function parseAiNewsFeed(xml: string, source: AiNewsSourceConfig): AiNews
     }))
 }
 
-async function fetchRssItems(source: AiNewsSourceConfig, fetchImpl: typeof fetch) {
-  if (fetchImpl === fetch) {
-    const client = new ExternalContentClient()
+async function fetchRssItems(source: AiNewsSourceConfig, client: ExternalContentClientLike) {
+  try {
     const xml = await client.getText(source.url, {
       headers: {
         Accept: "application/rss+xml, application/atom+xml, application/xml, text/xml",
@@ -194,14 +223,11 @@ async function fetchRssItems(source: AiNewsSourceConfig, fetchImpl: typeof fetch
       },
     })
     return parseAiNewsFeed(xml, source)
+  } catch (error) {
+    formatHttpReliabilityError(error, source.name)
   }
-
-  const response = await fetchImpl(source.url, {
-    headers: { Accept: "application/rss+xml, application/atom+xml, application/xml, text/xml", "User-Agent": DEFAULT_USER_AGENT },
-  })
-  assertOkResponse(response, source.name)
-  return parseAiNewsFeed(await response.text(), source)
 }
+
 function buildHackerNewsDiscussionUrl(id: number) {
   return `${HACKER_NEWS_DISCUSSION_BASE}${id}`
 }
@@ -209,40 +235,64 @@ function buildHackerNewsDiscussionUrl(id: number) {
 async function fetchHackerNewsComment({
   apiBase,
   commentId,
-  fetchImpl,
+  client,
   maxLength,
 }: {
   apiBase: string
   commentId: number
-  fetchImpl: typeof fetch
+  client: ExternalContentClientLike
   maxLength: number
 }) {
-  const response = await fetchImpl(`${apiBase}/item/${commentId}.json`)
-  assertOkResponse(response, `Hacker News comment ${commentId}`)
-  const item = await readJson<HackerNewsItem | null>(response)
-  const text = stripTags(readString(item?.text))
-  return text ? text.slice(0, maxLength) : null
+  if (!Number.isInteger(commentId) || commentId < 0) {
+    return null
+  }
+  try {
+    const item = await client.getJson<HackerNewsItem | null>(`${apiBase}/item/${commentId}.json`, {
+      headers: { "User-Agent": DEFAULT_USER_AGENT },
+    })
+    const text = stripTags(readString(item?.text))
+    return text ? text.slice(0, maxLength) : null
+  } catch (error) {
+    formatHttpReliabilityError(error, `Hacker News comment ${commentId}`)
+  }
 }
 
-async function fetchHackerNewsItems(source: AiNewsSourceConfig, since: Date, fetchImpl: typeof fetch) {
+async function fetchHackerNewsItems(
+  source: AiNewsSourceConfig,
+  since: Date,
+  client: ExternalContentClientLike,
+  ssrfOptions?: SsrfGuardOptions,
+) {
   const config = getSourceConfig(source)
-  const apiBase = readString(config.apiBase) || HACKER_NEWS_API_BASE
+  const rawApiBase = (readString(config.apiBase) || HACKER_NEWS_API_BASE).replace(/\/+$/, "")
+  validateOutboundUrl(rawApiBase, ssrfOptions)
   const fetchLimit = source.fetchLimit ?? readNumber(config.fetchLimit, 30)
   const minScore = source.minScore ?? readNumber(config.minScore, 0)
   const commentLimit = Math.max(0, readNumber(config.commentLimit, 3))
   const commentTextMaxLength = Math.max(1, readNumber(config.commentTextMaxLength, 500))
 
-  const topStoriesResponse = await fetchImpl(`${apiBase}/topstories.json`)
-  assertOkResponse(topStoriesResponse, "Hacker News topstories")
-  const topStoryIds = (await readJson<unknown[]>(topStoriesResponse)).filter((id): id is number => typeof id === "number").slice(0, fetchLimit)
+  let topStoriesPayload: unknown
+  try {
+    topStoriesPayload = await client.getJson<unknown>(`${rawApiBase}/topstories.json`, {
+      headers: { "User-Agent": DEFAULT_USER_AGENT },
+    })
+  } catch (error) {
+    formatHttpReliabilityError(error, "Hacker News topstories")
+  }
 
-  const items = await Promise.all(
-    topStoryIds.map(async (id) => {
-      const response = await fetchImpl(`${apiBase}/item/${id}.json`)
-      assertOkResponse(response, `Hacker News item ${id}`)
-      return readJson<HackerNewsItem | null>(response)
-    }),
-  )
+  const topStoryIds = (Array.isArray(topStoriesPayload) ? topStoriesPayload : [])
+    .filter((id): id is number => typeof id === "number" && Number.isInteger(id) && id >= 0)
+    .slice(0, fetchLimit)
+
+  const items = await mapWithConcurrency(topStoryIds, HACKER_NEWS_MAX_CONCURRENCY, async (id) => {
+    try {
+      return await client.getJson<HackerNewsItem | null>(`${rawApiBase}/item/${id}.json`, {
+        headers: { "User-Agent": DEFAULT_USER_AGENT },
+      })
+    } catch (error) {
+      formatHttpReliabilityError(error, `Hacker News item ${id}`)
+    }
+  })
 
   const rawItems: AiNewsRawItem[] = []
   for (const item of items) {
@@ -253,10 +303,15 @@ async function fetchHackerNewsItems(source: AiNewsSourceConfig, since: Date, fet
     if (!id || !title || score < minScore || (publishedAt && publishedAt < since)) continue
 
     const discussionUrl = buildHackerNewsDiscussionUrl(id)
+    const commentIds = (item.kids ?? [])
+      .filter((commentId): commentId is number => typeof commentId === "number" && Number.isInteger(commentId) && commentId >= 0)
+      .slice(0, commentLimit)
     const comments = commentLimit > 0
-      ? (await Promise.all((item.kids ?? []).slice(0, commentLimit).map((commentId) => fetchHackerNewsComment({ apiBase, commentId, fetchImpl, maxLength: commentTextMaxLength })))).filter(
-          (comment): comment is string => Boolean(comment),
-        )
+      ? (
+          await mapWithConcurrency(commentIds, HACKER_NEWS_MAX_CONCURRENCY, (commentId) =>
+            fetchHackerNewsComment({ apiBase: rawApiBase, commentId, client, maxLength: commentTextMaxLength }),
+          )
+        ).filter((comment): comment is string => Boolean(comment))
       : []
     const url = readString(item.url) || discussionUrl
 
@@ -288,17 +343,35 @@ async function fetchHackerNewsItems(source: AiNewsSourceConfig, since: Date, fet
   return rawItems
 }
 
-function parseGitHubOwnerRepo(source: AiNewsSourceConfig) {
+function isSafeGitHubSlug(value: string): boolean {
+  return Boolean(value) && value !== "." && value !== ".." && SAFE_GITHUB_IDENTIFIER.test(value)
+}
+
+function parseGitHubOwnerRepo(source: AiNewsSourceConfig, ssrfOptions?: SsrfGuardOptions) {
+  if (source.url) {
+    validateOutboundUrl(source.url, ssrfOptions)
+  }
   const config = getSourceConfig(source)
   const owner = readString(config.owner)
   const repo = readString(config.repo)
-  if (owner && repo) return { owner, repo }
+  if (owner && repo) {
+    if (!isSafeGitHubSlug(owner) || !isSafeGitHubSlug(repo)) {
+      throw new Error("GitHub releases source has invalid owner or repo identifier")
+    }
+    return { owner, repo }
+  }
 
   try {
-    const url = new URL(source.url)
+    const url = validateOutboundUrl(source.url, ssrfOptions)
+    const hostname = url.hostname.toLowerCase()
+    if (hostname !== "github.com" && hostname !== "www.github.com") {
+      throw new Error("Not GitHub")
+    }
     const match = url.pathname.match(/^\/([^/]+)\/([^/]+?)(?:\/|$)/)
-    if (match?.[1] && match[2]) {
-      return { owner: match[1], repo: match[2].replace(/\.git$/, "") }
+    const parsedOwner = match?.[1] ?? ""
+    const parsedRepo = (match?.[2] ?? "").replace(/\.git$/, "")
+    if (isSafeGitHubSlug(parsedOwner) && isSafeGitHubSlug(parsedRepo)) {
+      return { owner: parsedOwner, repo: parsedRepo }
     }
   } catch {
     // Fall through to structured error below.
@@ -307,11 +380,16 @@ function parseGitHubOwnerRepo(source: AiNewsSourceConfig) {
   throw new Error("GitHub releases source requires config.owner/config.repo or a GitHub repository URL")
 }
 
-async function fetchGitHubReleaseItems(source: AiNewsSourceConfig, since: Date, fetchImpl: typeof fetch) {
-  const { owner, repo } = parseGitHubOwnerRepo(source)
+async function fetchGitHubReleaseItems(
+  source: AiNewsSourceConfig,
+  since: Date,
+  client: ExternalContentClientLike,
+  ssrfOptions?: SsrfGuardOptions,
+) {
+  const { owner, repo } = parseGitHubOwnerRepo(source, ssrfOptions)
   const config = getSourceConfig(source)
   const fetchLimit = source.fetchLimit ?? readNumber(config.fetchLimit, 30)
-  const headers: HeadersInit = {
+  const headers: Record<string, string> = {
     Accept: "application/vnd.github+json",
     "User-Agent": DEFAULT_USER_AGENT,
     "X-GitHub-Api-Version": "2022-11-28",
@@ -320,14 +398,20 @@ async function fetchGitHubReleaseItems(source: AiNewsSourceConfig, since: Date, 
     headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`
   }
 
-  const response = await fetchImpl(`https://api.github.com/repos/${owner}/${repo}/releases?per_page=${fetchLimit}`, { headers })
-  if (!response.ok) {
-    return fetchGitHubReleaseAtomItems({ source, since, fetchImpl, owner, repo, originalStatus: response.status })
+  let releases: GitHubRelease[]
+  try {
+    releases = await client.getJson<GitHubRelease[]>(
+      `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/releases?per_page=${fetchLimit}`,
+      { headers, maxAttempts: 1 },
+    )
+  } catch (error) {
+    if (error instanceof ReliabilityError && typeof error.status === "number") {
+      return fetchGitHubReleaseAtomItems({ source, since, client, owner, repo, originalStatus: error.status })
+    }
+    throw error
   }
 
-  const releases = await readJson<GitHubRelease[]>(response)
-
-  return releases
+  return (Array.isArray(releases) ? releases : [])
     .map((release): AiNewsRawItem | null => {
       const publishedAt = parseDate(release.published_at)
       const url = readString(release.html_url)
@@ -361,31 +445,36 @@ async function fetchGitHubReleaseItems(source: AiNewsSourceConfig, since: Date, 
 async function fetchGitHubReleaseAtomItems({
   source,
   since,
-  fetchImpl,
+  client,
   owner,
   repo,
   originalStatus,
 }: {
   source: AiNewsSourceConfig
   since: Date
-  fetchImpl: typeof fetch
+  client: ExternalContentClientLike
   owner: string
   repo: string
   originalStatus: number
 }) {
-  const atomUrl = `https://github.com/${owner}/${repo}/releases.atom`
-  const response = await fetchImpl(atomUrl, {
-    headers: {
-      Accept: "application/atom+xml, application/xml, text/xml",
-      "User-Agent": DEFAULT_USER_AGENT,
-    },
-  })
-
-  if (!response.ok) {
-    throw new Error(`${source.name} GitHub releases HTTP ${originalStatus}; atom fallback HTTP ${response.status}`)
+  const atomUrl = `https://github.com/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/releases.atom`
+  let xml: string
+  try {
+    xml = await client.getText(atomUrl, {
+      headers: {
+        Accept: "application/atom+xml, application/xml, text/xml",
+        "User-Agent": DEFAULT_USER_AGENT,
+      },
+      maxAttempts: 1,
+    })
+  } catch (error) {
+    if (error instanceof ReliabilityError && typeof error.status === "number") {
+      throw new Error(`${source.name} GitHub releases HTTP ${originalStatus}; atom fallback HTTP ${error.status}`)
+    }
+    throw error
   }
 
-  return parseAiNewsFeed(await response.text(), {
+  return parseAiNewsFeed(xml, {
     ...source,
     url: atomUrl,
     homepage: source.homepage ?? `https://github.com/${owner}/${repo}`,
@@ -408,15 +497,20 @@ async function fetchRedditItems(source: AiNewsSourceConfig) {
   throw new Error("Reddit fetcher is not enabled in the first-round AI news pipeline")
 }
 
-async function fetchSourceItems(source: AiNewsSourceConfig, since: Date, fetchImpl: typeof fetch) {
+async function fetchSourceItems(
+  source: AiNewsSourceConfig,
+  since: Date,
+  client: ExternalContentClientLike,
+  ssrfOptions?: SsrfGuardOptions,
+) {
   switch (source.type) {
     case "RSS":
     case "GITHUB_TRENDING_RSS":
-      return fetchRssItems(source, fetchImpl)
+      return fetchRssItems(source, client)
     case "HACKERNEWS":
-      return fetchHackerNewsItems(source, since, fetchImpl)
+      return fetchHackerNewsItems(source, since, client, ssrfOptions)
     case "GITHUB_RELEASES":
-      return fetchGitHubReleaseItems(source, since, fetchImpl)
+      return fetchGitHubReleaseItems(source, since, client, ssrfOptions)
     case "REDDIT":
       return fetchRedditItems(source)
     default:
@@ -428,16 +522,39 @@ async function fetchSourceItems(source: AiNewsSourceConfig, since: Date, fetchIm
  * 抓取所有来源的原始新闻项。
  * 返回 items 与 failures，供上层编排器继续做去重、评分和富化。
  */
-export async function fetchAiNewsRawItems({ sources, since, fetchImpl = fetch }: FetchAiNewsRawItemsOptions): Promise<{
+export async function fetchAiNewsRawItems({
+  sources,
+  since,
+  fetchImpl,
+  timeoutMs,
+  maxAttempts,
+  allowLoopback,
+}: FetchAiNewsRawItemsOptions): Promise<{
   items: AiNewsRawItem[]
   failures: AiNewsSourceFailure[]
 }> {
+  const totalTimeoutMs = timeoutMs ?? DEFAULT_EXTERNAL_CONTENT_BUDGET_MS
+  const attemptTimeoutMs = timeoutMs
+    ? Math.min(timeoutMs, DEFAULT_EXTERNAL_CONTENT_ATTEMPT_TIMEOUT_MS)
+    : DEFAULT_EXTERNAL_CONTENT_ATTEMPT_TIMEOUT_MS
+  const client = new ExternalContentClient(
+    {
+      fetchImpl,
+      allowLoopback,
+    },
+    {
+      totalTimeoutMs,
+      attemptTimeoutMs,
+      ...(maxAttempts !== undefined ? { maxAttempts } : {}),
+    },
+  )
+
   const results = await Promise.all(
     sources
       .filter((source) => source.enabled !== false)
       .map(async (source) => {
         try {
-          return { items: await fetchSourceItems(source, since, fetchImpl), failure: null }
+          return { items: await fetchSourceItems(source, since, client, { allowLoopback }), failure: null }
         } catch (error) {
           return { items: [], failure: createFailure(source, "fetch", error) }
         }

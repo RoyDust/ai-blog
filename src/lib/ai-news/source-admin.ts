@@ -2,6 +2,7 @@ import { ConflictError, NotFoundError, ValidationError, isPrismaMissingSchemaErr
 import { fetchAiNewsRawItems } from "@/lib/ai-news/fetchers"
 import type { AiNewsJsonObject, AiNewsRawItem, AiNewsSourceConfig, AiNewsSourceType } from "@/lib/ai-news/types"
 import { prisma } from "@/lib/prisma"
+import { validateOutboundUrl, type SsrfGuardOptions } from "@/lib/ssrf-guard"
 
 type AiNewsSourceRecord = {
   id: string
@@ -80,7 +81,7 @@ type AiNewsSourceStats = {
   recentFailureCount: number
 }
 
-type AiNewsSourceTestOptions = {
+type AiNewsSourceTestOptions = SsrfGuardOptions & {
   fetchImpl?: typeof fetch
   now?: Date
   timeoutMs?: number
@@ -209,11 +210,7 @@ function readJsonObject(value: unknown): AiNewsJsonObject {
 
 function validateUrl(value: string, field: string) {
   try {
-    const url = new URL(value)
-    if (url.protocol !== "http:" && url.protocol !== "https:") {
-      throw new Error("Unsupported protocol")
-    }
-
+    const url = validateOutboundUrl(value)
     url.hash = ""
     return url.toString()
   } catch {
@@ -266,16 +263,28 @@ async function createUniqueSourceId(delegate: AiNewsSourceDelegate, name: string
 
 function parseGitHubOwnerRepo(urlValue: string) {
   try {
-    const url = new URL(urlValue)
-    if (!url.hostname.toLowerCase().endsWith("github.com")) {
+    const url = validateOutboundUrl(urlValue)
+    const hostname = url.hostname.toLowerCase()
+    if (hostname !== "github.com" && hostname !== "www.github.com") {
       throw new Error("Not GitHub")
     }
     const match = url.pathname.match(/^\/([^/]+)\/([^/]+?)(?:\/|$)/)
-    if (!match?.[1] || !match[2]) {
+    const owner = match?.[1] ?? ""
+    const repo = (match?.[2] ?? "").replace(/\.git$/, "")
+    if (
+      !owner ||
+      !repo ||
+      owner === "." ||
+      owner === ".." ||
+      repo === "." ||
+      repo === ".." ||
+      !/^[A-Za-z0-9._-]+$/.test(owner) ||
+      !/^[A-Za-z0-9._-]+$/.test(repo)
+    ) {
       throw new Error("Missing owner/repo")
     }
 
-    return { owner: match[1], repo: match[2].replace(/\.git$/, "") }
+    return { owner, repo }
   } catch {
     throw new ValidationError("GitHub releases source requires a valid GitHub repository URL")
   }
@@ -662,14 +671,6 @@ export async function deleteAiNewsSource(id: string, client?: AiNewsSourceAdminC
   }
 }
 
-function withFetchTimeout(fetchImpl: typeof fetch, timeoutMs: number): typeof fetch {
-  return ((input: RequestInfo | URL, init?: RequestInit) => {
-    const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), timeoutMs)
-    return fetchImpl(input, { ...init, signal: init?.signal ?? controller.signal }).finally(() => clearTimeout(timer))
-  }) as typeof fetch
-}
-
 function sourceTestMessage(status: "success" | "failed", itemCount: number, failures: string[]) {
   if (status === "success") {
     return `来源可用，最近 48 小时抓到 ${itemCount} 条候选。`
@@ -694,9 +695,16 @@ export async function testAiNewsSource(id: string, options: AiNewsSourceTestOpti
 
   const now = options.now ?? new Date()
   const cutoff = new Date(now.getTime() - TEST_WINDOW_MS)
-  const fetchImpl = withFetchTimeout(options.fetchImpl ?? fetch, options.timeoutMs ?? DEFAULT_SOURCE_TEST_TIMEOUT_MS)
+  const timeoutMs = options.timeoutMs ?? DEFAULT_SOURCE_TEST_TIMEOUT_MS
   const runtimeSource = { ...sourceRecordToConfig(source), enabled: true }
-  const { items, failures } = await fetchAiNewsRawItems({ sources: [runtimeSource], since: cutoff, fetchImpl })
+  const { items, failures } = await fetchAiNewsRawItems({
+    sources: [runtimeSource],
+    since: cutoff,
+    fetchImpl: options.fetchImpl,
+    timeoutMs,
+    maxAttempts: 1,
+    allowLoopback: options.allowLoopback,
+  })
   const recentItems = items.filter((item) => !item.publishedAt || item.publishedAt >= cutoff)
   const failureMessages = failures.map((failure) => failure.message)
   const status = failures.length > 0 ? "failed" as const : "success" as const

@@ -44,8 +44,10 @@ import {
   getAiModelForCapability,
   getAiModelOptions,
   setDefaultAiModelForCapability,
+  testAiModelConnection,
   toPublicAiModelOption,
   updateAiModel,
+  type AiModelOption,
 } from "../ai-models";
 
 describe("ai model registry", () => {
@@ -411,5 +413,123 @@ describe("ai model registry", () => {
       name: "ValidationError",
       message: "AI model storage is not ready. Apply the AI model database migration first.",
     });
+  });
+
+  test("rejects SSRF base URLs during model creation and update unless loopback is explicitly allowed in E2E", async () => {
+    for (const blockedBaseUrl of [
+      "http://127.0.0.1:11434/v1",
+      "http://localhost:11434/v1",
+      "http://169.254.169.254/latest/meta-data",
+      "http://100.100.100.200/latest/meta-data",
+      "http://[::1]:8080/v1",
+      "https://user:pass@compat.example/v1",
+    ]) {
+      await expect(
+        createAiModel({
+          name: "危险模型",
+          baseUrl: blockedBaseUrl,
+          model: "summary-model",
+          apiKey: "secret",
+        }),
+      ).rejects.toMatchObject({ name: "ValidationError" });
+    }
+    expect(prismaMocks.createMock).not.toHaveBeenCalled();
+
+    process.env.E2E_DISPOSABLE_DATABASE = "1";
+    process.env.AUTH_SECRET = "test-secret-for-ai-model-key-encryption";
+    prismaMocks.createMock.mockImplementationOnce(({ data }) =>
+      Promise.resolve({
+        id: "e2e-local-model",
+        ...data,
+        lastTestedAt: null,
+        lastTestStatus: null,
+        lastTestMessage: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }),
+    );
+
+    await expect(
+      createAiModel({
+        name: "E2E 本地模型",
+        baseUrl: "http://127.0.0.1:4123/v1",
+        model: "mock-model",
+        apiKey: "secret",
+      }),
+    ).resolves.toMatchObject({ baseUrl: "http://127.0.0.1:4123/v1" });
+
+    // Even in E2E mode, metadata and RFC1918 remain forbidden
+    await expect(
+      createAiModel({
+        name: "ECS 元数据探测",
+        baseUrl: "http://100.100.100.200/v1",
+        model: "mock-model",
+        apiKey: "secret",
+      }),
+    ).rejects.toMatchObject({ name: "ValidationError" });
+  });
+
+  test("testAiModelConnection blocks direct and 302-redirected SSRF targets and scrubs leaked API keys", async () => {
+    const baseModel: AiModelOption = {
+      id: "model-probe",
+      name: "Probe Model",
+      description: "",
+      provider: "openai-compatible",
+      baseUrl: "https://compat.example/v1",
+      requestPath: "/chat/completions",
+      model: "summary-model",
+      apiKey: "sk-super-secret-model-key",
+      apiKeyEnv: "database",
+      baseUrlEnv: "database",
+      modelEnv: "database",
+      capabilities: ["post-summary"],
+      defaultFor: [],
+      source: "database",
+      editable: true,
+      deletable: true,
+      enabled: true,
+      status: "ready",
+      hasApiKey: true,
+    };
+
+    for (const target of [
+      "http://127.0.0.1:8080/v1",
+      "http://169.254.169.254/v1",
+      "http://100.100.100.200/v1",
+      "http://[::1]:8080/v1",
+    ]) {
+      const directFetch = vi.fn<typeof fetch>();
+      await expect(
+        testAiModelConnection({ ...baseModel, baseUrl: target }, { fetchImpl: directFetch }),
+      ).rejects.toThrow();
+      expect(directFetch).not.toHaveBeenCalled();
+
+      const redirectFetch = vi.fn<typeof fetch>(async () =>
+        new Response(null, { status: 302, headers: { location: `${target}/chat/completions` } }),
+      );
+      await expect(
+        testAiModelConnection(baseModel, { fetchImpl: redirectFetch }),
+      ).rejects.toThrow();
+      expect(redirectFetch).toHaveBeenCalledTimes(1);
+    }
+
+    const leakFetch = vi.fn<typeof fetch>(async () =>
+      new Response(
+        JSON.stringify({
+          error: { message: "Upstream rejected key sk-super-secret-model-key at https://u:p@compat.example/v1?api_key=sk-super-secret-model-key" },
+        }),
+        { status: 401, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    const error = await testAiModelConnection(baseModel, { fetchImpl: leakFetch }).then(
+      () => {
+        throw new Error("Expected testAiModelConnection to reject");
+      },
+      (e: unknown) => e as Error,
+    );
+    expect(error).toBeInstanceOf(Error);
+    expect(error.message).not.toContain("sk-super-secret-model-key");
+    expect(error.message).not.toContain("u:p@");
+    expect(error.message).toContain("[redacted]");
   });
 });

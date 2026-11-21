@@ -222,4 +222,111 @@ describe("ai news source admin", () => {
     })
     expect(source).not.toHaveProperty("config")
   })
+
+  test("rejects SSRF URLs and HN apiBase during source creation", async () => {
+    const client = {
+      aiNewsSource: {
+        findUnique: vi.fn(),
+        findFirst: vi.fn(),
+        create: vi.fn(),
+        findMany: vi.fn(),
+        update: vi.fn(),
+        delete: vi.fn(),
+      },
+    }
+
+    for (const badUrl of [
+      "http://127.0.0.1/rss.xml",
+      "http://localhost/rss.xml",
+      "http://169.254.169.254/latest/meta-data/",
+      "http://100.100.100.200/latest/meta-data/",
+      "http://[::1]/rss.xml",
+      "https://user:pass@example.com/rss.xml",
+    ]) {
+      await expect(
+        createAiNewsSource({ type: "RSS", name: "Bad RSS", url: badUrl }, client),
+      ).rejects.toMatchObject({ name: "ValidationError" })
+
+      await expect(
+        createAiNewsSource({
+          type: "HACKERNEWS",
+          name: "Bad HN",
+          url: "https://news.ycombinator.com/",
+          settings: { apiBase: badUrl },
+        }, client),
+      ).rejects.toMatchObject({ name: "ValidationError" })
+    }
+
+    await expect(
+      createAiNewsSource({
+        type: "GITHUB_RELEASES",
+        name: "Fake GitHub",
+        url: "https://evilgithub.com/owner/repo",
+      }, client),
+    ).rejects.toMatchObject({ name: "ValidationError" })
+    expect(client.aiNewsSource.create).not.toHaveBeenCalled()
+  })
+
+  test("testAiNewsSource routes through ExternalContentClient to block direct/302 SSRF and reject >5 MiB responses", async () => {
+    const update = vi.fn().mockImplementation(async ({ data }) => data)
+    const makeClient = (url: string) => ({
+      aiNewsSource: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: "probe",
+          type: "RSS",
+          name: "Probe Source",
+          url,
+          homepage: null,
+          category: "industry",
+          enabled: true,
+          weight: 50,
+          minScore: null,
+          fetchLimit: null,
+          config: null,
+        }),
+        findMany: vi.fn(),
+        findFirst: vi.fn(),
+        create: vi.fn(),
+        update,
+        delete: vi.fn(),
+      },
+    })
+
+    for (const target of [
+      "http://127.0.0.1/feed.xml",
+      "http://169.254.169.254/latest/meta-data/",
+      "http://100.100.100.200/latest/meta-data/",
+      "http://[::1]/feed.xml",
+    ]) {
+      const directFetch = vi.fn<typeof fetch>()
+      const directResult = await testAiNewsSource("probe", { fetchImpl: directFetch }, makeClient(target))
+      expect(directResult.status).toBe("failed")
+      expect(directFetch).not.toHaveBeenCalled()
+
+      const redirectFetch = vi.fn<typeof fetch>(async () =>
+        new Response(null, { status: 302, headers: { location: target } }),
+      )
+      const redirectResult = await testAiNewsSource(
+        "probe",
+        { fetchImpl: redirectFetch },
+        makeClient("https://example.com/feed.xml"),
+      )
+      expect(redirectResult.status).toBe("failed")
+      expect(redirectFetch).toHaveBeenCalledTimes(1)
+    }
+
+    const oversizedFetch = vi.fn<typeof fetch>(async () =>
+      new Response("x", {
+        status: 200,
+        headers: { "content-length": String(5 * 1024 * 1024 + 10) },
+      }),
+    )
+    const oversizedResult = await testAiNewsSource(
+      "probe",
+      { fetchImpl: oversizedFetch },
+      makeClient("https://example.com/oversized.xml"),
+    )
+    expect(oversizedResult.status).toBe("failed")
+    expect(oversizedResult.itemCount).toBe(0)
+  })
 })
