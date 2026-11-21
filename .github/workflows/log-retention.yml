@@ -33,8 +33,34 @@ jobs:
             echo 'Log retention workflow configuration is incomplete' >&2
             exit 1
           fi
-          curl --fail-with-body --show-error --silent \
+          endpoint="${PRODUCTION_BASE_URL%/}/api/cron/log-retention"
+          response_file="$(mktemp)"
+          trap 'rm -f "$response_file"' EXIT
+          http_status="$(curl --show-error --silent \
             --proto '=https' --tlsv1.2 --max-time 30 \
             --request POST \
+            --output "$response_file" \
+            -w '%{http_code}' \
             --header "Authorization: Bearer $CRON_SECRET" \
-            "${PRODUCTION_BASE_URL%/}/api/cron/log-retention"
+            --header "Content-Type: application/json" \
+            "$endpoint")"
+          body="$(cat "$response_file")"
+          rm -f "$response_file"
+          if [ "$http_status" != "200" ]; then
+            echo "Log retention endpoint returned unexpected HTTP ${http_status}" >&2
+            exit 1
+          fi
+          RESPONSE_BODY="$body" node -e '
+            let payload;
+            try {
+              payload = JSON.parse(process.env.RESPONSE_BODY || "");
+            } catch {
+              console.error("Log retention endpoint returned invalid JSON payload");
+              process.exit(1);
+            }
+            if (!payload || payload.success !== true) {
+              console.error("Log retention endpoint did not report success: true");
+              process.exit(1);
+            }
+          '
+          echo "$body"
