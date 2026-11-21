@@ -3,14 +3,25 @@ import { expect, test } from "@playwright/test"
 import { withMockAiModel } from "./ai-fixtures"
 import { createPostViaApi, deletePostViaApi, uniqueSlug } from "./helpers"
 
-/** E20：只重新生成测试先行创建的日报；不能命中当天的真实文章。 */
-test("E20 manual AI news run publishes its reserved test article", async ({ page }) => {
+/** E20：通过非覆盖首跑建立 AI 归属日报后再验证重生成，同时校验人工同名草稿不会被覆盖。 */
+test("E20 manual AI news run creates and regenerates AI-owned article while protecting manual drafts", async ({ page }) => {
   test.setTimeout(300_000)
-  const date = new Date(Date.UTC(2100 + Math.floor(Math.random() * 100), Math.floor(Math.random() * 12), 1 + Math.floor(Math.random() * 28), 12))
+  const baseYear = 2100 + Math.floor(Math.random() * 90)
+  const month = Math.floor(Math.random() * 12)
+  const day = 1 + Math.floor(Math.random() * 28)
+  const date = new Date(Date.UTC(baseYear, month, day, 12))
   const dateId = date.toISOString().slice(0, 10)
-  // POST 的 slug 唯一性检查负责占用日期；冲突时测试失败，不重写已有文章。
-  const post = await createPostViaApi(page.request, { slug: "ai-daily-" + dateId, published: false })
+  const expectedSlug = "ai-daily-" + dateId
+
+  const manualConflictDate = new Date(Date.UTC(baseYear + 1, month, day, 12))
+  const manualConflictDateId = manualConflictDate.toISOString().slice(0, 10)
+  const manualPost = await createPostViaApi(page.request, {
+    slug: "ai-daily-" + manualConflictDateId,
+    published: false,
+  })
+
   const newsUrl = "https://example.com/" + uniqueSlug("news")
+  let createdAiPostId: string | null = null
 
   try {
     await withMockAiModel(page.request, async ({ modelId, upstream }) => {
@@ -23,18 +34,50 @@ test("E20 manual AI news run publishes its reserved test article", async ({ page
       const source = (await sourceResponse.json()).data
       expect(source.id).toBeTruthy()
       try {
+        // 1. 人工同名草稿保护：regenerate=true 不得覆盖人工创建的草稿（返回 409）
+        const conflictResponse = await page.request.post("/api/admin/ai-news/run", {
+          data: { date: manualConflictDateId, sourceMode: "selected", sourceIds: [source.id], modelId, regenerate: true },
+          timeout: 60_000,
+        })
+        const conflictPayload = await conflictResponse.json()
+        expect(conflictResponse.status(), JSON.stringify(conflictPayload).slice(0, 300)).toBe(409)
+        expect(conflictPayload.error).toBe("Daily AI news slug is occupied by a manual post")
+
+        // 2. 首跑（regenerate=false）：若目标日期已有任何文章则只会 skipped，绝不改写既有文章
+        const createResponse = await page.request.post("/api/admin/ai-news/run", {
+          data: { date: dateId, sourceMode: "selected", sourceIds: [source.id], modelId, regenerate: false },
+          timeout: 240_000,
+        })
+        const createPayload = await createResponse.json()
+        expect(createResponse.ok(), JSON.stringify(createPayload).slice(0, 300)).toBe(true)
+        if (createPayload?.data?.operation === "created" && createPayload?.data?.post?.id) {
+          createdAiPostId = String(createPayload.data.post.id)
+        }
+        expect(createPayload.data).toMatchObject({
+          operation: "created",
+          published: true,
+          post: { slug: expectedSlug },
+        })
+        expect(createPayload.data.run.status).toBe("SUCCEEDED")
+        expect(createdAiPostId).toBeTruthy()
+
+        // 3. 重跑（regenerate=true）：允许覆盖 generatedByAiNews=true 的自有日报
         const response = await page.request.post("/api/admin/ai-news/run", {
           data: { date: dateId, sourceMode: "selected", sourceIds: [source.id], modelId, regenerate: true },
           timeout: 240_000,
         })
         const payload = await response.json()
         expect(response.ok(), JSON.stringify(payload).slice(0, 300)).toBe(true)
-        expect(payload.data).toMatchObject({ operation: "regenerated", published: true, post: { id: post.id, slug: post.slug } })
+        expect(payload.data).toMatchObject({
+          operation: "regenerated",
+          published: true,
+          post: { id: createdAiPostId, slug: expectedSlug },
+        })
         expect(payload.data.run.status).toBe("SUCCEEDED")
 
-        const published = await page.request.get("/api/posts/" + post.slug)
+        const published = await page.request.get("/api/posts/" + expectedSlug)
         expect(published.ok()).toBe(true)
-        expect((await published.json()).data).toMatchObject({ id: post.id, published: true })
+        expect((await published.json()).data).toMatchObject({ id: createdAiPostId, published: true })
 
         await page.goto("/admin/ai-news")
         await expect(page.getByText("已完成").first()).toBeVisible({ timeout: 30_000 })
@@ -44,6 +87,9 @@ test("E20 manual AI news run publishes its reserved test article", async ({ page
       }
     }, { rssItems: [{ title: "E2E Mock News " + dateId, link: newsUrl, publishedAt: date }] })
   } finally {
-    await deletePostViaApi(page.request, post.id)
+    await deletePostViaApi(page.request, manualPost.id)
+    if (createdAiPostId) {
+      await deletePostViaApi(page.request, createdAiPostId)
+    }
   }
 })

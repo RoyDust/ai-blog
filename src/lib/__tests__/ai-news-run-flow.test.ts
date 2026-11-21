@@ -5,13 +5,14 @@
  * + 按 LLM 请求特征分发的 fake fetchImpl；ai-authoring、文章增强与模型解析（默认实现会查库）
  * 用 vi.mock 最小化替换，其余流水线（抓取/去重/评分/事实卡/渲染/草稿）走真实实现。
  *
- * 覆盖六条分支，只断言外部可观察行为（返回值、run 记录写入载荷、ai-authoring 调用参数）：
- * a. 同 slug 已存在且未发布 → SKIPPED + 发布既有草稿
- * b. regenerate → 更新既有文章
- * c. 不存在 → 创建 + 增强 + 发布，指标完整回写，generatedByAiNews 回写为 true
+ * 覆盖核心编排分支，只断言外部可观察行为（返回值、run 记录写入载荷、ai-authoring 调用参数）：
+ * a. 同 slug 的既有 AI 日报（已发布 / 未发布待审）在非 regenerate 下 → SKIPPED，保持原发布状态且不误发待审草稿
+ * a-manual. 同 slug 被人工文章/草稿占用 → 非 regenerate 记 SKIPPED 且不改写人工草稿；regenerate 抛 ConflictError 记 FAILED
+ * b. regenerate → 更新既有 AI 日报文章
+ * c. 不存在 → 创建 + 增强 + 发布，指标完整回写，generatedByAiNews 在创建时写入为 true
  *    （增强结果差异化传播到返回值与 run 记录；编辑简报合法时被渲染消费；
  *    qualityScore 夹具带 .5 尾数，钉住 round 而非 floor 的舍入方式）
- * d. 评分全不达标 → 回退选择候选，generationMode fallback、qualityScore 0
+ * d. 评分全不达标（0 有效候选）→ generationMode fallback、qualityScore 0，保留未发布草稿待审，同日非 regenerate 重跑仍保持未发布
  * e. 步骤抛错 → run 记 FAILED 并 rethrow
  * f. 语义去重减员 → selectedCandidateCount 为去重后数量，被去重候选不进入正文与事实卡请求
  */
@@ -20,6 +21,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest"
 import { DEFAULT_AI_NEWS_SOURCES } from "@/lib/ai-news/default-sources"
 import type { AiModelOption } from "@/lib/ai-models"
 import { runDailyAiNews } from "@/lib/ai-news/run/entry"
+import { ConflictError } from "@/lib/api-errors"
 
 const mocks = vi.hoisted(() => ({
   resolveDailyAiNewsModel: vi.fn(),
@@ -163,12 +165,22 @@ const fakeAiModel: AiModelOption = {
   hasApiKey: true,
 }
 
-type ExistingPost = { id: string; title: string; slug: string; published: boolean }
+type ExistingPost = {
+  id: string
+  title: string
+  slug: string
+  published: boolean
+  generatedByAiNews: boolean
+}
 
 function createRunRepository(existingPost: ExistingPost | null = null) {
+  let runSeq = 0
   return {
     aiNewsRun: {
-      create: vi.fn(async () => ({ id: "run-1" })),
+      create: vi.fn(async () => {
+        runSeq += 1
+        return { id: `run-${runSeq}` }
+      }),
       update: vi.fn(async () => ({})),
     },
     post: {
@@ -279,9 +291,15 @@ describe("runDailyAiNews orchestration behavior", () => {
     mocks.applyAiNewsPostEnhancements.mockResolvedValue({ post: null, applied: [], skipped: [], failed: [] })
   })
 
-  test("branch a: existing unpublished slug publishes the draft, records SKIPPED, and returns operation skipped", async () => {
-    const runRepository = createRunRepository({ id: "post-existing", title: "已存在草稿", slug: RUN_SLUG, published: false })
-    mocks.publishAiDraftPost.mockResolvedValueOnce({ id: "post-existing", published: true })
+  test("branch a: existing published AI news post records SKIPPED with published true and returns operation skipped", async () => {
+    const existingPost: ExistingPost = {
+      id: "post-existing",
+      title: "已发布日报",
+      slug: RUN_SLUG,
+      published: true,
+      generatedByAiNews: true,
+    }
+    const runRepository = createRunRepository(existingPost)
     const fetchImpl = vi.fn()
 
     const result = await runDailyAiNews({
@@ -292,13 +310,17 @@ describe("runDailyAiNews orchestration behavior", () => {
       candidateRepository: null,
     })
 
-    // 跳过分支不做任何抓取与生成
+    expect(runRepository.post.findFirst).toHaveBeenCalledWith({
+      where: { slug: RUN_SLUG, deletedAt: null },
+      select: { id: true, title: true, slug: true, published: true, generatedByAiNews: true },
+    })
     expect(fetchImpl).not.toHaveBeenCalled()
     expect(mocks.createAdminPost).not.toHaveBeenCalled()
     expect(mocks.updateAdminPost).not.toHaveBeenCalled()
+    expect(mocks.publishAiDraftPost).not.toHaveBeenCalled()
     expect(mocks.applyAiNewsPostEnhancements).not.toHaveBeenCalled()
+    expect(runRepository.post.updateMany).not.toHaveBeenCalled()
 
-    expect(mocks.publishAiDraftPost).toHaveBeenCalledWith({ postId: "post-existing" })
     expect(runRepository.aiNewsRun.create).toHaveBeenCalledWith({
       data: { runDate: RUN_DATE, trigger: "MANUAL", status: "RUNNING" },
     })
@@ -313,28 +335,187 @@ describe("runDailyAiNews orchestration behavior", () => {
         scoredCandidateCount: 0,
         selectedCandidateCount: 0,
         postId: "post-existing",
-        postTitle: "已存在草稿",
+        postTitle: "已发布日报",
         postSlug: RUN_SLUG,
         published: true,
       }),
-    })
-    expect(runRepository.post.updateMany).toHaveBeenCalledWith({
-      where: { id: "post-existing", generatedByAiNews: false },
-      data: { generatedByAiNews: true },
     })
     expect(result).toMatchObject({
       operation: "skipped",
       reason: "Daily AI news already exists",
       published: true,
-      post: { id: "post-existing", title: "已存在草稿", slug: RUN_SLUG, published: true },
+      post: { id: "post-existing", title: "已发布日报", slug: RUN_SLUG, published: true, generatedByAiNews: true },
       sourceCount: 0,
       failures: [],
       run: { id: "run-1", status: "SKIPPED" },
     })
   })
 
-  test("branch b: regenerate updates the existing published post and returns operation regenerated", async () => {
-    const runRepository = createRunRepository({ id: "post-existing", title: "旧日报", slug: RUN_SLUG, published: true })
+  test("branch a (pending-review AI draft): existing unpublished AI news draft stays unpublished on non-regenerate rerun", async () => {
+    const existingDraft: ExistingPost = {
+      id: "post-ai-draft",
+      title: "待审日报草稿",
+      slug: RUN_SLUG,
+      published: false,
+      generatedByAiNews: true,
+    }
+    const runRepository = createRunRepository(existingDraft)
+    const fetchImpl = vi.fn()
+
+    const result = await runDailyAiNews({
+      authorId: "admin-1",
+      date: RUN_DATE,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      runRepository,
+      candidateRepository: null,
+    })
+
+    expect(fetchImpl).not.toHaveBeenCalled()
+    expect(mocks.createAdminPost).not.toHaveBeenCalled()
+    expect(mocks.updateAdminPost).not.toHaveBeenCalled()
+    expect(mocks.publishAiDraftPost).not.toHaveBeenCalled()
+    expect(mocks.applyAiNewsPostEnhancements).not.toHaveBeenCalled()
+    expect(runRepository.post.updateMany).not.toHaveBeenCalled()
+
+    expect(runRepository.aiNewsRun.update).toHaveBeenCalledWith({
+      where: { id: "run-1" },
+      data: expect.objectContaining({
+        status: "SKIPPED",
+        postId: "post-ai-draft",
+        postTitle: "待审日报草稿",
+        postSlug: RUN_SLUG,
+        published: false,
+      }),
+    })
+    expect(result).toMatchObject({
+      operation: "skipped",
+      reason: "Daily AI news draft is pending review",
+      published: false,
+      post: { id: "post-ai-draft", title: "待审日报草稿", slug: RUN_SLUG, published: false, generatedByAiNews: true },
+      sourceCount: 0,
+      failures: [],
+      run: { id: "run-1", status: "SKIPPED" },
+    })
+  })
+
+  test("manual draft ownership guard (!regenerate): manual draft with matching daily slug stays unpublished and generatedByAiNews false", async () => {
+    const manualDraft: ExistingPost = {
+      id: "post-manual-draft",
+      title: "人工同名草稿",
+      slug: RUN_SLUG,
+      published: false,
+      generatedByAiNews: false,
+    }
+    const runRepository = createRunRepository(manualDraft)
+    const fetchImpl = vi.fn()
+
+    const result = await runDailyAiNews({
+      authorId: "admin-1",
+      date: RUN_DATE,
+      regenerate: false,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      runRepository,
+      candidateRepository: null,
+    })
+
+    expect(fetchImpl).not.toHaveBeenCalled()
+    expect(mocks.publishAiDraftPost).not.toHaveBeenCalled()
+    expect(mocks.createAdminPost).not.toHaveBeenCalled()
+    expect(mocks.updateAdminPost).not.toHaveBeenCalled()
+    expect(mocks.applyAiNewsPostEnhancements).not.toHaveBeenCalled()
+    expect(runRepository.post.updateMany).not.toHaveBeenCalled()
+
+    expect(manualDraft).toEqual({
+      id: "post-manual-draft",
+      title: "人工同名草稿",
+      slug: RUN_SLUG,
+      published: false,
+      generatedByAiNews: false,
+    })
+    expect(runRepository.aiNewsRun.update).toHaveBeenCalledWith({
+      where: { id: "run-1" },
+      data: expect.objectContaining({
+        status: "SKIPPED",
+        postId: null,
+        postTitle: "人工同名草稿",
+        postSlug: RUN_SLUG,
+        published: false,
+        error: "Daily AI news slug conflicts with a manual post",
+      }),
+    })
+    expect(result).toMatchObject({
+      operation: "skipped",
+      reason: "Daily AI news slug conflicts with a manual post",
+      published: false,
+      post: {
+        id: "post-manual-draft",
+        title: "人工同名草稿",
+        slug: RUN_SLUG,
+        published: false,
+        generatedByAiNews: false,
+      },
+      sourceCount: 0,
+      failures: [],
+      run: { id: "run-1", status: "SKIPPED" },
+    })
+  })
+
+  test("manual draft ownership guard (regenerate): throws ConflictError, marks run FAILED, and leaves manual draft untouched", async () => {
+    const manualDraft: ExistingPost = {
+      id: "post-manual-draft",
+      title: "人工同名草稿",
+      slug: RUN_SLUG,
+      published: false,
+      generatedByAiNews: false,
+    }
+    const runRepository = createRunRepository(manualDraft)
+    const fetchImpl = vi.fn()
+
+    const promise = runDailyAiNews({
+      authorId: "admin-1",
+      date: RUN_DATE,
+      regenerate: true,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      runRepository,
+      candidateRepository: null,
+    })
+
+    await expect(promise).rejects.toBeInstanceOf(ConflictError)
+    await expect(promise).rejects.toThrow("Daily AI news slug is occupied by a manual post")
+
+    expect(fetchImpl).not.toHaveBeenCalled()
+    expect(mocks.publishAiDraftPost).not.toHaveBeenCalled()
+    expect(mocks.createAdminPost).not.toHaveBeenCalled()
+    expect(mocks.updateAdminPost).not.toHaveBeenCalled()
+    expect(mocks.applyAiNewsPostEnhancements).not.toHaveBeenCalled()
+    expect(runRepository.post.updateMany).not.toHaveBeenCalled()
+
+    expect(manualDraft).toEqual({
+      id: "post-manual-draft",
+      title: "人工同名草稿",
+      slug: RUN_SLUG,
+      published: false,
+      generatedByAiNews: false,
+    })
+    expect(runRepository.aiNewsRun.update).toHaveBeenCalledTimes(1)
+    expect(runRepository.aiNewsRun.update).toHaveBeenLastCalledWith({
+      where: { id: "run-1" },
+      data: expect.objectContaining({
+        status: "FAILED",
+        failureCount: 1,
+        error: "Daily AI news slug is occupied by a manual post",
+      }),
+    })
+  })
+
+  test("branch b: regenerate updates the existing published AI news post and returns operation regenerated", async () => {
+    const runRepository = createRunRepository({
+      id: "post-existing",
+      title: "旧日报",
+      slug: RUN_SLUG,
+      published: true,
+      generatedByAiNews: true,
+    })
     mocks.updateAdminPost.mockResolvedValueOnce({ id: "post-existing", slug: RUN_SLUG, published: true })
     const fetchImpl = createPipelineFetch({ scoreByTitle: SCORE_BY_TITLE })
 
@@ -358,8 +539,9 @@ describe("runDailyAiNews orchestration behavior", () => {
         generatedByAiNews: true,
       }),
     })
-    // 已发布文章重新生成时不再重复发布
+    // 已发布文章重新生成时不再重复发布，也不执行危险的 post.updateMany 覆写
     expect(mocks.publishAiDraftPost).not.toHaveBeenCalled()
+    expect(runRepository.post.updateMany).not.toHaveBeenCalled()
     expect(runRepository.aiNewsRun.update).toHaveBeenCalledWith({
       where: { id: "run-1" },
       data: expect.objectContaining({
@@ -469,10 +651,7 @@ describe("runDailyAiNews orchestration behavior", () => {
         reviewSummary: null,
       }),
     })
-    expect(runRepository.post.updateMany).toHaveBeenCalledWith({
-      where: { id: "post-1", generatedByAiNews: false },
-      data: { generatedByAiNews: true },
-    })
+    expect(runRepository.post.updateMany).not.toHaveBeenCalled()
 
     expect(result).toMatchObject({
       operation: "created",
@@ -496,17 +675,39 @@ describe("runDailyAiNews orchestration behavior", () => {
     })
   })
 
-  test("branch d: all candidates below the score threshold falls back to newest candidates with generationMode fallback and qualityScore 0", async () => {
-    const runRepository = createRunRepository(null)
-    mocks.createAdminPost.mockResolvedValueOnce({ id: "post-1", title: DRAFT_RESPONSE.title, slug: RUN_SLUG, published: false })
-    mocks.publishAiDraftPost.mockResolvedValueOnce({ id: "post-1", published: true })
+  test("branch d: 0-selected-candidate fallback run holds an unpublished AI news draft pending review, and a same-day rerun keeps it unpublished", async () => {
+    let persistedPost: ExistingPost | null = null
+    let runSeq = 0
+    const runRepository = {
+      aiNewsRun: {
+        create: vi.fn(async () => {
+          runSeq += 1
+          return { id: `run-${runSeq}` }
+        }),
+        update: vi.fn(async () => ({})),
+      },
+      post: {
+        findFirst: vi.fn(async () => persistedPost),
+        updateMany: vi.fn(async () => ({ count: 1 })),
+      },
+    }
+    mocks.createAdminPost.mockImplementationOnce(async ({ input }: { input: { title: string; slug: string; published: boolean; generatedByAiNews?: boolean } }) => {
+      persistedPost = {
+        id: "post-1",
+        title: input.title,
+        slug: input.slug,
+        published: input.published,
+        generatedByAiNews: input.generatedByAiNews ?? false,
+      }
+      return persistedPost
+    })
     const lowScores = new Map<string, Record<string, unknown>>([
       ["OpenAI 发布企业级代理", { score: 1, reason: "弱相关", summary: "相关性较弱。", tags: [], riskFlags: [] }],
       ["NotebookLM adds developer APIs", { score: 2, reason: "弱相关", summary: "相关性较弱。", tags: [], riskFlags: [] }],
     ])
     const fetchImpl = createPipelineFetch({ scoreByTitle: lowScores })
 
-    const result = await runDailyAiNews({
+    const firstResult = await runDailyAiNews({
       authorId: "admin-1",
       date: RUN_DATE,
       fetchImpl,
@@ -514,7 +715,7 @@ describe("runDailyAiNews orchestration behavior", () => {
       candidateRepository: null,
     })
 
-    // 回退路径仍会创建并发布文章
+    // 0 有效候选回退路径保存为未发布 AI 日报草稿，等待人工审核，绝不自动发布
     expect(mocks.createAdminPost).toHaveBeenCalledWith({
       authorId: "admin-1",
       input: expect.objectContaining({
@@ -524,11 +725,20 @@ describe("runDailyAiNews orchestration behavior", () => {
         generatedByAiNews: true,
       }),
     })
-    expect(mocks.publishAiDraftPost).toHaveBeenCalledWith({ postId: "post-1" })
+    expect(mocks.publishAiDraftPost).not.toHaveBeenCalled()
+    expect(runRepository.post.updateMany).not.toHaveBeenCalled()
+    expect(persistedPost).toEqual({
+      id: "post-1",
+      title: DRAFT_RESPONSE.title,
+      slug: RUN_SLUG,
+      published: false,
+      generatedByAiNews: true,
+    })
 
-    expect(result).toMatchObject({
+    expect(firstResult).toMatchObject({
       operation: "created",
-      published: true,
+      published: false,
+      post: { id: "post-1", slug: RUN_SLUG, published: false },
       metrics: {
         rawCandidateCount: 2,
         dedupedCandidateCount: 2,
@@ -547,7 +757,7 @@ describe("runDailyAiNews orchestration behavior", () => {
         generationMode: "fallback",
         selectedCandidateCount: 2,
         postId: "post-1",
-        published: true,
+        published: false,
       }),
     })
 
@@ -563,6 +773,38 @@ describe("runDailyAiNews orchestration behavior", () => {
     expect(promptTexts).not.toContain("deduplicate AI news candidates")
     expect(promptTexts).not.toContain("Create a conservative fact card")
     expect(promptTexts).not.toContain("日级主编稿")
+
+    // 同日二次触发（!regenerate）记 SKIPPED 且仍保持 published: false 待审
+    const rerunFetch = vi.fn()
+    const secondResult = await runDailyAiNews({
+      authorId: "admin-1",
+      date: RUN_DATE,
+      regenerate: false,
+      fetchImpl: rerunFetch as unknown as typeof fetch,
+      runRepository,
+      candidateRepository: null,
+    })
+
+    expect(rerunFetch).not.toHaveBeenCalled()
+    expect(mocks.publishAiDraftPost).not.toHaveBeenCalled()
+    expect(runRepository.post.updateMany).not.toHaveBeenCalled()
+    expect(persistedPost).toMatchObject({ published: false, generatedByAiNews: true })
+    expect(runRepository.aiNewsRun.update).toHaveBeenLastCalledWith({
+      where: { id: "run-2" },
+      data: expect.objectContaining({
+        status: "SKIPPED",
+        postId: "post-1",
+        postSlug: RUN_SLUG,
+        published: false,
+      }),
+    })
+    expect(secondResult).toMatchObject({
+      operation: "skipped",
+      reason: "Daily AI news draft is pending review",
+      published: false,
+      post: { id: "post-1", slug: RUN_SLUG, published: false, generatedByAiNews: true },
+      run: { id: "run-2", status: "SKIPPED" },
+    })
   })
 
   test("branch e: draft step failure records a FAILED run with failureCount and error message before rethrowing", async () => {
