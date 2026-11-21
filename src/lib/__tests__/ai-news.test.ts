@@ -590,11 +590,18 @@ describe("ai news aggregation", () => {
       ok: true,
       text: async () => `<?xml version="1.0"?><rss><channel><item><title>OpenAI 发布新能力</title><link>https://example.com/openai-new</link><description>能力摘要</description><pubDate>Wed, 29 Apr 2026 02:00:00 GMT</pubDate></item></channel></rss>`,
     })
-    const completionFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        choices: [{ message: { content: JSON.stringify({ title: "2026-04-29 AI 日报：重新生成", excerpt: "新的摘要", content: "# 今日摘要\n\n新内容" }) } }],
-      }),
+    const completionFetch = vi.fn().mockImplementation(async (_input: string | URL | Request, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body ?? "{}")) as { messages?: Array<{ role?: string; content?: string }> }
+      const userContent = String(body.messages?.find((message) => message.role === "user")?.content ?? "")
+      const payload = userContent.includes("score/reason/summary/tags/riskFlags")
+        ? { score: 9, reason: "重点产品更新", summary: "OpenAI 发布新能力摘要。", tags: ["model"], riskFlags: [] }
+        : { title: "2026-04-29 AI 日报：OpenAI 发布新能力", excerpt: "新的摘要", content: "# 今日摘要\n\n新内容" }
+      return {
+        ok: true,
+        json: async () => ({
+          choices: [{ message: { content: JSON.stringify(payload) } }],
+        }),
+      }
     })
     const fetchImpl = vi.fn((input: string | URL | Request, init?: RequestInit) => {
       if (init?.method === "POST") return completionFetch(input, init)
@@ -621,10 +628,10 @@ describe("ai news aggregation", () => {
     expect(updateAdminPost).toHaveBeenCalledWith({
       id: "post-existing",
       input: expect.objectContaining({
-        title: "2026-04-29 AI 日报：重新生成",
+        title: "2026-04-29 AI 日报：OpenAI 发布新能力",
         slug: "ai-daily-2026-04-29",
         content: expect.stringContaining("生成标注：本文由 AI 模型"),
-        excerpt: "新的摘要",
+        excerpt: "OpenAI 发布新能力摘要。",
         published: true,
         generatedByAiNews: true,
       }),
@@ -634,7 +641,7 @@ describe("ai news aggregation", () => {
     expect(isAutoPublishableReview).not.toHaveBeenCalled()
     expect(updateAiNewsRun).toHaveBeenCalledWith({
       where: { id: "run-1" },
-      data: expect.objectContaining({ status: "SUCCEEDED", postId: "post-existing", postTitle: "2026-04-29 AI 日报：重新生成", published: true }),
+      data: expect.objectContaining({ status: "SUCCEEDED", postId: "post-existing", postTitle: "2026-04-29 AI 日报：OpenAI 发布新能力", published: true }),
     })
     expect(result).toMatchObject({
       operation: "regenerated",
@@ -643,8 +650,9 @@ describe("ai news aggregation", () => {
     })
   })
 
-  test("records failed daily AI news runs before rethrowing", async () => {
+  test("records failed daily AI news runs before rethrowing when persistence fails", async () => {
     findFirst.mockResolvedValueOnce(null)
+    createAdminPost.mockRejectedValueOnce(new Error("Post persistence unavailable"))
 
     const { runDailyAiNews } = await import("@/lib/ai-news")
 
@@ -655,15 +663,33 @@ describe("ai news aggregation", () => {
         sources: [{ id: "broken", name: "Broken", feedUrl: "https://example.com/feed.xml" }],
         fetchImpl: vi.fn().mockResolvedValue({ ok: false, status: 500 }) as unknown as typeof fetch,
       }),
-    ).rejects.toThrow("No AI news candidates available")
+    ).rejects.toThrow("Post persistence unavailable")
 
     expect(updateAiNewsRun).toHaveBeenCalledWith({
       where: { id: "run-1" },
-      data: expect.objectContaining({ status: "FAILED", sourceCount: 0, failureCount: 1, error: "No AI news candidates available" }),
+      data: expect.objectContaining({ status: "FAILED", sourceCount: 0, failureCount: 1, error: "Post persistence unavailable" }),
     })
   })
 
-  test("selected source mode can temporarily run disabled sources without fallback", async () => {
+  test("builds deterministic pending-review placeholder draft when candidates are empty", async () => {
+    const { generateDailyAiNewsDraft } = await import("@/lib/ai-news")
+    const upstreamFetch = vi.fn()
+    const draft = await generateDailyAiNewsDraft({
+      date: new Date("2026-04-29T08:00:00Z"),
+      candidates: [],
+      fetchImpl: upstreamFetch as unknown as typeof fetch,
+    })
+
+    expect(upstreamFetch).not.toHaveBeenCalled()
+    expect(draft).toMatchObject({
+      title: "2026-04-29 AI 日报（待人工补充）",
+      slug: "ai-daily-2026-04-29",
+    })
+    expect(draft.content).toContain("待人工审核占位草稿")
+    expect(draft.content).toContain("生成标注：本文由 AI 模型")
+  })
+
+  test("selected source mode can temporarily run disabled sources without fallback and saves placeholder draft when empty", async () => {
     findFirst.mockResolvedValueOnce(null)
     findManyAiNewsSource.mockResolvedValueOnce([
       {
@@ -678,25 +704,34 @@ describe("ai news aggregation", () => {
         config: null,
       },
     ])
+    createAdminPost.mockResolvedValueOnce({
+      id: "post-placeholder",
+      title: "2026-04-29 AI 日报（待人工补充）",
+      slug: "ai-daily-2026-04-29",
+      published: false,
+    })
     const fetchImpl = vi.fn().mockResolvedValue({ ok: false, status: 500 }) as unknown as typeof fetch
 
     const { runDailyAiNews } = await import("@/lib/ai-news")
-
-    await expect(
-      runDailyAiNews({
-        authorId: "admin-1",
-        date: new Date("2026-04-29T08:00:00Z"),
-        sourceMode: "selected",
-        sourceIds: ["disabled"],
-        fetchImpl,
-      }),
-    ).rejects.toThrow("No AI news candidates available")
+    const result = await runDailyAiNews({
+      authorId: "admin-1",
+      date: new Date("2026-04-29T08:00:00Z"),
+      sourceMode: "selected",
+      sourceIds: ["disabled"],
+      fetchImpl,
+    })
 
     expect(findManyAiNewsSource).toHaveBeenCalledWith({
       where: { id: { in: ["disabled"] } },
       orderBy: [{ weight: "desc" }, { name: "asc" }],
     })
     expect(fetchImpl).toHaveBeenCalledWith("https://example.com/disabled.xml", expect.any(Object))
+    expect(publishAiDraftPost).not.toHaveBeenCalled()
+    expect(result).toMatchObject({
+      operation: "created",
+      published: false,
+      metrics: { rawCandidateCount: 0, generationMode: "fallback" },
+    })
     expect(updateAiNewsRun).toHaveBeenCalledWith({
       where: { id: "run-1" },
       data: {

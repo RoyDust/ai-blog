@@ -186,4 +186,60 @@ describe("useAdminAiNews async 202 runId polling", () => {
 
     expect(toastMocks.success).toHaveBeenCalledWith("AI 日报已生成并上线");
   });
+
+  test("clears activeRunState when polling /api/admin/ai-news/run?runId=... returns 404 so generate button never deadlocks", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+
+      if (url === "/api/admin/ai/models") {
+        return jsonResponse({ success: true, data: modelList });
+      }
+      if (url.startsWith("/api/admin/ai-news/sources?")) {
+        return jsonResponse({
+          success: true,
+          data: [],
+          pagination: { page: 1, limit: 10, total: 0, totalPages: 1 },
+          summary: { enabledCount: 0, enabledSourceIds: [] },
+        });
+      }
+      if (url === "/api/admin/ai-news/run" && init?.method === "POST") {
+        return jsonResponse(
+          {
+            success: true,
+            data: {
+              operation: "queued",
+              runId: "run-missing-404",
+              date: "2026-04-29",
+              run: { id: "run-missing-404", status: "RUNNING" },
+            },
+          },
+          202,
+        );
+      }
+      if (url === "/api/admin/ai-news/run?runId=run-missing-404") {
+        return jsonResponse({ error: "AI news run not found" }, 404);
+      }
+      if (url === "/api/admin/ai-news/run") {
+        return jsonResponse({ success: true, data: [] });
+      }
+
+      throw new Error(`Unexpected fetch: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { result } = renderHook(() => useAdminAiNews(), { wrapper: createWrapper() });
+
+    await waitFor(() => {
+      expect(result.current.selectedModelId).toBe("model-1");
+    });
+
+    await act(async () => {
+      await result.current.runNewsGeneration(false);
+    });
+
+    await waitFor(() => {
+      expect(result.current.running).toBe(false);
+    });
+    expect(toastMocks.error).toHaveBeenCalled();
+  });
 });

@@ -251,6 +251,53 @@ describe("POST /api/admin/ai-news/run", () => {
     }))
     consoleError.mockRestore()
   })
+
+  test("allows empty POST body to default to {} while rejecting malformed non-empty JSON with 400", async () => {
+    mocks.requireAdminSession.mockResolvedValue({ user: { id: "admin-1", role: "ADMIN" } })
+    mocks.runDailyAiNews.mockImplementationOnce(
+      async (options: { onRunCreated?: (run: { id: string; status: "RUNNING" }) => void }) => {
+        options.onRunCreated?.({ id: "run-empty-body", status: "RUNNING" })
+        return {
+          operation: "created",
+          published: false,
+          post: { id: "post-1", title: "AI 日报", slug: "ai-daily-2026-04-29" },
+          run: { id: "run-empty-body", status: "SUCCEEDED" },
+        }
+      },
+    )
+
+    const { POST } = await import("../route")
+    const emptyBodyRes = await POST(
+      new Request("http://localhost/api/admin/ai-news/run", {
+        method: "POST",
+        body: "",
+      }),
+    )
+    expect(emptyBodyRes.status).toBe(202)
+    await flushAsyncJob()
+
+    mocks.runDailyAiNews.mockClear()
+    const badJsonRes = await POST(
+      new Request("http://localhost/api/admin/ai-news/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{bad-json",
+      }),
+    )
+    expect(badJsonRes.status).toBe(400)
+    await expect(badJsonRes.json()).resolves.toEqual({ error: "Invalid JSON body" })
+
+    const arrayJsonRes = await POST(
+      new Request("http://localhost/api/admin/ai-news/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "[]",
+      }),
+    )
+    expect(arrayJsonRes.status).toBe(400)
+    await expect(arrayJsonRes.json()).resolves.toEqual({ error: "Invalid JSON body" })
+    expect(mocks.runDailyAiNews).not.toHaveBeenCalled()
+  })
 })
 
 describe("GET /api/admin/ai-news/run", () => {
@@ -300,7 +347,7 @@ describe("GET /api/admin/ai-news/run", () => {
     expect(mocks.updateManyAiNewsRun).toHaveBeenCalledWith({
       where: {
         status: "RUNNING",
-        startedAt: { lte: expect.any(Date) },
+        updatedAt: { lte: expect.any(Date) },
       },
       data: {
         status: "FAILED",

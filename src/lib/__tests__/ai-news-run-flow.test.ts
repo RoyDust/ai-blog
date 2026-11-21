@@ -22,6 +22,8 @@ import { DEFAULT_AI_NEWS_SOURCES } from "@/lib/ai-news/default-sources"
 import type { AiModelOption } from "@/lib/ai-models"
 import {
   __resetAiNewsActiveRunsForTests,
+  FALLBACK_SKIPPED_PUBLISHED_POST_REASON,
+  reapStaleAiNewsRuns,
   runDailyAiNews,
   STALE_AI_NEWS_RUN_ERROR,
 } from "@/lib/ai-news/run/entry"
@@ -965,7 +967,9 @@ describe("runDailyAiNews orchestration behavior", () => {
     })
     const queryRawUnsafe = vi.fn(async () => [{ locked: true }])
     const findFirstRun = vi.fn(async () => null)
-    const updateManyRun = vi.fn(async () => ({ count: 0 }))
+    const updateManyRun = vi.fn(async ({ where }: { where: Record<string, unknown> }) => ({
+      count: "id" in where ? 1 : 0,
+    }))
     let runSeq = 0
 
     const runRepository: AiNewsRunRepository = {
@@ -1062,21 +1066,24 @@ describe("runDailyAiNews orchestration behavior", () => {
     })
   })
 
-  test("reaps stale RUNNING runs after simulated process interruption and recovers cleanly on rerun", async () => {
+  test("reaps stale RUNNING runs based on updatedAt heartbeat and recovers cleanly on rerun", async () => {
     type StoredRun = {
       id: string
       runDate: Date
       status: string
       startedAt: Date
+      updatedAt: Date
       finishedAt: Date | null
       error: string | null
     }
+    const staleTimestamp = new Date(Date.now() - 20 * 60 * 1000)
     const storedRuns: StoredRun[] = [
       {
         id: "run-crashed-1",
         runDate: RUN_DATE,
         status: "RUNNING",
-        startedAt: new Date(Date.now() - 20 * 60 * 1000),
+        startedAt: staleTimestamp,
+        updatedAt: staleTimestamp,
         finishedAt: null,
         error: null,
       },
@@ -1086,11 +1093,13 @@ describe("runDailyAiNews orchestration behavior", () => {
       aiNewsRun: {
         create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => {
           const id = `run-recovered-${storedRuns.length + 1}`
+          const now = new Date()
           storedRuns.push({
             id,
             runDate: data.runDate as Date,
             status: String(data.status),
-            startedAt: new Date(),
+            startedAt: now,
+            updatedAt: now,
             finishedAt: null,
             error: null,
           })
@@ -1099,6 +1108,7 @@ describe("runDailyAiNews orchestration behavior", () => {
         update: vi.fn(async ({ where, data }: { where: { id: string }; data: Record<string, unknown> }) => {
           const target = storedRuns.find((item) => item.id === where.id)
           if (target) {
+            target.updatedAt = new Date()
             if (typeof data.status === "string") target.status = data.status
             if (data.finishedAt instanceof Date) target.finishedAt = data.finishedAt
             if (typeof data.error === "string") target.error = data.error
@@ -1106,6 +1116,9 @@ describe("runDailyAiNews orchestration behavior", () => {
           return {}
         }),
         findFirst: vi.fn(async ({ where }: { where: Record<string, unknown> }) => {
+          if (typeof where.id === "string") {
+            return storedRuns.find((item) => item.id === where.id) ?? null
+          }
           const range = where.runDate as { gte: Date; lt: Date } | undefined
           return (
             storedRuns.find(
@@ -1116,10 +1129,25 @@ describe("runDailyAiNews orchestration behavior", () => {
           )
         }),
         updateMany: vi.fn(async ({ where, data }: { where: Record<string, unknown>; data: Record<string, unknown> }) => {
-          const cutoff = (where.startedAt as { lte: Date }).lte
+          if (typeof where.id === "string") {
+            const target = storedRuns.find(
+              (item) => item.id === where.id && (!where.status || item.status === where.status),
+            )
+            if (!target) {
+              return { count: 0 }
+            }
+            target.updatedAt = data.updatedAt instanceof Date ? data.updatedAt : new Date()
+            if (typeof data.status === "string") target.status = data.status
+            if (data.finishedAt instanceof Date) target.finishedAt = data.finishedAt
+            if (typeof data.error === "string") target.error = data.error
+            return { count: 1 }
+          }
+
+          const cutoff = (where.updatedAt as { lte: Date }).lte
+          const notIn = (where.id as { notIn?: string[] } | undefined)?.notIn ?? []
           let count = 0
           for (const item of storedRuns) {
-            if (item.status === "RUNNING" && item.startedAt <= cutoff) {
+            if (item.status === "RUNNING" && item.updatedAt <= cutoff && !notIn.includes(item.id)) {
               item.status = String(data.status)
               item.error = String(data.error)
               item.finishedAt = data.finishedAt as Date
@@ -1158,5 +1186,173 @@ describe("runDailyAiNews orchestration behavior", () => {
       finishedAt: expect.any(Date),
     })
     expect(result.run).toEqual({ id: "run-recovered-2", status: "SUCCEEDED" })
+  })
+
+  test("protects an already-published daily AI news post from fallback overwrite during regenerate", async () => {
+    const publishedPost: ExistingPost = {
+      id: "post-live",
+      title: "2026-04-29 已发布正式日报",
+      slug: RUN_SLUG,
+      published: true,
+      generatedByAiNews: true,
+    }
+    const runRepository = createRunRepository(publishedPost)
+    const lowScores = new Map<string, Record<string, unknown>>([
+      ["OpenAI 发布企业级代理", { score: 1, reason: "低信号", summary: "噪声候选", tags: [], riskFlags: [] }],
+      ["NotebookLM adds developer APIs", { score: 2, reason: "低信号", summary: "噪声候选", tags: [], riskFlags: [] }],
+    ])
+    const fetchImpl = createPipelineFetch({ scoreByTitle: lowScores })
+
+    const result = await runDailyAiNews({
+      authorId: "admin-1",
+      date: RUN_DATE,
+      regenerate: true,
+      fetchImpl,
+      runRepository,
+      candidateRepository: null,
+    })
+
+    expect(mocks.updateAdminPost).not.toHaveBeenCalled()
+    expect(mocks.createAdminPost).not.toHaveBeenCalled()
+    expect(mocks.applyAiNewsPostEnhancements).not.toHaveBeenCalled()
+    expect(mocks.publishAiDraftPost).not.toHaveBeenCalled()
+    expect(result).toMatchObject({
+      operation: "skipped",
+      reason: FALLBACK_SKIPPED_PUBLISHED_POST_REASON,
+      published: true,
+      post: { ...publishedPost, published: true },
+      sourceCount: 2,
+      run: { id: "run-1", status: "SKIPPED" },
+    })
+    expect(runRepository.aiNewsRun.update).toHaveBeenLastCalledWith({
+      where: { id: "run-1" },
+      data: expect.objectContaining({
+        status: "SKIPPED",
+        generationMode: "fallback",
+        postId: "post-live",
+        postTitle: "2026-04-29 已发布正式日报",
+        postSlug: RUN_SLUG,
+        published: true,
+        error: FALLBACK_SKIPPED_PUBLISHED_POST_REASON,
+      }),
+    })
+  })
+
+  test("builds a deterministic pending-review placeholder draft when rawCandidates is empty and no published post exists", async () => {
+    const runRepository = createRunRepository(null)
+    mocks.createAdminPost.mockImplementationOnce(async ({ input }: { input: { title: string; slug: string; published: boolean; generatedByAiNews?: boolean } }) => ({
+      id: "post-placeholder-1",
+      title: input.title,
+      slug: input.slug,
+      published: input.published,
+      generatedByAiNews: input.generatedByAiNews ?? false,
+    }))
+    const emptySourcesFetch = vi.fn(async (input: string | URL | Request) => {
+      const url = String(input)
+      if (url.startsWith("https://api.github.com/")) {
+        return jsonResponse([])
+      }
+      return textResponse(EMPTY_FEED_XML)
+    })
+
+    const result = await runDailyAiNews({
+      authorId: "admin-1",
+      date: RUN_DATE,
+      fetchImpl: emptySourcesFetch as unknown as typeof fetch,
+      runRepository,
+      candidateRepository: null,
+    })
+
+    expect(mocks.createAdminPost).toHaveBeenCalledWith({
+      authorId: "admin-1",
+      input: expect.objectContaining({
+        title: "2026-04-29 AI 日报（待人工补充）",
+        slug: RUN_SLUG,
+        published: false,
+        generatedByAiNews: true,
+      }),
+    })
+    expect(mocks.publishAiDraftPost).not.toHaveBeenCalled()
+    expect(mocks.applyAiNewsPostEnhancements).not.toHaveBeenCalled()
+    expect(result).toMatchObject({
+      operation: "created",
+      published: false,
+      post: { id: "post-placeholder-1", slug: RUN_SLUG, published: false },
+      metrics: {
+        rawCandidateCount: 0,
+        dedupedCandidateCount: 0,
+        scoredCandidateCount: 0,
+        selectedCandidateCount: 0,
+        generationMode: "fallback",
+      },
+      run: { id: "run-1", status: "SUCCEEDED" },
+    })
+  })
+
+  test("does not reap a >15m run whose updatedAt heartbeat is still fresh, and blocks reaped zombie runs from publishing or overwriting FAILED", async () => {
+    const now = new Date("2026-04-29T09:00:00.000Z")
+    const updateManyCheck = vi.fn(async ({ where }: { where: Record<string, unknown> }) => {
+      const cutoff = (where.updatedAt as { lte: Date }).lte
+      const freshHeartbeat = new Date(now.getTime() - 2 * 60 * 1000)
+      return { count: freshHeartbeat <= cutoff ? 1 : 0 }
+    })
+
+    const reapedCount = await reapStaleAiNewsRuns({
+      repository: { aiNewsRun: { create: vi.fn(), update: vi.fn(), updateMany: updateManyCheck } },
+      now,
+      staleRunTimeoutMs: 15 * 60 * 1000,
+    })
+    expect(reapedCount).toBe(0)
+
+    // Simulate a zombie run that gets reaped right before persistAndPublishDailyAiNewsPost:
+    let runStatus = "RUNNING"
+    let runError: string | null = null
+    let heartbeatCalls = 0
+    const zombieRepo: AiNewsRunRepository = {
+      aiNewsRun: {
+        create: vi.fn(async () => ({ id: "run-zombie-1" })),
+        update: vi.fn(async () => ({})),
+        updateMany: vi.fn(async ({ where, data }: { where: Record<string, unknown>; data: Record<string, unknown> }) => {
+          if (where.id === "run-zombie-1" && where.status === "RUNNING") {
+            heartbeatCalls += 1
+            // Reap the run right after candidate stage (before persistAndPublishDailyAiNewsPost)
+            if (heartbeatCalls >= 3) {
+              runStatus = "FAILED"
+              runError = STALE_AI_NEWS_RUN_ERROR
+            }
+            if (runStatus !== "RUNNING") {
+              return { count: 0 }
+            }
+            if (typeof data.status === "string") {
+              runStatus = data.status
+            }
+            return { count: 1 }
+          }
+          return { count: 0 }
+        }),
+      },
+      post: {
+        findFirst: vi.fn(async () => null),
+      },
+      // Non-transactional repository with $queryRawUnsafe: must NOT call pg_try_advisory_lock
+      $queryRawUnsafe: vi.fn(async () => [{ locked: true }]),
+    }
+
+    await expect(
+      runDailyAiNews({
+        authorId: "admin-1",
+        date: RUN_DATE,
+        fetchImpl: createPipelineFetch({ scoreByTitle: SCORE_BY_TITLE }),
+        runRepository: zombieRepo,
+        candidateRepository: null,
+      }),
+    ).rejects.toThrow(STALE_AI_NEWS_RUN_ERROR)
+
+    expect(zombieRepo.$queryRawUnsafe).not.toHaveBeenCalled()
+    expect(mocks.createAdminPost).not.toHaveBeenCalled()
+    expect(mocks.updateAdminPost).not.toHaveBeenCalled()
+    expect(mocks.publishAiDraftPost).not.toHaveBeenCalled()
+    expect(runStatus).toBe("FAILED")
+    expect(runError).toBe(STALE_AI_NEWS_RUN_ERROR)
   })
 })

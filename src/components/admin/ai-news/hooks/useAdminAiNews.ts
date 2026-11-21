@@ -15,7 +15,7 @@ import { toast } from "sonner";
 import useSWR from "swr";
 
 import { useAiNewsSources } from "@/components/admin/ai-news/hooks/useAiNewsSources";
-import { apiFetcher, apiMutate, handleGlobalSwrError, toErrorMessage } from "@/lib/client-api";
+import { ApiRequestError, apiFetcher, apiMutate, handleGlobalSwrError, toErrorMessage } from "@/lib/client-api";
 import type { PublicAiModelOption } from "@/lib/ai-models";
 
 export type RunHistoryItem = {
@@ -272,7 +272,14 @@ export function useAdminAiNews() {
         setResult(completedResult)
         notifyCompletedRunToast(completedResult)
       },
-      onError: (error, key) => handleGlobalSwrError(error, key),
+      onError: (error, key) => {
+        handleGlobalSwrError(error, key)
+        if (error instanceof ApiRequestError && error.status === 404) {
+          setActiveRunState(null)
+          void mutateRuns()
+          toast.error(toErrorMessage(error, "未找到对应的 AI 日报运行记录"))
+        }
+      },
     },
   )
 

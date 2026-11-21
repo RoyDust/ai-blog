@@ -238,5 +238,71 @@ describe("AI batch job resume and concurrency", () => {
     expect(await getAiBatchTaskSnapshot([])).toEqual({ active: false, tasks: [], missingTaskIds: [] });
     expect(mocks.aiTaskFindMany).not.toHaveBeenCalled();
     await expect(getAiBatchTaskSnapshot(Array.from({ length: 51 }, (_, i) => "task-" + i))).rejects.toThrow();
+
+    mocks.aiTaskFindMany.mockResolvedValueOnce([
+      { id: "task-offpage", status: "RUNNING", requestedCount: 2, succeededCount: 0, failedCount: 0, updatedAt, items: [{ id: "item-2", status: "RUNNING", updatedAt }] },
+    ]);
+    const offPage = await getAiBatchTaskSnapshot([], { includeActive: true });
+    expect(offPage.active).toBe(true);
+    expect(mocks.aiTaskFindMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { type: "post-bulk-completion", status: { in: ["QUEUED", "RUNNING"] } },
+    }));
+  });
+
+  test("hands semaphore permits directly to queued waiters so synchronous arrivals cannot push concurrency past 3", async () => {
+    mocks.running.mockImplementation(async (taskId: string) => ({ id: taskId, status: "RUNNING" }));
+    mocks.items.mockImplementation(async ({ where }: { where: { taskId: string } }) =>
+      Array.from({ length: 4 }, (_, index) => ({
+        id: `${where.taskId}-item-${index + 1}`,
+        taskId: where.taskId,
+        postId: `post-${index + 1}`,
+        action: "summary",
+        inputSnapshot: {},
+      })),
+    );
+    mocks.itemRunning.mockImplementation(async (id: string) => ({ id }));
+    mocks.post.mockImplementation(async (id: string) => ({ id }));
+    mocks.complete.mockResolvedValue({ id: "done" });
+    mocks.refreshCounts.mockResolvedValue({ status: "SUCCEEDED" });
+
+    let inFlight = 0;
+    let peakInFlight = 0;
+    const resolvers: Array<() => void> = [];
+
+    mocks.generate.mockImplementation(async () => {
+      inFlight += 1;
+      peakInFlight = Math.max(peakInFlight, inFlight);
+      expect(inFlight).toBeLessThanOrEqual(3);
+      await new Promise<void>((resolve) => {
+        resolvers.push(resolve);
+      });
+      inFlight -= 1;
+      return { modelId: "model-1", output: { summary: "ok" } };
+    });
+
+    const { runAiBatchTask } = await import("../ai-batch-jobs");
+    const firstTwo = [
+      runAiBatchTask({ taskId: "batch-1", apply: false }),
+      runAiBatchTask({ taskId: "batch-2", apply: false }),
+    ];
+
+    await vi.waitFor(() => {
+      expect(resolvers.length).toBe(3);
+    });
+
+    // Release one slot AND immediately start a third batch task synchronously before queued waiter microtask settles
+    const releaseFirst = resolvers.shift()!;
+    releaseFirst();
+    const thirdBatch = runAiBatchTask({ taskId: "batch-3", apply: false });
+
+    while (mocks.complete.mock.calls.length < 12) {
+      const r = resolvers.shift();
+      if (r) r();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(inFlight).toBeLessThanOrEqual(3);
+    }
+
+    await Promise.all([...firstTwo, thirdBatch]);
+    expect(peakInFlight).toBe(3);
   });
 });

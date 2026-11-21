@@ -23,6 +23,35 @@ function parseExcludeSelected(value: unknown) {
   return value
 }
 
+async function parseOptionalJsonObject(request: Request) {
+  const raw = await request.text()
+  if (!raw.trim()) {
+    return {}
+  }
+
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(raw)
+  } catch {
+    throw new ValidationError("Invalid JSON body")
+  }
+
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new ValidationError("Invalid JSON body")
+  }
+
+  return parsed as Record<string, unknown>
+}
+
+function parsePayloadDays(value: unknown) {
+  if (value == null || value === "") return 7
+  if (typeof value === "string" || typeof value === "number") {
+    return parseDays(String(value))
+  }
+
+  throw new ValidationError("Invalid days")
+}
+
 async function GETHandler(request: Request) {
   try {
     await requireAdminSession()
@@ -38,9 +67,8 @@ async function GETHandler(request: Request) {
 async function POSTHandler(request: Request) {
   try {
     await requireAdminSession()
-    const body = await request.json().catch(() => ({}))
-    const payload = body as { days?: unknown; excludeSelected?: unknown }
-    const days = typeof payload.days === "string" || typeof payload.days === "number" ? parseDays(String(payload.days)) : 7
+    const payload = (await parseOptionalJsonObject(request)) as { days?: unknown; excludeSelected?: unknown }
+    const days = parsePayloadDays(payload.days)
     const data = await materializeTopicsFromRecentCandidates({
       days,
       excludeSelected: parseExcludeSelected(payload.excludeSelected),
