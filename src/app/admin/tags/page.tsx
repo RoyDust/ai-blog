@@ -25,9 +25,10 @@ function toURLSearchParams(searchParams: SearchParams | undefined) {
 export default async function AdminTagsRedirectPage({
   searchParams,
 }: {
-  searchParams?: SearchParams;
-}) {
-  const params = toURLSearchParams(searchParams);
+  searchParams?: Promise<SearchParams> | SearchParams;
+} = {}) {
+  const resolvedSearchParams = await Promise.resolve(searchParams);
+  const params = toURLSearchParams(resolvedSearchParams);
   params.set("tab", "tags");
   redirect(`/admin/taxonomy?${params.toString()}`);
 }

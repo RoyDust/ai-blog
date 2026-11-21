@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { motion, useReducedMotion } from "motion/react";
 import { editorialEase } from "@/components/editorial";
 import { AdminHeader } from "./AdminHeader";
-import { AdminSider } from "./AdminSider";
+import { AdminMobileDrawer, AdminSider } from "./AdminSider";
 import { AdminLayoutProvider, useAdminLayout } from "./AdminLayoutContext";
 import { AdminTabsBar } from "./AdminTabsBar";
 
@@ -99,6 +99,7 @@ function AdminLayoutContent({ children, siteName, user }: { children: ReactNode;
           </main>
         </div>
       </div>
+      <AdminMobileDrawer pathname={pathname} siteName={siteName} user={user} />
     </div>
   );
 }
