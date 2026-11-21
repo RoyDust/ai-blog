@@ -2,19 +2,21 @@ import { NextResponse } from "next/server";
 
 import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 import { toErrorResponse, TooManyRequestsError, ValidationError } from "@/lib/api-errors";
-import { extractNewsletterRequestToken, unsubscribe } from "@/lib/newsletter";
+import { extractNewsletterUnsubscribeToken, unsubscribe } from "@/lib/newsletter";
 import { checkInteractionRateLimit } from "@/lib/rate-limit";
 
 async function GETHandler(request: Request) {
   try {
     const requestUrl = new URL(request.url);
     const token = requestUrl.searchParams.get("token")?.trim();
-    const targetUrl = new URL("/newsletter/unsubscribe", requestUrl.origin);
-    if (token) {
-      targetUrl.searchParams.set("token", token);
-    }
+    const location = token
+      ? `/newsletter/unsubscribe?token=${encodeURIComponent(token)}`
+      : "/newsletter/unsubscribe";
 
-    return NextResponse.redirect(targetUrl, 302);
+    return new NextResponse(null, {
+      status: 302,
+      headers: { Location: location },
+    });
   } catch (error) {
     return toErrorResponse(error, "Newsletter unsubscribe failed");
   }
@@ -27,17 +29,20 @@ async function POSTHandler(request: Request) {
       throw new TooManyRequestsError();
     }
 
-    const token = await extractNewsletterRequestToken(request);
+    const token = await extractNewsletterUnsubscribeToken(request);
     if (!token) {
       throw new ValidationError("Token is required");
     }
 
     const subscriber = await unsubscribe(token);
+    if (!subscriber) {
+      throw new ValidationError("退订链接无效或已失效");
+    }
 
     return NextResponse.json({
       success: true,
       data: {
-        unsubscribed: Boolean(subscriber),
+        unsubscribed: true,
       },
     });
   } catch (error) {

@@ -11,7 +11,7 @@ import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 import { NextResponse } from "next/server"
 import { toErrorResponse, TooManyRequestsError, ValidationError } from "@/lib/api-errors"
 import { checkAiSearchRateLimit, checkSearchRateLimit } from "@/lib/rate-limit"
-import { searchPublicPosts, type PublicSearchPost } from "@/lib/public-search"
+import { searchPublicPosts, toPlainTextSearchSnippet, type PublicSearchPost } from "@/lib/public-search"
 import { getAiModelForCapability } from "@/lib/ai-models"
 import { createCompletionClientForModel } from "@/lib/ai-completion-client"
 import { clampPagination } from "@/lib/validation"
@@ -286,6 +286,10 @@ async function GETHandler(request: Request) {
       title: item.title,
       slug: item.slug,
       excerpt: item.excerpt ?? null,
+      snippet:
+        toPlainTextSearchSnippet(
+          item.snippet ?? (item.excerpt?.trim() ? item.excerpt : item.contentSnippet),
+        ) ?? null,
       coverImage: item.coverImage ?? null,
       ...(item.featured !== undefined ? { featured: item.featured } : {}),
       createdAt: item.createdAt,

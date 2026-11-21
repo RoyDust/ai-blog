@@ -1,6 +1,6 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 
-import { ValidationError } from "@/lib/api-errors";
+import { isPrismaConflictError, ValidationError } from "@/lib/api-errors";
 import { prisma } from "@/lib/prisma";
 
 export const NEWSLETTER_STATUS_PENDING = "pending";
@@ -37,6 +37,7 @@ type NewsletterSubscriberDelegate = {
   findMany(args: unknown): Promise<NewsletterSubscriber[]>;
   create(args: unknown): Promise<NewsletterSubscriber>;
   update(args: unknown): Promise<NewsletterSubscriber>;
+  updateMany?(args: unknown): Promise<{ count: number }>;
 };
 
 type PrismaWithNewsletter = typeof prisma & {
@@ -69,6 +70,18 @@ function normalizeToken(token: unknown) {
   }
 
   return normalized;
+}
+
+function hasOneClickUnsubscribeMarker(entries: Iterable<[string, FormDataEntryValue | string]>): boolean {
+  for (const [key, value] of entries) {
+    if (key.trim().toLowerCase() === "list-unsubscribe" && typeof value === "string") {
+      if (value.trim().toLowerCase() === "one-click") {
+        return true;
+      }
+    }
+  }
+
+  return false;
 }
 
 export async function extractNewsletterRequestToken(request: Request): Promise<string> {
@@ -104,6 +117,49 @@ export async function extractNewsletterRequestToken(request: Request): Promise<s
 
   const bodyToken = new URLSearchParams(trimmedBody).get("token")?.trim();
   return bodyToken || urlToken;
+}
+
+export async function extractNewsletterUnsubscribeToken(request: Request): Promise<string> {
+  const urlToken = new URL(request.url).searchParams.get("token")?.trim() ?? "";
+  const contentType = request.headers.get("content-type")?.toLowerCase() ?? "";
+
+  if (contentType.includes("multipart/form-data")) {
+    const formData = await request.formData().catch(() => null);
+    if (!formData) {
+      return "";
+    }
+    const formToken = formData.get("token");
+    if (typeof formToken === "string" && formToken.trim()) {
+      return formToken.trim();
+    }
+    return hasOneClickUnsubscribeMarker(formData.entries()) ? urlToken : "";
+  }
+
+  const rawBody = await request.text().catch(() => "");
+  const trimmedBody = rawBody.trim();
+  if (!trimmedBody) {
+    return "";
+  }
+
+  if (contentType.includes("application/json") || trimmedBody.startsWith("{")) {
+    try {
+      const parsed = JSON.parse(trimmedBody) as { token?: unknown };
+      if (typeof parsed?.token === "string" && parsed.token.trim()) {
+        return parsed.token.trim();
+      }
+    } catch {
+      return "";
+    }
+    return "";
+  }
+
+  const params = new URLSearchParams(trimmedBody);
+  const bodyToken = params.get("token")?.trim();
+  if (bodyToken) {
+    return bodyToken;
+  }
+
+  return hasOneClickUnsubscribeMarker(params.entries()) ? urlToken : "";
 }
 
 function createVerificationToken() {
@@ -173,15 +229,41 @@ export async function subscribe(email: string, requestContext: NewsletterRequest
   void requestContext;
 
   if (!existing) {
-    return client.create({
-      data: {
-        email: normalizedEmail,
-        status: NEWSLETTER_STATUS_PENDING,
-        verificationToken: createVerificationToken(),
-        verifiedAt: null,
-        unsubscribedAt: null,
-      },
-    });
+    try {
+      return await client.create({
+        data: {
+          email: normalizedEmail,
+          status: NEWSLETTER_STATUS_PENDING,
+          verificationToken: createVerificationToken(),
+          verifiedAt: null,
+          unsubscribedAt: null,
+        },
+      });
+    } catch (error) {
+      if (!isPrismaConflictError(error)) {
+        throw error;
+      }
+
+      const raced = await client.findUnique({ where: { email: normalizedEmail } });
+      if (!raced) {
+        throw error;
+      }
+
+      if (raced.status === NEWSLETTER_STATUS_UNSUBSCRIBED || raced.unsubscribedAt) {
+        return client.update({
+          where: { id: raced.id },
+          data: {
+            status: NEWSLETTER_STATUS_PENDING,
+            verificationToken: createVerificationToken(),
+            verifiedAt: null,
+            unsubscribedAt: null,
+            updatedAt: new Date(),
+          },
+        });
+      }
+
+      return raced;
+    }
   }
 
   if (
@@ -217,9 +299,58 @@ export async function verify(token: string, now: Date = new Date()) {
     return subscriber;
   }
 
+  if (subscriber.status !== NEWSLETTER_STATUS_PENDING) {
+    return null;
+  }
+
   const issuedAt = subscriber.updatedAt ?? subscriber.createdAt;
-  if (issuedAt instanceof Date && now.getTime() - issuedAt.getTime() > NEWSLETTER_VERIFICATION_TTL_MS) {
+  const ttlCutoff = issuedAt instanceof Date ? new Date(now.getTime() - NEWSLETTER_VERIFICATION_TTL_MS) : null;
+  if (issuedAt instanceof Date && ttlCutoff && issuedAt.getTime() < ttlCutoff.getTime()) {
     throw new ValidationError("验证链接已过期，请重新提交订阅申请");
+  }
+
+  if (typeof client.updateMany === "function") {
+    const updated = await client.updateMany({
+      where: {
+        id: subscriber.id,
+        verificationToken,
+        status: NEWSLETTER_STATUS_PENDING,
+        unsubscribedAt: null,
+        ...(ttlCutoff
+          ? {
+              OR: [
+                { updatedAt: { gte: ttlCutoff } },
+                { createdAt: { gte: ttlCutoff } },
+              ],
+            }
+          : {}),
+      },
+      data: {
+        status: NEWSLETTER_STATUS_VERIFIED,
+        verificationToken: null,
+        verifiedAt: now,
+        unsubscribedAt: null,
+      },
+    });
+
+    if (updated.count === 0) {
+      return null;
+    }
+
+    const refreshed = await client.findUnique({ where: { id: subscriber.id } });
+    if (refreshed && (refreshed.status === NEWSLETTER_STATUS_UNSUBSCRIBED || refreshed.unsubscribedAt)) {
+      return null;
+    }
+
+    return (
+      refreshed ?? {
+        ...subscriber,
+        status: NEWSLETTER_STATUS_VERIFIED,
+        verificationToken: null,
+        verifiedAt: now,
+        unsubscribedAt: null,
+      }
+    );
   }
 
   return client.update({

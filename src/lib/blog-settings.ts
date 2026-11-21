@@ -288,6 +288,7 @@ function normalizeCards(value: unknown, fallback: AboutPageCard[], label: string
 
 function normalizeProfileSettings(value: unknown, fallback: PublicProfileContent): PublicProfileContent {
   const record = typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
+  const email = normalizeOptionalEmail(record.email, fallback.email ?? "", "公开联系邮箱");
 
   return {
     subtitle: normalizeText(record.subtitle, fallback.subtitle, "作者副标题", MAX_SHORT_TEXT_LENGTH),
@@ -296,6 +297,7 @@ function normalizeProfileSettings(value: unknown, fallback: PublicProfileContent
     intro: normalizeText(record.intro, fallback.intro, "作者介绍"),
     githubUrl: normalizeOptionalUrl(record.githubUrl, fallback.githubUrl),
     twitterUrl: normalizeOptionalUrl(record.twitterUrl, fallback.twitterUrl),
+    ...(email ? { email } : {}),
   };
 }
 
@@ -332,7 +334,16 @@ function normalizeReadingSettings(value: unknown, fallback: ReadingSettings): Re
 }
 
 function normalizeOptionalEmail(value: unknown, fallback: string, label: string) {
-  const email = typeof value === "string" ? value.trim().toLowerCase() : fallback;
+  if (value !== undefined && value !== null && typeof value !== "string") {
+    throw new ValidationError(`${label}必须是有效邮箱`);
+  }
+
+  const email =
+    typeof value === "string"
+      ? value.trim().toLowerCase()
+      : value === null
+        ? ""
+        : fallback.trim().toLowerCase();
   if (!email) {
     return "";
   }
@@ -413,11 +424,22 @@ function readStoredBlogSettings(value: unknown) {
 }
 
 function hasRawSettingsReader(client: unknown): client is RawSettingsReader {
-  return typeof (client as { $queryRawUnsafe?: unknown }).$queryRawUnsafe === "function";
+  return typeof client === "object" && client !== null && typeof (client as { $queryRawUnsafe?: unknown }).$queryRawUnsafe === "function";
 }
 
 function hasRawSettingsWriter(client: unknown): client is RawSettingsWriter {
-  return typeof (client as { $executeRawUnsafe?: unknown }).$executeRawUnsafe === "function";
+  return typeof client === "object" && client !== null && typeof (client as { $executeRawUnsafe?: unknown }).$executeRawUnsafe === "function";
+}
+
+type TransactionalSettingsClient = RawSettingsReader & {
+  $transaction: <T>(fn: (tx: unknown) => Promise<T>) => Promise<T>;
+};
+
+function hasSettingsTransaction(client: unknown): client is TransactionalSettingsClient {
+  return (
+    hasRawSettingsReader(client) &&
+    typeof (client as { $transaction?: unknown }).$transaction === "function"
+  );
 }
 
 class UnavailableBlogSettingsReaderError extends Error {
@@ -469,27 +491,85 @@ async function readBlogSettingsFromStorage(): Promise<BlogSettings> {
  */
 export const getBlogSettings: () => Promise<BlogSettings> = cache(readBlogSettingsFromStorage);
 
-export async function updateBlogSettings(input: unknown): Promise<BlogSettings> {
-  const currentSettings = await getBlogSettings();
-  const settings = normalizeBlogSettingsInput(input, currentSettings);
-  const client = prisma;
-
-  if (!hasRawSettingsWriter(client)) {
+async function persistBlogSettingsWithStore(
+  store: unknown,
+  input: unknown,
+  options: { lockRow: boolean },
+): Promise<BlogSettings> {
+  if (!hasRawSettingsReader(store)) {
     throw new ApiError(503, "博客配置持久化不可用，请检查数据库客户端配置");
   }
 
-  await client.$executeRawUnsafe(
-    `
-      INSERT INTO "system_settings" ("key", "value", "updatedAt")
-      VALUES ($1, $2::jsonb, CURRENT_TIMESTAMP)
-      ON CONFLICT ("key")
-      DO UPDATE SET "value" = $2::jsonb, "updatedAt" = CURRENT_TIMESTAMP
-    `,
-    BLOG_SITE_SETTING_KEY,
-    JSON.stringify(settings),
-  );
+  let rows: StoredSetting[];
+  try {
+    const query = options.lockRow
+      ? 'SELECT "value" FROM "system_settings" WHERE "key" = $1 FOR UPDATE'
+      : 'SELECT "value" FROM "system_settings" WHERE "key" = $1 LIMIT 1';
+    rows = await store.$queryRawUnsafe<StoredSetting[]>(query, BLOG_SITE_SETTING_KEY);
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw error;
+    }
+    throw new ApiError(503, "博客配置读取失败，已中止写入以保护现有配置");
+  }
+
+  if (!Array.isArray(rows)) {
+    throw new ApiError(503, "博客配置读取失败，已中止写入以保护现有配置");
+  }
+
+  const setting = rows[0] ?? null;
+  const currentSettings = setting ? readStoredBlogSettings(setting.value) : getDefaultBlogSettings();
+  const settings = normalizeBlogSettingsInput(input, currentSettings);
+
+  if (!hasRawSettingsWriter(store)) {
+    throw new ApiError(503, "博客配置持久化不可用，请检查数据库客户端配置");
+  }
+
+  try {
+    await store.$executeRawUnsafe(
+      `
+        INSERT INTO "system_settings" ("key", "value", "updatedAt")
+        VALUES ($1, $2::jsonb, CURRENT_TIMESTAMP)
+        ON CONFLICT ("key")
+        DO UPDATE SET "value" = $2::jsonb, "updatedAt" = CURRENT_TIMESTAMP
+      `,
+      BLOG_SITE_SETTING_KEY,
+      JSON.stringify(settings),
+    );
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw error;
+    }
+    throw new ApiError(503, "博客配置持久化失败，请稍后重试");
+  }
 
   return settings;
+}
+
+export async function updateBlogSettings(input: unknown): Promise<BlogSettings> {
+  if (typeof input !== "object" || input === null) {
+    throw new ValidationError("博客配置格式无效");
+  }
+
+  const client = prisma;
+  if (!hasRawSettingsReader(client)) {
+    throw new ApiError(503, "博客配置持久化不可用，请检查数据库客户端配置");
+  }
+
+  if (hasSettingsTransaction(client)) {
+    try {
+      return await client.$transaction(async (tx) =>
+        persistBlogSettingsWithStore(tx, input, { lockRow: true }),
+      );
+    } catch (error) {
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      throw new ApiError(503, "博客配置持久化失败，请稍后重试");
+    }
+  }
+
+  return persistBlogSettingsWithStore(client, input, { lockRow: false });
 }
 
 export function toOpenGraphLocale(locale: string) {

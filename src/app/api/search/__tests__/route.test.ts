@@ -478,6 +478,9 @@ describe('GET /api/search', () => {
     const item = payload.data[0]
     expect(item).not.toHaveProperty('content')
     expect(item).not.toHaveProperty('contentSnippet')
+    expect(typeof item.snippet).toBe('string')
+    expect(item.snippet.length).toBeLessThanOrEqual(160)
+    expect(item.snippet).toContain('前缀上下文-')
     for (const forbiddenField of [
       'authorId',
       'summaryError',

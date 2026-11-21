@@ -60,6 +60,25 @@ test('falls back to body snippet when excerpt is missing', () => {
   expect(container).toHaveTextContent('React 搜索体验可以通过结果摘要')
 })
 
+test('falls back to bounded public API snippet when both excerpt and full content are absent', () => {
+  const { container, getByText } = render(
+    <SearchResultCard
+      post={{
+        ...basePost,
+        excerpt: null,
+        content: undefined,
+        snippet: '这是接口裁剪后返回的正文预览片段，用于在缺失摘要时直接展示核心上下文。',
+      }}
+      query="正文预览"
+    />,
+  )
+
+  expect(getByText('正文片段')).toBeInTheDocument()
+  expect(container).toHaveTextContent('这是接口裁剪后返回的正文预览片段')
+  expect(container).not.toHaveTextContent('暂无内容')
+  expect(container.querySelectorAll('mark').length).toBeGreaterThan(0)
+})
+
 test('centers body snippet around matched keyword instead of the document start', () => {
   const longContent =
     '这是一段很长的开场内容，用来模拟正文前部没有命中关键词的情况。'.repeat(8) +

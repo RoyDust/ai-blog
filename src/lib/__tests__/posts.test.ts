@@ -185,6 +185,10 @@ describe('getPublishedPostsPage', () => {
       featured: true,
       createdAt: true,
       viewCount: true,
+      category: {
+        where: { deletedAt: null },
+        select: { id: true, name: true, slug: true },
+      },
       tags: {
         where: { deletedAt: null },
         select: { id: true, name: true, slug: true },
@@ -228,5 +232,36 @@ describe('getPublishedPostsPage', () => {
       ],
       take: 5,
     })
+  })
+
+  test('maps soft-deleted categories to null on public post cards', async () => {
+    const { getPublishedPostsPage } = await import('../posts')
+    findMany.mockResolvedValueOnce([
+      {
+        id: 'p-soft-cat',
+        title: 'Post with soft-deleted category',
+        slug: 'post-soft-cat',
+        generatedByAiNews: false,
+        excerpt: 'summary',
+        coverImage: null,
+        featured: false,
+        createdAt: new Date('2026-05-10T00:00:00.000Z'),
+        readingTimeMinutes: 4,
+        viewCount: 10,
+        author: { id: 'u1', name: 'Ada', image: null },
+        category: {
+          id: 'c-del',
+          name: 'Deleted Category',
+          slug: 'deleted-category',
+          deletedAt: new Date('2026-05-11T00:00:00.000Z'),
+        },
+        tags: [],
+        _count: { comments: 0, likes: 0 },
+      },
+    ])
+    count.mockResolvedValueOnce(1)
+
+    const result = await getPublishedPostsPage({ page: 1, limit: 10 })
+    expect(result.posts[0]?.category).toBeNull()
   })
 })
