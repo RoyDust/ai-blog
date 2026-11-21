@@ -2,7 +2,7 @@
 
 import NextLink from "next/link";
 import { useSession } from "next-auth/react";
-import { ArrowRight, BarChart3, Folder, Github, Link2, Mail, Tags, Target } from "lucide-react";
+import { ArrowRight, Github, Link2, Mail } from "lucide-react";
 import useSWR from "swr";
 import { PopularPostsWidget, type PopularPost } from "@/components/blog/PopularPostsWidget";
 import { FallbackImage } from "@/components/ui";
@@ -42,7 +42,6 @@ type ReadingStatsResponse = {
   data?: UserReadingStats | null;
 };
 
-const categoryDotColors = ["var(--accent-sky)", "var(--accent-warm)", "var(--accent-cyan)", "var(--text-faint)"];
 const emptyCategoriesResponse: ApiListResponse<CategoryItem> = { success: true, data: [] };
 const emptyTagsResponse: ApiListResponse<TagItem> = { success: true, data: [] };
 const emptyPopularPostsResponse: ApiListResponse<PopularPost> = { success: true, data: [] };
@@ -50,13 +49,10 @@ const emptyReadingStatsResponse: ReadingStatsResponse = { success: true, data: n
 
 function SidebarCategorySkeleton() {
   return (
-    <div aria-hidden="true" className="space-y-2" data-testid="sidebar-categories-skeleton">
+    <div aria-hidden="true" className="space-y-1.5" data-testid="sidebar-categories-skeleton">
       {Array.from({ length: 4 }).map((_, index) => (
-        <div className="flex items-center justify-between gap-3 px-1.5 py-1.5" key={index}>
-          <span className="flex min-w-0 flex-1 items-center gap-2">
-            <span className="h-2 w-2 shrink-0 rounded-full reader-skeleton" />
-            <span className="h-3.5 w-24 rounded-md reader-skeleton" />
-          </span>
+        <div className="flex h-8.5 items-center justify-between gap-3 px-1" key={index}>
+          <span className="h-3.5 w-24 rounded-md reader-skeleton" />
           <span className="h-5 w-7 shrink-0 rounded-md reader-skeleton" />
         </div>
       ))}
@@ -66,10 +62,10 @@ function SidebarCategorySkeleton() {
 
 function SidebarTagsSkeleton() {
   return (
-    <div aria-hidden="true" className="flex max-h-[7rem] flex-wrap gap-2 overflow-hidden pb-2" data-testid="sidebar-tags-skeleton">
+    <div aria-hidden="true" className="flex max-h-[7rem] flex-wrap gap-1.5 overflow-hidden pb-2" data-testid="sidebar-tags-skeleton">
       {Array.from({ length: 10 }).map((_, index) => (
         <span
-          className="h-[1.2rem] rounded-md reader-skeleton"
+          className="h-[1.35rem] rounded-md reader-skeleton"
           key={index}
           style={{ width: `${2.5 + (index % 4) * 0.65}rem` }}
         />
@@ -125,37 +121,41 @@ export function Sidebar({
     <aside id="sidebar" className="onload-animation h-full w-full">
       <div
         data-testid="sidebar-taxonomy-rail"
-        className="reader-scrollbar-hidden sticky space-y-3 overflow-y-auto pr-1 transition-[top,max-height,transform,box-shadow] duration-300 ease-out will-change-[top,transform]"
+        className="reader-scrollbar-hidden sticky space-y-3.5 overflow-y-auto pr-1 transition-[top,max-height,transform,box-shadow] duration-300 ease-out will-change-[top,transform]"
         style={{
           top: "calc(var(--sidebar-sticky-top, 0px) + 0.75rem)",
           maxHeight: "calc(100vh - var(--sidebar-sticky-top, 0px) - 1.75rem)",
         }}
       >
         <section aria-label="作者资料" className="reader-panel reader-panel--floating p-4 text-center">
-          <div className="mx-auto mb-3 flex h-20 w-20 items-center justify-center rounded-full border border-[var(--reader-border-strong)] bg-[color:color-mix(in_oklab,var(--accent-sky)_18%,var(--reader-panel-elevated))] text-xl font-bold text-[var(--foreground)] shadow-[var(--reader-shadow)]">
+          <div className="mx-auto mb-2.5 flex h-[5.125rem] w-[5.125rem] items-center justify-center overflow-hidden rounded-2xl bg-[var(--reader-panel-muted)] text-lg font-bold text-[var(--foreground)] ring-1 ring-[var(--reader-border)]">
             {profile.avatar ? (
-              <FallbackImage alt={profile.name} className="rounded-full object-cover" height={80} loading="eager" src={profile.avatar} width={80} />
+              <FallbackImage
+                alt={profile.name}
+                className="h-full w-full rounded-2xl object-cover"
+                height={82}
+                loading="eager"
+                src={profile.avatar}
+                width={82}
+              />
             ) : (
               profile.initials
             )}
           </div>
 
-          <div className="space-y-2.5">
-            <div>
-              <h2 className="text-xl font-extrabold text-[var(--foreground)]">{profile.name}</h2>
-              <p className="mt-1 text-xs font-medium leading-5 text-[var(--text-body)]">{profile.subtitle}</p>
-            </div>
+          <h2 className="text-[1.0625rem] font-bold leading-snug text-[var(--foreground)]">{profile.name}</h2>
+          <div aria-hidden="true" className="mx-auto my-2 h-1 w-5 rounded-full bg-[var(--brand)]" />
+          <p className="mx-auto line-clamp-3 px-1 text-xs leading-relaxed text-[var(--text-muted)]">{profile.bio}</p>
 
-            <p className="mx-auto max-w-[11rem] text-xs leading-6 text-[var(--text-muted)]">{profile.bio}</p>
-
-            <div className="flex justify-center gap-2 pt-1">
+          {profile.links.length > 0 ? (
+            <div className="mt-3 flex justify-center gap-2">
               {profile.links.map((link) => {
                 const Icon = linkIcons[link.kind];
                 return (
                   <a
                     key={link.name}
                     aria-label={link.name}
-                    className="reader-icon-btn h-8 w-8"
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--btn-regular-bg)] text-[var(--btn-content)] transition-colors hover:bg-[var(--btn-regular-bg-hover)]"
                     href={link.url}
                     rel="noopener noreferrer"
                     target="_blank"
@@ -165,92 +165,87 @@ export function Sidebar({
                 );
               })}
             </div>
-          </div>
+          ) : null}
         </section>
 
-        <section aria-busy={isTaxonomyLoading} className="reader-panel p-4" aria-labelledby="sidebar-categories-title">
-          <div className="mb-3 flex items-center justify-between gap-3">
+        <section aria-busy={isTaxonomyLoading} className="reader-panel px-4 py-3.5" aria-labelledby="sidebar-categories-title">
+          <div className="mb-2.5 flex items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-2">
-              <span className="h-4 w-1 rounded-full bg-[var(--accent-sky)]" aria-hidden="true" />
-              <Folder className="h-4 w-4 text-[var(--text-body)]" aria-hidden="true" />
-              <h3 id="sidebar-categories-title" className="font-bold text-[var(--foreground)]">
+              <span className="h-3.5 w-[3.5px] shrink-0 rounded-full bg-[var(--brand)]" aria-hidden="true" />
+              <h3 id="sidebar-categories-title" className="text-sm font-bold text-[var(--foreground)]">
                 分类
               </h3>
             </div>
             <NextLink
               aria-label="查看更多分类"
-              className="reader-link inline-flex shrink-0 items-center gap-1 text-xs font-bold"
+              className="reader-link inline-flex shrink-0 items-center gap-0.5 text-xs font-semibold"
               href="/categories"
             >
               更多分类
-              <ArrowRight aria-hidden="true" className="h-3.5 w-3.5" />
+              <ArrowRight aria-hidden="true" className="h-3 w-3" />
             </NextLink>
           </div>
 
           {isTaxonomyLoading ? (
             <SidebarCategorySkeleton />
           ) : topCategories.length > 0 ? (
-            <div className="space-y-1.5">
-              {topCategories.map((category, index) => (
+            <div className="space-y-0.5">
+              {topCategories.map((category) => (
                 <NextLink
                   key={category.id}
-                  className="group flex items-center justify-between gap-3 rounded-lg px-1.5 py-1.5 text-sm transition hover:bg-[color:color-mix(in_oklab,var(--reader-panel-elevated)_68%,transparent)]"
+                  className="group -mx-2 flex h-8.5 items-center justify-between gap-3 rounded-lg px-2 text-[0.8125rem] text-[var(--text-body)] transition-colors hover:bg-[var(--btn-regular-bg)] hover:text-[var(--btn-content)]"
                   href={`/categories/${category.slug}`}
                 >
-                  <span className="flex min-w-0 items-center gap-2">
-                    <span
-                      className="h-2 w-2 shrink-0 rounded-full"
-                      style={{ background: categoryDotColors[index % categoryDotColors.length] }}
-                    />
-                    <span className="truncate text-[var(--text-body)] transition group-hover:text-[var(--foreground)]">{category.name}</span>
+                  <span className="truncate font-medium transition-colors group-hover:text-[var(--btn-content)]">
+                    {category.name}
                   </span>
-                  <span className="shrink-0 rounded-md bg-[color:color-mix(in_oklab,var(--foreground)_7%,transparent)] px-2 py-0.5 text-xs font-semibold tabular-nums text-[var(--text-muted)]">{category._count?.posts ?? 0}</span>
+                  <span className="shrink-0 rounded-md bg-[var(--btn-regular-bg)] px-1.5 py-0.5 font-mono text-[0.6875rem] font-bold tabular-nums text-[var(--btn-content)]">
+                    {category._count?.posts ?? 0}
+                  </span>
                 </NextLink>
               ))}
             </div>
           ) : (
-            <p className="rounded-xl border border-dashed border-[var(--reader-border)] p-3 text-sm leading-6 text-[var(--text-body)]">
+            <p className="rounded-lg bg-[var(--reader-panel-muted)] px-3 py-2 text-xs leading-5 text-[var(--text-muted)]">
               分类还在整理中。
             </p>
           )}
         </section>
 
-        <section aria-busy={isTaxonomyLoading} className="reader-panel p-4" aria-labelledby="sidebar-tags-title">
-          <div className="mb-3 flex items-center justify-between gap-3">
+        <section aria-busy={isTaxonomyLoading} className="reader-panel px-4 py-3.5" aria-labelledby="sidebar-tags-title">
+          <div className="mb-2.5 flex items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-2">
-              <span className="h-4 w-1 rounded-full bg-[var(--accent-sky)]" aria-hidden="true" />
-              <Tags className="h-4 w-4 text-[var(--text-body)]" aria-hidden="true" />
-              <h3 id="sidebar-tags-title" className="font-bold text-[var(--foreground)]">
+              <span className="h-3.5 w-[3.5px] shrink-0 rounded-full bg-[var(--brand)]" aria-hidden="true" />
+              <h3 id="sidebar-tags-title" className="text-sm font-bold text-[var(--foreground)]">
                 标签
               </h3>
             </div>
             <NextLink
               aria-label="查看更多标签"
-              className="reader-link inline-flex shrink-0 items-center gap-1 text-xs font-bold"
+              className="reader-link inline-flex shrink-0 items-center gap-0.5 text-xs font-semibold"
               href="/tags"
             >
               更多标签
-              <ArrowRight aria-hidden="true" className="h-3.5 w-3.5" />
+              <ArrowRight aria-hidden="true" className="h-3 w-3" />
             </NextLink>
           </div>
 
           {isTaxonomyLoading ? (
             <SidebarTagsSkeleton />
           ) : topTags.length > 0 ? (
-            <div className="flex max-h-[7rem] flex-wrap gap-2 overflow-hidden pb-2" data-testid="sidebar-tags-list">
+            <div className="flex max-h-[7rem] flex-wrap gap-1.5 overflow-hidden pb-2" data-testid="sidebar-tags-list">
               {topTags.map((tag) => (
                 <NextLink
                   key={tag.id}
-                  className="reader-chip whitespace-nowrap rounded-md px-2 py-1 text-[0.7rem]"
+                  className="reader-chip whitespace-nowrap rounded-md px-2 py-1 text-[0.72rem]"
                   href={`/tags/${tag.slug}`}
-                  style={tag.color ? { borderColor: tag.color } : undefined}
                 >
                   {tag.name}
                 </NextLink>
               ))}
             </div>
           ) : (
-            <p className="rounded-xl border border-dashed border-[var(--reader-border)] p-3 text-sm leading-6 text-[var(--text-body)]">
+            <p className="rounded-lg bg-[var(--reader-panel-muted)] px-3 py-2 text-xs leading-5 text-[var(--text-muted)]">
               标签还在整理中。
             </p>
           )}
@@ -260,53 +255,55 @@ export function Sidebar({
 
         {displayedReadingStats ? (
           <>
-            <section className="reader-panel p-5" aria-labelledby="sidebar-reading-stats-title">
-              <div className="mb-4 flex items-center gap-2">
-                <BarChart3 className="h-5 w-5 text-[var(--accent-cyan)]" aria-hidden="true" />
-                <h3 id="sidebar-reading-stats-title" className="font-bold text-[var(--foreground)]">
+            <section className="reader-panel px-4 py-3.5" aria-labelledby="sidebar-reading-stats-title">
+              <div className="mb-3 flex items-center gap-2">
+                <span className="h-3.5 w-[3.5px] shrink-0 rounded-full bg-[var(--brand)]" aria-hidden="true" />
+                <h3 id="sidebar-reading-stats-title" className="text-sm font-bold text-[var(--foreground)]">
                   阅读统计
                 </h3>
               </div>
 
               <div className="grid grid-cols-3 divide-x divide-[var(--reader-border)] text-center tabular-nums">
                 <div>
-                  <p className="text-xs text-[var(--text-muted)]">文章数</p>
-                  <p className="mt-1 text-2xl font-bold text-[var(--foreground)]">{displayedReadingStats.totalArticles}</p>
+                  <p className="text-[0.6875rem] text-[var(--text-muted)]">文章数</p>
+                  <p className="mt-0.5 font-mono text-lg font-bold text-[var(--foreground)]">{displayedReadingStats.totalArticles}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-[var(--text-muted)]">阅读时长</p>
-                  <p className="mt-1 text-2xl font-bold text-[var(--foreground)]">
+                  <p className="text-[0.6875rem] text-[var(--text-muted)]">阅读时长</p>
+                  <p className="mt-0.5 font-mono text-lg font-bold text-[var(--foreground)]">
                     {formatReadingTime(displayedReadingStats.totalReadingMinutes)}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-[var(--text-muted)]">连续阅读</p>
-                  <p className="mt-1 text-2xl font-bold text-[var(--foreground)]">{displayedReadingStats.streakDays}天</p>
+                  <p className="text-[0.6875rem] text-[var(--text-muted)]">连续阅读</p>
+                  <p className="mt-0.5 font-mono text-lg font-bold text-[var(--foreground)]">{displayedReadingStats.streakDays}天</p>
                 </div>
               </div>
             </section>
 
-            <section className="reader-panel p-5" aria-labelledby="sidebar-monthly-goal-title">
-              <div className="mb-4 flex items-center gap-2">
-                <Target className="h-5 w-5 text-[var(--accent-sky)]" aria-hidden="true" />
-                <h3 id="sidebar-monthly-goal-title" className="text-sm font-medium text-[var(--text-body)]">
+            <section className="reader-panel px-4 py-3.5" aria-labelledby="sidebar-monthly-goal-title">
+              <div className="mb-2.5 flex items-center gap-2">
+                <span className="h-3.5 w-[3.5px] shrink-0 rounded-full bg-[var(--brand)]" aria-hidden="true" />
+                <h3 id="sidebar-monthly-goal-title" className="text-sm font-bold text-[var(--foreground)]">
                   本月阅读目标
                 </h3>
               </div>
 
-              <div className="flex items-end justify-between gap-4">
-                <p className="text-2xl font-bold text-[var(--foreground)]">
+              <div className="flex items-baseline justify-between gap-4">
+                <p className="font-mono text-lg font-bold tabular-nums text-[var(--foreground)]">
                   {displayedReadingStats.monthlyRead}
-                  <span className="text-base font-medium text-[var(--text-muted)]">
+                  <span className="font-sans text-xs font-medium text-[var(--text-muted)]">
                     {" "}
                     / {displayedReadingStats.monthlyGoal} 篇
                   </span>
                 </p>
-                <span className="text-xs font-semibold text-[var(--text-muted)]">{displayedReadingStats.monthlyProgress}%</span>
+                <span className="font-mono text-xs font-semibold tabular-nums text-[var(--brand)]">
+                  {displayedReadingStats.monthlyProgress}%
+                </span>
               </div>
-              <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[color:color-mix(in_oklab,var(--foreground)_10%,transparent)]">
+              <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-[var(--btn-regular-bg)]">
                 <div
-                  className="h-full rounded-full bg-[var(--accent-sky)]"
+                  className="h-full rounded-full bg-[var(--brand)]"
                   style={{ width: `${displayedReadingStats.monthlyProgress}%` }}
                 />
               </div>

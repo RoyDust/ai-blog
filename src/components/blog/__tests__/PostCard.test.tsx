@@ -43,7 +43,7 @@ describe("PostCard", () => {
 
     const card = screen.getByRole("article");
     expect(card.className).toContain("reader-feed-card");
-    expect(card.className).toContain("md:grid-cols-[12rem_minmax(0,1fr)_2rem]");
+    expect(card.className).toContain("md:grid-cols-[minmax(0,1fr)_13rem]");
     expect(screen.getByLabelText("继续阅读 Post with cover")).toHaveAttribute("href", "/posts/post-with-cover");
     expect(screen.getByText("Excerpt").className).toContain("line-clamp-2");
     expect(imageMock.mock.calls[0]?.[0].sizes).toBe("(min-width: 1800px) 14rem, (max-width: 768px) 100vw, 11rem");
@@ -75,9 +75,11 @@ describe("PostCard", () => {
     const card = screen.getByRole("article");
     expect(card.className).toContain("reader-feed-card");
     expect(card.className).toContain("post-card--text-only");
-    expect(card.className).not.toContain("md:grid-cols-[10.75rem_minmax(0,1fr)_2.25rem]");
+    expect(card.className).toContain("md:grid-cols-[minmax(0,1fr)_3rem]");
     expect(screen.queryByLabelText("阅读 Post without cover")).not.toBeInTheDocument();
-    expect(screen.getByTestId("post-card-text-accent")).toBeInTheDocument();
+    expect(screen.queryByText("夜读札记")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("继续阅读 Post without cover")).toHaveAttribute("href", "/posts/post-without-cover");
+    expect(screen.getByLabelText("继续阅读 Post without cover").className).toContain("reader-card-action");
     expect(imageMock).not.toHaveBeenCalled();
   });
 });

@@ -90,7 +90,7 @@ function SearchItem({
       onSelect={() => onSelect(href)}
       className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-left outline-none transition-colors data-[selected=true]:bg-[var(--surface-alt)]"
     >
-      <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--success-surface)] text-[var(--brand)]">
+      <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--btn-regular-bg)] text-[var(--brand)]">
         <Icon className="h-4 w-4" aria-hidden="true" />
       </span>
       <span className="min-w-0 flex-1">
@@ -204,11 +204,11 @@ export function AdminGlobalSearch() {
         <button
           type="button"
           aria-label="打开后台全局搜索"
-          className="ui-ring relative h-11 min-w-0 flex-1 rounded-lg border border-[var(--border)] bg-[var(--surface)] pl-12 pr-16 text-left text-sm text-[var(--muted)] outline-none transition-colors hover:border-[var(--brand)] hover:text-[var(--foreground)] focus-visible:ring-2 focus-visible:ring-[var(--ring)] lg:max-w-[420px]"
+          className="ui-ring relative h-8 min-w-0 flex-1 rounded-[var(--radius-control)] bg-[var(--surface-alt)] pl-9 pr-14 text-left text-xs text-[var(--muted)] outline-none transition-colors hover:text-[var(--foreground)] focus-visible:ring-2 focus-visible:ring-[var(--ring)] lg:max-w-[360px]"
         >
-          <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[var(--muted)]" aria-hidden="true" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--muted)]" aria-hidden="true" />
           <span className="block truncate">搜索文章、评论、功能...</span>
-          <kbd className="pointer-events-none absolute right-3 top-1/2 hidden -translate-y-1/2 rounded-md border border-[var(--border)] px-2 py-1 text-xs font-medium text-[var(--muted)] sm:block">
+          <kbd className="pointer-events-none absolute right-2 top-1/2 hidden -translate-y-1/2 rounded bg-[var(--surface)] px-1.5 py-0.5 font-mono text-[11px] font-medium text-[var(--muted)] sm:block">
             {shortcutLabel}
           </kbd>
         </button>

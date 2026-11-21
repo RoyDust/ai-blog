@@ -21,6 +21,11 @@ const themeInitScript = `
 
     document.documentElement.classList.toggle("dark", theme === "dark");
     document.documentElement.style.colorScheme = theme;
+
+    var hue = window.localStorage.getItem("theme-hue");
+    if (hue && /^\\d{1,3}$/.test(hue)) {
+      document.documentElement.style.setProperty("--hue", hue);
+    }
   } catch (_) {
     document.documentElement.classList.add("dark");
     document.documentElement.style.colorScheme = "dark";

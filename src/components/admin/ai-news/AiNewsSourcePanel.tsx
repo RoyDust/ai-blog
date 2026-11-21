@@ -118,8 +118,8 @@ export function AiNewsSourcePanel({
       className="border border-[var(--border)]"
     >
       <div className="space-y-4">
-        {message ? <div role="status" className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{message}</div> : null}
-        {error ? <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
+        {message ? <div role="status" className="ui-status-success rounded-xl px-3.5 py-2.5 text-xs">{message}</div> : null}
+        {error ? <div role="alert" className="ui-alert-danger rounded-xl px-3.5 py-2.5 text-xs">{error}</div> : null}
 
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
           <div className="flex flex-wrap gap-2">

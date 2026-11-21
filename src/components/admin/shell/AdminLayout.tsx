@@ -59,7 +59,7 @@ function AdminLayoutContent({ children, siteName, user }: { children: ReactNode;
       <div className={gridClassName} data-layout-sidebar-width={isCollapsed ? "64" : "224"} data-testid="admin-layout-grid">
         <AdminSider pathname={pathname} siteName={siteName} user={user} />
         <div className={layoutContentClassName} data-testid="admin-layout-content">
-          <AdminHeader />
+          <AdminHeader siteName={siteName} />
           <AdminTabsBar />
           <main className={mainClassName} data-content-max-width="full" data-testid="admin-layout-main">
             <div className={contentClassName}>{children}</div>

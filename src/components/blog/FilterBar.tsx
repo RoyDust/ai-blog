@@ -40,8 +40,10 @@ function buildFilterHref({
 
 const allCategoryValue = "__all_categories__";
 const allTagValue = "__all_tags__";
-const filterSelectTriggerClassName = "h-10 w-full rounded-xl border-[var(--reader-border)] bg-[var(--reader-panel-elevated)] px-3 text-sm text-[var(--foreground)] shadow-none";
-const filterSelectContentClassName = "rounded-xl border-[var(--reader-border)] bg-[var(--reader-panel-elevated)] text-[var(--foreground)]";
+const filterSelectTriggerClassName =
+  "h-9 w-full rounded-xl border-[var(--reader-border)] bg-[color:color-mix(in_oklab,var(--surface-alt)_52%,var(--card-bg)_48%)] px-3 text-sm text-[var(--foreground)] shadow-none";
+const filterSelectContentClassName =
+  "rounded-xl border-[var(--reader-border)] bg-[var(--float-panel-bg)] text-[var(--foreground)]";
 
 export function FilterBar({ search, category, tag, categories, tags }: FilterBarProps) {
   const initialCategory = category || allCategoryValue;
@@ -111,17 +113,17 @@ function FilterBarForm({
             ))}
           </SelectContent>
         </Select>
-        <button className="ui-btn h-10 whitespace-nowrap rounded-xl bg-[var(--primary)] px-4 text-sm font-semibold text-white" type="submit">
+        <button className="ui-btn h-9 shrink-0 whitespace-nowrap rounded-xl bg-[var(--btn-regular-bg)] px-4 text-sm font-semibold text-[var(--btn-content)] transition hover:bg-[var(--btn-regular-bg-hover)]" type="submit">
           应用筛选
         </button>
       </div>
 
       {hasActiveFilters ? (
-        <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-[var(--reader-border)] pt-3">
+        <div className="mt-2.5 flex flex-wrap items-center gap-2 border-t border-dashed border-[var(--line-color)] pt-2.5">
           {search ? <Link className="ui-chip" href={buildFilterHref({ category: categoryValue, tag: tagValue })}>关键词: {search}</Link> : null}
           {categoryValue ? <Link className="ui-chip" href={buildFilterHref({ search, tag: tagValue })}>分类: {categoryValue}</Link> : null}
           {tagValue ? <Link className="ui-chip" href={buildFilterHref({ search, category: categoryValue })}>标签: {tagValue}</Link> : null}
-          <Link className="text-sm font-medium text-[var(--brand)]" href="/posts">清空筛选</Link>
+          <Link className="text-xs font-semibold text-[var(--brand)] hover:text-[var(--brand-strong)]" href="/posts">清空筛选</Link>
         </div>
       ) : null}
     </form>

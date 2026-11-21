@@ -30,9 +30,9 @@ export function buildContactMailto(to: string, data: ContactFormValues) {
 }
 
 const readerInputClassName =
-  "ui-ring w-full rounded-xl border border-[var(--reader-border)] bg-[var(--reader-panel-elevated)] px-4 py-2.5 text-sm text-[var(--foreground)] placeholder:text-[var(--text-faint)] focus-visible:ring-2 focus-visible:ring-[var(--ring)]";
+  "ui-ring w-full rounded-xl border border-[var(--reader-border)] bg-[color:color-mix(in_oklab,var(--surface-alt)_52%,var(--card-bg)_48%)] px-3.5 py-2.5 text-sm text-[var(--foreground)] placeholder:text-[var(--text-faint)] focus-visible:ring-2 focus-visible:ring-[var(--ring)]";
 const readerLabelClassName = "text-sm font-medium text-[var(--foreground)]";
-const readerMessageClassName = "text-xs text-rose-500";
+const readerMessageClassName = "text-xs text-[var(--danger-foreground)]";
 
 export function ContactForm() {
   const form = useForm<ContactFormValues>({
@@ -129,9 +129,9 @@ export function ContactForm() {
               </FormLabel>
               <FormControl>
                 <textarea
-                  className="ui-ring min-h-40 w-full resize-y rounded-xl border border-[var(--reader-border)] bg-[var(--reader-panel-elevated)] px-4 py-3 text-sm leading-6 text-[var(--foreground)] placeholder:text-[var(--text-faint)] focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+                  className="ui-ring min-h-36 w-full resize-y rounded-xl border border-[var(--reader-border)] bg-[color:color-mix(in_oklab,var(--surface-alt)_52%,var(--card-bg)_48%)] px-3.5 py-3 text-sm leading-6 text-[var(--foreground)] placeholder:text-[var(--text-faint)] focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
                   placeholder="详细描述..."
-                  rows={6}
+                  rows={5}
                   {...field}
                 />
               </FormControl>
@@ -141,7 +141,7 @@ export function ContactForm() {
         />
 
         <button
-          className="inline-flex h-11 items-center justify-center rounded-full bg-[var(--accent-sky)] px-6 text-sm font-semibold text-white transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-50"
+          className="ui-btn inline-flex h-10 shrink-0 items-center justify-center whitespace-nowrap rounded-xl bg-[var(--brand)] px-5 text-sm font-semibold text-white transition hover:bg-[var(--brand-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-50"
           disabled={form.formState.isSubmitting}
           type="submit"
         >

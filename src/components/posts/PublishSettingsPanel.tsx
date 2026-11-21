@@ -124,14 +124,14 @@ export function PublishSettingsPanel({
         </p>
       </div>
 
-      <label className="flex items-center justify-between gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface-alt)] px-3 py-2 text-sm">
+      <label className="flex items-center justify-between gap-3 rounded-xl bg-[var(--surface-alt)]/75 px-3 py-2 text-xs font-medium">
         <span className="text-[var(--foreground)]">允许评论</span>
         <input type="checkbox" disabled className="h-4 w-4 rounded border-[var(--border)]" />
       </label>
       <p className="text-xs text-[var(--muted)]">静态开关，当前文章接口没有评论开关字段。</p>
 
-      <div className="space-y-2 rounded-xl border border-[var(--border)] bg-[var(--surface-alt)] p-3 text-sm text-[var(--muted)]">
-        <p>永久链接：{slug ? `/posts/${slug}` : "未生成"}</p>
+      <div className="space-y-1.5 rounded-xl bg-[var(--surface-alt)]/75 p-3 text-xs leading-5 text-[var(--muted)]">
+        <p className="font-mono">永久链接：{slug ? `/posts/${slug}` : "未生成"}</p>
         <p>分类：{categories.find((category) => category.id === categoryId)?.name ?? "未选择"}</p>
         <p>标签：{tagCount > 0 ? `${tagCount} 个` : "未选择"}</p>
         <p>系列：{series.find((item) => item.id === seriesId)?.title ?? "未选择"}</p>

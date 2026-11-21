@@ -155,7 +155,6 @@ function EmptyPanelMessage({ children }: { children: React.ReactNode }) {
 function DashboardMetric({
   label,
   value,
-  icon: Icon,
   hint,
 }: {
   label: string;
@@ -163,35 +162,13 @@ function DashboardMetric({
   icon?: React.ComponentType<{ className?: string; "aria-hidden"?: boolean }>;
   hint?: string;
 }) {
-  let FinalIcon = Icon;
-  if (!FinalIcon) {
-    if (label.includes("PV") || label.includes("访问")) {
-      FinalIcon = Eye;
-    } else if (label.includes("UV")) {
-      FinalIcon = ThumbsUp;
-    } else {
-      FinalIcon = Eye;
-    }
-  }
-
   return (
-    <div className="relative overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4 shadow-sm transition-colors duration-200 hover:border-[var(--border-strong)]">
-      <div className="flex items-center justify-between">
-        <dt className="text-xs font-semibold text-[var(--muted)]">
-          {label}
-        </dt>
-        <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] text-[var(--brand)]">
-          {FinalIcon ? <FinalIcon className="h-4.5 w-4.5" aria-hidden /> : null}
-        </span>
-      </div>
-      <dd className="mt-2 text-2xl font-bold tracking-tight text-[var(--foreground)] font-mono">
+    <div className="relative overflow-hidden rounded-lg bg-[var(--surface-alt)]/75 px-3.5 py-3 transition-colors duration-150">
+      <dt className="text-xs font-medium text-[var(--muted)]">{label}</dt>
+      <dd className="mt-1 font-mono text-xl font-bold tracking-tight tabular-nums text-[var(--foreground)]">
         {typeof value === "number" ? value.toLocaleString("zh-CN") : value}
       </dd>
-      {hint ? (
-        <p className="mt-2 text-xs font-medium text-[var(--muted)] border-t border-[var(--border)] pt-1.5">
-          {hint}
-        </p>
-      ) : null}
+      {hint ? <p className="mt-1 text-[11px] text-[var(--muted)]">{hint}</p> : null}
     </div>
   );
 }
@@ -219,36 +196,50 @@ function DashboardHealthMetrics({ comparison }: { comparison: DashboardStatsWith
       label: "7 日发布数",
       value: formatMetricValue(comparison.metrics.publishedPosts, { unit: "篇" }),
       delta: formatDelta(comparison.deltas.publishedPosts, { unit: "篇" }),
+      rawDelta: comparison.deltas.publishedPosts,
     },
     {
       label: "阅读时长",
       value: formatMetricValue(comparison.metrics.readingMinutes, { unit: "分钟" }),
       delta: formatDelta(comparison.deltas.readingMinutes, { unit: "分钟" }),
+      rawDelta: comparison.deltas.readingMinutes,
     },
     {
       label: "互动率",
       value: formatMetricValue(comparison.metrics.engagementRate, { percent: true }),
       delta: formatDelta(comparison.deltas.engagementRate, { percent: true }),
+      rawDelta: comparison.deltas.engagementRate,
     },
     {
       label: "订阅净增",
       value: formatMetricValue(comparison.metrics.subscribers, { unit: "人" }),
       delta: formatDelta(comparison.deltas.subscribers, { unit: "人" }),
+      rawDelta: comparison.deltas.subscribers,
     },
   ];
 
   return (
-    <section aria-label="内容健康指标" className="rounded-lg bg-[var(--surface)] px-4 py-4">
-      <dl className="grid grid-cols-1 divide-y divide-[var(--border)] sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-4">
-        {metrics.map((metric, index) => (
+    <section aria-label="内容健康指标">
+      <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {metrics.map((metric) => (
           <div
             key={metric.label}
             aria-label={`${metric.label} ${metric.value}，${metric.delta}`}
-            className={`${index === 0 ? "sm:pl-0" : ""} px-0 py-3 first:pt-0 last:pb-0 sm:px-5 sm:py-1`}
+            className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3.5 shadow-[var(--shadow-card)]"
           >
-            <dt className="text-xs font-semibold text-[var(--muted)]">{metric.label}</dt>
-            <dd className="mt-1 font-mono text-2xl font-bold tabular-nums text-[var(--foreground)]">{metric.value}</dd>
-            <p className="mt-1 text-xs text-[var(--muted)]">{metric.delta}</p>
+            <dt className="text-xs font-medium text-[var(--muted)]">{metric.label}</dt>
+            <dd className="mt-1.5 font-mono text-2xl font-bold tabular-nums text-[var(--foreground)]">{metric.value}</dd>
+            <p
+              className={`mt-1 text-xs ${
+                metric.rawDelta > 0
+                  ? "text-[var(--success-foreground)]"
+                  : metric.rawDelta < 0
+                    ? "text-[var(--danger-foreground)]"
+                    : "text-[var(--muted)]"
+              }`}
+            >
+              {metric.delta}
+            </p>
           </div>
         ))}
       </dl>

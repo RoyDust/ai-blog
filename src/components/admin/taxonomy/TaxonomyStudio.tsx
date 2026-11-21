@@ -50,8 +50,8 @@ function TabButton({
 }) {
   return (
     <button
-      className={`rounded-full px-4 py-2 text-sm font-medium transition ${
-        active ? "bg-[var(--foreground)] text-[var(--background)]" : "text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]"
+      className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold transition ${
+        active ? "bg-[var(--btn-regular-bg)] text-[var(--btn-content)]" : "text-[var(--muted)] hover:bg-[var(--surface-alt)] hover:text-[var(--foreground)]"
       }`}
       type="button"
       aria-pressed={active}
@@ -83,7 +83,7 @@ export function TaxonomyStudio() {
     <div className="space-y-4">
       <PageHeader eyebrow="内容" title="分类与标签" description="统一维护分类结构与标签归类。" />
 
-      <div className="ui-surface flex flex-wrap items-center gap-2 rounded-full p-2">
+      <div className="inline-flex flex-wrap items-center gap-1 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-1.5 shadow-[var(--shadow-card)]">
         <TabButton active={activeTab === "categories"} label="分类" onClick={() => goToTab("categories")} />
         <TabButton active={activeTab === "tags"} label="标签" onClick={() => goToTab("tags")} />
       </div>

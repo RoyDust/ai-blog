@@ -9,15 +9,15 @@ interface PageHeaderProps {
 
 export function PageHeader({ title, description, action, eyebrow }: PageHeaderProps) {
   return (
-    <div className="flex flex-col gap-0 rounded-lg bg-[var(--surface)] p-5 border-none shadow-none">
+    <div className="flex flex-col gap-0 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-5 py-4 shadow-[var(--shadow-card)]">
       <section>
-        <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            {eyebrow ? <p className="text-xs uppercase tracking-[0.22em] text-[var(--muted)]">{eyebrow}</p> : null}
-            <h1 className="mt-1 font-display text-3xl font-extrabold text-[var(--foreground)]">{title}</h1>
-            {description ? <p className="mt-2 max-w-3xl text-sm text-[var(--muted)]">{description}</p> : null}
+            {eyebrow ? <p className="text-xs font-semibold text-[var(--brand)]">{eyebrow}</p> : null}
+            <h1 className="font-display text-xl font-bold tracking-tight text-[var(--foreground)]">{title}</h1>
+            {description ? <p className="mt-1 max-w-3xl text-xs leading-5 text-[var(--muted)]">{description}</p> : null}
           </div>
-          {action ? <div className="flex items-center gap-2">{action}</div> : null}
+          {action ? <div className="flex flex-wrap items-center gap-2">{action}</div> : null}
         </div>
       </section>
     </div>

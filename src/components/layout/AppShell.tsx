@@ -25,7 +25,7 @@ export function AppShell({ children, profile, readingStats, siteDescription, sit
       </a>
       <Navbar siteName={siteName} />
       <div className="flex flex-1 flex-col">
-        <div className="reader-layout-frame relative z-10 mx-auto flex w-full max-w-[var(--page-width)] flex-1 flex-col gap-6 px-4 pb-8 pt-[var(--reader-page-top)] xl:flex-row xl:gap-[var(--layout-rail-gap)]">
+        <div className="reader-layout-frame relative z-10 mx-auto flex w-full max-w-[var(--page-width)] flex-1 flex-col gap-4 px-3 pb-5 pt-[var(--reader-page-top)] sm:px-4 xl:flex-row xl:items-start xl:gap-[var(--layout-rail-gap)]">
           <div data-testid="sidebar-rail" className="reader-side-rail hidden xl:block xl:w-[var(--rail-width)] xl:shrink-0">
             <Sidebar profile={profile} readingStats={readingStats} />
           </div>
@@ -37,7 +37,7 @@ export function AppShell({ children, profile, readingStats, siteDescription, sit
             </PageTransition>
           </main>
         </div>
-        <div className="relative z-10 mx-auto w-full max-w-[var(--page-width)] px-4 pb-8">
+        <div className="relative z-10 mx-auto w-full max-w-[var(--page-width)] px-3 pb-6 sm:px-4">
           <Footer siteDescription={siteDescription} siteName={siteName} />
         </div>
       </div>

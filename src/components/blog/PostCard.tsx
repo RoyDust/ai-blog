@@ -44,22 +44,83 @@ export function PostCard({ post }: PostCardProps) {
   return (
     <article
       className={cn(
-        "reader-feed-card group min-w-0 p-5 md:p-6",
+        "reader-feed-card group grid min-w-0 grid-cols-1 md:items-stretch",
         hasCover
-          ? "grid gap-6 md:min-h-[12.5rem] md:grid-cols-[12rem_minmax(0,1fr)_2rem] md:items-stretch md:p-4"
-          : "post-card--text-only grid gap-4 p-6 md:p-8",
+          ? "md:grid-cols-[minmax(0,1fr)_13rem]"
+          : "post-card--text-only md:grid-cols-[minmax(0,1fr)_3rem]",
       )}
     >
+      <div className="flex min-w-0 flex-col justify-between gap-2.5 p-4 sm:px-5 sm:py-4">
+        <div className="space-y-1.5">
+          <Link href={`/posts/${post.slug}`} className="block min-w-0">
+            <h3
+              className="text-90 line-clamp-2 text-[1.0625rem] font-bold leading-snug transition-colors group-hover:text-[var(--brand)] md:text-[1.125rem]"
+              style={{ viewTransitionName: getPostViewTransitionName("title", post.slug) }}
+            >
+              {post.title}
+            </h3>
+          </Link>
+
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            {post.featured ? (
+              <span className="reader-chip rounded-md border-accent-warm-34 bg-accent-warm-14 px-2 py-0.5 text-[0.7rem] text-accent-warm-78">
+                精选
+              </span>
+            ) : null}
+
+            <PostMeta
+              category={post.category}
+              hideTagsForMobile={true}
+              hideUpdateDate={true}
+              publishedAt={post.createdAt}
+              tags={post.tags}
+              variant="compact"
+            />
+          </div>
+
+          <p className="text-75 line-clamp-2 text-[0.84375rem] leading-relaxed">{post.excerpt ?? "暂无摘要"}</p>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-3 font-mono text-xs tabular-nums text-[var(--text-faint)]">
+            <span className="inline-flex items-center gap-1.5">
+              <MessageCircle aria-hidden="true" className="h-3.5 w-3.5" />
+              {post._count.comments} 评论
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <Heart aria-hidden="true" className="h-3.5 w-3.5" />
+              {post._count.likes} 点赞
+            </span>
+            {(post.viewCount ?? 0) > 0 ? (
+              <span className="inline-flex items-center gap-1.5">
+                <Eye aria-hidden="true" className="h-3.5 w-3.5" />
+                {post.viewCount} 阅读
+              </span>
+            ) : null}
+          </div>
+
+          {hasCover ? (
+            <Link
+              href={`/posts/${post.slug}`}
+              aria-label={`继续阅读 ${post.title}`}
+              className="reader-card-action sr-only"
+            >
+              <ChevronRight aria-hidden="true" className="h-4 w-4" />
+            </Link>
+          ) : null}
+        </div>
+      </div>
+
       {hasCover ? (
         <Link
           href={`/posts/${post.slug}`}
           aria-label={`阅读 ${post.title}`}
-          className="theme-media relative aspect-[1.55] overflow-hidden rounded-xl md:h-full md:aspect-auto shadow-sm"
+          className="theme-media relative mx-3 mb-3 aspect-[1.55] overflow-hidden rounded-xl md:m-2.5 md:ml-0 md:h-auto md:min-h-[8.75rem] md:aspect-auto"
           style={{ viewTransitionName: getPostViewTransitionName("cover", post.slug) }}
         >
           <FallbackImage
             alt={post.title}
-            className="theme-media-image object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+            className="theme-media-image object-cover transition-transform duration-500 group-hover:scale-[1.03]"
             fill
             loading="lazy"
             placeholder="blur"
@@ -71,67 +132,14 @@ export function PostCard({ post }: PostCardProps) {
           />
         </Link>
       ) : (
-        <div className="post-card-text-accent" data-testid="post-card-text-accent">
-          <span className="post-card-text-accent-label">夜读札记</span>
-        </div>
-      )}
-
-      <div className="min-w-0 self-center space-y-2.5">
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
-          {post.featured ? (
-            <span className="reader-chip border-accent-warm-34 bg-accent-warm-14 text-accent-warm-78">
-              精选
-            </span>
-          ) : null}
-
-          <PostMeta
-            category={post.category}
-            hideTagsForMobile={true}
-            hideUpdateDate={true}
-            publishedAt={post.createdAt}
-            tags={post.tags}
-            variant="compact"
-          />
-        </div>
-
-        <Link href={`/posts/${post.slug}`} className="block min-w-0">
-          <h3
-            className="text-90 line-clamp-2 text-lg font-semibold leading-snug transition-colors group-hover:text-accent-sky-82 md:text-xl"
-            style={{ viewTransitionName: getPostViewTransitionName("title", post.slug) }}
-          >
-            {post.title}
-          </h3>
-        </Link>
-
-        <p className="text-75 line-clamp-2 text-sm leading-6">{post.excerpt ?? "暂无摘要"}</p>
-
-        <div className="flex flex-wrap items-center gap-3 text-xs tabular-nums text-[var(--text-faint)] opacity-75">
-          <span className="inline-flex items-center gap-1.5">
-            <MessageCircle aria-hidden="true" className="h-3.5 w-3.5" />
-            {post._count.comments} 评论
-          </span>
-          <span className="inline-flex items-center gap-1.5">
-            <Heart aria-hidden="true" className="h-3.5 w-3.5" />
-            {post._count.likes} 点赞
-          </span>
-          {(post.viewCount ?? 0) > 0 ? (
-            <span className="inline-flex items-center gap-1.5">
-              <Eye aria-hidden="true" className="h-3.5 w-3.5" />
-              {post.viewCount} 阅读
-            </span>
-          ) : null}
-        </div>
-      </div>
-
-      {hasCover ? (
         <Link
           href={`/posts/${post.slug}`}
           aria-label={`继续阅读 ${post.title}`}
-          className="reader-card-action hidden self-stretch justify-self-end md:inline-flex"
+          className="reader-card-action m-2.5 ml-0 hidden w-auto self-stretch md:inline-flex"
         >
-          <ChevronRight aria-hidden="true" className="h-5 w-5" />
+          <ChevronRight aria-hidden="true" className="h-[1.125rem] w-[1.125rem]" />
         </Link>
-      ) : null}
+      )}
     </article>
   );
 }

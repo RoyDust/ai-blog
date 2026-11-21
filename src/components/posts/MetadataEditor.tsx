@@ -113,19 +113,19 @@ export function MetadataEditor({
   onSeoDescriptionChange,
 }: MetadataEditorProps) {
   return (
-    <div className="space-y-4">
-      {metadataError ? <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{metadataError}</p> : null}
+    <div className="space-y-3.5">
+      {metadataError ? <p className="ui-alert-danger rounded-xl px-3 py-2 text-xs">{metadataError}</p> : null}
 
-      <div className="rounded-2xl border border-[color-mix(in_oklab,var(--brand)_18%,var(--border)_82%)] bg-[color-mix(in_oklab,var(--brand)_5%,var(--surface)_95%)] p-3">
-        <div className="flex flex-col gap-3">
-          <div className="min-w-0 space-y-1">
-            <p className="text-sm font-semibold text-[var(--foreground)]">一键 AI 生成信息</p>
+      <div className="rounded-xl bg-[var(--surface-alt)]/75 p-3">
+        <div className="flex flex-col gap-2.5">
+          <div className="min-w-0 space-y-0.5">
+            <p className="text-xs font-bold text-[var(--foreground)]">一键 AI 生成信息</p>
             <p className="text-xs leading-5 text-[var(--muted)]">保留标题和正文，覆盖 Slug、摘要、SEO、分类和标签。</p>
           </div>
           <Button
             type="button"
             size="sm"
-            className="w-full"
+            className="w-full whitespace-nowrap"
             disabled={isCompletingMetadata || !hasContent}
             onClick={onGenerateAll}
           >
@@ -137,7 +137,7 @@ export function MetadataEditor({
             {isGeneratingAllMetadata ? "生成中..." : "一键 AI 生成"}
           </Button>
           {canUseAiWorkspace ? (
-            <Button type="button" size="sm" variant="outline" className="w-full" onClick={onOpenAiWorkspace}>
+            <Button type="button" size="sm" variant="outline" className="w-full whitespace-nowrap" onClick={onOpenAiWorkspace}>
               <Sparkles className="mr-1 h-4 w-4" aria-hidden="true" />
               打开 AI 辅助
             </Button>
@@ -251,8 +251,8 @@ export function MetadataEditor({
         onChange={(event) => onCoverUrlChange(event.target.value)}
       />
 
-      <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-alt)] p-4">
-        <div className="flex flex-wrap items-center gap-3">
+      <div className="rounded-xl bg-[var(--surface-alt)]/75 p-3.5">
+        <div className="flex flex-wrap items-center gap-2.5">
           <input
             ref={coverInputRef}
             accept="image/*"
@@ -261,7 +261,7 @@ export function MetadataEditor({
             type="file"
             onChange={onCoverUpload}
           />
-          <Button type="button" size="sm" onClick={onCoverUploadClick} disabled={isCoverUploading}>
+          <Button type="button" size="sm" className="shrink-0 whitespace-nowrap" onClick={onCoverUploadClick} disabled={isCoverUploading}>
             {isCoverUploading ? "上传中..." : "上传并保存到图库"}
           </Button>
           <CoverPicker
@@ -274,9 +274,9 @@ export function MetadataEditor({
             content={formData.content}
             onGenerated={onCoverAssetSelect}
           />
-          <p className="text-sm text-[var(--muted)]">选择图片后自动回填封面地址。</p>
+          <p className="text-xs text-[var(--muted)]">选择图片后自动回填封面地址。</p>
         </div>
-        {coverUploadError ? <p className="mt-2 text-sm text-rose-500">{coverUploadError}</p> : null}
+        {coverUploadError ? <p className="mt-2 text-sm text-[var(--danger-foreground)]">{coverUploadError}</p> : null}
       </div>
       <div className="space-y-2">
         <Input
@@ -293,8 +293,8 @@ export function MetadataEditor({
           value={formData.excerpt}
           onChange={(event) => onExcerptChange(event.target.value)}
         />
-        <p className="text-sm text-[var(--muted)]">基于当前正文生成适合列表页与 SEO 展示的简短摘要。</p>
-        {summaryError ? <p className="text-sm text-rose-500">{summaryError}</p> : null}
+        <p className="text-xs text-[var(--muted)]">基于当前正文生成适合列表页与 SEO 展示的简短摘要。</p>
+        {summaryError ? <p className="text-sm text-[var(--danger-foreground)]">{summaryError}</p> : null}
       </div>
 
       <div className="space-y-2">

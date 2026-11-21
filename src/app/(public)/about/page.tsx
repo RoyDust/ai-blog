@@ -58,41 +58,40 @@ export default async function AboutPage() {
   });
 
   return (
-    <div className="space-y-6">
+    <div className="reader-section">
       <JsonLd data={personJsonLd} />
       {sameAsLinks.map((url) => (
         <link key={url} rel="me" href={url} />
       ))}
-      <section className="card-base onload-animation relative overflow-hidden px-6 py-8 md:px-10 md:py-10">
-        <div className="pointer-events-none absolute top-0 right-0 h-40 w-40 rounded-full bg-[color:color-mix(in_srgb,var(--primary)_10%,transparent)] blur-3xl" />
-        <div className="pointer-events-none absolute bottom-0 left-10 h-24 w-24 rounded-full bg-[color:color-mix(in_srgb,var(--primary)_8%,transparent)] blur-2xl" />
-
-        <div className="grid gap-8 lg:grid-cols-[160px_minmax(0,1fr)] lg:items-start">
+      <section className="reader-panel onload-animation relative overflow-hidden p-6 md:p-8">
+        <div className="grid gap-6 lg:grid-cols-[136px_minmax(0,1fr)] lg:items-start">
           <div
-            className="onload-animation relative h-32 w-32 overflow-hidden rounded-3xl ring-1 ring-black/8 ring-offset-4 ring-offset-[var(--card-bg)] dark:ring-white/10 md:h-40 md:w-40"
+            className="onload-animation relative h-28 w-28 overflow-hidden rounded-2xl bg-[var(--surface-alt)] md:h-34 md:w-34"
             style={{ animationDelay: "80ms" }}
           >
             {profile.avatar ? (
-              <FallbackImage alt={profile.name} className="object-cover" fill priority sizes="160px" src={profile.avatar} />
+              <FallbackImage alt={profile.name} className="object-cover" fill priority sizes="136px" src={profile.avatar} />
             ) : (
-              <div className="flex h-full w-full items-center justify-center bg-[color:color-mix(in_srgb,var(--primary)_12%,transparent)] text-4xl font-bold text-[var(--foreground)]">
+              <div className="flex h-full w-full items-center justify-center bg-[var(--btn-regular-bg)] text-3xl font-bold text-[var(--btn-content)]">
                 {profile.initials}
               </div>
             )}
           </div>
 
-          <div className="space-y-5">
-            <div className="onload-animation space-y-3" style={{ animationDelay: "140ms" }}>
-              <p className="text-50 text-xs font-medium uppercase tracking-[0.32em]">About</p>
-              <div className="space-y-2">
-                <h1 className="text-90 font-display text-3xl font-bold tracking-tight md:text-4xl">{profile.name}</h1>
-                <p className="text-[var(--primary)] text-sm font-medium md:text-base">{profile.tagline}</p>
+          <div className="space-y-4">
+            <div className="onload-animation space-y-2.5" style={{ animationDelay: "140ms" }}>
+              <div className="space-y-1.5">
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <h1 className="text-90 font-display text-2xl font-bold tracking-tight md:text-3xl">{profile.name}</h1>
+                  <span className="h-1 w-5 rounded-full bg-[var(--brand)]" aria-hidden="true" />
+                </div>
+                <p className="text-sm font-medium text-[var(--brand)]">{profile.tagline}</p>
               </div>
-              <p className="text-75 max-w-3xl text-base leading-8 md:text-lg">{profile.bio}</p>
-              <p className="text-75 max-w-3xl text-sm leading-7 md:text-[15px]">{profile.intro}</p>
+              <p className="text-90 max-w-3xl text-[15px] leading-7">{profile.bio}</p>
+              <p className="text-75 max-w-3xl text-sm leading-7">{profile.intro}</p>
             </div>
 
-            <div className="onload-animation flex flex-wrap gap-3" style={{ animationDelay: "200ms" }}>
+            <div className="onload-animation flex flex-wrap gap-2.5" style={{ animationDelay: "200ms" }}>
               {profile.links.map((link) => {
                 const Icon = linkIcons[link.kind];
                 return (
@@ -101,9 +100,9 @@ export default async function AboutPage() {
                     href={link.url}
                     rel={link.url.startsWith("http") ? "noopener noreferrer" : undefined}
                     target={link.url.startsWith("http") ? "_blank" : undefined}
-                    className="btn-regular scale-animation inline-flex h-11 items-center gap-2 rounded-xl px-5"
+                    className="inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl bg-[var(--btn-regular-bg)] px-3.5 text-xs font-semibold text-[var(--btn-content)] transition hover:bg-[var(--btn-regular-bg-hover)]"
                   >
-                    <Icon className="h-4 w-4" />
+                    <Icon className="h-3.5 w-3.5" />
                     {link.name}
                   </Link>
                 );
@@ -113,27 +112,30 @@ export default async function AboutPage() {
         </div>
       </section>
 
-      <section className="onload-animation grid gap-6 lg:grid-cols-[1.15fr_0.85fr]" style={{ animationDelay: "90ms" }}>
-        <div className="card-base p-6 md:p-8">
-          <div className="mb-5 flex items-center gap-2">
-            <BookOpen className="h-5 w-5 text-[var(--primary)]" />
-            <h2 className="text-90 text-2xl font-bold">{about.aboutTitle}</h2>
+      <section className="onload-animation grid gap-4 lg:grid-cols-[1.15fr_0.85fr]" style={{ animationDelay: "90ms" }}>
+        <div className="reader-panel p-5 md:p-6">
+          <div className="mb-3.5 flex items-center gap-2">
+            <BookOpen className="h-4 w-4 text-[var(--brand)]" />
+            <h2 className="text-90 text-lg font-bold">{about.aboutTitle}</h2>
           </div>
-          <div className="space-y-4 text-[15px] leading-8 text-[var(--muted)]">
+          <div className="space-y-3 text-sm leading-7 text-[var(--text-body)]">
             {about.aboutParagraphs.map((paragraph) => (
               <p key={paragraph}>{paragraph}</p>
             ))}
           </div>
         </div>
 
-        <div className="card-base p-6 md:p-8">
-          <div className="mb-5 flex items-center gap-2">
-            <Radio className="h-5 w-5 text-[var(--primary)]" />
-            <h2 className="text-90 text-2xl font-bold">{about.nowTitle}</h2>
+        <div className="reader-panel p-5 md:p-6">
+          <div className="mb-3.5 flex items-center gap-2">
+            <Radio className="h-4 w-4 text-[var(--brand)]" />
+            <h2 className="text-90 text-lg font-bold">{about.nowTitle}</h2>
           </div>
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             {about.nowItems.map((item) => (
-              <div key={item} className="rounded-2xl bg-black/[0.03] px-4 py-4 text-sm leading-7 text-[var(--muted)] dark:bg-white/[0.04]">
+              <div
+                key={item}
+                className="rounded-xl bg-[color:color-mix(in_oklab,var(--surface-alt)_55%,transparent)] px-3.5 py-3 text-sm leading-6 text-[var(--text-body)]"
+              >
                 {item}
               </div>
             ))}
@@ -141,44 +143,44 @@ export default async function AboutPage() {
         </div>
       </section>
 
-      <section className="stagger-children grid gap-4 md:grid-cols-3">
+      <section className="stagger-children grid gap-3.5 md:grid-cols-3">
         {about.highlights.map((item, index) => {
           const Icon = highlightIcons[index % highlightIcons.length];
           return (
             <article
               key={item.title}
-              className="group card-base p-6 transition-all duration-300 hover:-translate-y-1 hover:bg-[var(--btn-card-bg-hover)] hover:shadow-[0_18px_45px_-24px_rgba(15,23,42,0.35)]"
+              className="group reader-card p-5 transition-all duration-300 hover:-translate-y-1 hover:bg-[var(--btn-card-bg-hover)]"
             >
-              <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-[color:color-mix(in_srgb,var(--primary)_12%,transparent)] text-[var(--primary)] transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-3">
-                <Icon className="h-5 w-5" />
+              <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--btn-regular-bg)] text-[var(--btn-content)] transition-transform duration-300 group-hover:scale-105">
+                <Icon className="h-4 w-4" />
               </div>
-              <h3 className="text-90 mb-2 text-lg font-bold transition-colors duration-300 group-hover:text-[var(--primary)]">
+              <h3 className="text-90 mb-1.5 text-base font-bold transition-colors duration-300 group-hover:text-[var(--brand)]">
                 {item.title}
               </h3>
-              <p className="text-75 text-sm leading-7">{item.description}</p>
+              <p className="text-75 text-sm leading-6">{item.description}</p>
             </article>
           );
         })}
       </section>
 
-      <section className="card-base onload-animation p-6 md:p-8" style={{ animationDelay: "140ms" }}>
-        <div className="mb-6 flex items-center gap-2">
-          <Monitor className="h-5 w-5 text-[var(--primary)]" />
-          <h2 className="text-90 text-2xl font-bold">{about.stackTitle}</h2>
+      <section className="reader-panel onload-animation p-5 md:p-6" style={{ animationDelay: "140ms" }}>
+        <div className="mb-4 flex items-center gap-2">
+          <Monitor className="h-4 w-4 text-[var(--brand)]" />
+          <h2 className="text-90 text-lg font-bold">{about.stackTitle}</h2>
         </div>
-        <div className="stagger-children grid gap-4 md:grid-cols-2">
+        <div className="stagger-children grid gap-3 md:grid-cols-2">
           {about.stack.map((item, index) => {
             const Icon = stackIcons[index % stackIcons.length];
             return (
               <div
                 key={item.title}
-                className="group rounded-2xl border border-black/5 bg-black/[0.02] p-5 transition-all duration-300 hover:-translate-y-1 hover:border-[color:color-mix(in_srgb,var(--primary)_22%,transparent)] hover:bg-[color:color-mix(in_srgb,var(--primary)_6%,transparent)] dark:border-white/8 dark:bg-white/[0.03]"
+                className="group rounded-xl bg-[color:color-mix(in_oklab,var(--surface-alt)_52%,transparent)] p-4 transition-all duration-300 hover:-translate-y-1 hover:bg-[var(--btn-regular-bg)]"
               >
-                <h3 className="text-90 mb-2 flex items-center gap-2 font-bold transition-colors duration-300 group-hover:text-[var(--primary)]">
-                  <Icon className="h-5 w-5 text-[var(--primary)] transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                <h3 className="text-90 mb-1.5 flex items-center gap-2 text-sm font-bold transition-colors duration-300 group-hover:text-[var(--brand)]">
+                  <Icon className="h-4 w-4 text-[var(--brand)] transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
                   {item.title}
                 </h3>
-                <p className="text-75 text-sm leading-7">{item.description}</p>
+                <p className="text-75 text-sm leading-6">{item.description}</p>
               </div>
             );
           })}
@@ -186,28 +188,28 @@ export default async function AboutPage() {
       </section>
 
       <section
-        className="card-base onload-animation flex flex-col gap-5 p-6 md:flex-row md:items-center md:justify-between md:p-8"
+        className="reader-panel onload-animation flex flex-col gap-4 p-5 md:flex-row md:items-center md:justify-between md:p-6"
         style={{ animationDelay: "180ms" }}
       >
-        <div className="space-y-2">
-          <h2 className="text-90 text-2xl font-bold">{about.contactTitle}</h2>
-          <p className="text-75 max-w-2xl text-sm leading-7">
+        <div className="space-y-1">
+          <h2 className="text-90 text-lg font-bold">{about.contactTitle}</h2>
+          <p className="text-75 max-w-2xl text-sm leading-6">
             {about.contactDescription}
           </p>
         </div>
-        <div className="flex flex-wrap gap-3">
-          <Link className="btn-plain scale-animation inline-flex h-11 items-center gap-2 rounded-xl px-5" href="/contact">
+        <div className="flex flex-wrap gap-2.5">
+          <Link className="home-primary-cta" href="/contact">
             <Mail className="h-4 w-4" />联系我
           </Link>
           {githubLink ? (
             <Link
-              className="btn-plain scale-animation inline-flex h-11 items-center gap-2 rounded-xl px-5"
+              className="inline-flex h-[2.125rem] shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[0.625rem] bg-[var(--surface-alt)]/75 px-3.5 text-[0.8125rem] font-medium text-[var(--text-body)] transition hover:bg-[var(--btn-plain-bg-hover)] hover:text-[var(--foreground)]"
               href={githubLink.url}
               rel="noopener noreferrer"
               target="_blank"
             >
               <Github className="h-4 w-4" />访问 GitHub
-              <ArrowUpRight className="h-4 w-4" />
+              <ArrowUpRight className="h-3.5 w-3.5" />
             </Link>
           ) : null}
         </div>

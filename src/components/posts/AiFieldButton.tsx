@@ -25,11 +25,11 @@ export function AiFieldButton({
       type="button"
       aria-label={label}
       title={label}
-      className="ui-ring inline-flex h-8 w-8 items-center justify-center rounded-md bg-transparent text-[var(--brand)] transition-colors hover:bg-[var(--surface-alt)] disabled:cursor-not-allowed disabled:opacity-45"
+      className="ui-ring inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--btn-regular-bg)] text-[var(--btn-content)] transition-colors hover:bg-[var(--btn-regular-bg-hover)] disabled:cursor-not-allowed disabled:opacity-45"
       disabled={disabled || loading}
       onClick={onClick}
     >
-      <Icon className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+      <Icon className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
     </button>
   );
 }

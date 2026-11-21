@@ -166,12 +166,12 @@ export function NotificationBell() {
       <DropdownMenuTrigger asChild>
         <button
           aria-label={label}
-          className="relative inline-flex h-11 w-11 items-center justify-center rounded-lg text-[var(--foreground)] transition-colors hover:bg-[var(--surface-alt)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+          className="relative inline-flex h-8 w-8 items-center justify-center rounded-[var(--radius-control)] text-[var(--muted)] transition-colors hover:bg-[var(--surface-alt)] hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
           type="button"
         >
-          <Bell className="h-5 w-5" />
+          <Bell className="h-4 w-4" />
           {unreadCount > 0 ? (
-            <span aria-hidden="true" className="absolute -right-1 -top-1 inline-flex min-w-6 items-center justify-center rounded-full bg-[var(--danger-foreground)] px-1.5 py-0.5 text-xs font-bold leading-none text-[var(--surface)] ring-2 ring-[var(--surface)]">
+            <span aria-hidden="true" className="absolute -right-1 -top-1 inline-flex min-w-5 items-center justify-center rounded-full bg-[var(--danger-foreground)] px-1 py-0.5 font-mono text-[10px] font-bold leading-none text-[var(--surface)] ring-2 ring-[var(--surface)]">
               {formatUnreadCount(unreadCount)}
             </span>
           ) : null}
@@ -184,7 +184,7 @@ export function NotificationBell() {
             <p className="mt-0.5 text-xs text-[var(--muted)]">{unreadCount > 0 ? `${unreadCount} 条未读` : "全部已读"}</p>
           </div>
           <button
-            className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-[var(--brand)] transition-colors hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-xs font-medium text-[var(--brand)] transition-colors hover:bg-[var(--btn-regular-bg)] disabled:cursor-not-allowed disabled:opacity-50"
             disabled={unreadCount === 0}
             onClick={() => void markAllRead()}
             type="button"

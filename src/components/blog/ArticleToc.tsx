@@ -46,26 +46,29 @@ export function ArticleToc({ headings }: ArticleTocProps) {
 
   return (
     <LayoutGroup id="article-toc">
-      <ul className="relative space-y-1.5 before:absolute before:left-1 before:top-2 before:h-[calc(100%-1rem)] before:w-px before:bg-[var(--reader-border)]">
+      <ul className="relative space-y-1 before:absolute before:left-1 before:top-2 before:h-[calc(100%-1rem)] before:w-px before:bg-[var(--line-color)]">
         {headings.map((heading, index) => {
           const isActive = activeId === heading.id;
           return (
             <li className="relative" key={`${heading.id}-${index}`}>
               <Link
-                className="reader-link group flex min-w-0 items-start gap-2 rounded-xl py-1.5 pr-2 text-sm leading-6 text-[var(--text-body)] hover:bg-[color-mix(in_oklab,var(--reader-panel-elevated)_72%,transparent)]"
+                className="reader-link group flex min-w-0 items-start gap-2 rounded-lg py-1 pr-2 text-[13px] leading-5 text-[var(--text-body)] hover:bg-[var(--btn-plain-bg-hover)]"
                 href={`#${heading.id}`}
               >
-                <span className="relative mt-2 flex h-2 w-2 shrink-0 items-center justify-center">
-                  <span className="h-2 w-2 rounded-full border border-[var(--accent-sky)] bg-[var(--reader-panel-elevated)] transition-colors group-hover:bg-[var(--accent-sky)]" />
+                <span className="relative mt-1.5 flex h-2 w-2 shrink-0 items-center justify-center">
+                  <span className="h-1.5 w-1.5 rounded-full bg-[var(--text-faint)] transition-colors group-hover:bg-[var(--brand)]" />
                   {isActive && (
                     <motion.span
                       layoutId="toc-active-dot"
-                      className="absolute inset-0 rounded-full bg-[var(--accent-sky)]"
+                      className="absolute inset-0 rounded-full bg-[var(--brand)]"
                       transition={{ type: "spring", visualDuration: 0.25, bounce: 0.15 }}
                     />
                   )}
                 </span>
-                <span className="min-w-0 break-words" style={{ paddingLeft: `${(heading.level - 1) * 12}px` }}>
+                <span
+                  className={`min-w-0 break-words ${isActive ? "font-semibold text-[var(--brand)]" : ""}`}
+                  style={{ paddingLeft: `${(heading.level - 1) * 12}px` }}
+                >
                   {heading.text}
                 </span>
               </Link>

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, BookOpenText, Hash } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 
 interface TaxonomyDirectoryCardProps {
   href: string;
@@ -11,48 +11,35 @@ interface TaxonomyDirectoryCardProps {
 }
 
 export function TaxonomyDirectoryCard({ href, name, description, count, badge, accent }: TaxonomyDirectoryCardProps) {
-  const isTag = name.trim().startsWith("#");
-  const Icon = isTag ? Hash : BookOpenText;
+  void accent;
 
   return (
-    <article className="group reader-card overflow-hidden p-5 transition-colors md:p-6">
-      <span
-        aria-hidden="true"
-        className="absolute inset-x-0 top-0 h-1 opacity-85"
-        style={{ background: accent ?? "linear-gradient(90deg, var(--accent-warm), var(--accent-cyan))" }}
-      />
-
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0 space-y-4">
-          <div className="flex flex-wrap items-center gap-2">
-            {badge ? <span className="reader-chip">{badge}</span> : null}
-            <span className="text-50 inline-flex items-center gap-1.5 text-xs">
-              <Icon className="h-3.5 w-3.5" />
-              阅读路径
-            </span>
-          </div>
-
-          <div>
-            <Link href={href} className="text-90 block text-2xl font-black leading-tight transition group-hover:text-[var(--accent-warm)]">
+    <article className="group reader-card flex h-full flex-col justify-between gap-3.5 p-5 transition-colors">
+      <div className="space-y-2.5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 space-y-1">
+            {badge ? <span className="text-xs font-medium text-[var(--text-muted)]">{badge}</span> : null}
+            <Link
+              href={href}
+              className="text-90 block truncate text-lg font-bold leading-snug transition-colors group-hover:text-[var(--brand)]"
+            >
               {name}
             </Link>
-            <p className="text-75 mt-3 max-w-2xl text-sm leading-7">
-              {description?.trim() || "围绕这个主题持续阅读、快速回顾相关文章与知识脉络。"}
-            </p>
           </div>
+          <span className="shrink-0 rounded-md bg-[var(--btn-regular-bg)] px-2.5 py-1 font-mono text-xs font-bold tabular-nums text-[var(--btn-content)]">
+            {count} 篇
+          </span>
         </div>
 
-        <div className="shrink-0 rounded-2xl border border-[var(--reader-border)] bg-[color:color-mix(in_oklab,var(--reader-panel-elevated)_76%,transparent)] px-3 py-2 text-right">
-          <div className="text-90 text-lg font-bold">{count}</div>
-          <div className="text-50 text-xs">篇文章</div>
-        </div>
+        <p className="text-75 line-clamp-2 text-sm leading-6">
+          {description?.trim() || "围绕这个主题持续阅读，快速回顾相关文章与知识脉络。"}
+        </p>
       </div>
 
-      <div className="mt-6 flex items-center justify-between gap-3 border-t border-dashed border-[var(--reader-border)] pt-4 text-sm">
-        <span className="text-50">进入专题页继续浏览</span>
-        <Link href={href} className="reader-link inline-flex items-center gap-1 font-semibold">
+      <div className="flex items-center justify-end pt-1">
+        <Link href={href} className="reader-link inline-flex items-center gap-0.5 text-xs font-semibold">
           查看内容
-          <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
+          <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
         </Link>
       </div>
     </article>

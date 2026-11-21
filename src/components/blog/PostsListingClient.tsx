@@ -116,23 +116,23 @@ export function PostsListingClient({ initialPosts, initialPagination, filters }:
           </AnimatePresence>
         </motion.div>
       ) : (
-        <div className="reader-panel p-8 text-sm text-[var(--text-muted)]">暂无文章。</div>
+        <div className="reader-panel p-7 text-sm text-[var(--text-muted)]">暂无文章。</div>
       )}
 
       {!isInitialLoading && isLoading && (
-        <div className="reader-panel px-5 py-4 text-sm text-[var(--text-muted)]">正在加载下一页...</div>
+        <div className="reader-panel px-5 py-3.5 text-sm text-[var(--text-muted)]">正在加载下一页...</div>
       )}
       {error && (
         <div
           role="alert"
-          className="reader-panel border-[var(--danger-border)] px-5 py-4 text-sm text-[var(--danger-foreground)]"
+          className="reader-panel border-[var(--danger-border)] bg-[var(--danger-surface)] px-5 py-3.5 text-sm text-[var(--danger-foreground)]"
         >
           {error}
         </div>
       )}
       {hasNextPage && <div ref={observerTargetRef} aria-hidden="true" className="h-4 w-full" />}
       {!hasNextPage && posts.length > 0 && pagination.totalPages > 1 && (
-        <div className="px-2 py-2 text-center text-sm text-[var(--text-faint)]">已加载全部文章</div>
+        <div className="px-2 py-1.5 text-center text-xs text-[var(--text-faint)]">已加载全部文章</div>
       )}
     </div>
   )

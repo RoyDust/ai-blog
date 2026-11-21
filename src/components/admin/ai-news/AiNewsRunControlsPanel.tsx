@@ -11,7 +11,7 @@ import {
 import type { PublicAiModelOption } from "@/lib/ai-models";
 
 const unavailableModelValue = "__unavailable_model__";
-const adminSelectTriggerClassName = "w-full rounded-2xl border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--foreground)] shadow-none focus:border-[var(--brand)] disabled:cursor-not-allowed disabled:opacity-60";
+const adminSelectTriggerClassName = "w-full rounded-xl border-[var(--border)] bg-[var(--surface-alt)]/60 px-3 py-2 text-sm text-[var(--foreground)] shadow-none focus:border-[var(--brand)] disabled:cursor-not-allowed disabled:opacity-60";
 const adminSelectContentClassName = "rounded-xl border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)]";
 
 function modelStatusLabel(model: PublicAiModelOption) {
@@ -60,7 +60,7 @@ export function AiNewsRunControlsPanel({
             type="date"
             value={date}
             onChange={(event) => onDateChange(event.target.value)}
-            className="w-full rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--brand)]"
+            className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface-alt)]/60 px-3 py-2 text-sm outline-none focus:border-[var(--brand)]"
           />
         </label>
         <label className="space-y-2 text-sm font-medium text-[var(--foreground)]">
@@ -84,7 +84,7 @@ export function AiNewsRunControlsPanel({
             </SelectContent>
           </Select>
         </label>
-        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-muted)] p-4 text-sm text-[var(--muted)]">
+        <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-alt)]/75 p-3.5 text-xs leading-6 text-[var(--muted)]">
           <p>流程：抓取 RSS/Atom/HN/GitHub → URL 去重 → AI 评分筛选 → 生成 Markdown 日报 → 内容增强 → 直接发布。</p>
           <p className="mt-2">同一天使用固定 slug，重复触发不会重复创建文章。</p>
           <p className="mt-2">重新生成会覆盖同日已存在日报内容，并保留原文章链接。</p>

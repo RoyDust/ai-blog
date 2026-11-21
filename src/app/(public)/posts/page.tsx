@@ -77,11 +77,11 @@ export default async function PostsPage({ searchParams }: { searchParams?: Posts
 
   return (
     <div className="reader-section">
-      <section className="reader-panel p-5 md:p-6">
+      <section className="reader-panel px-5 py-5 md:px-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div className="min-w-0 space-y-1.5">
-            <h1 className="text-90 font-display text-3xl font-bold leading-tight tracking-tight md:text-4xl">全部文章</h1>
-            <p className="text-75 text-sm leading-6">按发布时间浏览全部内容，精选文章以主推卡片展示。</p>
+          <div className="min-w-0 space-y-1">
+            <h1 className="text-90 font-display text-2xl font-bold leading-snug tracking-tight md:text-3xl">全部文章</h1>
+            <p className="text-75 text-sm leading-6">按发布时间倒序浏览，支持分类与标签组合筛选。</p>
           </div>
 
           <FilterBar

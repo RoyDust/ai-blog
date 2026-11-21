@@ -101,26 +101,26 @@ export function PublishChecklist({
 
   const aiReviewNode = (
     <>
-      {reviewError ? <p className="mt-3 text-sm text-rose-500">{reviewError}</p> : null}
+      {reviewError ? <p className="mt-3 text-sm text-[var(--danger-foreground)]">{reviewError}</p> : null}
       {review ? (
-        <div className="mt-4 rounded-2xl border border-[var(--border)] bg-[var(--surface-alt)] p-4">
-          <p className="text-sm font-semibold text-[var(--foreground)]">
+        <div className="mt-3.5 rounded-xl bg-[var(--surface-alt)]/75 p-3.5">
+          <p className="text-xs font-bold text-[var(--foreground)]">
             AI 审稿：{getVerdictLabel(review.verdict)} · {review.score} 分
           </p>
-          <p className="mt-2 text-sm leading-6 text-[var(--muted)]">{review.summary}</p>
+          <p className="mt-1.5 text-xs leading-6 text-[var(--muted)]">{review.summary}</p>
           {review.checks.length > 0 ? (
-            <ul className="mt-3 space-y-1.5">
+            <ul className="mt-2.5 space-y-1.5">
               {review.checks.map((item) => (
-                <li key={`${item.label}-${item.detail}`} className="text-sm text-[var(--foreground)]">
+                <li key={`${item.label}-${item.detail}`} className="text-xs text-[var(--foreground)]">
                   {item.label}：{item.detail}
                 </li>
               ))}
             </ul>
           ) : null}
           {review.suggestions.length > 0 ? (
-            <div className="mt-3">
-              <p className="text-sm font-medium text-[var(--foreground)]">修改建议</p>
-              <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-[var(--muted)]">
+            <div className="mt-2.5">
+              <p className="text-xs font-semibold text-[var(--foreground)]">修改建议</p>
+              <ul className="mt-1 list-disc space-y-1 pl-4 text-xs text-[var(--muted)]">
                 {review.suggestions.map((item) => (
                   <li key={item}>{item}</li>
                 ))}
@@ -135,7 +135,7 @@ export function PublishChecklist({
   const reviewButton = (
     <button
       type="button"
-      className="ui-btn ui-ring rounded-xl border border-[var(--border)] px-3 py-1.5 text-sm font-medium text-[var(--foreground)] hover:bg-[var(--surface-alt)] disabled:cursor-not-allowed disabled:opacity-50"
+      className="ui-btn ui-ring shrink-0 whitespace-nowrap rounded-lg bg-[var(--btn-regular-bg)] px-2.5 py-1 text-xs font-semibold text-[var(--btn-content)] hover:bg-[var(--btn-regular-bg-hover)] disabled:cursor-not-allowed disabled:opacity-50"
       disabled={isReviewing || !title.trim() || !slug.trim() || !content.trim()}
       onClick={handleReview}
     >
@@ -145,13 +145,19 @@ export function PublishChecklist({
 
   const contentNode = (
     <>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-[var(--muted)]">{summary}</p>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2.5">
+        <p className="text-xs text-[var(--muted)]">{summary}</p>
         {reviewButton}
       </div>
-      <ul className="space-y-2">
+      <div className="mb-3 h-1.5 overflow-hidden rounded-full bg-[var(--surface-alt)]">
+        <div
+          className="h-full rounded-full bg-[var(--brand)] transition-all duration-300"
+          style={{ width: `${Math.round((completed / checks.length) * 100)}%` }}
+        />
+      </div>
+      <ul className="space-y-1.5">
         {checks.map((item) => (
-          <li className="flex items-center gap-2 text-sm" key={item.label}>
+          <li className="flex items-center gap-2 text-xs" key={item.label}>
             <span className={item.done ? "text-[var(--success-foreground)]" : "text-[var(--muted)]"}>{item.done ? "●" : "○"}</span>
             <span className={item.done ? "text-[var(--foreground)]" : "text-[var(--muted)]"}>{item.label}</span>
           </li>

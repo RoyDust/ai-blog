@@ -61,27 +61,29 @@ export function CommentForm({ postId }: CommentFormProps) {
   }
 
   return (
-    <form className="mb-8" onSubmit={handleSubmit(handleSubmitComment)} noValidate>
+    <form className="space-y-2.5" onSubmit={handleSubmit(handleSubmitComment)} noValidate>
       {success && (
-        <div className="mb-4 rounded-lg border border-[var(--success-border)] bg-[var(--success-surface)] p-3 text-[var(--success-foreground)]">
-          <p className="text-sm">{success}</p>
+        <div className="ui-status-success rounded-xl px-3.5 py-2.5">
+          <p className="text-xs font-medium">{success}</p>
         </div>
       )}
       <textarea
         placeholder="写下你的评论..."
-        className="ui-ring w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4 text-[var(--foreground)] placeholder:text-[var(--text-muted)] focus:ring-2 focus:ring-[var(--ring)] focus:outline-none"
+        className="ui-ring w-full rounded-xl border border-[var(--reader-border)] bg-[color:color-mix(in_oklab,var(--surface-alt)_52%,var(--card-bg)_48%)] px-3.5 py-3 text-sm leading-6 text-[var(--foreground)] placeholder:text-[var(--text-muted)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
         rows={3}
         aria-invalid={Boolean(errors.content)}
         {...register('content')}
       />
-      {errors.content ? <p className="mt-1 text-sm text-rose-500">{errors.content.message}</p> : null}
-      <button
-        type="submit"
-        disabled={isSubmitting}
-        className="mt-2 rounded-lg bg-[var(--brand)] px-6 py-2 text-white transition hover:bg-[var(--brand-strong)] disabled:opacity-50"
-      >
-        {isSubmitting ? '提交中...' : '发表评论'}
-      </button>
+      {errors.content ? <p className="text-xs text-[var(--danger-foreground)]">{errors.content.message}</p> : null}
+      <div className="flex justify-end">
+        <button
+          type="submit"
+          disabled={isSubmitting}
+          className="ui-btn shrink-0 whitespace-nowrap rounded-xl bg-[var(--brand)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--brand-strong)] disabled:opacity-50"
+        >
+          {isSubmitting ? '提交中...' : '发表评论'}
+        </button>
+      </div>
     </form>
   )
 }

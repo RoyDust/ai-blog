@@ -75,7 +75,7 @@ function highlightText(text: string, query: string) {
       return (
         <mark
           key={`${part}-${index}`}
-          className="rounded bg-[color:color-mix(in_srgb,var(--primary)_18%,transparent)] px-1 py-0.5 text-[var(--foreground)]"
+          className="rounded bg-[var(--btn-regular-bg)] px-1 py-0.5 font-semibold text-[var(--btn-content)]"
         >
           {part}
         </mark>
@@ -91,47 +91,44 @@ export function SearchResultCard({ post, query }: SearchResultCardProps) {
   const snippet = buildSnippet(post, query)
 
   return (
-    <article className="group relative overflow-hidden rounded-[var(--radius-large)] border border-[var(--border)] bg-[var(--surface)] p-6 shadow-[0_20px_60px_-35px_rgba(15,23,42,0.35)] transition duration-200 hover:-translate-y-0.5 hover:border-[color:color-mix(in_srgb,var(--primary)_35%,var(--border))] hover:shadow-[0_24px_70px_-35px_rgba(15,23,42,0.45)]">
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[var(--primary)]/50 to-transparent opacity-70" />
+    <article className="reader-feed-card group p-5">
+      <div className="flex items-center justify-between gap-3">
+        <PostMeta category={post.category} publishedAt={post.createdAt} tags={post.tags.slice(0, 2)} variant="compact" />
 
-      <div className="mb-5 flex items-start justify-between gap-4">
-        <PostMeta category={post.category} publishedAt={post.createdAt} tags={post.tags.slice(0, 2)} />
-
-        <div className="rounded-full border border-[var(--border)] bg-[var(--surface-alt)] px-3 py-1 text-xs text-[var(--muted)]">
+        <span className="shrink-0 rounded-md bg-[var(--surface-alt)]/75 px-2 py-0.5 text-xs text-[var(--text-muted)]">
           {hasExcerpt ? '摘要' : '正文片段'}
-        </div>
+        </span>
       </div>
 
-      <Link href={`/posts/${post.slug}`} className="block cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]">
-        <h2 className="text-balance text-2xl font-black leading-tight tracking-[-0.03em] text-[var(--foreground)] transition-colors group-hover:text-[var(--primary)]">
+      <Link href={`/posts/${post.slug}`} className="mt-2 block outline-none">
+        <h2 className="text-balance text-lg font-bold leading-snug text-[var(--foreground)] transition-colors group-hover:text-[var(--brand)] md:text-xl">
           {highlightText(post.title, query)}
         </h2>
       </Link>
 
-      <p className="mt-3 text-sm text-[var(--muted)]">作者 {post.author.name ?? '匿名作者'} · 结果已保留原始内容片段，便于快速判断相关性。</p>
-
-      <div className="mt-5 rounded-2xl border border-dashed border-[var(--border)] bg-[color:color-mix(in_srgb,var(--surface)_82%,var(--primary)_18%)] p-4 text-sm leading-7 text-[var(--foreground)]">
+      <div className="mt-2.5 rounded-xl bg-[color:color-mix(in_oklab,var(--surface-alt)_52%,transparent)] px-3.5 py-2.5 text-sm leading-6 text-[var(--text-body)]">
         {highlightText(snippet, query)}
       </div>
 
-      <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-dashed border-[var(--border)] pt-4 text-sm text-[var(--muted)]">
-        <div className="flex flex-wrap items-center gap-4">
-          <span className="inline-flex items-center gap-1.5">
-            <MessageCircle className="h-4 w-4" />
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs text-[var(--text-muted)]">
+        <div className="flex flex-wrap items-center gap-3 font-mono tabular-nums">
+          <span className="font-sans">作者 {post.author.name ?? '匿名作者'}</span>
+          <span className="inline-flex items-center gap-1">
+            <MessageCircle className="h-3.5 w-3.5" aria-hidden="true" />
             {post._count.comments} 评论
           </span>
-          <span className="inline-flex items-center gap-1.5">
-            <Eye className="h-4 w-4" />
+          <span className="inline-flex items-center gap-1">
+            <Eye className="h-3.5 w-3.5" aria-hidden="true" />
             {post.viewCount ?? 0} 浏览
           </span>
         </div>
 
         <Link
           href={`/posts/${post.slug}`}
-          className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-[var(--primary)] px-3 py-1.5 font-medium text-[var(--primary)] transition hover:bg-[color:color-mix(in_srgb,var(--primary)_10%,transparent)]"
+          className="reader-link inline-flex items-center gap-1 text-xs font-semibold"
         >
           查看文章
-          <ArrowUpRight className="h-4 w-4" />
+          <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
         </Link>
       </div>
     </article>

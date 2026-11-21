@@ -21,37 +21,38 @@ export function Footer({
 }: FooterProps) {
   return (
     <footer id="footer" className="onload-animation mt-auto">
-      <div className="mx-auto max-w-[var(--page-width)] py-8">
-        <div className="reader-panel p-5 md:p-6">
-          <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
-            <div className="max-w-xl space-y-2">
-              <p className="ui-kicker">{siteName}</p>
-              <p className="text-75 text-sm leading-7">
-                {siteDescription}
-              </p>
-            </div>
-            <nav aria-label="Footer" className="flex flex-wrap items-center gap-2">
-              {footerLinks.map((link) => {
-                const Icon = link.icon;
-
-                if (link.external) {
-                  return (
-                    <a key={link.href} className="reader-chip" href={link.href}>
-                      <Icon className="h-3.5 w-3.5" />
-                      {link.label}
-                    </a>
-                  );
-                }
-
-                return (
-                  <Link key={link.href} className="reader-chip" href={link.href}>
-                    <Icon className="h-3.5 w-3.5" />
-                    {link.label}
-                  </Link>
-                );
-              })}
-            </nav>
+      <div className="reader-panel px-4 py-3.5 sm:px-5">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1 text-xs">
+            <span className="font-bold text-[var(--foreground)]">{siteName}</span>
+            <span aria-hidden="true" className="text-[var(--text-faint)]">
+              ·
+            </span>
+            <p className="text-75 line-clamp-1 text-xs leading-6">{siteDescription}</p>
           </div>
+          <nav aria-label="Footer" className="flex flex-wrap items-center gap-1">
+            {footerLinks.map((link) => {
+              const Icon = link.icon;
+              const linkClassName =
+                "reader-link inline-flex h-7 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium text-[var(--text-muted)] transition-colors hover:bg-[var(--btn-regular-bg)] hover:text-[var(--btn-content)]";
+
+              if (link.external) {
+                return (
+                  <a key={link.href} className={linkClassName} href={link.href}>
+                    <Icon className="h-3.5 w-3.5 shrink-0" />
+                    {link.label}
+                  </a>
+                );
+              }
+
+              return (
+                <Link key={link.href} className={linkClassName} href={link.href}>
+                  <Icon className="h-3.5 w-3.5 shrink-0" />
+                  {link.label}
+                </Link>
+              );
+            })}
+          </nav>
         </div>
       </div>
     </footer>

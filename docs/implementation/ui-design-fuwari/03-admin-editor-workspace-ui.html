@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>依尘的博客 · 沉浸式写作与 AI 审校工作台 UI 设计稿</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: var(--font-sans, "Alibaba PuHuiTi", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif);
+    color: var(--foreground);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .ws-stage {
+    --hue: 215;
+    --ws-primary: oklch(0.68 0.105 var(--hue));
+    --ws-primary-soft: color-mix(in oklab, var(--ws-primary) 15%, var(--card));
+    --ws-primary-hover: color-mix(in oklab, var(--ws-primary) 23%, var(--card));
+    --ws-shell: color-mix(in oklab, var(--card) 76%, var(--background, #0d1218) 24%);
+    --ws-card: var(--card);
+    --ws-sub: color-mix(in oklab, var(--secondary) 55%, var(--card) 45%);
+    --ws-line: color-mix(in oklab, var(--foreground) 8%, transparent);
+    --ws-line-strong: color-mix(in oklab, var(--foreground) 14%, transparent);
+    --ws-fg: var(--foreground);
+    --ws-body: color-mix(in oklab, var(--foreground) 80%, var(--muted-foreground) 20%);
+    --ws-muted: var(--muted-foreground);
+    --ws-ok: var(--success, #4cc38a);
+    --ws-mono: var(--font-mono, "JetBrains Mono", "SFMono-Regular", Menlo, Consolas, monospace);
+    width: 100%;
+    max-width: 1140px;
+    margin: 0 auto;
+  }
+
+  .ws-window {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  /* 1. 无干扰写作顶栏 */
+  .ws-topbar {
+    min-height: 48px;
+    padding: 8px 15px;
+    border-radius: 13px;
+    background: var(--ws-card);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05), inset 0 0 0 1px var(--ws-line);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .ws-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ws-body);
+    text-decoration: none;
+    white-space: nowrap;
+  }
+  .ws-save-meta {
+    font-family: var(--ws-mono);
+    font-size: 11.5px;
+    color: var(--ws-muted);
+  }
+  .ws-mode-seg {
+    display: inline-flex;
+    padding: 3px;
+    border-radius: 9px;
+    background: var(--ws-sub);
+    gap: 2px;
+  }
+  .ws-mode-btn {
+    height: 26px;
+    padding: 0 10px;
+    border-radius: 7px;
+    border: 0;
+    background: transparent;
+    color: var(--ws-muted);
+    font-size: 12px;
+    font-weight: 600;
+    font-family: inherit;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .ws-mode-btn[aria-pressed="true"] {
+    background: var(--ws-card);
+    color: var(--ws-fg);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+  .ws-btn-soft {
+    height: 30px;
+    padding: 0 11px;
+    border-radius: 8px;
+    border: 0;
+    background: var(--ws-primary-soft);
+    color: var(--ws-primary);
+    font-size: 12.5px;
+    font-weight: 600;
+    font-family: inherit;
+    white-space: nowrap;
+    flex-shrink: 0;
+    cursor: pointer;
+  }
+  .ws-btn-soft:hover { background: var(--ws-primary-hover); }
+  .ws-btn-pub {
+    height: 30px;
+    padding: 0 13px;
+    border-radius: 8px;
+    border: 0;
+    background: var(--ws-primary);
+    color: #0b141d;
+    font-size: 12.5px;
+    font-weight: 700;
+    font-family: inherit;
+    white-space: nowrap;
+    flex-shrink: 0;
+    cursor: pointer;
+  }
+
+  /* 2. 主工作台：左侧书写与同源预览 + 右侧元数据/AI 侧边抽屉 */
+  .ws-body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+    align-items: start;
+  }
+  @media (min-width: 860px) {
+    .ws-body {
+      grid-template-columns: minmax(0, 1fr) 264px;
+    }
+  }
+
+  .ws-editor-stage {
+    padding: 15px 17px 18px;
+    border-radius: 14px;
+    background: var(--ws-card);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05), inset 0 0 0 1px var(--ws-line);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+  }
+  .ws-title-input {
+    width: 100%;
+    border: 0;
+    outline: none;
+    background: transparent;
+    color: var(--ws-fg);
+    font-size: 20px;
+    font-weight: 700;
+    font-family: inherit;
+    padding: 2px 0 8px;
+    border-bottom: 1px solid var(--ws-line);
+  }
+
+  /* 轻量纯文字格式栏 + 快捷键提示 */
+  .ws-fmt-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+  }
+  .ws-fmt-btn {
+    height: 26px;
+    padding: 0 8px;
+    border-radius: 6px;
+    border: 0;
+    background: transparent;
+    color: var(--ws-muted);
+    font-size: 12px;
+    font-weight: 600;
+    font-family: inherit;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .ws-fmt-btn:hover { background: var(--ws-sub); color: var(--ws-fg); }
+
+  .ws-panes {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+  @media (min-width: 600px) {
+    .ws-panes[data-mode="split"] {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+  .ws-pane-card {
+    border-radius: 11px;
+    background: color-mix(in oklab, var(--ws-sub) 55%, var(--ws-card) 45%);
+    padding: 13px 14px;
+    box-shadow: inset 0 0 0 1px var(--ws-line);
+    min-height: 288px;
+  }
+  .ws-textarea {
+    width: 100%;
+    min-height: 260px;
+    border: 0;
+    outline: none;
+    resize: vertical;
+    background: transparent;
+    color: var(--ws-body);
+    font-family: var(--ws-mono);
+    font-size: 12px;
+    line-height: 1.68;
+  }
+
+  /* 右侧预览窗：严格复用前台 Fuwari 文章排版，真正所见即所得 */
+  .ws-preview h2 {
+    margin: 10px 0 7px;
+    font-size: 15.5px;
+    font-weight: 700;
+    color: var(--ws-fg);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .ws-preview h2::before {
+    content: "#";
+    color: var(--ws-primary);
+    font-family: var(--ws-mono);
+  }
+  .ws-preview p {
+    margin: 0 0 9px;
+    font-size: 13.5px;
+    line-height: 1.72;
+    color: var(--ws-body);
+  }
+  .ws-preview pre {
+    margin: 8px 0;
+    padding: 9px 11px;
+    border-radius: 9px;
+    background: var(--code-background, var(--ws-sub));
+    font-family: var(--ws-mono);
+    font-size: 11px;
+    line-height: 1.58;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: var(--ws-fg);
+  }
+
+  /* 3. 右侧检查器与 AI 协同抽屉 */
+  .ws-inspector {
+    border-radius: 14px;
+    background: var(--ws-card);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05), inset 0 0 0 1px var(--ws-line);
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 11px;
+  }
+  .ws-insp-tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    padding: 3px;
+    border-radius: 9px;
+    background: var(--ws-sub);
+  }
+  .ws-insp-tab {
+    height: 27px;
+    border-radius: 7px;
+    border: 0;
+    background: transparent;
+    color: var(--ws-muted);
+    font-size: 12px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+  }
+  .ws-insp-tab[aria-selected="true"] {
+    background: var(--ws-card);
+    color: var(--ws-fg);
+  }
+
+  .ws-field { display: flex; flex-direction: column; gap: 5px; }
+  .ws-label { font-size: 11.5px; font-weight: 600; color: var(--ws-muted); }
+  .ws-input, .ws-textarea-sm {
+    width: 100%;
+    padding: 7px 9px;
+    border-radius: 8px;
+    border: 1px solid var(--ws-line-strong);
+    background: var(--ws-sub);
+    color: var(--ws-fg);
+    font-size: 12.5px;
+    font-family: inherit;
+  }
+  .ws-textarea-sm { min-height: 68px; resize: vertical; line-height: 1.55; }
+
+  .ws-cover-slot {
+    height: 92px;
+    border-radius: 9px;
+    overflow: hidden;
+    position: relative;
+    background: var(--ws-sub);
+  }
+  .ws-cover-slot img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+  /* AI 原位建议卡（温和辅助，一键采纳回填） */
+  .ws-ai-card {
+    padding: 11px 12px;
+    border-radius: 10px;
+    background: var(--ws-sub);
+    font-size: 12.5px;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+</style>
+</head>
+<body>
+<div class="ws-stage">
+  <div class="ws-window">
+    <!-- 顶部无干扰工具栏 -->
+    <header class="ws-topbar">
+      <div style="display:flex;align-items:center;gap:12px">
+        <a class="ws-back" href="#back">‹ 文章列表</a>
+        <span class="ws-save-meta" id="ws-save-status">● 草稿已自动保存 · 2,640 字 · 约 9 分钟</span>
+      </div>
+
+      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px">
+        <div class="ws-mode-seg" role="group" aria-label="编辑器视图切换">
+          <button type="button" class="ws-mode-btn" data-ed-mode="split" aria-pressed="true">分屏对照</button>
+          <button type="button" class="ws-mode-btn" data-ed-mode="write" aria-pressed="false">专注写作</button>
+          <button type="button" class="ws-mode-btn" data-ed-mode="preview" aria-pressed="false">读者预览</button>
+        </div>
+        <button type="button" class="ws-btn-pub" onclick="this.textContent='已更新发布 ✓'">更新发布</button>
+      </div>
+    </header>
+
+    <!-- 主编辑区 + 右侧检查器 -->
+    <div class="ws-body">
+      <div class="ws-editor-stage">
+        <input class="ws-title-input" type="text" value="记一次定时发布把数据库连接池占满的排查过程" aria-label="文章标题" />
+
+        <div class="ws-fmt-bar">
+          <div>
+            <button type="button" class="ws-fmt-btn">二级标题</button>
+            <button type="button" class="ws-fmt-btn">加粗</button>
+            <button type="button" class="ws-fmt-btn">行内代码</button>
+            <button type="button" class="ws-fmt-btn">代码块</button>
+            <button type="button" class="ws-fmt-btn">粘贴/拖拽传图</button>
+          </div>
+          <span style="font-family:var(--ws-mono);font-size:11px;color:var(--ws-muted)">⌘S 保存草稿 · useDeferredValue 防卡顿</span>
+        </div>
+
+        <div class="ws-panes" id="ws-panes" data-mode="split">
+          <div class="ws-pane-card" id="ws-write-pane">
+            <textarea class="ws-textarea" aria-label="Markdown 正文">上周三早上看监控日志时，发现凌晨四点的定时发布任务报了一次连接池等待超时。
+
+## 顺着事务边界定位慢调用
+
+翻看发布函数的调用栈才意识到，之前为了保证封面回填的原子性，把外部图片拉取直接写进了同一个交互式事务块里：
+
+```ts
+const uploadedCover = await ensurePostCoverOutsideTx(draft);
+await prisma.$transaction(async (tx) => {
+  await tx.post.update({
+    where: { id: draft.id },
+    data: { published: true, coverImage: uploadedCover }
+  });
+});
+```
+
+拆开事务后，单次锁连接时间从 4.2 秒降到了 6 毫秒。</textarea>
+          </div>
+
+          <div class="ws-pane-card ws-preview" id="ws-preview-pane" aria-label="前台同源样式实时预览">
+            <p>上周三早上看监控日志时，发现凌晨四点的定时发布任务报了一次连接池等待超时。</p>
+            <h2>顺着事务边界定位慢调用</h2>
+            <p>翻看发布函数的调用栈才意识到，之前为了保证封面回填的原子性，把外部图片拉取直接写进了同一个交互式事务块里：</p>
+            <pre><code>const uploadedCover = await ensurePostCoverOutsideTx(draft);
+await prisma.$transaction(async (tx) =&gt; {
+  await tx.post.update({
+    where: { id: draft.id },
+    data: { published: true, coverImage: uploadedCover }
+  });
+});</code></pre>
+            <p>拆开事务后，单次锁连接时间从 4.2 秒降到了 6 毫秒。</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 右侧检查器：发布设置 / AI 协同审校 双页签 -->
+      <aside class="ws-inspector" aria-label="文章配置与 AI 辅助">
+        <div class="ws-insp-tabs" role="tablist">
+          <button type="button" role="tab" class="ws-insp-tab" data-insp="ai" aria-selected="true">AI 协同审校</button>
+          <button type="button" role="tab" class="ws-insp-tab" data-insp="meta" aria-selected="false">发布与封面</button>
+        </div>
+
+        <!-- 页签 A：克制的字段级 AI 提要与审校卡（支持一键采纳回填） -->
+        <div data-insp-panel="ai" style="display:flex;flex-direction:column;gap:10px">
+          <div class="ws-ai-card">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <strong style="color:var(--ws-fg)">建议摘要 (Excerpt)</strong>
+              <button type="button" class="ws-btn-soft" style="height:23px;padding:0 8px;font-size:11px" id="ws-apply-excerpt">采纳回填</button>
+            </div>
+            <div style="color:var(--ws-body);line-height:1.55" id="ws-ai-excerpt-src">
+              复盘凌晨定时发布偶发超时的根因：将慢速外部封面拉取剥离交互式事务后，单次锁连接耗时从 4.2s 降至 6ms。
+            </div>
+          </div>
+
+          <div class="ws-ai-card">
+            <strong style="color:var(--ws-fg)">发布前审校检查 (2)</strong>
+            <div style="color:var(--ws-body)">· 代码块均已标注 <code>ts</code> 语言，前台可正常高亮。</div>
+            <div style="color:var(--ws-body)">· 建议归入连载系列「Next.js 生产运维笔记」第 3 篇。</div>
+          </div>
+
+          <div class="ws-field">
+            <label class="ws-label" for="ws-excerpt-box">当前生效摘要</label>
+            <textarea class="ws-textarea-sm" id="ws-excerpt-box">凌晨的定时发布偶发超时，顺着日志查下去发现是单连接池被慢请求堵死。</textarea>
+          </div>
+        </div>
+
+        <!-- 页签 B：干净的发布设置与封面预览 -->
+        <div data-insp-panel="meta" hidden style="display:flex;flex-direction:column;gap:10px">
+          <div class="ws-field">
+            <label class="ws-label">封面图（支持裁切上传或 AI 配图）</label>
+            <div class="ws-cover-slot">
+              <img
+                src="C:/Users/Administrator/.t3/worktrees/my-next-app/t3-0c3c1cea-f6e4baf3d3a0f760/docs/implementation/ui-design-fuwari/assets/hero-night-desk.jpg"
+                onerror="if(!this.dataset.f){this.dataset.f=1;this.src='./assets/hero-night-desk.jpg'}"
+                alt="当前文章封面"
+              />
+            </div>
+          </div>
+          <div class="ws-field">
+            <label class="ws-label" for="ws-slug">URL Slug</label>
+            <input class="ws-input" id="ws-slug" value="pg-pool-starvation-debug" style="font-family:var(--ws-mono);font-size:11.5px" />
+          </div>
+          <div class="ws-field">
+            <label class="ws-label" for="ws-cat">分类与标签</label>
+            <input class="ws-input" id="ws-cat" value="线上排障 · #PostgreSQL / #连接池" />
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    var root = document.documentElement;
+    if (!getComputedStyle(root).getPropertyValue("--card").trim()) {
+      root.style.setProperty("--background", "#0e1319");
+      root.style.setProperty("--foreground", "#e6edf4");
+      root.style.setProperty("--card", "#161d26");
+      root.style.setProperty("--secondary", "#1f2936");
+      root.style.setProperty("--code-background", "#111720");
+      root.style.setProperty("--muted-foreground", "#8493a4");
+      root.style.setProperty("--border", "rgba(255, 255, 255, 0.06)");
+      document.body.style.background = "#0e1319";
+      document.body.style.padding = "18px 14px 36px";
+    }
+
+    // 分屏 / 纯写 / 预览切换
+    var panes = document.getElementById("ws-panes");
+    var wPane = document.getElementById("ws-write-pane");
+    var pPane = document.getElementById("ws-preview-pane");
+    var mBtns = document.querySelectorAll("[data-ed-mode]");
+    mBtns.forEach(function (b) {
+      b.addEventListener("click", function () {
+        var m = b.getAttribute("data-ed-mode");
+        mBtns.forEach(function (x) { x.setAttribute("aria-pressed", x === b ? "true" : "false"); });
+        panes.setAttribute("data-mode", m);
+        wPane.hidden = m === "preview";
+        pPane.hidden = m === "write";
+      });
+    });
+
+    // 右侧检查器双页签切换
+    var iBtns = document.querySelectorAll("[data-insp]");
+    iBtns.forEach(function (b) {
+      b.addEventListener("click", function () {
+        var t = b.getAttribute("data-insp");
+        iBtns.forEach(function (x) { x.setAttribute("aria-selected", x === b ? "true" : "false"); });
+        document.querySelectorAll("[data-insp-panel]").forEach(function (p) {
+          p.hidden = p.getAttribute("data-insp-panel") !== t;
+        });
+      });
+    });
+
+    // 一键采纳 AI 摘要回填
+    var applyBtn = document.getElementById("ws-apply-excerpt");
+    var srcTxt = document.getElementById("ws-ai-excerpt-src");
+    var box = document.getElementById("ws-excerpt-box");
+    var saveSt = document.getElementById("ws-save-status");
+    if (applyBtn && srcTxt && box) {
+      applyBtn.addEventListener("click", function () {
+        box.value = srcTxt.textContent.trim();
+        applyBtn.textContent = "已回填 ✓";
+        if (saveSt) saveSt.textContent = "● 摘要已更新并自动保存 · 2,640 字";
+      });
+    }
+  })();
+</script>
+</body>
+</html>

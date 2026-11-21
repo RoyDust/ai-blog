@@ -36,9 +36,9 @@ export default async function TagsPage() {
   return (
     <div className="reader-section">
       <TaxonomyHero
-        eyebrow="Tags"
+        eyebrow="标签索引"
         title="标签专题"
-        description="标签适合横向发现内容。你可以从某个技术点切入，看到它如何分布在不同文章与不同主题之间。"
+        description="从具体技术点或关键词横向切入，查看跨分类的相关文章与实践笔记。"
         countLabel={`${tags.length} 个标签 · ${totalPosts} 次内容关联`}
         primaryHref="/posts"
         primaryLabel="去筛选文章"
@@ -47,25 +47,24 @@ export default async function TagsPage() {
       />
 
       {hasLoadError ? (
-        <section role="alert" className="reader-panel border-[var(--danger-border)] bg-[var(--danger-surface)] p-8 text-sm text-[var(--danger-foreground)]">
+        <section role="alert" className="reader-panel border-[var(--danger-border)] bg-[var(--danger-surface)] p-7 text-sm text-[var(--danger-foreground)]">
           标签专题加载失败，请稍后重试。
         </section>
       ) : tags.length > 0 ? (
-        <section className="grid gap-4 md:grid-cols-2">
+        <section className="grid gap-3.5 md:grid-cols-2">
           {tags.map((tag: TagDirectoryEntry, index: number) => (
-            <div key={tag.id} className="onload-animation" style={{ animationDelay: `${80 + index * 20}ms` }}>
+            <div key={tag.id} className="onload-animation" style={{ animationDelay: `${60 + index * 20}ms` }}>
               <TaxonomyDirectoryCard
                 href={`/tags/${tag.slug}`}
                 name={`#${tag.name}`}
                 count={tag._count.posts}
                 badge="主题标签"
-                accent={tag.color ?? null}
               />
             </div>
           ))}
         </section>
       ) : (
-        <section className="reader-panel p-8 text-sm text-[var(--text-muted)]">当前还没有可展示的标签专题。</section>
+        <section className="reader-panel p-7 text-sm text-[var(--text-muted)]">当前还没有可展示的标签专题。</section>
       )}
     </div>
   )

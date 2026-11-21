@@ -73,12 +73,12 @@ export function PostsTable({
   onPageSizeChange: (pageSize: number) => void;
 }) {
   return (
-    <Card className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border-[var(--border)] bg-[var(--surface)] py-0 shadow-none">
-      <CardHeader className="shrink-0 gap-0 border-b border-[var(--border)] px-4 py-3">
-        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-          <div className="min-w-0">
-            <CardTitle className="text-base font-semibold text-[var(--foreground)]">文章列表</CardTitle>
-            <p className="mt-1 text-xs text-[var(--text-muted)]">发布状态、AI 摘要和数据上下文</p>
+    <Card className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border-[var(--border)] bg-[var(--surface)] py-0 shadow-[var(--shadow-card)]">
+      <CardHeader className="shrink-0 gap-0 border-b border-[var(--border)] px-4 py-2.5">
+        <div className="flex flex-col gap-1.5 md:flex-row md:items-center md:justify-between">
+          <div className="flex min-w-0 items-baseline gap-2.5">
+            <CardTitle className="text-sm font-bold text-[var(--foreground)]">文章列表</CardTitle>
+            <p className="text-xs text-[var(--text-muted)]">发布状态、AI 摘要和数据上下文</p>
           </div>
           <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--text-muted)]">
             <span className="font-mono tabular-nums">第 {formatNumber(pagination.page)} / {formatNumber(pagination.totalPages)} 页</span>

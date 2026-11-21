@@ -41,15 +41,12 @@ export function ArticleTocRail({ headings }: ArticleTocRailProps) {
     >
       <motion.nav
         aria-label="本文目录"
-        className="reader-panel max-h-[var(--article-toc-card-max-height)] overflow-auto p-5"
+        className="reader-panel max-h-[var(--article-toc-card-max-height)] overflow-auto p-4"
         data-state={showContent ? "content" : "skeleton"}
         layout
         transition={tocReloadTransition}
       >
-        <p aria-hidden="true" className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">
-          On this page
-        </p>
-        <h2 className="mb-4 font-display text-lg font-semibold text-[var(--foreground)]">目录</h2>
+        <h2 className="reader-section-heading mb-3 text-sm">目录</h2>
         <AnimatePresence initial={false} mode="popLayout">
           {showContent ? (
             <motion.div

@@ -153,87 +153,58 @@ export function LoginForm({
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-3xl border",
+        "overflow-hidden rounded-2xl border p-6 sm:p-7",
         isDialog
           ? "reader-panel border-[var(--reader-border)] bg-[var(--reader-panel)] shadow-[var(--reader-shadow)] backdrop-blur-xl"
           : "card-base ui-surface border-[var(--border)] bg-[var(--surface)]",
       )}
     >
-      <div
-        className={cn(
-          "relative overflow-hidden border-b px-5 py-5 sm:px-6",
-          isDialog
-            ? "border-[var(--reader-border)] bg-[color:color-mix(in_oklab,var(--reader-panel-elevated)_68%,transparent)]"
-            : "border-[var(--border)] bg-[var(--surface-alt)]",
-        )}
-      >
-        {isDialog ? (
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0 bg-[radial-gradient(82%_116%_at_88%_0%,color-mix(in_oklab,var(--accent-warm)_18%,transparent),transparent_56%),radial-gradient(78%_92%_at_0%_10%,color-mix(in_oklab,var(--accent-sky)_20%,transparent),transparent_62%)]"
-          />
-        ) : null}
-
-        <div className="relative flex items-start justify-between gap-4 pr-11">
-          <div className="min-w-0">
-            <p
-              className={cn(
-                "text-xs font-bold uppercase text-[var(--muted)]",
-                isDialog ? "tracking-[0.16em] text-[var(--post-card-text-accent-label)]" : "tracking-[0.24em]",
-              )}
-            >
-              {formCopy.eyebrow}
-            </p>
-            <h1
-              className={cn(
-                "mt-2 font-display font-semibold leading-tight text-[var(--foreground)]",
-                isDialog ? "text-2xl sm:text-[1.75rem]" : "text-3xl",
-              )}
-            >
-              {formCopy.title}
-            </h1>
-            <p className={cn("mt-3 max-w-sm text-sm leading-6", isDialog ? "text-[var(--text-body)]" : "text-[var(--muted)]")}>
-              {formCopy.description}
-            </p>
-          </div>
-
-          <div
+      <div className={cn("mb-5 flex items-start justify-between gap-4", isDialog ? "pr-9" : "")}>
+        <div className="min-w-0 space-y-1.5">
+          <span className="inline-flex items-center gap-1.5 rounded-md bg-[var(--btn-regular-bg)] px-2.5 py-1 text-xs font-semibold text-[var(--btn-content)]">
+            <HeaderIcon className="h-3.5 w-3.5" aria-hidden="true" />
+            {formCopy.eyebrow}
+          </span>
+          <h1
             className={cn(
-              "hidden h-12 w-12 shrink-0 items-center justify-center sm:flex",
-              isDialog
-                ? "rounded-full border border-[color:color-mix(in_oklab,var(--accent-warm)_34%,var(--reader-border))] bg-[color:color-mix(in_oklab,var(--accent-warm)_14%,transparent)] text-[var(--accent-warm)]"
-                : "rounded-2xl bg-[var(--surface)] text-[var(--brand)] shadow-[var(--shadow-card)]",
+              "font-display font-bold leading-snug tracking-tight text-[var(--foreground)]",
+              isDialog ? "text-xl sm:text-2xl" : "text-2xl",
             )}
           >
-            <HeaderIcon className="h-5 w-5" aria-hidden="true" />
-          </div>
+            {formCopy.title}
+          </h1>
+          <p className={cn("max-w-sm text-sm leading-6", isDialog ? "text-[var(--text-body)]" : "text-[var(--muted)]")}>
+            {formCopy.description}
+          </p>
         </div>
       </div>
 
-      <div className="px-5 py-5 sm:px-6 sm:py-6">
+      <div>
         {submitError ? (
-          <div className="ui-alert-danger mb-4 rounded-2xl px-4 py-3">
-            <p className="text-sm">{submitError}</p>
+          <div className="ui-alert-danger mb-4 rounded-xl px-3.5 py-2.5">
+            <p className="text-xs font-medium leading-5">{submitError}</p>
           </div>
         ) : null}
 
         {!submitError && helperMessage ? (
-          <div className="ui-alert-danger mb-4 rounded-2xl px-4 py-3">
-            <p className="text-sm">{helperMessage}</p>
+          <div className="ui-alert-danger mb-4 rounded-xl px-3.5 py-2.5">
+            <p className="text-xs font-medium leading-5">{helperMessage}</p>
           </div>
         ) : null}
 
-        <form onSubmit={handleSubmit(handleCredentialsLogin)} className="space-y-4" noValidate>
+        <form onSubmit={handleSubmit(handleCredentialsLogin)} className="space-y-3.5" noValidate>
           <Input
             type="email"
             label="邮箱"
             placeholder="admin@example.com"
             autoComplete="email"
             error={errors.email?.message}
-            leftSlot={isDialog ? <Mail className="h-4 w-4" aria-hidden="true" /> : undefined}
+            leftSlot={<Mail className="h-4 w-4" aria-hidden="true" />}
             className={cn(
-              isDialog &&
-                "h-12 rounded-2xl border-[var(--reader-border)] bg-[color:color-mix(in_oklab,var(--reader-panel-elevated)_60%,transparent)] text-sm shadow-[inset_0_1px_0_color-mix(in_oklab,var(--foreground)_6%,transparent)] placeholder:text-[var(--text-muted)] focus-visible:border-[color:color-mix(in_oklab,var(--accent-sky)_38%,var(--reader-border))] focus-visible:ring-[color:color-mix(in_oklab,var(--accent-sky)_22%,transparent)]",
+              "h-10 rounded-xl text-sm",
+              isDialog
+                ? "border-[var(--reader-border)] bg-[color:color-mix(in_oklab,var(--surface-alt)_52%,var(--card-bg)_48%)] placeholder:text-[var(--text-muted)]"
+                : "border-[var(--border)] bg-[color:color-mix(in_oklab,var(--surface-alt)_50%,var(--surface)_50%)]",
             )}
             {...register("email")}
           />
@@ -244,20 +215,19 @@ export function LoginForm({
             placeholder="输入账号密码"
             autoComplete="current-password"
             error={errors.password?.message}
-            leftSlot={isDialog ? <KeyRound className="h-4 w-4" aria-hidden="true" /> : undefined}
+            leftSlot={<KeyRound className="h-4 w-4" aria-hidden="true" />}
             className={cn(
-              isDialog &&
-                "h-12 rounded-2xl border-[var(--reader-border)] bg-[color:color-mix(in_oklab,var(--reader-panel-elevated)_60%,transparent)] text-sm shadow-[inset_0_1px_0_color-mix(in_oklab,var(--foreground)_6%,transparent)] placeholder:text-[var(--text-muted)] focus-visible:border-[color:color-mix(in_oklab,var(--accent-sky)_38%,var(--reader-border))] focus-visible:ring-[color:color-mix(in_oklab,var(--accent-sky)_22%,transparent)]",
+              "h-10 rounded-xl text-sm",
+              isDialog
+                ? "border-[var(--reader-border)] bg-[color:color-mix(in_oklab,var(--surface-alt)_52%,var(--card-bg)_48%)] placeholder:text-[var(--text-muted)]"
+                : "border-[var(--border)] bg-[color:color-mix(in_oklab,var(--surface-alt)_50%,var(--surface)_50%)]",
             )}
             {...register("password")}
           />
 
           <Button
             type="submit"
-            className={cn(
-              "w-full gap-2",
-              isDialog ? "h-12 rounded-2xl text-sm shadow-[0_12px_26px_color-mix(in_oklab,var(--primary)_24%,transparent)] hover:-translate-y-0.5" : "py-2.5",
-            )}
+            className="h-10 w-full gap-2 rounded-xl text-sm"
             disabled={isSubmitting}
           >
             <LockKeyhole className="h-4 w-4" aria-hidden="true" />
@@ -268,9 +238,9 @@ export function LoginForm({
 
         <div className="relative my-5">
           <div className="absolute inset-0 flex items-center">
-            <div className={cn("w-full border-t", isDialog ? "border-[var(--reader-border)]" : "border-[var(--border)]")} />
+            <div className={cn("w-full border-t", isDialog ? "border-[var(--line-color)]" : "border-[var(--border)]")} />
           </div>
-          <div className="relative flex justify-center text-xs uppercase">
+          <div className="relative flex justify-center text-xs">
             <span
               className={cn(
                 "px-3 text-[var(--muted)]",
@@ -286,37 +256,23 @@ export function LoginForm({
           type="button"
           variant="outline"
           className={cn(
-            "w-full gap-2",
-            isDialog
-              ? "h-12 rounded-2xl border-[var(--reader-border)] bg-[color:color-mix(in_oklab,var(--reader-panel-elevated)_42%,transparent)] text-sm hover:border-[var(--reader-border-strong)] hover:bg-[color:color-mix(in_oklab,var(--accent-sky)_12%,var(--reader-panel-elevated))]"
-              : "py-2.5",
+            "h-10 w-full gap-2 rounded-xl text-sm",
+            isDialog &&
+              "border-[var(--reader-border)] bg-[color:color-mix(in_oklab,var(--surface-alt)_42%,transparent)] hover:bg-[var(--btn-plain-bg-hover)]",
           )}
           onClick={() => signIn("github", { callbackUrl: oauthCallbackUrl })}
         >
-          {isDialog ? <Github className="h-4 w-4" aria-hidden="true" /> : null}
+          <Github className="h-4 w-4" aria-hidden="true" />
           {formCopy.githubLabel}
         </Button>
 
-        <div
-          className={cn(
-            "mt-5 flex items-start gap-3 rounded-2xl border px-4 py-3 text-sm",
-            isDialog
-              ? "border-[var(--reader-border)] bg-[color:color-mix(in_oklab,var(--accent-warm)_8%,transparent)] text-[var(--text-body)]"
-              : "border-[var(--border)] bg-[var(--surface-alt)] text-[var(--muted)]",
-          )}
-        >
-          <KeyRound
-            className={cn("mt-0.5 h-4 w-4 shrink-0", isDialog ? "text-[var(--accent-warm)]" : "text-[var(--brand)]")}
-            aria-hidden="true"
-          />
-          <p>
-            {formCopy.registerPrompt}{" "}
-            <Link href="/register" className={cn("font-medium", isDialog ? "reader-link" : "ui-link")}>
-              {formCopy.registerLinkLabel}
-            </Link>
-            {formCopy.registerSuffix}
-          </p>
-        </div>
+        <p className={cn("mt-5 text-center text-xs leading-5", isDialog ? "text-[var(--text-muted)]" : "text-[var(--muted)]")}>
+          {formCopy.registerPrompt}{" "}
+          <Link href="/register" className={cn("font-semibold", isDialog ? "reader-link" : "ui-link")}>
+            {formCopy.registerLinkLabel}
+          </Link>
+          {formCopy.registerSuffix}
+        </p>
       </div>
     </div>
   );

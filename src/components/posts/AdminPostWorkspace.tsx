@@ -365,9 +365,9 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
         onBack={() => (isEditMode ? router.back() : router.push("/admin/posts"))}
       />
 
-      {visibleError ? <p className="rounded-xl border border-rose-300 bg-rose-50 p-3 text-sm text-rose-700">{visibleError}</p> : null}
+      {visibleError ? <p className="ui-alert-danger rounded-xl px-3.5 py-2.5 text-xs">{visibleError}</p> : null}
 
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-y-auto xl:grid-cols-[minmax(0,1fr)_320px] xl:grid-rows-[minmax(0,1fr)] xl:overflow-hidden">
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-3.5 overflow-y-auto xl:grid-cols-[minmax(0,1fr)_316px] xl:grid-rows-[minmax(0,1fr)] xl:overflow-hidden">
         <EditorWorkspace
           className="h-full"
           fillHeight
@@ -402,7 +402,7 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
         />
 
         <aside className="flex min-h-0 flex-col gap-3 overflow-y-auto pr-1 xl:h-full xl:max-h-full">
-          <WorkspacePanel title="发布设置" description="保存、发布和前台展示相关设置。" className="rounded-2xl" fillHeight={false}>
+          <WorkspacePanel title="发布设置" description="保存、发布和前台展示相关设置。" className="rounded-xl" fillHeight={false}>
             <PublishSettingsPanel
               isEditMode={isEditMode}
               saveStatusLabel={saveStatusLabel}
@@ -424,7 +424,7 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
             />
           </WorkspacePanel>
 
-          <WorkspacePanel title="发布清单" description="发布前检查标题、正文、SEO 与封面。" className="rounded-2xl" fillHeight={false}>
+          <WorkspacePanel title="发布清单" description="发布前检查标题、正文、SEO 与封面。" className="rounded-xl" fillHeight={false}>
             <PublishChecklist
               variant="inline"
               content={formData.content}
@@ -436,7 +436,7 @@ export function AdminPostWorkspace({ mode, postId }: AdminPostWorkspaceProps) {
             />
           </WorkspacePanel>
 
-          <WorkspacePanel title="分类、标签与封面图" description="这些字段会随保存或发布提交。" className="rounded-2xl" fillHeight={false}>
+          <WorkspacePanel title="分类、标签与封面图" description="这些字段会随保存或发布提交。" className="rounded-xl" fillHeight={false}>
             <MetadataEditor
               mode={mode}
               formData={formData}

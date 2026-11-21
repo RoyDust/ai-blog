@@ -10,7 +10,7 @@ test('article markdown prose uses semantic dark-mode tokens', () => {
   const source = readSource('src/app/(public)/posts/[slug]/page.tsx')
 
   expect(source).toContain('reader-prose prose')
-  expect(source).toContain('prose-pre:bg-[color-mix(in_oklab,var(--reader-panel-elevated)_80%,black_20%)]')
+  expect(source).toContain('prose-pre:bg-[var(--surface-elevated)]')
   expect(source).toContain('prose-pre:text-[var(--foreground)]')
   expect(source).toContain('prose-pre:border-[var(--reader-border)]')
   expect(source).toContain('prose-blockquote:border-[var(--accent-warm)]')
@@ -42,7 +42,7 @@ test('article table of contents rail matches the left sidebar width token', () =
   const themeSource = readSource('src/styles/theme-variables.css')
   const componentSource = readSource('src/styles/components.css')
 
-  expect(themeSource).toContain('--rail-width: clamp(13.75rem, 12vw, 15rem);')
+  expect(themeSource).toContain('--rail-width: clamp(14rem, 13vw, 15.25rem);')
   expect(themeSource).toContain('--article-toc-width: var(--rail-width);')
   expect(componentSource).toContain('.reader-shell:has(.article-detail-page)')
   expect(componentSource).toContain('--article-toc-width: var(--rail-width);')

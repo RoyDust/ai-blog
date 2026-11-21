@@ -52,12 +52,12 @@ export function AdminSider({ pathname, siteName, user }: AdminSiderProps) {
   const renderNavItem = (item: AdminNavItem) => {
     const Icon = item.icon;
     const isActive = isAdminNavItemActive(pathname, item.href);
-    const itemClassName = `flex items-center transition-all duration-200 ${
-      isCollapsed ? "justify-center px-0 py-3" : "gap-3 px-3.5 py-2.5"
-    } rounded-[var(--radius-control)] text-sm font-medium ${
+    const itemClassName = `flex items-center transition-colors duration-150 ${
+      isCollapsed ? "justify-center px-0 py-2.5" : "gap-2.5 px-3 py-2"
+    } rounded-[var(--radius-control)] text-[13px] ${
       isActive
-        ? "bg-[var(--admin-sidebar-active)] text-white font-semibold"
-        : "text-[var(--admin-sidebar-text)] hover:bg-[var(--admin-sidebar-hover)] hover:text-white"
+        ? "bg-[var(--admin-sidebar-active-bg)] text-[var(--admin-sidebar-active)] font-semibold"
+        : "font-medium text-[var(--admin-sidebar-text)] hover:bg-[var(--admin-sidebar-hover)] hover:text-[var(--admin-sidebar-fg)]"
     }`;
 
     if (item.disabled) {
@@ -66,12 +66,12 @@ export function AdminSider({ pathname, siteName, user }: AdminSiderProps) {
           key={item.href}
           aria-label={`${item.label}稍后开放`}
           className={`flex w-full cursor-not-allowed items-center ${
-            isCollapsed ? "justify-center px-0 py-3" : "gap-3 px-3.5 py-2.5"
-          } rounded-[var(--radius-control)] text-sm font-medium text-[var(--admin-sidebar-muted)] opacity-60`}
+            isCollapsed ? "justify-center px-0 py-2.5" : "gap-2.5 px-3 py-2"
+          } rounded-[var(--radius-control)] text-[13px] font-medium text-[var(--admin-sidebar-muted)] opacity-60`}
           disabled
           type="button"
         >
-          <Icon className="h-5 w-5 shrink-0" />
+          <Icon className="h-4 w-4 shrink-0" />
           {!isCollapsed && <span>{item.label}</span>}
         </button>
       );
@@ -79,10 +79,10 @@ export function AdminSider({ pathname, siteName, user }: AdminSiderProps) {
 
     return (
       <Link key={item.href} href={item.href} className={itemClassName} title={isCollapsed ? item.label : undefined}>
-        <Icon className="h-5 w-5 shrink-0" />
+        <Icon className="h-4 w-4 shrink-0" />
         {!isCollapsed && <span className="truncate">{item.label}</span>}
         {!isCollapsed && item.badge ? (
-          <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--admin-sidebar-active)] px-1.5 text-[0.65rem] font-bold text-white">
+          <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-md bg-[var(--admin-sidebar-active-bg)] px-1.5 font-mono text-[11px] font-semibold tabular-nums text-[var(--admin-sidebar-active)]">
             {item.badge}
           </span>
         ) : null}
@@ -98,13 +98,13 @@ export function AdminSider({ pathname, siteName, user }: AdminSiderProps) {
       data-testid="admin-layout-sidebar"
     >
       {/* Brand logo section */}
-      <div className={`transition-all duration-300 ${isCollapsed ? "px-2 py-4" : "px-5 py-5"} flex items-center justify-center border-b border-[var(--admin-sidebar-border)]`}>
-        <Link aria-label={`${siteName} 后台首页`} href="/admin" className={`flex items-center ${isCollapsed ? "justify-center" : "gap-3"} w-full`}>
-          <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-[var(--radius-control)] bg-[var(--admin-sidebar-active)]">
-            <Image alt="" aria-hidden="true" className="h-full w-full object-cover" height={36} priority src="/icons/icon-192.png" width={36} />
+      <div className={`transition-all duration-300 ${isCollapsed ? "px-2 py-3.5" : "px-4 py-4"} flex items-center justify-center border-b border-[var(--admin-sidebar-border)]`}>
+        <Link aria-label={`${siteName} 后台首页`} href="/admin" className={`flex items-center ${isCollapsed ? "justify-center" : "gap-2.5"} w-full`}>
+          <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[var(--admin-sidebar-active-bg)]">
+            <Image alt="" aria-hidden="true" className="h-full w-full object-cover" height={32} priority src="/icons/icon-192.png" width={32} />
           </span>
           {!isCollapsed && (
-            <span className="min-w-0 truncate font-display text-xl font-bold tracking-tight text-white transition-all duration-300">
+            <span className="min-w-0 truncate font-display text-base font-bold tracking-tight text-[var(--admin-sidebar-fg)] transition-all duration-300">
               {siteName}
             </span>
           )}
@@ -112,9 +112,9 @@ export function AdminSider({ pathname, siteName, user }: AdminSiderProps) {
       </div>
 
       {/* Navigation menu */}
-      <nav aria-label="Admin navigation" className="flex-1 overflow-y-auto reader-scrollbar-hidden px-2.5 py-4 space-y-1.5">
+      <nav aria-label="Admin navigation" className="flex-1 overflow-y-auto reader-scrollbar-hidden px-2.5 py-3.5 space-y-1">
         {!isCollapsed && (
-          <p className="px-3 pb-2 text-xs font-semibold text-[var(--admin-sidebar-muted)] uppercase tracking-wider">博客后台</p>
+          <p className="px-3 pb-1.5 text-[11px] font-semibold text-[var(--admin-sidebar-muted)]">博客后台</p>
         )}
 
         {mainItems.map(renderNavItem)}
@@ -124,25 +124,25 @@ export function AdminSider({ pathname, siteName, user }: AdminSiderProps) {
           // If collapsed, just render direct shortcut link
           <Link
             href="/admin/ai-news"
-            className="flex items-center justify-center rounded-[var(--radius-control)] py-3 text-[var(--admin-sidebar-text)] transition-all hover:bg-[var(--admin-sidebar-hover)] hover:text-white"
+            className="flex items-center justify-center rounded-[var(--radius-control)] py-2.5 text-[var(--admin-sidebar-text)] transition-colors hover:bg-[var(--admin-sidebar-hover)] hover:text-[var(--admin-sidebar-fg)]"
             title="AI 助手"
           >
-            <Sparkles className="h-5 w-5 shrink-0" />
+            <Sparkles className="h-4 w-4 shrink-0" />
           </Link>
         ) : (
           <details className="group/ai" open={isAiActive}>
             <summary
-              className={`flex w-full cursor-pointer list-none items-center gap-3 rounded-[var(--radius-control)] px-3.5 py-2.5 text-sm font-medium transition-all [&::-webkit-details-marker]:hidden ${
+              className={`flex w-full cursor-pointer list-none items-center gap-2.5 rounded-[var(--radius-control)] px-3 py-2 text-[13px] font-medium transition-colors [&::-webkit-details-marker]:hidden ${
                 isAiActive
-                  ? "bg-[var(--admin-sidebar-hover)] text-white"
-                  : "text-[var(--admin-sidebar-text)] hover:bg-[var(--admin-sidebar-hover)] hover:text-white"
+                  ? "bg-[var(--admin-sidebar-hover)] text-[var(--admin-sidebar-fg)]"
+                  : "text-[var(--admin-sidebar-text)] hover:bg-[var(--admin-sidebar-hover)] hover:text-[var(--admin-sidebar-fg)]"
               }`}
             >
-              <Sparkles className="h-5 w-5 shrink-0" />
+              <Sparkles className="h-4 w-4 shrink-0" />
               <span>AI 助手</span>
-              <ChevronDown className="ml-auto h-4 w-4 -rotate-90 transition-transform group-open/ai:rotate-0" />
+              <ChevronDown className="ml-auto h-3.5 w-3.5 -rotate-90 transition-transform group-open/ai:rotate-0" />
             </summary>
-            <div className="mt-1.5 space-y-1 pl-9 pr-1">
+            <div className="mt-1 space-y-0.5 pl-8 pr-1">
               {aiItems.map((item) => {
                 const isActive = isAdminNavItemActive(pathname, item.href);
 
@@ -150,10 +150,10 @@ export function AdminSider({ pathname, siteName, user }: AdminSiderProps) {
                   <Link
                     key={item.href}
                     href={item.href}
-                    className={`block rounded-[var(--radius-control)] px-3 py-2 text-xs transition-colors ${
+                    className={`block rounded-[var(--radius-control)] px-2.5 py-1.5 text-xs transition-colors ${
                       isActive
-                        ? "bg-[var(--admin-sidebar-active)] text-white font-medium"
-                        : "text-[var(--admin-sidebar-text)] opacity-75 hover:bg-[var(--admin-sidebar-hover)] hover:text-white hover:opacity-100"
+                        ? "bg-[var(--admin-sidebar-active-bg)] text-[var(--admin-sidebar-active)] font-semibold"
+                        : "text-[var(--admin-sidebar-text)] opacity-85 hover:bg-[var(--admin-sidebar-hover)] hover:text-[var(--admin-sidebar-fg)] hover:opacity-100"
                     }`}
                   >
                     {item.label}
@@ -165,9 +165,9 @@ export function AdminSider({ pathname, siteName, user }: AdminSiderProps) {
         )}
 
         {systemItems.length ? (
-          <div className="mt-3.5 space-y-1.5 border-t border-[var(--admin-sidebar-border)] pt-3.5">
+          <div className="mt-3 space-y-1 border-t border-[var(--admin-sidebar-border)] pt-3">
             {!isCollapsed && (
-              <p className="px-3 pb-2 text-xs font-semibold text-[var(--admin-sidebar-muted)] uppercase tracking-wider">系统</p>
+              <p className="px-3 pb-1.5 text-[11px] font-semibold text-[var(--admin-sidebar-muted)]">系统</p>
             )}
             {systemItems.map(renderNavItem)}
           </div>
@@ -175,17 +175,17 @@ export function AdminSider({ pathname, siteName, user }: AdminSiderProps) {
       </nav>
 
       {/* User profile dropdown at the bottom */}
-      <div className={`relative border-t border-[var(--admin-sidebar-border)] ${isCollapsed ? "px-2 py-4" : "px-3 py-4"} transition-all duration-300`}>
+      <div className={`relative border-t border-[var(--admin-sidebar-border)] ${isCollapsed ? "px-2 py-3" : "px-3 py-3"} transition-all duration-300`}>
         <DropdownMenu modal={false} open={isAccountMenuOpen} onOpenChange={setIsAccountMenuOpen}>
           <DropdownMenuTrigger asChild>
             <button
               aria-label={`${userLabel} 账号菜单`}
-              className={`flex w-full items-center ${isCollapsed ? "justify-center px-0 py-1" : "gap-3 px-2 py-2"} rounded-[var(--radius-control)] text-left transition-all hover:bg-[var(--admin-sidebar-hover)]`}
+              className={`flex w-full items-center ${isCollapsed ? "justify-center px-0 py-1" : "gap-2.5 px-2 py-1.5"} rounded-[var(--radius-control)] text-left transition-colors hover:bg-[var(--admin-sidebar-hover)]`}
               type="button"
             >
-              <span className="relative inline-flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[color-mix(in_oklab,var(--admin-sidebar-bg)_72%,white_28%)] text-sm font-semibold text-white shadow-sm">
+              <span className="relative inline-flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[var(--admin-sidebar-active-bg)] text-xs font-semibold text-[var(--admin-sidebar-active)]">
                 {user.image ? (
-                  <Image alt={`${userLabel} 头像`} className="h-full w-full object-cover" height={36} src={user.image} unoptimized width={36} />
+                  <Image alt={`${userLabel} 头像`} className="h-full w-full object-cover" height={32} src={user.image} unoptimized width={32} />
                 ) : (
                   getInitials(userLabel)
                 )}
@@ -193,8 +193,8 @@ export function AdminSider({ pathname, siteName, user }: AdminSiderProps) {
               {!isCollapsed && (
                 <>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-white">{userLabel}</p>
-                    <p className="truncate text-xs text-[var(--admin-sidebar-muted)]">{userMeta}</p>
+                    <p className="truncate text-[13px] font-semibold text-[var(--admin-sidebar-fg)]">{userLabel}</p>
+                    <p className="truncate text-[11px] text-[var(--admin-sidebar-muted)]">{userMeta}</p>
                   </div>
                   <ChevronDown className={`h-3.5 w-3.5 text-[var(--admin-sidebar-muted)] transition-transform ${isAccountMenuOpen ? "rotate-180" : ""}`} />
                 </>

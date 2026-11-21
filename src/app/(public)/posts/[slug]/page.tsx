@@ -23,7 +23,7 @@ import rehypeHighlight from "rehype-highlight";
 import rehypeHighlightCodeLines from "rehype-highlight-code-lines";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArticleHero, ArticleReadTracker, ArticleRelatedPosts, ArticleSection, ArticleTocDrawer, ArticleTocRail, BackToTopButton, BookmarkButton, CopyCodeButton, LikeButton, NewsletterForm, ReadingProgress, SectionHeader, SeriesNav, ShareButton } from "@/components/blog";
+import { ArticleHero, ArticleReadTracker, ArticleRelatedPosts, ArticleSection, ArticleTocDrawer, ArticleTocRail, BackToTopButton, BookmarkButton, CopyCodeButton, LikeButton, NewsletterForm, ReadingProgress, SeriesNav, ShareButton } from "@/components/blog";
 import { InViewReveal } from "@/components/motion";
 import { CommentAuthGate } from "@/components/CommentAuthGate";
 import { FallbackImage } from "@/components/ui";
@@ -213,19 +213,24 @@ function getCommentLabel(comment: { author?: { name?: string | null } | null; au
   return comment.author?.name || comment.authorLabel || '匿名读者'
 }
 
+function getCommentInitial(label: string) {
+  const first = Array.from(label.trim())[0]
+  return first ? first.toLocaleUpperCase("zh-CN") : "读"
+}
+
 function CommentListSkeleton() {
   return (
-    <div className="mt-8 space-y-6" aria-label="评论加载中">
+    <div className="mt-5 space-y-4" aria-label="评论加载中">
       {[0, 1, 2].map((item) => (
-        <div className="border-b border-[var(--reader-border)] pb-6 last:border-b-0 last:pb-0" key={item}>
-          <div className="mb-3 flex items-center gap-3">
-            <div className="reader-skeleton h-8 w-8 rounded-full" />
-            <div className="reader-skeleton h-4 w-24 rounded-full" />
-            <div className="reader-skeleton h-3 w-16 rounded-full" />
+        <div className="border-t border-[var(--line-color)] pt-4 first:border-t-0 first:pt-0" key={item}>
+          <div className="mb-2.5 flex items-center gap-2.5">
+            <div className="reader-skeleton h-8 w-8 rounded-lg" />
+            <div className="reader-skeleton h-3.5 w-20 rounded-full" />
+            <div className="reader-skeleton h-3 w-14 rounded-full" />
           </div>
-          <div className="ml-11 space-y-2">
-            <div className="reader-skeleton h-4 w-full rounded-full" />
-            <div className="reader-skeleton h-4 w-2/3 rounded-full" />
+          <div className="ml-10 space-y-2">
+            <div className="reader-skeleton h-3.5 w-full rounded-full" />
+            <div className="reader-skeleton h-3.5 w-2/3 rounded-full" />
           </div>
         </div>
       ))}
@@ -236,40 +241,59 @@ function CommentListSkeleton() {
 function CommentList({ commentsPromise }: { commentsPromise: Promise<Awaited<ReturnType<typeof getPostComments>>> }) {
   const comments = use(commentsPromise)
 
+  if (comments.length === 0) {
+    return (
+      <p className="mt-4 border-t border-dashed border-[var(--line-color)] pt-5 text-center text-sm text-[var(--text-muted)]">
+        暂无评论
+      </p>
+    )
+  }
+
   return (
-    <div className="mt-8 space-y-6">
-      {comments.map((comment: ArticleComment) => (
-        <div className="border-b border-[var(--reader-border)] pb-6 last:border-b-0 last:pb-0" key={comment.id}>
-          <div className="mb-2 flex items-center gap-3">
+    <div className="mt-5">
+      {comments.map((comment: ArticleComment) => {
+        const label = getCommentLabel(comment)
+        return (
+          <div
+            className="grid grid-cols-[2.125rem_minmax(0,1fr)] gap-3 border-t border-[var(--line-color)] pt-4 mt-4 first:mt-0"
+            key={comment.id}
+          >
             {comment.author?.image ? (
-              <FallbackImage alt={getCommentLabel(comment)} className="theme-media-image rounded-full object-cover" height={32} src={comment.author.image} width={32} />
+              <FallbackImage alt={label} className="theme-media-image h-[34px] w-[34px] rounded-lg object-cover" height={34} src={comment.author.image} width={34} />
             ) : (
-              <div className="h-8 w-8 rounded-full border border-[var(--reader-border)] bg-[var(--reader-panel-muted)]" />
+              <div className="flex h-[34px] w-[34px] items-center justify-center rounded-lg bg-[var(--btn-regular-bg)] text-xs font-bold text-[var(--btn-content)]">
+                {getCommentInitial(label)}
+              </div>
             )}
-            <span className="font-medium text-[var(--foreground)]">{getCommentLabel(comment)}</span>
-            <span className="text-xs text-[var(--text-muted)]">{new Date(comment.createdAt).toLocaleDateString("zh-CN")}</span>
-          </div>
-          <p className="ml-11 leading-7 text-[var(--text-body)]">{comment.content}</p>
 
-          {comment.replies.length > 0 && (
-            <div className="ml-11 mt-4 space-y-4">
-              {comment.replies.map((reply: ArticleReply) => (
-                <div className="border-l-2 border-[var(--reader-border)] pl-4" key={reply.id}>
-                  <div className="mb-1 flex items-center gap-2">
-                    <span className="font-medium text-[var(--foreground)]">{getCommentLabel(reply)}</span>
-                    <span className="text-xs text-[var(--text-muted)]">{new Date(reply.createdAt).toLocaleDateString("zh-CN")}</span>
-                  </div>
-                  <p className="leading-7 text-[var(--text-body)]">{reply.content}</p>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-baseline gap-2 text-xs">
+                <span className="font-semibold text-[var(--foreground)]">{label}</span>
+                <span className="font-mono tabular-nums text-[var(--text-muted)]">
+                  {new Date(comment.createdAt).toLocaleDateString("zh-CN")}
+                </span>
+              </div>
+              <p className="mt-1 text-sm leading-6 text-[var(--text-body)]">{comment.content}</p>
+
+              {comment.replies.length > 0 && (
+                <div className="mt-3 space-y-3 border-l-2 border-[var(--line-color)] pl-3.5">
+                  {comment.replies.map((reply: ArticleReply) => (
+                    <div key={reply.id}>
+                      <div className="flex flex-wrap items-baseline gap-2 text-xs">
+                        <span className="font-semibold text-[var(--foreground)]">{getCommentLabel(reply)}</span>
+                        <span className="font-mono tabular-nums text-[var(--text-muted)]">
+                          {new Date(reply.createdAt).toLocaleDateString("zh-CN")}
+                        </span>
+                      </div>
+                      <p className="mt-0.5 text-sm leading-6 text-[var(--text-body)]">{reply.content}</p>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
-          )}
-        </div>
-      ))}
-
-      {comments.length === 0 ? (
-        <p className="rounded-2xl border border-dashed border-[var(--reader-border)] py-8 text-center text-sm text-[var(--text-muted)]">暂无评论</p>
-      ) : null}
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -324,13 +348,13 @@ export async function renderArticlePage({ slug, includeDraft = false }: { slug: 
       <ArticleTocDrawer headings={headings} />
 
       {isDraftPreview ? (
-        <div className="mb-6 rounded-2xl border border-amber-300/70 bg-amber-50 px-5 py-4 text-sm font-medium text-amber-900 dark:border-amber-500/40 dark:bg-amber-950/40 dark:text-amber-100">
+        <div className="ui-status-warning mb-5 rounded-xl px-4 py-3 text-sm font-medium">
           草稿预览仅后台管理员可见，公开阅读、点赞、收藏、评论和阅读统计已停用。
         </div>
       ) : null}
 
       <div className="grid gap-[var(--layout-rail-gap)] xl:grid-cols-[minmax(0,1fr)_var(--article-toc-width)] xl:items-start">
-        <div className="min-w-0 space-y-8">
+        <div className="min-w-0 space-y-4">
           <ArticleSection animate="visible" initial="hidden">
           <article className="article-shell reader-card overflow-hidden">
             <ArticleHero
@@ -345,9 +369,9 @@ export async function renderArticlePage({ slug, includeDraft = false }: { slug: 
               readingTimeMinutes={post.readingTimeMinutes}
             />
 
-            <div className="px-5 py-8 sm:px-8 lg:px-10 lg:py-10">
+            <div className="px-5 pt-3 pb-6 sm:px-7 lg:px-9 lg:pb-8">
               <div className="mx-auto max-w-[var(--article-reading-max-width)]">
-                <div className="reader-prose prose prose-zinc max-w-none prose-headings:font-display prose-headings:scroll-mt-28 prose-headings:mt-12 prose-headings:mb-5 prose-headings:text-[var(--foreground)] prose-h1:text-[var(--foreground)] prose-h2:text-[var(--foreground)] prose-h3:text-[var(--foreground)] prose-h4:text-[var(--foreground)] prose-h5:text-[var(--foreground)] prose-h6:text-[var(--foreground)] prose-p:my-5 prose-p:leading-8 prose-p:text-[var(--text-body)] prose-a:text-[var(--accent-sky)] prose-a:no-underline hover:prose-a:text-[var(--foreground)] hover:prose-a:underline prose-strong:text-[var(--foreground)] prose-li:text-[var(--text-body)] prose-li:marker:text-[var(--text-faint)] prose-blockquote:rounded-2xl prose-blockquote:border-[var(--accent-warm)] prose-blockquote:border-l-[3px] prose-blockquote:bg-[color-mix(in_oklab,var(--accent-warm)_10%,transparent)] prose-blockquote:px-5 prose-blockquote:py-1 prose-blockquote:text-[var(--text-body)] prose-blockquote:font-medium prose-hr:border-[var(--reader-border)] prose-img:rounded-2xl prose-pre:rounded-2xl prose-pre:border prose-pre:border-[var(--reader-border)] prose-pre:bg-[color-mix(in_oklab,var(--reader-panel-elevated)_80%,black_20%)] prose-pre:text-[var(--foreground)] prose-code:rounded prose-code:bg-[color-mix(in_oklab,var(--reader-panel-muted)_82%,black_18%)] prose-code:px-1.5 prose-code:py-0.5 prose-code:text-[color-mix(in_oklab,var(--foreground)_92%,white_8%)] prose-code:font-[var(--font-code)] prose-code:before:content-none prose-code:after:content-none prose-table:w-full prose-th:bg-[var(--reader-panel-muted)] prose-th:text-[var(--foreground)] prose-td:border-[var(--reader-border)] prose-th:border-[var(--reader-border)] dark:prose-invert">
+                <div className="reader-prose prose prose-zinc max-w-none prose-headings:font-display prose-headings:scroll-mt-28 prose-headings:mt-9 prose-headings:mb-3.5 prose-headings:text-[var(--foreground)] prose-h1:text-[var(--foreground)] prose-h2:text-[var(--foreground)] [&_h2]:before:mr-2 [&_h2]:before:font-mono [&_h2]:before:font-semibold [&_h2]:before:text-[var(--brand)] [&_h2]:before:content-['#'] prose-h3:text-[var(--foreground)] prose-h4:text-[var(--foreground)] prose-h5:text-[var(--foreground)] prose-h6:text-[var(--foreground)] prose-p:my-4 prose-p:leading-[1.82] prose-p:text-[var(--text-body)] prose-a:text-[var(--brand)] prose-a:no-underline hover:prose-a:text-[var(--brand-strong)] hover:prose-a:underline prose-strong:text-[var(--foreground)] prose-li:text-[var(--text-body)] prose-li:marker:text-[var(--text-faint)] prose-blockquote:rounded-xl prose-blockquote:border-[var(--accent-warm)] prose-blockquote:border-l-[3px] prose-blockquote:bg-[color-mix(in_oklab,var(--accent-warm)_8%,transparent)] prose-blockquote:px-4 prose-blockquote:py-1 prose-blockquote:text-[var(--text-body)] prose-blockquote:font-medium prose-hr:border-[var(--reader-border)] prose-img:rounded-2xl prose-pre:rounded-2xl prose-pre:border prose-pre:border-[var(--reader-border)] prose-pre:bg-[var(--surface-elevated)] prose-pre:text-[var(--foreground)] prose-code:rounded prose-code:bg-[color-mix(in_oklab,var(--reader-panel-muted)_82%,black_18%)] prose-code:px-1.5 prose-code:py-0.5 prose-code:text-[color-mix(in_oklab,var(--foreground)_92%,white_8%)] prose-code:font-[var(--font-code)] prose-code:before:content-none prose-code:after:content-none prose-table:w-full prose-th:bg-[var(--reader-panel-muted)] prose-th:text-[var(--foreground)] prose-td:border-[var(--reader-border)] prose-th:border-[var(--reader-border)] dark:prose-invert">
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm]}
                     rehypePlugins={[rehypeHighlight, [rehypeHighlightCodeLines, { showLineNumbers: true }]]}
@@ -410,17 +434,41 @@ export async function renderArticlePage({ slug, includeDraft = false }: { slug: 
                   </ReactMarkdown>
                 </div>
 
-                {post.tags.length > 0 ? (
-                  <div className="mt-10 flex flex-wrap gap-2 border-t border-[var(--reader-border)] pt-8">
-                    {post.tags.map((tag: ArticlePost['tags'][number]) => (
-                      <Link
-                        className="reader-chip"
-                        href={`/tags/${tag.slug}`}
-                        key={tag.slug}
-                      >
-                        #{tag.name}
-                      </Link>
-                    ))}
+                {(!isDraftPreview || post.tags.length > 0) ? (
+                  <div className="mt-8 flex flex-wrap items-center justify-between gap-4 border-t border-dashed border-[var(--line-color)] pt-5">
+                    {!isDraftPreview ? (
+                      <div className="flex flex-wrap items-center gap-2.5">
+                        <h2 className="sr-only">读后操作</h2>
+                        <LikeButton initialCount={post._count.likes} initialLiked={false} slug={post.slug} />
+                        <BookmarkButton excerpt={post.excerpt} initialBookmarked={false} slug={post.slug} title={post.title} />
+                        <ShareButton
+                          authorName={post.author.name || settings.siteName}
+                          slug={post.slug}
+                          sourceName={settings.siteName}
+                          title={post.title}
+                        />
+                        <Link
+                          className="home-primary-cta h-11 rounded-full px-4 text-sm"
+                          href="#comments"
+                        >
+                          发表评论
+                        </Link>
+                      </div>
+                    ) : null}
+
+                    {post.tags.length > 0 ? (
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {post.tags.map((tag: ArticlePost['tags'][number]) => (
+                          <Link
+                            className="reader-chip"
+                            href={`/tags/${tag.slug}`}
+                            key={tag.slug}
+                          >
+                            #{tag.name}
+                          </Link>
+                        ))}
+                      </div>
+                    ) : null}
                   </div>
                 ) : null}
               </div>
@@ -444,49 +492,26 @@ export async function renderArticlePage({ slug, includeDraft = false }: { slug: 
             </InViewReveal>
           ) : null}
 
-          {isDraftPreview ? null : (
-          <InViewReveal className="reader-panel w-full space-y-6 p-6 sm:p-8">
-            <SectionHeader
-              eyebrow="读后"
-              title="读后操作"
-              description="保存、分享，或直接跳到评论区。"
-            />
-
-            <div className="flex flex-wrap items-center gap-3">
-              <LikeButton initialCount={post._count.likes} initialLiked={false} slug={post.slug} />
-              <BookmarkButton excerpt={post.excerpt} initialBookmarked={false} slug={post.slug} title={post.title} />
-              <ShareButton
-                authorName={post.author.name || settings.siteName}
-                slug={post.slug}
-                sourceName={settings.siteName}
-                title={post.title}
-              />
-              <Link
-                className="inline-flex h-11 items-center justify-center rounded-full border border-[color:color-mix(in_oklab,var(--accent-sky)_58%,var(--reader-border))] bg-[color-mix(in_oklab,var(--accent-sky)_88%,black_12%)] px-4 text-sm font-semibold text-[color-mix(in_oklab,var(--foreground)_12%,white_88%)] transition hover:bg-[var(--accent-sky)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
-                href="#comments"
-              >
-                发表评论
-              </Link>
-            </div>
-
-          </InViewReveal>
-          )}
-
           {!isDraftPreview && settings.newsletter.enabled ? (
-            <InViewReveal className="reader-panel w-full space-y-4 p-6 sm:p-8">
-              <SectionHeader
-                eyebrow="Newsletter"
-                title="订阅后续文章"
-                description="新内容发布后发送确认邮件，不会把未验证或已退订地址加入发送列表。"
-              />
+            <InViewReveal className="reader-panel w-full space-y-3 p-5 sm:p-6">
+              <div className="space-y-1">
+                <h2 className="reader-section-heading text-base">订阅后续文章</h2>
+                <p className="text-xs leading-5 text-[var(--text-muted)]">
+                  新内容发布后发送确认邮件，不会把未验证或已退订地址加入发送列表。
+                </p>
+              </div>
               <NewsletterForm />
             </InViewReveal>
           ) : null}
 
           {commentsPromise ? (
-          <InViewReveal aria-labelledby="comments-heading" className="reader-panel w-full p-6 sm:p-8" id="comments">
-            <h2 id="comments-heading" className="mb-3 font-display text-2xl font-bold text-[var(--foreground)]">评论 ({post._count.comments})</h2>
-            <p className="mb-6 text-sm leading-6 text-[var(--text-muted)]">欢迎分享你的观点或补充事实和论据，但请避免人身攻击或侮辱他人。</p>
+          <InViewReveal aria-labelledby="comments-heading" className="reader-panel w-full p-5 sm:p-7" id="comments">
+            <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
+              <h2 id="comments-heading" className="reader-section-heading text-base sm:text-lg">
+                评论 ({post._count.comments})
+              </h2>
+              <p className="text-xs text-[var(--text-muted)]">欢迎理性讨论与补充勘误</p>
+            </div>
 
             <CommentAuthGate postId={post.id} />
 

@@ -37,9 +37,9 @@ const filters: Array<{ key: NotificationFilter; label: string }> = [
 ];
 
 const severityMeta = {
-  SUCCESS: { icon: CircleCheck, className: "bg-emerald-50 text-emerald-700", label: "成功" },
-  WARNING: { icon: AlertCircle, className: "bg-amber-50 text-amber-700", label: "警告" },
-  ERROR: { icon: XCircle, className: "bg-rose-50 text-rose-700", label: "错误" },
+  SUCCESS: { icon: CircleCheck, className: "bg-[var(--success-surface)] text-[var(--success-foreground)]", label: "成功" },
+  WARNING: { icon: AlertCircle, className: "bg-[var(--warning-surface)] text-[var(--warning-foreground)]", label: "警告" },
+  ERROR: { icon: XCircle, className: "bg-[var(--danger-surface)] text-[var(--danger-foreground)]", label: "错误" },
   INFO: { icon: Info, className: "bg-[color-mix(in_oklab,var(--brand)_10%,var(--surface))] text-[var(--brand)]", label: "信息" },
 } as const;
 

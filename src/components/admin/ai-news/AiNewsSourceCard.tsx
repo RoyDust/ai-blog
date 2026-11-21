@@ -93,7 +93,7 @@ export function AiNewsSourceCard({
           {source.healthWarnings.length ? (
             <div className="mt-2 flex flex-wrap gap-2">
               {source.healthWarnings.map((warning) => (
-                <span key={warning} className="rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-amber-700">
+                <span key={warning} className="ui-status-warning rounded-md px-2 py-0.5 text-xs">
                   {warning}
                 </span>
               ))}

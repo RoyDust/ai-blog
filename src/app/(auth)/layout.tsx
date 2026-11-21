@@ -14,8 +14,8 @@ export default function AuthLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="admin-theme bg-background flex min-h-screen items-center justify-center px-4 py-12 text-foreground">
-      <div className="w-full max-w-md">
+    <div className="admin-theme bg-background flex min-h-screen items-center justify-center px-4 py-10 text-foreground">
+      <div className="w-full max-w-[26rem]">
         {children}
       </div>
     </div>

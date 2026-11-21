@@ -97,7 +97,7 @@ export function AdminTodoStrip({ counts, showAiModelWarning = false }: AdminTodo
   }
 
   return (
-    <section aria-label="今日待办" className="rounded-lg bg-[var(--surface-alt)] px-4 py-3">
+    <section aria-label="今日待办" className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3.5 py-2.5 shadow-[var(--shadow-card)]">
       <div className="flex flex-wrap items-center gap-2">
         {visibleItems.map((item) => {
           const Icon = item.icon;
@@ -108,9 +108,9 @@ export function AdminTodoStrip({ counts, showAiModelWarning = false }: AdminTodo
               key={item.key}
               href={item.href}
               aria-label={`${item.label} ${countLabel}，点击进入${item.destination}`}
-              className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm font-semibold text-[var(--foreground)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--surface-alt)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface)]"
+              className="inline-flex min-h-8.5 items-center gap-2 whitespace-nowrap rounded-lg bg-[var(--surface-alt)]/80 px-3 py-1.5 text-xs font-semibold text-[var(--foreground)] transition-colors hover:bg-[var(--btn-regular-bg)] hover:text-[var(--btn-content)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface)]"
             >
-              <Icon className="h-4 w-4 text-[var(--muted)]" aria-hidden />
+              <Icon className="h-3.5 w-3.5 text-[var(--muted)]" aria-hidden />
               <span>{item.label}</span>
               <StatusBadge tone={item.tone}>{countLabel}</StatusBadge>
             </Link>

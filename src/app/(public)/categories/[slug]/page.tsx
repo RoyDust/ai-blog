@@ -62,9 +62,9 @@ export default async function CategoryPage({
     <div className="reader-section">
       <JsonLd data={breadcrumbJsonLd} />
       <TaxonomyHero
-        eyebrow="Category"
+        eyebrow="分类专题"
         title={category.name}
-        description={category.description || '这是一个按主题组织的专题页。你可以在这里连续浏览该方向下的最新文章，并快速回到全站列表继续探索。'}
+        description={category.description || '浏览该主题方向下的最新文章，或返回全站列表组合筛选。'}
         countLabel={`${category._count.posts} 篇已发布文章`}
         primaryHref={`/posts?category=${encodeURIComponent(category.slug)}`}
         primaryLabel="在列表页中筛选"

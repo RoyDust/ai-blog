@@ -71,7 +71,7 @@ export function AiNewsRunHistoryPanel({
           const meta = runStatusMeta(run.status)
           const candidates = candidateStates[run.id]
           return (
-            <div key={run.id} className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
+            <div key={run.id} className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3.5">
               <div className="flex flex-wrap items-center gap-3">
                 <StatusBadge tone={meta.tone}>{meta.label}</StatusBadge>
                 <span className="text-sm text-[var(--muted)]">{runTriggerLabel(run.trigger)}</span>
@@ -112,7 +112,7 @@ export function AiNewsRunHistoryPanel({
                     <p className="text-sm text-[var(--muted)]">暂无候选。</p>
                   ) : null}
                   {candidates.data?.map((candidate) => (
-                    <div key={candidate.id} className="rounded-2xl border border-[var(--border)] bg-[var(--surface-muted)] p-3">
+                    <div key={candidate.id} className="rounded-xl border border-[var(--border)] bg-[var(--surface-alt)]/75 p-3">
                       <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
                         <StatusBadge tone={candidate.selected ? "success" : "neutral"}>
                           {candidate.selected ? "入选" : "未入选"}

@@ -33,12 +33,12 @@ export function VisitTrendChart({ stats }: { stats: DashboardStats["visits"] }) 
             <stop offset="100%" stopColor="var(--color-uv)" stopOpacity={0.002} />
           </linearGradient>
         </defs>
-        <RechartsCartesianGrid vertical={false} stroke="var(--line-color)" strokeOpacity={0.7} />
+        <RechartsCartesianGrid vertical={false} stroke="var(--line-color)" strokeOpacity={0.45} />
         <RechartsXAxis dataKey="label" tickLine={false} axisLine={false} minTickGap={stats.range > 30 ? 28 : 14} />
         <RechartsYAxis tickFormatter={formatCompactNumber} tickLine={false} axisLine={false} width={38} />
         <ChartTooltip content={<ChartTooltipContent className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/95 shadow-lg backdrop-blur-sm" />} />
-        <RechartsArea dataKey="uv" type="monotone" stroke="var(--color-uv)" fill="url(#visit-uv-area)" strokeWidth={2} dot={false} />
-        <RechartsArea dataKey="pv" type="monotone" stroke="var(--color-pv)" fill="url(#visit-pv-area)" strokeWidth={2} dot={false} />
+        <RechartsArea dataKey="uv" type="monotone" stroke="var(--color-uv)" fill="url(#visit-uv-area)" strokeDasharray="4 4" strokeWidth={1.75} dot={false} />
+        <RechartsArea dataKey="pv" type="monotone" stroke="var(--color-pv)" fill="url(#visit-pv-area)" strokeWidth={2.2} dot={false} />
       </RechartsAreaChart>
     </ChartContainer>
   );

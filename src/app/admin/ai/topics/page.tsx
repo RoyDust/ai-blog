@@ -129,7 +129,7 @@ function TopicCard({ topic }: { topic: AiTopicListItem }) {
               </span>
             ))}
             {topic.riskFlags.map((flag) => (
-              <span key={flag} className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-amber-700">
+              <span key={flag} className="ui-status-warning rounded-md px-2 py-1 text-xs">
                 {flag}
               </span>
             ))}
@@ -153,7 +153,7 @@ function TopicCard({ topic }: { topic: AiTopicListItem }) {
 
         <div className="mt-3 space-y-2">
           {candidates.map((candidate) => (
-            <div key={candidate.id} className="rounded-lg bg-[var(--surface-muted)] px-3 py-2">
+            <div key={candidate.id} className="rounded-lg bg-[var(--surface-alt)]/75 px-3 py-2">
               <a className="text-sm font-medium text-[var(--brand)] hover:underline" href={candidate.url} target="_blank" rel="noreferrer">
                 {candidate.title}
               </a>
@@ -201,8 +201,8 @@ export default async function AdminAiTopicsPage({
                 href={topicHref(tab.status)}
                 className={
                   active
-                    ? "rounded-md bg-[var(--primary)] px-3 py-2 text-sm text-white"
-                    : "rounded-md border border-[var(--border)] px-3 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--surface-muted)]"
+                    ? "rounded-lg bg-[var(--btn-regular-bg)] px-3 py-1.5 text-xs font-semibold text-[var(--btn-content)]"
+                    : "rounded-lg px-3 py-1.5 text-xs font-medium text-[var(--muted)] hover:bg-[var(--surface-alt)] hover:text-[var(--foreground)]"
                 }
               >
                 {tab.label}

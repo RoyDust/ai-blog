@@ -25,7 +25,7 @@ function AccountAvatar({ image, label }: AccountAvatarProps) {
     return (
       <span
         aria-hidden="true"
-        className="h-8 w-8 rounded-full bg-cover bg-center ring-1 ring-[var(--reader-border)]"
+        className="h-8 w-8 rounded-lg bg-cover bg-center ring-1 ring-[var(--reader-border)]"
         style={{ backgroundImage: `url(${image})` }}
       />
     );
@@ -34,7 +34,7 @@ function AccountAvatar({ image, label }: AccountAvatarProps) {
   return (
     <span
       aria-hidden="true"
-      className="flex h-8 w-8 items-center justify-center rounded-full border border-[color:color-mix(in_oklab,var(--accent-warm)_30%,var(--reader-border))] bg-[color:color-mix(in_oklab,var(--accent-warm)_14%,transparent)] text-xs font-bold text-[var(--accent-warm)]"
+      className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--btn-regular-bg)] text-xs font-bold text-[var(--btn-content)]"
     >
       {getInitial(label)}
     </span>
@@ -42,7 +42,7 @@ function AccountAvatar({ image, label }: AccountAvatarProps) {
 }
 
 const accountMenuItemClass =
-  "flex cursor-default select-none items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-[var(--foreground)] outline-none transition-colors focus:bg-[color:color-mix(in_oklab,var(--accent-sky)_12%,transparent)]";
+  "flex cursor-default select-none items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium text-[var(--foreground)] outline-none transition-colors focus:bg-[var(--btn-regular-bg)] focus:text-[var(--btn-content)]";
 
 export function AccountEntry() {
   const { data: session, status } = useSession();
@@ -142,9 +142,9 @@ export function AccountEntry() {
               </DropdownMenu.Item>
             </>
           ) : null}
-          <DropdownMenu.Separator className="-mx-2 my-1 h-px bg-[var(--reader-border)]" />
+          <DropdownMenu.Separator className="-mx-2 my-1 h-px bg-[var(--line-color)]" />
           <DropdownMenu.Item
-            className={cn(accountMenuItemClass, "text-rose-600 focus:bg-rose-50 focus:text-rose-700")}
+            className={cn(accountMenuItemClass, "text-[var(--danger-foreground)] focus:bg-[var(--danger-surface)] focus:text-[var(--danger-foreground)]")}
             onSelect={(event) => {
               event.preventDefault();
               void handleLogout();

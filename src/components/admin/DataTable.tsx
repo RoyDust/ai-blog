@@ -127,7 +127,7 @@ export function DataTable<T extends { id: string }>({
   return (
     <Card
       className={cn(
-        "gap-0 overflow-hidden rounded-[var(--radius-panel)] border-[var(--border)] bg-[var(--surface)] py-0 text-[var(--foreground)] shadow-none",
+        "gap-0 overflow-hidden rounded-xl border-[var(--border)] bg-[var(--surface)] py-0 text-[var(--foreground)] shadow-[var(--shadow-card)]",
         fillHeight && "flex min-h-0 flex-1 flex-col",
       )}
     >

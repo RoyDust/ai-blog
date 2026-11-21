@@ -350,7 +350,7 @@ export default function AdminTopicGuidesPage() {
                     <FormDescription>只从已发布文章列表选择，公开页仍会再次过滤草稿和已删除文章。</FormDescription>
                     <div className="max-h-56 space-y-2 overflow-y-auto rounded-xl border border-[var(--border)] p-2">
                       {postOptions.length > 0 ? postOptions.map((post) => (
-                        <label key={post.id} className="flex cursor-pointer items-start gap-2 rounded-lg px-2 py-2 text-sm hover:bg-[var(--surface-muted)]">
+                        <label key={post.id} className="flex cursor-pointer items-start gap-2 rounded-lg px-2 py-2 text-sm hover:bg-[var(--surface-alt)]">
                           <input
                             type="checkbox"
                             className="mt-1"

@@ -2,7 +2,6 @@ export const revalidate = 300;
 
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Clock3 } from "lucide-react";
 import { TaxonomyHero } from "@/components/taxonomy";
 import { getBlogSettings } from "@/lib/blog-settings";
 import { prisma } from "@/lib/prisma";
@@ -42,11 +41,10 @@ async function getArchivePosts() {
 
 type ArchivePost = Awaited<ReturnType<typeof getArchivePosts>>[number];
 
-function formatDate(date: Date) {
-  return new Intl.DateTimeFormat("zh-CN", {
-    month: "2-digit",
-    day: "2-digit",
-  }).format(date);
+function formatMonthDay(date: Date) {
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${month}-${day}`;
 }
 
 export default async function ArchivesPage() {
@@ -63,53 +61,68 @@ export default async function ArchivesPage() {
   return (
     <div className="reader-section">
       <TaxonomyHero
-        eyebrow="Archives"
+        eyebrow="时间归档"
         title="文章归档"
-        description="把所有已发布文章收进一条安静的时间线。适合回看长期积累，也适合从某个年份重新进入一段技术记录。"
+        description="按年份与发布日期倒序收纳全部文章，方便回溯每一次排障与技术记录。"
         countLabel={`${posts.length} 篇文章 · ${groups.size} 个年份`}
         primaryHref="/posts"
-        primaryLabel="浏览全部文章"
+        primaryLabel="全部文章"
         secondaryHref="/categories"
-        secondaryLabel="查看分类专题"
+        secondaryLabel="分类专题"
       />
 
       {posts.length === 0 ? (
         <div className="reader-panel p-8 text-sm text-[var(--text-muted)]">暂无已发布文章。</div>
       ) : (
-        <section className="reader-panel onload-animation p-6 md:p-8" style={{ animationDelay: "60ms" }}>
-          <div className="relative pl-5 md:pl-7">
-            <div className="absolute top-0 bottom-0 left-[6px] w-px bg-[var(--reader-border)]" />
-
+        <section
+          aria-label="按年份归档时间线"
+          className="reader-panel onload-animation px-5 py-5 md:px-6 md:py-6"
+          style={{ animationDelay: "60ms" }}
+        >
+          <div className="space-y-6">
             {[...groups.entries()].map(([year, yearPosts]) => (
-              <div key={year} className="mb-8 last:mb-0">
-                <div className="mb-4 flex items-center gap-3">
-                  <span className="h-3 w-3 rounded-full bg-[var(--accent-warm)]" />
-                  <h2 className="text-90 text-xl font-bold">{year}</h2>
-                  <span className="text-50 text-xs">{yearPosts.length} 篇</span>
+              <div key={year}>
+                <div className="mb-2 grid grid-cols-[3.5rem_1.5rem_minmax(0,1fr)] items-baseline">
+                  <h2 className="font-mono text-xl font-extrabold tabular-nums text-[var(--foreground)]">{year}</h2>
+                  <span
+                    aria-hidden="true"
+                    className="h-2.5 w-2.5 justify-self-center rounded-full border-2 border-[var(--brand)] bg-[var(--card-bg)]"
+                  />
+                  <span className="text-xs text-[var(--text-muted)]">{yearPosts.length} 篇</span>
                 </div>
 
-                <div className="space-y-3">
-                  {yearPosts.map((post: ArchivePost) => (
-                    <article key={post.id} className="reader-feed-card ml-2 p-4">
-                      <div className="mb-2 flex flex-wrap items-center gap-3 text-xs text-[var(--text-muted)]">
-                        <span className="inline-flex items-center gap-1">
-                          <Clock3 className="h-3.5 w-3.5 text-[var(--accent-sky)]" />
-                          {formatDate(new Date(post.createdAt))}
+                <div>
+                  {yearPosts.map((post: ArchivePost) => {
+                    const postDate = new Date(post.createdAt);
+                    return (
+                      <Link
+                        key={post.id}
+                        href={`/posts/${post.slug}`}
+                        className="reader-feed-card !border-0 !bg-transparent !shadow-none hover:!bg-[var(--btn-regular-bg)] group -mx-2 grid h-10 grid-cols-[3.5rem_1.5rem_minmax(0,1fr)_auto] items-center rounded-lg px-2 transition-colors"
+                      >
+                        <time
+                          dateTime={postDate.toISOString()}
+                          className="font-mono text-xs tabular-nums text-[var(--text-muted)]"
+                        >
+                          {formatMonthDay(postDate)}
+                        </time>
+                        <span
+                          aria-hidden="true"
+                          className="relative flex h-full items-center justify-center before:absolute before:inset-y-0 before:left-1/2 before:-translate-x-1/2 before:border-l before:border-dashed before:border-[var(--line-color)]"
+                        >
+                          <i className="relative z-10 h-1.5 w-1.5 rounded-full bg-[var(--text-muted)] transition-all duration-150 group-hover:scale-150 group-hover:bg-[var(--brand)]" />
+                        </span>
+                        <span className="truncate pr-3 text-sm font-semibold text-[var(--foreground)] transition-colors group-hover:text-[var(--brand)]">
+                          {post.title}
                         </span>
                         {post.category ? (
-                          <Link href={`/categories/${post.category.slug}`} className="reader-chip">
-                            {post.category.name}
-                          </Link>
+                          <span className="hidden shrink-0 rounded-md bg-[var(--surface-alt)]/75 px-2 py-0.5 text-xs text-[var(--text-muted)] sm:inline-block">
+                            #{post.category.name}
+                          </span>
                         ) : null}
-                      </div>
-
-                      <Link href={`/posts/${post.slug}`} className="text-90 text-lg font-semibold leading-snug transition hover:text-[var(--accent-sky)]">
-                        {post.title}
                       </Link>
-
-                      {post.excerpt ? <p className="text-75 mt-2 line-clamp-2 text-sm leading-6">{post.excerpt}</p> : null}
-                    </article>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             ))}

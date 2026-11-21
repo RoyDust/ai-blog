@@ -11,6 +11,7 @@
 - [Agent 高频实操面试题](./articles/2026-09-20-agent-interview-questions.md)
 - [Codex 的 /goal 是如何实现的？](./articles/2026-09-26-codex-goal-implementation.md)
 - [当前实施记录](./implementation/)
+- [Fuwari × Shiro 前后台 UI 设计与改造计划](./implementation/ui-design-fuwari/IMPLEMENTATION_PLAN.md)
 - [前后端架构审查与修复计划](./implementation/2026-11-21-architecture-review-remediation-plan.md)
 - [剩余 P2 问题修复方案](./implementation/2026-09-26-remaining-p2-remediation-plan.md)
 - [P2 修复执行与验收记录](./implementation/2026-09-26-p2-execution.md)

@@ -147,25 +147,28 @@ export function EditorWorkspace({
   };
 
   return (
-    <section className={`ui-surface rounded-2xl p-5 lg:p-6 ${fillHeight ? "flex min-h-0 flex-col overflow-hidden" : ""} ${className}`}>
-      <h2 className="mb-4 font-display text-lg font-semibold text-[var(--foreground)]">写作画布</h2>
-      <div className={fillHeight ? "flex min-h-0 flex-1 flex-col gap-4" : "space-y-4"}>
-        <Input
-          label="标题"
-          placeholder="文章标题"
-          required
-          rightSlot={titleRightSlot}
-          value={title}
-          onChange={(event) => onTitleChange(event.target.value)}
-        />
-        <Input
-          label="Slug"
-          placeholder="url-slug"
-          required
-          rightSlot={slugRightSlot}
-          value={slug}
-          onChange={(event) => onSlugChange(event.target.value)}
-        />
+    <section className={`rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--shadow-card)] lg:p-5 ${fillHeight ? "flex min-h-0 flex-col overflow-hidden" : ""} ${className}`}>
+      <h2 className="sr-only">写作画布</h2>
+      <div className={fillHeight ? "flex min-h-0 flex-1 flex-col gap-3.5" : "space-y-3.5"}>
+        <div className="grid gap-3 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+          <Input
+            label="标题"
+            placeholder="文章标题"
+            required
+            rightSlot={titleRightSlot}
+            value={title}
+            onChange={(event) => onTitleChange(event.target.value)}
+          />
+          <Input
+            label="Slug"
+            placeholder="url-slug"
+            required
+            rightSlot={slugRightSlot}
+            value={slug}
+            className="font-mono text-xs"
+            onChange={(event) => onSlugChange(event.target.value)}
+          />
+        </div>
         <MarkdownEditor
           fillHeight={fillHeight}
           label="内容"
@@ -183,6 +186,7 @@ export function EditorWorkspace({
                   type="button"
                   size="sm"
                   variant="outline"
+                  className="shrink-0 whitespace-nowrap"
                   disabled={isSummarizing || !content.trim()}
                   onClick={handleGenerateSummary}
                 >
@@ -190,8 +194,8 @@ export function EditorWorkspace({
                 </Button>
               </div>
               <Input placeholder="文章摘要（可选）" value={excerpt} onChange={(event) => onExcerptChange(event.target.value)} />
-              <p className="text-sm text-[var(--muted)]">基于当前正文生成适合列表页与 SEO 展示的简短摘要。</p>
-              {summaryError ? <p className="text-sm text-rose-500">{summaryError}</p> : null}
+              <p className="text-xs text-[var(--muted)]">基于当前正文生成适合列表页与 SEO 展示的简短摘要。</p>
+              {summaryError ? <p className="text-sm text-[var(--danger-foreground)]">{summaryError}</p> : null}
             </div>
 
             <Input
@@ -201,7 +205,7 @@ export function EditorWorkspace({
               onChange={(event) => onCoverImageChange(event.target.value)}
             />
 
-            <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-alt)] p-4">
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-alt)]/75 p-3.5">
               <div className="flex flex-wrap items-center gap-3">
                 <input
                   ref={fileInputRef}
@@ -211,12 +215,12 @@ export function EditorWorkspace({
                   type="file"
                   onChange={handleUpload}
                 />
-                <Button type="button" size="sm" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
+                <Button type="button" size="sm" className="shrink-0 whitespace-nowrap" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
                   {isUploading ? "上传中..." : "上传封面到七牛"}
                 </Button>
-                <p className="text-sm text-[var(--muted)]">支持选择图片后直接上传，并自动回填封面地址。</p>
+                <p className="text-xs text-[var(--muted)]">支持选择图片后直接上传，并自动回填封面地址。</p>
               </div>
-              {uploadError ? <p className="mt-2 text-sm text-rose-500">{uploadError}</p> : null}
+              {uploadError ? <p className="mt-2 text-sm text-[var(--danger-foreground)]">{uploadError}</p> : null}
             </div>
           </>
         ) : null}

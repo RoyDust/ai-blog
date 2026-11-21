@@ -148,7 +148,7 @@ export function ArticleInfoPreviewModal({
         ))}
       </div>
 
-      <div className="hidden overflow-hidden rounded-2xl border border-[var(--border)] sm:block">
+      <div className="hidden overflow-hidden rounded-xl border border-[var(--border)] sm:block">
         <div className="grid grid-cols-[6rem_minmax(0,1fr)_minmax(0,1fr)_7rem] gap-0 border-b border-[var(--border)] bg-[var(--surface-alt)] text-xs font-semibold text-[var(--muted)]">
           <span className="px-3 py-2">字段</span>
           <span className="px-3 py-2">当前</span>
@@ -168,7 +168,7 @@ export function ArticleInfoPreviewModal({
       </div>
 
       {preview.quality ? (
-        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-alt)] p-3">
+        <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-alt)]/75 p-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-sm font-medium text-[var(--foreground)]">质量评分</p>
             <StatusBadge tone={(preview.quality.score ?? 0) >= 80 ? "success" : "warning"}>
@@ -190,7 +190,7 @@ export function ArticleInfoPreviewModal({
       ) : null}
 
       {preview.failures.length > 0 ? (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        <div className="ui-status-warning rounded-xl px-4 py-3 text-xs">
           {preview.failures.map((failure) => articleInfoActionLabels[failure.action] ?? failure.action).join("、")} 生成失败，其余字段可确认应用。
         </div>
       ) : null}
@@ -206,10 +206,10 @@ export function ArticleInfoPreviewModal({
       ) : null}
 
       <div className="flex flex-wrap justify-end gap-2">
-        <Button type="button" variant="outline" onClick={onClose}>
+        <Button type="button" variant="outline" className="shrink-0 whitespace-nowrap" onClick={onClose}>
           取消
         </Button>
-        <Button type="button" onClick={onApply}>
+        <Button type="button" className="shrink-0 whitespace-nowrap" onClick={onApply}>
           应用这些结果
         </Button>
       </div>

@@ -265,11 +265,11 @@ export function PostAiWorkspace({
             key={item.action}
             type="button"
             disabled={disabled || Boolean(runningAction)}
-            className="ui-ring rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-left transition-colors hover:bg-[var(--surface-alt)] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+            className="ui-ring rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-left transition-colors hover:bg-[var(--surface-alt)] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
             onClick={() => void runAction(item.action)}
           >
             <span className="flex items-center justify-between gap-2">
-              <span className="text-sm font-medium text-[var(--foreground)]">{item.label}</span>
+              <span className="text-sm font-semibold text-[var(--foreground)]">{item.label}</span>
               {runningAction === item.action ? <StatusBadge tone="warning">生成中</StatusBadge> : null}
             </span>
             <span className="mt-1 block text-xs text-[var(--muted)]">{item.hint}</span>
@@ -277,24 +277,24 @@ export function PostAiWorkspace({
         ))}
       </div>
 
-      <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-alt)] p-4">
+      <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-alt)]/75 p-3.5">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-sm font-medium text-[var(--foreground)]">{result ? `${actionLabels[result.action]}预览` : "结果预览"}</p>
+          <p className="text-sm font-semibold text-[var(--foreground)]">{result ? `${actionLabels[result.action]}预览` : "结果预览"}</p>
           {result ? (
             <a className="text-xs text-[var(--brand)] hover:underline" href={`/admin/ai/tasks/${result.taskId}`}>
               查看任务
             </a>
           ) : null}
         </div>
-        <pre className="mt-3 max-h-56 whitespace-pre-wrap break-words rounded-xl bg-[var(--surface)] p-3 text-sm leading-6 text-[var(--foreground)]">
+        <pre className="mt-2.5 max-h-56 whitespace-pre-wrap break-words rounded-lg bg-[var(--surface)] p-3 text-sm leading-6 text-[var(--foreground)]">
           {preview || "AI 未返回可展示内容"}
         </pre>
         {result ? (
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <Button type="button" size="sm" disabled={applying} onClick={() => void applyResult()}>
+            <Button type="button" size="sm" className="shrink-0 whitespace-nowrap" disabled={applying} onClick={() => void applyResult()}>
               {applying ? "应用中..." : "应用建议"}
             </Button>
-            <Button type="button" size="sm" variant="outline" disabled={applying} onClick={() => setResult(null)}>
+            <Button type="button" size="sm" variant="outline" className="shrink-0 whitespace-nowrap" disabled={applying} onClick={() => setResult(null)}>
               忽略
             </Button>
             <span className="text-xs text-[var(--muted)]">模型：{result.modelId}</span>
@@ -303,7 +303,7 @@ export function PostAiWorkspace({
       </div>
 
       {disabled ? <p className="text-sm text-[var(--muted)]">{disabledMessage ?? "保存文章正文后再运行 AI 动作。"}</p> : null}
-      {error ? <p className="text-sm text-rose-600">{error}</p> : null}
+      {error ? <p className="text-sm text-[var(--danger-foreground)]">{error}</p> : null}
     </div>
   );
 }

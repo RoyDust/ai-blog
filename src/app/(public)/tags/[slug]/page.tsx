@@ -62,15 +62,14 @@ export default async function TagPage({
     <div className="reader-section">
       <JsonLd data={breadcrumbJsonLd} />
       <TaxonomyHero
-        eyebrow="Tag"
+        eyebrow="主题标签"
         title={`#${tag.name}`}
-        description="标签页适合从具体技术点或关键词切入，查看它在站内内容里的关联分布与最新文章。"
+        description="从具体技术点或关键词切入，查看它在站内内容里的关联分布与最新文章。"
         countLabel={`${tag._count.posts} 篇相关文章`}
         primaryHref={`/posts?tag=${encodeURIComponent(tag.slug)}`}
         primaryLabel="在列表页中筛选"
         secondaryHref="/tags"
         secondaryLabel="返回全部标签"
-        accent={tag.color ?? undefined}
       />
 
       {tag.posts.length > 0 ? (

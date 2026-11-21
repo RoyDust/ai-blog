@@ -10,7 +10,6 @@ import { Clock3, Loader2, CheckCircle2, Bot, Sparkles, XCircle, type LucideIcon 
 
 import { Badge } from "@/components/shadcn/ui/badge";
 import { Button } from "@/components/shadcn/ui/button";
-import { Card, CardContent } from "@/components/shadcn/ui/card";
 import {
   Tooltip,
   TooltipContent,
@@ -115,7 +114,6 @@ export function MetricCard({
   icon: Icon,
   label,
   value,
-  tone,
   caption,
   onClick,
 }: {
@@ -130,9 +128,10 @@ export function MetricCard({
   const valueText = typeof value === "number" ? formatNumber(value) : value;
 
   return (
-    <Card
+    <div
       role={onClick ? "button" : undefined}
       tabIndex={onClick ? 0 : undefined}
+      title={caption}
       onClick={onClick}
       onKeyDown={
         onClick
@@ -145,22 +144,16 @@ export function MetricCard({
           : undefined
       }
       className={cn(
-        "rounded-lg border-[color-mix(in_oklab,var(--border)_80%,transparent)] bg-[var(--surface)] py-0 shadow-none transition-colors",
-        onClick && "cursor-pointer hover:border-[var(--border-strong)] hover:bg-[var(--surface-alt)]",
-        active && "border-[color-mix(in_oklab,var(--brand)_28%,var(--border))] bg-[color-mix(in_oklab,var(--brand)_8%,var(--surface))] ring-2 ring-[color-mix(in_oklab,var(--brand)_22%,transparent)]",
+        "inline-flex h-7 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border px-2.5 text-xs transition-colors",
+        "border-[var(--border)] bg-[var(--surface-alt)]/75 text-[var(--text-muted)]",
+        onClick && "cursor-pointer hover:border-[var(--border-strong)] hover:text-[var(--foreground)]",
+        active && "border-[color-mix(in_oklab,var(--brand)_26%,var(--border))] bg-[var(--btn-regular-bg)] text-[var(--btn-content)] font-semibold",
       )}
     >
-      <CardContent className="flex items-center justify-between gap-3 p-3">
-        <div className="min-w-0">
-          <p className="text-[11px] font-semibold text-[var(--text-muted)]">{label}</p>
-          <p className="mt-1 font-mono text-xl font-semibold tabular-nums text-[var(--foreground)]">{valueText}</p>
-          <p className="mt-1 truncate text-xs text-[var(--text-muted)]">{caption}</p>
-        </div>
-        <span className={cn("flex size-9 shrink-0 items-center justify-center rounded-lg border", toneClassName[tone])}>
-          <Icon className="size-4" />
-        </span>
-      </CardContent>
-    </Card>
+      <Icon className="size-3.5 shrink-0 opacity-80" aria-hidden="true" />
+      <span>{label}</span>
+      <span className="font-mono font-semibold tabular-nums text-[var(--foreground)]">{valueText}</span>
+    </div>
   );
 }
 
@@ -177,14 +170,14 @@ export function FilterButton({
     <Button
       aria-pressed={active}
       className={cn(
-        "h-8 rounded-md px-3 text-xs",
+        "h-7 shrink-0 whitespace-nowrap rounded-md border-0 px-2.5 text-xs shadow-none",
         active
-          ? "!border-[var(--foreground)] !bg-[var(--foreground)] !text-white hover:!bg-[var(--text-body)]"
-          : "!border-[var(--border)] !bg-[var(--surface)] !text-[var(--foreground)] hover:!bg-[var(--surface-alt)]",
+          ? "!bg-[var(--surface)] !font-semibold !text-[var(--foreground)] !shadow-xs"
+          : "!bg-transparent !font-medium !text-[var(--text-muted)] hover:!text-[var(--foreground)]",
       )}
       onClick={onClick}
       type="button"
-      variant={active ? "default" : "outline"}
+      variant="ghost"
     >
       {children}
     </Button>

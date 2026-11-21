@@ -40,10 +40,10 @@ html.dark {
 }
 
 html:has(.reader-home-stage) {
-  --reader-background-height: 46vh;
-  --reader-background-fade-start: 20vh;
-  --reader-background-fade-end: 37vh;
-  --reader-page-top: clamp(6.5rem, 12vh, 8.25rem);
+  --reader-background-height: 32vh;
+  --reader-background-fade-start: 11vh;
+  --reader-background-fade-end: 24vh;
+  --reader-page-top: clamp(4.75rem, 9vh, 6rem);
 }
 
 @supports not (scrollbar-gutter: stable) {
@@ -58,10 +58,10 @@ html:has(.reader-home-stage) {
   }
 
   html:has(.reader-home-stage) {
-    --reader-background-height: 36vh;
-    --reader-background-fade-start: 14vh;
-    --reader-background-fade-end: 27vh;
-    --reader-page-top: clamp(4rem, 10vh, 5rem);
+    --reader-background-height: 26vh;
+    --reader-background-fade-start: 8vh;
+    --reader-background-fade-end: 19vh;
+    --reader-page-top: clamp(3.75rem, 8vh, 4.5rem);
   }
 }
 
@@ -190,7 +190,7 @@ body {
 }
 
 .serif-display-scope {
-  --font-display: "Noto Serif SC", var(--font-alibaba-puhuiti), "Source Han Serif SC", serif;
+  --font-display: var(--font-alibaba-puhuiti);
 }
 
 .serif-display-scope :where(h2, h3, h4, h5, h6),

@@ -90,7 +90,7 @@ export default async function Home() {
   })
 
   return (
-    <div className="reader-home-stage space-y-5">
+    <div className="reader-home-stage space-y-3.5">
       <JsonLd data={websiteJsonLd} />
       {hasLoadError ? (
         <section

@@ -16,18 +16,18 @@ export function AdminTabsBar() {
   };
 
   return (
-    <div className="flex h-11 items-center justify-between border-b border-[var(--border)] bg-[var(--surface)] px-4 shadow-sm select-none transition-colors duration-200">
+    <div className="flex h-9 items-center justify-between border-b border-[var(--border)] bg-[var(--surface)] px-4 select-none transition-colors duration-200">
       {/* Scrollable Tabs Wrapper */}
-      <div className="flex flex-1 items-center gap-1.5 overflow-x-auto reader-scrollbar-hidden py-1">
+      <div className="flex flex-1 items-center gap-1 overflow-x-auto reader-scrollbar-hidden py-1">
         {tabs.map((tab) => {
           const isActive = pathname === tab.href;
           return (
             <div
               key={tab.href}
-              className={`group relative flex h-7 items-center gap-1.5 rounded border px-3 text-xs font-medium transition-all duration-200 cursor-pointer ${
+              className={`group relative flex h-6.5 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium transition-colors duration-150 cursor-pointer ${
                 isActive
-                  ? "border-[color-mix(in_oklab,var(--brand)_24%,var(--border))] bg-[color-mix(in_oklab,var(--brand)_10%,var(--surface))] text-[var(--brand)]"
-                  : "bg-[var(--surface-alt)] hover:bg-[var(--surface-contrast)]/30 text-[var(--muted)] hover:text-[var(--foreground)] border-[var(--border)]"
+                  ? "bg-[var(--btn-regular-bg)] font-semibold text-[var(--btn-content)]"
+                  : "text-[var(--muted)] hover:bg-[var(--surface-alt)] hover:text-[var(--foreground)]"
               }`}
             >
               {/* Vben signature dot for active tab */}

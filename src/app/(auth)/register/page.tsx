@@ -51,23 +51,27 @@ export default function RegisterPage() {
   };
 
   return (
-    <Card>
-      <CardContent>
-        <div className="mb-8 text-center">
-          <h1 className="text-90 text-2xl font-bold">
+    <Card className="rounded-2xl border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-card)]">
+      <CardContent className="p-6 sm:p-7">
+        <div className="mb-6 space-y-1.5">
+          <span className="inline-flex items-center rounded-md bg-[var(--btn-regular-bg)] px-2.5 py-1 text-xs font-semibold text-[var(--btn-content)]">
+            新读者注册
+          </span>
+          <h1 className="text-90 font-display text-2xl font-bold tracking-tight">
             创建账号
           </h1>
-          <p className="text-75 mt-2">
+          <p className="text-75 text-sm leading-6">
             注册一个账号，收藏文章并开始创作
           </p>
         </div>
 
-        <form className="space-y-4" noValidate onSubmit={handleSubmit(onSubmit)}>
+        <form className="space-y-3.5" noValidate onSubmit={handleSubmit(onSubmit)}>
           <Input
             type="text"
             label="昵称"
             placeholder="输入你的昵称"
             autoComplete="nickname"
+            className="bg-[color:color-mix(in_oklab,var(--surface-alt)_50%,var(--surface)_50%)]"
             error={errors.name?.message}
             {...register('name')}
           />
@@ -77,6 +81,7 @@ export default function RegisterPage() {
             label="邮箱"
             placeholder="you@example.com"
             autoComplete="email"
+            className="bg-[color:color-mix(in_oklab,var(--surface-alt)_50%,var(--surface)_50%)]"
             error={errors.email?.message}
             {...register('email')}
           />
@@ -87,6 +92,7 @@ export default function RegisterPage() {
             placeholder="设置密码"
             autoComplete="new-password"
             helperText="至少 8 位"
+            className="bg-[color:color-mix(in_oklab,var(--surface-alt)_50%,var(--surface)_50%)]"
             error={errors.password?.message}
             {...register('password')}
           />
@@ -96,11 +102,12 @@ export default function RegisterPage() {
             label="确认密码"
             placeholder="再次输入密码"
             autoComplete="new-password"
+            className="bg-[color:color-mix(in_oklab,var(--surface-alt)_50%,var(--surface)_50%)]"
             error={errors.confirmPassword?.message}
             {...register('confirmPassword')}
           />
 
-          <div className="flex items-start">
+          <div className="flex items-start pt-0.5">
             <input
               type="checkbox"
               id="terms"
@@ -108,7 +115,7 @@ export default function RegisterPage() {
               aria-invalid={Boolean(errors.terms)}
               {...register('terms')}
             />
-            <label htmlFor="terms" className="text-75 ml-2 text-sm">
+            <label htmlFor="terms" className="text-75 ml-2 text-xs leading-5">
               我已阅读并同意{' '}
               <Link href="/terms" className="ui-link">
                 《服务条款》
@@ -119,18 +126,18 @@ export default function RegisterPage() {
               </Link>
             </label>
           </div>
-          {errors.terms ? <p className="text-xs text-rose-500">{errors.terms.message}</p> : null}
+          {errors.terms ? <p className="text-xs text-[var(--danger-foreground)]">{errors.terms.message}</p> : null}
 
-          <Button type="submit" className="w-full" disabled={isSubmitting}>
+          <Button type="submit" className="h-10 w-full text-sm" disabled={isSubmitting}>
             {isSubmitting ? '正在创建...' : '创建账号'}
           </Button>
         </form>
 
-        <div className="relative my-6">
+        <div className="relative my-5">
           <div className="absolute inset-0 flex items-center">
             <div className="w-full border-t border-[var(--border)]" />
           </div>
-          <div className="relative flex justify-center text-xs uppercase">
+          <div className="relative flex justify-center text-xs">
             <span className="bg-[var(--surface)] px-3 text-[var(--muted)]">或</span>
           </div>
         </div>
@@ -138,18 +145,18 @@ export default function RegisterPage() {
         <Button
           type="button"
           variant="outline"
-          className="w-full"
+          className="h-10 w-full text-sm"
           onClick={() => signIn('github', { callbackUrl: '/' })}
         >
           使用 GitHub 注册
         </Button>
 
-        <div className="mt-6 text-center">
-          <p className="text-75 text-sm">
+        <div className="mt-5 text-center">
+          <p className="text-75 text-xs">
             已有账号？{' '}
             <Link
               href={buildLoginPromptPath()}
-              className="ui-link font-medium"
+              className="ui-link font-semibold"
             >
               去登录
             </Link>

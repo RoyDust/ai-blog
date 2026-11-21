@@ -115,58 +115,29 @@ interface StatsCardProps {
   active?: boolean;
 }
 
-function StatsCard({ label, value, icon: Icon, scheme, hint, onClick, active }: StatsCardProps) {
-  const schemeStyles = {
-    blue: {
-      bg: "bg-[color-mix(in_oklab,var(--brand)_10%,var(--surface))]",
-      text: "text-[var(--brand)]",
-      border: "border-[color-mix(in_oklab,var(--brand)_22%,var(--border))]",
-      ring: "border-[var(--brand)] ring-2 ring-[color-mix(in_oklab,var(--brand)_24%,transparent)]",
-    },
-    emerald: {
-      bg: "bg-[var(--success-surface)]",
-      text: "text-[var(--success-foreground)]",
-      border: "border-[var(--success-border)]",
-      ring: "border-[var(--success-foreground)] ring-2 ring-[color-mix(in_oklab,var(--success-foreground)_24%,transparent)]",
-    },
-    amber: {
-      bg: "bg-[var(--warning-surface)]",
-      text: "text-[var(--warning-foreground)]",
-      border: "border-[var(--warning-border)]",
-      ring: "border-[var(--warning-foreground)] ring-2 ring-[color-mix(in_oklab,var(--warning-foreground)_24%,transparent)]",
-    },
-    rose: {
-      bg: "bg-[var(--danger-surface)]",
-      text: "text-[var(--danger-foreground)]",
-      border: "border-[var(--danger-border)]",
-      ring: "border-[var(--danger-foreground)] ring-2 ring-[color-mix(in_oklab,var(--danger-foreground)_24%,transparent)]",
-    },
-  }[scheme];
-
+function StatsCard({ label, value, icon: Icon, hint, onClick, active }: StatsCardProps) {
   return (
     <div
       onClick={onClick}
       role={onClick ? "button" : undefined}
       tabIndex={onClick ? 0 : undefined}
       onKeyDown={onClick ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } } : undefined}
-      className={`relative overflow-hidden rounded-lg border bg-[var(--surface)] p-4 shadow-sm transition-all duration-200
-        ${onClick ? "cursor-pointer hover:shadow-md select-none" : ""}
-        ${active ? `${schemeStyles.ring}` : "border-[var(--border)] hover:border-[color-mix(in_oklab,var(--brand)_18%,var(--border))]"}
+      className={`relative overflow-hidden rounded-xl border bg-[var(--surface)] px-4 py-3.5 shadow-[var(--shadow-card)] transition-colors duration-150
+        ${onClick ? "cursor-pointer select-none" : ""}
+        ${active ? "border-[color-mix(in_oklab,var(--brand)_28%,var(--border))] bg-[var(--btn-regular-bg)]" : "border-[var(--border)] hover:border-[var(--border-strong)]"}
         group`}
     >
       <div className="flex items-center justify-between">
-        <dt className="text-xs font-semibold text-[var(--muted)] tracking-wide uppercase">
+        <dt className="text-xs font-medium text-[var(--muted)]">
           {label}
         </dt>
-        <span className={`inline-flex h-8 w-8 items-center justify-center rounded-lg ${schemeStyles.bg} ${schemeStyles.text} ${schemeStyles.border} border shadow-sm`}>
-          <Icon className="h-4.5 w-4.5" aria-hidden />
-        </span>
+        <Icon className="h-4 w-4 text-[var(--muted)]" aria-hidden />
       </div>
-      <dd className="mt-2 text-2xl font-bold tracking-tight text-[var(--foreground)] font-mono">
+      <dd className="mt-1.5 font-mono text-2xl font-bold tracking-tight tabular-nums text-[var(--foreground)]">
         {typeof value === "number" ? value.toLocaleString("zh-CN") : value}
       </dd>
       {hint ? (
-        <p className="mt-2 text-xs font-medium text-[var(--muted)] border-t border-[var(--border)] pt-1.5">
+        <p className="mt-1.5 text-xs text-[var(--muted)]">
           {hint}
         </p>
       ) : null}

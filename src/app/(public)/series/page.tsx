@@ -63,27 +63,27 @@ export default async function SeriesPage() {
 
   return (
     <div className="reader-section">
-      <section className="reader-banner px-6 py-8 md:px-8 md:py-10">
-        <div className="relative z-10 flex min-h-[calc(var(--reader-banner-height)-4rem)] flex-col justify-end gap-6">
-          <span className="reader-chip w-fit">Series</span>
-          <div className="max-w-3xl space-y-3">
-            <h1 className="text-90 font-display text-3xl font-black leading-tight tracking-tight md:text-4xl">文章系列</h1>
-            <p className="max-w-2xl text-sm leading-7 text-[var(--text-body)] md:text-base">
-              把同一主题下的文章整理成连续路径。适合从第一篇开始读，也适合快速回到某个系列复盘上下文。
-            </p>
+      <section className="reader-banner !min-h-0 !rounded-[var(--radius-panel)] !bg-[var(--reader-panel)] before:!hidden px-5 py-5 md:px-6 md:py-6">
+        <div className="relative z-10 space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="reader-chip">连载专栏</span>
+            <span className="rounded-md bg-[var(--surface-alt)]/75 px-2.5 py-1 font-mono text-xs tabular-nums text-[var(--text-muted)]">
+              {series.length} 个系列 · {totalPosts} 篇已发布文章
+            </span>
           </div>
-          <div className="reader-panel w-fit rounded-2xl px-4 py-3 text-sm font-medium text-[var(--foreground)]">
-            {series.length} 个系列 · {totalPosts} 篇已发布文章
-          </div>
+          <h1 className="text-90 font-display text-2xl font-bold leading-snug tracking-tight md:text-3xl">文章系列</h1>
+          <p className="max-w-2xl text-sm leading-6 text-[var(--text-body)]">
+            把同一主题下的文章整理成连续路径，适合从第一篇按序阅读或随时复盘上下文。
+          </p>
         </div>
       </section>
 
       {hasLoadError ? (
-        <section role="alert" className="reader-panel border-[var(--danger-border)] bg-[var(--danger-surface)] p-8 text-sm text-[var(--danger-foreground)]">
+        <section role="alert" className="reader-panel border-[var(--danger-border)] bg-[var(--danger-surface)] p-7 text-sm text-[var(--danger-foreground)]">
           文章系列加载失败，请稍后重试。
         </section>
       ) : series.length > 0 ? (
-        <section className="grid gap-4 md:grid-cols-2">
+        <section className="grid gap-3.5 md:grid-cols-2">
           {series.map((item, index) => (
             <InViewReveal key={item.id} delay={Math.min(index, 3) * 0.06}>
               <SeriesCard series={item} />
@@ -91,7 +91,7 @@ export default async function SeriesPage() {
           ))}
         </section>
       ) : (
-        <section className="reader-panel p-8 text-sm text-[var(--text-muted)]">当前还没有可展示的文章系列。</section>
+        <section className="reader-panel p-7 text-sm text-[var(--text-muted)]">当前还没有可展示的文章系列。</section>
       )}
     </div>
   );

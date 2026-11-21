@@ -1,5 +1,4 @@
 import Link from 'next/link'
-import { ArrowLeft, ArrowRight } from 'lucide-react'
 
 interface AdjacentPost {
   slug: string
@@ -14,19 +13,17 @@ interface ArticleContinuationProps {
 
 function AdjacentLink({ label, href, title, align = 'left' }: { label: string; href: string; title: string; align?: 'left' | 'right' }) {
   return (
-    <div>
-      <Link
-        href={href}
-        className={`reader-feed-card group flex min-h-32 flex-col justify-between gap-5 p-5 ${align === 'right' ? 'items-end text-right' : ''}`}
-      >
-        <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">
-          {align === 'left' ? <ArrowLeft className="h-4 w-4" /> : null}
-          {label}
-          {align === 'right' ? <ArrowRight className="h-4 w-4" /> : null}
-        </p>
-        <h3 className="text-lg font-bold leading-snug text-[var(--foreground)] transition-colors group-hover:text-[var(--accent-sky)]">{title}</h3>
-      </Link>
-    </div>
+    <Link
+      href={href}
+      className={`reader-feed-card group flex min-w-0 flex-col justify-center gap-1 px-4 py-3.5 ${align === 'right' ? 'items-end text-right' : ''}`}
+    >
+      <span className="text-xs font-medium text-[var(--text-muted)]">
+        {align === 'left' ? `‹ ${label}` : `${label} ›`}
+      </span>
+      <span className="w-full truncate text-sm font-semibold text-[var(--foreground)] transition-colors group-hover:text-[var(--brand)]">
+        {title}
+      </span>
+    </Link>
   )
 }
 
@@ -36,25 +33,22 @@ export function ArticleContinuation({ previousPost, nextPost }: ArticleContinuat
   if (!hasAdjacent) return null
 
   return (
-    <div className="space-y-5">
-      <div className="space-y-2">
-        <h2 className="font-display text-2xl font-bold text-[var(--foreground)]">继续阅读</h2>
-        <p className="text-sm text-[var(--muted)]">按发布时间在相邻文章之间切换，保持阅读节奏不断开。</p>
-      </div>
+    <nav aria-label="相邻文章" className="grid gap-3 sm:grid-cols-2">
+      {previousPost ? (
+        <AdjacentLink href={`/posts/${previousPost.slug}`} label="上一篇" title={previousPost.title} />
+      ) : (
+        <div className="reader-panel flex items-center px-4 py-3.5 text-xs text-[var(--text-muted)]">
+          这是当前时间线中的第一篇文章
+        </div>
+      )}
 
-      <div className="grid gap-4 md:grid-cols-2">
-        {previousPost ? (
-          <AdjacentLink href={`/posts/${previousPost.slug}`} label="上一篇" title={previousPost.title} />
-        ) : (
-          <div className="rounded-[calc(var(--radius-large)+0.125rem)] border border-dashed border-[var(--reader-border)] p-5 text-sm leading-6 text-[var(--text-muted)]">这是当前时间线中的第一篇文章。</div>
-        )}
-
-        {nextPost ? (
-          <AdjacentLink href={`/posts/${nextPost.slug}`} label="下一篇" title={nextPost.title} align="right" />
-        ) : (
-          <div className="rounded-[calc(var(--radius-large)+0.125rem)] border border-dashed border-[var(--reader-border)] p-5 text-sm leading-6 text-[var(--text-muted)] md:text-right">这是当前时间线中的最新一篇文章。</div>
-        )}
-      </div>
-    </div>
+      {nextPost ? (
+        <AdjacentLink href={`/posts/${nextPost.slug}`} label="下一篇" title={nextPost.title} align="right" />
+      ) : (
+        <div className="reader-panel flex items-center px-4 py-3.5 text-xs text-[var(--text-muted)] sm:justify-end sm:text-right">
+          这是当前时间线中的最新一篇文章
+        </div>
+      )}
+    </nav>
   )
 }

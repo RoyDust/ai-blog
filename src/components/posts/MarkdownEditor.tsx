@@ -9,7 +9,7 @@
  * - 支持图片选择上传与粘贴上传，并自动写回 Markdown 图片语法
  */
 
-import { useId, useRef, useState } from "react";
+import { useDeferredValue, useId, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
 import remarkGfm from "remark-gfm";
@@ -127,6 +127,9 @@ export function MarkdownEditor({
   const selectionRef = useRef<{ start: number; end: number } | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
+  const [viewMode, setViewMode] = useState<"split" | "write" | "preview">("split");
+  const deferredValue = useDeferredValue(value);
+  const charCount = value.trim().length;
 
   /**
    * 同步当前 textarea 选区，供插入图片或其他增强操作复用。
@@ -260,52 +263,105 @@ export function MarkdownEditor({
     }
   };
 
+  const handleDrop = async (event: React.DragEvent<HTMLTextAreaElement>) => {
+    const file = Array.from(event.dataTransfer?.files ?? []).find((item) => item.type.startsWith("image/"));
+    if (!file) return;
+
+    event.preventDefault();
+    syncSelection();
+    setIsUploading(true);
+    setUploadError("");
+
+    try {
+      const { url, altText } = await uploadImageFile(file);
+      const storedSelection = selectionRef.current;
+
+      onChange(insertImageMarkdown(value, url, altText, storedSelection?.start, storedSelection?.end));
+    } catch (error) {
+      setUploadError(error instanceof Error ? error.message : "上传失败");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const panelSizeClassName = fillHeight ? "min-h-0 flex-1 max-h-none" : editorPanelClassName ?? "min-h-[26rem] max-h-[700px]";
   const columnClassName = fillHeight ? "flex min-h-0 flex-col" : "";
+  const gridModeClassName = viewMode === "split" ? "grid-cols-1 xl:grid-cols-2" : "grid-cols-1";
 
   return (
-    <div className={fillHeight ? "flex min-h-0 flex-1 flex-col gap-3" : "space-y-3"}>
-      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface-alt)] p-2">
-        {snippets.map((item) => {
-          const Icon = item.icon;
-          return (
-            <button
-              key={item.label}
-              type="button"
-              title={item.label}
-              className="ui-btn rounded-lg border border-transparent px-2 py-1 text-xs text-[var(--muted)] hover:border-[var(--border)] hover:bg-[var(--surface)] hover:text-[var(--foreground)]"
-              onClick={() => applySnippet(item.snippet)}
-            >
-              <span className="inline-flex items-center gap-1">
-                <Icon className="h-3.5 w-3.5" />
-                {item.label}
-              </span>
-            </button>
-          );
-        })}
+    <div className={fillHeight ? "flex min-h-0 flex-1 flex-col gap-2.5" : "space-y-2.5"}>
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-[var(--surface-alt)]/75 px-2.5 py-1.5">
+        <div className="flex flex-wrap items-center gap-1">
+          {snippets.map((item) => {
+            const Icon = item.icon;
+            return (
+              <button
+                key={item.label}
+                type="button"
+                title={item.label}
+                className="ui-btn shrink-0 whitespace-nowrap rounded-md px-2 py-1 text-xs font-medium text-[var(--muted)] hover:bg-[var(--surface)] hover:text-[var(--foreground)]"
+                onClick={() => applySnippet(item.snippet)}
+              >
+                <span className="inline-flex items-center gap-1">
+                  <Icon className="h-3.5 w-3.5" />
+                  {item.label}
+                </span>
+              </button>
+            );
+          })}
 
-        <input ref={fileInputRef} accept="image/*" className="hidden" type="file" onChange={handleImageUpload} />
-        <button
-          type="button"
-          className="ui-btn rounded-lg border border-transparent px-2 py-1 text-xs text-[var(--muted)] hover:border-[var(--border)] hover:bg-[var(--surface)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-50"
-          onClick={() => {
-            syncSelection();
-            fileInputRef.current?.click();
-          }}
-          disabled={isUploading}
-        >
-          <span className="inline-flex items-center gap-1">
-            <Upload className="h-3.5 w-3.5" />
-            {isUploading ? "上传中..." : "上传图片"}
+          <input ref={fileInputRef} accept="image/*" className="hidden" type="file" onChange={handleImageUpload} />
+          <button
+            type="button"
+            className="ui-btn shrink-0 whitespace-nowrap rounded-md px-2 py-1 text-xs font-medium text-[var(--muted)] hover:bg-[var(--surface)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-50"
+            onClick={() => {
+              syncSelection();
+              fileInputRef.current?.click();
+            }}
+            disabled={isUploading}
+          >
+            <span className="inline-flex items-center gap-1">
+              <Upload className="h-3.5 w-3.5" />
+              {isUploading ? "上传中..." : "上传图片"}
+            </span>
+          </button>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <span className="hidden font-mono text-[11px] tabular-nums text-[var(--muted)] sm:inline">
+            {charCount.toLocaleString("zh-CN")} 字
           </span>
-        </button>
+          <div className="inline-flex items-center gap-0.5 rounded-lg bg-[var(--surface)]/80 p-0.5" role="group" aria-label="编辑器视图切换">
+            {(
+              [
+                { id: "split", label: "分屏对照" },
+                { id: "write", label: "专注写作" },
+                { id: "preview", label: "读者预览" },
+              ] as const
+            ).map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                aria-pressed={viewMode === item.id}
+                onClick={() => setViewMode(item.id)}
+                className={`h-6 shrink-0 whitespace-nowrap rounded-md px-2 text-[11px] font-semibold transition-colors ${
+                  viewMode === item.id
+                    ? "bg-[var(--btn-regular-bg)] text-[var(--btn-content)]"
+                    : "text-[var(--muted)] hover:text-[var(--foreground)]"
+                }`}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
-      {uploadError ? <p className="text-sm text-rose-500">{uploadError}</p> : null}
+      {uploadError ? <p className="text-sm text-[var(--danger-foreground)]">{uploadError}</p> : null}
 
-      <div className={fillHeight ? "grid min-h-0 flex-1 grid-cols-1 gap-4 xl:grid-cols-2" : "grid grid-cols-1 gap-4 xl:grid-cols-2"}>
-        <div className={columnClassName}>
-          <label htmlFor={id} className="mb-1 block text-sm font-medium text-[var(--foreground)]">
+      <div className={fillHeight ? `grid min-h-0 flex-1 gap-3.5 ${gridModeClassName}` : `grid gap-3.5 ${gridModeClassName}`}>
+        <div className={`${columnClassName} ${viewMode === "preview" ? "hidden" : ""}`}>
+          <label htmlFor={id} className="mb-1 block text-xs font-semibold text-[var(--muted)]">
             {label}
           </label>
           <textarea
@@ -313,21 +369,27 @@ export function MarkdownEditor({
             id={id}
             value={value}
             rows={minRows}
-            placeholder="用 Markdown 写作..."
+            placeholder="用 Markdown 写作，支持粘贴或拖拽上传图片..."
             required
             onChange={(e) => onChange(e.target.value)}
             onClick={syncSelection}
+            onDragOver={(e) => {
+              if (Array.from(e.dataTransfer?.types ?? []).includes("Files")) {
+                e.preventDefault();
+              }
+            }}
+            onDrop={handleDrop}
             onKeyUp={syncSelection}
             onPaste={handlePaste}
             onSelect={syncSelection}
-            className={`ui-ring ${panelSizeClassName} w-full overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4 font-[var(--font-code)] text-sm text-[var(--foreground)] placeholder:text-[var(--muted)] focus-visible:ring-2 focus-visible:ring-[var(--ring)]`}
+            className={`ui-ring ${panelSizeClassName} w-full overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--surface-alt)]/45 p-4 font-[var(--font-code)] text-[13px] leading-[1.72] text-[var(--foreground)] placeholder:text-[var(--muted)] focus-visible:ring-2 focus-visible:ring-[var(--ring)]`}
           />
         </div>
 
-        <div className={columnClassName}>
-          <p className="mb-1 block text-sm font-medium text-[var(--foreground)]">实时预览</p>
-          <div className={`${panelSizeClassName} overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4`}>
-            <article className="prose prose-zinc max-w-none prose-headings:font-display prose-headings:text-[var(--foreground)] prose-h1:text-[var(--foreground)] prose-h2:text-[var(--foreground)] prose-h3:text-[var(--foreground)] prose-h4:text-[var(--foreground)] prose-h5:text-[var(--foreground)] prose-h6:text-[var(--foreground)] prose-p:text-[var(--text-body)] prose-a:text-[var(--brand)] prose-a:no-underline hover:prose-a:underline prose-strong:text-[var(--foreground)] prose-li:text-[var(--text-body)] prose-li:marker:text-[var(--text-faint)] prose-blockquote:border-[var(--border-strong)] prose-blockquote:border-l-[3px] prose-blockquote:text-[var(--text-body)] prose-img:rounded-xl prose-pre:rounded-xl prose-pre:border prose-pre:border-[var(--border)] prose-pre:bg-[var(--surface-elevated)] prose-pre:text-[var(--foreground)] prose-code:rounded prose-code:bg-[color-mix(in_oklab,var(--surface-contrast)_82%,black_18%)] prose-code:px-1.5 prose-code:py-0.5 prose-code:text-[color-mix(in_oklab,var(--foreground)_92%,white_8%)] prose-code:font-[var(--font-code)] prose-code:before:content-none prose-code:after:content-none prose-table:w-full prose-th:bg-[var(--surface-contrast)] prose-th:text-[var(--foreground)] prose-td:border-[var(--border)] prose-th:border-[var(--border)] dark:prose-invert">
+        <div className={`${columnClassName} ${viewMode === "write" ? "hidden" : ""}`}>
+          <p className="mb-1 block text-xs font-semibold text-[var(--muted)]">实时预览</p>
+          <div className={`${panelSizeClassName} overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--surface-alt)]/45 p-4`}>
+            <article className="prose prose-zinc max-w-none prose-headings:font-display prose-headings:text-[var(--foreground)] prose-h1:text-[var(--foreground)] prose-h2:text-[var(--foreground)] [&_h2]:before:mr-1.5 [&_h2]:before:font-mono [&_h2]:before:text-[var(--brand)] [&_h2]:before:content-['#'] prose-h3:text-[var(--foreground)] prose-h4:text-[var(--foreground)] prose-h5:text-[var(--foreground)] prose-h6:text-[var(--foreground)] prose-p:leading-[1.76] prose-p:text-[var(--text-body)] prose-a:text-[var(--brand)] prose-a:no-underline hover:prose-a:underline prose-strong:text-[var(--foreground)] prose-li:text-[var(--text-body)] prose-li:marker:text-[var(--text-faint)] prose-blockquote:border-[var(--border-strong)] prose-blockquote:border-l-[3px] prose-blockquote:text-[var(--text-body)] prose-img:rounded-xl prose-pre:rounded-xl prose-pre:border prose-pre:border-[var(--border)] prose-pre:bg-[var(--surface-elevated)] prose-pre:text-[var(--foreground)] prose-code:rounded prose-code:bg-[color-mix(in_oklab,var(--surface-contrast)_82%,black_18%)] prose-code:px-1.5 prose-code:py-0.5 prose-code:text-[color-mix(in_oklab,var(--foreground)_92%,white_8%)] prose-code:font-[var(--font-code)] prose-code:before:content-none prose-code:after:content-none prose-table:w-full prose-th:bg-[var(--surface-contrast)] prose-th:text-[var(--foreground)] prose-td:border-[var(--border)] prose-th:border-[var(--border)] dark:prose-invert">
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 rehypePlugins={[rehypeHighlight]}
@@ -340,7 +402,7 @@ export function MarkdownEditor({
                   },
                 }}
               >
-                {value || "_暂无内容_"}
+                {deferredValue || "_暂无内容_"}
               </ReactMarkdown>
             </article>
           </div>

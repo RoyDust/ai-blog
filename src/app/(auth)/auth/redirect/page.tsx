@@ -19,9 +19,9 @@ export default function AuthRedirectPage() {
   }, [router, session?.user?.role, status]);
 
   return (
-    <Card className="rounded-3xl border-[var(--border)] bg-[var(--surface)]">
+    <Card className="rounded-2xl border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-card)]">
       <CardContent>
-        <div className="p-6 text-center text-sm text-75">正在进入...</div>
+        <div className="p-5 text-center text-sm text-75">正在进入...</div>
       </CardContent>
     </Card>
   );
