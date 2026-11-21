@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 
 const findFirstCategory = vi.fn();
 const findManyTags = vi.fn();
+const findFirstSeries = vi.fn();
 const findUniqueBinding = vi.fn();
 const findFirstBinding = vi.fn();
 const createBinding = vi.fn();
@@ -22,6 +23,9 @@ vi.mock("@/lib/prisma", () => ({
     },
     tag: {
       findMany: findManyTags,
+    },
+    series: {
+      findFirst: findFirstSeries,
     },
     aiDraftBinding: {
       findUnique: findUniqueBinding,
@@ -71,6 +75,7 @@ describe("ai authoring", () => {
       selectedAssetId: null,
     });
     touchCoverAssetUsage.mockResolvedValue(undefined);
+    findFirstSeries.mockResolvedValue({ id: "series-default" });
   });
 
   test("creates a new unpublished draft for a fresh external id", async () => {
@@ -696,6 +701,120 @@ describe("ai authoring", () => {
       tagSlugs: ["nextjs"],
     });
     expect(result).toMatchObject({ published: true, slug: "ai-writing" });
+  });
+
+  test("createAdminPost rejects soft-deleted categoryId, tagIds, and seriesId with deletedAt: null checks", async () => {
+    const { createAdminPost } = await import("../ai-authoring");
+
+    findFirstCategory.mockResolvedValueOnce(null);
+    await expect(
+      createAdminPost({
+        authorId: "admin-1",
+        input: {
+          title: "Post",
+          slug: "post",
+          content: "body",
+          categoryId: "deleted-cat",
+          published: false,
+        },
+      }),
+    ).rejects.toMatchObject({ name: "ValidationError", message: "Invalid categoryId" });
+    expect(findFirstCategory).toHaveBeenCalledWith({
+      where: { id: "deleted-cat", deletedAt: null },
+      select: { id: true },
+    });
+
+    findManyTags.mockResolvedValueOnce([{ id: "active-tag" }]);
+    await expect(
+      createAdminPost({
+        authorId: "admin-1",
+        input: {
+          title: "Post",
+          slug: "post",
+          content: "body",
+          tagIds: ["active-tag", "deleted-tag"],
+          published: false,
+        },
+      }),
+    ).rejects.toMatchObject({ name: "ValidationError", message: "Invalid tagIds" });
+    expect(findManyTags).toHaveBeenCalledWith({
+      where: { id: { in: ["active-tag", "deleted-tag"] }, deletedAt: null },
+      select: { id: true },
+    });
+
+    findFirstSeries.mockResolvedValueOnce(null);
+    await expect(
+      createAdminPost({
+        authorId: "admin-1",
+        input: {
+          title: "Post",
+          slug: "post",
+          content: "body",
+          seriesId: "deleted-series",
+          published: false,
+        },
+      }),
+    ).rejects.toMatchObject({ name: "ValidationError", message: "Invalid seriesId" });
+    expect(findFirstSeries).toHaveBeenCalledWith({
+      where: { id: "deleted-series", deletedAt: null },
+      select: { id: true },
+    });
+    expect(createPost).not.toHaveBeenCalled();
+  });
+
+  test("updateAdminPost rejects soft-deleted categoryId, tagIds, and seriesId before updating", async () => {
+    const existingRow = {
+      slug: "existing-slug",
+      coverImage: null,
+      published: false,
+      publishedAt: null,
+      category: null,
+      series: null,
+      tags: [],
+      scheduledAt: null,
+    };
+    const { updateAdminPost } = await import("../ai-authoring");
+
+    findFirstPost.mockResolvedValueOnce(existingRow);
+    findFirstCategory.mockResolvedValueOnce(null);
+    await expect(
+      updateAdminPost({
+        id: "post-1",
+        input: {
+          title: "Updated",
+          content: "body",
+          categoryId: "deleted-cat",
+        },
+      }),
+    ).rejects.toMatchObject({ name: "ValidationError", message: "Invalid categoryId" });
+
+    findFirstPost.mockResolvedValueOnce(existingRow);
+    findManyTags.mockResolvedValueOnce([]);
+    await expect(
+      updateAdminPost({
+        id: "post-1",
+        input: {
+          title: "Updated",
+          content: "body",
+          tagIds: ["deleted-tag"],
+        },
+      }),
+    ).rejects.toMatchObject({ name: "ValidationError", message: "Invalid tagIds" });
+
+    findFirstPost.mockResolvedValueOnce(existingRow);
+    findFirstSeries.mockResolvedValueOnce(null);
+    await expect(
+      updateAdminPost({
+        id: "post-1",
+        input: {
+          title: "Updated",
+          content: "body",
+          seriesId: "deleted-series",
+        },
+      }),
+    ).rejects.toMatchObject({ name: "ValidationError", message: "Invalid seriesId" });
+
+    expect(updatePost).not.toHaveBeenCalled();
   });
 
 });

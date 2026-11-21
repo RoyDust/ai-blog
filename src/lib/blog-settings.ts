@@ -1,6 +1,7 @@
 import { cache } from "react";
 
 import { ApiError, ValidationError } from "@/lib/api-errors";
+import { createPublicCachedReader, PUBLIC_CACHE_TAGS, PUBLIC_REVALIDATE_SECONDS } from "@/lib/cache";
 import { prisma } from "@/lib/prisma";
 import { PUBLIC_PROFILE_CONTENT_FALLBACK, type PublicProfileContent } from "@/lib/public-profile-data";
 import { normalizeMonthlyReadingGoal } from "@/lib/reading-stats";
@@ -419,22 +420,39 @@ function hasRawSettingsWriter(client: unknown): client is RawSettingsWriter {
   return typeof (client as { $executeRawUnsafe?: unknown }).$executeRawUnsafe === "function";
 }
 
-async function readBlogSettingsFromStorage(): Promise<BlogSettings> {
+class UnavailableBlogSettingsReaderError extends Error {
+  constructor() {
+    super("Blog settings raw query reader is unavailable");
+    this.name = "UnavailableBlogSettingsReaderError";
+  }
+}
+
+async function queryBlogSettingsFromStorage(): Promise<BlogSettings> {
   const client = prisma;
   if (!hasRawSettingsReader(client)) {
-    return getDefaultBlogSettings();
+    throw new UnavailableBlogSettingsReaderError();
   }
 
-  try {
-    const rows = await client.$queryRawUnsafe<StoredSetting[]>(
-      'SELECT "value" FROM "system_settings" WHERE "key" = $1 LIMIT 1',
-      BLOG_SITE_SETTING_KEY,
-    );
-    const setting = rows[0] ?? null;
+  const rows = await client.$queryRawUnsafe<StoredSetting[]>(
+    'SELECT "value" FROM "system_settings" WHERE "key" = $1 LIMIT 1',
+    BLOG_SITE_SETTING_KEY,
+  );
+  const setting = rows[0] ?? null;
 
-    return setting ? readStoredBlogSettings(setting.value) : getDefaultBlogSettings();
+  return setting ? readStoredBlogSettings(setting.value) : getDefaultBlogSettings();
+}
+
+const getCachedBlogSettingsFromStorage = createPublicCachedReader(queryBlogSettingsFromStorage, {
+  keyParts: ["blog-settings", BLOG_SITE_SETTING_KEY],
+  revalidate: PUBLIC_REVALIDATE_SECONDS,
+  tags: [PUBLIC_CACHE_TAGS.blogSettings],
+});
+
+async function readBlogSettingsFromStorage(): Promise<BlogSettings> {
+  try {
+    return await getCachedBlogSettingsFromStorage();
   } catch (error) {
-    if (!isMissingRelationError(error)) {
+    if (!(error instanceof UnavailableBlogSettingsReaderError) && !isMissingRelationError(error)) {
       console.error("Read blog settings error:", error);
     }
 
@@ -443,12 +461,11 @@ async function readBlogSettingsFromStorage(): Promise<BlogSettings> {
 }
 
 /**
- * 读取站点级配置，请求级去重。
+ * 读取站点级配置，兼具跨请求 300s Data Cache 与单次渲染内请求级去重。
  *
- * 用 React cache() 包裹：在 RSC / Route Handler 的请求作用域内，
- * root layout、(public) layout、generateMetadata 与页面主体的多次调用
- * 共享同一次查询，消除单次渲染内的重复 SQL；
- * 在无请求作用域（单测、脚本）下 cache() 退化为普通调用，不影响现有测试。
+ * - 外层 React cache()：同一请求内 root layout、(public) layout、generateMetadata 与页面共享结果；
+ * - 内层 unstable_cache：跨请求缓存 300s，通过 revalidateBlogSettings() 按 "blog-settings" 标签即时失效；
+ * - 无库构建或数据库异常在 unstable_cache 外层兜底为默认配置，避免将 "My Blog" 假数据写入缓存。
  */
 export const getBlogSettings: () => Promise<BlogSettings> = cache(readBlogSettingsFromStorage);
 

@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
+await vi.hoisted(async () => {
+  const { AsyncLocalStorage } = await import("node:async_hooks");
+  globalThis.AsyncLocalStorage ??= AsyncLocalStorage;
+});
+
 const create = vi.fn();
 const findMany = vi.fn();
 const findFirst = vi.fn();
@@ -8,6 +13,15 @@ const deleteMany = vi.fn();
 const createMany = vi.fn();
 const postFindMany = vi.fn();
 const transaction = vi.fn();
+const revalidateTopicGuides = vi.fn();
+
+vi.mock("@/lib/cache", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/cache")>();
+  return {
+    ...actual,
+    revalidateTopicGuides,
+  };
+});
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -35,7 +49,7 @@ describe("topic guide service", () => {
     postFindMany.mockResolvedValue([{ id: "post-1" }, { id: "post-2" }]);
   });
 
-  test("creates a draft guide with ordered post ids", async () => {
+  test("creates a draft guide with ordered post ids and revalidates guide paths", async () => {
     create.mockResolvedValueOnce({ id: "guide-1", title: "React Guide", slug: "react-guide" });
 
     const { createTopicGuide } = await import("../topic-guides");
@@ -60,6 +74,7 @@ describe("topic guide service", () => {
         },
       },
     }));
+    expect(revalidateTopicGuides).toHaveBeenCalledWith({ slug: "react-guide" });
   });
 
   test("rejects guide posts that do not exist before creating links", async () => {
@@ -72,6 +87,7 @@ describe("topic guide service", () => {
       postIds: ["post-1", "missing-post"],
     })).rejects.toThrow("Topic guide post not found: missing-post");
     expect(create).not.toHaveBeenCalled();
+    expect(revalidateTopicGuides).not.toHaveBeenCalled();
   });
 
   test("public listing only returns published and non-deleted guides with public posts", async () => {
@@ -94,17 +110,36 @@ describe("topic guide service", () => {
     }));
   });
 
-  test("public listing degrades to empty when topic guide storage is missing", async () => {
-    findMany.mockRejectedValueOnce({
-      code: "P2021",
-      message: "The table `public.topic_guides` does not exist in the current database.",
-    });
+  test("public listing degrades to empty without caching when topic guide storage is missing", async () => {
+    const setSpy = vi.fn();
+    const globalWithCache = globalThis as unknown as { __incrementalCache?: unknown };
+    const previousCache = globalWithCache.__incrementalCache;
+    globalWithCache.__incrementalCache = {
+      isOnDemandRevalidate: false,
+      generateCacheKey: async (invocationKey: string) => invocationKey,
+      get: async () => null,
+      set: setSpy,
+    };
 
-    const { listPublicTopicGuides } = await import("../topic-guides");
-    await expect(listPublicTopicGuides()).resolves.toEqual([]);
+    try {
+      findMany.mockRejectedValueOnce({
+        code: "P2021",
+        message: "The table `public.topic_guides` does not exist in the current database.",
+      });
+
+      const { listPublicTopicGuides } = await import("../topic-guides");
+      await expect(listPublicTopicGuides()).resolves.toEqual([]);
+      expect(setSpy).not.toHaveBeenCalled();
+    } finally {
+      if (previousCache === undefined) {
+        delete globalWithCache.__incrementalCache;
+      } else {
+        globalWithCache.__incrementalCache = previousCache;
+      }
+    }
   });
 
-  test("public guide lookup filters drafts, deleted guides, and non-public posts", async () => {
+  test("public guide lookup filters drafts/deleted guides and uses narrow Post select omitting content", async () => {
     findFirst.mockResolvedValueOnce({ id: "guide-1", posts: [] });
 
     const { getPublicTopicGuideBySlug } = await import("../topic-guides");
@@ -120,6 +155,21 @@ describe("topic guide service", () => {
         }),
       }),
     }));
+
+    const queryArgs = findFirst.mock.calls[0]?.[0];
+    const postRelation = queryArgs?.include?.posts?.include?.post;
+    expect(postRelation?.select).toBeDefined();
+    expect(postRelation?.include).toBeUndefined();
+    expect(postRelation?.select).not.toHaveProperty("content");
+    expect(postRelation?.select).toMatchObject({
+      id: true,
+      title: true,
+      slug: true,
+      excerpt: true,
+      coverImage: true,
+      readingTimeMinutes: true,
+      viewCount: true,
+    });
   });
 
   test("public guide lookup returns null when topic guide storage is missing", async () => {
@@ -132,20 +182,21 @@ describe("topic guide service", () => {
     await expect(getPublicTopicGuideBySlug("react-guide")).resolves.toBeNull();
   });
 
-  test("updates guide posts in stable order when replacing the curation list", async () => {
+  test("updates guide posts in stable order and revalidates both old and new slugs", async () => {
     findFirst
       .mockResolvedValueOnce({
         id: "guide-1",
         title: "Guide",
-        slug: "guide",
+        slug: "old-guide",
         description: null,
         status: "draft",
       })
-      .mockResolvedValueOnce({ id: "guide-1", posts: [] });
+      .mockResolvedValueOnce({ id: "guide-1", slug: "new-guide", posts: [] });
 
     const { updateTopicGuide } = await import("../topic-guides");
     await updateTopicGuide("guide-1", {
       title: "Guide",
+      slug: "new-guide",
       posts: [
         { postId: "post-2", note: "Second" },
         { postId: "post-1", note: "First" },
@@ -158,6 +209,26 @@ describe("topic guide service", () => {
         { guideId: "guide-1", postId: "post-2", order: 1, note: "Second" },
         { guideId: "guide-1", postId: "post-1", order: 2, note: "First" },
       ],
+    });
+    expect(revalidateTopicGuides).toHaveBeenCalledWith({
+      slug: "new-guide",
+      previousSlug: "old-guide",
+    });
+  });
+
+  test("soft deletes guide and revalidates previous guide slug", async () => {
+    findFirst.mockResolvedValueOnce({ id: "guide-1", slug: "react-guide" });
+    update.mockResolvedValueOnce({ id: "guide-1", slug: "react-guide", deletedAt: new Date() });
+
+    const { softDeleteTopicGuide } = await import("../topic-guides");
+    await softDeleteTopicGuide("guide-1");
+
+    expect(update).toHaveBeenCalledWith({
+      where: { id: "guide-1" },
+      data: { deletedAt: expect.any(Date) },
+    });
+    expect(revalidateTopicGuides).toHaveBeenCalledWith({
+      previousSlug: "react-guide",
     });
   });
 
@@ -180,5 +251,6 @@ describe("topic guide service", () => {
       ],
     })).rejects.toThrow("Topic guide post not found: missing-post");
     expect(transaction).not.toHaveBeenCalled();
+    expect(revalidateTopicGuides).not.toHaveBeenCalled();
   });
 });

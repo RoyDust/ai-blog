@@ -49,19 +49,23 @@ export default async function PostsPage({ searchParams }: { searchParams?: Posts
   let categories: Awaited<ReturnType<typeof getCategoryDirectory>> = [];
   let tags: Awaited<ReturnType<typeof getTagDirectory>> = [];
 
-  try {
-    postsPage = await getPublishedPostsPage({
+  const [postsResult, categoriesResult, tagsResult] = await Promise.allSettled([
+    getPublishedPostsPage({
       page: 1,
       limit,
       category: filters.category,
       tag: filters.tag,
       search: filters.search,
-    });
-  } catch (error) {
-    console.error("Load posts page error:", error);
-  }
+    }),
+    getCategoryDirectory(),
+    getTagDirectory(),
+  ]);
 
-  const [categoriesResult, tagsResult] = await Promise.allSettled([getCategoryDirectory(), getTagDirectory()]);
+  if (postsResult.status === "fulfilled") {
+    postsPage = postsResult.value;
+  } else {
+    console.error("Load posts page error:", postsResult.reason);
+  }
 
   if (categoriesResult.status === "fulfilled") {
     categories = categoriesResult.value;

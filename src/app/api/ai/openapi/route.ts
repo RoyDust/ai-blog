@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 import { NextResponse } from "next/server";
 import { toErrorResponse } from "@/lib/api-errors";
