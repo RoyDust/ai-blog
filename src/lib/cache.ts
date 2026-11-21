@@ -163,6 +163,17 @@ export interface PublicCachedReaderOptions<TResult> {
  * - 底层查询抛错（如无库构建期连接失败或表未就绪）时，异常原样穿透 `unstable_cache`，
  *   绝不把兜底数据/空态固化进 Data Cache。
  */
+function isMockFunction(value: unknown): boolean {
+  return typeof value === 'function' && ('mock' in value || Boolean((value as { _isMockFunction?: unknown })._isMockFunction))
+}
+
+function hasTestCacheStore(unstableCache: unknown): boolean {
+  return (
+    isMockFunction(unstableCache) ||
+    Boolean((globalThis as unknown as { __incrementalCache?: unknown }).__incrementalCache)
+  )
+}
+
 export function createPublicCachedReader<TArgs extends unknown[], TResult>(
   fn: (...args: TArgs) => Promise<TResult>,
   options: PublicCachedReaderOptions<TResult>,
@@ -172,7 +183,7 @@ export function createPublicCachedReader<TArgs extends unknown[], TResult>(
 
   return async (...args: TArgs): Promise<TResult> => {
     const unstableCache = getNextCacheExport('unstable_cache')
-    if (!unstableCache) {
+    if (!unstableCache || (process.env.NODE_ENV === 'test' && !hasTestCacheStore(unstableCache))) {
       return fn(...args)
     }
 
