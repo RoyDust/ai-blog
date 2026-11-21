@@ -19,9 +19,9 @@ export function AdminHeader({ siteName = "My Blog" }: { siteName?: string }) {
 
   return (
     <header className="sticky top-0 z-30 border-b border-[var(--border)] bg-[var(--surface)] px-4 py-2 lg:px-5 transition-colors duration-200">
-      <div className="flex h-10 w-full items-center justify-between gap-3">
+      <div className="flex h-10 w-full items-center justify-between gap-2 sm:gap-3">
         {/* Left Side: Mobile Drawer / Desktop Collapse & Breadcrumbs */}
-        <div className="flex items-center gap-2.5 min-w-0">
+        <div className="flex shrink-0 items-center gap-2.5 lg:min-w-0">
           <Dialog.Root open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
             <Dialog.Trigger asChild>
               <button
@@ -89,15 +89,16 @@ export function AdminHeader({ siteName = "My Blog" }: { siteName?: string }) {
         </div>
 
         {/* Right Side: Global Search & Quick Actions */}
-        <div className="flex shrink-0 items-center gap-2.5">
+        <div className="flex min-w-0 flex-1 items-center justify-end gap-2 sm:gap-2.5 lg:flex-none">
           <AdminGlobalSearch />
 
           <Link
-            className="inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[var(--radius-control)] bg-[var(--btn-regular-bg)] px-3 text-xs font-semibold text-[var(--btn-content)] transition-colors duration-150 hover:bg-[var(--btn-regular-bg-hover)]"
+            aria-label="新建文章"
+            className="inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[var(--radius-control)] bg-[var(--btn-regular-bg)] px-2.5 text-xs font-semibold text-[var(--btn-content)] transition-colors duration-150 hover:bg-[var(--btn-regular-bg-hover)] sm:px-3"
             href="/admin/posts/new"
           >
             <PenLine className="h-3.5 w-3.5" />
-            <span>新建文章</span>
+            <span className="hidden sm:inline">新建文章</span>
           </Link>
 
           <NotificationBell />

@@ -95,6 +95,7 @@ describe('ThemeProvider', () => {
     })
     expect(document.documentElement).not.toHaveClass('dark')
     expect(document.documentElement.style.colorScheme).toBe('light')
+    expect(document.documentElement.style.getPropertyValue('--hue')).toBe('215')
   })
 
   test('uses one scoped view transition for a theme change', async () => {

@@ -80,7 +80,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   }, [theme])
 
   useEffect(() => {
-    const savedHue = localStorage.getItem("theme-hue") ?? "250";
+    const savedHue = localStorage.getItem("theme-hue") ?? "215";
     document.documentElement.style.setProperty("--hue", savedHue);
   }, []);
 

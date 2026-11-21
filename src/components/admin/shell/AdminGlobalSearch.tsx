@@ -204,7 +204,7 @@ export function AdminGlobalSearch() {
         <button
           type="button"
           aria-label="打开后台全局搜索"
-          className="ui-ring relative h-8 min-w-0 flex-1 rounded-[var(--radius-control)] bg-[var(--surface-alt)] pl-9 pr-14 text-left text-xs text-[var(--muted)] outline-none transition-colors hover:text-[var(--foreground)] focus-visible:ring-2 focus-visible:ring-[var(--ring)] lg:max-w-[360px]"
+          className="ui-ring relative h-8 min-w-0 flex-1 rounded-[var(--radius-control)] bg-[var(--surface-alt)] pl-8 pr-3 text-left text-xs text-[var(--muted)] outline-none transition-colors hover:text-[var(--foreground)] focus-visible:ring-2 focus-visible:ring-[var(--ring)] sm:pl-9 sm:pr-14 lg:w-64 lg:flex-none lg:max-w-[360px]"
         >
           <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--muted)]" aria-hidden="true" />
           <span className="block truncate">搜索文章、评论、功能...</span>
