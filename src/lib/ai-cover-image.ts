@@ -1,4 +1,5 @@
 import {
+  ReliabilityError,
   cancelResponseBody,
   readResponseBodyBounded,
   readResponseBytesBounded,
@@ -9,7 +10,7 @@ import { createCoverAsset } from "@/lib/cover-assets";
 import { withAiInfrastructure } from "@/lib/ai-task-errors";
 import { ValidationError } from "@/lib/api-errors";
 import { getAiModelForCapability, type AiModelOption } from "@/lib/ai-models";
-import { uploadBufferToQiniu } from "@/lib/qiniu-server";
+import { QINIU_UPLOAD_MAX_FILE_SIZE_BYTES, uploadBufferToQiniu } from "@/lib/qiniu-server";
 import { safeOutboundFetch, validateOutboundUrl, type SsrfGuardOptions } from "@/lib/ssrf-guard";
 
 export type AiCoverSize = "16:9" | "1:1" | "4:3";
@@ -68,8 +69,9 @@ const sizeMap: Record<AiCoverSize, string> = {
   "1:1": "1024x1024",
 };
 
-const IMAGE_RESPONSE_MAX_BYTES = 20 * 1024 * 1024;
-const IMAGE_JSON_MAX_BYTES = 2 * 1024 * 1024;
+export const IMAGE_RESPONSE_MAX_BYTES = QINIU_UPLOAD_MAX_FILE_SIZE_BYTES ?? 10 * 1024 * 1024;
+export const IMAGE_JSON_MAX_BYTES = 16 * 1024 * 1024;
+export const MAX_COVER_IMAGE_DIMENSION = 16_384;
 const MAX_BASE64_CHAR_LENGTH = Math.ceil((IMAGE_RESPONSE_MAX_BYTES * 4) / 3) + 64;
 const SAFE_TASK_ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
 
@@ -77,7 +79,10 @@ async function readImageJson(response: Response, secrets?: readonly string[]): P
   try {
     const raw = await readResponseBodyBounded(response, { maxBytes: IMAGE_JSON_MAX_BYTES, secrets });
     return JSON.parse(raw) as ImageGenerationPayload;
-  } catch {
+  } catch (error) {
+    if (response.ok && error instanceof ReliabilityError && error.kind === "response-too-large") {
+      throw error;
+    }
     return {};
   }
 }
@@ -152,27 +157,202 @@ function isAvifMagic(bytes: Uint8Array): boolean {
   return false;
 }
 
-/**
- * Inspect actual leading magic bytes to verify PNG, JPEG, WebP, GIF, or AVIF.
- * Untrusted Content-Type headers or non-raster payloads (text, HTML, SVG, JSON) are rejected.
- */
-export function detectImageMimeType(bytes: Uint8Array): SupportedCoverImageMimeType | null {
-  if (hasPrefixBytes(bytes, PNG_MAGIC)) {
-    return "image/png";
+function readUint32BE(bytes: Uint8Array, offset: number): number {
+  return (((bytes[offset]! << 24) | (bytes[offset + 1]! << 16) | (bytes[offset + 2]! << 8) | bytes[offset + 3]!) >>> 0);
+}
+
+function readUint16BE(bytes: Uint8Array, offset: number): number {
+  return ((bytes[offset]! << 8) | bytes[offset + 1]!) >>> 0;
+}
+
+function readUint16LE(bytes: Uint8Array, offset: number): number {
+  return (bytes[offset]! | (bytes[offset + 1]! << 8)) >>> 0;
+}
+
+function readUint24LE(bytes: Uint8Array, offset: number): number {
+  return (bytes[offset]! | (bytes[offset + 1]! << 8) | (bytes[offset + 2]! << 16)) >>> 0;
+}
+
+function hasValidDimensions(width: number, height: number): boolean {
+  return (
+    Number.isInteger(width) &&
+    Number.isInteger(height) &&
+    width >= 1 &&
+    width <= MAX_COVER_IMAGE_DIMENSION &&
+    height >= 1 &&
+    height <= MAX_COVER_IMAGE_DIMENSION
+  );
+}
+
+function parsePngDimensions(bytes: Uint8Array): { width: number; height: number } | null {
+  if (!hasPrefixBytes(bytes, PNG_MAGIC) || bytes.byteLength < 24) {
+    return null;
   }
-  if (hasPrefixBytes(bytes, [0xff, 0xd8, 0xff])) {
-    return "image/jpeg";
+  const ihdrLength = readUint32BE(bytes, 8);
+  if (ihdrLength < 13 || asciiFourCC(bytes, 12) !== "IHDR") {
+    return null;
   }
-  if (isGifMagic(bytes)) {
-    return "image/gif";
+  const width = readUint32BE(bytes, 16);
+  const height = readUint32BE(bytes, 20);
+  return hasValidDimensions(width, height) ? { width, height } : null;
+}
+
+function parseGifDimensions(bytes: Uint8Array): { width: number; height: number } | null {
+  if (!isGifMagic(bytes) || bytes.byteLength < 10) {
+    return null;
   }
-  if (bytes.byteLength >= 12 && asciiFourCC(bytes, 0) === "RIFF" && asciiFourCC(bytes, 8) === "WEBP") {
-    return "image/webp";
+  const width = readUint16LE(bytes, 6);
+  const height = readUint16LE(bytes, 8);
+  return hasValidDimensions(width, height) ? { width, height } : null;
+}
+
+function parseWebpDimensions(bytes: Uint8Array): { width: number; height: number } | null {
+  if (bytes.byteLength < 25 || asciiFourCC(bytes, 0) !== "RIFF" || asciiFourCC(bytes, 8) !== "WEBP") {
+    return null;
   }
-  if (isAvifMagic(bytes)) {
-    return "image/avif";
+  const chunkType = asciiFourCC(bytes, 12);
+  if (chunkType === "VP8 ") {
+    if (bytes.byteLength < 30 || bytes[23] !== 0x9d || bytes[24] !== 0x01 || bytes[25] !== 0x2a) {
+      return null;
+    }
+    const width = readUint16LE(bytes, 26) & 0x3fff;
+    const height = readUint16LE(bytes, 28) & 0x3fff;
+    return hasValidDimensions(width, height) ? { width, height } : null;
+  }
+  if (chunkType === "VP8L") {
+    if (bytes.byteLength < 25 || bytes[20] !== 0x2f) {
+      return null;
+    }
+    const bits = (bytes[21]! | (bytes[22]! << 8) | (bytes[23]! << 16) | (bytes[24]! << 24)) >>> 0;
+    const width = (bits & 0x3fff) + 1;
+    const height = ((bits >>> 14) & 0x3fff) + 1;
+    return hasValidDimensions(width, height) ? { width, height } : null;
+  }
+  if (chunkType === "VP8X") {
+    if (bytes.byteLength < 30) {
+      return null;
+    }
+    const width = readUint24LE(bytes, 24) + 1;
+    const height = readUint24LE(bytes, 27) + 1;
+    return hasValidDimensions(width, height) ? { width, height } : null;
   }
   return null;
+}
+
+function isJpegSofMarker(marker: number): boolean {
+  return (
+    marker >= 0xc0 &&
+    marker <= 0xcf &&
+    marker !== 0xc4 &&
+    marker !== 0xc8 &&
+    marker !== 0xcc
+  );
+}
+
+function parseJpegDimensions(bytes: Uint8Array): { width: number; height: number } | null {
+  if (!hasPrefixBytes(bytes, [0xff, 0xd8, 0xff]) || bytes.byteLength < 11) {
+    return null;
+  }
+  let offset = 2;
+  const maxScan = Math.min(bytes.byteLength, 256 * 1024);
+  while (offset + 3 < maxScan) {
+    if (bytes[offset] !== 0xff) {
+      return null;
+    }
+    while (offset < maxScan && bytes[offset] === 0xff) {
+      offset += 1;
+    }
+    if (offset >= maxScan) {
+      return null;
+    }
+    const marker = bytes[offset]!;
+    offset += 1;
+    if (marker === 0xd8 || marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) {
+      continue;
+    }
+    if (marker === 0xd9 || marker === 0xda) {
+      return null;
+    }
+    if (offset + 1 >= bytes.byteLength) {
+      return null;
+    }
+    const segmentLength = readUint16BE(bytes, offset);
+    if (segmentLength < 2) {
+      return null;
+    }
+    if (isJpegSofMarker(marker)) {
+      if (segmentLength < 7 || offset + 6 >= bytes.byteLength) {
+        return null;
+      }
+      const height = readUint16BE(bytes, offset + 3);
+      const width = readUint16BE(bytes, offset + 5);
+      return hasValidDimensions(width, height) ? { width, height } : null;
+    }
+    offset += segmentLength;
+  }
+  return null;
+}
+
+function validateAvifDimensions(bytes: Uint8Array): { width: number | null; height: number | null } | null {
+  if (!isAvifMagic(bytes)) {
+    return null;
+  }
+  const ftypSize = readUint32BE(bytes, 0);
+  if (ftypSize !== 0 && ftypSize < 16) {
+    return null;
+  }
+  const scanLimit = Math.min(bytes.byteLength, 64 * 1024);
+  for (let offset = 4; offset + 16 <= scanLimit; offset += 1) {
+    if (
+      bytes[offset] === 0x69 &&
+      bytes[offset + 1] === 0x73 &&
+      bytes[offset + 2] === 0x70 &&
+      bytes[offset + 3] === 0x65
+    ) {
+      const boxSize = readUint32BE(bytes, offset - 4);
+      if (boxSize >= 20) {
+        const width = readUint32BE(bytes, offset + 8);
+        const height = readUint32BE(bytes, offset + 12);
+        return hasValidDimensions(width, height) ? { width, height } : null;
+      }
+    }
+  }
+  return { width: null, height: null };
+}
+
+export function readRasterImageDimensions(
+  bytes: Uint8Array,
+): { mimeType: SupportedCoverImageMimeType; width: number | null; height: number | null } | null {
+  const png = parsePngDimensions(bytes);
+  if (png) {
+    return { mimeType: "image/png", ...png };
+  }
+  const jpeg = parseJpegDimensions(bytes);
+  if (jpeg) {
+    return { mimeType: "image/jpeg", ...jpeg };
+  }
+  const gif = parseGifDimensions(bytes);
+  if (gif) {
+    return { mimeType: "image/gif", ...gif };
+  }
+  const webp = parseWebpDimensions(bytes);
+  if (webp) {
+    return { mimeType: "image/webp", ...webp };
+  }
+  const avif = validateAvifDimensions(bytes);
+  if (avif) {
+    return { mimeType: "image/avif", ...avif };
+  }
+  return null;
+}
+
+/**
+ * Inspect actual leading magic bytes and minimal structural header dimensions
+ * to verify PNG, JPEG, WebP, GIF, or AVIF. Untrusted Content-Type headers,
+ * truncated/zero-dimension headers, or non-raster payloads are rejected.
+ */
+export function detectImageMimeType(bytes: Uint8Array): SupportedCoverImageMimeType | null {
+  return readRasterImageDimensions(bytes)?.mimeType ?? null;
 }
 
 function buildSafeImageEndpointUrl(
@@ -218,7 +398,7 @@ async function imageToBuffer(
   secrets: readonly string[],
 ): Promise<{ buffer: Buffer; contentType: SupportedCoverImageMimeType }> {
   if (image.type === "base64") {
-    const normalized = image.value.trim().replace(/^data:[^;,]+;base64,/i, "");
+    const normalized = image.value.trim().replace(/^data:[^;,]+;base64,/i, "").replace(/\s+/g, "");
     if (normalized.length > MAX_BASE64_CHAR_LENGTH) {
       throw new Error("Generated image is too large");
     }
@@ -370,6 +550,7 @@ async function callDashScopeNativeImageModel(
     {
       fetchImpl: runtime?.fetchImpl,
       allowLoopback: runtime?.allowLoopback,
+      allowCrossOriginRedirects: false,
       secrets,
     },
   );
@@ -425,6 +606,7 @@ async function callOpenAICompatibleImageModel(
     {
       fetchImpl: runtime?.fetchImpl,
       allowLoopback: runtime?.allowLoopback,
+      allowCrossOriginRedirects: false,
       secrets,
     },
   );

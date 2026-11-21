@@ -9,6 +9,7 @@ vi.mock("@/lib/ai-models", () => ({
 }));
 
 vi.mock("@/lib/qiniu-server", () => ({
+  QINIU_UPLOAD_MAX_FILE_SIZE_BYTES: 10 * 1024 * 1024,
   uploadBufferToQiniu,
 }));
 
@@ -16,13 +17,34 @@ vi.mock("@/lib/cover-assets", () => ({
   createCoverAsset,
 }));
 
-const PNG_BYTES = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d]);
-const JPEG_BYTES = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01]);
+// Valid minimal 1x1 PNG header (signature + IHDR chunk with width=1, height=1)
+const PNG_BYTES = Buffer.from([
+  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+  0x00, 0x00, 0x00, 0x0d,
+  0x49, 0x48, 0x44, 0x52, // IHDR
+  0x00, 0x00, 0x00, 0x01, // width = 1
+  0x00, 0x00, 0x00, 0x01, // height = 1
+  0x08, 0x06, 0x00, 0x00, 0x00,
+  0x1f, 0x15, 0xc4, 0x89,
+]);
+// Valid minimal 1x1 JPEG header (SOI + APP0 JFIF + SOF0 width=1, height=1 + EOI)
+const JPEG_BYTES = Buffer.from([
+  0xff, 0xd8,
+  0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01, 0x01, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00,
+  0xff, 0xc0, 0x00, 0x0b, 0x08, 0x00, 0x01, 0x00, 0x01, 0x01, 0x01, 0x11, 0x00,
+  0xff, 0xd9,
+]);
+// Valid minimal 1x1 lossy VP8 WebP header (RIFF + WEBP + VP8 keyframe start code 9d 01 2a + 1x1)
 const WEBP_BYTES = Buffer.from([
   0x52, 0x49, 0x46, 0x46, // RIFF
-  0x24, 0x00, 0x00, 0x00, // size
+  0x16, 0x00, 0x00, 0x00, // size
   0x57, 0x45, 0x42, 0x50, // WEBP
   0x56, 0x50, 0x38, 0x20, // VP8
+  0x0a, 0x00, 0x00, 0x00, // chunk size = 10
+  0x10, 0x00, 0x00,       // keyframe tag
+  0x9d, 0x01, 0x2a,       // VP8 start code
+  0x01, 0x00,             // width = 1
+  0x01, 0x00,             // height = 1
 ]);
 const GIF_BYTES = Buffer.from("GIF89a\x01\x00\x01\x00\x80\x00\x00", "binary");
 const AVIF_MAJOR_BYTES = Buffer.from([
@@ -312,5 +334,83 @@ describe("ai cover image", () => {
     expect(error).toBeInstanceOf(Error);
     expect(error.message).not.toContain("sk-cover-secret-key");
     expect(error.message).toContain("[redacted]");
+  });
+
+  test("validates structural header dimensions and rejects truncated, zero-dimension, or decompression-bomb headers", async () => {
+    const { detectImageMimeType, readRasterImageDimensions } = await import("../ai-cover-image");
+
+    expect(readRasterImageDimensions(PNG_BYTES)).toEqual({ mimeType: "image/png", width: 1, height: 1 });
+    expect(readRasterImageDimensions(JPEG_BYTES)).toEqual({ mimeType: "image/jpeg", width: 1, height: 1 });
+    expect(readRasterImageDimensions(WEBP_BYTES)).toEqual({ mimeType: "image/webp", width: 1, height: 1 });
+    expect(readRasterImageDimensions(GIF_BYTES)).toEqual({ mimeType: "image/gif", width: 1, height: 1 });
+
+    // Truncated headers with magic bytes only
+    expect(detectImageMimeType(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d]))).toBeNull();
+    expect(detectImageMimeType(Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01]))).toBeNull();
+    expect(detectImageMimeType(Buffer.from("RIFF\x24\x00\x00\x00WEBPVP8 ", "binary"))).toBeNull();
+
+    // Zero-dimension PNG (0x1) & oversized decompression-bomb PNG (65535x65535)
+    const zeroWidthPng = Buffer.from(PNG_BYTES);
+    zeroWidthPng.writeUInt32BE(0, 16);
+    expect(detectImageMimeType(zeroWidthPng)).toBeNull();
+
+    const bombPng = Buffer.from(PNG_BYTES);
+    bombPng.writeUInt32BE(65_535, 16);
+    bombPng.writeUInt32BE(65_535, 20);
+    expect(detectImageMimeType(bombPng)).toBeNull();
+
+    // Zero-dimension GIF
+    expect(detectImageMimeType(Buffer.from("GIF89a\x00\x00\x01\x00\x80\x00\x00", "binary"))).toBeNull();
+  });
+
+  test("supports multi-MiB Base64 PNG JSON responses up to 16 MiB while enforcing 10 MiB decoded image byte cap", async () => {
+    const { generateAiCoverImage, IMAGE_JSON_MAX_BYTES, IMAGE_RESPONSE_MAX_BYTES } = await import("../ai-cover-image");
+    expect(IMAGE_RESPONSE_MAX_BYTES).toBe(10 * 1024 * 1024);
+    expect(IMAGE_JSON_MAX_BYTES).toBe(16 * 1024 * 1024);
+
+    // 1) A valid ~2.5 MiB PNG (> old 2 MiB JSON limit when Base64-encoded -> ~3.33 MiB JSON) succeeds
+    const validLargePng = Buffer.concat([PNG_BYTES, Buffer.alloc(2.5 * 1024 * 1024)]);
+    const largeBase64Fetch = vi.fn<typeof fetch>(async () =>
+      new Response(JSON.stringify({ data: [{ b64_json: validLargePng.toString("base64") }] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    await generateAiCoverImage({ title: "3MB Base64 Cover", createdById: "admin-1" }, { fetchImpl: largeBase64Fetch });
+    expect(uploadBufferToQiniu).toHaveBeenCalledWith(
+      expect.objectContaining({ contentType: "image/png" }),
+    );
+
+    // 2) Decoded Base64 buffer > 10 MiB is rejected before Qiniu upload
+    uploadBufferToQiniu.mockClear();
+    const oversizedDecodedPng = Buffer.concat([PNG_BYTES, Buffer.alloc(10 * 1024 * 1024)]);
+    const oversizedBase64Fetch = vi.fn<typeof fetch>(async () =>
+      new Response(JSON.stringify({ data: [{ b64_json: oversizedDecodedPng.toString("base64") }] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    await expect(
+      generateAiCoverImage({ title: "10MB+ Base64", createdById: "admin-1" }, { fetchImpl: oversizedBase64Fetch }),
+    ).rejects.toThrow(/too large/i);
+    expect(uploadBufferToQiniu).not.toHaveBeenCalled();
+
+    // 3) URL image download > 10 MiB is rejected before Qiniu upload
+    const oversizedUrlFetch = vi.fn<typeof fetch>(async (input) => {
+      if (String(input).endsWith("/images/generations")) {
+        return new Response(JSON.stringify({ data: [{ url: "https://images.example.com/huge.png" }] }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      return new Response("x", {
+        status: 200,
+        headers: { "Content-Length": String(10 * 1024 * 1024 + 1) },
+      });
+    });
+    await expect(
+      generateAiCoverImage({ title: "10MB+ URL", createdById: "admin-1" }, { fetchImpl: oversizedUrlFetch }),
+    ).rejects.toThrow(/exceeded the size limit/i);
+    expect(uploadBufferToQiniu).not.toHaveBeenCalled();
   });
 });

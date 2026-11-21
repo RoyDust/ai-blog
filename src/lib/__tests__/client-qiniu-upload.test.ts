@@ -73,6 +73,66 @@ describe("client-qiniu-upload", () => {
     expect(formData.get("key")).toBe("covers/123-demo.png");
   });
 
+  test("rewraps File/Blob with normalized contentType when file.type is alias or empty so multipart MIME matches Qiniu single mimeLimit", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          success: true,
+          data: {
+            token: "qiniu-token-jpeg",
+            key: "covers/123-banner.jpeg",
+            domain: "https://cdn.example.com",
+            uploadUrl: "https://upload.qiniup.com",
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ key: "covers/123-banner.jpeg" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          success: true,
+          data: {
+            token: "qiniu-token-png",
+            key: "covers/123-empty-type.png",
+            domain: "https://cdn.example.com",
+            uploadUrl: "https://upload.qiniup.com",
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ key: "covers/123-empty-type.png" }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    // 1) image/jpg -> image/jpeg normalization
+    const aliasJpgFile = new File(["jpg-bytes"], "banner.jpeg", { type: "image/jpg" });
+    await uploadFileToQiniu(aliasJpgFile);
+    const jpgFormData = fetchMock.mock.calls[1][1]?.body as FormData;
+    const uploadedJpgPart = jpgFormData.get("file") as File;
+    expect(uploadedJpgPart).toBeInstanceOf(Blob);
+    expect(uploadedJpgPart.type).toBe("image/jpeg");
+    expect(uploadedJpgPart.name).toBe("banner.jpeg");
+
+    // 2) empty file.type -> extension-inferred image/png normalization
+    const emptyTypeFile = new File(["png-bytes"], "empty-type.png", { type: "" });
+    await uploadFileToQiniu(emptyTypeFile);
+    const pngFormData = fetchMock.mock.calls[3][1]?.body as FormData;
+    const uploadedPngPart = pngFormData.get("file") as File;
+    expect(uploadedPngPart).toBeInstanceOf(Blob);
+    expect(uploadedPngPart.type).toBe("image/png");
+    expect(uploadedPngPart.name).toBe("empty-type.png");
+  });
+
   test("normalizes API, configuration, validation, and network errors into Chinese", async () => {
     vi.stubGlobal(
       "fetch",

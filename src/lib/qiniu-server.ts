@@ -4,12 +4,43 @@ import { ValidationError } from "@/lib/api-errors";
 import {
   ALLOWED_UPLOAD_IMAGE_MIMES,
   parseUploadFilename,
+  type AllowedUploadImageMime,
   type UploadPurpose,
 } from "@/lib/validation";
 
 export const DEFAULT_QINIU_UPLOAD_URL = "https://upload.qiniup.com";
 export const QINIU_UPLOAD_MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
 export const QINIU_UPLOAD_MIME_LIMIT = ALLOWED_UPLOAD_IMAGE_MIMES.join(";");
+
+const KEY_EXTENSION_TO_MIME: Record<string, AllowedUploadImageMime> = {
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".png": "image/png",
+  ".webp": "image/webp",
+  ".avif": "image/avif",
+  ".gif": "image/gif",
+};
+
+/**
+ * 从对象存储 key 后缀严格反推单一允许 MIME，防止持 `.png` token 上传其它格式负载。
+ */
+export function mimeTypeFromUploadKey(key: string): AllowedUploadImageMime {
+  const trimmed = key.trim();
+  if (!trimmed || trimmed.includes("\0") || trimmed.includes("\\") || trimmed.includes("..")) {
+    throw new ValidationError("Invalid filename");
+  }
+  const basename = trimmed.split("/").pop() ?? "";
+  const extIndex = basename.lastIndexOf(".");
+  if (extIndex <= 0) {
+    throw new ValidationError("Unsupported file extension");
+  }
+  const ext = basename.slice(extIndex).toLowerCase();
+  const mime = KEY_EXTENSION_TO_MIME[ext];
+  if (!mime) {
+    throw new ValidationError("Unsupported file extension");
+  }
+  return mime;
+}
 
 /**
  * 七牛上传凭证要求使用 URL-safe base64。
@@ -42,21 +73,34 @@ export function buildUploadKey(filename: string, purpose: UploadPurpose = "cover
 }
 
 /**
- * 按七牛直传协议生成单文件上传 token（限制 10 MiB 体积与栅格图片 MIME 白名单）。
+ * 按七牛直传协议生成单文件上传 token（限制 10 MiB 体积并绑定与 key 后缀一致的单一栅格图片 MIME）。
  */
 export function createQiniuUploadToken(input: {
   bucket: string;
   key: string;
   accessKey: string;
   secretKey: string;
+  mimeType?: string;
   expiresInSeconds?: number;
 }) {
+  const expectedMime = mimeTypeFromUploadKey(input.key);
+  if (input.mimeType !== undefined) {
+    const normalizedMime = input.mimeType.trim().toLowerCase();
+    const canonicalMime = normalizedMime === "image/jpg" ? "image/jpeg" : normalizedMime;
+    if (!(ALLOWED_UPLOAD_IMAGE_MIMES as readonly string[]).includes(canonicalMime)) {
+      throw new ValidationError("Unsupported contentType");
+    }
+    if (canonicalMime !== expectedMime) {
+      throw new ValidationError("contentType does not match file extension");
+    }
+  }
+
   const deadline = Math.floor(Date.now() / 1000) + (input.expiresInSeconds ?? 3600);
   const putPolicy = {
     scope: `${input.bucket}:${input.key}`,
     deadline,
     fsizeLimit: QINIU_UPLOAD_MAX_FILE_SIZE_BYTES,
-    mimeLimit: QINIU_UPLOAD_MIME_LIMIT,
+    mimeLimit: expectedMime,
     returnBody: '{"key":"$(key)","hash":"$(etag)","fsize":$(fsize)}',
   };
 
@@ -107,8 +151,9 @@ export async function uploadBufferToQiniu(input: {
   }
 
   const ext = extensionFromContentType(input.contentType);
+  const canonicalMime = mimeTypeFromUploadKey(`cover.${ext}`);
   const key = `${input.keyPrefix ?? "covers/ai"}/${Date.now()}-${crypto.randomBytes(6).toString("hex")}.${ext}`;
-  const token = createQiniuUploadToken({ bucket, key, accessKey, secretKey });
+  const token = createQiniuUploadToken({ bucket, key, accessKey, secretKey, mimeType: canonicalMime });
   const form = new FormData();
   form.set("token", token);
   form.set("key", key);
@@ -116,7 +161,7 @@ export async function uploadBufferToQiniu(input: {
     input.buffer.byteOffset,
     input.buffer.byteOffset + input.buffer.byteLength,
   ) as ArrayBuffer;
-  form.set("file", new Blob([fileBuffer], { type: input.contentType }), `cover.${ext}`);
+  form.set("file", new Blob([fileBuffer], { type: canonicalMime }), `cover.${ext}`);
 
   const response = await fetch(uploadUrl, {
     method: "POST",

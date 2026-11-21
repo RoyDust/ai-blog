@@ -57,10 +57,42 @@ const VALID_RANGE_DAYS = [1, 7, 30, 90] as const;
 const VALID_PURGE_DAYS = [30, 60, 90] as const;
 
 const SENSITIVE_KEYS: Record<string, true> = {
-  authorization: true, cookie: true, password: true, passphrase: true,
+  authorization: true, auth: true, cookie: true, password: true, passphrase: true,
   token: true, apikey: true, api_key: true, key: true, secret: true,
-  access_token: true, refreshtoken: true, refresh_token: true, idtoken: true,
-  id_token: true, content: true, body: true, prompt: true, api_key_fingerprint: true,
+  access_token: true, accesstoken: true, refreshtoken: true, refresh_token: true, idtoken: true,
+  id_token: true, code: true, state: true, oauth_token: true, oauthtoken: true,
+  oauth_verifier: true, oauthverifier: true, sig: true, signature: true,
+  content: true, body: true, prompt: true, api_key_fingerprint: true,
+};
+
+const SENSITIVE_URL_QUERY_KEYS: Record<string, true> = {
+  token: true,
+  key: true,
+  secret: true,
+  password: true,
+  passphrase: true,
+  code: true,
+  state: true,
+  sig: true,
+  signature: true,
+  access_token: true,
+  accesstoken: true,
+  api_key: true,
+  apikey: true,
+  auth: true,
+  authorization: true,
+  oauth_token: true,
+  oauthtoken: true,
+  oauth_verifier: true,
+  oauthverifier: true,
+  id_token: true,
+  idtoken: true,
+  refresh_token: true,
+  refreshtoken: true,
+  cookie: true,
+  credential: true,
+  private_key: true,
+  privatekey: true,
 };
 
 const apiOperationLogModel = () =>
@@ -106,6 +138,77 @@ function normalizeSensitiveKey(key: string) {
 function shouldRedactKey(key: string) {
   const normalized = normalizeSensitiveKey(key);
   return SENSITIVE_KEYS[normalized] === true || normalized.endsWith("secret") || (normalized.endsWith("token") && !normalized.includes("_tokens"));
+}
+
+function shouldRedactUrlQueryParam(key: string) {
+  const dashedNormalized = key.trim().toLowerCase().replace(/-/g, "_");
+  const normalized = normalizeSensitiveKey(dashedNormalized);
+  return (
+    SENSITIVE_URL_QUERY_KEYS[normalized] === true ||
+    normalized.endsWith("secret") ||
+    normalized.endsWith("_key") ||
+    normalized.endsWith("_sig") ||
+    normalized.endsWith("_signature") ||
+    (normalized.endsWith("token") && !normalized.includes("_tokens"))
+  );
+}
+
+function sanitizeHttpUrlString(candidate: string): string {
+  let parsed: URL;
+  try {
+    parsed = new URL(candidate);
+  } catch {
+    return candidate;
+  }
+
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    return candidate;
+  }
+
+  const hadCredentials = Boolean(parsed.username || parsed.password);
+  const entries = Array.from(parsed.searchParams.entries());
+  const hasSensitiveQuery = entries.some(([key]) => shouldRedactUrlQueryParam(key));
+  const rawHash = parsed.hash ? parsed.hash.slice(1) : "";
+  const hashLooksQuery = rawHash.includes("=");
+  const hashEntries = hashLooksQuery ? Array.from(new URLSearchParams(rawHash).entries()) : [];
+  const hasSensitiveHash = hashEntries.some(([key]) => shouldRedactUrlQueryParam(key));
+
+  if (!hadCredentials && !hasSensitiveQuery && !hasSensitiveHash) {
+    return candidate;
+  }
+
+  parsed.username = "";
+  parsed.password = "";
+  const queryPart =
+    entries.length > 0
+      ? `?${entries
+          .map(([key, val]) => `${encodeURIComponent(key)}=${shouldRedactUrlQueryParam(key) ? REDACTED : encodeURIComponent(val)}`)
+          .join("&")}`
+      : "";
+  const hashPart = hasSensitiveHash
+    ? `#${hashEntries
+        .map(([key, val]) => `${encodeURIComponent(key)}=${shouldRedactUrlQueryParam(key) ? REDACTED : encodeURIComponent(val)}`)
+        .join("&")}`
+    : parsed.hash;
+  parsed.search = "";
+  parsed.hash = "";
+  const base = parsed.toString();
+  return `${base}${queryPart}${hashPart}`;
+}
+
+function sanitizeLogString(value: string, maxLength = MAX_STRING_LENGTH): string {
+  const trimmed = value.trim();
+  let scrubbed = value;
+  if (/^https?:\/\/\S+$/i.test(trimmed)) {
+    scrubbed = sanitizeHttpUrlString(trimmed);
+  } else if (/https?:\/\//i.test(value)) {
+    scrubbed = value.replace(/https?:\/\/[^\s<>"']+/gi, (match) => {
+      const trailing = match.match(/[),.;:!?]+$/)?.[0] ?? "";
+      const rawUrl = trailing ? match.slice(0, -trailing.length) : match;
+      return `${sanitizeHttpUrlString(rawUrl)}${trailing}`;
+    });
+  }
+  return truncateString(scrubbed, maxLength);
 }
 function truncateString(value: string, maxLength = MAX_STRING_LENGTH) {
   return value.length > maxLength ? `${value.slice(0, maxLength)}...` : value;
@@ -240,7 +343,7 @@ export function sanitizeLogPayload(value: unknown, depth = 0): JsonValue {
   }
 
   if (typeof value === "string") {
-    return truncateString(value);
+    return sanitizeLogString(value);
   }
 
   if (Array.isArray(value)) {
@@ -275,11 +378,26 @@ export function limitLogJson(value: JsonValue | undefined, maxLength = MAX_LOG_J
 }
 
 const IP_HASH_DEV_FALLBACK_SECRET = "inkforge-ip-hash-dev-secret";
+let warnedMissingProdIpHashSecret = false;
+
+export function resetIpHashProdWarningForTests() {
+  warnedMissingProdIpHashSecret = false;
+}
 
 export function hashIp(ip: string | null | undefined) {
   const normalized = ip?.trim();
   if (!normalized) return null;
-  const secret = resolveAuthSecret() || IP_HASH_DEV_FALLBACK_SECRET;
+  const authSecret = resolveAuthSecret();
+  if (!authSecret && process.env.NODE_ENV === "production") {
+    if (!warnedMissingProdIpHashSecret) {
+      warnedMissingProdIpHashSecret = true;
+      console.warn(
+        "[api-operation-logs] AUTH_SECRET/NEXTAUTH_SECRET is not configured in production; skipping IP hashing.",
+      );
+    }
+    return null;
+  }
+  const secret = authSecret || IP_HASH_DEV_FALLBACK_SECRET;
   return createHmac("sha256", secret).update(`ip-hash:${normalized}`).digest("hex");
 }
 
@@ -296,18 +414,19 @@ export function getClientIpFromHeaders(headers: Pick<Headers, "get">) {
 export function queryToJson(searchParams: URLSearchParams): JsonValue | undefined {
   const query: Record<string, JsonValue> = {};
   searchParams.forEach((value, key) => {
-    if (shouldRedactKey(key)) {
+    if (shouldRedactKey(key) || shouldRedactUrlQueryParam(key)) {
       query[key] = REDACTED;
       return;
     }
 
+    const sanitizedValue = sanitizeLogString(value);
     if (key in query) {
       const current = query[key];
-      query[key] = Array.isArray(current) ? [...current, value] : [current, value];
+      query[key] = Array.isArray(current) ? [...current, sanitizedValue] : [current, sanitizedValue];
       return;
     }
 
-    query[key] = truncateString(value);
+    query[key] = sanitizedValue;
   });
 
   return Object.keys(query).length > 0 ? query : undefined;

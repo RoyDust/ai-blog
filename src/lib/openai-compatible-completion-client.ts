@@ -213,6 +213,7 @@ export class OpenAICompatibleCompletionClient implements CompletionClient {
             {
               fetchImpl: this.customFetchImpl,
               allowLoopback: this.allowLoopback,
+              allowCrossOriginRedirects: false,
               secrets,
             },
           )

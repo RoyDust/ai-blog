@@ -63,8 +63,19 @@ describe("POST /api/admin/uploads/qiniu-token", () => {
     expect(policy).toMatchObject({
       scope: `test-bucket:${body.data.key}`,
       fsizeLimit: 10 * 1024 * 1024,
-      mimeLimit: "image/jpeg;image/png;image/webp;image/avif;image/gif",
+      mimeLimit: "image/webp",
     });
+
+    const jpegResponse = await POST(
+      new Request("http://localhost/api/admin/uploads/qiniu-token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filename: "photo.jpeg" }),
+      }),
+    );
+    const jpegBody = await jpegResponse.json();
+    expect(jpegResponse.status).toBe(200);
+    expect(decodePutPolicyFromToken(jpegBody.data.token).mimeLimit).toBe("image/jpeg");
   });
 
   test.each([
