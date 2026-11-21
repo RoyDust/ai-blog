@@ -38,6 +38,7 @@ describe('GET /api/search', () => {
   })
 
   afterEach(() => {
+    vi.useRealTimers()
     vi.unstubAllGlobals()
     process.env = { ...originalEnv }
   })
@@ -308,5 +309,99 @@ describe('GET /api/search', () => {
     expect(responses[8].status).toBe(429)
     expect(blockedPayload).toEqual({ error: 'Too many AI search requests' })
     expect(fetchMock).toHaveBeenCalledTimes(8)
+  })
+
+  test('evicts expired AI search cache entries after TTL elapses', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-06-01T00:00:00.000Z'))
+    process.env.DASHSCOPE_API_KEY = 'test-api-key'
+    queryRaw.mockResolvedValue([{ total: 1, items: [{ id: 'p1', score: 12, hitFields: ['title'] }] }])
+    findMany.mockResolvedValue([searchPost])
+
+    let callCount = 0
+    const fetchMock = vi.fn().mockImplementation(async () => {
+      callCount += 1
+      return {
+        ok: true,
+        json: async () => ({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  summary: `AI 摘要 #${callCount}`,
+                  rankedSlugs: ['react-search-experience'],
+                }),
+              },
+            },
+          ],
+        }),
+      }
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { GET } = await import('../route')
+    const first = await GET(new Request('http://localhost/api/search?q=缓存过期&ai=1', { headers: { 'x-real-ip': '198.51.100.10' } }))
+    expect((await first.json()).ai).toEqual({ summary: 'AI 摘要 #1' })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+
+    vi.advanceTimersByTime(4 * 60_000)
+    const withinTtl = await GET(new Request('http://localhost/api/search?q=缓存过期&ai=1', { headers: { 'x-real-ip': '198.51.100.10' } }))
+    expect((await withinTtl.json()).ai).toEqual({ summary: 'AI 摘要 #1' })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+
+    vi.advanceTimersByTime(60_001)
+    const afterTtl = await GET(new Request('http://localhost/api/search?q=缓存过期&ai=1', { headers: { 'x-real-ip': '198.51.100.10' } }))
+    expect((await afterTtl.json()).ai).toEqual({ summary: 'AI 摘要 #2' })
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  test('bounds AI search cache size by sweeping expired entries first and evicting least-recently-used entries at capacity', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-06-01T00:00:00.000Z'))
+    process.env.DASHSCOPE_API_KEY = 'test-api-key'
+    queryRaw.mockResolvedValue([{ total: 1, items: [{ id: 'p1', score: 12, hitFields: ['title'] }] }])
+    findMany.mockResolvedValue([searchPost])
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        choices: [{ message: { content: JSON.stringify({ summary: 'AI 容量测试摘要', rankedSlugs: ['react-search-experience'] }) } }],
+      }),
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { GET } = await import('../route')
+    const ipFor = (index: number) => `10.20.${Math.floor(index / 250)}.${(index % 250) + 1}`
+
+    // Seed entry 0 early so it expires before entries 1..499.
+    await GET(new Request('http://localhost/api/search?q=词条0&ai=1', { headers: { 'x-real-ip': ipFor(0) } }))
+
+    vi.advanceTimersByTime(3 * 60_000)
+    for (let index = 1; index < 500; index += 1) {
+      await GET(new Request(`http://localhost/api/search?q=词条${index}&ai=1`, { headers: { 'x-real-ip': ipFor(index) } }))
+    }
+    expect(fetchMock).toHaveBeenCalledTimes(500)
+
+    // Advance past entry 0's 5m TTL while entries 1..499 still have ~2m remaining.
+    vi.advanceTimersByTime(2 * 60_000 + 1)
+
+    // Adding entry 500 sweeps expired entry 0 instead of evicting unexpired entry 1.
+    await GET(new Request('http://localhost/api/search?q=词条500&ai=1', { headers: { 'x-real-ip': ipFor(500) } }))
+    expect(fetchMock).toHaveBeenCalledTimes(501)
+
+    // Touch entry 1: still cached (cache hit) and promoted to most-recently-used; entry 2 is now LRU.
+    await GET(new Request('http://localhost/api/search?q=词条1&ai=1', { headers: { 'x-real-ip': ipFor(501) } }))
+    expect(fetchMock).toHaveBeenCalledTimes(501)
+
+    // Cache now holds 500 active entries (1..500 with 1 MRU, 2 LRU). Adding entry 501 evicts LRU entry 2.
+    await GET(new Request('http://localhost/api/search?q=词条501&ai=1', { headers: { 'x-real-ip': ipFor(502) } }))
+    expect(fetchMock).toHaveBeenCalledTimes(502)
+
+    // Entry 1 remains cached, whereas evicted entry 2 triggers a fresh upstream completion call.
+    await GET(new Request('http://localhost/api/search?q=词条1&ai=1', { headers: { 'x-real-ip': ipFor(503) } }))
+    expect(fetchMock).toHaveBeenCalledTimes(502)
+
+    await GET(new Request('http://localhost/api/search?q=词条2&ai=1', { headers: { 'x-real-ip': ipFor(504) } }))
+    expect(fetchMock).toHaveBeenCalledTimes(503)
   })
 })

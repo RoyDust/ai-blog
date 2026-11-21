@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
 
 const originalDatabaseUrl = process.env.DATABASE_URL
+const originalDatabasePoolMax = process.env.DATABASE_POOL_MAX
 
 async function importPrismaWithoutDatabaseUrl() {
   delete process.env.DATABASE_URL
@@ -24,6 +25,10 @@ function resetGlobalPrisma() {
 
 afterEach(() => {
   vi.doUnmock('../database-url')
+  vi.doUnmock('pg')
+  vi.doUnmock('@prisma/adapter-pg')
+  vi.doUnmock('@prisma/client')
+  vi.unstubAllEnvs()
   vi.resetModules()
   resetGlobalPrisma()
 
@@ -31,6 +36,12 @@ afterEach(() => {
     delete process.env.DATABASE_URL
   } else {
     process.env.DATABASE_URL = originalDatabaseUrl
+  }
+
+  if (originalDatabasePoolMax === undefined) {
+    delete process.env.DATABASE_POOL_MAX
+  } else {
+    process.env.DATABASE_POOL_MAX = originalDatabasePoolMax
   }
 })
 
@@ -60,5 +71,67 @@ describe('lazy prisma client', () => {
 
     expect(() => prismaForTest.user.create).not.toThrow()
     await expect(prismaForTest.user.create({ data: {} })).rejects.toThrow('DATABASE_URL is not configured')
+  })
+
+  test('defaults DATABASE_POOL_MAX to 8 in production and 1 outside production when unset or invalid', async () => {
+    const { readPoolMax } = await import('../prisma')
+
+    delete process.env.DATABASE_POOL_MAX
+    vi.stubEnv('NODE_ENV', 'production')
+    expect(readPoolMax()).toBe(8)
+
+    for (const invalidValue of ['', '0', '-4', '2.5', 'invalid']) {
+      vi.stubEnv('DATABASE_POOL_MAX', invalidValue)
+      expect(readPoolMax()).toBe(8)
+    }
+
+    delete process.env.DATABASE_POOL_MAX
+    vi.stubEnv('NODE_ENV', 'test')
+    expect(readPoolMax()).toBe(1)
+
+    vi.stubEnv('NODE_ENV', 'development')
+    expect(readPoolMax()).toBe(1)
+
+    vi.stubEnv('DATABASE_POOL_MAX', '12')
+    expect(readPoolMax()).toBe(12)
+
+    vi.stubEnv('NODE_ENV', 'production')
+    vi.stubEnv('DATABASE_POOL_MAX', '3')
+    expect(readPoolMax()).toBe(3)
+  })
+
+  test('creates pg Pool with production default max=8 when DATABASE_POOL_MAX is unset', async () => {
+    delete process.env.DATABASE_POOL_MAX
+    vi.stubEnv('NODE_ENV', 'production')
+    vi.resetModules()
+
+    const poolConstructor = vi.fn(function MockPool() {})
+    const adapterConstructor = vi.fn(function MockPrismaPg() {})
+    const clientConstructor = vi.fn(function MockPrismaClient() {
+      return {
+        user: { findMany: vi.fn().mockResolvedValue([]) },
+        $disconnect: vi.fn().mockResolvedValue(undefined),
+      }
+    })
+
+    vi.doMock('../database-url', () => ({
+      findDatabaseUrl: () => 'postgresql://postgres:postgres@127.0.0.1:5432/test_db',
+    }))
+    vi.doMock('pg', () => ({ Pool: poolConstructor }))
+    vi.doMock('@prisma/adapter-pg', () => ({ PrismaPg: adapterConstructor }))
+    vi.doMock('@prisma/client', () => ({
+      Prisma: { ModelName: { User: 'User' } },
+      PrismaClient: clientConstructor,
+    }))
+
+    const { prisma } = await import('../prisma')
+    await (prisma as unknown as { user: { findMany: () => Promise<unknown[]> } }).user.findMany()
+
+    expect(poolConstructor).toHaveBeenCalledWith(
+      expect.objectContaining({
+        connectionString: 'postgresql://postgres:postgres@127.0.0.1:5432/test_db',
+        max: 8,
+      }),
+    )
   })
 })

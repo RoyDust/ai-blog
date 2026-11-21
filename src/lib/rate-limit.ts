@@ -10,20 +10,74 @@ type RateLimitResult = {
   strategy?: "memory" | "database"
 }
 
+export const DEFAULT_MEMORY_RATE_LIMIT_MAX_ENTRIES = 10_000
+
 /**
- * 创建一个轻量的内存限流器，适合当前单实例、低流量场景。
+ * 创建一个轻量的有界内存限流器，适合当前单实例、低流量与兜底场景。
+ * 惰性清理过期窗口，并在达到最大键数上限时淘汰最旧窗口，防止伪造键撑爆内存。
  */
-export function createMemoryRateLimiter({ limit, windowMs }: { limit: number; windowMs: number }) {
+export function createMemoryRateLimiter({
+  limit,
+  windowMs,
+  maxEntries = DEFAULT_MEMORY_RATE_LIMIT_MAX_ENTRIES,
+}: {
+  limit: number
+  windowMs: number
+  maxEntries?: number
+}) {
   const store = new Map<string, HitWindow>()
+  const capacity =
+    Number.isFinite(maxEntries) && maxEntries > 0
+      ? Math.max(1, Math.floor(maxEntries))
+      : DEFAULT_MEMORY_RATE_LIMIT_MAX_ENTRIES
+
+  function sweepExpiredFromHead(now: number) {
+    for (const [entryKey, entry] of store) {
+      if (entry.resetAt > now) {
+        break
+      }
+      store.delete(entryKey)
+    }
+  }
+
+  function sweepAllExpired(now: number) {
+    for (const [entryKey, entry] of store) {
+      if (entry.resetAt <= now) {
+        store.delete(entryKey)
+      }
+    }
+  }
 
   return {
+    get size() {
+      return store.size
+    },
     check(key: string): RateLimitResult {
       const now = Date.now()
+      sweepExpiredFromHead(now)
+
       const current = store.get(key)
 
       if (!current || current.resetAt <= now) {
-        store.set(key, { count: 1, resetAt: now + windowMs })
-        return { allowed: true, remaining: limit - 1, resetAt: now + windowMs, strategy: "memory" }
+        if (current) {
+          store.delete(key)
+        }
+
+        if (store.size >= capacity) {
+          sweepAllExpired(now)
+
+          while (store.size >= capacity) {
+            const oldestKey = store.keys().next().value
+            if (oldestKey === undefined) {
+              break
+            }
+            store.delete(oldestKey)
+          }
+        }
+
+        const resetAt = now + windowMs
+        store.set(key, { count: 1, resetAt })
+        return { allowed: true, remaining: limit - 1, resetAt, strategy: "memory" }
       }
 
       if (current.count >= limit) {
