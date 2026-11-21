@@ -43,7 +43,6 @@ jobs:
             exit 1
           fi
 
-          status_after="$(date -u -d '5 minutes ago' +"%Y-%m-%dT%H:%M:%SZ")"
           endpoint="${PRODUCTION_BASE_URL%/}/api/cron/ai-news"
           query=()
           if [ -n "${INPUT_DATE}" ]; then
@@ -59,17 +58,32 @@ jobs:
           fi
 
           echo "Triggering daily AI news endpoint: ${trigger_url}"
+          trigger_response_file="$(mktemp)"
           curl --fail-with-body --show-error --silent \
             --proto '=https' --tlsv1.2 --max-time 30 \
             --request POST \
+            --output "$trigger_response_file" \
             --header "Authorization: Bearer ${AI_NEWS_CRON_SECRET}" \
             --header "Content-Type: application/json" \
             "$trigger_url"
-          echo
+          trigger_body="$(cat "$trigger_response_file")"
+          rm -f "$trigger_response_file"
+          echo "$trigger_body"
 
-          status_query=("${query[@]}" "after=${status_after}")
-          status_joined="$(IFS='&'; echo "${status_query[*]}")"
-          status_url="${endpoint}?${status_joined}"
+          run_id="$(TRIGGER_BODY="$trigger_body" node -e '
+            try {
+              const parsed = JSON.parse(process.env.TRIGGER_BODY || "{}");
+              const id = parsed?.data?.runId || parsed?.data?.run?.id || "";
+              if (typeof id === "string" && id.trim()) process.stdout.write(id.trim());
+            } catch {}
+          ')"
+          if [ -z "$run_id" ]; then
+            echo "Missing runId in daily AI news trigger response" >&2
+            exit 1
+          fi
+
+          encoded_run_id="$(RUN_ID="$run_id" node -e 'process.stdout.write(encodeURIComponent(process.env.RUN_ID || ""))')"
+          status_url="${endpoint}?runId=${encoded_run_id}"
           echo "Polling daily AI news status: ${status_url}"
 
           for attempt in $(seq 1 45); do

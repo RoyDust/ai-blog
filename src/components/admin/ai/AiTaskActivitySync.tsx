@@ -1,9 +1,9 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
-import { apiFetcher, handleGlobalSwrError } from "@/lib/client-api";
+import { apiFetcher, apiMutate, handleGlobalSwrError } from "@/lib/client-api";
 
 const REFRESH_INTERVAL_MS = 10000;
 type Snapshot = {
@@ -43,13 +43,26 @@ function useTaskSnapshot(url: string | null, refresh: () => void) {
   return data;
 }
 
-/** Independent snapshots retain legacy recovery until the persistent-worker migration. */
+/** Polls read-only task snapshots and triggers recovery via explicit POST instead of GET side effects. */
 export function AiTaskActivitySync({ activeTaskCount, observedTaskIds }: { activeTaskCount: number; observedTaskIds: string[] }) {
   const router = useRouter();
-  const ids = [...new Set(observedTaskIds)].sort();
-  const query = new URLSearchParams({ resume: "1" });
+  const ids = [...new Set(observedTaskIds.map((id) => id.trim()).filter(Boolean))].sort();
+  const query = new URLSearchParams();
   ids.forEach((id) => query.append("taskId", id));
-  useTaskSnapshot(activeTaskCount > 0 ? "/api/admin/posts/summarize/bulk?resume=1" : null, router.refresh);
+  const resumeKey = activeTaskCount > 0 ? ids.join(",") || "__active__" : "";
+
+  useEffect(() => {
+    if (!resumeKey) return;
+    const taskIds = resumeKey === "__active__" ? [] : resumeKey.split(",");
+    void apiMutate("/api/admin/ai/tasks/resume", {
+      method: "POST",
+      body: JSON.stringify({ taskIds, includeSummaryJobs: true }),
+    }).catch((error) => {
+      handleGlobalSwrError(error, "/api/admin/ai/tasks/resume");
+    });
+  }, [resumeKey]);
+
+  useTaskSnapshot(activeTaskCount > 0 ? "/api/admin/posts/summarize/bulk" : null, router.refresh);
   useTaskSnapshot(activeTaskCount > 0 && ids.length > 0 ? "/api/admin/ai/batch?" + query.toString() : null, router.refresh);
   return null;
 }

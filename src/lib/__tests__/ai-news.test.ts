@@ -445,6 +445,15 @@ describe("ai news aggregation", () => {
       fetchImpl,
     })
 
+    const draftPrompts = (fetchImpl as ReturnType<typeof vi.fn>).mock.calls
+      .filter(([, init]) => init?.method === "POST")
+      .map(([, init]) => {
+        const body = JSON.parse(String(init?.body ?? "{}")) as { messages?: Array<{ content?: string }> }
+        return body.messages?.map((m) => String(m.content)).join("\n") ?? ""
+      })
+      .filter((text) => text.includes("请基于候选新闻生成一篇中文 AI 新闻日报博客"))
+    expect(draftPrompts).toHaveLength(0)
+
     expect(findManyAiNewsSource).toHaveBeenCalledWith({
       where: { enabled: true },
       orderBy: [{ weight: "desc" }, { name: "asc" }],
@@ -453,7 +462,7 @@ describe("ai news aggregation", () => {
     expect(createAdminPost).toHaveBeenCalledWith({
       authorId: "admin-1",
       input: expect.objectContaining({
-        title: "2026-04-29 AI 日报：代理与开源更新",
+        title: "2026-04-29 AI 日报：OpenAI 发布企业级代理",
         slug: "ai-daily-2026-04-29",
         published: false,
         generatedByAiNews: true,

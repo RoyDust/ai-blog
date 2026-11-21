@@ -123,6 +123,45 @@ describe("ai task service", () => {
     }), expect.objectContaining({ aiTask: expect.any(Object) }));
   });
 
+  test("marks zero-succeeded all-skipped tasks as PARTIAL_FAILED instead of SUCCEEDED and never sends false success notifications", async () => {
+    prismaMocks.aiTaskItemFindMany.mockResolvedValueOnce([
+      { status: "SKIPPED", error: "Post not found" },
+      { status: "SKIPPED", error: "Post changed before AI result could be recorded" },
+    ]);
+
+    const { refreshAiTaskCounts, resolveTaskStatus } = await import("../ai-tasks");
+
+    expect(resolveTaskStatus({ succeeded: 0, failed: 0, skipped: 2, total: 2 })).toBe("PARTIAL_FAILED");
+    expect(resolveTaskStatus({ succeeded: 1, failed: 0, skipped: 1, total: 2 })).toBe("SUCCEEDED");
+    expect(resolveTaskStatus({ succeeded: 0, failed: 0, skipped: 0, total: 0 })).toBe("SUCCEEDED");
+
+    await refreshAiTaskCounts("task-1");
+
+    expect(prismaMocks.aiTaskUpdate).toHaveBeenCalledWith({
+      where: { id: "task-1", status: { in: ["QUEUED", "RUNNING"] } },
+      data: expect.objectContaining({
+        status: "PARTIAL_FAILED",
+        requestedCount: 2,
+        succeededCount: 0,
+        failedCount: 0,
+        lastError: "Post changed before AI result could be recorded",
+      }),
+    });
+    expect(prismaMocks.createAdminNotification).toHaveBeenCalledTimes(1);
+    expect(prismaMocks.createAdminNotification).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "AI_TASK_PARTIAL_FAILED",
+        severity: "WARNING",
+        title: "AI 任务未产生有效结果",
+      }),
+      expect.any(Object),
+    );
+    expect(prismaMocks.createAdminNotification).not.toHaveBeenCalledWith(
+      expect.objectContaining({ title: "AI 任务已完成" }),
+      expect.any(Object),
+    );
+  });
+
   test("propagates terminal notification failure so the caller transaction can roll back", async () => {
     prismaMocks.aiTaskItemFindMany.mockResolvedValue([{ status: "SUCCEEDED", error: null }]);
     prismaMocks.createAdminNotification.mockRejectedValueOnce(new Error("recipient insert unavailable"));

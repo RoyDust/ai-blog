@@ -16,7 +16,7 @@ import { generateDailyAiNewsDraft } from "@/lib/ai-news/draft-flow"
 import { generateDailyAiNewsEditorialBrief } from "@/lib/ai-news/editorial-compose"
 import { calculateCitationCoverage, generateFactCardForCandidate, type AiNewsEnrichedFactCard } from "@/lib/ai-news/enrichment"
 import { fetchAiNewsRawItems } from "@/lib/ai-news/fetchers"
-import type { AiNewsSource } from "@/lib/ai-news/parser"
+import { buildDailyAiNewsSlug, type AiNewsSource } from "@/lib/ai-news/parser"
 import { renderDailyAiNewsMarkdown } from "@/lib/ai-news/renderer"
 import {
   AI_NEWS_AI_CONCURRENCY,
@@ -31,6 +31,8 @@ import {
 import {
   candidateRecordToInput,
   candidateToNewsItem,
+  deriveCandidatePipelineExcerpt,
+  deriveCandidatePipelineTitle,
   mapWithConcurrency,
   sortRawItemsByDate,
 } from "@/lib/ai-news/run/tools"
@@ -43,6 +45,17 @@ import type {
   AiNewsSourceConfig,
   AiNewsSourceSnapshot,
 } from "@/lib/ai-news/types"
+
+export const AI_NEWS_ADVISORY_LOCK_NAMESPACE = 1229867846 // "INKF"
+export const AI_NEWS_STALE_RUN_TIMEOUT_MS = 15 * 60 * 1000
+export const STALE_AI_NEWS_RUN_ERROR = "Stale RUNNING AI news run reaped after process interruption"
+
+export type ActiveAiNewsRunRecord = {
+  id: string
+  startedAt?: Date | string
+  createdAt?: Date | string
+  status?: string
+}
 
 /**
  * run 编排依赖的结构化仓储。
@@ -66,6 +79,15 @@ export type AiNewsRunRepository = {
   aiNewsRun: {
     create(args: { data: Record<string, unknown> }): Promise<{ id: string }>
     update(args: { where: { id: string }; data: Record<string, unknown> }): Promise<unknown>
+    findFirst?: (args: {
+      where: Record<string, unknown>
+      orderBy?: Record<string, unknown>
+      select?: Record<string, boolean>
+    }) => Promise<ActiveAiNewsRunRecord | null>
+    updateMany?: (args: {
+      where: Record<string, unknown>
+      data: Record<string, unknown>
+    }) => Promise<{ count: number }>
   }
   post: {
     findFirst(args: {
@@ -77,6 +99,8 @@ export type AiNewsRunRepository = {
   aiNewsSource?: {
     findMany?: (args?: unknown) => Promise<unknown[]>
   }
+  $transaction?: <T>(fn: (tx: AiNewsRunRepository) => Promise<T>) => Promise<T>
+  $queryRawUnsafe?: (query: string, ...values: unknown[]) => Promise<unknown>
 }
 
 function legacySourcesToConfigs(sources: AiNewsSource[]): AiNewsSourceConfig[] {
@@ -318,7 +342,7 @@ export async function scoreAndSelectDailyAiNewsCandidates({
 
 /**
  * Builds the final draft from selected candidates.
- * Candidate-pipeline mode replaces the legacy model draft body with deterministic rendered Markdown.
+ * Candidate-pipeline mode derives title/excerpt directly from editorialBrief/factCards and renders Markdown deterministically without invoking the legacy 6000-token draft generator.
  */
 export async function buildDailyAiNewsDraftFromSelectedCandidates({
   date,
@@ -333,14 +357,14 @@ export async function buildDailyAiNewsDraftFromSelectedCandidates({
   fetchImpl: typeof fetch
   generationMode: "candidate-pipeline" | "fallback" | "legacy"
 }) {
-  const legacyDraft = await generateDailyAiNewsDraft({
-    date,
-    candidates: candidates.map(candidateToNewsItem),
-    aiModel,
-    fetchImpl,
-  })
-
   if (generationMode !== "candidate-pipeline") {
+    const legacyDraft = await generateDailyAiNewsDraft({
+      date,
+      candidates: candidates.map(candidateToNewsItem),
+      aiModel,
+      fetchImpl,
+    })
+
     return { draft: legacyDraft, factCards: [] as AiNewsEnrichedFactCard[], citationCoverage: null as number | null }
   }
 
@@ -366,12 +390,65 @@ export async function buildDailyAiNewsDraftFromSelectedCandidates({
 
   return {
     draft: {
-      ...legacyDraft,
+      title: deriveCandidatePipelineTitle({
+        date,
+        editorialBrief,
+        factCards,
+        candidates,
+      }),
+      slug: buildDailyAiNewsSlug(date),
+      excerpt: deriveCandidatePipelineExcerpt({
+        date,
+        editorialBrief,
+        factCards,
+        candidates,
+      }),
       content: renderedContent,
+      generatedBy: {
+        id: aiModel.id,
+        name: aiModel.name,
+        model: aiModel.model,
+      },
     },
     factCards,
     citationCoverage: calculateCitationCoverage(factCards),
   }
+}
+
+/**
+ * Reaps orphaned RUNNING AiNewsRun rows stuck past the staleness threshold after a prior process crash/restart.
+ * Gracefully skips when lightweight mock repositories do not expose aiNewsRun.updateMany.
+ */
+export async function reapStaleAiNewsRuns({
+  repository,
+  now = new Date(),
+  staleRunTimeoutMs = AI_NEWS_STALE_RUN_TIMEOUT_MS,
+  excludeRunIds = [],
+}: {
+  repository: Pick<AiNewsRunRepository, "aiNewsRun">
+  now?: Date
+  staleRunTimeoutMs?: number
+  excludeRunIds?: string[]
+}): Promise<number> {
+  if (typeof repository.aiNewsRun.updateMany !== "function") {
+    return 0
+  }
+
+  const staleBefore = new Date(now.getTime() - staleRunTimeoutMs)
+  const result = await repository.aiNewsRun.updateMany({
+    where: {
+      status: "RUNNING",
+      startedAt: { lte: staleBefore },
+      ...(excludeRunIds.length > 0 ? { id: { notIn: excludeRunIds } } : {}),
+    },
+    data: {
+      status: "FAILED",
+      error: STALE_AI_NEWS_RUN_ERROR,
+      finishedAt: now,
+    },
+  })
+
+  return result.count
 }
 
 /**

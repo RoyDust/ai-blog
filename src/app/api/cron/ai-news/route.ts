@@ -1,12 +1,38 @@
-import { withApiOperationLogging } from "@/lib/api-operation-log-route";
+import { withApiOperationLogging } from "@/lib/api-operation-log-route"
 import { NextResponse } from "next/server"
 
-import { notifyDailyAiNewsFailure, notifyDailyAiNewsSuccess, runDailyAiNews } from "@/lib/ai-news"
-import { toErrorResponse, ValidationError } from "@/lib/api-errors"
+import {
+  notifyDailyAiNewsFailure,
+  notifyDailyAiNewsSuccess,
+  runDailyAiNews,
+  type DailyAiNewsRunResult,
+} from "@/lib/ai-news"
+import { ConflictError, NotFoundError, toErrorResponse, ValidationError } from "@/lib/api-errors"
 import { requireInternalSecret } from "@/lib/internal-secrets"
 import { prisma } from "@/lib/prisma"
 
-const activeRuns = new Set<string>()
+const STALE_RUN_TIMEOUT_MS = 15 * 60 * 1000
+const STALE_RUN_ERROR = "Stale RUNNING AI news run reaped after process interruption"
+const RUN_STATUS_SELECT = {
+  id: true,
+  runDate: true,
+  createdAt: true,
+  finishedAt: true,
+  status: true,
+  postId: true,
+  postTitle: true,
+  postSlug: true,
+  published: true,
+  sourceCount: true,
+  selectedCandidateCount: true,
+  qualityScore: true,
+  citationCoverage: true,
+  generationMode: true,
+  reviewVerdict: true,
+  reviewScore: true,
+  reviewSummary: true,
+  error: true,
+} as const
 
 function requireCronSecret(request: Request) {
   requireInternalSecret(request, { secretName: "AI_NEWS_CRON_SECRET", envKeys: ["AI_NEWS_CRON_SECRET"] })
@@ -42,6 +68,16 @@ function parseAfter(request: Request) {
   return date
 }
 
+function parseRunId(request: Request) {
+  const raw = new URL(request.url).searchParams.get("runId")
+  if (raw == null || raw === "") return null
+  const trimmed = raw.trim()
+  if (!trimmed || trimmed.length > 128) {
+    throw new ValidationError("Invalid runId")
+  }
+  return trimmed
+}
+
 function formatDateId(date: Date) {
   return date.toISOString().slice(0, 10)
 }
@@ -53,35 +89,128 @@ function getDateWindow(date: Date) {
   return { start, end }
 }
 
-function queueDailyAiNewsRun({ authorId, date, regenerate }: { authorId: string; date: Date; regenerate: boolean }) {
-  const dateId = formatDateId(date)
-  if (activeRuns.has(dateId)) {
-    return { operation: "already-queued" as const, date: dateId }
+function readAlreadyRunningRunId(error: unknown): string | null {
+  if (
+    error &&
+    typeof error === "object" &&
+    (error instanceof ConflictError || (error as { code?: string }).code === "AI_NEWS_ALREADY_RUNNING") &&
+    (error as { code?: string }).code === "AI_NEWS_ALREADY_RUNNING"
+  ) {
+    const runId = (error as { runId?: unknown }).runId
+    return typeof runId === "string" && runId.trim() ? runId.trim() : null
+  }
+  return null
+}
+
+async function reapStaleCronRuns() {
+  const delegate = prisma.aiNewsRun as unknown as {
+    updateMany?: (args: { where: Record<string, unknown>; data: Record<string, unknown> }) => Promise<unknown>
+  }
+  if (typeof delegate?.updateMany !== "function") {
+    return
   }
 
-  activeRuns.add(dateId)
+  const now = new Date()
+  await delegate.updateMany({
+    where: {
+      status: "RUNNING",
+      startedAt: { lte: new Date(now.getTime() - STALE_RUN_TIMEOUT_MS) },
+    },
+    data: {
+      status: "FAILED",
+      error: STALE_RUN_ERROR,
+      finishedAt: now,
+    },
+  })
+}
+
+async function startDailyAiNewsCronRun({
+  authorId,
+  date,
+  regenerate,
+}: {
+  authorId: string
+  date: Date
+  regenerate: boolean
+}) {
+  const dateId = formatDateId(date)
+  type StartupOutcome =
+    | { kind: "queued"; run: { id: string; status: "RUNNING" } }
+    | { kind: "settled"; result: DailyAiNewsRunResult }
+
+  let resolveStartup!: (outcome: StartupOutcome) => void
+  let rejectStartup!: (error: unknown) => void
+  const startupPromise = new Promise<StartupOutcome>((resolve, reject) => {
+    resolveStartup = resolve
+    rejectStartup = reject
+  })
+  let startupSettled = false
+
   void (async () => {
     try {
-      const result = await runDailyAiNews({ authorId, date, regenerate, trigger: "cron" })
+      const runOptions: Parameters<typeof runDailyAiNews>[0] = {
+        authorId,
+        date,
+        regenerate,
+        trigger: "cron",
+        onRunCreated: (run) => {
+          if (!startupSettled) {
+            startupSettled = true
+            resolveStartup({ kind: "queued", run })
+          }
+        },
+      }
+      const result = await runDailyAiNews(runOptions)
+      if (!startupSettled) {
+        startupSettled = true
+        resolveStartup({ kind: "settled", result })
+      }
       try {
         await notifyDailyAiNewsSuccess(result, date)
       } catch (error) {
         console.error("Daily AI news success notification failed:", error)
       }
     } catch (error) {
+      if (!startupSettled) {
+        startupSettled = true
+        rejectStartup(error)
+        return
+      }
+
       try {
         await notifyDailyAiNewsFailure(date, error)
       } catch (notificationError) {
         console.error("Daily AI news failure notification failed:", notificationError)
       }
-
       console.error("Daily AI news cron failed:", error)
-    } finally {
-      activeRuns.delete(dateId)
     }
   })()
 
-  return { operation: "queued" as const, date: dateId }
+  try {
+    const startup = await startupPromise
+    const run =
+      startup.kind === "queued"
+        ? startup.run
+        : { id: startup.result.run.id, status: "RUNNING" as const }
+
+    return {
+      operation: "queued" as const,
+      runId: run.id,
+      date: dateId,
+      run,
+    }
+  } catch (error) {
+    const activeRunId = readAlreadyRunningRunId(error)
+    if (activeRunId) {
+      return {
+        operation: "already-running" as const,
+        runId: activeRunId,
+        date: dateId,
+        run: { id: activeRunId, status: "RUNNING" as const },
+      }
+    }
+    throw error
+  }
 }
 
 async function POSTHandler(request: Request) {
@@ -98,7 +227,11 @@ async function POSTHandler(request: Request) {
       throw new Error("No admin author available for daily AI news")
     }
 
-    const result = queueDailyAiNewsRun({ authorId: author.id, date: parseRunDate(request), regenerate: parseRegenerate(request) })
+    const result = await startDailyAiNewsCronRun({
+      authorId: author.id,
+      date: parseRunDate(request),
+      regenerate: parseRegenerate(request),
+    })
     return NextResponse.json({ success: true, data: result }, { status: 202 })
   } catch (error) {
     return toErrorResponse(error, "Daily AI news cron failed")
@@ -108,57 +241,53 @@ async function POSTHandler(request: Request) {
 async function GETHandler(request: Request) {
   try {
     requireCronSecret(request)
+    await reapStaleCronRuns()
 
-    const date = parseRunDate(request)
+    const runId = parseRunId(request)
+    const fallbackDate = parseRunDate(request)
     const after = parseAfter(request)
-    const { start, end } = getDateWindow(date)
-    const run = await prisma.aiNewsRun.findFirst({
-      where: {
-        trigger: "CRON",
-        runDate: { gte: start, lt: end },
-        ...(after ? { createdAt: { gte: after } } : {}),
-      },
-      orderBy: { createdAt: "desc" },
-      select: {
-        id: true,
-        runDate: true,
-        createdAt: true,
-        finishedAt: true,
-        status: true,
-        postId: true,
-        postTitle: true,
-        postSlug: true,
-        published: true,
-        sourceCount: true,
-        selectedCandidateCount: true,
-        qualityScore: true,
-        citationCoverage: true,
-        generationMode: true,
-        reviewVerdict: true,
-        reviewScore: true,
-        reviewSummary: true,
-        error: true,
-      },
-    })
-    const dateId = formatDateId(date)
+
+    const run = runId
+      ? await prisma.aiNewsRun.findFirst({
+          where: { id: runId },
+          select: RUN_STATUS_SELECT,
+        })
+      : await (() => {
+          const { start, end } = getDateWindow(fallbackDate)
+          return prisma.aiNewsRun.findFirst({
+            where: {
+              trigger: "CRON",
+              runDate: { gte: start, lt: end },
+              ...(after ? { createdAt: { gte: after } } : {}),
+            },
+            orderBy: { createdAt: "desc" },
+            select: RUN_STATUS_SELECT,
+          })
+        })()
+
+    if (runId && !run) {
+      throw new NotFoundError("AI news run not found")
+    }
+
+    const dateId = run?.runDate instanceof Date ? formatDateId(run.runDate) : formatDateId(fallbackDate)
 
     if (!run) {
       return NextResponse.json({ success: true, data: { operation: "pending", date: dateId, status: "PENDING" } }, { status: 202 })
     }
 
     if (run.status === "RUNNING") {
-      return NextResponse.json({ success: true, data: { operation: "running", date: dateId, run } }, { status: 202 })
+      return NextResponse.json({ success: true, data: { operation: "running", runId: run.id, date: dateId, run } }, { status: 202 })
     }
 
     if (run.status === "FAILED") {
-      return NextResponse.json({ success: false, error: run.error ?? "Daily AI news generation failed", data: { operation: "failed", date: dateId, run } }, { status: 500 })
+      return NextResponse.json({ success: false, error: run.error ?? "Daily AI news generation failed", data: { operation: "failed", runId: run.id, date: dateId, run } }, { status: 500 })
     }
 
-    return NextResponse.json({ success: true, data: { operation: "finished", date: dateId, run } })
+    return NextResponse.json({ success: true, data: { operation: "finished", runId: run.id, date: dateId, run } })
   } catch (error) {
     return toErrorResponse(error, "Daily AI news cron failed")
   }
 }
 
-export const POST = withApiOperationLogging(POSTHandler, { scope: 'cron', operation: 'cron.ainews.create', route: '/api/cron/ai-news' });
-export const GET = withApiOperationLogging(GETHandler, { scope: 'cron', operation: 'cron.ainews.read', route: '/api/cron/ai-news' });
+export const POST = withApiOperationLogging(POSTHandler, { scope: "cron", operation: "cron.ainews.create", route: "/api/cron/ai-news" })
+export const GET = withApiOperationLogging(GETHandler, { scope: "cron", operation: "cron.ainews.read", route: "/api/cron/ai-news" })

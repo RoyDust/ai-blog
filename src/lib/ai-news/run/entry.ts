@@ -2,25 +2,16 @@
  * AI 日报聚合与发布编排入口。
  *
  * runDailyAiNews 串联：
- * 1. 创建运行记录
- * 2. 拉取并持久化候选新闻
- * 3. 去重、评分、富化、筛选
- * 4. 生成日报草稿
- * 5. 创建或更新后台文章
- * 6. 完成增强后直接发布
- * 7. 回写运行状态与质量指标
- *
- * fetchDailyAiNewsCandidates 是旧的候选抓取入口，供后台测试与兼容场景使用。
- *
- * 依赖注入（均可选，缺省行为与历史版本一致）：
- * - runRepository：run 记录与文章存在性检查的结构化仓储；缺省对全局 prisma 做
- *   结构探测，探测失败直接抛错（run 记录不可静默丢弃）
- * - candidateRepository：候选持久化仓储；缺省探测全局 prisma——仅当客户端缺失
- *   aiNewsCandidate delegate（fake/legacy 客户端）时返回 null 走内存模式；真实
- *   PrismaClient 恒通过探测，若迁移未应用，persist 的 create 会抛错并使 run 进入
- *   FAILED 路径（不会静默降级）。显式传 null 可跳过持久化（测试/降级场景）
+ * 1. 基于日期的 PostgreSQL advisory lock + 超时僵尸 RUNNING 回收 + 创建运行记录
+ * 2. 校验同名人工文章冲突与配置并触发 onRunCreated（支持 202 前同步落库 runId）
+ * 3. 拉取并持久化候选新闻
+ * 4. 去重、评分、富化、筛选
+ * 5. 生成日报草稿（candidate-pipeline 模式零冗余 6000-token 调用）
+ * 6. 创建或更新后台文章
+ * 7. 完成增强后按模式发布并回写运行状态与质量指标
  */
 import { createAdminPost, publishAiDraftPost, updateAdminPost } from "@/lib/ai-authoring"
+import type { AiModelOption } from "@/lib/ai-models"
 import {
   markAiNewsCandidateDuplicates,
   markSelectedAiNewsCandidates,
@@ -29,8 +20,9 @@ import {
   type AiNewsCandidateRepository,
 } from "@/lib/ai-news/candidates"
 import { DAILY_AI_NEWS_SOURCES } from "@/lib/ai-news/default-sources"
-import { dedupeByCanonicalUrl } from "@/lib/ai-news/dedupe"
-import { resolveDailyAiNewsModel, type AiNewsGeneratorModel } from "@/lib/ai-news/draft-flow"
+import { dedupeByCanonicalUrl, type AiNewsDuplicateMap } from "@/lib/ai-news/dedupe"
+import { resolveDailyAiNewsModel, type AiNewsGeneratorModel, type DailyAiNewsDraft } from "@/lib/ai-news/draft-flow"
+import type { AiNewsEnrichedFactCard } from "@/lib/ai-news/enrichment"
 import { buildDailyAiNewsSlug, dedupeNewsItems, parseNewsFeed, type AiNewsSource } from "@/lib/ai-news/parser"
 import { applyAiNewsPostEnhancements } from "@/lib/ai-news/post-processing"
 import {
@@ -40,27 +32,41 @@ import {
   type AiNewsSourceMode,
 } from "@/lib/ai-news/run/config"
 import {
+  AI_NEWS_ADVISORY_LOCK_NAMESPACE,
+  AI_NEWS_STALE_RUN_TIMEOUT_MS,
   buildAiNewsSourceSnapshot,
   buildDailyAiNewsDraftFromSelectedCandidates,
   collectDailyAiNewsRawItems,
   finishAiNewsRun,
   persistDailyAiNewsCandidates,
+  reapStaleAiNewsRuns,
   resolveDailyAiNewsSourceConfigs,
   scoreAndSelectDailyAiNewsCandidates,
+  STALE_AI_NEWS_RUN_ERROR,
+  type AiNewsRunPostSummary,
   type AiNewsRunRepository,
 } from "@/lib/ai-news/run/steps"
 import {
   buildFactCardLookup,
   factCardToEnrichment,
   findFactCardForCandidate,
+  getDailyAiNewsDateWindow,
   normalizeRunTrigger,
   readErrorMessage,
   serializeSourceFailures,
+  toDailyAiNewsAdvisoryLockKey,
   toRunQualityScore,
 } from "@/lib/ai-news/run/tools"
-import type { AiNewsJsonObject, AiNewsSourceFailure } from "@/lib/ai-news/types"
+import type {
+  AiNewsJsonObject,
+  AiNewsScoredCandidate,
+  AiNewsSourceConfig,
+  AiNewsSourceFailure,
+} from "@/lib/ai-news/types"
 import { ConflictError } from "@/lib/api-errors"
 import { prisma } from "@/lib/prisma"
+
+export { AI_NEWS_STALE_RUN_TIMEOUT_MS, reapStaleAiNewsRuns, STALE_AI_NEWS_RUN_ERROR }
 
 /** 日报结果中文章对象的公共字段；其余字段随创建/增强结果透传。 */
 export type DailyAiNewsRunPost = {
@@ -97,7 +103,6 @@ type DailyAiNewsRunSuccessBase = {
 
 /**
  * runDailyAiNews 的返回类型契约，按 operation 区分的判别联合。
- * 字段结构与历史返回值逐字段一致，供通知等下游模块类型安全地消费。
  */
 export type DailyAiNewsRunResult =
   | {
@@ -112,17 +117,40 @@ export type DailyAiNewsRunResult =
   | ({ operation: "created" } & DailyAiNewsRunSuccessBase)
   | ({ operation: "regenerated" } & DailyAiNewsRunSuccessBase)
 
-/** 候选持久化写回失败的统一形态（scores / duplicates / enrichments 三处一致）。 */
 type AiNewsCandidateUpdateFailure = {
   id: string
   error: Error
 }
 
-/**
- * 将 persist 阶段的候选写回失败追加进 sourceFailureJson。
- * description 逐字进入消息模板（"score" / "duplicate" / "enrichment"），
- * 失败消息格式被既有测试锁定，勿改动。
- */
+type PipelineProgressState = {
+  sourceCount: number
+  failureCount: number
+  rawCandidateCount: number
+  dedupedCandidateCount: number
+  scoredCandidateCount: number
+  selectedCandidateCount: number
+  sourceFailureJson: AiNewsSourceFailure[]
+  qualityScore: number | null
+  citationCoverage: number | null
+  generationMode: "candidate-pipeline" | "fallback" | "legacy"
+}
+
+const activeRunsByDate = new Map<string, string>()
+const activeInProcessRunIds = new Set<string>()
+
+/** 测试辅助：模拟进程崩溃重启后内存活跃运行态清空。 */
+export function __resetAiNewsActiveRunsForTests() {
+  activeRunsByDate.clear()
+  activeInProcessRunIds.clear()
+}
+
+function createAlreadyRunningError(runId: string | null) {
+  return Object.assign(new ConflictError("Daily AI news is already running for this date"), {
+    code: "AI_NEWS_ALREADY_RUNNING" as const,
+    runId,
+  })
+}
+
 function appendPersistFailures(
   sourceFailureJson: AiNewsSourceFailure[],
   failures: AiNewsCandidateUpdateFailure[],
@@ -141,10 +169,6 @@ function appendPersistFailures(
   ]
 }
 
-/**
- * 探测全局 prisma 上的 run 仓储委托。
- * 与候选仓储的结构探测风格一致，但 run 记录不可静默丢弃，探测失败必须 fail-loud。
- */
 function getAiNewsRunRepository(): AiNewsRunRepository {
   const client = prisma as unknown as Partial<AiNewsRunRepository>
   const runDelegate = client.aiNewsRun
@@ -165,13 +189,6 @@ function getAiNewsRunRepository(): AiNewsRunRepository {
   )
 }
 
-/**
- * 探测全局 prisma 上的候选仓储委托。
- * 仅当客户端缺失 aiNewsCandidate delegate（fake/legacy 客户端）时返回 null，
- * 运行退回内存候选模式；真实 PrismaClient 的 delegate 在 prisma generate 阶段生成，
- * 恒通过本探测，与迁移是否应用无关——迁移未应用时 persistAiNewsCandidates 的
- * create 会因表不存在而抛错，由 runDailyAiNews 的 catch 落成 run FAILED 并 rethrow。
- */
 function getAiNewsCandidateRepository(): AiNewsCandidateRepository | null {
   const client = prisma as unknown as Partial<AiNewsCandidateRepository>
   const delegate = client.aiNewsCandidate
@@ -189,12 +206,530 @@ function getAiNewsCandidateRepository(): AiNewsCandidateRepository | null {
   return null
 }
 
+function parseAdvisoryLockResult(rawResult: unknown): boolean {
+  if (!Array.isArray(rawResult) || rawResult.length === 0) {
+    return true
+  }
+
+  const firstRow = rawResult[0]
+  if (!firstRow || typeof firstRow !== "object") {
+    return true
+  }
+
+  const record = firstRow as Record<string, unknown>
+  const flag = record.locked ?? record.pg_try_advisory_xact_lock ?? record.pg_try_advisory_lock
+  return flag !== false
+}
+
+async function tryAcquirePgDateLock({
+  repository,
+  lockKey,
+  transactional,
+}: {
+  repository: AiNewsRunRepository
+  lockKey: number
+  transactional: boolean
+}) {
+  if (typeof repository.$queryRawUnsafe !== "function") {
+    return { acquired: true, needsSessionUnlock: false }
+  }
+
+  const sql = transactional
+    ? "SELECT pg_try_advisory_xact_lock($1::int, $2::int) AS locked"
+    : "SELECT pg_try_advisory_lock($1::int, $2::int) AS locked"
+  const rawResult = await repository.$queryRawUnsafe(sql, AI_NEWS_ADVISORY_LOCK_NAMESPACE, lockKey)
+  const acquired = parseAdvisoryLockResult(rawResult)
+
+  return {
+    acquired,
+    needsSessionUnlock: acquired && !transactional,
+  }
+}
+
+async function claimDailyAiNewsRunSlot({
+  date,
+  trigger,
+  staleRunTimeoutMs,
+  repository,
+}: {
+  date: Date
+  trigger: AiNewsRunTriggerInput
+  staleRunTimeoutMs: number
+  repository: AiNewsRunRepository
+}) {
+  const { dateId, start, end } = getDailyAiNewsDateWindow(date)
+  const inMemoryRunId = activeRunsByDate.get(dateId)
+  if (inMemoryRunId) {
+    throw createAlreadyRunningError(inMemoryRunId === "__claiming__" ? null : inMemoryRunId)
+  }
+
+  activeRunsByDate.set(dateId, "__claiming__")
+  const lockKey = toDailyAiNewsAdvisoryLockKey(date)
+  const useTransaction = typeof repository.$transaction === "function"
+  let needsSessionUnlock = false
+
+  try {
+    const claimInScope = async (scopeRepo: AiNewsRunRepository) => {
+      const lockState = await tryAcquirePgDateLock({
+        repository: scopeRepo,
+        lockKey,
+        transactional: useTransaction,
+      })
+      needsSessionUnlock = lockState.needsSessionUnlock
+
+      if (!lockState.acquired) {
+        const existingActive =
+          typeof scopeRepo.aiNewsRun.findFirst === "function"
+            ? await scopeRepo.aiNewsRun.findFirst({
+                where: { status: "RUNNING", runDate: { gte: start, lt: end } },
+                orderBy: { createdAt: "desc" },
+                select: { id: true },
+              })
+            : null
+        throw createAlreadyRunningError(existingActive?.id ?? null)
+      }
+
+      await reapStaleAiNewsRuns({
+        repository: scopeRepo,
+        now: new Date(),
+        staleRunTimeoutMs,
+        excludeRunIds: [...activeInProcessRunIds],
+      })
+
+      if (typeof scopeRepo.aiNewsRun.findFirst === "function") {
+        const activeRun = await scopeRepo.aiNewsRun.findFirst({
+          where: { status: "RUNNING", runDate: { gte: start, lt: end } },
+          orderBy: { createdAt: "desc" },
+          select: { id: true },
+        })
+        if (activeRun) {
+          throw createAlreadyRunningError(activeRun.id)
+        }
+      }
+
+      return scopeRepo.aiNewsRun.create({
+        data: {
+          runDate: date,
+          trigger: normalizeRunTrigger(trigger),
+          status: "RUNNING",
+        },
+      })
+    }
+
+    const run = useTransaction ? await repository.$transaction!(claimInScope) : await claimInScope(repository)
+    activeRunsByDate.set(dateId, run.id)
+    activeInProcessRunIds.add(run.id)
+
+    return {
+      run,
+      release: async () => {
+        if (needsSessionUnlock && typeof repository.$queryRawUnsafe === "function") {
+          await repository
+            .$queryRawUnsafe("SELECT pg_advisory_unlock($1::int, $2::int)", AI_NEWS_ADVISORY_LOCK_NAMESPACE, lockKey)
+            .catch(() => undefined)
+        }
+        if (activeRunsByDate.get(dateId) === run.id) {
+          activeRunsByDate.delete(dateId)
+        }
+        activeInProcessRunIds.delete(run.id)
+      },
+    }
+  } catch (error) {
+    if (needsSessionUnlock && typeof repository.$queryRawUnsafe === "function") {
+      await repository
+        .$queryRawUnsafe("SELECT pg_advisory_unlock($1::int, $2::int)", AI_NEWS_ADVISORY_LOCK_NAMESPACE, lockKey)
+        .catch(() => undefined)
+    }
+    if (activeRunsByDate.get(dateId) === "__claiming__") {
+      activeRunsByDate.delete(dateId)
+    }
+    throw error
+  }
+}
+
+async function resolveExistingPostDecision({
+  runId,
+  startedAtMs,
+  slug,
+  regenerate,
+  repository,
+  onRunCreated,
+}: {
+  runId: string
+  startedAtMs: number
+  slug: string
+  regenerate: boolean
+  repository: AiNewsRunRepository
+  onRunCreated?: (run: { id: string; status: "RUNNING" }) => void
+}): Promise<{ kind: "continue"; existing: AiNewsRunPostSummary | null } | { kind: "skipped"; result: DailyAiNewsRunResult }> {
+  const existing = await repository.post.findFirst({
+    where: { slug, deletedAt: null },
+    select: { id: true, title: true, slug: true, published: true, generatedByAiNews: true },
+  })
+
+  if (existing && existing.generatedByAiNews !== true) {
+    if (regenerate) {
+      throw new ConflictError("Daily AI news slug is occupied by a manual post")
+    }
+
+    onRunCreated?.({ id: runId, status: "RUNNING" })
+    const conflictReason = "Daily AI news slug conflicts with a manual post"
+    await finishAiNewsRun({
+      runId,
+      startedAtMs,
+      repository,
+      data: {
+        status: "SKIPPED",
+        sourceCount: 0,
+        failureCount: 0,
+        rawCandidateCount: 0,
+        dedupedCandidateCount: 0,
+        scoredCandidateCount: 0,
+        selectedCandidateCount: 0,
+        postId: null,
+        postTitle: existing.title,
+        postSlug: existing.slug,
+        published: existing.published,
+        error: conflictReason,
+      },
+    })
+
+    return {
+      kind: "skipped",
+      result: {
+        operation: "skipped",
+        reason: conflictReason,
+        published: existing.published,
+        post: existing,
+        sourceCount: 0,
+        failures: [],
+        run: { id: runId, status: "SKIPPED" },
+      },
+    }
+  }
+
+  if (existing && !regenerate) {
+    onRunCreated?.({ id: runId, status: "RUNNING" })
+    const published = existing.published
+    const reason = published ? "Daily AI news already exists" : "Daily AI news draft is pending review"
+
+    await finishAiNewsRun({
+      runId,
+      startedAtMs,
+      repository,
+      data: {
+        status: "SKIPPED",
+        sourceCount: 0,
+        failureCount: 0,
+        rawCandidateCount: 0,
+        dedupedCandidateCount: 0,
+        scoredCandidateCount: 0,
+        selectedCandidateCount: 0,
+        postId: existing.id,
+        postTitle: existing.title,
+        postSlug: existing.slug,
+        published,
+      },
+    })
+
+    return {
+      kind: "skipped",
+      result: {
+        operation: "skipped",
+        reason,
+        published,
+        post: { ...existing, published },
+        sourceCount: 0,
+        failures: [],
+        run: { id: runId, status: "SKIPPED" },
+      },
+    }
+  }
+
+  return { kind: "continue", existing }
+}
+
+async function persistCandidateStageResults({
+  runId,
+  repository,
+  scoredCandidates,
+  selectedCandidates,
+  duplicateMap,
+  sourceFailureJson,
+}: {
+  runId: string
+  repository: AiNewsCandidateRepository | null
+  scoredCandidates: AiNewsScoredCandidate[]
+  selectedCandidates: AiNewsScoredCandidate[]
+  duplicateMap: AiNewsDuplicateMap
+  sourceFailureJson: AiNewsSourceFailure[]
+}) {
+  if (!repository) {
+    return sourceFailureJson
+  }
+
+  const scoreUpdateResult = await updateAiNewsCandidateScores({
+    prisma: repository,
+    scores: scoredCandidates.map((candidate) => ({
+      id: candidate.id,
+      aiScore: candidate.aiScore,
+      aiReason: candidate.aiReason,
+      aiSummary: candidate.aiSummary,
+      aiTags: candidate.aiTags,
+      aiRiskFlags: candidate.aiRiskFlags,
+      scoreError: candidate.scoreError,
+    })),
+  })
+  const duplicateUpdateResult = await markAiNewsCandidateDuplicates({
+    prisma: repository,
+    duplicates: Object.entries(duplicateMap).flatMap(([duplicateOfId, duplicateIds]) =>
+      duplicateIds.map((id) => ({ id, duplicateOfId })),
+    ),
+  })
+
+  await markSelectedAiNewsCandidates({
+    prisma: repository,
+    runId,
+    selected: selectedCandidates.map((candidate) => ({
+      id: candidate.id,
+      selectionReason: candidate.selectionReason,
+    })),
+  })
+
+  let nextFailures = appendPersistFailures(sourceFailureJson, scoreUpdateResult.failures, "score")
+  nextFailures = appendPersistFailures(nextFailures, duplicateUpdateResult.failures, "duplicate")
+  return nextFailures
+}
+
+async function persistCandidateEnrichmentResults({
+  repository,
+  selectedCandidates,
+  factCards,
+  sourceFailureJson,
+}: {
+  repository: AiNewsCandidateRepository | null
+  selectedCandidates: AiNewsScoredCandidate[]
+  factCards: AiNewsEnrichedFactCard[]
+  sourceFailureJson: AiNewsSourceFailure[]
+}) {
+  if (!repository || factCards.length === 0) {
+    return sourceFailureJson
+  }
+
+  const factCardLookup = buildFactCardLookup(factCards)
+  const enrichmentUpdateResult = await updateAiNewsCandidateEnrichments({
+    prisma: repository,
+    enrichments: selectedCandidates
+      .map((candidate) => {
+        const card = findFactCardForCandidate(factCardLookup, candidate)
+        return card ? { id: candidate.id, enrichment: factCardToEnrichment(card) } : null
+      })
+      .filter((item): item is { id: string; enrichment: AiNewsJsonObject } => Boolean(item)),
+  })
+
+  return appendPersistFailures(sourceFailureJson, enrichmentUpdateResult.failures, "enrichment")
+}
+
+async function persistAndPublishDailyAiNewsPost({
+  authorId,
+  existing,
+  draft,
+  modelId,
+  generationMode,
+}: {
+  authorId: string
+  existing: AiNewsRunPostSummary | null
+  draft: DailyAiNewsDraft
+  modelId?: string | null
+  generationMode: "candidate-pipeline" | "fallback" | "legacy"
+}) {
+  const post = existing
+    ? {
+        ...(await updateAdminPost({
+          id: existing.id,
+          input: {
+            title: draft.title,
+            slug: draft.slug,
+            content: draft.content,
+            excerpt: draft.excerpt,
+            published: existing.published,
+            generatedByAiNews: true,
+          },
+        })),
+        title: draft.title,
+      }
+    : await createAdminPost({
+        authorId,
+        input: {
+          title: draft.title,
+          slug: draft.slug,
+          content: draft.content,
+          excerpt: draft.excerpt,
+          published: false,
+          generatedByAiNews: true,
+        },
+      })
+
+  let published = post.published
+  const enhancementResult = await applyAiNewsPostEnhancements({ postId: post.id, modelId })
+  const enhancedPost = enhancementResult.post ?? {
+    id: post.id,
+    title: draft.title,
+    slug: draft.slug,
+    content: draft.content,
+    excerpt: draft.excerpt,
+    seoDescription: null,
+    category: null,
+    tags: [],
+    published: post.published,
+    coverImage: null,
+  }
+  const finalPost = { ...post, ...enhancedPost }
+
+  if (!published && generationMode !== "fallback") {
+    await publishAiDraftPost({ postId: post.id })
+    published = true
+  }
+
+  return { post, finalPost, published }
+}
+
+async function runActiveDailyAiNewsGeneration({
+  runId,
+  startedAtMs,
+  authorId,
+  date,
+  modelId,
+  existing,
+  sourceConfigs,
+  aiModel,
+  fetchImpl,
+  runRepository,
+  candidateRepository,
+  progress,
+}: {
+  runId: string
+  startedAtMs: number
+  authorId: string
+  date: Date
+  modelId?: string | null
+  existing: AiNewsRunPostSummary | null
+  sourceConfigs: AiNewsSourceConfig[]
+  aiModel: AiModelOption
+  fetchImpl: typeof fetch
+  runRepository: AiNewsRunRepository
+  candidateRepository: AiNewsCandidateRepository | null
+  progress: PipelineProgressState
+}): Promise<DailyAiNewsRunResult> {
+  const { items: rawItems, failures } = await collectDailyAiNewsRawItems({ date, sourceConfigs, fetchImpl })
+  const dedupedCandidates = dedupeByCanonicalUrl(rawItems)
+  const persistedCandidates = await persistDailyAiNewsCandidates({
+    runId,
+    candidates: dedupedCandidates,
+    repository: candidateRepository,
+  })
+  const { scoredCandidates, selectedCandidates, duplicateMap, selection, generationMode } =
+    await scoreAndSelectDailyAiNewsCandidates({
+      candidates: persistedCandidates.candidates,
+      aiModel,
+      fetchImpl,
+    })
+
+  progress.sourceCount = rawItems.length
+  progress.failureCount = failures.length
+  progress.rawCandidateCount = rawItems.length
+  progress.dedupedCandidateCount = dedupedCandidates.length
+  progress.scoredCandidateCount = Math.min(persistedCandidates.candidates.length, MAX_CANDIDATES_TO_SCORE)
+  progress.selectedCandidateCount = selectedCandidates.length
+  progress.sourceFailureJson = failures
+  progress.qualityScore = toRunQualityScore(selection.qualityScore)
+  progress.citationCoverage = selection.citationCoverage ?? null
+  progress.generationMode = generationMode
+
+  progress.sourceFailureJson = await persistCandidateStageResults({
+    runId,
+    repository: persistedCandidates.repository,
+    scoredCandidates,
+    selectedCandidates,
+    duplicateMap,
+    sourceFailureJson: progress.sourceFailureJson,
+  })
+
+  const { draft, factCards, citationCoverage } = await buildDailyAiNewsDraftFromSelectedCandidates({
+    date,
+    candidates: selectedCandidates,
+    aiModel,
+    fetchImpl,
+    generationMode,
+  })
+  progress.citationCoverage = citationCoverage ?? progress.citationCoverage
+
+  progress.sourceFailureJson = await persistCandidateEnrichmentResults({
+    repository: persistedCandidates.repository,
+    selectedCandidates,
+    factCards,
+    sourceFailureJson: progress.sourceFailureJson,
+  })
+
+  const { post, finalPost, published } = await persistAndPublishDailyAiNewsPost({
+    authorId,
+    existing,
+    draft,
+    modelId,
+    generationMode,
+  })
+
+  await finishAiNewsRun({
+    runId,
+    startedAtMs,
+    repository: runRepository,
+    data: {
+      status: "SUCCEEDED",
+      sourceCount: progress.sourceCount,
+      failureCount: progress.failureCount,
+      rawCandidateCount: progress.rawCandidateCount,
+      dedupedCandidateCount: progress.dedupedCandidateCount,
+      scoredCandidateCount: progress.scoredCandidateCount,
+      selectedCandidateCount: progress.selectedCandidateCount,
+      sourceFailureJson: serializeSourceFailures(progress.sourceFailureJson),
+      qualityScore: progress.qualityScore,
+      citationCoverage: progress.citationCoverage,
+      generationMode: progress.generationMode,
+      postId: post.id,
+      postTitle: finalPost.title,
+      postSlug: finalPost.slug,
+      published,
+      reviewVerdict: null,
+      reviewScore: null,
+      reviewSummary: null,
+    },
+  })
+
+  return {
+    operation: existing ? "regenerated" : "created",
+    published,
+    post: { ...finalPost, published },
+    autoReview: null,
+    sourceCount: progress.sourceCount,
+    failures,
+    metrics: {
+      rawCandidateCount: progress.rawCandidateCount,
+      dedupedCandidateCount: progress.dedupedCandidateCount,
+      scoredCandidateCount: progress.scoredCandidateCount,
+      selectedCandidateCount: progress.selectedCandidateCount,
+      sourceFailureJson: progress.sourceFailureJson,
+      qualityScore: progress.qualityScore,
+      citationCoverage: progress.citationCoverage,
+      generationMode: progress.generationMode,
+      configuredSourceCount: sourceConfigs.length,
+    },
+    generatedBy: draft.generatedBy,
+    run: { id: runId, status: "SUCCEEDED" },
+  }
+}
+
 /**
- * 拉取日报候选新闻。
- *
- * 返回内容包含：
- * - items: 已完成格式统一、时间窗口过滤、基础去重后的候选集合
- * - failures: 抓取失败的来源列表，供后台运行日志展示
+ * 拉取日报候选新闻（兼容旧入口）。
  */
 export async function fetchDailyAiNewsCandidates({
   date,
@@ -209,7 +744,9 @@ export async function fetchDailyAiNewsCandidates({
   const batches = await Promise.all(
     sources.map(async (source) => {
       try {
-        const response = await fetchImpl(source.feedUrl, { headers: { Accept: "application/rss+xml, application/atom+xml, application/xml, text/xml" } })
+        const response = await fetchImpl(source.feedUrl, {
+          headers: { Accept: "application/rss+xml, application/atom+xml, application/xml, text/xml" },
+        })
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}`)
         }
@@ -231,9 +768,6 @@ export async function fetchDailyAiNewsCandidates({
 
 /**
  * 执行完整的 AI 日报流水线。
- *
- * 这是模块主入口。既有参数与返回结构保持不变，仅追加可选的
- * runRepository / candidateRepository 注入参数用于测试与部署定制。
  */
 export async function runDailyAiNews({
   authorId,
@@ -245,6 +779,8 @@ export async function runDailyAiNews({
   sourceIds,
   fetchImpl = fetch,
   trigger = "manual",
+  staleRunTimeoutMs = AI_NEWS_STALE_RUN_TIMEOUT_MS,
+  onRunCreated,
   runRepository: runRepositoryOverride,
   candidateRepository: candidateRepositoryOverride,
 }: {
@@ -257,299 +793,78 @@ export async function runDailyAiNews({
   sourceIds?: string[]
   fetchImpl?: typeof fetch
   trigger?: AiNewsRunTriggerInput
+  staleRunTimeoutMs?: number
+  onRunCreated?: (run: { id: string; status: "RUNNING" }) => void
   runRepository?: AiNewsRunRepository
   candidateRepository?: AiNewsCandidateRepository | null
 }): Promise<DailyAiNewsRunResult> {
   const runRepository = runRepositoryOverride ?? getAiNewsRunRepository()
-  const candidateRepository = candidateRepositoryOverride === undefined
-    ? getAiNewsCandidateRepository()
-    : candidateRepositoryOverride
+  const candidateRepository =
+    candidateRepositoryOverride === undefined ? getAiNewsCandidateRepository() : candidateRepositoryOverride
 
   const startedAtMs = Date.now()
-  const run = await runRepository.aiNewsRun.create({
-    data: {
-      runDate: date,
-      trigger: normalizeRunTrigger(trigger),
-      status: "RUNNING",
-    },
+  const { run, release } = await claimDailyAiNewsRunSlot({
+    date,
+    trigger,
+    staleRunTimeoutMs,
+    repository: runRepository,
   })
-  let sourceCount = 0
-  let failureCount = 0
-  let rawCandidateCount = 0
-  let dedupedCandidateCount = 0
-  let scoredCandidateCount = 0
-  let selectedCandidateCount = 0
-  let sourceFailureJson: AiNewsSourceFailure[] = []
-  let qualityScore: number | null = null
-  let citationCoverage: number | null = null
-  let generationMode: "candidate-pipeline" | "fallback" | "legacy" = "legacy"
 
-  const slug = buildDailyAiNewsSlug(date)
+  const progress: PipelineProgressState = {
+    sourceCount: 0,
+    failureCount: 0,
+    rawCandidateCount: 0,
+    dedupedCandidateCount: 0,
+    scoredCandidateCount: 0,
+    selectedCandidateCount: 0,
+    sourceFailureJson: [],
+    qualityScore: null,
+    citationCoverage: null,
+    generationMode: "legacy",
+  }
+
   try {
-    const existing = await runRepository.post.findFirst({
-      where: { slug, deletedAt: null },
-      select: { id: true, title: true, slug: true, published: true, generatedByAiNews: true },
+    const slug = buildDailyAiNewsSlug(date)
+    const decision = await resolveExistingPostDecision({
+      runId: run.id,
+      startedAtMs,
+      slug,
+      regenerate,
+      repository: runRepository,
+      onRunCreated,
     })
-
-    if (existing && existing.generatedByAiNews !== true) {
-      if (regenerate) {
-        throw new ConflictError("Daily AI news slug is occupied by a manual post")
-      }
-
-      const conflictReason = "Daily AI news slug conflicts with a manual post"
-      await finishAiNewsRun({
-        runId: run.id,
-        startedAtMs,
-        repository: runRepository,
-        data: {
-          status: "SKIPPED",
-          sourceCount: 0,
-          failureCount: 0,
-          rawCandidateCount: 0,
-          dedupedCandidateCount: 0,
-          scoredCandidateCount: 0,
-          selectedCandidateCount: 0,
-          postId: null,
-          postTitle: existing.title,
-          postSlug: existing.slug,
-          published: existing.published,
-          error: conflictReason,
-        },
-      })
-
-      return {
-        operation: "skipped",
-        reason: conflictReason,
-        published: existing.published,
-        post: existing,
-        sourceCount: 0,
-        failures: [],
-        run: { id: run.id, status: "SKIPPED" },
-      }
+    if (decision.kind === "skipped") {
+      return decision.result
     }
 
-    if (existing && !regenerate) {
-      const published = existing.published
-      const reason = published ? "Daily AI news already exists" : "Daily AI news draft is pending review"
-
-      await finishAiNewsRun({
-        runId: run.id,
-        startedAtMs,
-        repository: runRepository,
-        data: {
-          status: "SKIPPED",
-          sourceCount: 0,
-          failureCount: 0,
-          rawCandidateCount: 0,
-          dedupedCandidateCount: 0,
-          scoredCandidateCount: 0,
-          selectedCandidateCount: 0,
-          postId: existing.id,
-          postTitle: existing.title,
-          postSlug: existing.slug,
-          published,
-        },
-      })
-
-      return {
-        operation: "skipped",
-        reason,
-        published,
-        post: { ...existing, published },
-        sourceCount: 0,
-        failures: [],
-        run: { id: run.id, status: "SKIPPED" },
-      }
-    }
-
-    const sourceConfigs = await resolveDailyAiNewsSourceConfigs({ sources, sourceMode, sourceIds, repository: runRepository })
+    const sourceConfigs = await resolveDailyAiNewsSourceConfigs({
+      sources,
+      sourceMode,
+      sourceIds,
+      repository: runRepository,
+    })
     const sourceSnapshotJson = buildAiNewsSourceSnapshot(sourceConfigs)
     await runRepository.aiNewsRun.update({
       where: { id: run.id },
       data: { sourceSnapshotJson },
     })
     const aiModel = await resolveDailyAiNewsModel(modelId)
-    const { items: rawItems, failures } = await collectDailyAiNewsRawItems({ date, sourceConfigs, fetchImpl })
-    const dedupedCandidates = dedupeByCanonicalUrl(rawItems)
-    const persistedCandidates = await persistDailyAiNewsCandidates({
-      runId: run.id,
-      candidates: dedupedCandidates,
-      repository: candidateRepository,
-    })
-    const { scoredCandidates, selectedCandidates, duplicateMap, selection, generationMode: selectedGenerationMode } =
-      await scoreAndSelectDailyAiNewsCandidates({
-        candidates: persistedCandidates.candidates,
-        aiModel,
-        fetchImpl,
-      })
+    onRunCreated?.({ id: run.id, status: "RUNNING" })
 
-    sourceCount = rawItems.length
-    failureCount = failures.length
-    rawCandidateCount = rawItems.length
-    dedupedCandidateCount = dedupedCandidates.length
-    scoredCandidateCount = Math.min(persistedCandidates.candidates.length, MAX_CANDIDATES_TO_SCORE)
-    selectedCandidateCount = selectedCandidates.length
-    sourceFailureJson = failures
-    qualityScore = toRunQualityScore(selection.qualityScore)
-    citationCoverage = selection.citationCoverage ?? null
-    generationMode = selectedGenerationMode
-
-    if (persistedCandidates.repository) {
-      const scoreUpdateResult = await updateAiNewsCandidateScores({
-        prisma: persistedCandidates.repository,
-        scores: scoredCandidates.map((candidate) => ({
-          id: candidate.id,
-          aiScore: candidate.aiScore,
-          aiReason: candidate.aiReason,
-          aiSummary: candidate.aiSummary,
-          aiTags: candidate.aiTags,
-          aiRiskFlags: candidate.aiRiskFlags,
-          scoreError: candidate.scoreError,
-        })),
-      })
-      const duplicateUpdateResult = await markAiNewsCandidateDuplicates({
-        prisma: persistedCandidates.repository,
-        duplicates: Object.entries(duplicateMap).flatMap(([duplicateOfId, duplicateIds]) =>
-          duplicateIds.map((id) => ({ id, duplicateOfId })),
-        ),
-      })
-
-      await markSelectedAiNewsCandidates({
-        prisma: persistedCandidates.repository,
-        runId: run.id,
-        selected: selectedCandidates.map((candidate) => ({
-          id: candidate.id,
-          selectionReason: candidate.selectionReason,
-        })),
-      })
-
-      sourceFailureJson = appendPersistFailures(sourceFailureJson, scoreUpdateResult.failures, "score")
-      sourceFailureJson = appendPersistFailures(sourceFailureJson, duplicateUpdateResult.failures, "duplicate")
-    }
-
-    const {
-      draft,
-      factCards,
-      citationCoverage: renderedCitationCoverage,
-    } = await buildDailyAiNewsDraftFromSelectedCandidates({
-      date,
-      candidates: selectedCandidates,
-      aiModel,
-      fetchImpl,
-      generationMode,
-    })
-    citationCoverage = renderedCitationCoverage ?? citationCoverage
-    const factCardLookup = buildFactCardLookup(factCards)
-
-    if (persistedCandidates.repository && factCards.length > 0) {
-      const enrichmentUpdateResult = await updateAiNewsCandidateEnrichments({
-        prisma: persistedCandidates.repository,
-        enrichments: selectedCandidates
-          .map((candidate) => {
-            const card = findFactCardForCandidate(factCardLookup, candidate)
-            return card ? { id: candidate.id, enrichment: factCardToEnrichment(card) } : null
-          })
-          .filter((item): item is { id: string; enrichment: AiNewsJsonObject } => Boolean(item)),
-      })
-
-      sourceFailureJson = appendPersistFailures(sourceFailureJson, enrichmentUpdateResult.failures, "enrichment")
-    }
-
-    const post = existing
-      ? {
-          ...(await updateAdminPost({
-            id: existing.id,
-            input: {
-              title: draft.title,
-              slug: draft.slug,
-              content: draft.content,
-              excerpt: draft.excerpt,
-              published: existing.published,
-              generatedByAiNews: true,
-            },
-          })),
-          title: draft.title,
-        }
-      : await createAdminPost({
-          authorId,
-          input: {
-            title: draft.title,
-            slug: draft.slug,
-            content: draft.content,
-            excerpt: draft.excerpt,
-            published: false,
-            generatedByAiNews: true,
-          },
-        })
-
-    let published = post.published
-    const enhancementResult = await applyAiNewsPostEnhancements({ postId: post.id, modelId })
-    const enhancedPost = enhancementResult.post ?? {
-      id: post.id,
-      title: draft.title,
-      slug: draft.slug,
-      content: draft.content,
-      excerpt: draft.excerpt,
-      seoDescription: null,
-      category: null,
-      tags: [],
-      published: post.published,
-      coverImage: null,
-    }
-    const finalPost = { ...post, ...enhancedPost }
-
-    if (!published && generationMode !== "fallback") {
-      await publishAiDraftPost({ postId: post.id })
-      published = true
-    }
-
-    await finishAiNewsRun({
+    return await runActiveDailyAiNewsGeneration({
       runId: run.id,
       startedAtMs,
-      repository: runRepository,
-      data: {
-        status: "SUCCEEDED",
-        sourceCount,
-        failureCount,
-        rawCandidateCount,
-        dedupedCandidateCount,
-        scoredCandidateCount,
-        selectedCandidateCount,
-        sourceFailureJson: serializeSourceFailures(sourceFailureJson),
-        qualityScore,
-        citationCoverage,
-        generationMode,
-        postId: post.id,
-        postTitle: finalPost.title,
-        postSlug: finalPost.slug,
-        published,
-        reviewVerdict: null,
-        reviewScore: null,
-        reviewSummary: null,
-      },
+      authorId,
+      date,
+      modelId,
+      existing: decision.existing,
+      sourceConfigs,
+      aiModel,
+      fetchImpl,
+      runRepository,
+      candidateRepository,
+      progress,
     })
-
-    return {
-      operation: existing ? "regenerated" : "created",
-      published,
-      post: { ...finalPost, published },
-      autoReview: null,
-      sourceCount,
-      failures,
-      metrics: {
-        rawCandidateCount,
-        dedupedCandidateCount,
-        scoredCandidateCount,
-        selectedCandidateCount,
-        sourceFailureJson,
-        qualityScore,
-        citationCoverage,
-        generationMode,
-        configuredSourceCount: sourceConfigs.length,
-      },
-      generatedBy: draft.generatedBy,
-      run: { id: run.id, status: "SUCCEEDED" },
-    }
   } catch (error) {
     await finishAiNewsRun({
       runId: run.id,
@@ -557,20 +872,22 @@ export async function runDailyAiNews({
       repository: runRepository,
       data: {
         status: "FAILED",
-        sourceCount,
-        failureCount: Math.max(failureCount, 1),
-        rawCandidateCount,
-        dedupedCandidateCount,
-        scoredCandidateCount,
-        selectedCandidateCount,
-        sourceFailureJson: serializeSourceFailures(sourceFailureJson),
-        qualityScore,
-        citationCoverage,
-        generationMode,
+        sourceCount: progress.sourceCount,
+        failureCount: Math.max(progress.failureCount, 1),
+        rawCandidateCount: progress.rawCandidateCount,
+        dedupedCandidateCount: progress.dedupedCandidateCount,
+        scoredCandidateCount: progress.scoredCandidateCount,
+        selectedCandidateCount: progress.selectedCandidateCount,
+        sourceFailureJson: serializeSourceFailures(progress.sourceFailureJson),
+        qualityScore: progress.qualityScore,
+        citationCoverage: progress.citationCoverage,
+        generationMode: progress.generationMode,
         error: readErrorMessage(error),
       },
     })
 
     throw error
+  } finally {
+    await release()
   }
 }
