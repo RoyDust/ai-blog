@@ -6,8 +6,12 @@ on:
     - cron: '*/15 * * * *'
   workflow_dispatch:
 
+concurrency:
+  group: cron-publish-scheduled
+  cancel-in-progress: false
+
 env:
-  PRODUCTION_BASE_URL: ${{ secrets.PRODUCTION_BASE_URL || 'http://47.98.167.32' }}
+  PRODUCTION_BASE_URL: ${{ secrets.PRODUCTION_BASE_URL }}
 
 jobs:
   publish:
@@ -17,7 +21,14 @@ jobs:
       - name: Trigger protected scheduled publish endpoint
         run: |
           set -euo pipefail
-          if [ -z "${PUBLISH_SCHEDULED_CRON_SECRET}" ]; then
+          case "${PRODUCTION_BASE_URL:-}" in
+            https://?*) ;;
+            *)
+              echo "PRODUCTION_BASE_URL must start with https://" >&2
+              exit 1
+              ;;
+          esac
+          if [ -z "${PUBLISH_SCHEDULED_CRON_SECRET:-}" ]; then
             echo "Missing CRON_SECRET or AI_NEWS_CRON_SECRET secret" >&2
             exit 1
           fi
@@ -25,6 +36,7 @@ jobs:
           endpoint="${PRODUCTION_BASE_URL%/}/api/cron/publish-scheduled"
           echo "Triggering scheduled publish endpoint: ${endpoint}"
           curl --fail-with-body --show-error --silent \
+            --proto '=https' --tlsv1.2 --max-time 30 \
             --request POST \
             --header "Authorization: Bearer ${PUBLISH_SCHEDULED_CRON_SECRET}" \
             --header "Content-Type: application/json" \

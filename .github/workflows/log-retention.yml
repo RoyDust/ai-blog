@@ -1,12 +1,16 @@
 name: API Log Retention
+
 on:
   schedule:
     - cron: '*/15 * * * *'
   workflow_dispatch:
 
+concurrency:
+  group: cron-log-retention
+  cancel-in-progress: false
+
 env:
-  # 与 publish-scheduled.yml 保持一致：URL 非敏感，缺 secret 时回退到生产地址。
-  PRODUCTION_BASE_URL: ${{ secrets.PRODUCTION_BASE_URL || 'http://47.98.167.32' }}
+  PRODUCTION_BASE_URL: ${{ secrets.PRODUCTION_BASE_URL }}
 
 jobs:
   retain:
@@ -18,10 +22,19 @@ jobs:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           set -euo pipefail
-          if [ -z "$PRODUCTION_BASE_URL" ] || [ -z "$CRON_SECRET" ]; then
+          case "${PRODUCTION_BASE_URL:-}" in
+            https://?*) ;;
+            *)
+              echo "PRODUCTION_BASE_URL must start with https://" >&2
+              exit 1
+              ;;
+          esac
+          if [ -z "${CRON_SECRET:-}" ]; then
             echo 'Log retention workflow configuration is incomplete' >&2
             exit 1
           fi
-          curl --fail-with-body --show-error --silent --max-time 45 \
-            --request POST --header "Authorization: Bearer $CRON_SECRET" \
-            "$PRODUCTION_BASE_URL/api/cron/log-retention"
+          curl --fail-with-body --show-error --silent \
+            --proto '=https' --tlsv1.2 --max-time 30 \
+            --request POST \
+            --header "Authorization: Bearer $CRON_SECRET" \
+            "${PRODUCTION_BASE_URL%/}/api/cron/log-retention"
