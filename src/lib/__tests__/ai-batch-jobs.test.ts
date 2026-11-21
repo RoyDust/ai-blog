@@ -2,7 +2,15 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   aiTaskFindMany: vi.fn(),
-  items: vi.fn(), running: vi.fn(), itemRunning: vi.fn(), failed: vi.fn(), complete: vi.fn(), post: vi.fn(), generate: vi.fn(),
+  items: vi.fn(),
+  running: vi.fn(),
+  itemRunning: vi.fn(),
+  failed: vi.fn(),
+  skipped: vi.fn(),
+  complete: vi.fn(),
+  refreshCounts: vi.fn(),
+  post: vi.fn(),
+  generate: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -27,10 +35,10 @@ vi.mock("@/lib/ai-tasks", () => ({
   isAiTaskActive: (status: string | null | undefined) => status === "QUEUED" || status === "RUNNING",
   markAiTaskItemFailed: mocks.failed,
   markAiTaskItemRunning: mocks.itemRunning,
-  markAiTaskItemSkipped: vi.fn(),
+  markAiTaskItemSkipped: mocks.skipped,
   markAiTaskItemSucceeded: vi.fn(),
   markAiTaskRunning: mocks.running,
-  refreshAiTaskCounts: vi.fn(),
+  refreshAiTaskCounts: mocks.refreshCounts,
 }));
 
 vi.mock("@/lib/ai-post-actions", () => ({
@@ -49,7 +57,7 @@ vi.mock("@/lib/ai-post-actions", () => ({
   runPostAiAction: mocks.generate,
 }));
 
-describe("AI batch job resume", () => {
+describe("AI batch job resume and concurrency", () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
@@ -93,6 +101,116 @@ describe("AI batch job resume", () => {
     }));
     expect(mocks.aiTaskFindMany.mock.calls[0]?.[0]?.where.type.in).not.toContain("post-article-info");
     expect(setTimeoutSpy).toHaveBeenCalledTimes(1);
+  });
+
+  test("untargeted resume filters active QUEUED/RUNNING status so 10+ newer SUCCEEDED tasks never shadow older QUEUED tasks", async () => {
+    const setTimeoutSpy = vi.spyOn(globalThis, "setTimeout").mockImplementation(() => 1 as unknown as ReturnType<typeof setTimeout>);
+    const simulatedDbTasks = [
+      ...Array.from({ length: 12 }, (_, index) => ({
+        id: `newer-succeeded-${index + 1}`,
+        type: "post-bulk-completion",
+        status: "SUCCEEDED",
+        modelId: "model-1",
+        metadata: { apply: false },
+        createdAt: new Date(Date.UTC(2026, 10, 22, 12, index)),
+      })),
+      {
+        id: "older-queued-task",
+        type: "post-bulk-completion",
+        status: "QUEUED",
+        modelId: "model-older",
+        metadata: { apply: true },
+        createdAt: new Date(Date.UTC(2026, 10, 21, 8, 0)),
+      },
+    ];
+
+    mocks.aiTaskFindMany.mockImplementationOnce(async (args: {
+      where?: { type?: string; status?: { in?: string[] } };
+      take?: number;
+    }) => {
+      const allowedStatuses = args.where?.status?.in;
+      const filtered = simulatedDbTasks.filter(
+        (task) =>
+          task.type === args.where?.type &&
+          (!allowedStatuses || allowedStatuses.includes(task.status)),
+      );
+      return filtered.slice(0, args.take ?? 10);
+    });
+
+    const { resumeAiBatchTasks } = await import("../ai-batch-jobs");
+    const resumed = await resumeAiBatchTasks();
+
+    expect(mocks.aiTaskFindMany).toHaveBeenCalledWith({
+      where: {
+        type: "post-bulk-completion",
+        status: { in: ["QUEUED", "RUNNING"] },
+      },
+      select: { id: true, modelId: true, metadata: true, status: true },
+      orderBy: { createdAt: "desc" },
+      take: 10,
+    });
+    expect(resumed).toBe(1);
+    expect(setTimeoutSpy).toHaveBeenCalledTimes(1);
+  });
+
+  test("caps in-process batch item concurrency at <= 3 across items and concurrent batch tasks", async () => {
+    mocks.running.mockImplementation(async (taskId: string) => ({ id: taskId, status: "RUNNING" }));
+    mocks.items.mockImplementation(async ({ where }: { where: { taskId: string } }) =>
+      Array.from({ length: 5 }, (_, index) => ({
+        id: `${where.taskId}-item-${index + 1}`,
+        taskId: where.taskId,
+        postId: `post-${index + 1}`,
+        action: "summary",
+        inputSnapshot: {},
+      })),
+    );
+    mocks.itemRunning.mockImplementation(async (id: string) => ({ id }));
+    mocks.post.mockImplementation(async (id: string) => ({ id }));
+    mocks.complete.mockResolvedValue({ id: "done" });
+    mocks.refreshCounts.mockResolvedValue({ status: "SUCCEEDED" });
+
+    let inFlight = 0;
+    let peakInFlight = 0;
+    const pendingGateResolvers: Array<() => void> = [];
+
+    mocks.generate.mockImplementation(async () => {
+      inFlight += 1;
+      peakInFlight = Math.max(peakInFlight, inFlight);
+      await new Promise<void>((resolve) => {
+        pendingGateResolvers.push(resolve);
+      });
+      inFlight -= 1;
+      return { modelId: "model-1", output: { summary: "ok" } };
+    });
+
+    const { MAX_AI_BATCH_CONCURRENCY, runAiBatchTask } = await import("../ai-batch-jobs");
+    expect(MAX_AI_BATCH_CONCURRENCY).toBe(3);
+
+    const runPromise = Promise.all([
+      runAiBatchTask({ taskId: "batch-a", apply: false }),
+      runAiBatchTask({ taskId: "batch-b", apply: false }),
+    ]);
+
+    await vi.waitFor(() => {
+      expect(pendingGateResolvers.length).toBe(3);
+    });
+    expect(inFlight).toBe(3);
+    expect(peakInFlight).toBe(3);
+
+    while (mocks.complete.mock.calls.length < 10) {
+      const next = pendingGateResolvers.shift();
+      if (next) {
+        next();
+      }
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(inFlight).toBeLessThanOrEqual(3);
+    }
+
+    await runPromise;
+    expect(peakInFlight).toBe(3);
+    expect(mocks.generate).toHaveBeenCalledTimes(10);
+    expect(mocks.complete).toHaveBeenCalledTimes(10);
+    expect(mocks.refreshCounts).toHaveBeenCalledTimes(2);
   });
 
   test("does not convert a transaction failure into a model failure", async () => {

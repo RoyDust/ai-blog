@@ -24,8 +24,69 @@ import { prisma } from "@/lib/prisma";
 import { AiInfrastructureError } from "@/lib/ai-task-errors";
 
 const MAX_AI_BATCH_POSTS = 20;
+export const MAX_AI_BATCH_CONCURRENCY = 3;
 export const MAX_OBSERVED_AI_TASKS = 50;
 const runningBatchTasks = new Set<string>();
+const activeBatchStatuses = ["QUEUED", "RUNNING"];
+let activeBatchItemSlots = 0;
+const waitingBatchItemSlotQueue: Array<() => void> = [];
+
+async function withBatchItemConcurrencySlot<T>(task: () => Promise<T>): Promise<T> {
+  if (activeBatchItemSlots >= MAX_AI_BATCH_CONCURRENCY) {
+    await new Promise<void>((resolve) => {
+      waitingBatchItemSlotQueue.push(resolve);
+    });
+  }
+
+  activeBatchItemSlots += 1;
+  try {
+    return await task();
+  } finally {
+    activeBatchItemSlots -= 1;
+    const next = waitingBatchItemSlotQueue.shift();
+    next?.();
+  }
+}
+
+async function mapWithBoundedConcurrency<T, R>(
+  values: T[],
+  concurrency: number,
+  mapper: (value: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  if (values.length === 0) {
+    return [];
+  }
+
+  const results = new Array<R>(values.length);
+  let nextIndex = 0;
+  let fatalError: unknown = null;
+  let hasFatalError = false;
+  const workerCount = Math.max(1, Math.min(concurrency, values.length));
+
+  await Promise.all(
+    Array.from({ length: workerCount }, async () => {
+      while (!hasFatalError && nextIndex < values.length) {
+        const index = nextIndex;
+        nextIndex += 1;
+        try {
+          results[index] = await mapper(values[index]!, index);
+        } catch (error) {
+          if (!hasFatalError) {
+            hasFatalError = true;
+            fatalError = error;
+          }
+          return;
+        }
+      }
+    }),
+  );
+
+  if (hasFatalError) {
+    throw fatalError;
+  }
+
+  return results;
+}
 const targetedResumeTaskTypes = [
   "post-bulk-completion",
   "post-seo-description",
@@ -159,7 +220,9 @@ export async function createAiBatchTask({
     throw new ValidationError("AI actions are required");
   }
 
-  const posts = await Promise.all(ids.map((id) => getPostForAiAction(id).catch(() => null)));
+  const posts = await mapWithBoundedConcurrency(ids, MAX_AI_BATCH_CONCURRENCY, (id) =>
+    getPostForAiAction(id).catch(() => null),
+  );
   const items = posts.flatMap((post) => {
     if (!post) return [];
 
@@ -193,10 +256,71 @@ export async function createAiBatchTask({
   return task;
 }
 
+async function processBatchTaskItem({
+  taskId,
+  item,
+  modelId,
+  apply,
+}: {
+  taskId: string;
+  item: {
+    id: string;
+    postId: string | null;
+    action: string;
+    inputSnapshot: unknown;
+  };
+  modelId?: string | null;
+  apply: boolean;
+}) {
+  const action = normalizePostAiAction(item.action);
+
+  if (!item.postId) {
+    await markAiTaskItemSkipped(item.id, "Post not found", taskId);
+    return;
+  }
+
+  if (!await markAiTaskItemRunning(item.id, taskId)) return;
+
+  let post: Awaited<ReturnType<typeof getPostForAiAction>>;
+  try {
+    post = await getPostForAiAction(item.postId);
+  } catch (error) {
+    if (!(error instanceof NotFoundError)) throw error;
+    await markAiTaskItemSkipped(item.id, "Post not found", taskId);
+    return;
+  }
+
+  let result: Awaited<ReturnType<typeof runPostAiAction>>;
+  try {
+    result = await runPostAiAction({ post, action, modelId });
+  } catch (error) {
+    if (error instanceof AiInfrastructureError) throw error;
+    await markAiTaskItemFailed(item.id, error instanceof Error ? error.message : "AI batch item failed", taskId);
+    return;
+  }
+
+  // Database/notification failures must escape without changing the active item to FAILED.
+  try {
+    await completePostAiTaskItem({
+      taskId,
+      itemId: item.id,
+      post,
+      action,
+      expectedInputSnapshot: item.inputSnapshot as JsonValue | null,
+      output: result.output as unknown as JsonValue,
+      modelId: result.modelId,
+      apply,
+    });
+  } catch (error) {
+    if (!(error instanceof ValidationError)) throw error;
+    await markAiTaskItemFailed(item.id, error.message, taskId);
+  }
+}
+
 /**
  * 执行一个 AI 批量任务。
  *
- * runningBatchTasks 防止同一进程内重复恢复同一个任务；逐项失败会记录到任务项，不中断后续项。
+ * runningBatchTasks 防止同一进程内重复恢复同一个任务；单进程并发上限最多 3 项，逐项业务失败记录到任务项，不中断后续项。
  */
 export async function runAiBatchTask({
   taskId,
@@ -224,39 +348,16 @@ export async function runAiBatchTask({
       orderBy: { createdAt: "asc" },
     });
 
-    for (const item of items) {
-      const action = normalizePostAiAction(item.action);
-
-      if (!item.postId) {
-        await markAiTaskItemSkipped(item.id, "Post not found", taskId);
-        continue;
-      }
-
-      if (!await markAiTaskItemRunning(item.id, taskId)) continue;
-      let post: Awaited<ReturnType<typeof getPostForAiAction>>;
-      try {
-        post = await getPostForAiAction(item.postId);
-      } catch (error) {
-        if (!(error instanceof NotFoundError)) throw error;
-        await markAiTaskItemSkipped(item.id, "Post not found", taskId);
-        continue;
-      }
-      let result: Awaited<ReturnType<typeof runPostAiAction>>;
-      try {
-        result = await runPostAiAction({ post, action, modelId });
-      } catch (error) {
-        if (error instanceof AiInfrastructureError) throw error;
-        await markAiTaskItemFailed(item.id, error instanceof Error ? error.message : "AI batch item failed", taskId);
-        continue;
-      }
-      // Database/notification failures must escape without changing the active item to FAILED.
-      try {
-        await completePostAiTaskItem({ taskId, itemId: item.id, post, action, expectedInputSnapshot: item.inputSnapshot as JsonValue | null, output: result.output as unknown as JsonValue, modelId: result.modelId, apply });
-      } catch (error) {
-        if (!(error instanceof ValidationError)) throw error;
-        await markAiTaskItemFailed(item.id, error.message, taskId);
-      }
-    }
+    await mapWithBoundedConcurrency(items, MAX_AI_BATCH_CONCURRENCY, (item) =>
+      withBatchItemConcurrencySlot(() =>
+        processBatchTaskItem({
+          taskId,
+          item,
+          modelId,
+          apply,
+        }),
+      ),
+    );
 
     await refreshAiTaskCounts(taskId);
   } finally {
@@ -267,19 +368,26 @@ export async function runAiBatchTask({
 /**
  * 恢复仍处于活跃状态的批量任务。
  *
- * 页面轮询和 API resume 参数都会走这里，用于补偿进程重启或请求中断后的任务。
+ * 无 taskId 时必须按活跃状态筛选，避免被最近 10 条已完成任务遮蔽历史排队任务。
  */
 export async function resumeAiBatchTasks(taskId?: string | null) {
+  const normalizedTaskId = typeof taskId === "string" ? taskId.trim() : "";
   const tasks = await prisma.aiTask.findMany({
-    where: {
-      ...(taskId ? { id: taskId } : {}),
-      type: taskId ? { in: targetedResumeTaskTypes } : "post-bulk-completion",
-    },
+    where: normalizedTaskId
+      ? {
+          id: normalizedTaskId,
+          type: { in: targetedResumeTaskTypes },
+        }
+      : {
+          type: "post-bulk-completion",
+          status: { in: activeBatchStatuses },
+        },
     select: { id: true, modelId: true, metadata: true, status: true },
     orderBy: { createdAt: "desc" },
-    take: taskId ? 1 : 10,
+    take: normalizedTaskId ? 1 : 10,
   });
 
+  let resumedCount = 0;
   for (const task of tasks) {
     if (!isAiTaskActive(task.status) || runningBatchTasks.has(task.id)) {
       continue;
@@ -287,7 +395,8 @@ export async function resumeAiBatchTasks(taskId?: string | null) {
 
     const metadata = task.metadata && typeof task.metadata === "object" ? (task.metadata as { apply?: unknown }) : {};
     scheduleBatchTask(task.id, task.modelId, metadata.apply === true);
+    resumedCount += 1;
   }
 
-  return tasks.length;
+  return resumedCount;
 }

@@ -6,11 +6,13 @@
  * 只做纯转换，不引用数据库与网络。
  */
 import type { AiNewsCandidateRecord } from "@/lib/ai-news/candidates"
+import type { DailyAiNewsEditorialBrief } from "@/lib/ai-news/editorial-compose"
 import type { AiNewsEnrichedFactCard } from "@/lib/ai-news/enrichment"
 import type { AiNewsItem } from "@/lib/ai-news/parser"
 import type { AiNewsRunTriggerInput } from "@/lib/ai-news/run/config"
 import type {
   AiNewsCandidateInput,
+  AiNewsFactCard,
   AiNewsJsonObject,
   AiNewsRawItem,
   AiNewsScoredCandidate,
@@ -147,4 +149,87 @@ export function serializeSourceFailures(failures: AiNewsSourceFailure[]) {
 export function toRunQualityScore(score: number | undefined) {
   if (!Number.isFinite(score)) return null
   return Math.round((score ?? 0) * 10)
+}
+
+export function formatDailyAiNewsDateId(date: Date) {
+  return date.toISOString().slice(0, 10)
+}
+
+export function getDailyAiNewsDateWindow(date: Date) {
+  const dateId = formatDailyAiNewsDateId(date)
+  const start = new Date(`${dateId}T00:00:00.000Z`)
+  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000)
+
+  return { dateId, start, end }
+}
+
+export function toDailyAiNewsAdvisoryLockKey(date: Date) {
+  return Number(formatDailyAiNewsDateId(date).replaceAll("-", ""))
+}
+
+function cleanHeadlineFragment(value: string | null | undefined) {
+  return (value ?? "")
+    .replace(/\s+/g, " ")
+    .replace(/[。！？!?；;，,.\s]+$/g, "")
+    .trim()
+}
+
+export function deriveCandidatePipelineTitle({
+  date,
+  editorialBrief,
+  factCards,
+  candidates,
+}: {
+  date: Date
+  editorialBrief: DailyAiNewsEditorialBrief | null
+  factCards: AiNewsFactCard[]
+  candidates: AiNewsScoredCandidate[]
+}) {
+  const dateLabel = formatDailyAiNewsDateId(date)
+  const theme = [
+    editorialBrief?.trends[0]?.title,
+    editorialBrief?.items[0]?.editorialTitle,
+    factCards[0]?.title,
+    candidates[0]?.title,
+  ]
+    .map(cleanHeadlineFragment)
+    .find(Boolean)
+
+  if (!theme) {
+    return `${dateLabel} AI 日报`
+  }
+
+  const fullTitle = `${dateLabel} AI 日报：${theme}`
+  return fullTitle.length <= 80 ? fullTitle : `${fullTitle.slice(0, 79).trim()}…`
+}
+
+export function deriveCandidatePipelineExcerpt({
+  date,
+  editorialBrief,
+  factCards,
+  candidates,
+}: {
+  date: Date
+  editorialBrief: DailyAiNewsEditorialBrief | null
+  factCards: AiNewsFactCard[]
+  candidates: AiNewsScoredCandidate[]
+}) {
+  const editorialIntro = editorialBrief?.intro.replace(/\s+/g, " ").trim()
+  if (editorialIntro) {
+    return editorialIntro.slice(0, 320)
+  }
+
+  const summary = [
+    factCards[0]?.summary,
+    candidates[0]?.aiSummary,
+    candidates[0]?.summary,
+  ]
+    .map((value) => (value ?? "").replace(/\s+/g, " ").trim())
+    .find(Boolean)
+
+  if (summary) {
+    return summary.slice(0, 320)
+  }
+
+  return `${formatDailyAiNewsDateId(date)} AI 日报精选 ${candidates.length} 条值得跟进的技术与产品动态。`.slice(0, 320)
 }

@@ -118,7 +118,7 @@ function normalizeLimit(value: unknown) {
   return Math.min(limit, 50);
 }
 
-function resolveTaskStatus({ succeeded, failed, skipped, total }: { succeeded: number; failed: number; skipped: number; total: number }) {
+export function resolveTaskStatus({ succeeded, failed, skipped, total }: { succeeded: number; failed: number; skipped: number; total: number }) {
   if (total === 0) {
     return AI_TASK_STATUSES.succeeded;
   }
@@ -129,6 +129,10 @@ function resolveTaskStatus({ succeeded, failed, skipped, total }: { succeeded: n
   }
 
   if (failed === 0) {
+    if (succeeded === 0 && skipped > 0) {
+      return AI_TASK_STATUSES.partialFailed;
+    }
+
     return AI_TASK_STATUSES.succeeded;
   }
 
@@ -154,6 +158,15 @@ function getTaskCompletionNotification(status: AiTaskStatus, failedCount: number
   }
 
   if (status === AI_TASK_STATUSES.partialFailed) {
+    if (failedCount === 0) {
+      return {
+        type: NOTIFICATION_TYPES.aiTaskPartialFailed,
+        severity: NOTIFICATION_SEVERITIES.warning,
+        title: "AI 任务未产生有效结果",
+        body: "全部 AI 任务项均已跳过，未生成可应用结果，可进入详情页查看原因。",
+      };
+    }
+
     return {
       type: NOTIFICATION_TYPES.aiTaskPartialFailed,
       severity: NOTIFICATION_SEVERITIES.warning,
@@ -297,13 +310,17 @@ export async function refreshAiTaskCountsInTransaction(client: Prisma.Transactio
   });
   const succeeded = items.filter((item) => item.status === AI_TASK_ITEM_STATUSES.succeeded).length;
   const failedItems = items.filter((item) => item.status === AI_TASK_ITEM_STATUSES.failed);
-  const skipped = items.filter((item) => item.status === AI_TASK_ITEM_STATUSES.skipped).length;
+  const skippedItems = items.filter((item) => item.status === AI_TASK_ITEM_STATUSES.skipped);
+  const skipped = skippedItems.length;
   const failed = failedItems.length;
   const status = resolveTaskStatus({ succeeded, failed, skipped, total: items.length });
   const finished = status !== AI_TASK_STATUSES.running;
+  const lastError =
+    failedItems.at(-1)?.error ??
+    (status !== AI_TASK_STATUSES.succeeded ? skippedItems.at(-1)?.error ?? null : null);
   const data = {
     status, requestedCount: items.length, succeededCount: succeeded, failedCount: failed,
-    finishedAt: finished ? new Date() : null, lastError: failedItems.at(-1)?.error ?? null,
+    finishedAt: finished ? new Date() : null, lastError,
   };
   const changed = await client.aiTask.updateMany({
     where: { id: taskId, status: { in: [AI_TASK_STATUSES.queued, AI_TASK_STATUSES.running] } }, data,
