@@ -48,7 +48,7 @@ describe('qiniu token route', () => {
     const request = new Request('http://localhost/api/admin/uploads/qiniu-token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ filename: 'profile.png', contentType: 'image/webp', purpose: 'avatar' }),
+      body: JSON.stringify({ filename: 'profile.webp', contentType: 'image/webp', purpose: 'avatar' }),
     })
 
     const response = await POST(request)
