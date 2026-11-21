@@ -15,6 +15,7 @@ interface SearchResultCardProps {
     title: string
     slug: string
     excerpt?: string | null
+    snippet?: string | null
     content?: string | null
     coverImage?: string | null
     createdAt: string | Date
@@ -42,9 +43,11 @@ interface SearchResultCardProps {
 function buildSnippet(post: SearchResultCardProps['post'], query: string) {
   const excerpt = post.excerpt?.trim()
   const content = post.content?.trim()
-  const source = excerpt || content || '暂无内容'
+  const snippet = post.snippet?.trim()
+  const bodyPreview = content || snippet
+  const source = excerpt || bodyPreview || '暂无内容'
 
-  if (!content || excerpt) {
+  if (!bodyPreview || excerpt) {
     return source.length > 140 ? `${source.slice(0, 140).trim()}…` : source
   }
 

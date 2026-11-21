@@ -85,10 +85,19 @@ export function NewsletterConfirmClient({ mode, token }: NewsletterConfirmClient
     setErrorMessage("");
 
     try {
-      await apiMutate(copy.endpoint, {
-        method: "POST",
-        body: JSON.stringify({ token: normalizedToken }),
-      });
+      const payload = await apiMutate<{ data?: { verified?: boolean; unsubscribed?: boolean } }>(
+        copy.endpoint,
+        {
+          method: "POST",
+          body: JSON.stringify({ token: normalizedToken }),
+        },
+      );
+      if (mode === "unsubscribe" && payload?.data?.unsubscribed === false) {
+        throw new Error("退订链接无效或已失效");
+      }
+      if (mode === "verify" && payload?.data?.verified === false) {
+        throw new Error("验证链接无效或已被使用");
+      }
       setState("succeeded");
     } catch (error) {
       setState("failed");

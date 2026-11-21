@@ -6,6 +6,7 @@ const prismaMocks = vi.hoisted(() => ({
   findMany: vi.fn(),
   create: vi.fn(),
   update: vi.fn(),
+  updateMany: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -106,16 +107,99 @@ describe("newsletter", () => {
     expect(result.verificationToken).not.toBe(unsubscribed.verificationToken);
   });
 
-  test("verifies pending subscribers within the 48h window", async () => {
-    const recent = new Date(Date.now() - 47 * 60 * 60 * 1000);
-    prismaMocks.findUnique.mockResolvedValueOnce(subscriber({ createdAt: recent, updatedAt: recent }));
-    prismaMocks.update.mockImplementationOnce(async (args) => subscriber({ ...args.data }));
+  test("recovers cleanly from P2002 unique constraint race on concurrent first-time subscribe", async () => {
+    const racedPending = subscriber({ email: "race@example.com", verificationToken: "winner-token" });
+    prismaMocks.findUnique
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(racedPending);
+    prismaMocks.create.mockRejectedValueOnce(
+      Object.assign(new Error("Unique constraint failed on the fields: (`email`)"), {
+        code: "P2002",
+        meta: { target: ["email"] },
+      }),
+    );
 
-    const result = await verify("token-1");
+    const result = await subscribe("Race@Example.com");
 
+    expect(result).toBe(racedPending);
+    expect(prismaMocks.findUnique).toHaveBeenCalledTimes(2);
+    expect(prismaMocks.update).not.toHaveBeenCalled();
+  });
+
+  test("verifies pending subscribers within the 48h window via atomic conditional updateMany", async () => {
+    const now = new Date("2026-06-10T12:00:00.000Z");
+    const recent = new Date(now.getTime() - 47 * 60 * 60 * 1000);
+    const pendingRow = subscriber({ id: "sub-atomic", verificationToken: "token-1", createdAt: recent, updatedAt: recent });
+    const verifiedRow = subscriber({
+      id: "sub-atomic",
+      status: NEWSLETTER_STATUS_VERIFIED,
+      verificationToken: null,
+      verifiedAt: now,
+      unsubscribedAt: null,
+      createdAt: recent,
+      updatedAt: now,
+    });
+    prismaMocks.findUnique
+      .mockResolvedValueOnce(pendingRow)
+      .mockResolvedValueOnce(verifiedRow);
+    prismaMocks.updateMany.mockResolvedValueOnce({ count: 1 });
+
+    const result = await verify("token-1", now);
+
+    expect(prismaMocks.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "sub-atomic",
+        verificationToken: "token-1",
+        status: NEWSLETTER_STATUS_PENDING,
+        unsubscribedAt: null,
+        OR: [
+          { updatedAt: { gte: new Date(now.getTime() - NEWSLETTER_VERIFICATION_TTL_MS) } },
+          { createdAt: { gte: new Date(now.getTime() - NEWSLETTER_VERIFICATION_TTL_MS) } },
+        ],
+      },
+      data: {
+        status: NEWSLETTER_STATUS_VERIFIED,
+        verificationToken: null,
+        verifiedAt: now,
+        unsubscribedAt: null,
+      },
+    });
+    expect(prismaMocks.update).not.toHaveBeenCalled();
     expect(result?.status).toBe(NEWSLETTER_STATUS_VERIFIED);
     expect(result?.verificationToken).toBeNull();
-    expect(result?.verifiedAt).toBeInstanceOf(Date);
+    expect(result?.verifiedAt).toEqual(now);
+  });
+
+  test("verify does not overwrite concurrent unsubscribe or rotated token when conditional updateMany matches 0 rows", async () => {
+    const now = new Date("2026-06-10T12:00:00.000Z");
+    const recent = new Date(now.getTime() - 60_000);
+    prismaMocks.findUnique.mockResolvedValueOnce(
+      subscriber({ id: "sub-race", verificationToken: "stale-token", createdAt: recent, updatedAt: recent }),
+    );
+    prismaMocks.updateMany.mockResolvedValueOnce({ count: 0 });
+
+    const result = await verify("stale-token", now);
+
+    expect(result).toBeNull();
+    expect(prismaMocks.updateMany).toHaveBeenCalledTimes(1);
+    expect(prismaMocks.update).not.toHaveBeenCalled();
+  });
+
+  test("verify falls back cleanly when delegate mock only provides update without updateMany", async () => {
+    const originalUpdateMany = (prismaMocks as { updateMany?: typeof prismaMocks.updateMany }).updateMany;
+    (prismaMocks as { updateMany?: typeof prismaMocks.updateMany }).updateMany = undefined;
+
+    try {
+      const recent = new Date(Date.now() - 60_000);
+      prismaMocks.findUnique.mockResolvedValueOnce(subscriber({ createdAt: recent, updatedAt: recent }));
+      prismaMocks.update.mockImplementationOnce(async (args) => subscriber({ ...args.data }));
+
+      const result = await verify("token-1");
+      expect(result?.status).toBe(NEWSLETTER_STATUS_VERIFIED);
+      expect(prismaMocks.update).toHaveBeenCalledTimes(1);
+    } finally {
+      (prismaMocks as { updateMany?: typeof prismaMocks.updateMany }).updateMany = originalUpdateMany;
+    }
   });
 
   test("rejects verification tokens older than 48 hours with ValidationError without updating DB", async () => {

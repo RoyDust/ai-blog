@@ -228,7 +228,7 @@ describe("blog settings", () => {
     });
   });
 
-  test("normalizes configurable profile and about page content", () => {
+  test("normalizes configurable profile and about page content including public contact email round-trip", () => {
     expect(
       normalizeBlogSettingsInput({
         ...DEFAULT_BLOG_SETTINGS,
@@ -236,6 +236,7 @@ describe("blog settings", () => {
           ...DEFAULT_BLOG_SETTINGS.profile,
           subtitle: "  Custom subtitle  ",
           githubUrl: "https://github.com/example/",
+          email: "  Public@RoyDust.top ",
         },
         about: {
           ...DEFAULT_BLOG_SETTINGS.about,
@@ -249,6 +250,7 @@ describe("blog settings", () => {
       profile: expect.objectContaining({
         subtitle: "Custom subtitle",
         githubUrl: "https://github.com/example",
+        email: "public@roydust.top",
       }),
       about: expect.objectContaining({
         aboutTitle: "关于站点",
@@ -257,6 +259,141 @@ describe("blog settings", () => {
         highlights: [{ title: "亮点", description: "描述" }],
       }),
     });
+
+    expect(() =>
+      normalizeBlogSettingsInput({
+        ...DEFAULT_BLOG_SETTINGS,
+        profile: {
+          ...DEFAULT_BLOG_SETTINGS.profile,
+          email: "not-an-email",
+        },
+      }),
+    ).toThrow("公开联系邮箱必须是有效邮箱");
+  });
+
+  test("preserves stored profile.email on getBlogSettings and partial updateBlogSettings round-trips", async () => {
+    const storedRow = {
+      value: {
+        ...DEFAULT_BLOG_SETTINGS,
+        siteName: "Inkforge",
+        siteUrl: "https://roydust.top",
+        profile: {
+          ...DEFAULT_BLOG_SETTINGS.profile,
+          email: " Public-Contact@RoyDust.top ",
+        },
+      },
+    };
+    prismaMocks.queryRawUnsafe.mockResolvedValueOnce([storedRow]);
+
+    await expect(getBlogSettings()).resolves.toMatchObject({
+      siteName: "Inkforge",
+      profile: expect.objectContaining({
+        email: "public-contact@roydust.top",
+      }),
+    });
+
+    prismaMocks.queryRawUnsafe.mockResolvedValueOnce([storedRow]);
+    prismaMocks.executeRawUnsafe.mockResolvedValueOnce(1);
+
+    const updated = await updateBlogSettings({
+      profile: {
+        tagline: "Updated tagline",
+      },
+    });
+
+    expect(updated.profile.email).toBe("public-contact@roydust.top");
+    expect(JSON.parse(prismaMocks.executeRawUnsafe.mock.calls[0][2])).toMatchObject({
+      siteName: "Inkforge",
+      profile: expect.objectContaining({
+        tagline: "Updated tagline",
+        email: "public-contact@roydust.top",
+      }),
+    });
+  });
+
+  test("updateBlogSettings locks row in $transaction without reading stale unstable_cache and fails closed on DB read errors", async () => {
+    const txQueryRawUnsafe = vi.fn().mockResolvedValueOnce([
+      {
+        value: {
+          ...DEFAULT_BLOG_SETTINGS,
+          siteName: "Fresh Uncached DB Site",
+          siteUrl: "https://fresh.example",
+          profile: {
+            ...DEFAULT_BLOG_SETTINGS.profile,
+            email: "fresh@example.com",
+          },
+        },
+      },
+    ]);
+    const txExecuteRawUnsafe = vi.fn().mockResolvedValueOnce(1);
+    const transactionMock = vi.fn(async (callback: (tx: unknown) => Promise<unknown>) =>
+      callback({
+        $queryRawUnsafe: txQueryRawUnsafe,
+        $executeRawUnsafe: txExecuteRawUnsafe,
+      }),
+    );
+
+    const store = new Map<string, { value: unknown }>();
+    const globalWithCache = globalThis as unknown as { __incrementalCache?: unknown };
+    const previousCache = globalWithCache.__incrementalCache;
+    globalWithCache.__incrementalCache = {
+      isOnDemandRevalidate: false,
+      generateCacheKey: async (invocationKey: string) => invocationKey,
+      get: async () => ({
+        isStale: false,
+        value: {
+          ...DEFAULT_BLOG_SETTINGS,
+          siteName: "Stale Cached Site",
+          siteUrl: "https://stale.example",
+        },
+      }),
+      set: async (key: string, value: unknown) => {
+        store.set(key, { value });
+      },
+    };
+
+    const client = prisma as unknown as {
+      $transaction?: typeof transactionMock;
+    };
+    client.$transaction = transactionMock;
+
+    try {
+      const updated = await updateBlogSettings({
+        reading: { monthlyGoal: 42 },
+      });
+
+      expect(transactionMock).toHaveBeenCalledTimes(1);
+      expect(txQueryRawUnsafe).toHaveBeenCalledWith(
+        'SELECT "value" FROM "system_settings" WHERE "key" = $1 FOR UPDATE',
+        BLOG_SITE_SETTING_KEY,
+      );
+      expect(prismaMocks.queryRawUnsafe).not.toHaveBeenCalled();
+      expect(updated.siteName).toBe("Fresh Uncached DB Site");
+      expect(updated.profile.email).toBe("fresh@example.com");
+      expect(updated.reading.monthlyGoal).toBe(42);
+      expect(JSON.parse(txExecuteRawUnsafe.mock.calls[0][2])).toMatchObject({
+        siteName: "Fresh Uncached DB Site",
+        reading: { monthlyGoal: 42 },
+      });
+
+      // Transient DB read failure must fail closed (503) instead of overwriting row with "My Blog"
+      txQueryRawUnsafe.mockRejectedValueOnce(new Error("connect ECONNRESET"));
+      await expect(
+        updateBlogSettings({
+          newsletter: { enabled: true },
+        }),
+      ).rejects.toMatchObject({
+        status: 503,
+      });
+      expect(txExecuteRawUnsafe).toHaveBeenCalledTimes(1);
+    } finally {
+      delete client.$transaction;
+      if (previousCache === undefined) {
+        delete globalWithCache.__incrementalCache;
+      } else {
+        globalWithCache.__incrementalCache = previousCache;
+      }
+    }
   });
 
   test("normalizes configurable appearance background image", () => {

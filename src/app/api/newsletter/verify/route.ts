@@ -9,12 +9,14 @@ async function GETHandler(request: Request) {
   try {
     const requestUrl = new URL(request.url);
     const token = requestUrl.searchParams.get("token")?.trim();
-    const targetUrl = new URL("/newsletter/verify", requestUrl.origin);
-    if (token) {
-      targetUrl.searchParams.set("token", token);
-    }
+    const location = token
+      ? `/newsletter/verify?token=${encodeURIComponent(token)}`
+      : "/newsletter/verify";
 
-    return NextResponse.redirect(targetUrl, 302);
+    return new NextResponse(null, {
+      status: 302,
+      headers: { Location: location },
+    });
   } catch (error) {
     return toErrorResponse(error, "Newsletter verification failed");
   }

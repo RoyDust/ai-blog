@@ -139,13 +139,34 @@ describe("topic guide service", () => {
     }
   });
 
-  test("public guide lookup filters drafts/deleted guides and uses narrow Post select omitting content", async () => {
-    findFirst.mockResolvedValueOnce({ id: "guide-1", posts: [] });
+  test("public guide lookup filters drafts/deleted guides and uses narrow Post select omitting content and soft-deleted categories", async () => {
+    findFirst.mockResolvedValueOnce({
+      id: "guide-1",
+      posts: [
+        {
+          id: "gp-1",
+          order: 1,
+          post: {
+            id: "post-1",
+            title: "Guide Post",
+            slug: "guide-post",
+            createdAt: new Date("2026-04-01T00:00:00.000Z"),
+            category: {
+              id: "cat-deleted",
+              name: "Deleted",
+              slug: "deleted",
+              deletedAt: new Date("2026-04-02T00:00:00.000Z"),
+            },
+            tags: [],
+          },
+        },
+      ],
+    });
 
     const { getPublicTopicGuideBySlug } = await import("../topic-guides");
     const guide = await getPublicTopicGuideBySlug("react-guide");
 
-    expect(guide).toEqual({ id: "guide-1", posts: [] });
+    expect(guide?.posts[0]?.post.category).toBeNull();
     expect(findFirst).toHaveBeenCalledWith(expect.objectContaining({
       where: { slug: "react-guide", status: "published", deletedAt: null },
       include: expect.objectContaining({
@@ -169,6 +190,10 @@ describe("topic guide service", () => {
       coverImage: true,
       readingTimeMinutes: true,
       viewCount: true,
+      category: {
+        where: { deletedAt: null },
+        select: { id: true, name: true, slug: true },
+      },
     });
   });
 
