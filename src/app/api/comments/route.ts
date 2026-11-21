@@ -1,12 +1,10 @@
 import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
 import { createPublicComment } from '@/lib/comments'
 import { createAnonymousActorId } from '@/lib/anonymous-actor'
 import { parseCommentInput } from '@/lib/validation'
 import { checkInteractionRateLimit } from '@/lib/rate-limit'
-import { ForbiddenError, NotFoundError, toErrorResponse, TooManyRequestsError, ValidationError } from '@/lib/api-errors'
-import { requireSession } from '@/lib/api-auth'
+import { toErrorResponse, TooManyRequestsError } from '@/lib/api-errors'
 import { createAdminNotification, NOTIFICATION_SEVERITIES, NOTIFICATION_TYPES } from '@/lib/notifications'
 
 async function POSTHandler(request: Request) {
@@ -47,67 +45,4 @@ async function POSTHandler(request: Request) {
   }
 }
 
-async function PATCHHandler(request: Request) {
-  try {
-    const session = await requireSession()
-
-    const { id, content } = await request.json()
-    const comment = await prisma.comment.findFirst({ where: { id, deletedAt: null } })
-
-    if (!comment) {
-      throw new NotFoundError('Comment not found')
-    }
-
-    if ((!comment.authorId || comment.authorId !== session.user.id) && session.user.role !== 'ADMIN') {
-      throw new ForbiddenError()
-    }
-
-    const updatedComment = await prisma.comment.update({
-      where: { id },
-      data: { content },
-      include: {
-        author: {
-          select: { id: true, name: true, image: true },
-        },
-      },
-    })
-
-    return NextResponse.json({ success: true, data: updatedComment })
-  } catch (error) {
-    console.error('Update comment error:', error)
-    return toErrorResponse(error)
-  }
-}
-
-async function DELETEHandler(request: Request) {
-  try {
-    const session = await requireSession()
-
-    const { searchParams } = new URL(request.url)
-    const id = searchParams.get('id')
-
-    if (!id) {
-      throw new ValidationError('Comment ID is required')
-    }
-
-    const comment = await prisma.comment.findFirst({ where: { id, deletedAt: null } })
-
-    if (!comment) {
-      throw new NotFoundError('Comment not found')
-    }
-
-    if ((!comment.authorId || comment.authorId !== session.user.id) && session.user.role !== 'ADMIN') {
-      throw new ForbiddenError()
-    }
-
-    await prisma.comment.update({ where: { id }, data: { deletedAt: new Date() } })
-    return NextResponse.json({ success: true, message: 'Comment deleted' })
-  } catch (error) {
-    console.error('Delete comment error:', error)
-    return toErrorResponse(error)
-  }
-}
-
 export const POST = withApiOperationLogging(POSTHandler, { scope: 'public', operation: 'public.comments.create', route: '/api/comments' });
-export const PATCH = withApiOperationLogging(PATCHHandler, { scope: 'public', operation: 'public.comments.update', route: '/api/comments' });
-export const DELETE = withApiOperationLogging(DELETEHandler, { scope: 'public', operation: 'public.comments.delete', route: '/api/comments' });

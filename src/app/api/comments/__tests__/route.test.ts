@@ -5,6 +5,7 @@ const findFirstPost = vi.fn()
 const createAdminNotification = vi.fn()
 const findFirstParent = vi.fn()
 const queryRaw = vi.fn()
+const checkInteractionRateLimit = vi.fn()
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
@@ -19,7 +20,7 @@ vi.mock('@/lib/prisma', () => ({
 }))
 
 vi.mock('@/lib/rate-limit', () => ({
-  checkInteractionRateLimit: () => ({ allowed: true }),
+  checkInteractionRateLimit: (...args: unknown[]) => checkInteractionRateLimit(...args),
 }))
 
 vi.mock('@/lib/notifications', () => ({
@@ -34,13 +35,24 @@ vi.mock('next-auth', () => ({
 
 vi.mock('@/lib/auth', () => ({ authOptions: {} }))
 
-describe('POST /api/comments', () => {
+describe('/api/comments route', () => {
   beforeEach(() => {
     create.mockReset()
     findFirstPost.mockReset()
     createAdminNotification.mockReset()
     findFirstParent.mockReset()
     queryRaw.mockReset().mockResolvedValue([{ id: 'post-1' }])
+    checkInteractionRateLimit.mockReset().mockResolvedValue({ allowed: true })
+  })
+
+  test('only exposes public POST and removes unused PATCH/DELETE write handlers', async () => {
+    const routeModule = await import('../route')
+
+    expect(typeof routeModule.POST).toBe('function')
+    expect('GET' in routeModule).toBe(false)
+    expect('PATCH' in routeModule).toBe(false)
+    expect('PUT' in routeModule).toBe(false)
+    expect('DELETE' in routeModule).toBe(false)
   })
 
   test('creates an anonymous comment using browser id and masked ip label', async () => {
@@ -118,6 +130,20 @@ describe('POST /api/comments', () => {
 
     expect(response.status).toBe(400)
     expect(payload.error).toMatch(/browser id/i)
+    expect(create).not.toHaveBeenCalled()
+  })
+
+  test('returns 429 when interaction rate limit is exceeded', async () => {
+    checkInteractionRateLimit.mockResolvedValueOnce({ allowed: false })
+
+    const { POST } = await import('../route')
+    const response = await POST(new Request('http://localhost/api/comments', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ postId: 'post-1', content: 'Nice post' }),
+    }))
+
+    expect(response.status).toBe(429)
     expect(create).not.toHaveBeenCalled()
   })
 })
