@@ -6,6 +6,7 @@ const qiniuUrl = qiniuDomain ? new URL(qiniuDomain) : null;
 const allowLocalIpImages = process.env.NEXT_IMAGE_ALLOW_LOCAL_IP === "true" || process.env.NODE_ENV !== "production";
 
 const nextConfig: NextConfig = {
+  output: "standalone",
   experimental: {
     viewTransition: true,
   },
