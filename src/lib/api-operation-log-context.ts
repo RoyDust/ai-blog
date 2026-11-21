@@ -7,6 +7,11 @@ export type ApiOperationActor = {
   actorLabel?: string | null;
 };
 
+export type ApiOperationError = {
+  errorName: string;
+  errorMessage: string;
+};
+
 export type ApiOperationLogContext = {
   requestId: string;
   scope: string;
@@ -14,6 +19,7 @@ export type ApiOperationLogContext = {
   route?: string | null;
   actor?: ApiOperationActor;
   metadata?: Record<string, unknown>;
+  error?: ApiOperationError;
 };
 
 const operationLogStorage = new AsyncLocalStorage<ApiOperationLogContext>();
@@ -36,6 +42,15 @@ export function setApiOperationActor(actor: ApiOperationActor) {
   }
 
   context.actor = actor;
+}
+
+export function setApiOperationError(error: ApiOperationError) {
+  const context = getApiOperationLogContext();
+  if (!context) {
+    return;
+  }
+
+  context.error = error;
 }
 
 export function mergeApiOperationMetadata(metadata: Record<string, unknown>) {

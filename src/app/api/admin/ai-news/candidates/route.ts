@@ -94,7 +94,7 @@ async function GETHandler(request: Request) {
       })),
     })
   } catch (error) {
-    return toErrorResponse(error, error instanceof Error ? error.message : "Failed to load AI news candidates")
+    return toErrorResponse(error, "Failed to load AI news candidates")
   }
 }
 

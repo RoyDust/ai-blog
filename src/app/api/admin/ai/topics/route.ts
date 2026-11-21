@@ -31,7 +31,7 @@ async function GETHandler(request: Request) {
 
     return NextResponse.json({ success: true, data })
   } catch (error) {
-    return toErrorResponse(error, error instanceof Error ? error.message : "Failed to load AI topics")
+    return toErrorResponse(error, "Failed to load AI topics")
   }
 }
 
@@ -48,7 +48,7 @@ async function POSTHandler(request: Request) {
 
     return NextResponse.json({ success: true, data })
   } catch (error) {
-    return toErrorResponse(error, error instanceof Error ? error.message : "Failed to generate AI topics")
+    return toErrorResponse(error, "Failed to generate AI topics")
   }
 }
 

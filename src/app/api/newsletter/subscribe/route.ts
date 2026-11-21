@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { withApiOperationLogging } from "@/lib/api-operation-log-route";
+import { getClientIpFromHeaders } from "@/lib/api-operation-logs";
 import { ForbiddenError, toErrorResponse, TooManyRequestsError } from "@/lib/api-errors";
 import { getBlogSettings } from "@/lib/blog-settings";
 import { getSiteUrl } from "@/lib/seo";
@@ -9,10 +10,8 @@ import { normalizeNewsletterEmail, subscribe } from "@/lib/newsletter";
 import { checkInteractionRateLimit } from "@/lib/rate-limit";
 
 function getRequestContext(request: Request) {
-  const forwardedFor = request.headers.get("x-forwarded-for");
-
   return {
-    ip: forwardedFor?.split(",")[0]?.trim() || request.headers.get("x-real-ip"),
+    ip: getClientIpFromHeaders(request.headers),
     userAgent: request.headers.get("user-agent"),
   };
 }

@@ -1,7 +1,8 @@
-import { createHash, randomUUID } from "node:crypto";
+import { createHmac, randomUUID } from "node:crypto";
 import type { Prisma } from "@prisma/client";
 
-import { ValidationError } from "@/lib/api-errors";
+import { scrubErrorDiagnostic, ValidationError } from "@/lib/api-errors";
+import { resolveAuthSecret } from "@/lib/auth-secret";
 import { prisma } from "@/lib/prisma";
 
 export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
@@ -273,14 +274,23 @@ export function limitLogJson(value: JsonValue | undefined, maxLength = MAX_LOG_J
   };
 }
 
+const IP_HASH_DEV_FALLBACK_SECRET = "inkforge-ip-hash-dev-secret";
+
 export function hashIp(ip: string | null | undefined) {
-  if (!ip) return null;
-  return createHash("sha256").update(ip).digest("hex");
+  const normalized = ip?.trim();
+  if (!normalized) return null;
+  const secret = resolveAuthSecret() || IP_HASH_DEV_FALLBACK_SECRET;
+  return createHmac("sha256", secret).update(`ip-hash:${normalized}`).digest("hex");
 }
 
-export function getClientIpFromHeaders(headers: Headers) {
+export function getClientIpFromHeaders(headers: Pick<Headers, "get">) {
+  const realIp = headers.get("x-real-ip")?.trim();
+  if (realIp) {
+    return realIp;
+  }
+
   const forwardedFor = headers.get("x-forwarded-for")?.split(",")[0]?.trim();
-  return forwardedFor || headers.get("x-real-ip") || null;
+  return forwardedFor || null;
 }
 
 export function queryToJson(searchParams: URLSearchParams): JsonValue | undefined {
@@ -304,11 +314,7 @@ export function queryToJson(searchParams: URLSearchParams): JsonValue | undefine
 }
 
 export function publicErrorMessage(error: unknown) {
-  if (error instanceof Error) {
-    return truncateString(error.message, MAX_ERROR_LENGTH);
-  }
-
-  return truncateString(String(error), MAX_ERROR_LENGTH);
+  return truncateString(scrubErrorDiagnostic(error, "Unknown error", MAX_ERROR_LENGTH), MAX_ERROR_LENGTH);
 }
 
 export async function createApiOperationLog(input: ApiOperationLogCreateInput) {
@@ -338,6 +344,7 @@ export async function createApiOperationLog(input: ApiOperationLogCreateInput) {
         actorUserId: input.actorUserId ?? null,
         actorClientId: input.actorClientId ?? null,
         actorLabel: input.actorLabel ?? null,
+        ipHash: input.ipHash ?? null,
         userAgent: input.userAgent ? truncateString(input.userAgent, MAX_USER_AGENT_LENGTH) : null,
         query: input.query === undefined ? undefined : toJson(sanitizeLogPayload(input.query) as JsonValue),
         requestBody: input.requestBody === undefined ? undefined : toJson(sanitizeLogPayload(input.requestBody) as JsonValue),

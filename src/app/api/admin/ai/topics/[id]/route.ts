@@ -33,7 +33,7 @@ async function GETHandler(_request: Request, context: RouteContext) {
 
     return NextResponse.json({ success: true, data })
   } catch (error) {
-    return toErrorResponse(error, error instanceof Error ? error.message : "Failed to load AI topic")
+    return toErrorResponse(error, "Failed to load AI topic")
   }
 }
 
@@ -45,7 +45,7 @@ async function PATCHHandler(request: Request, context: RouteContext) {
 
     return NextResponse.json({ success: true, data })
   } catch (error) {
-    return toErrorResponse(error, error instanceof Error ? error.message : "Failed to update AI topic")
+    return toErrorResponse(error, "Failed to update AI topic")
   }
 }
 
@@ -57,7 +57,7 @@ async function DELETEHandler(_request: Request, context: RouteContext) {
 
     return NextResponse.json({ success: true, data })
   } catch (error) {
-    return toErrorResponse(error, error instanceof Error ? error.message : "Failed to archive AI topic")
+    return toErrorResponse(error, "Failed to archive AI topic")
   }
 }
 

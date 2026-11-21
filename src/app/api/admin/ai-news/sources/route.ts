@@ -26,7 +26,7 @@ async function GETHandler(request: Request = new Request("http://localhost/api/a
 
     return NextResponse.json({ success: true, data: result.sources, pagination: result.pagination, summary: result.summary })
   } catch (error) {
-    return toErrorResponse(error, error instanceof Error ? error.message : "Failed to load AI news sources")
+    return toErrorResponse(error, "Failed to load AI news sources")
   }
 }
 
@@ -37,7 +37,7 @@ async function POSTHandler(request: Request) {
     const source = await createAiNewsSource(await request.json().catch(() => ({})))
     return NextResponse.json({ success: true, data: source }, { status: 201 })
   } catch (error) {
-    return toErrorResponse(error, error instanceof Error ? error.message : "Failed to create AI news source")
+    return toErrorResponse(error, "Failed to create AI news source")
   }
 }
 

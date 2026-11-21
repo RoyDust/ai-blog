@@ -1,6 +1,10 @@
 import { describe, expect, test } from "vitest";
 
 import {
+  getApiOperationLogContext,
+  runApiOperationLogContext,
+} from "../api-operation-log-context";
+import {
   ApiError,
   getPrismaConflictMessage,
   getPrismaConflictTarget,
@@ -9,6 +13,7 @@ import {
   toErrorResponse,
   TooManyRequestsError,
   UpstreamError,
+  ValidationError,
 } from "../api-errors";
 
 describe("api error responses", () => {
@@ -105,5 +110,53 @@ describe("api error responses", () => {
 
     await expect(response.json()).resolves.toEqual({ error: "Conflict" });
     expect(response.status).toBe(409);
+  });
+
+  test("maps Prisma P2025 not-found errors to 404", async () => {
+    const response = toErrorResponse({ code: "P2025", message: "An operation failed because it depends on one or more records that were required but not found." });
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toEqual({ error: "Resource not found" });
+  });
+
+  test("maps JSON parse SyntaxError to 400 Invalid JSON payload without echoing raw input", async () => {
+    let parseError: unknown;
+    try {
+      JSON.parse('{"password":"secret-pass","apiKey":"sk-secret"');
+    } catch (error) {
+      parseError = error;
+    }
+
+    const response = toErrorResponse(parseError);
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({ error: "Invalid JSON payload" });
+  });
+
+  test("records handled errorName and scrubbed errorMessage in api-operation-log-context", async () => {
+    await runApiOperationLogContext({ requestId: "req-400", scope: "admin" }, async () => {
+      const response = toErrorResponse(new ValidationError("Bad input"));
+      expect(response.status).toBe(400);
+      expect(getApiOperationLogContext()?.error).toEqual({
+        errorName: "ValidationError",
+        errorMessage: "Bad input",
+      });
+    });
+
+    await runApiOperationLogContext({ requestId: "req-500", scope: "admin" }, async () => {
+      const response = toErrorResponse(
+        new Error(
+          "Upstream failed at https://user:secret-pass@api.example.com/v1?api_key=sk-secret with Bearer sk-secret",
+        ),
+        "Operation failed",
+      );
+      expect(response.status).toBe(500);
+      await expect(response.json()).resolves.toEqual({ error: "Operation failed" });
+
+      const recorded = getApiOperationLogContext()?.error;
+      expect(recorded?.errorName).toBe("Error");
+      expect(recorded?.errorMessage).toContain("https://api.example.com/v1");
+      expect(recorded?.errorMessage).not.toContain("secret-pass");
+      expect(recorded?.errorMessage).not.toContain("sk-secret");
+    });
   });
 });

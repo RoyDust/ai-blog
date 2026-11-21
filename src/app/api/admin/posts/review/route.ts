@@ -21,7 +21,10 @@ async function POSTHandler(request: Request) {
   try {
     await requireAdminSession()
 
-    const body = (await request.json()) as { title?: string; slug?: string; content?: string; coverImage?: string }
+    const payload: unknown = await request.json()
+    const body = payload && typeof payload === "object"
+      ? (payload as { title?: string; slug?: string; content?: string; coverImage?: string })
+      : {}
     const review = await generatePostReview(
       {
         title: body.title ?? "",
@@ -38,7 +41,7 @@ async function POSTHandler(request: Request) {
 
     return NextResponse.json({ success: true, data: review })
   } catch (error) {
-    return toErrorResponse(error, error instanceof Error ? error.message : "Review generation failed")
+    return toErrorResponse(error, "Review generation failed")
   }
 }
 

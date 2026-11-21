@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server"
 
+import { setApiOperationError } from "@/lib/api-operation-log-context"
+import { scrubUpstreamDiagnostic } from "@/lib/external-reliability"
+
 /**
  * API 路由统一错误抽象。
  *
@@ -201,6 +204,74 @@ export function isDatabaseConnectionError(error: unknown) {
 }
 
 /**
+ * 识别 Prisma 记录不存在错误（update / delete 目标行缺失）。
+ */
+export function isPrismaNotFoundError(error: unknown) {
+  return typeof error === "object" && error !== null && "code" in error && error.code === "P2025"
+}
+
+/**
+ * 识别请求体 JSON 解析失败产生的 SyntaxError。
+ */
+export function isJsonSyntaxError(error: unknown): error is SyntaxError {
+  return error instanceof SyntaxError || (error instanceof Error && error.name === "SyntaxError")
+}
+
+function resolveErrorName(error: unknown, fallback: string) {
+  if (typeof error === "object" && error !== null && "name" in error && typeof error.name === "string") {
+    const trimmed = error.name.trim()
+    if (trimmed) {
+      return trimmed
+    }
+  }
+
+  return fallback
+}
+
+/**
+ * 清洗未知异常的诊断摘要，供操作审计日志记录，严禁暴露密码、密钥、连接串或 SQL 字面量。
+ */
+export function scrubErrorDiagnostic(
+  error: unknown,
+  fallbackMessage = "Internal server error",
+  maxLength = 500,
+) {
+  if (isJsonSyntaxError(error)) {
+    return "Invalid JSON payload"
+  }
+
+  let text =
+    error instanceof Error
+      ? error.message
+      : typeof error === "object" && error !== null && "message" in error && typeof error.message === "string"
+        ? error.message
+        : String(error ?? "")
+
+  text = text
+    .replace(
+      /\b(postgres(?:ql)?|mysql|mariadb|mongodb(?:\+srv)?|redis(?:s)?|amqp(?:s)?):\/\/[^\s<>"',;)\]]+/gi,
+      (_match, scheme: string) => `${scheme}://[redacted]`,
+    )
+    .replace(
+      /("(?:password|passphrase|secret|api[_-]?key|access[_-]?token|refresh[_-]?token|id[_-]?token|authorization|cookie|token|private[_-]?key|client[_-]?secret)"\s*:\s*)"(?:\\.|[^"\\])*"/gi,
+      '$1"[redacted]"',
+    )
+    .replace(
+      /(\b(?:password|passphrase|secret|api[_-]?key|access[_-]?token|refresh[_-]?token|id[_-]?token|private[_-]?key|client[_-]?secret|cookie|token)\s*[:=]\s*)(?:'[^']*'|"[^"]*"|[^\s,;&"')\]}]+)/gi,
+      "$1[redacted]",
+    )
+    .replace(/(\bVALUES\s*\()[^)]*(\))/gi, "$1[redacted]$2")
+    .replace(/(\bparams\s*:\s*\[)[^\]]*(\])/gi, "$1[redacted]$2")
+    .replace(/\bBasic\s+[A-Za-z0-9+/=]{6,}\b/gi, "Basic [redacted]")
+    .replace(/\bsk-[A-Za-z0-9_-]{4,}\b/g, "[redacted]")
+    .replace(/\b(?:gh[pousr]_[A-Za-z0-9_]{8,}|github_pat_[A-Za-z0-9_]{8,}|AKIA[0-9A-Z]{16})\b/g, "[redacted]")
+    .replace(/\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/g, "[redacted]")
+
+  const scrubbed = scrubUpstreamDiagnostic(text, { maxLength }).trim()
+  return scrubbed || fallbackMessage
+}
+
+/**
  * 把内部异常转换成稳定的 API 响应。
  *
  * 约定：
@@ -209,21 +280,61 @@ export function isDatabaseConnectionError(error: unknown) {
  */
 export function toErrorResponse(error: unknown, fallbackMessage = "Internal server error") {
   if (error instanceof ApiError) {
+    setApiOperationError({
+      errorName: error.name || "ApiError",
+      errorMessage: error.message,
+    })
     return NextResponse.json({ error: error.message }, { status: error.status })
   }
 
+  if (isJsonSyntaxError(error)) {
+    const message = "Invalid JSON payload"
+    setApiOperationError({
+      errorName: "SyntaxError",
+      errorMessage: message,
+    })
+    return NextResponse.json({ error: message }, { status: 400 })
+  }
+
+  if (isPrismaNotFoundError(error)) {
+    const message = "Resource not found"
+    setApiOperationError({
+      errorName: resolveErrorName(error, "PrismaClientKnownRequestError"),
+      errorMessage: message,
+    })
+    return NextResponse.json({ error: message }, { status: 404 })
+  }
+
   if (isPrismaConflictError(error)) {
-    const message = getPrismaConflictMessage(error)
-    return NextResponse.json({ error: message ?? "Conflict" }, { status: 409 })
+    const message = getPrismaConflictMessage(error) ?? "Conflict"
+    setApiOperationError({
+      errorName: resolveErrorName(error, "ConflictError"),
+      errorMessage: message,
+    })
+    return NextResponse.json({ error: message }, { status: 409 })
   }
 
   if (isPrismaMissingSchemaError(error)) {
-    return NextResponse.json({ error: "Database schema is not up to date. Apply pending Prisma migrations." }, { status: 503 })
+    const message = "Database schema is not up to date. Apply pending Prisma migrations."
+    setApiOperationError({
+      errorName: resolveErrorName(error, "ServiceUnavailableError"),
+      errorMessage: message,
+    })
+    return NextResponse.json({ error: message }, { status: 503 })
   }
 
   if (isDatabaseConnectionError(error)) {
-    return NextResponse.json({ error: "Database connection failed. Please retry shortly." }, { status: 503 })
+    const message = "Database connection failed. Please retry shortly."
+    setApiOperationError({
+      errorName: resolveErrorName(error, "DatabaseConnectionError"),
+      errorMessage: message,
+    })
+    return NextResponse.json({ error: message }, { status: 503 })
   }
 
+  setApiOperationError({
+    errorName: resolveErrorName(error, "Error"),
+    errorMessage: scrubErrorDiagnostic(error, fallbackMessage),
+  })
   return NextResponse.json({ error: fallbackMessage }, { status: 500 })
 }

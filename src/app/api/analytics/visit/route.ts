@@ -1,9 +1,9 @@
 import { withApiOperationLogging } from "@/lib/api-operation-log-route";
-import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 
 import { extractPostSlugFromPath, normalizeAnalyticsPath, shouldTrackVisitPath } from "@/lib/analytics";
 import { toErrorResponse, TooManyRequestsError, ValidationError } from "@/lib/api-errors";
+import { getClientIpFromHeaders, hashIp } from "@/lib/api-operation-logs";
 import { prisma } from "@/lib/prisma";
 import { checkAnalyticsRateLimit } from "@/lib/rate-limit";
 import { readSessionUserId } from "@/lib/session-token";
@@ -16,16 +16,6 @@ const MAX_VISITOR_ID_LENGTH = 120;
 function truncate(value: string | null | undefined, maxLength: number) {
   if (!value) return null;
   return value.length > maxLength ? value.slice(0, maxLength) : value;
-}
-
-function getClientIp(request: Request) {
-  const forwardedFor = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
-  return forwardedFor || request.headers.get("x-real-ip") || null;
-}
-
-function hashIp(ip: string | null) {
-  if (!ip) return null;
-  return createHash("sha256").update(ip).digest("hex");
 }
 
 async function POSTHandler(request: Request) {
@@ -53,7 +43,7 @@ async function POSTHandler(request: Request) {
     const referrer = truncate(typeof body.referrer === "string" ? body.referrer : null, MAX_REFERRER_LENGTH);
     const visitorId = truncate(typeof body.visitorId === "string" ? body.visitorId : null, MAX_VISITOR_ID_LENGTH);
     const userAgent = truncate(request.headers.get("user-agent"), MAX_USER_AGENT_LENGTH);
-    const ipHash = hashIp(getClientIp(request));
+    const ipHash = hashIp(getClientIpFromHeaders(request.headers));
     const postSlug = extractPostSlugFromPath(path);
     const userId = await readSessionUserId(request);
 

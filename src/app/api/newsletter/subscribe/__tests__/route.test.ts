@@ -155,4 +155,25 @@ describe("POST /api/newsletter/subscribe", () => {
     expect(response.status).toBe(429);
     expect(mocks.subscribe).not.toHaveBeenCalled();
   });
+
+  test("prioritizes x-real-ip over spoofed x-forwarded-for in request context", async () => {
+    const { POST } = await import("../route");
+    const response = await POST(
+      new Request("http://localhost/api/newsletter/subscribe", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-forwarded-for": "203.0.113.99, 198.51.100.88",
+          "x-real-ip": "198.51.100.88",
+        },
+        body: JSON.stringify({ email: "reader@example.com" }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.subscribe).toHaveBeenCalledWith("reader@example.com", {
+      ip: "198.51.100.88",
+      userAgent: null,
+    });
+  });
 });

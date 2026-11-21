@@ -17,7 +17,7 @@ async function POSTHandler(_request: Request, context: RouteContext) {
 
     return NextResponse.json({ success: true, data })
   } catch (error) {
-    return toErrorResponse(error, error instanceof Error ? error.message : "Failed to create draft from AI topic")
+    return toErrorResponse(error, "Failed to create draft from AI topic")
   }
 }
 
