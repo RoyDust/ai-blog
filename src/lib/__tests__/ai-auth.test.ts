@@ -17,12 +17,13 @@ describe("ai auth", () => {
     vi.clearAllMocks();
   });
 
-  test("accepts a bearer token with the required scope", async () => {
+  test("accepts a bearer token owned by an ADMIN with the required scope", async () => {
     findFirst.mockResolvedValueOnce({
       id: "client-1",
       ownerId: "user-1",
       name: "Codex",
       scopes: ["drafts:write", "drafts:read", "taxonomy:read"],
+      owner: { role: "ADMIN" },
     });
 
     const { hashAiToken, requireAiClient } = await import("../ai-auth");
@@ -38,12 +39,20 @@ describe("ai auth", () => {
       where: {
         tokenHash: hashAiToken("blog_ai_token_123"),
         revokedAt: null,
+        owner: {
+          role: "ADMIN",
+        },
       },
       select: {
         id: true,
         ownerId: true,
         name: true,
         scopes: true,
+        owner: {
+          select: {
+            role: true,
+          },
+        },
       },
     });
     expect(update).toHaveBeenCalledWith({
@@ -58,12 +67,63 @@ describe("ai auth", () => {
     });
   });
 
+  test("rejects an active token when owner role is filtered out by ADMIN query", async () => {
+    findFirst.mockResolvedValueOnce(null);
+
+    const { hashAiToken, requireAiClient } = await import("../ai-auth");
+    const request = new Request("http://localhost/api/ai/drafts", {
+      headers: {
+        Authorization: "Bearer blog_ai_token_demoted",
+      },
+    });
+
+    await expect(requireAiClient(request, "drafts:write")).rejects.toMatchObject({
+      status: 401,
+    });
+    expect(findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          tokenHash: hashAiToken("blog_ai_token_demoted"),
+          revokedAt: null,
+          owner: {
+            role: "ADMIN",
+          },
+        },
+      }),
+    );
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  test("rejects an active token whose owner.role is USER", async () => {
+    findFirst.mockResolvedValueOnce({
+      id: "client-demoted",
+      ownerId: "user-demoted",
+      name: "Demoted Agent",
+      scopes: ["drafts:write", "drafts:read", "taxonomy:read"],
+      owner: { role: "USER" },
+    });
+
+    const { requireAiClient } = await import("../ai-auth");
+    const request = new Request("http://localhost/api/ai/drafts", {
+      headers: {
+        Authorization: "Bearer blog_ai_token_user",
+      },
+    });
+
+    await expect(requireAiClient(request, "drafts:write")).rejects.toMatchObject({
+      status: 403,
+      message: "AI client owner must be an admin",
+    });
+    expect(update).not.toHaveBeenCalled();
+  });
+
   test("rejects a valid token without the requested scope", async () => {
     findFirst.mockResolvedValueOnce({
       id: "client-1",
       ownerId: "user-1",
       name: "Codex",
       scopes: ["taxonomy:read"],
+      owner: { role: "ADMIN" },
     });
 
     const { requireAiClient } = await import("../ai-auth");
@@ -85,6 +145,7 @@ describe("ai auth", () => {
       ownerId: "user-2",
       name: "Codex",
       scopes: ["drafts:read", "invalid:scope"],
+      owner: { role: "ADMIN" },
     });
 
     const { requireAiClient } = await import("../ai-auth");

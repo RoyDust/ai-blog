@@ -1,10 +1,12 @@
 import { AiModelManager } from "@/components/admin/ai/AiModelManager";
 import { PageHeader } from "@/components/admin/primitives/PageHeader";
+import { requireAdminPageSession } from "@/lib/admin-page-auth";
 import { getPublicAiModelOptions } from "@/lib/ai-models";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminAiModelsPage() {
+  await requireAdminPageSession();
   const models = await getPublicAiModelOptions();
   const defaultSummaryModel = models.find((model) => model.defaultFor.includes("post-summary")) ?? models.find((model) => model.capabilities.includes("post-summary"));
   const defaultCoverModel = models.find((model) => model.defaultFor.includes("cover-image")) ?? models.find((model) => model.capabilities.includes("cover-image"));

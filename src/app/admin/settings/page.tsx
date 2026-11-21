@@ -1,8 +1,7 @@
-import { getServerSession } from "next-auth";
 import { AdminSettingsClient } from "@/components/admin/settings/AdminSettingsClient";
 import { isSettingsTabId } from "@/components/admin/settings/settings-shared";
+import { requireAdminPageSession } from "@/lib/admin-page-auth";
 import { getApiOperationLogSettingsSummary } from "@/lib/api-operation-log-settings";
-import { authOptions } from "@/lib/auth";
 import { getBlogSettings } from "@/lib/blog-settings";
 import { prisma } from "@/lib/prisma";
 
@@ -23,32 +22,30 @@ function readParam(params: SettingsSearchParams, key: string) {
 }
 
 export default async function AdminSettingsPage({ searchParams }: { searchParams?: Promise<SettingsSearchParams> } = {}) {
+  const session = await requireAdminPageSession();
   const params = (await searchParams) ?? {};
   const requestedTab = readParam(params, "tab");
   const githubJustLinked = readParam(params, "github") === "linked";
   // ?tab= 记住当前页签；GitHub 绑定回跳（?github=linked）落在账号资料页签
   const initialTab = isSettingsTabId(requestedTab) && !githubJustLinked ? requestedTab : "account";
-  const session = await getServerSession(authOptions);
-  const [operationLogSettings, blogSettings] = await Promise.all([
+  const [operationLogSettings, blogSettings, user] = await Promise.all([
     getApiOperationLogSettingsSummary(),
     getBlogSettings(),
-  ]);
-  const user = session?.user?.id
-    ? await prisma.user.findUnique({
-        where: { id: session.user.id },
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          image: true,
-          role: true,
-          accounts: {
-            where: { provider: "github" },
-            select: { providerAccountId: true },
-          },
+    prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        image: true,
+        role: true,
+        accounts: {
+          where: { provider: "github" },
+          select: { providerAccountId: true },
         },
-      })
-    : null;
+      },
+    }),
+  ]);
 
   const settingsUser = user
     ? {

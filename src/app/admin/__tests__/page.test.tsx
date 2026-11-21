@@ -1,8 +1,19 @@
 import { render, screen, within } from "@testing-library/react";
 import React from "react";
-import { describe, expect, test, vi } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 
-const { postFindManyMock, commentFindManyMock, findPopularPostVisitsInRangeMock, getAdminTodoCountsMock, getDashboardStatsWithComparisonMock, getPublicAiModelOptionsMock } = vi.hoisted(() => {
+const {
+  getServerSessionMock,
+  redirectError,
+  redirectMock,
+  postFindManyMock,
+  commentFindManyMock,
+  findPopularPostVisitsInRangeMock,
+  getAdminTodoCountsMock,
+  getDashboardStatsWithComparisonMock,
+  getPublicAiModelOptionsMock,
+} = vi.hoisted(() => {
+  const nextRedirectError = new Error("NEXT_REDIRECT");
   const draftQueuePosts = [
     {
       id: "post-draft-1",
@@ -113,6 +124,11 @@ const { postFindManyMock, commentFindManyMock, findPopularPostVisitsInRangeMock,
   ];
 
   return {
+    getServerSessionMock: vi.fn(),
+    redirectError: nextRedirectError,
+    redirectMock: vi.fn(() => {
+      throw nextRedirectError;
+    }),
     postFindManyMock: vi.fn(({ where }) => {
       if (where?.published === false) {
         return Promise.resolve(draftQueuePosts);
@@ -192,6 +208,22 @@ const { postFindManyMock, commentFindManyMock, findPopularPostVisitsInRangeMock,
   };
 });
 
+vi.mock("next-auth", () => ({
+  getServerSession: getServerSessionMock,
+}));
+
+vi.mock("@/lib/auth", () => ({
+  authOptions: {},
+}));
+
+vi.mock("next/navigation", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("next/navigation")>();
+  return {
+    ...actual,
+    redirect: redirectMock,
+  };
+});
+
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     post: {
@@ -222,6 +254,43 @@ vi.mock("@/lib/admin-stats", async (importOriginal) => {
 });
 
 describe("admin overview", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getServerSessionMock.mockResolvedValue({ user: { id: "admin-1", role: "ADMIN" } });
+  });
+
+  test("redirects demoted USER sessions before executing any Prisma or dashboard queries", async () => {
+    getServerSessionMock.mockResolvedValueOnce({ user: { id: "user-1", role: "USER" } });
+
+    const { default: AdminPage } = await import("../page");
+
+    await expect(AdminPage()).rejects.toThrow(redirectError);
+
+    expect(redirectMock).toHaveBeenCalledWith("/?login=1&error=not-admin&callbackUrl=%2Fadmin");
+    expect(postFindManyMock).not.toHaveBeenCalled();
+    expect(commentFindManyMock).not.toHaveBeenCalled();
+    expect(findPopularPostVisitsInRangeMock).not.toHaveBeenCalled();
+    expect(getAdminTodoCountsMock).not.toHaveBeenCalled();
+    expect(getDashboardStatsWithComparisonMock).not.toHaveBeenCalled();
+    expect(getPublicAiModelOptionsMock).not.toHaveBeenCalled();
+  });
+
+  test("redirects anonymous sessions before executing any Prisma or dashboard queries", async () => {
+    getServerSessionMock.mockResolvedValueOnce(null);
+
+    const { default: AdminPage } = await import("../page");
+
+    await expect(AdminPage()).rejects.toThrow(redirectError);
+
+    expect(redirectMock).toHaveBeenCalledWith("/?login=1&callbackUrl=%2Fadmin");
+    expect(postFindManyMock).not.toHaveBeenCalled();
+    expect(commentFindManyMock).not.toHaveBeenCalled();
+    expect(findPopularPostVisitsInRangeMock).not.toHaveBeenCalled();
+    expect(getAdminTodoCountsMock).not.toHaveBeenCalled();
+    expect(getDashboardStatsWithComparisonMock).not.toHaveBeenCalled();
+    expect(getPublicAiModelOptionsMock).not.toHaveBeenCalled();
+  });
+
   test("renders the todo-first dashboard with health metrics and detail panels", async () => {
     const { default: AdminPage } = await import("../page");
     const ui = await AdminPage();

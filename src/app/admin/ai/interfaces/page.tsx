@@ -14,6 +14,7 @@ import {
   type AiInterfaceAudience,
   type AiInterfaceCatalogItem,
 } from "@/lib/ai-interface-catalog";
+import { requireAdminPageSession } from "@/lib/admin-page-auth";
 import { getBlogSettings } from "@/lib/blog-settings";
 import { AiTokenGenerator } from "./AiTokenGenerator";
 
@@ -92,6 +93,7 @@ function InterfaceCard({ baseUrl, item }: { baseUrl: string; item: AiInterfaceCa
 }
 
 export default async function AdminAiInterfacesPage() {
+  await requireAdminPageSession();
   const settings = await getBlogSettings();
   const baseUrl = settings.siteUrl.replace(/\/+$/, "");
   const prompt = buildAiAgentUsagePrompt({

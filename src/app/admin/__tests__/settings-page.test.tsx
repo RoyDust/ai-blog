@@ -2,13 +2,47 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import React from "react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-const { getBlogSettingsMock, getServerSessionMock, toastErrorMock, toastSuccessMock, userFindUniqueMock } = vi.hoisted(() => ({
-  getBlogSettingsMock: vi.fn(),
-  getServerSessionMock: vi.fn(),
-  toastErrorMock: vi.fn(),
-  toastSuccessMock: vi.fn(),
-  userFindUniqueMock: vi.fn(),
-}));
+const {
+  getApiOperationLogSettingsSummaryMock,
+  getBlogSettingsMock,
+  getServerSessionMock,
+  redirectError,
+  redirectMock,
+  toastErrorMock,
+  toastSuccessMock,
+  userFindUniqueMock,
+} = vi.hoisted(() => {
+  const nextRedirectError = new Error("NEXT_REDIRECT");
+  return {
+    getApiOperationLogSettingsSummaryMock: vi.fn(),
+    getBlogSettingsMock: vi.fn(),
+    getServerSessionMock: vi.fn(),
+    redirectError: nextRedirectError,
+    redirectMock: vi.fn(() => {
+      throw nextRedirectError;
+    }),
+    toastErrorMock: vi.fn(),
+    toastSuccessMock: vi.fn(),
+    userFindUniqueMock: vi.fn(),
+  };
+});
+
+vi.mock("next/navigation", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("next/navigation")>();
+  return {
+    ...actual,
+    redirect: redirectMock,
+  };
+});
+
+vi.mock("@/lib/api-operation-log-settings", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/api-operation-log-settings")>();
+  getApiOperationLogSettingsSummaryMock.mockImplementation(actual.getApiOperationLogSettingsSummary);
+  return {
+    ...actual,
+    getApiOperationLogSettingsSummary: getApiOperationLogSettingsSummaryMock,
+  };
+});
 
 vi.mock("next-auth", () => ({
   getServerSession: getServerSessionMock,
@@ -82,6 +116,32 @@ const configuredBlogSettings = {
 describe("admin settings page", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  test("redirects demoted USER sessions before reading settings or user records", async () => {
+    getServerSessionMock.mockResolvedValueOnce({ user: { id: "user-1", role: "USER" } });
+
+    const { default: AdminSettingsPage } = await import("../settings/page");
+
+    await expect(AdminSettingsPage()).rejects.toThrow(redirectError);
+
+    expect(redirectMock).toHaveBeenCalledWith("/?login=1&error=not-admin&callbackUrl=%2Fadmin");
+    expect(getBlogSettingsMock).not.toHaveBeenCalled();
+    expect(getApiOperationLogSettingsSummaryMock).not.toHaveBeenCalled();
+    expect(userFindUniqueMock).not.toHaveBeenCalled();
+  });
+
+  test("redirects anonymous sessions before reading settings or user records", async () => {
+    getServerSessionMock.mockResolvedValueOnce(null);
+
+    const { default: AdminSettingsPage } = await import("../settings/page");
+
+    await expect(AdminSettingsPage()).rejects.toThrow(redirectError);
+
+    expect(redirectMock).toHaveBeenCalledWith("/?login=1&callbackUrl=%2Fadmin");
+    expect(getBlogSettingsMock).not.toHaveBeenCalled();
+    expect(getApiOperationLogSettingsSummaryMock).not.toHaveBeenCalled();
+    expect(userFindUniqueMock).not.toHaveBeenCalled();
   });
 
   test("renders persisted blog settings and profile settings from the current user", async () => {

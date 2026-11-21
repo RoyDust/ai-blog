@@ -12,6 +12,7 @@ import {
 } from "@/components/admin/dashboard/DashboardPanels";
 import { PageHeader } from "@/components/admin/primitives/PageHeader";
 import { Reveal } from "@/components/editorial";
+import { requireAdminPageSession } from "@/lib/admin-page-auth";
 import {
   getAdminStatsRangeWindow,
   getAdminTodoCounts,
@@ -73,6 +74,7 @@ async function getPopularPosts(range: VisitTrendRange) {
  * 使用并发查询一次性拿到首页各区块所需数据，避免串行等待拖慢首屏。
  */
 export default async function AdminPage({ searchParams }: { searchParams?: Promise<{ range?: string }> } = {}) {
+  await requireAdminPageSession();
   const resolvedSearchParams = await searchParams;
   const range = parseAdminStatsRange(resolvedSearchParams?.range);
   const [todoCounts, draftQueue, pendingQueue, popularPosts, aiModels, dashboardComparison] = await Promise.all([
