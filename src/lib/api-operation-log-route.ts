@@ -16,6 +16,7 @@ import {
   getApiOperationLogContext,
   runApiOperationLogContext,
   type ApiOperationActor,
+  type ApiOperationError,
 } from "@/lib/api-operation-log-context";
 
 type ApiRouteHandler<TContext> = (request: Request, context: TContext) => Response | Promise<Response>;
@@ -77,7 +78,7 @@ async function readRequestBodySnapshot(request: Request | null): Promise<JsonVal
     try {
       return limitLogJson(sanitizeLogPayload(JSON.parse(text)));
     } catch {
-      return limitLogJson({ malformedJson: true, preview: text.slice(0, 512) });
+      return limitLogJson({ malformedJson: true, byteLength: Buffer.byteLength(text, "utf8") });
     }
   } catch (error) {
     return {
@@ -118,6 +119,41 @@ async function resolveMetadata<TContext>(
   return sanitizeLogPayload(value);
 }
 
+function combineLogMetadata(
+  storeMetadata: Record<string, unknown> | undefined,
+  optionMetadata: JsonValue | undefined,
+) {
+  if (!storeMetadata && optionMetadata === undefined) {
+    return undefined;
+  }
+
+  const normalizedOptionMetadata =
+    optionMetadata && typeof optionMetadata === "object" && !Array.isArray(optionMetadata)
+      ? optionMetadata
+      : optionMetadata === undefined
+        ? {}
+        : { routeMetadata: optionMetadata };
+
+  return sanitizeLogPayload({
+    ...(storeMetadata ?? {}),
+    ...normalizedOptionMetadata,
+  });
+}
+
+function resolveLoggedError(caughtError: unknown, storeError: ApiOperationError | undefined) {
+  if (caughtError) {
+    return {
+      errorName: caughtError instanceof Error ? caughtError.name : "Error",
+      errorMessage: publicErrorMessage(caughtError),
+    };
+  }
+
+  return {
+    errorName: storeError?.errorName ?? null,
+    errorMessage: storeError?.errorMessage ?? null,
+  };
+}
+
 export function withApiOperationLogging<TContext = unknown>(
   handler: ApiRouteHandler<TContext>,
   options: ApiOperationLogRouteOptions<TContext>,
@@ -153,18 +189,8 @@ export function withApiOperationLogging<TContext = unknown>(
           const optionMetadata = await resolveMetadata(request, context as TContext, options.metadata).catch((error) => ({
             metadataError: publicErrorMessage(error),
           }));
-          const metadataInput =
-            store?.metadata || optionMetadata !== undefined
-              ? {
-                  ...(store?.metadata ?? {}),
-                  ...(optionMetadata && typeof optionMetadata === "object" && !Array.isArray(optionMetadata)
-                    ? optionMetadata
-                    : optionMetadata === undefined
-                      ? {}
-                      : { routeMetadata: optionMetadata }),
-                }
-              : undefined;
-          const metadata = metadataInput ? sanitizeLogPayload(metadataInput) : undefined;
+          const metadata = combineLogMetadata(store?.metadata, optionMetadata);
+          const loggedError = resolveLoggedError(caughtError, store?.error);
 
           await createApiOperationLog({
             requestId,
@@ -184,8 +210,8 @@ export function withApiOperationLogging<TContext = unknown>(
             userAgent: request.headers.get("user-agent"),
             query: queryToJson(url.searchParams),
             requestBody,
-            errorName: caughtError instanceof Error ? caughtError.name : caughtError ? "Error" : null,
-            errorMessage: caughtError ? publicErrorMessage(caughtError) : null,
+            errorName: loggedError.errorName,
+            errorMessage: loggedError.errorMessage,
             metadata,
           });
         }

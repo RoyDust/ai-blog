@@ -123,7 +123,7 @@ async function POSTHandler(request: Request) {
       },
     })
   } catch (error) {
-    return toErrorResponse(error, error instanceof Error ? error.message : "Scheduled publish cron failed")
+    return toErrorResponse(error, "Scheduled publish cron failed")
   }
 }
 

@@ -9,8 +9,8 @@ import { readBearerToken, resolveInternalSecret, safeSecretEquals } from '@/lib/
 import { checkInternalFailureRateLimit } from '@/lib/rate-limit'
 
 function getClientIp(request: NextRequest) {
-  const forwardedFor = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
-  return forwardedFor || request.headers.get('x-real-ip') || null
+  const realIp = request.headers.get('x-real-ip')?.trim()
+  return realIp || request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || null
 }
 
 function recordDeniedApi(

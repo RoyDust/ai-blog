@@ -84,7 +84,7 @@ async function POSTHandler(request: Request) {
       await notifyDailyAiNewsFailure(runDate, error)
     }
 
-    return toErrorResponse(error, error instanceof Error ? error.message : "Daily AI news generation failed")
+    return toErrorResponse(error, "Daily AI news generation failed")
   }
 }
 
@@ -98,7 +98,7 @@ async function GETHandler() {
 
     return NextResponse.json({ success: true, data: runs })
   } catch (error) {
-    return toErrorResponse(error, error instanceof Error ? error.message : "Failed to load daily AI news runs")
+    return toErrorResponse(error, "Failed to load daily AI news runs")
   }
 }
 

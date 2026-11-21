@@ -18,7 +18,7 @@ async function POSTHandler(_request: Request, context: RouteContext) {
 
     return NextResponse.json({ success: true, data: result })
   } catch (error) {
-    return toErrorResponse(error, error instanceof Error ? error.message : "Failed to test AI news source")
+    return toErrorResponse(error, "Failed to test AI news source")
   }
 }
 

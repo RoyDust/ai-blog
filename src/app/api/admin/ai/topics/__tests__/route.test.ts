@@ -127,4 +127,25 @@ describe("admin AI topics routes", () => {
     expect(mocks.createDraftFromTopic).toHaveBeenCalledWith("topic-1", "admin-1")
     expect(payload).toEqual({ success: true, data: { id: "post-1", published: false } })
   })
+
+  test("maps Prisma P2025 to 404 and masks unexpected Error.message behind static fallback on 500", async () => {
+    mocks.updateAiTopic.mockRejectedValueOnce({ code: "P2025", message: "Record not found" })
+    const { PATCH } = await import("../[id]/route")
+    const notFoundResponse = await PATCH(
+      new Request("http://localhost/api/admin/ai/topics/missing", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "PLANNED" }),
+      }),
+      { params: Promise.resolve({ id: "missing" }) },
+    )
+    expect(notFoundResponse.status).toBe(404)
+    await expect(notFoundResponse.json()).resolves.toEqual({ error: "Resource not found" })
+
+    mocks.listAiTopics.mockRejectedValueOnce(new Error("leaked internal SQL detail sk-secret"))
+    const { GET } = await import("../route")
+    const serverErrorResponse = await GET(new Request("http://localhost/api/admin/ai/topics"))
+    expect(serverErrorResponse.status).toBe(500)
+    await expect(serverErrorResponse.json()).resolves.toEqual({ error: "Failed to load AI topics" })
+  })
 })

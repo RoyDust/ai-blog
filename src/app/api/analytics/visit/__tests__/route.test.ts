@@ -1,12 +1,17 @@
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-const findFirstPost = vi.fn();
-const createVisitLogOperation = vi.fn();
-const readSessionUserId = vi.fn();
-const postUpdate = vi.fn();
+import { hashIp } from "@/lib/api-operation-logs";
+
+const { findFirstPost, createVisitLogOperation, readSessionUserId, postUpdate } = vi.hoisted(() => ({
+  findFirstPost: vi.fn(),
+  createVisitLogOperation: vi.fn(),
+  readSessionUserId: vi.fn(),
+  postUpdate: vi.fn(),
+}));
 const writeOrder: string[] = [];
 
 vi.mock("@/lib/visit-log-repository", () => ({
@@ -155,5 +160,26 @@ describe("POST /api/analytics/visit", () => {
     expect(responses.slice(0, 30).map((response) => response.status)).toEqual(Array(30).fill(200));
     expect(responses[30].status).toBe(429);
     expect(await responses[30].json()).toEqual({ error: "Too many analytics requests" });
+  });
+
+  test("prioritizes x-real-ip over spoofed x-forwarded-for and uses HMAC ipHash", async () => {
+    const { POST } = await import("../route");
+    const response = await POST(new Request("http://localhost/api/analytics/visit", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-forwarded-for": "203.0.113.99",
+        "x-real-ip": "198.51.100.55",
+      },
+      body: JSON.stringify({ path: "/about" }),
+    }));
+
+    expect(response.status).toBe(200);
+    const unsaltedRealIp = createHash("sha256").update("198.51.100.55").digest("hex");
+    expect(createVisitLogOperation).toHaveBeenCalledWith(expect.objectContaining({
+      ipHash: hashIp("198.51.100.55"),
+    }));
+    expect(hashIp("198.51.100.55")).not.toBe(unsaltedRealIp);
+    expect(hashIp("198.51.100.55")).not.toBe(hashIp("203.0.113.99"));
   });
 });

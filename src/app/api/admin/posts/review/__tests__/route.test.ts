@@ -8,15 +8,36 @@ vi.mock("@/lib/auth", () => ({
   authOptions: {},
 }));
 
+const prismaMocks = vi.hoisted(() => ({
+  findManyMock: vi.fn(),
+  findUniqueMock: vi.fn(),
+  countMock: vi.fn(),
+}));
+
+vi.mock("@/lib/prisma", () => ({
+  prisma: {
+    aiModel: {
+      findMany: prismaMocks.findManyMock,
+      findUnique: prismaMocks.findUniqueMock,
+      count: prismaMocks.countMock,
+    },
+  },
+}));
+
 describe("admin post review route", () => {
   const originalEnv = { ...process.env };
 
   beforeEach(() => {
     vi.resetModules();
     vi.unstubAllGlobals();
+    vi.clearAllMocks();
+    prismaMocks.findManyMock.mockResolvedValue([]);
+    prismaMocks.findUniqueMock.mockResolvedValue(null);
+    prismaMocks.countMock.mockResolvedValue(0);
     process.env = {
       ...originalEnv,
       DASHSCOPE_API_KEY: "test-api-key",
+      DASHSCOPE_BASE_URL: "https://dashscope.aliyuncs.com/compatible-mode/v1",
       DASHSCOPE_MODEL: "qwen3.5-flash",
     };
   });
@@ -154,5 +175,34 @@ describe("admin post review route", () => {
         summary: "可以发布。",
       },
     });
+  });
+
+  test("returns 400 Invalid JSON payload on malformed JSON and never echoes raw error.message on 500", async () => {
+    const { getServerSession } = await import("next-auth");
+    vi.mocked(getServerSession).mockResolvedValue({ user: { id: "admin-1", role: "ADMIN" } } as never);
+
+    const { POST } = await import("../route");
+    const malformedResponse = await POST(
+      new Request("http://localhost/api/admin/posts/review", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: '{"title":"AI","apiKey":"sk-secret"',
+      }),
+    );
+
+    expect(malformedResponse.status).toBe(400);
+    await expect(malformedResponse.json()).resolves.toEqual({ error: "Invalid JSON payload" });
+
+    prismaMocks.findManyMock.mockRejectedValueOnce(new Error("internal db secret sk-secret"));
+    const errorResponse = await POST(
+      new Request("http://localhost/api/admin/posts/review", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: "AI", slug: "ai", content: "正文" }),
+      }),
+    );
+
+    expect(errorResponse.status).toBe(500);
+    await expect(errorResponse.json()).resolves.toEqual({ error: "Review generation failed" });
   });
 });

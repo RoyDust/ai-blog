@@ -151,6 +151,27 @@ describe('admin middleware', () => {
     }))
   })
 
+  test('prioritizes x-real-ip over spoofed x-forwarded-for when recording denied admin api requests', async () => {
+    process.env.NEXTAUTH_SECRET = 'auth-secret'
+    getToken.mockResolvedValueOnce(null)
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ success: true })))
+    vi.stubGlobal('fetch', fetchMock)
+    const waitUntil = vi.fn((promise: Promise<unknown>) => promise)
+
+    const request = new NextRequest('http://localhost/api/admin/posts', {
+      headers: {
+        'x-forwarded-for': '203.0.113.99, 198.51.100.21',
+        'x-real-ip': '198.51.100.21',
+      },
+    })
+    const response = await middleware(request, { waitUntil } as never)
+    await (waitUntil.mock.calls[0]?.[0] as Promise<unknown>)
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body)
+
+    expect(response.status).toBe(401)
+    expect(body.ip).toBe('198.51.100.21')
+  })
+
   test('skips denied-log recording in production without a dedicated ingest secret', async () => {
     process.env.NEXTAUTH_SECRET = 'auth-secret'
     vi.stubEnv('NODE_ENV', 'production')

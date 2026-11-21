@@ -101,7 +101,7 @@ async function POSTHandler(request: Request) {
     const result = queueDailyAiNewsRun({ authorId: author.id, date: parseRunDate(request), regenerate: parseRegenerate(request) })
     return NextResponse.json({ success: true, data: result }, { status: 202 })
   } catch (error) {
-    return toErrorResponse(error, error instanceof Error ? error.message : "Daily AI news cron failed")
+    return toErrorResponse(error, "Daily AI news cron failed")
   }
 }
 
@@ -156,7 +156,7 @@ async function GETHandler(request: Request) {
 
     return NextResponse.json({ success: true, data: { operation: "finished", date: dateId, run } })
   } catch (error) {
-    return toErrorResponse(error, error instanceof Error ? error.message : "Daily AI news cron failed")
+    return toErrorResponse(error, "Daily AI news cron failed")
   }
 }
 

@@ -18,7 +18,7 @@ async function PATCHHandler(request: Request, context: RouteContext) {
 
     return NextResponse.json({ success: true, data: source })
   } catch (error) {
-    return toErrorResponse(error, error instanceof Error ? error.message : "Failed to update AI news source")
+    return toErrorResponse(error, "Failed to update AI news source")
   }
 }
 
@@ -31,7 +31,7 @@ async function DELETEHandler(_request: Request, context: RouteContext) {
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    return toErrorResponse(error, error instanceof Error ? error.message : "Failed to delete AI news source")
+    return toErrorResponse(error, "Failed to delete AI news source")
   }
 }
 
