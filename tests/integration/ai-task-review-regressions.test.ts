@@ -76,7 +76,7 @@ describe("AI review regressions against PostgreSQL", () => {
     const url = "https://review-cdn.test/" + key;
     assetUrls.push(url); mocks.upload.mockReset().mockResolvedValue({ key, url });
     vi.stubEnv("QINIU_DOMAIN", "https://review-cdn.test");
-    vi.stubGlobal("fetch", vi.fn(async () => Response.json({ data: [{ b64_json: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00]).toString("base64") }] })));
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({ data: [{ b64_json: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==" }] })));
   });
   afterEach(async () => {
     vi.restoreAllMocks(); vi.unstubAllEnvs(); vi.unstubAllGlobals();
