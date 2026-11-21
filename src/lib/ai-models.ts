@@ -15,6 +15,8 @@ import { prisma } from "@/lib/prisma";
 import { ValidationError } from "@/lib/api-errors";
 import { decryptApiKeyFromStorage, encryptApiKeyForStorage } from "@/lib/ai-models-crypto";
 import { fetchAiModelJson } from "@/lib/ai-completion-client";
+import { scrubUpstreamDiagnostic } from "@/lib/external-reliability";
+import { validateOutboundUrl, type SsrfGuardOptions } from "@/lib/ssrf-guard";
 
 export type AiModelCapability = "post-summary" | "cover-image";
 
@@ -389,10 +391,17 @@ function normalizeMutationInput(input: AiModelMutationInput, existing?: AiModelO
     throw new ValidationError("Base URL is required");
   }
 
+  let parsedBaseUrl: URL;
   try {
-    new URL(baseUrl);
+    parsedBaseUrl = new URL(baseUrl);
   } catch {
     throw new ValidationError("Base URL must be a valid URL");
+  }
+
+  try {
+    validateOutboundUrl(parsedBaseUrl);
+  } catch (error) {
+    throw new ValidationError(error instanceof Error ? error.message : "Base URL is not allowed");
   }
 
   const allowedPaths = new Set([DEFAULT_REQUEST_PATH, DEFAULT_IMAGE_REQUEST_PATH, "/services/aigc/image-generation/generation"]);
@@ -778,7 +787,10 @@ export async function recordAiModelTestResult(modelId: string, status: AiModelTe
  * 对模型做轻量连通性测试。
  * 文本模型会发起一次极小的 health-check 请求；纯生图模型只做配置完整性校验。
  */
-export async function testAiModelConnection(model: AiModelOption) {
+export async function testAiModelConnection(
+  model: AiModelOption,
+  options?: SsrfGuardOptions & { fetchImpl?: typeof fetch },
+) {
   if (!model.apiKey) {
     throw new ValidationError(`${model.apiKeyEnv} is not configured`);
   }
@@ -787,31 +799,45 @@ export async function testAiModelConnection(model: AiModelOption) {
     return "图片生成模型配置完整，实际连通性将在生成封面时验证。";
   }
 
-  const result = await fetchAiModelJson(model, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${model.apiKey}`,
-    },
-    body: JSON.stringify({
-      model: model.model,
-      messages: [
-        { role: "system", content: "You are a concise API health check assistant." },
-        { role: "user", content: "Reply with exactly: ok" },
-      ],
-      temperature: 0,
-      max_tokens: 16,
-      ...getAiModelChatRequestExtras(model),
-    }),
-    signal: AbortSignal.timeout(15000),
-  }, "ai.model.probe");
+  const secrets = [model.apiKey];
+  let result: Awaited<ReturnType<typeof fetchAiModelJson>>;
+  try {
+    result = await fetchAiModelJson(
+      model,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${model.apiKey}`,
+        },
+        body: JSON.stringify({
+          model: model.model,
+          messages: [
+            { role: "system", content: "You are a concise API health check assistant." },
+            { role: "user", content: "Reply with exactly: ok" },
+          ],
+          temperature: 0,
+          max_tokens: 16,
+          ...getAiModelChatRequestExtras(model),
+        }),
+        signal: AbortSignal.timeout(15000),
+      },
+      "ai.model.probe",
+      options?.fetchImpl,
+      { allowLoopback: options?.allowLoopback },
+    );
+  } catch (error) {
+    throw new Error(scrubUpstreamDiagnostic(error, { secrets }));
+  }
   const response = result.response;
 
   const payload = (result.payload ?? {}) as OpenAICompatibleChatPayload;
   const assistantText = extractAssistantText(payload);
 
   if (!response.ok) {
-    throw new Error(payload.error?.message || `Model test failed with HTTP ${response.status}`);
+    throw new Error(
+      scrubUpstreamDiagnostic(payload.error?.message || `Model test failed with HTTP ${response.status}`, { secrets }),
+    );
   }
 
   if (!assistantText) {

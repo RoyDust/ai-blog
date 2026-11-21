@@ -4,7 +4,7 @@ const createLogMock = vi.hoisted(() => vi.fn())
 
 vi.mock('@/lib/api-operation-logs', () => ({ createApiOperationLog: createLogMock }))
 
-import { createAiUsageRecorder } from '@/lib/ai-completion-client'
+import { createAiUsageRecorder, fetchAiModelJson } from '@/lib/ai-completion-client'
 
 describe('createAiUsageRecorder', () => {
   beforeEach(() => vi.clearAllMocks())
@@ -29,5 +29,40 @@ describe('createAiUsageRecorder', () => {
     const recordAttempt = createAiUsageRecorder({ baseUrl: 'https://api.deepseek.com', model: 'deepseek-flash' }, 'ai.completion')
     await recordAttempt({ callId: 'unknown', attempt: 1, startedAt: '2026-10-26T00:00:00.000Z', durationMs: 22, statusCode: 429, success: false, model: null, finishReason: null, usage: null, errorKind: 'rate-limited' })
     expect(createLogMock).toHaveBeenCalledWith(expect.objectContaining({ success: false, statusCode: 429, errorKind: 'rate-limited', metadata: expect.objectContaining({ usageReported: false, usage: null }) }))
+  })
+})
+
+describe('fetchAiModelJson SSRF guard', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    createLogMock.mockResolvedValue(null)
+  })
+
+  test('blocks direct and 302-redirected requests to loopback, link-local, and Alibaba ECS metadata', async () => {
+    for (const target of [
+      'http://127.0.0.1:8080/v1',
+      'http://169.254.169.254/latest/meta-data',
+      'http://100.100.100.200/latest/meta-data',
+      'http://[::1]:8080/v1',
+    ]) {
+      const directFetch = vi.fn<typeof fetch>()
+      await expect(
+        fetchAiModelJson({ baseUrl: target, model: 'demo', apiKey: 'sk-secret' }, { method: 'POST' }, 'ai.model.probe', directFetch),
+      ).rejects.toMatchObject({ kind: 'configuration', retryable: false })
+      expect(directFetch).not.toHaveBeenCalled()
+
+      const redirectFetch = vi.fn<typeof fetch>(async () =>
+        new Response(null, { status: 302, headers: { location: `${target}/chat/completions` } }),
+      )
+      await expect(
+        fetchAiModelJson(
+          { baseUrl: 'https://api.deepseek.com/v1', model: 'demo', apiKey: 'sk-secret' },
+          { method: 'POST', headers: { Authorization: 'Bearer sk-secret' } },
+          'ai.model.probe',
+          redirectFetch,
+        ),
+      ).rejects.toMatchObject({ kind: 'configuration', retryable: false })
+      expect(redirectFetch).toHaveBeenCalledTimes(1)
+    }
   })
 })

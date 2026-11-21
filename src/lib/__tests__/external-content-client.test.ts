@@ -125,4 +125,38 @@ describe('ExternalContentClient', () => {
     await expect(client.getText('https://feeds.example.test/start')).resolves.toBe('ok')
     expect(cancelled).toBe(true)
   })
+
+  it('blocks direct and 302-redirected SSRF targets including 127.0.0.1, 169.254.169.254, 100.100.100.200, and [::1]', async () => {
+    const blockedTargets = [
+      'http://127.0.0.1/feed.xml',
+      'http://localhost/feed.xml',
+      'http://169.254.169.254/latest/meta-data/',
+      'http://100.100.100.200/latest/meta-data/',
+      'http://[::1]/feed.xml',
+      'http://10.0.0.8/feed.xml',
+    ]
+
+    for (const target of blockedTargets) {
+      const directFetch = vi.fn<typeof fetch>()
+      const directClient = new ExternalContentClient({ fetchImpl: directFetch, sleep: async () => {} })
+      await expect(directClient.getText(target)).rejects.toMatchObject({ kind: 'configuration', retryable: false })
+      expect(directFetch).not.toHaveBeenCalled()
+
+      const redirectFetch = fetchMock(new Response(null, { status: 302, headers: { location: target } }))
+      const redirectClient = new ExternalContentClient({ fetchImpl: redirectFetch, sleep: async () => {} })
+      await expect(redirectClient.getText('https://feeds.example.test/start')).rejects.toMatchObject({
+        kind: 'configuration',
+        retryable: false,
+      })
+      expect(redirectFetch).toHaveBeenCalledTimes(1)
+    }
+
+    const loopbackFetch = fetchMock(new Response('loopback-ok', { status: 200 }))
+    const loopbackClient = new ExternalContentClient({ fetchImpl: loopbackFetch, allowLoopback: true, sleep: async () => {} })
+    await expect(loopbackClient.getText('http://127.0.0.1:4100/rss')).resolves.toBe('loopback-ok')
+    await expect(loopbackClient.getText('http://100.100.100.200/latest/meta-data/')).rejects.toMatchObject({
+      kind: 'configuration',
+      retryable: false,
+    })
+  })
 })

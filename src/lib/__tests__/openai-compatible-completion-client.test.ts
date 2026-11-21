@@ -189,4 +189,46 @@ describe('OpenAICompatibleCompletionClient', () => {
     })
     await expect(client.completeJson(messages, () => { throw new Error('decoder secret') })).rejects.toMatchObject({ kind: 'invalid-response' })
   })
+
+  it('rejects private/metadata base URLs and blocks SSRF redirects without leaking Bearer credentials', async () => {
+    for (const blockedBase of [
+      'http://127.0.0.1:8000/v1',
+      'http://localhost:8000/v1',
+      'http://169.254.169.254/v1',
+      'http://100.100.100.200/v1',
+      'http://[::1]:8000/v1',
+    ]) {
+      expect(() => new OpenAICompatibleCompletionClient({ baseUrl: blockedBase, model: 'demo', apiKey: 'sk-secret' })).toThrowError(
+        expect.objectContaining({ kind: 'configuration', retryable: false }),
+      )
+    }
+
+    for (const redirectTarget of [
+      'http://127.0.0.1:8000/v1/chat/completions',
+      'http://169.254.169.254/latest/meta-data/',
+      'http://100.100.100.200/latest/meta-data/',
+      'http://[::1]:8000/v1/chat/completions',
+    ]) {
+      const fetchImpl = fetchMock(new Response(null, { status: 307, headers: { location: redirectTarget } }))
+      const client = new OpenAICompatibleCompletionClient(
+        { baseUrl: 'https://provider.example/v1', model: 'demo', apiKey: 'sk-secret' },
+        { fetchImpl, sleep: async () => {} },
+      )
+      await expect(client.completeText(messages)).rejects.toMatchObject({ kind: 'configuration', retryable: false })
+      expect(fetchImpl).toHaveBeenCalledTimes(1)
+    }
+
+    const crossOriginRedirectFetch = fetchMock(
+      new Response(null, { status: 307, headers: { location: 'https://other-provider.example/v1/chat/completions' } }),
+      jsonResponse({ choices: [{ message: { content: 'ok' } }] }),
+    )
+    const crossOriginClient = new OpenAICompatibleCompletionClient(
+      { baseUrl: 'https://provider.example/v1', model: 'demo', apiKey: 'sk-secret' },
+      { fetchImpl: crossOriginRedirectFetch, sleep: async () => {} },
+    )
+    await expect(crossOriginClient.completeText(messages)).resolves.toMatchObject({ text: 'ok' })
+    const secondHopHeaders = (crossOriginRedirectFetch as unknown as ReturnType<typeof vi.fn>).mock.calls[1]?.[1]?.headers as Record<string, string>
+    expect(secondHopHeaders).not.toHaveProperty('authorization')
+    expect(secondHopHeaders).not.toHaveProperty('Authorization')
+  })
 })

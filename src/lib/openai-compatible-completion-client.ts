@@ -15,6 +15,11 @@ import {
   readResponseBodyBounded,
   withReliabilityRetry,
 } from './external-reliability'
+import {
+  safeOutboundFetch,
+  validateOutboundUrl,
+  type SsrfGuardOptions,
+} from './ssrf-guard'
 
 // Re-export the boundary error for callers that only need the completion
 // client surface.  The implementation still lives in the lower-level module.
@@ -80,7 +85,7 @@ export interface CompletionClient {
   ): Promise<T>
 }
 
-export interface CompletionClientRuntimeOptions {
+export interface CompletionClientRuntimeOptions extends SsrfGuardOptions {
   fetchImpl?: typeof fetch
   now?: () => number
   random?: () => number
@@ -115,18 +120,20 @@ const RESERVED_PROVIDER_HEADERS = new Set(['authorization', 'cookie', 'proxy-aut
  */
 export class OpenAICompatibleCompletionClient implements CompletionClient {
   private readonly config: OpenAICompatibleModelConfig
-  private readonly fetchImpl: typeof fetch
+  private readonly customFetchImpl?: typeof fetch
+  private readonly allowLoopback?: boolean
   private readonly now: () => number
   private readonly random: () => number
   private readonly sleep: (ms: number) => Promise<void>
 
   constructor(config: OpenAICompatibleModelConfig, runtime: CompletionClientRuntimeOptions = {}) {
-    validateConfig(config)
+    validateConfig(config, runtime)
     this.config = {
       ...config,
       requestPath: config.requestPath ?? DEFAULT_REQUEST_PATH,
     }
-    this.fetchImpl = runtime.fetchImpl ?? globalThis.fetch.bind(globalThis)
+    this.customFetchImpl = runtime.fetchImpl
+    this.allowLoopback = runtime.allowLoopback
     this.now = runtime.now ?? Date.now
     this.random = runtime.random ?? Math.random
     this.sleep = runtime.sleep ?? ((ms) => new Promise<void>((resolve) => setTimeout(resolve, ms)))
@@ -190,17 +197,25 @@ export class OpenAICompatibleCompletionClient implements CompletionClient {
         try {
         let response: Response
         try {
-          response = await this.fetchImpl(endpoint, {
-            method: 'POST',
-            headers: {
-              ...stripReservedHeaders(this.config.headers),
-              'content-type': 'application/json',
-              accept: 'application/json',
-              authorization: `Bearer ${this.config.apiKey}`,
+          response = await safeOutboundFetch(
+            endpoint,
+            {
+              method: 'POST',
+              headers: {
+                ...stripReservedHeaders(this.config.headers),
+                'content-type': 'application/json',
+                accept: 'application/json',
+                authorization: `Bearer ${this.config.apiKey}`,
+              },
+              body: serializedBody,
+              signal,
             },
-            body: serializedBody,
-            signal,
-          })
+            {
+              fetchImpl: this.customFetchImpl,
+              allowLoopback: this.allowLoopback,
+              secrets,
+            },
+          )
         } catch (error) {
           throw normalizeTransportError(error, { secrets })
         }
@@ -294,22 +309,20 @@ export function createOpenAICompatibleCompletionClient(
 }
 
 
-function validateConfig(config: OpenAICompatibleModelConfig): void {
+function validateConfig(config: OpenAICompatibleModelConfig, runtime?: SsrfGuardOptions): void {
   if (!config || typeof config !== 'object') {
     throw new ReliabilityError({ kind: 'configuration', retryable: false, message: 'Completion model configuration is invalid' })
   }
   if (typeof config.baseUrl !== 'string' || config.baseUrl.trim().length === 0) {
     throw new ReliabilityError({ kind: 'configuration', retryable: false, message: 'Completion base URL is missing' })
   }
-  let url: URL
-  try {
-    url = new URL(config.baseUrl)
-  } catch {
-    throw new ReliabilityError({ kind: 'configuration', retryable: false, message: 'Completion base URL is invalid' })
-  }
-  if ((url.protocol !== 'http:' && url.protocol !== 'https:') || url.username || url.password) {
-    throw new ReliabilityError({ kind: 'configuration', retryable: false, message: 'Completion base URL must be an HTTP(S) URL without credentials' })
-  }
+  const secrets = typeof config.apiKey === 'string' && config.apiKey.length > 0 ? [config.apiKey] : undefined
+  validateOutboundUrl(config.baseUrl, {
+    allowLoopback: runtime?.allowLoopback,
+    secrets,
+    invalidMessage: 'Completion base URL is invalid',
+    credentialMessage: 'Completion base URL must be an HTTP(S) URL without credentials',
+  })
   if (typeof config.model !== 'string' || config.model.trim().length === 0 || config.model.length > 256) {
     throw new ReliabilityError({ kind: 'configuration', retryable: false, message: 'Completion model is invalid' })
   }

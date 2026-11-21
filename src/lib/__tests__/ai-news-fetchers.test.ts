@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test, vi } from "vitest"
 
 import { fetchAiNewsRawItems, parseAiNewsFeed } from "@/lib/ai-news/fetchers"
+import { collectDailyAiNewsRawItems } from "@/lib/ai-news/run/steps"
 import { FALLBACK_DAILY_AI_NEWS_SOURCES, loadDailyAiNewsSources, loadSelectedDailyAiNewsSources } from "@/lib/ai-news/sources"
 import type { AiNewsSourceConfig } from "@/lib/ai-news/types"
 
@@ -288,5 +289,112 @@ describe("AI news fetchers", () => {
       sources: [],
       missingIds: ["missing"],
     })
+  })
+
+  test("caps Hacker News item fetching concurrency at <= 6 while preserving story order", async () => {
+    const storyIds = Array.from({ length: 18 }, (_, index) => 1000 + index)
+    const source: AiNewsSourceConfig = {
+      id: "hn-concurrency",
+      type: "HACKERNEWS",
+      name: "Hacker News",
+      url: "https://news.ycombinator.com/",
+      fetchLimit: 18,
+      config: { apiBase: "https://hn.test/v0", commentLimit: 0 },
+    }
+
+    let inFlight = 0
+    let maxInFlight = 0
+    const fetchImpl = vi.fn(async (input: string | URL | Request) => {
+      const url = String(input)
+      if (url === "https://hn.test/v0/topstories.json") {
+        return jsonResponse(storyIds)
+      }
+      inFlight += 1
+      maxInFlight = Math.max(maxInFlight, inFlight)
+      await new Promise((resolve) => setTimeout(resolve, 10))
+      inFlight -= 1
+      const id = Number(url.match(/\/item\/(\d+)\.json$/)?.[1] ?? 0)
+      return jsonResponse({
+        id,
+        type: "story",
+        by: "author",
+        title: `Story ${id}`,
+        url: `https://example.com/story-${id}`,
+        score: 100,
+        time: Math.floor(new Date("2026-04-29T05:00:00Z").getTime() / 1000),
+      })
+    }) as unknown as typeof fetch
+
+    const result = await fetchAiNewsRawItems({
+      sources: [source],
+      since: new Date("2026-04-28T00:00:00Z"),
+      fetchImpl,
+    })
+
+    expect(result.failures).toEqual([])
+    expect(maxInFlight).toBeGreaterThan(1)
+    expect(maxInFlight).toBeLessThanOrEqual(6)
+    expect(result.items.map((item) => item.title)).toEqual(storyIds.map((id) => `Story ${id}`))
+  })
+
+  test("collectDailyAiNewsRawItems blocks direct and 302-redirected SSRF across RSS, HackerNews, and GitHub Releases", async () => {
+    const ssrfTargets = [
+      "http://127.0.0.1/internal",
+      "http://169.254.169.254/latest/meta-data/",
+      "http://100.100.100.200/latest/meta-data/",
+      "http://[::1]/internal",
+    ]
+
+    for (const target of ssrfTargets) {
+      const directSources: AiNewsSourceConfig[] = [
+        { id: "rss-ssrf", type: "RSS", name: "RSS SSRF", url: target },
+        {
+          id: "hn-ssrf",
+          type: "HACKERNEWS",
+          name: "HN SSRF",
+          url: "https://news.ycombinator.com/",
+          config: { apiBase: target },
+        },
+      ]
+      const directFetch = vi.fn<typeof fetch>()
+      const directResult = await collectDailyAiNewsRawItems({
+        date: new Date("2026-04-29T12:00:00Z"),
+        sourceConfigs: directSources,
+        fetchImpl: directFetch,
+      })
+      expect(directResult.items).toEqual([])
+      expect(directResult.failures).toHaveLength(2)
+      expect(directFetch).not.toHaveBeenCalled()
+
+      const redirectSources: AiNewsSourceConfig[] = [
+        { id: "rss-302", type: "RSS", name: "RSS 302", url: "https://example.com/rss.xml" },
+        {
+          id: "hn-302",
+          type: "HACKERNEWS",
+          name: "HN 302",
+          url: "https://news.ycombinator.com/",
+          config: { apiBase: "https://hn.test/v0" },
+        },
+        {
+          id: "gh-302",
+          type: "GITHUB_RELEASES",
+          name: "GH 302",
+          url: "https://github.com/vercel/ai",
+          config: { owner: "vercel", repo: "ai" },
+        },
+      ]
+      const redirectFetch = vi.fn<typeof fetch>(async () =>
+        new Response(null, { status: 302, headers: { location: target } }),
+      )
+      const redirectResult = await collectDailyAiNewsRawItems({
+        date: new Date("2026-04-29T12:00:00Z"),
+        sourceConfigs: redirectSources,
+        fetchImpl: redirectFetch,
+      })
+      expect(redirectResult.items).toEqual([])
+      expect(redirectResult.failures).toHaveLength(3)
+      // Each of the 3 sources only contacts its initial public URL once and never follows to the forbidden target
+      expect(redirectFetch).toHaveBeenCalledTimes(3)
+    }
   })
 })
