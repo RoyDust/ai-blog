@@ -1,22 +1,71 @@
 # P2 发布与恢复手册
 
-适用：2026-09-26 修复。验证结果见 [执行记录](../implementation/2026-09-26-p2-execution.md)。本文不代表已经在生产执行。
+适用：2026-09-26 修复及 2026-11-22 部署流水线加固（Unit B3）。验证结果见 [执行记录](../implementation/2026-09-26-p2-execution.md)。本文提供标准生产发布与故障恢复规程。
 
-## 发布门禁
+## 发布门禁与软链时序
 
-1. 生产 Deploy 工作流启用迁移前备份。候选镜像配置预检通过后，用与服务端 PostgreSQL 主版本相同的客户端导出 custom-format 备份并验证归档目录；备份写入 shared/backups（目录 700、文件 600），同时为旧镜像保留独立 tag。只有备份验证通过才停止旧应用及其进程内 Newsletter 发送者，然后迁移和启动新版本。备份失败不停止旧应用，临时连接信息自动清理。
-2. 在可用 Docker 环境构建候选镜像，执行 `docker compose -f docker-compose.prod.yml config --quiet`。候选镜像的 `node scripts/check-web-readiness.cjs` 通过后，再执行 `pnpm prisma migrate deploy`。远程部署脚本已固定此顺序。
-3. 应用 `20260926101000_newsletter_durable_recovery`。新增受众冻结时间、投递尝试/证据字段和核对审计表，不回填虚构的历史受众、尝试或接受时间。
-4. 替换服务后只接受 `running healthy`。最多观察 12 次，间隔 5 秒。缺失、退出、unhealthy、状态不可读或持续 starting 均非零退出。
-5. Deploy 在上传 release 前执行 scripts/deploy/smoke-web-health.sh：使用生产 Compose 健康检查和专用 PostgreSQL 容器，先确认 healthy，再停止专用数据库并断言 live=200、ready=503、Docker unhealthy，恢复后重新确认 ready=200、healthy。检查失败不会触及生产服务器；是否已通过以对应 Deploy 运行结果为准。
+1. **检出提交与目录一致性（`RESOLVED_SHA`）**：`deploy.yml` 在 `actions/checkout`（支持 `inputs.ref` 任意分支、Tag 或历史 SHA）后立即执行 `RESOLVED_SHA=$(git rev-parse HEAD)`，所有远端目录 `releases/${RESOLVED_SHA}`、`RELEASE_SHA` 与部署摘要统一使用真实检出提交，消除 `inputs.ref` 回滚时与 `${{ github.sha }}` 错位的问题。
+2. **安全环境解析与 SSH 主机指纹校验**：流水线写入 `app.env` 追加内部密钥前强制补齐末尾换行，并通过 `scripts/deploy/read-dotenv.cjs`（基于 `dotenv.parse` 严格字面解析）按白名单读取标量构建/代理参数，禁止在 Bash 中执行 `source app.env` 或 `source .env`。SSH 连接使用预置 `DEPLOY_KNOWN_HOSTS` 密钥校验远端指纹，不再动态执行 `ssh-keyscan`。
+3. **迁移前备份与停旧容器边界**：候选镜像（Next.js `output: "standalone"` + 非特权 `USER node`）通过 `node scripts/check-web-readiness.cjs` 预检后，执行 `scripts/deploy/backup-production.sh`：
+   - **存在运行中旧容器**：从旧容器环境读取连接信息、拉取同主版本 PostgreSQL 客户端导出 custom-format 备份（`shared/backups/pre-${RELEASE_SHA}-${stamp}.dump`，目录 `700`、文件 `600`）并通过 `pg_restore --list` 校验，为旧镜像打上 `my-next-app:pre-${RELEASE_SHA}-${stamp}` 标签，**随后主动执行 `docker stop --time 30` 停止旧容器及其进程内 Newsletter 发送者**。备份失败不会停止旧容器，临时凭据自动清理。
+   - **首次部署或前次部署中断导致旧容器已停止**：脚本通过 `read-dotenv.cjs` 从 `shared/.env`（或 `.env`）安全解析 `DATABASE_URL` 完成数据库版本预检、`pg_dump` 与 `pg_restore --list` 校验；若存在已停止的旧 `app` 容器，同样为其镜像保留 `my-next-app:pre-${RELEASE_SHA}-${stamp}` 标签。
+4. **严格迁移门禁（无 `db push` 兜底）**：`deploy-remote.sh` 要求 `prisma/migrations/*/` 非空并执行 `pnpm prisma migrate deploy`；若缺失迁移目录则直接打印 `Missing Prisma migrations in prisma/migrations` 并以非零状态退出，严禁回退执行 `prisma db push`。
+5. **延后切换 `current` 软链与健康门禁**：远端激活直接在 `${DEPLOY_PATH}/releases/${RESOLVED_SHA}` 目录内执行 `deploy-remote.sh`。替换服务后最多观察 12 次（间隔 5 秒），仅在容器达到 `running healthy`（Docker 健康探针请求 `http://127.0.0.1:3000/api/health/ready` 返回 `200`）后才将 `${DEPLOY_PATH}/current` 原子切换至新版本目录。若迁移或健康检查失败，`current` 软链保持指向前一个健康版本。
+6. **上传前断库冒烟与产物保留策略**：
+   - 上传 release 前，`scripts/deploy/smoke-web-health.sh` 在隔离 PostgreSQL 容器上验证 `live=200 -> ready=200 (healthy) -> 停库 live=200 & ready=503 (unhealthy) -> 恢复 ready=200 (healthy)`。
+   - 部署健康通过后自动执行保留清理（`scripts/deploy/prune-artifacts.cjs`）：仅保留最近 **5** 个 `releases/*` 目录（绝不删除当前 `current` 指向目录与当前运行版本）、最近 **5** 个 `shared/backups/*.dump` 备份文件及最近 **5** 个 `my-next-app:pre-*` 镜像标签；容器启用 `init: true` 与 `json-file` 日志轮转（`10m x 5`）。
 
-自动备份针对已有运行中的生产实例；首次部署没有旧容器时需先完成独立数据库备份，再按手动部署流程执行。备份不是自动回滚：迁移开始后失败，不自动恢复旧代码或数据库。共享 .env 与备份均不得上传为工作流产物。
+健康接口不鉴权、不缓存、不写操作审计。`ready` 仅检查 Web 必需配置及共享 Prisma 的 `SELECT 1`（读预算 2 秒；Docker 探针间隔 10 秒、超时 3 秒、启动宽限 20 秒、连续 3 次失败判为 `unhealthy`）。失败诊断仅输出固定状态与最多 20 条白名单故障信号，不输出原始日志或敏感配置值。
 
-健康接口不鉴权、不缓存、不写操作审计。ready 仅检查 Web 必需配置及共享 Prisma 的 `SELECT 1`，不代表 Worker 或供应商可用。数据库读预算 2 秒；底层探针未结束时，后续请求快速返回 503，不积累查询。Docker 探针间隔 10 秒、超时 3 秒、启动宽限 20 秒、连续 3 次失败判为不健康。
+## 迁移或健康探针失败后的停服恢复流程
 
-失败诊断只输出固定状态及白名单故障信号。输入限近 5 分钟、60 条、16 KiB，输出最多 20 个信号。读取限 5 秒，终止再留 1 秒；不输出原始日志、未知文本或秘密值。
+由于 `backup-production.sh` 在备份校验通过后已主动停止旧容器，一旦后续 `prisma migrate deploy` 失败或新容器健康检查未通过（如 `running unhealthy`），**线上处于已停服状态且不会自动回滚**（但 `${DEPLOY_PATH}/current` 仍指向停服前的上一个健康 release 目录）。请按以下三步人工闭环恢复：
 
-没有自动回滚。切回旧镜像前确认数据库兼容，并停止新旧发送执行器。新增字段可以保留，但旧代码不理解新的 unknown/attempt 核对语义，不得用旧版本自动重试新状态活动。切回镜像不等于撤销数据库迁移。
+### 第一步：停止异常新容器并核对数据库 Schema 兼容性
+
+1. 若新容器已拉起但处于 `unhealthy` / `restarting`，先停止该容器以确保无残余进程内发送者写入：
+   ```bash
+   cd "${DEPLOY_PATH}/releases/${FAILED_RELEASE_SHA}"
+   docker compose -f docker-compose.prod.yml stop app
+   ```
+2. 检查 `_prisma_migrations` 最近记录，确认当前数据库 Schema 是否与上一版代码（`${DEPLOY_PATH}/current`）兼容：
+   ```sql
+   SELECT migration_name, started_at, finished_at, rolled_back_at
+   FROM "_prisma_migrations"
+   ORDER BY started_at DESC
+   LIMIT 5;
+   ```
+   - **情形 A（迁移未改动结构或仅含向后兼容的新增表/可空列）**：上一版镜像可直接兼容当前数据库，无需导入 `.dump` 覆盖线上数据（避免抹掉近期评论、审计日志或 Newsletter 投递核对记录）。若某条迁移在未提交破坏性 DDL 前失败卡住，按 Prisma 规程核实后标记 `pnpm prisma migrate resolve --rolled-back <migration_name>`。
+   - **情形 B（迁移已产生不兼容结构变更且确需回退库）**：先将 `shared/backups/pre-${FAILED_RELEASE_SHA}-<ts>.dump` 导入独立临时库核验完整性与业务影响，确认无误后再执行恢复。切回旧镜像本身不会撤销已提交的数据库迁移。
+   - 注意：旧版本代码不理解新版本新增的 `unknown` / `attempt` 核对语义时，恢复后不得用旧版本自动重试处于新状态的活动。
+
+### 第二步：定位保留的 `my-next-app:pre-*` 镜像并重打标签
+
+从最近保留的 5 个迁移前镜像标签中选取本次部署前保留的镜像并校验其完整 `sha256` 摘要：
+
+```bash
+PREV_TAG=$(docker image ls --format '{{.Repository}}:{{.Tag}}' 'my-next-app:pre-*' | head -n 1)
+echo "Recovering with image tag: ${PREV_TAG}"
+PREV_IMAGE_ID=$(docker image inspect "${PREV_TAG}" --format '{{.Id}}')
+echo "Verified image ID: ${PREV_IMAGE_ID}"
+docker tag "${PREV_TAG}" my-next-app:latest
+```
+
+### 第三步：在上一健康版本目录重跑 `deploy-remote.sh` 并验证 `/api/health/ready`
+
+因失败部署未切换 `current` 软链，直接进入 `${DEPLOY_PATH}/current`（若需指定特定历史版本可进入 `${DEPLOY_PATH}/releases/<prev_sha>` 并传入 `RELEASE_DIR`），跳过重复备份并锁定 `PREBUILT_IMAGE_ID` 拉起服务：
+
+```bash
+cd "${DEPLOY_PATH}/current"
+BACKUP_BEFORE_DEPLOY=0 \
+  DEPLOY_PATH="${DEPLOY_PATH}" \
+  PREBUILT_IMAGE_ID="${PREV_IMAGE_ID}" \
+  bash scripts/deploy/deploy-remote.sh
+
+curl -fsS http://127.0.0.1:3000/api/health/ready
+```
+
+**恢复验收条件**：`deploy-remote.sh` 输出 `Deployment succeeded: app is healthy`（Docker 容器状态为 `running healthy`），且 `http://127.0.0.1:3000/api/health/ready` 返回 HTTP `200`（`{"status":"ready",...}`）。
 
 ## Newsletter 发送与恢复
 

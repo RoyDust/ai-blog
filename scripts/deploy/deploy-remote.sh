@@ -2,8 +2,22 @@
 
 set -euo pipefail
 
-APP_DIR="${DEPLOY_PATH:-$(pwd)}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+INVOKED_DIR="$(pwd)"
+DEPLOY_ROOT="${DEPLOY_PATH:-$INVOKED_DIR}"
 COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.prod.yml}"
+
+canonical_dir() {
+  (cd "$1" && pwd -P)
+}
+
+to_host_path() {
+  if command -v cygpath >/dev/null 2>&1; then
+    cygpath -m "$1"
+  else
+    printf '%s' "$1"
+  fi
+}
 
 clear_loopback_proxy_var() {
   local var_name="$1"
@@ -19,20 +33,65 @@ clear_loopback_proxy_var() {
   fi
 }
 
-if [[ -d "$APP_DIR/current" ]]; then
-  APP_DIR="$APP_DIR/current"
+load_scalar_dotenv_vars() {
+  local env_file="$1"
+  shift
+  local env_key env_val reader_pid
+  exec 3< <(node "$(to_host_path "$SCRIPT_DIR/read-dotenv.cjs")" "$(to_host_path "$env_file")" "$@")
+  reader_pid=$!
+  while IFS= read -r -d '' -u 3 env_key && IFS= read -r -d '' -u 3 env_val; do
+    export "$env_key=$env_val"
+  done
+  exec 3<&-
+  wait "$reader_pid"
+}
+
+prune_old_image_tags() {
+  local stale_tag
+  while IFS= read -r -d '' stale_tag; do
+    [[ -n "$stale_tag" ]] || continue
+    docker image rm "$stale_tag" >/dev/null 2>&1 || true
+  done < <(
+    docker image ls --format '{{.Repository}}:{{.Tag}}' 'my-next-app:pre-*' 2>/dev/null |
+      node "$(to_host_path "$SCRIPT_DIR/prune-artifacts.cjs")" --select-stale-tags 5 || true
+  )
+}
+
+INVOKED_REAL="$(canonical_dir "$INVOKED_DIR")"
+DEPLOY_ROOT_REAL="$(canonical_dir "$DEPLOY_ROOT")"
+
+if [[ -n "${RELEASE_DIR:-}" ]]; then
+  APP_DIR="$RELEASE_DIR"
+elif [[ "$INVOKED_REAL" != "$DEPLOY_ROOT_REAL" ]]; then
+  APP_DIR="$INVOKED_DIR"
+elif [[ -d "$DEPLOY_ROOT/current" ]]; then
+  APP_DIR="$DEPLOY_ROOT/current"
+else
+  APP_DIR="$DEPLOY_ROOT"
 fi
 
 cd "$APP_DIR"
+APP_DIR_REAL="$(canonical_dir "$APP_DIR")"
 
 if [[ ! -f .env ]]; then
   echo "Missing .env in $APP_DIR" >&2
   exit 1
 fi
 
-set -a
-source .env
-set +a
+load_scalar_dotenv_vars ".env" \
+  NEXTAUTH_URL \
+  NEXT_PUBLIC_SITE_URL \
+  COMPOSE_PROJECT_NAME \
+  HTTP_PROXY \
+  HTTPS_PROXY \
+  ALL_PROXY \
+  http_proxy \
+  https_proxy \
+  all_proxy \
+  npm_config_proxy \
+  npm_config_https_proxy \
+  NPM_CONFIG_PROXY \
+  NPM_CONFIG_HTTPS_PROXY
 
 clear_loopback_proxy_var "HTTP_PROXY"
 clear_loopback_proxy_var "HTTPS_PROXY"
@@ -70,15 +129,20 @@ fi
 docker compose -f "$COMPOSE_FILE" run --rm --no-deps app node scripts/check-web-readiness.cjs
 
 if [[ "${BACKUP_BEFORE_DEPLOY:-0}" == 1 ]]; then
-  bash scripts/deploy/backup-production.sh
+  export DEPLOY_PATH="$DEPLOY_ROOT"
+  if [[ -f scripts/deploy/backup-production.sh ]]; then
+    bash scripts/deploy/backup-production.sh
+  else
+    bash "$SCRIPT_DIR/backup-production.sh"
+  fi
 fi
 
 run_database_migrations() {
-  if compgen -G "prisma/migrations/*" > /dev/null; then
-    docker compose -f "$COMPOSE_FILE" run --rm --no-deps app pnpm prisma migrate deploy
-  else
-    docker compose -f "$COMPOSE_FILE" run --rm --no-deps app pnpm prisma db push
+  if ! compgen -G "prisma/migrations/*/" > /dev/null; then
+    echo "Missing Prisma migrations in prisma/migrations" >&2
+    exit 1
   fi
+  docker compose -f "$COMPOSE_FILE" run --rm --no-deps app pnpm prisma migrate deploy
 }
 
 # Apply additive schema changes before starting the replacement app. New code
@@ -161,6 +225,12 @@ for attempt in {1..12}; do
   }
   case "$state" in
     'running healthy')
+      if [[ -n "${RELEASE_DIR:-}" || "$APP_DIR_REAL" == "$DEPLOY_ROOT_REAL/releases/"* ]]; then
+        ln -sfn "$APP_DIR_REAL" "$DEPLOY_ROOT_REAL/current" 2>/dev/null ||
+          node "$(to_host_path "$SCRIPT_DIR/prune-artifacts.cjs")" --switch-current "$(to_host_path "$APP_DIR_REAL")" "$(to_host_path "$DEPLOY_ROOT_REAL/current")"
+      fi
+      node "$(to_host_path "$SCRIPT_DIR/prune-artifacts.cjs")" --prune-files "$(to_host_path "$DEPLOY_ROOT_REAL")" "$(to_host_path "$APP_DIR_REAL")" || true
+      prune_old_image_tags
       echo 'Deployment succeeded: app is healthy'
       docker image prune -f >/dev/null 2>&1 || true
       exit 0

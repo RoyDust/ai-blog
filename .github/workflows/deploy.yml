@@ -56,6 +56,12 @@ jobs:
         with:
           ref: ${{ inputs.ref }}
 
+      - name: Resolve checked-out commit SHA
+        run: |
+          RESOLVED_SHA="$(git rev-parse HEAD)"
+          [[ "$RESOLVED_SHA" =~ ^[a-f0-9]{40}$ ]] || { echo "Invalid resolved commit SHA" >&2; exit 1; }
+          echo "RESOLVED_SHA=${RESOLVED_SHA}" >> "$GITHUB_ENV"
+
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
@@ -83,14 +89,17 @@ jobs:
         # AI_NEWS_CRON_SECRET / CRON_SECRET 由下方 append 注入，避免手改 APP_ENV_FILE。
         # /api/cron/log-retention 只认 CRON_SECRET（middleware 精确路径注册表，不接受其他密钥代替）。
         # 详见 docs/deployment/security-hardening-runbook.md 第 1、5 节。
+        env:
+          RAW_APP_ENV_FILE: ${{ secrets.APP_ENV_FILE }}
+          RAW_AI_NEWS_CRON_SECRET: ${{ secrets.AI_NEWS_CRON_SECRET }}
+          RAW_CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          cat > app.env <<'EOF'
-          ${{ secrets.APP_ENV_FILE }}
-          EOF
-          cat >> app.env <<'EOF'
-          AI_NEWS_CRON_SECRET="${{ secrets.AI_NEWS_CRON_SECRET }}"
-          CRON_SECRET="${{ secrets.CRON_SECRET }}"
-          EOF
+          umask 077
+          printf '%s' "$RAW_APP_ENV_FILE" > app.env
+          [ -z "$(tail -c 1 app.env)" ] || printf '\n' >> app.env
+          printf 'AI_NEWS_CRON_SECRET=%s\nCRON_SECRET=%s\n' \
+            "$(node -e 'process.stdout.write(JSON.stringify(process.env.RAW_AI_NEWS_CRON_SECRET ?? ""))')" \
+            "$(node -e 'process.stdout.write(JSON.stringify(process.env.RAW_CRON_SECRET ?? ""))')" >> app.env
 
       - name: Validate production configuration before image build
         env:
@@ -102,10 +111,15 @@ jobs:
       - name: Build production Docker image
         run: |
           set -euo pipefail
-          set -a
-          source app.env
-          set +a
           install -m 600 app.env .env
+          exec 3< <(node scripts/deploy/read-dotenv.cjs app.env \
+            NEXTAUTH_URL NEXT_PUBLIC_SITE_URL COMPOSE_PROJECT_NAME)
+          reader_pid=$!
+          while IFS= read -r -d '' -u 3 env_key && IFS= read -r -d '' -u 3 env_val; do
+            export "$env_key=$env_val"
+          done
+          exec 3<&-
+          wait "$reader_pid"
           docker compose -f docker-compose.prod.yml config --quiet
           docker compose -f docker-compose.prod.yml build app
           docker save my-next-app:latest | gzip > my-next-app.tar.gz
@@ -133,7 +147,7 @@ jobs:
             --exclude '.env.development' \
             --exclude '.env.test'
           mv my-next-app.tar.gz release/my-next-app.tar.gz
-          chmod +x release/scripts/deploy/deploy-remote.sh
+          chmod +x release/scripts/deploy/deploy-remote.sh release/scripts/deploy/backup-production.sh
 
       - name: Start SSH agent
         uses: webfactory/ssh-agent@v0.10.0
@@ -141,19 +155,27 @@ jobs:
           ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
 
       - name: Add server to known hosts
+        env:
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
         run: |
+          if [ -z "${DEPLOY_KNOWN_HOSTS:-}" ]; then
+            echo "Missing DEPLOY_KNOWN_HOSTS secret" >&2
+            exit 1
+          fi
           mkdir -p ~/.ssh
-          ssh-keyscan -p "${{ secrets.DEPLOY_PORT }}" "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+          chmod 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
 
       - name: Create remote release directory
         run: |
           ssh $SSH_KEEPALIVE_OPTS -p "${{ secrets.DEPLOY_PORT }}" "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
-            "mkdir -p '${{ secrets.DEPLOY_PATH }}/releases/${{ github.sha }}' '${{ secrets.DEPLOY_PATH }}/shared'"
+            "mkdir -p '${{ secrets.DEPLOY_PATH }}/releases/${RESOLVED_SHA}' '${{ secrets.DEPLOY_PATH }}/shared'"
 
       - name: Upload release bundle
         run: |
           rsync -az --delete -e "ssh $SSH_KEEPALIVE_OPTS -p ${{ secrets.DEPLOY_PORT }}" \
-            release/ "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:${{ secrets.DEPLOY_PATH }}/releases/${{ github.sha }}/"
+            release/ "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:${{ secrets.DEPLOY_PATH }}/releases/${RESOLVED_SHA}/"
 
       - name: Upload production env file
         run: |
@@ -161,17 +183,19 @@ jobs:
 
       - name: Activate release and restart services
         run: |
-          ssh $SSH_KEEPALIVE_OPTS -p "${{ secrets.DEPLOY_PORT }}" "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" '
-            set -euo pipefail
-            ln -sfn "${{ secrets.DEPLOY_PATH }}/shared/.env" "${{ secrets.DEPLOY_PATH }}/releases/${{ github.sha }}/.env"
-            ln -sfn "${{ secrets.DEPLOY_PATH }}/releases/${{ github.sha }}" "${{ secrets.DEPLOY_PATH }}/current"
-            cd "${{ secrets.DEPLOY_PATH }}/current"
-            chmod +x scripts/deploy/deploy-remote.sh
-            BACKUP_BEFORE_DEPLOY=1 RELEASE_SHA="${{ github.sha }}" DEPLOY_PATH="${{ secrets.DEPLOY_PATH }}" bash scripts/deploy/deploy-remote.sh
-          '
+          ssh $SSH_KEEPALIVE_OPTS -p "${{ secrets.DEPLOY_PORT }}" "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+            "DEPLOY_PATH='${{ secrets.DEPLOY_PATH }}' RESOLVED_SHA='${RESOLVED_SHA}' bash -s" <<'EOF'
+          set -euo pipefail
+          release_dir="${DEPLOY_PATH}/releases/${RESOLVED_SHA}"
+          ln -sfn "${DEPLOY_PATH}/shared/.env" "${release_dir}/.env"
+          cd "${release_dir}"
+          chmod +x scripts/deploy/deploy-remote.sh scripts/deploy/backup-production.sh
+          BACKUP_BEFORE_DEPLOY=1 RELEASE_SHA="${RESOLVED_SHA}" DEPLOY_PATH="${DEPLOY_PATH}" RELEASE_DIR="${release_dir}" bash scripts/deploy/deploy-remote.sh
+          ln -sfn "${DEPLOY_PATH}/releases/${RESOLVED_SHA}" "${DEPLOY_PATH}/current"
+          EOF
 
       - name: Deployment summary
         run: |
           echo "Deployed ref: ${{ inputs.ref }}"
-          echo "Release SHA: ${{ github.sha }}"
+          echo "Release SHA: ${RESOLVED_SHA}"
           echo "Target host: ${{ secrets.DEPLOY_HOST }}"
