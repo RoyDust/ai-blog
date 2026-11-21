@@ -1,7 +1,8 @@
 import { withApiOperationLogging } from "@/lib/api-operation-log-route";
+import bcrypt from "bcryptjs"
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { ConflictError, toErrorResponse } from "@/lib/api-errors"
+import { ConflictError, NotFoundError, ValidationError, toErrorResponse } from "@/lib/api-errors"
 import { requireSession } from "@/lib/api-auth"
 import { revalidateBlogSettings } from "@/lib/cache"
 import { parseProfileUpdateInput } from "@/lib/validation"
@@ -35,13 +36,46 @@ async function GETHandler() {
 async function PATCHHandler(request: Request) {
   try {
     const session = await requireSession()
-    const { name, email, image } = parseProfileUpdateInput(await request.json())
+    const { name, email, image, currentPassword } = parseProfileUpdateInput(await request.json())
 
-    // 检查邮箱是否已被其他用户使用
+    const currentUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: {
+        id: true,
+        email: true,
+        password: true,
+        role: true,
+      },
+    })
+
+    if (!currentUser) {
+      throw new NotFoundError("User not found")
+    }
+
+    const isEmailChanged = Boolean(
+      email && email.toLowerCase() !== currentUser.email?.toLowerCase(),
+    )
+
+    if (isEmailChanged) {
+      if (!currentUser.password) {
+        throw new ValidationError("第三方登录账号暂不支持直接更换登录邮箱")
+      }
+
+      if (!currentPassword) {
+        throw new ValidationError("修改登录邮箱需验证当前登录密码")
+      }
+
+      const isPasswordValid = await bcrypt.compare(currentPassword, currentUser.password)
+      if (!isPasswordValid) {
+        throw new ValidationError("当前登录密码不正确")
+      }
+    }
+
+    // 检查邮箱是否已被其他用户使用（大小写不敏感）
     if (email) {
       const existingUser = await prisma.user.findFirst({
         where: {
-          email,
+          email: { equals: email, mode: "insensitive" },
           NOT: { id: session.user.id }
         }
       })
@@ -53,7 +87,12 @@ async function PATCHHandler(request: Request) {
 
     const updatedUser = await prisma.user.update({
       where: { id: session.user.id },
-      data: { name, email, image },
+      data: {
+        name,
+        email,
+        image,
+        ...(isEmailChanged ? { emailVerified: null } : {}),
+      },
       select: {
         id: true,
         name: true,

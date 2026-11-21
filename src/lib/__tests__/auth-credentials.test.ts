@@ -69,4 +69,19 @@ describe("password login throttling", () => {
     await expect(login(undefined, "valid-password")).rejects.toThrow("Rate limit database unavailable")
     expect(findUser).not.toHaveBeenCalled()
   })
+
+  test("normalizes whitespace and uppercase email before looking up credentials", async () => {
+    const { authOptions } = await import("@/lib/auth")
+    const provider = authOptions.providers.find((item) => item.id === "credentials") as CredentialsConfig
+    const authorize = provider.options?.authorize
+    if (!authorize) throw new Error("Credentials provider is missing")
+
+    const result = await authorize(
+      { email: "  ADMIN@Example.COM ", password: "valid-password" },
+      { headers: { "x-forwarded-for": "203.0.113.99" }, method: "POST", body: {}, query: {} },
+    )
+
+    expect(findUser).toHaveBeenCalledWith({ where: { email: "admin@example.com" } })
+    expect(result).toMatchObject({ id: "admin-1", email: "admin@example.com", role: "ADMIN" })
+  })
 })

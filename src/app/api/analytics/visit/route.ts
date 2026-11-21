@@ -18,6 +18,40 @@ function truncate(value: string | null | undefined, maxLength: number) {
   return value.length > maxLength ? value.slice(0, maxLength) : value;
 }
 
+function sanitizeReferrer(rawReferrer: unknown): string | null {
+  if (typeof rawReferrer !== "string") {
+    return null;
+  }
+
+  const trimmed = rawReferrer.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  if (trimmed.startsWith("/") && !trimmed.startsWith("//")) {
+    try {
+      return new URL(trimmed, "http://localhost").pathname;
+    } catch {
+      return null;
+    }
+  }
+
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      return null;
+    }
+
+    const rawBeforeQueryOrHash = trimmed.split(/[?#]/, 1)[0] ?? "";
+    const pathname =
+      parsed.pathname === "/" && !rawBeforeQueryOrHash.endsWith("/") ? "" : parsed.pathname;
+
+    return `${parsed.origin}${pathname}`;
+  } catch {
+    return null;
+  }
+}
+
 async function POSTHandler(request: Request) {
   try {
     const payload: unknown = await request.json().catch(() => {
@@ -40,7 +74,7 @@ async function POSTHandler(request: Request) {
       throw new TooManyRequestsError("Too many analytics requests");
     }
 
-    const referrer = truncate(typeof body.referrer === "string" ? body.referrer : null, MAX_REFERRER_LENGTH);
+    const referrer = truncate(sanitizeReferrer(body.referrer), MAX_REFERRER_LENGTH);
     const visitorId = truncate(typeof body.visitorId === "string" ? body.visitorId : null, MAX_VISITOR_ID_LENGTH);
     const userAgent = truncate(request.headers.get("user-agent"), MAX_USER_AGENT_LENGTH);
     const ipHash = hashIp(getClientIpFromHeaders(request.headers));

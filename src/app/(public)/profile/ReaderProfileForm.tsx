@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -47,17 +47,39 @@ function isAllowedAvatarUrl(value: string) {
   }
 }
 
-export const readerProfileSchema = z.object({
-  name: z.string().trim().min(1, "请输入显示名称").max(80, "显示名称最多 80 个字"),
-  email: z.string().trim().email("请输入有效的邮箱地址"),
-  image: z
-    .string()
-    .trim()
-    .max(2048, "头像链接最多 2048 个字符")
-    .refine(isAllowedAvatarUrl, {
-      message: "请输入以 http:// 或 https:// 开头的有效图片链接",
-    }),
-});
+export function createReaderProfileSchema(currentEmail = "") {
+  const normalizedCurrentEmail = currentEmail.trim().toLowerCase();
+
+  return z
+    .object({
+      name: z.string().trim().min(1, "请输入显示名称").max(80, "显示名称最多 80 个字"),
+      email: z.string().trim().email("请输入有效的邮箱地址"),
+      image: z
+        .string()
+        .trim()
+        .max(2048, "头像链接最多 2048 个字符")
+        .refine(isAllowedAvatarUrl, {
+          message: "请输入以 http:// 或 https:// 开头的有效图片链接",
+        }),
+      currentPassword: z.string().optional(),
+    })
+    .superRefine((values, ctx) => {
+      const normalizedNextEmail = values.email.trim().toLowerCase();
+      if (
+        normalizedCurrentEmail &&
+        normalizedNextEmail !== normalizedCurrentEmail &&
+        (values.currentPassword ?? "").trim().length === 0
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["currentPassword"],
+          message: "修改登录邮箱需验证当前登录密码",
+        });
+      }
+    });
+}
+
+export const readerProfileSchema = createReaderProfileSchema();
 
 export type ReaderProfileFormValues = z.infer<typeof readerProfileSchema>;
 
@@ -66,6 +88,7 @@ const PROFILE_API_ERROR_MESSAGES: Record<string, string> = {
   "Invalid email": "请输入有效的邮箱地址",
   "Invalid name": "请输入有效的显示名称",
   "Invalid image": "请输入有效的头像链接",
+  "Invalid currentPassword": "请输入有效的当前登录密码",
   "name is too long": "显示名称最多 80 个字",
   "image is too long": "头像链接最多 2048 个字符",
 };
@@ -97,21 +120,31 @@ export function ReaderProfileForm({ user }: { user: ReaderProfileUser }) {
   const router = useRouter();
   const session = useSession();
   const [savedUser, setSavedUser] = useState<ReaderProfileUser>(user);
+  const schema = useMemo(() => createReaderProfileSchema(savedUser.email), [savedUser.email]);
 
   const form = useForm<ReaderProfileFormValues>({
-    resolver: zodResolver(readerProfileSchema),
+    resolver: zodResolver(schema),
     defaultValues: {
       name: user.name,
       email: user.email,
       image: user.image,
+      currentPassword: "",
     },
   });
+
+  const watchedEmail = useWatch({ control: form.control, name: "email" });
+  const normalizedDraftEmail = (watchedEmail ?? "").trim().toLowerCase();
+  const normalizedSavedEmail = savedUser.email.trim().toLowerCase();
+  const isEmailChanged =
+    normalizedDraftEmail.length > 0 && normalizedDraftEmail !== normalizedSavedEmail;
 
   const displayName = savedUser.name || savedUser.email || "已登录账号";
   const roleLabel = savedUser.role === "ADMIN" ? "管理员（ADMIN）" : "读者账号（USER）";
 
   const onSubmit = async (values: ReaderProfileFormValues) => {
     const normalizedImage = values.image.trim();
+    const normalizedEmail = values.email.trim().toLowerCase();
+    const changingEmail = normalizedEmail !== normalizedSavedEmail;
 
     try {
       const response = await apiMutate<{
@@ -126,13 +159,14 @@ export function ReaderProfileForm({ user }: { user: ReaderProfileUser }) {
         method: "PATCH",
         body: JSON.stringify({
           name: values.name.trim(),
-          email: values.email.trim(),
+          email: normalizedEmail,
           image: normalizedImage || null,
+          ...(changingEmail ? { currentPassword: values.currentPassword ?? "" } : {}),
         }),
       });
 
       const nextName = response.data?.name ?? values.name.trim();
-      const nextEmail = response.data?.email ?? values.email.trim();
+      const nextEmail = response.data?.email ?? normalizedEmail;
       const nextImage = response.data?.image ?? (normalizedImage || "");
 
       setSavedUser((prev) => ({
@@ -146,6 +180,7 @@ export function ReaderProfileForm({ user }: { user: ReaderProfileUser }) {
         name: nextName,
         email: nextEmail,
         image: nextImage ?? "",
+        currentPassword: "",
       });
 
       if (typeof session?.update === "function") {
@@ -255,6 +290,37 @@ export function ReaderProfileForm({ user }: { user: ReaderProfileUser }) {
                 )}
               />
             </div>
+
+            {isEmailChanged ? (
+              <FormField
+                control={form.control}
+                name="currentPassword"
+                render={({ field, fieldState }) => (
+                  <FormItem className={fieldItemClassName}>
+                    <FormLabel className={fieldLabelClassName}>
+                      当前登录密码
+                      <RequiredMark />
+                    </FormLabel>
+                    <FormControl>
+                      <input
+                        aria-required="true"
+                        autoComplete="current-password"
+                        className={fieldInputClassName}
+                        placeholder="输入当前登录密码以确认更换邮箱"
+                        type="password"
+                        {...field}
+                        value={field.value ?? ""}
+                      />
+                    </FormControl>
+                    {fieldState.error ? (
+                      <FormMessage className={fieldMessageClassName} />
+                    ) : (
+                      <p className="ed-field-hint">更换登录邮箱前需验证当前账号密码。</p>
+                    )}
+                  </FormItem>
+                )}
+              />
+            ) : null}
 
             <FormField
               control={form.control}

@@ -10,7 +10,7 @@
  */
 
 import Link from "next/link";
-import { memo, useDeferredValue, useId, useRef, useState } from "react";
+import { memo, useDeferredValue, useEffect, useId, useRef, useState } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
 import remarkGfm from "remark-gfm";
@@ -22,6 +22,7 @@ import { toErrorMessage } from "@/lib/client-api";
 import { compressImageForUpload } from "@/lib/client-image-compression";
 import { uploadFileToQiniu } from "@/lib/client-qiniu-upload";
 import { cn } from "@/lib/cn";
+import { classifyMarkdownLink } from "@/lib/markdown-headings";
 
 interface MarkdownEditorProps {
   label?: string;
@@ -63,27 +64,48 @@ const previewProseClassName =
 const previewRemarkPlugins = [remarkGfm];
 const previewRehypePlugins = [rehypeHighlight];
 
+function sanitizeAnchorProps<T extends { node?: unknown; href?: unknown; target?: unknown; rel?: unknown }>(
+  props: T,
+): Omit<T, "node" | "href" | "target" | "rel"> {
+  const rest = { ...props };
+  delete rest.node;
+  delete rest.href;
+  delete rest.target;
+  delete rest.rel;
+  return rest;
+}
+
 const previewComponents: Components = {
-  a: ({ node: _node, href, children, ...props }) => {
-    void _node;
-    if (typeof href === "string" && /^https?:\/\//i.test(href)) {
+  a: ({ href, children, ...props }) => {
+    const anchorProps = sanitizeAnchorProps(props);
+    const classified = classifyMarkdownLink(typeof href === "string" ? href : undefined);
+
+    if (classified.kind === "unsafe") {
       return (
-        <a {...props} href={href} rel="noopener noreferrer" target="_blank">
+        <span className={anchorProps.className} title={anchorProps.title}>
           {children}
-        </a>
+        </span>
       );
     }
 
-    if (typeof href === "string" && href.startsWith("/") && !href.startsWith("//")) {
+    if (classified.kind === "internal") {
       return (
-        <Link {...props} href={href}>
+        <Link {...anchorProps} href={classified.href}>
           {children}
         </Link>
       );
     }
 
+    if (classified.kind === "external") {
+      return (
+        <a {...anchorProps} href={classified.href} rel={classified.rel} target={classified.target}>
+          {children}
+        </a>
+      );
+    }
+
     return (
-      <a {...props} href={href}>
+      <a {...anchorProps} href={classified.href}>
         {children}
       </a>
     );
@@ -91,6 +113,9 @@ const previewComponents: Components = {
   img: ({ src, alt }) => {
     const imageSrc = typeof src === "string" ? src : null;
     if (!imageSrc) return null;
+    if (imageSrc.startsWith("uploading://")) {
+      return <span className="font-mono text-xs text-[var(--text-muted)]">{alt || "上传中..."}</span>;
+    }
 
     return <FallbackImage alt={alt ?? ""} className="theme-media-image h-auto w-full" height={720} src={imageSrc} unoptimized width={1280} />;
   },
@@ -139,26 +164,62 @@ function getImageAltText(filename: string) {
 }
 
 /**
- * 把上传后的图片地址插入为 Markdown 图片语法。
- * 若存在选区，则替换选区；否则按段落形式追加到文末。
+ * 把 Markdown 图片语法插入到指定选区；若无选区则按段落形式追加到文末。
  */
-function insertImageMarkdown(
+function insertMarkdownToken(
   value: string,
-  imageUrl: string,
-  altText: string,
+  markdown: string,
   selectionStart?: number,
   selectionEnd?: number,
 ) {
-  const markdown = `![${altText}](${imageUrl})`;
-
   if (typeof selectionStart === "number" && typeof selectionEnd === "number") {
     const before = value.slice(0, selectionStart);
     const after = value.slice(selectionEnd);
-    return `${before}${markdown}${after}`;
+    return {
+      value: `${before}${markdown}${after}`,
+      caretPosition: before.length + markdown.length,
+    };
   }
 
   const separator = value.trim().length > 0 ? "\n\n" : "";
-  return `${value}${separator}${markdown}`;
+  const nextValue = `${value}${separator}${markdown}`;
+  return {
+    value: nextValue,
+    caretPosition: nextValue.length,
+  };
+}
+
+function resolveUploadPlaceholder(content: string, placeholder: string, finalMarkdown: string) {
+  if (content.includes(placeholder)) {
+    return content.replace(placeholder, finalMarkdown);
+  }
+
+  if (content.trim().length === 0) {
+    return finalMarkdown;
+  }
+
+  const separator = content.endsWith("\n\n") ? "" : content.endsWith("\n") ? "\n" : "\n\n";
+  return `${content}${separator}${finalMarkdown}`;
+}
+
+function removeUploadPlaceholder(content: string, placeholder: string) {
+  if (!content.includes(placeholder)) {
+    return content;
+  }
+
+  if (content.includes(`\n\n${placeholder}\n\n`)) {
+    return content.replace(`\n\n${placeholder}\n\n`, "\n\n");
+  }
+
+  if (content.endsWith(`\n\n${placeholder}`)) {
+    return content.slice(0, -`\n\n${placeholder}`.length);
+  }
+
+  if (content.startsWith(`${placeholder}\n\n`)) {
+    return content.slice(`${placeholder}\n\n`.length);
+  }
+
+  return content.replace(placeholder, "");
 }
 
 /**
@@ -197,8 +258,20 @@ export function MarkdownEditor({
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const selectionRef = useRef<{ start: number; end: number } | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
+  const latestValueRef = useRef(value);
+  const uploadSequenceRef = useRef(0);
+  const [uploadingCount, setUploadingCount] = useState(0);
   const [uploadError, setUploadError] = useState("");
+  const isUploading = uploadingCount > 0;
+
+  useEffect(() => {
+    latestValueRef.current = value;
+  }, [value]);
+
+  const emitChange = (nextValue: string) => {
+    latestValueRef.current = nextValue;
+    onChange(nextValue);
+  };
 
   const syncSelection = () => {
     const textarea = textareaRef.current;
@@ -216,9 +289,9 @@ export function MarkdownEditor({
 
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
-    const { value: nextValue, caretStart, caretEnd } = insertSnippetAt(value, snippet, start, end);
+    const { value: nextValue, caretStart, caretEnd } = insertSnippetAt(latestValueRef.current, snippet, start, end);
 
-    onChange(nextValue);
+    emitChange(nextValue);
 
     requestAnimationFrame(() => {
       const nextTextarea = textareaRef.current;
@@ -246,22 +319,53 @@ export function MarkdownEditor({
     };
   };
 
+  const runImageUploadWithPlaceholder = async (file: File, restoreCaret: boolean) => {
+    uploadSequenceRef.current += 1;
+    const uploadId =
+      typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+        ? crypto.randomUUID()
+        : `${Date.now()}-${uploadSequenceRef.current}`;
+    const placeholder = `![上传中...](uploading://${uploadId})`;
+    const storedSelection = selectionRef.current;
+    const { value: withPlaceholder, caretPosition } = insertMarkdownToken(
+      latestValueRef.current,
+      placeholder,
+      storedSelection?.start,
+      storedSelection?.end,
+    );
+
+    selectionRef.current = { start: caretPosition, end: caretPosition };
+    setUploadingCount((count) => count + 1);
+    setUploadError("");
+    emitChange(withPlaceholder);
+
+    if (restoreCaret) {
+      requestAnimationFrame(() => {
+        const nextTextarea = textareaRef.current;
+        if (!nextTextarea) return;
+        nextTextarea.setSelectionRange(caretPosition, caretPosition);
+      });
+    }
+
+    try {
+      const { url, altText } = await uploadImageFile(file);
+      const finalMarkdown = `![${altText}](${url})`;
+      emitChange(resolveUploadPlaceholder(latestValueRef.current, placeholder, finalMarkdown));
+    } catch (error) {
+      emitChange(removeUploadPlaceholder(latestValueRef.current, placeholder));
+      setUploadError(toErrorMessage(error, "上传失败"));
+    } finally {
+      setUploadingCount((count) => Math.max(0, count - 1));
+    }
+  };
+
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    setIsUploading(true);
-    setUploadError("");
-
     try {
-      const { url, altText } = await uploadImageFile(file);
-      const storedSelection = selectionRef.current;
-
-      onChange(insertImageMarkdown(value, url, altText, storedSelection?.start, storedSelection?.end));
-    } catch (error) {
-      setUploadError(toErrorMessage(error, "上传失败"));
+      await runImageUploadWithPlaceholder(file, false);
     } finally {
-      setIsUploading(false);
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
@@ -274,19 +378,7 @@ export function MarkdownEditor({
 
     event.preventDefault();
     syncSelection();
-    setIsUploading(true);
-    setUploadError("");
-
-    try {
-      const { url, altText } = await uploadImageFile(file);
-      const storedSelection = selectionRef.current;
-
-      onChange(insertImageMarkdown(value, url, altText, storedSelection?.start, storedSelection?.end));
-    } catch (error) {
-      setUploadError(toErrorMessage(error, "上传失败"));
-    } finally {
-      setIsUploading(false);
-    }
+    await runImageUploadWithPlaceholder(file, true);
   };
 
   const reduceMotion = useReducedMotion();
@@ -360,7 +452,7 @@ export function MarkdownEditor({
               placeholder="用 Markdown 写作..."
               required
               aria-required="true"
-              onChange={(e) => onChange(e.target.value)}
+              onChange={(e) => emitChange(e.target.value)}
               onClick={syncSelection}
               onKeyUp={syncSelection}
               onPaste={handlePaste}

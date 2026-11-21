@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest'
+import { describe, expect, test, vi } from 'vitest'
 
 import {
   addBookmark,
@@ -31,5 +31,24 @@ describe('bookmark local store', () => {
 
     expect(isBookmarked('hello-world')).toBe(false)
     expect(getBookmarkedSlugs()).toEqual([])
+  })
+
+  test('degrades gracefully when localStorage throws SecurityError', () => {
+    const getItemSpy = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new DOMException('Blocked', 'SecurityError')
+    })
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('Blocked', 'SecurityError')
+    })
+
+    try {
+      expect(getBookmarks()).toEqual([])
+      expect(isBookmarked('hello-world')).toBe(false)
+      expect(() => addBookmark({ slug: 'hello-world', title: 'Hello World' })).not.toThrow()
+      expect(() => removeBookmark('hello-world')).not.toThrow()
+    } finally {
+      getItemSpy.mockRestore()
+      setItemSpy.mockRestore()
+    }
   })
 })
