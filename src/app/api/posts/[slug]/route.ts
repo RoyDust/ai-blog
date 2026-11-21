@@ -1,35 +1,18 @@
 import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { revalidatePublicContent } from "@/lib/cache"
-import { parsePostPatchInput } from "@/lib/validation"
-import { canPublish, requireSession } from "@/lib/api-auth"
-import { ForbiddenError, NotFoundError, toErrorResponse } from "@/lib/api-errors"
-import { getOptionalSummaryFieldsForExcerpt } from "@/lib/post-summary-status"
+import { NotFoundError, toErrorResponse } from "@/lib/api-errors"
 
 /**
- * 文章详情 API（按 slug 访问）。
- *
- * 这里同时承担三类职责：
- * - GET：返回公开文章详情（纯读，浏览量由 analytics 信标统一累加）
- * - PATCH：作者或管理员更新文章内容，并刷新受影响的公共页面缓存
- * - DELETE：软删除文章，避免直接物理删除历史数据
+ * 公开文章详情 API（按 slug 只读访问）。
  *
  * 说明：
- * - 这里的 slug 是路由层主键，更新时仍通过查询结果里的真实 id 落库
- * - PATCH / DELETE 都需要先验证登录态，再校验资源归属或管理员身份
- */
-
-/**
- * 返回已发布文章的公开详情。
- *
- * 说明：
- * - 读取文章、作者、分类、标签、评论与点赞数量
- * - 纯读接口：浏览量只由 analytics 信标（/api/analytics/visit）累加，
- *   避免同一 PV 在两个入口重复计数
+ * - 仅返回前台阅读所需的安全公开字段，严禁暴露匿名标识 browserId、authorId 或内部 AI/排期状态列
+ * - 纯读接口：浏览量只由 analytics 信标（/api/analytics/visit）累加，避免同一 PV 重复计数
+ * - 所有文章写操作统一归口至受管理员鉴权保护的 /api/admin/posts/**
  */
 async function GETHandler(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ slug: string }> }
 ) {
   try {
@@ -37,33 +20,86 @@ async function GETHandler(
 
     const post = await prisma.post.findFirst({
       where: { slug, deletedAt: null, published: true },
-      include: {
+      select: {
+        id: true,
+        title: true,
+        slug: true,
+        content: true,
+        excerpt: true,
+        seoTitle: true,
+        seoDescription: true,
+        coverImage: true,
+        published: true,
+        featured: true,
+        viewCount: true,
+        readingTimeMinutes: true,
+        createdAt: true,
+        updatedAt: true,
+        publishedAt: true,
         author: {
-          select: { id: true, name: true, image: true }
+          select: { id: true, name: true, image: true },
         },
-        category: true,
-        tags: { where: { deletedAt: null } },
+        category: {
+          where: { deletedAt: null },
+          select: { id: true, name: true, slug: true, description: true },
+        },
+        tags: {
+          where: { deletedAt: null },
+          select: { id: true, name: true, slug: true, color: true },
+        },
+        series: {
+          where: { deletedAt: null },
+          select: {
+            id: true,
+            title: true,
+            slug: true,
+            description: true,
+            coverImage: true,
+            order: true,
+            posts: {
+              where: { deletedAt: null, published: true },
+              select: { title: true, slug: true, seriesOrder: true },
+              orderBy: [{ seriesOrder: "asc" }, { publishedAt: "desc" }, { createdAt: "desc" }],
+            },
+          },
+        },
         comments: {
           where: { parentId: null, status: "APPROVED", deletedAt: null },
-          include: {
+          select: {
+            id: true,
+            content: true,
+            authorLabel: true,
+            createdAt: true,
             author: {
-              select: { id: true, name: true, image: true }
+              select: { id: true, name: true, image: true },
             },
             replies: {
-              where: { status: "APPROVED", deletedAt: null, post: { slug, published: true, deletedAt: null } },
-              include: {
+              where: {
+                status: "APPROVED",
+                deletedAt: null,
+                post: { slug, published: true, deletedAt: null },
+              },
+              select: {
+                id: true,
+                content: true,
+                authorLabel: true,
+                createdAt: true,
                 author: {
-                  select: { id: true, name: true, image: true }
-                }
-              }
-            }
+                  select: { id: true, name: true, image: true },
+                },
+              },
+              orderBy: { createdAt: "asc" },
+            },
           },
-          orderBy: { createdAt: "desc" }
+          orderBy: { createdAt: "desc" },
         },
         _count: {
-          select: { comments: { where: { deletedAt: null, status: "APPROVED" } }, likes: true }
-        }
-      }
+          select: {
+            comments: { where: { deletedAt: null, status: "APPROVED" } },
+            likes: true,
+          },
+        },
+      },
     })
 
     if (!post) {
@@ -72,7 +108,7 @@ async function GETHandler(
 
     return NextResponse.json({
       success: true,
-      data: post
+      data: post,
     })
   } catch (error) {
     console.error("Get post error:", error)
@@ -80,151 +116,4 @@ async function GETHandler(
   }
 }
 
-/**
- * 更新文章内容。
- *
- * 权限规则：
- * - 文章作者可编辑自己的文章
- * - 管理员可编辑任意文章
- * - 只有管理员能真正控制 published 状态
- *
- * 副作用：
- * - 更新文章主体、摘要、封面、分类、标签
- * - 当 slug / 分类 / 标签 / 发布状态变化时，刷新前台缓存路径
- */
-async function PATCHHandler(
-  request: Request,
-  { params }: { params: Promise<{ slug: string }> }
-) {
-  try {
-    const session = await requireSession()
-
-    const { slug } = await params
-    const { title, content, slug: nextSlug, excerpt, coverImage, categoryId, tagIds, published } = parsePostPatchInput(await request.json())
-
-    const post = await prisma.post.findFirst({
-      where: { slug, deletedAt: null },
-      select: {
-        id: true,
-        slug: true,
-        authorId: true,
-        category: { select: { slug: true } },
-        tags: { select: { slug: true } },
-      }
-    })
-
-    if (!post) {
-      throw new NotFoundError("Post not found")
-    }
-
-    if (post.authorId !== session.user.id && session.user.role !== "ADMIN") {
-      throw new ForbiddenError()
-    }
-
-    // 作者可以提交 published 字段，但真正生效与否由角色决定。
-    const publishNow = typeof published === "boolean" ? (canPublish(session) ? published : false) : undefined
-
-    const updateData = {
-      title,
-      content,
-      ...(nextSlug ? { slug: nextSlug } : {}),
-      excerpt,
-      ...getOptionalSummaryFieldsForExcerpt(excerpt),
-      coverImage,
-      categoryId,
-      ...(typeof publishNow === "boolean" ? { published: publishNow, publishedAt: publishNow ? new Date() : null } : {}),
-      tags: tagIds ? {
-        set: tagIds.map((id: string) => ({ id }))
-      } : undefined
-    }
-
-    const updatedPost = await prisma.post.update({
-      where: { id: post.id },
-      data: updateData,
-      include: {
-        author: {
-          select: { id: true, name: true, image: true }
-        },
-        category: true,
-        tags: true
-      }
-    })
-
-    revalidatePublicContent({
-      slug: updatedPost.published ? updatedPost.slug : null,
-      previousSlug: post.slug,
-      categorySlug: updatedPost.published ? updatedPost.category?.slug : null,
-      previousCategorySlug: post.category?.slug,
-      tagSlugs: updatedPost.published ? updatedPost.tags.map((tag: { slug: string }) => tag.slug) : [],
-      previousTagSlugs: post.tags.map((tag: { slug: string }) => tag.slug),
-    })
-
-    return NextResponse.json({
-      success: true,
-      data: updatedPost
-    })
-  } catch (error) {
-    console.error("Update post error:", error)
-    return toErrorResponse(error)
-  }
-}
-
-/**
- * 软删除文章。
- *
- * 说明：
- * - 不直接删除数据库记录，而是写入 deletedAt 并取消发布
- * - 删除后同步清理前台依赖该文章的路径缓存
- */
-async function DELETEHandler(
-  request: Request,
-  { params }: { params: Promise<{ slug: string }> }
-) {
-  try {
-    const session = await requireSession()
-
-    const { slug } = await params
-
-    const post = await prisma.post.findFirst({
-      where: { slug, deletedAt: null },
-      select: {
-        id: true,
-        slug: true,
-        authorId: true,
-        category: { select: { slug: true } },
-        tags: { select: { slug: true } },
-      }
-    })
-
-    if (!post) {
-      throw new NotFoundError("Post not found")
-    }
-
-    if (post.authorId !== session.user.id && session.user.role !== "ADMIN") {
-      throw new ForbiddenError()
-    }
-
-    await prisma.post.update({
-      where: { id: post.id },
-      data: { deletedAt: new Date(), published: false, publishedAt: null }
-    })
-
-    revalidatePublicContent({
-      previousSlug: post.slug,
-      previousCategorySlug: post.category?.slug,
-      previousTagSlugs: post.tags.map((tag: { slug: string }) => tag.slug),
-    })
-
-    return NextResponse.json({
-      success: true,
-      message: "Post deleted"
-    })
-  } catch (error) {
-    console.error("Delete post error:", error)
-    return toErrorResponse(error)
-  }
-}
-
 export const GET = withApiOperationLogging(GETHandler, { scope: 'public', operation: 'public.posts.bySlug.read', route: '/api/posts/[slug]' });
-export const PATCH = withApiOperationLogging(PATCHHandler, { scope: 'public', operation: 'public.posts.bySlug.update', route: '/api/posts/[slug]' });
-export const DELETE = withApiOperationLogging(DELETEHandler, { scope: 'public', operation: 'public.posts.bySlug.delete', route: '/api/posts/[slug]' });
