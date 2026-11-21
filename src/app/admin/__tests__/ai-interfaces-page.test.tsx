@@ -1,19 +1,58 @@
 import { render, screen } from "@testing-library/react";
 import React from "react";
-import { describe, expect, test, vi } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 
-const getBlogSettingsMock = vi.hoisted(() =>
-  vi.fn().mockResolvedValue({
-    siteName: "RoyDust Blog",
-    siteUrl: "https://example.com",
-  }),
-);
+const { getBlogSettingsMock, getServerSessionMock, redirectError, redirectMock } = vi.hoisted(() => {
+  const nextRedirectError = new Error("NEXT_REDIRECT");
+  return {
+    getBlogSettingsMock: vi.fn().mockResolvedValue({
+      siteName: "RoyDust Blog",
+      siteUrl: "https://example.com",
+    }),
+    getServerSessionMock: vi.fn(),
+    redirectError: nextRedirectError,
+    redirectMock: vi.fn(() => {
+      throw nextRedirectError;
+    }),
+  };
+});
+
+vi.mock("next-auth", () => ({
+  getServerSession: getServerSessionMock,
+}));
+
+vi.mock("@/lib/auth", () => ({
+  authOptions: {},
+}));
+
+vi.mock("next/navigation", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("next/navigation")>();
+  return {
+    ...actual,
+    redirect: redirectMock,
+  };
+});
 
 vi.mock("@/lib/blog-settings", () => ({
   getBlogSettings: getBlogSettingsMock,
 }));
 
 describe("admin AI interfaces page", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getServerSessionMock.mockResolvedValue({ user: { id: "admin-1", role: "ADMIN" } });
+  });
+
+  test("redirects demoted USER sessions before reading blog settings", async () => {
+    getServerSessionMock.mockResolvedValueOnce({ user: { id: "user-1", role: "USER" } });
+
+    const { default: AdminAiInterfacesPage } = await import("../ai/interfaces/page");
+
+    await expect(AdminAiInterfacesPage()).rejects.toThrow(redirectError);
+    expect(redirectMock).toHaveBeenCalledWith("/?login=1&error=not-admin&callbackUrl=%2Fadmin");
+    expect(getBlogSettingsMock).not.toHaveBeenCalled();
+  });
+
   test("renders the AI interface catalog and agent prompt", async () => {
     const { default: AdminAiInterfacesPage } = await import("../ai/interfaces/page");
     const ui = await AdminAiInterfacesPage();

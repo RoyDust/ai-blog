@@ -65,17 +65,29 @@ export async function requireAiClient(request: Request, requiredScope: AiScope):
     where: {
       tokenHash,
       revokedAt: null,
+      owner: {
+        role: "ADMIN",
+      },
     },
     select: {
       id: true,
       ownerId: true,
       name: true,
       scopes: true,
+      owner: {
+        select: {
+          role: true,
+        },
+      },
     },
   });
 
   if (!client) {
     throw new UnauthorizedError();
+  }
+
+  if (client.owner.role !== "ADMIN") {
+    throw new ForbiddenError("AI client owner must be an admin");
   }
 
   const scopes = normalizeAiScopes(client.scopes);
@@ -101,7 +113,9 @@ export async function requireAiClient(request: Request, requiredScope: AiScope):
   });
 
   return {
-    ...client,
+    id: client.id,
+    ownerId: client.ownerId,
+    name: client.name,
     scopes,
   };
 }

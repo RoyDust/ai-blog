@@ -25,6 +25,7 @@ export type PublicProfileContent = {
   intro: string;
   githubUrl: string;
   twitterUrl: string;
+  email?: string;
 };
 
 export const PUBLIC_PROFILE_CONTENT_FALLBACK: PublicProfileContent = {
@@ -41,7 +42,7 @@ export const PUBLIC_PROFILE_FALLBACK: PublicProfile = {
   name: "Inkforge Author",
   initials: "IA",
   avatar: "https://avatars.githubusercontent.com/u/50167909",
-  email: null,
+  email: "",
   subtitle: PUBLIC_PROFILE_CONTENT_FALLBACK.subtitle,
   tagline: PUBLIC_PROFILE_CONTENT_FALLBACK.tagline,
   bio: PUBLIC_PROFILE_CONTENT_FALLBACK.bio,
@@ -64,7 +65,16 @@ export function getInitials(value: string) {
   return [...normalized].slice(0, 2).join("").toUpperCase();
 }
 
-function profileLinks(content: PublicProfileContent, email: string | null): PublicProfileLink[] {
+function resolvePublicProfileEmail(content?: PublicProfileContent): string {
+  const configuredEmail = typeof content?.email === "string" ? content.email.trim() : "";
+  if (configuredEmail) {
+    return configuredEmail;
+  }
+
+  return process.env.NEXT_PUBLIC_CONTACT_EMAIL?.trim() || "";
+}
+
+function profileLinks(content: PublicProfileContent, email: string): PublicProfileLink[] {
   const links: Array<PublicProfileLink | null> = [
     content.githubUrl ? { kind: "github" as const, name: "GitHub", url: content.githubUrl } : null,
     content.twitterUrl ? { kind: "twitter" as const, name: "Twitter", url: content.twitterUrl } : null,
@@ -75,24 +85,27 @@ function profileLinks(content: PublicProfileContent, email: string | null): Publ
 }
 
 function mergeFallbackProfileContent(content: PublicProfileContent): PublicProfile {
+  const email = resolvePublicProfileEmail(content);
+
   return {
     ...PUBLIC_PROFILE_FALLBACK,
+    email,
     subtitle: content.subtitle,
     tagline: content.tagline,
     bio: content.bio,
     intro: content.intro,
-    links: profileLinks(content, PUBLIC_PROFILE_FALLBACK.email),
+    links: profileLinks(content, email),
   };
 }
 
 export function mergePublicProfileUser(
-  user: { name?: string | null; email?: string | null; image?: string | null } | null,
+  user: { name?: string | null; image?: string | null } | null,
   content = PUBLIC_PROFILE_CONTENT_FALLBACK,
 ): PublicProfile {
   if (!user) return mergeFallbackProfileContent(content);
 
   const name = user.name?.trim() || PUBLIC_PROFILE_FALLBACK.name;
-  const email = user.email?.trim() || null;
+  const email = resolvePublicProfileEmail(content);
 
   return {
     ...PUBLIC_PROFILE_FALLBACK,

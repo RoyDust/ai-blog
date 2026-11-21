@@ -9,6 +9,7 @@ import { AdminSectionHeader } from "@/components/admin/primitives/SectionHeader"
 import { StatusBadge } from "@/components/admin/primitives/StatusBadge"
 import { Button } from "@/components/admin/ui"
 import { ActiveUnderline, EmptyState } from "@/components/editorial"
+import { requireAdminPageSession } from "@/lib/admin-page-auth"
 import { requireAdminSession } from "@/lib/api-auth"
 import { createDraftFromTopic, listAiTopics, materializeTopicsFromRecentCandidates, updateAiTopic } from "@/lib/ai-topic-radar"
 
@@ -185,6 +186,7 @@ export default async function AdminAiTopicsPage({
 }: {
   searchParams: Promise<AiTopicsPageSearchParams>
 }) {
+  await requireAdminPageSession()
   const params = await searchParams
   const activeStatus = params.status ?? "NEW"
   const topics = await listAiTopics({ status: activeStatus })
