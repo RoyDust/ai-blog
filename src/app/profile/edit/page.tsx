@@ -1,5 +1,5 @@
-import { redirect } from 'next/navigation'
+import { redirect } from "next/navigation";
 
-export default async function EditProfilePage() {
-  redirect('/admin')
+export default function EditProfilePage() {
+  return redirect("/profile");
 }

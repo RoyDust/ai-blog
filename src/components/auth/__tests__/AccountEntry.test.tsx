@@ -72,8 +72,10 @@ describe("AccountEntry", () => {
 
     fireEvent.keyDown(screen.getByRole("button", { name: "账号菜单" }), { key: "ArrowDown" });
 
-    expect(await screen.findByText("个人资料")).toBeInTheDocument();
-    expect(screen.getByText("我的收藏")).toBeInTheDocument();
+    const profileItem = await screen.findByRole("menuitem", { name: "个人资料" });
+    const bookmarksItem = screen.getByRole("menuitem", { name: "我的收藏" });
+    expect(profileItem).toHaveAttribute("href", "/profile");
+    expect(bookmarksItem).toHaveAttribute("href", "/bookmarks");
     expect(screen.queryByText("控制台")).not.toBeInTheDocument();
     expect(screen.queryByText("写文章")).not.toBeInTheDocument();
   });
