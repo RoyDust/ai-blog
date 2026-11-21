@@ -54,7 +54,18 @@ function ReconciliationForm({ campaignId, delivery, onChanged }: { campaignId: s
 
 export function NewsletterDeliveryPanel({ campaignId, onChanged, onClose }: { campaignId: string; onChanged: () => void; onClose: () => void }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const { data, error, isLoading, mutate } = useSWR<{ data: { title: string; status: string; audienceFrozenAt: string | null; deliveries: Delivery[] } }>(`/api/admin/newsletter/campaigns/${campaignId}`, apiFetcher, { revalidateOnMount: true, onError: (error, key) => { handleGlobalSwrError(error, key); toast.error(toErrorMessage(error, "收件记录加载失败")); } });
+  const { data, error, isLoading, mutate } = useSWR<{ data: { title: string; status: string; audienceFrozenAt: string | null; deliveries: Delivery[] } }>(
+    `/api/admin/newsletter/campaigns/${campaignId}`,
+    apiFetcher,
+    {
+      revalidateOnMount: true,
+      refreshInterval: (latestData) => (latestData?.data?.status === "SENDING" ? 2000 : 0),
+      onError: (error, key) => {
+        handleGlobalSwrError(error, key);
+        toast.error(toErrorMessage(error, "收件记录加载失败"));
+      },
+    },
+  );
   const selected = data?.data.deliveries.find((delivery) => delivery.id === selectedId && delivery.status === "unknown");
   const deliveries = data?.data.deliveries ?? [];
   return <section aria-label="活动收件记录" className="mt-5 space-y-4 border-y border-[var(--reader-border-strong)] py-4">

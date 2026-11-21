@@ -1,24 +1,21 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import useSWR, { useSWRConfig } from "swr";
-import { z } from "zod";
 
 import { DataTable, type DataColumn } from "@/components/admin/DataTable";
-import { EntityFormShell } from "@/components/admin/forms/EntityFormShell";
 import { MetricStrip } from "@/components/admin/lists";
 import { adminTextActionClassName } from "@/components/admin/primitives/admin-classes";
 import { PageHeader } from "@/components/admin/primitives/PageHeader";
 import { StatusBadge } from "@/components/admin/primitives/StatusBadge";
 import { collapseMotion } from "@/components/editorial";
-import { Button, Input, Textarea } from "@/components/admin/ui";
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/shadcn/ui/form";
 import { apiFetcher, apiMutate, handleGlobalSwrError, toErrorMessage } from "@/lib/client-api";
+import type { NewsletterMailerStatus } from "@/lib/newsletter-campaigns";
+import { NewsletterCampaignFormCard } from "./NewsletterCampaignFormCard";
 import { NewsletterDeliveryPanel } from "./NewsletterDeliveryPanel";
+import { NewsletterMailerNotice } from "./NewsletterMailerNotice";
 
 type CampaignStatus = "DRAFT" | "SENDING" | "SENT" | "PARTIAL_FAILED" | "FAILED";
 
@@ -49,12 +46,7 @@ type SubscriberStats = {
   unsubscribed: number;
 };
 
-type CampaignForm = {
-  title: string;
-  subject: string;
-  intro: string;
-  postIds: string;
-};
+const SENDING_POLL_INTERVAL_MS = 2000;
 
 const emptySubscriberStats: SubscriberStats = {
   total: 0,
@@ -63,20 +55,6 @@ const emptySubscriberStats: SubscriberStats = {
   unsubscribed: 0,
 };
 
-const initialForm: CampaignForm = {
-  title: "",
-  subject: "",
-  intro: "",
-  postIds: "",
-};
-
-const campaignFormSchema = z.object({
-  title: z.string().trim().min(1, "请输入活动名称"),
-  subject: z.string().trim().min(1, "请输入邮件主题"),
-  intro: z.string(),
-  postIds: z.string(),
-});
-
 const statusMeta: Record<CampaignStatus, { label: string; tone: "muted" | "success" | "warning" | "danger" | "info" }> = {
   DRAFT: { label: "草稿", tone: "muted" },
   SENDING: { label: "发送中", tone: "info" },
@@ -84,10 +62,6 @@ const statusMeta: Record<CampaignStatus, { label: string; tone: "muted" | "succe
   PARTIAL_FAILED: { label: "部分失败", tone: "warning" },
   FAILED: { label: "发送失败", tone: "danger" },
 };
-
-function parsePostIds(value: string) {
-  return Array.from(new Set(value.split(/[\s,，]+/).map((item) => item.trim()).filter(Boolean)));
-}
 
 function formatDate(value: string | null | undefined) {
   if (!value) {
@@ -129,20 +103,18 @@ export default function AdminNewsletterPage() {
   const { mutate } = useSWRConfig();
   const [busyCampaignId, setBusyCampaignId] = useState<string | null>(null);
   const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null);
-  const campaignForm = useForm<CampaignForm>({
-    resolver: zodResolver(campaignFormSchema),
-    defaultValues: initialForm,
-  });
 
   const {
     data: campaignsResponse,
     isLoading: campaignsLoading,
     mutate: mutateCampaigns,
-  } = useSWR<{ success?: boolean; data?: CampaignRow[] }>(
+  } = useSWR<{ success?: boolean; data?: CampaignRow[]; mailer?: NewsletterMailerStatus }>(
     "/api/admin/newsletter/campaigns?page=1&limit=20",
     apiFetcher,
     {
       revalidateOnMount: true,
+      refreshInterval: (latestData) =>
+        latestData?.data?.some((item) => item.status === "SENDING") ? SENDING_POLL_INTERVAL_MS : 0,
       onError: (swrError, key) => {
         handleGlobalSwrError(swrError, key);
         toast.error(toErrorMessage(swrError, "邮件活动加载失败"));
@@ -150,10 +122,7 @@ export default function AdminNewsletterPage() {
     },
   );
 
-  const {
-    data: subscribersResponse,
-    isLoading: subscribersLoading,
-  } = useSWR<{ success?: boolean; stats?: SubscriberStats }>(
+  const { data: subscribersResponse, isLoading: subscribersLoading } = useSWR<{ success?: boolean; stats?: SubscriberStats }>(
     "/api/admin/newsletter/subscribers?status=all&limit=5",
     apiFetcher,
     {
@@ -170,42 +139,53 @@ export default function AdminNewsletterPage() {
   const loading = campaignsLoading || subscribersLoading;
   const reduceMotion = useReducedMotion();
 
-  async function createCampaign(values: CampaignForm) {
-    try {
-      await apiMutate("/api/admin/newsletter/campaigns", {
-        method: "POST",
-        body: JSON.stringify({
-          title: values.title,
-          subject: values.subject,
-          intro: values.intro,
-          postIds: parsePostIds(values.postIds),
-        }),
-      });
+  const runCampaignAction = useCallback(
+    async (campaignId: string, action: "send" | "retry" | "recover") => {
+      if (
+        action === "recover" &&
+        !window.confirm(
+          "请先在运行环境确认旧发送进程已经停止。恢复不会停止仍在运行的进程。确认已停止后，将未完成尝试标为未知，待核对后处理。",
+        )
+      ) {
+        return;
+      }
 
-      toast.success("邮件活动草稿已创建");
-      campaignForm.reset(initialForm);
-      void mutateCampaigns();
-    } catch (error) {
-      toast.error(toErrorMessage(error, "邮件活动创建失败"));
-    }
-  }
+      try {
+        setBusyCampaignId(campaignId);
+        const result = await apiMutate<{ data?: { status?: CampaignStatus } }>(
+          `/api/admin/newsletter/campaigns/${campaignId}/${action}`,
+          {
+            method: "POST",
+            ...(action === "recover" ? { body: JSON.stringify({ senderStopped: true }) } : {}),
+          },
+        );
 
-  const runCampaignAction = useCallback(async (campaignId: string, action: "send" | "retry" | "recover") => {
-    if (action === "recover" && !window.confirm("请先在运行环境确认旧发送进程已经停止。恢复不会停止仍在运行的进程。确认已停止后，将未完成尝试标为未知，待核对后处理。")) return;
-    try {
-      setBusyCampaignId(campaignId);
-      await apiMutate(`/api/admin/newsletter/campaigns/${campaignId}/${action}`, { method: "POST", ...(action === "recover" ? { body: JSON.stringify({ senderStopped: true }) } : {}) });
-
-      toast.success(action === "send" ? "邮件发送任务已执行" : action === "retry" ? "失败收件人已重试" : "发送状态已恢复");
-    } catch (error) {
-      toast.error(
-        toErrorMessage(error, action === "send" ? "邮件发送失败" : action === "retry" ? "失败重试失败" : "发送状态恢复失败"),
-      );
-    } finally {
-      setBusyCampaignId(null);
-      await Promise.allSettled([mutateCampaigns(), mutate(`/api/admin/newsletter/campaigns/${campaignId}`)]);
-    }
-  }, [mutateCampaigns, mutate]);
+        const isBackgroundSending = result?.data?.status === "SENDING";
+        toast.success(
+          action === "send"
+            ? isBackgroundSending
+              ? "邮件发送已启动，正在后台投递"
+              : "邮件发送任务已执行"
+            : action === "retry"
+              ? isBackgroundSending
+                ? "失败重试已启动，正在后台投递"
+                : "失败收件人已重试"
+              : "发送状态已恢复",
+        );
+      } catch (error) {
+        toast.error(
+          toErrorMessage(
+            error,
+            action === "send" ? "邮件发送失败" : action === "retry" ? "失败重试失败" : "发送状态恢复失败",
+          ),
+        );
+      } finally {
+        setBusyCampaignId(null);
+        await Promise.allSettled([mutateCampaigns(), mutate(`/api/admin/newsletter/campaigns/${campaignId}`)]);
+      }
+    },
+    [mutateCampaigns, mutate],
+  );
 
   const columns = useMemo<DataColumn<CampaignRow>[]>(
     () => [
@@ -248,7 +228,12 @@ export default function AdminNewsletterPage() {
           <span className="flex items-center gap-3">
             <button
               className={adminTextActionClassName}
-              disabled={busyCampaignId === row.id || row.status === "SENDING" || row.status === "SENT" || (row.status !== "DRAFT" && !(row.deliveryStats?.pending))}
+              disabled={
+                busyCampaignId === row.id ||
+                row.status === "SENDING" ||
+                row.status === "SENT" ||
+                (row.status !== "DRAFT" && !row.deliveryStats?.pending)
+              }
               onClick={() => void runCampaignAction(row.id, "send")}
               type="button"
             >
@@ -256,7 +241,11 @@ export default function AdminNewsletterPage() {
             </button>
             <button
               className={adminTextActionClassName}
-              disabled={busyCampaignId === row.id || (row.status !== "PARTIAL_FAILED" && row.status !== "FAILED") || !row.deliveryStats?.failed}
+              disabled={
+                busyCampaignId === row.id ||
+                (row.status !== "PARTIAL_FAILED" && row.status !== "FAILED") ||
+                !row.deliveryStats?.failed
+              }
               onClick={() => void runCampaignAction(row.id, "retry")}
               type="button"
             >
@@ -301,9 +290,7 @@ export default function AdminNewsletterPage() {
         ]}
       />
 
-      <p className="mt-3 text-xs leading-5 text-[var(--text-muted)]">
-        已接受仅表示适配器接受，不保证到达邮箱。log 为模拟发送，noop 不发送真实邮件。未知结果不会自动重发。
-      </p>
+      <NewsletterMailerNotice mailer={campaignsResponse?.mailer} />
 
       <AnimatePresence initial={false}>
         {selectedCampaignId ? (
@@ -332,69 +319,11 @@ export default function AdminNewsletterPage() {
         />
 
         <div className="order-first 2xl:order-none">
-
-        <EntityFormShell title="创建邮件活动" description="输入文章 ID 后生成一个可发送的草稿。">
-          <Form {...campaignForm}>
-            <form className="grid items-start gap-4 md:grid-cols-2 2xl:grid-cols-1" onSubmit={campaignForm.handleSubmit(createCampaign)}>
-              <FormField
-                control={campaignForm.control}
-                name="title"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>活动名称</FormLabel>
-                    <FormControl>
-                      <Input placeholder="本周精选" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={campaignForm.control}
-                name="subject"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>邮件主题</FormLabel>
-                    <FormControl>
-                      <Input placeholder="本周值得读的文章" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={campaignForm.control}
-                name="intro"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>开场说明</FormLabel>
-                    <FormControl>
-                      <Textarea placeholder="写给订阅者的一段简短导语" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={campaignForm.control}
-                name="postIds"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>文章 ID</FormLabel>
-                    <FormControl>
-                      <Input placeholder="post-1, post-2" {...field} />
-                    </FormControl>
-                    <FormDescription>用逗号或换行分隔多个已发布文章 ID。</FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <Button className="justify-self-start md:col-span-2 2xl:col-span-1" disabled={campaignForm.formState.isSubmitting} type="submit">
-                {campaignForm.formState.isSubmitting ? "创建中..." : "创建草稿"}
-              </Button>
-            </form>
-          </Form>
-        </EntityFormShell>
+          <NewsletterCampaignFormCard
+            onCreated={() => {
+              void mutateCampaigns();
+            }}
+          />
         </div>
       </div>
     </div>
