@@ -19,6 +19,7 @@ const navLinks = [
   { name: "首页", href: "/" },
   { name: "文章", href: "/posts" },
   { name: "系列", href: "/series" },
+  { name: "专题", href: "/guides" },
   { name: "归档", href: "/archives" },
   { name: "关于", href: "/about" },
 ];

@@ -50,6 +50,8 @@ describe("register page", () => {
     expect(screen.getByRole("checkbox")).toHaveClass("ed-checkbox");
     expect(screen.getByRole("button", { name: "创建账号" })).toHaveClass("ed-btn", "ed-btn--block");
     expect(screen.getByRole("button", { name: "使用 GitHub 注册" })).toHaveClass("ed-btn-outline", "ed-btn--block");
+    expect(screen.getByRole("link", { name: "《服务条款》" })).toHaveAttribute("href", "/terms");
+    expect(screen.getByRole("link", { name: "《隐私政策》" })).toHaveAttribute("href", "/privacy");
     expect(screen.getByRole("link", { name: "去登录" })).toHaveAttribute("href", expect.stringContaining("login=1"));
     expect(container.querySelector("svg, .card-base")).toBeNull();
   });

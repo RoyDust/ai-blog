@@ -2,7 +2,8 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { beforeEach, expect, test, vi } from "vitest";
 import { Navbar } from "@/components/layout/Navbar";
 
-const { refresh, toggleTheme, useSession } = vi.hoisted(() => ({
+const { pathname, refresh, toggleTheme, useSession } = vi.hoisted(() => ({
+  pathname: { current: "/" },
   refresh: vi.fn(),
   toggleTheme: vi.fn(),
   useSession: vi.fn(),
@@ -20,11 +21,12 @@ vi.mock("next-auth/react", () => ({
 }));
 
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/",
+  usePathname: () => pathname.current,
   useRouter: () => ({ refresh }),
 }));
 
 beforeEach(() => {
+  pathname.current = "/";
   refresh.mockReset();
   toggleTheme.mockReset();
   useSession.mockReset();
@@ -37,7 +39,7 @@ function scrollTo(y: number) {
   fireEvent.scroll(window);
 }
 
-const navHrefs = ["/", "/posts", "/series", "/archives", "/about"];
+const navHrefs = ["/", "/posts", "/series", "/guides", "/archives", "/about"];
 
 test("navbar keeps its desktop navigation centered with a flexible search slot", () => {
   const { container } = render(<Navbar />);
@@ -64,7 +66,7 @@ test("navbar keeps its desktop navigation centered with a flexible search slot",
   const primary = screen.getByRole("navigation", { name: "Primary" });
   const links = within(primary).getAllByRole("link");
   expect(links.map((link) => link.getAttribute("href"))).toEqual(navHrefs);
-  expect(links.map((link) => link.textContent)).toEqual(["首页", "文章", "系列", "归档", "关于"]);
+  expect(links.map((link) => link.textContent)).toEqual(["首页", "文章", "系列", "专题", "归档", "关于"]);
   links.forEach((link) => {
     expect(link).toHaveClass("ed-tab");
     expect(link.querySelector("svg")).toBeNull();
@@ -204,4 +206,15 @@ test("navbar always reappears near the top without waiting for the full distance
 
   scrollTo(100);
   expect(navbar).not.toHaveClass("-translate-y-full");
+});
+
+test("navbar marks 专题 active when viewing /guides detail routes", () => {
+  pathname.current = "/guides/rag-roadmap";
+  render(<Navbar />);
+
+  const primary = screen.getByRole("navigation", { name: "Primary" });
+  const guidesLink = within(primary).getByRole("link", { name: "专题" });
+  expect(guidesLink).toHaveAttribute("href", "/guides");
+  expect(guidesLink).toHaveAttribute("aria-current", "page");
+  expect(within(primary).getByRole("link", { name: "首页" })).not.toHaveAttribute("aria-current");
 });

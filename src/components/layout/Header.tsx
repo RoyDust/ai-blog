@@ -9,6 +9,7 @@ export interface HeaderProps {
 const primaryLinks = [
   { href: "/", label: "探索" },
   { href: "/posts", label: "文章" },
+  { href: "/guides", label: "专题" },
   { href: "/categories", label: "分类" },
   { href: "/tags", label: "标签" },
   { href: "/admin/posts/new", label: "创作" },

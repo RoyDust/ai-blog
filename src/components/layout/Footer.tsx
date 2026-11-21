@@ -3,6 +3,7 @@ import Link from "next/link";
 const footerLinks = [
   { href: "/posts", label: "文章" },
   { href: "/series", label: "系列" },
+  { href: "/guides", label: "专题" },
   { href: "/categories", label: "分类" },
   { href: "/archives", label: "归档" },
   { href: "/rss.xml", label: "RSS", ariaLabel: "RSS 订阅", external: true },

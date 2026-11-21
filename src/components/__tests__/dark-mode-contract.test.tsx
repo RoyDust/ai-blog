@@ -94,12 +94,22 @@ test('auth entry points stop depending on hand-authored gray and blue theme pair
   expect(accountEntrySource).not.toMatch(/rounded-(?:xl|2xl|full) [^"]*shadow/)
 })
 
-test('retired profile routes redirect into admin instead of rendering a separate surface', () => {
-  const profileSource = readSource('src/app/profile/page.tsx')
+test('reader profile surfaces rely on semantic tokens and legacy /profile/edit redirects to /profile', () => {
+  const profileSource = readSource('src/app/(public)/profile/page.tsx')
+  const profileFormSource = readSource('src/app/(public)/profile/ReaderProfileForm.tsx')
   const profileEditSource = readSource('src/app/profile/edit/page.tsx')
-  const combined = `${profileSource}\n${profileEditSource}`
+  const combined = `${profileSource}\n${profileFormSource}`
 
-  expect(combined).toContain("redirect('/admin')")
+  expect(combined).toContain('var(--')
+  expect(combined).not.toMatch(/text-rose-\d+/)
+  expect(combined).not.toMatch(/text-gray-\d+/)
+  expect(combined).not.toMatch(/bg-gray-\d+/)
+  expect(combined).not.toMatch(/border-gray-\d+/)
+  expect(combined).not.toMatch(/text-blue-\d+/)
+  expect(combined).not.toMatch(/bg-blue-\d+/)
+  expect(combined).not.toMatch(/dark:text-/)
+  expect(profileEditSource).toContain('redirect("/profile")')
+  expect(profileEditSource).not.toContain('/admin')
 })
 
 test('reading surfaces avoid hard-coded dark code blocks and rely on tokens', () => {
