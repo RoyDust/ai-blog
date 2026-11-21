@@ -40,6 +40,11 @@ describe("admin post review route", () => {
       DASHSCOPE_BASE_URL: "https://dashscope.aliyuncs.com/compatible-mode/v1",
       DASHSCOPE_MODEL: "qwen3.5-flash",
     };
+    delete process.env.DATABASE_URL;
+    delete process.env.DIRECT_URL;
+    delete process.env.AI_OPENAI_COMPAT_API_KEY;
+    delete process.env.AI_OPENAI_COMPAT_BASE_URL;
+    delete process.env.AI_OPENAI_COMPAT_MODEL;
   });
 
   afterEach(() => {

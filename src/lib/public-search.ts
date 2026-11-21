@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
 
 /**
@@ -12,6 +13,8 @@ export const PUBLIC_SEARCH_SCORE_WEIGHTS = {
   category: 2,
   tags: 2,
 } as const
+
+export const PUBLIC_SEARCH_CONTENT_SNIPPET_MAX_LENGTH = 240
 
 export type PublicSearchInput = {
   query: string
@@ -29,9 +32,12 @@ type SearchPostRecord = {
   title: string
   slug: string
   excerpt: string | null
-  content: string | null
+  contentSnippet: string | null
   coverImage: string | null
+  featured?: boolean
   createdAt: Date
+  readingTimeMinutes?: number
+  viewCount?: number
   author: {
     id: string
     name: string | null
@@ -59,6 +65,7 @@ type RankedSearchItem = {
   id: string
   score: number | string | bigint
   hitFields: string[] | null
+  contentSnippet?: string | null
 }
 
 type RankedSearchEnvelope = {
@@ -66,12 +73,46 @@ type RankedSearchEnvelope = {
   items: RankedSearchItem[] | null
 }
 
-const PUBLIC_SEARCH_POST_INCLUDE = {
+type HydratedSearchPostRecord = Omit<SearchPostRecord, "contentSnippet" | "category" | "tags"> & {
+  content?: string | null
+  category: {
+    name?: string | null
+    slug?: string | null
+    deletedAt?: Date | string | null
+  } | null
+  tags: Array<{
+    name?: string | null
+    slug?: string | null
+    deletedAt?: Date | string | null
+  }>
+}
+
+export const PUBLIC_SEARCH_POST_SELECT = {
+  id: true,
+  title: true,
+  slug: true,
+  excerpt: true,
+  coverImage: true,
+  featured: true,
+  createdAt: true,
+  readingTimeMinutes: true,
+  viewCount: true,
   author: { select: { id: true, name: true, image: true } },
-  category: true,
-  tags: { where: { deletedAt: null } },
-  _count: { select: { comments: { where: { deletedAt: null, status: "APPROVED" } }, likes: true } },
-} as const
+  category: {
+    where: { deletedAt: null },
+    select: { name: true, slug: true },
+  },
+  tags: {
+    where: { deletedAt: null },
+    select: { name: true, slug: true },
+  },
+  _count: {
+    select: {
+      comments: { where: { deletedAt: null, status: "APPROVED" } },
+      likes: true,
+    },
+  },
+} satisfies Prisma.PostSelect
 
 function escapeLikePattern(value: string) {
   return value.replace(/[\\%_]/g, (character) => `\\${character}`)
@@ -81,6 +122,12 @@ function toInteger(value: number | string | bigint | null | undefined) {
   if (typeof value === "bigint") return Number(value)
   if (typeof value === "string") return Number(value)
   return value ?? 0
+}
+
+function toBoundedContentSnippet(value: unknown): string | null {
+  if (typeof value !== "string") return null
+  const sliced = value.slice(0, PUBLIC_SEARCH_CONTENT_SNIPPET_MAX_LENGTH)
+  return sliced.length > 0 ? sliced : null
 }
 
 function normalizePagination({ page, limit }: Pick<PublicSearchInput, "page" | "limit">) {
@@ -95,8 +142,9 @@ function normalizePagination({ page, limit }: Pick<PublicSearchInput, "page" | "
 }
 
 /**
- * Runs the complete public search ranking in PostgreSQL, then hydrates only the
- * selected page through the shared Prisma client.
+ * Runs the complete public search ranking in PostgreSQL, extracts only a bounded
+ * content prefix for the selected page, and hydrates card metadata via a narrow
+ * Prisma select omitting full `Post.content`.
  */
 export async function searchPublicPosts(input: PublicSearchInput): Promise<{
   items: PublicSearchPost[]
@@ -116,7 +164,7 @@ export async function searchPublicPosts(input: PublicSearchInput): Promise<{
         (p."excerpt" ILIKE ${pattern} ESCAPE E'\\\\') AS excerpt_hit,
         (p."content" ILIKE ${pattern} ESCAPE E'\\\\') AS content_hit,
         (u."name" ILIKE ${pattern} ESCAPE E'\\\\') AS author_hit,
-        (c."name" ILIKE ${pattern} ESCAPE E'\\\\') AS category_hit,
+        (c."deletedAt" IS NULL AND c."name" ILIKE ${pattern} ESCAPE E'\\\\') AS category_hit,
         EXISTS (
           SELECT 1
           FROM "_PostToTag" pt
@@ -124,19 +172,10 @@ export async function searchPublicPosts(input: PublicSearchInput): Promise<{
           WHERE pt."A" = p."id"
             AND t."deletedAt" IS NULL
             AND t."name" ILIKE ${pattern} ESCAPE E'\\\\'
-        ) AS tags_hit,
-        -- Keep the legacy relation predicate for candidate eligibility. The
-        -- response metadata still ignores soft-deleted tags via tags_hit.
-        EXISTS (
-          SELECT 1
-          FROM "_PostToTag" pt
-          INNER JOIN "tags" t ON t."id" = pt."B"
-          WHERE pt."A" = p."id"
-            AND t."name" ILIKE ${pattern} ESCAPE E'\\\\'
-        ) AS tag_candidate_hit
+        ) AS tags_hit
       FROM "posts" p
       LEFT JOIN "users" u ON u."id" = p."authorId"
-      LEFT JOIN "categories" c ON c."id" = p."categoryId"
+      LEFT JOIN "categories" c ON c."id" = p."categoryId" AND c."deletedAt" IS NULL
     ), candidates AS (
       SELECT
         "id",
@@ -164,7 +203,7 @@ export async function searchPublicPosts(input: PublicSearchInput): Promise<{
       WHERE "published" = true
         AND "deletedAt" IS NULL
         AND (
-          title_hit OR excerpt_hit OR content_hit OR author_hit OR category_hit OR tag_candidate_hit
+          title_hit OR excerpt_hit OR content_hit OR author_hit OR category_hit OR tags_hit
         )
     ), ranked_page AS (
       SELECT "id", "createdAt", score, "hitFields"
@@ -181,11 +220,13 @@ export async function searchPublicPosts(input: PublicSearchInput): Promise<{
             jsonb_build_object(
               'id', ranked_page."id",
               'score', ranked_page.score,
-              'hitFields', ranked_page."hitFields"
+              'hitFields', ranked_page."hitFields",
+              'contentSnippet', LEFT(p_snippet."content", 240)
             )
             ORDER BY ranked_page.score DESC, ranked_page."createdAt" DESC, ranked_page."id" DESC
           )
           FROM ranked_page
+          INNER JOIN "posts" p_snippet ON p_snippet."id" = ranked_page."id"
         ),
         '[]'::jsonb
       ) AS "items"
@@ -210,17 +251,46 @@ export async function searchPublicPosts(input: PublicSearchInput): Promise<{
       published: true,
       deletedAt: null,
     },
-    include: PUBLIC_SEARCH_POST_INCLUDE,
-  })) as unknown as SearchPostRecord[]
+    select: PUBLIC_SEARCH_POST_SELECT,
+  })) as unknown as HydratedSearchPostRecord[]
 
   const postsById = new Map(hydratedPosts.map((post) => [post.id, post]))
-  const items = rankedItems.flatMap((rankedItem: RankedSearchItem) => {
+  const items = rankedItems.flatMap((rankedItem: RankedSearchItem): PublicSearchPost[] => {
     const post = postsById.get(rankedItem.id)
     if (!post) return []
 
+    const activeCategory =
+      post.category && !post.category.deletedAt
+        ? {
+            name: post.category.name ?? null,
+            slug: post.category.slug ?? null,
+          }
+        : null
+    const activeTags = Array.isArray(post.tags)
+      ? post.tags
+          .filter((tag) => !tag.deletedAt)
+          .map((tag) => ({
+            name: tag.name ?? null,
+            slug: tag.slug ?? null,
+          }))
+      : []
+
     return [
       {
-        ...post,
+        id: post.id,
+        title: post.title,
+        slug: post.slug,
+        excerpt: post.excerpt ?? null,
+        contentSnippet: toBoundedContentSnippet(rankedItem.contentSnippet ?? post.content),
+        coverImage: post.coverImage ?? null,
+        ...(post.featured !== undefined ? { featured: post.featured } : {}),
+        createdAt: post.createdAt,
+        ...(post.readingTimeMinutes !== undefined ? { readingTimeMinutes: post.readingTimeMinutes } : {}),
+        ...(post.viewCount !== undefined ? { viewCount: post.viewCount } : {}),
+        author: post.author,
+        category: activeCategory,
+        tags: activeTags,
+        _count: post._count,
         searchMeta: {
           score: toInteger(rankedItem.score),
           hitFields: Array.isArray(rankedItem.hitFields) ? rankedItem.hitFields : [],

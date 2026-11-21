@@ -76,14 +76,77 @@ describe('POST /api/admin/posts', () => {
     expect(findMany).toHaveBeenCalledWith(expect.objectContaining({
       skip: 20,
       take: 10,
+      select: expect.objectContaining({
+        id: true,
+        title: true,
+        slug: true,
+        excerpt: true,
+        seoDescription: true,
+        coverImage: true,
+        published: true,
+        publishedAt: true,
+        scheduledAt: true,
+        featured: true,
+        viewCount: true,
+        readingTimeMinutes: true,
+        summaryStatus: true,
+        summaryError: true,
+        generatedByAiNews: true,
+        createdAt: true,
+        updatedAt: true,
+        categoryId: true,
+        seriesId: true,
+        seriesOrder: true,
+        author: { select: { id: true, name: true, email: true } },
+        category: { where: { deletedAt: null }, select: { id: true, name: true, slug: true } },
+        series: { where: { deletedAt: null }, select: { id: true, title: true, slug: true } },
+        _count: { select: { comments: { where: { deletedAt: null } }, likes: true } },
+      }),
       where: expect.objectContaining({
         published: false,
         generatedByAiNews: false,
         OR: expect.any(Array),
       }),
     }))
+    const listQueryArgs = findMany.mock.calls[0]?.[0]
+    expect(listQueryArgs.include).toBeUndefined()
+    expect(listQueryArgs.select).not.toHaveProperty('content')
     expect(payload.pagination).toEqual({ page: 3, limit: 10, total: 42, totalPages: 5 })
     expect(payload.stats).toEqual({ total: 120, published: 90, drafts: 30, views: 1234 })
+  })
+
+  test('omits full Post.content from GET /api/admin/posts payload even if underlying rows contain it', async () => {
+    getServerSession.mockResolvedValueOnce({ user: { id: 'admin-1', role: 'ADMIN' } })
+    count.mockResolvedValueOnce(1).mockResolvedValueOnce(1).mockResolvedValueOnce(1)
+    aggregate.mockResolvedValueOnce({ _sum: { viewCount: 10 } })
+    findMany.mockResolvedValueOnce([
+      {
+        id: 'post-1',
+        title: 'Narrow Post',
+        slug: 'narrow-post',
+        excerpt: '短摘要',
+        content: '不应出现在列表响应中的超长正文'.repeat(100),
+        published: true,
+        viewCount: 10,
+        createdAt: new Date('2026-04-01T00:00:00Z'),
+        author: { id: 'admin-1', name: 'Admin', email: 'admin@example.com' },
+        _count: { comments: 1, likes: 2 },
+      },
+    ])
+
+    const { GET } = await import('../route')
+    const response = await GET(new Request('http://localhost/api/admin/posts?page=1&limit=10'))
+    const payload = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(payload.data).toHaveLength(1)
+    expect(payload.data[0]).not.toHaveProperty('content')
+    expect(payload.data[0]).toMatchObject({
+      id: 'post-1',
+      title: 'Narrow Post',
+      slug: 'narrow-post',
+      excerpt: '短摘要',
+    })
   })
 
   test('stores calculated reading time when creating a post', async () => {
