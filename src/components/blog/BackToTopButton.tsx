@@ -1,22 +1,18 @@
 "use client";
 
-import { motion, useMotionValueEvent, useReducedMotion, useScroll } from "motion/react";
+import { motion, useMotionValueEvent, useScroll } from "motion/react";
+import { ArrowUp } from "lucide-react";
 import { useState } from "react";
-import { editorialEase } from "@/components/editorial";
+import { springSnappy } from "@/components/motion/transitions";
 
 function getBackToTopScrollBehavior(): ScrollBehavior {
   const reduceMotionQuery = window.matchMedia?.("(prefers-reduced-motion: reduce)");
   return reduceMotionQuery?.matches ? "auto" : "smooth";
 }
 
-/**
- * 右下角「回到顶部」：card-bg 实底的描边文字按钮，44px，离底 16px，不带图标（16 号原型 07）。
- * 滚过 400px 才出现，出现 / 消失做 8px 位移淡入淡出。
- */
 export function BackToTopButton() {
   const { scrollY } = useScroll();
   const [visible, setVisible] = useState(false);
-  const reduce = useReducedMotion();
 
   useMotionValueEvent(scrollY, "change", (latest) => {
     setVisible(latest > 400);
@@ -28,16 +24,16 @@ export function BackToTopButton() {
 
   return (
     <motion.button
-      aria-hidden={!visible}
-      className="ed-btn-outline article-float-btn right-4"
-      initial={false}
-      animate={{ opacity: visible ? 1 : 0, y: visible || reduce ? 0 : 8, pointerEvents: visible ? "auto" : "none" }}
-      transition={{ duration: 0.24, ease: editorialEase }}
+      aria-label="返回顶部"
+      className="reader-icon-btn fixed bottom-6 right-6 z-40 bg-[color-mix(in_oklab,var(--reader-panel)_88%,transparent)] text-[var(--foreground)] shadow-[var(--reader-shadow)] backdrop-blur"
+      animate={{ opacity: visible ? 1 : 0, y: visible ? 0 : 8, pointerEvents: visible ? "auto" : "none" }}
+      whileHover={{ y: visible ? -2 : 8 }}
+      whileTap={{ scale: 0.92 }}
+      transition={springSnappy}
       onClick={handleClick}
-      tabIndex={visible ? 0 : -1}
       type="button"
     >
-      回到顶部
+      <ArrowUp className="h-5 w-5" />
     </motion.button>
   );
 }

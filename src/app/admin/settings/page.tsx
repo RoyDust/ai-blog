@@ -1,6 +1,5 @@
 import { getServerSession } from "next-auth";
 import { AdminSettingsClient } from "@/components/admin/settings/AdminSettingsClient";
-import { isSettingsTabId } from "@/components/admin/settings/settings-shared";
 import { getApiOperationLogSettingsSummary } from "@/lib/api-operation-log-settings";
 import { authOptions } from "@/lib/auth";
 import { getBlogSettings } from "@/lib/blog-settings";
@@ -15,19 +14,7 @@ const fallbackUser = {
   githubLinked: false,
 };
 
-type SettingsSearchParams = Record<string, string | string[] | undefined>;
-
-function readParam(params: SettingsSearchParams, key: string) {
-  const value = params[key];
-  return Array.isArray(value) ? value[0] : value;
-}
-
-export default async function AdminSettingsPage({ searchParams }: { searchParams?: Promise<SettingsSearchParams> } = {}) {
-  const params = (await searchParams) ?? {};
-  const requestedTab = readParam(params, "tab");
-  const githubJustLinked = readParam(params, "github") === "linked";
-  // ?tab= 记住当前页签；GitHub 绑定回跳（?github=linked）落在账号资料页签
-  const initialTab = isSettingsTabId(requestedTab) && !githubJustLinked ? requestedTab : "account";
+export default async function AdminSettingsPage() {
   const session = await getServerSession(authOptions);
   const [operationLogSettings, blogSettings] = await Promise.all([
     getApiOperationLogSettingsSummary(),
@@ -64,8 +51,6 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
   return (
     <AdminSettingsClient
       blogSettings={blogSettings}
-      githubJustLinked={githubJustLinked}
-      initialTab={initialTab}
       operationLogSettings={operationLogSettings}
       user={settingsUser}
     />

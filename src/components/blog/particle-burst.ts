@@ -31,7 +31,7 @@ function getParticleColors(hueOffset: number, hueOffsets: number[], lightness: n
   const baseHue = getRootHue() + hueOffset
 
   return hueOffsets.map(
-    (offset, index) => `hsl(${normalizeHue(baseHue + offset)} 52% ${lightness[index]}%)`,
+    (offset, index) => `hsl(${normalizeHue(baseHue + offset)} 88% ${lightness[index]}%)`,
   )
 }
 
@@ -64,22 +64,21 @@ export function spawnParticleBurst({
   const centerX = rect.width / 2
   const centerY = rect.height / 2
   const newParticles: Particle[] = []
-  // 编辑排版下只做一次克制的小迸发：粒子少、小、飞得近
-  const count = 10
+  const count = 16
 
   for (let i = 0; i < count; i++) {
     const angle = (i * 2 * Math.PI) / count + (Math.random() - 0.5) * 0.4
-    const speed = 1.1 + Math.random() * 1.6
+    const speed = 1.8 + Math.random() * 2.8
 
     newParticles.push({
       x: centerX,
       y: centerY,
       vx: Math.cos(angle) * speed,
-      vy: Math.sin(angle) * speed - 0.4,
-      size: 1.1 + Math.random() * 1.4,
+      vy: Math.sin(angle) * speed - 0.6,
+      size: 2 + Math.random() * 2.5,
       color: colors[Math.floor(Math.random() * colors.length)],
-      alpha: 0.9,
-      decay: 0.032 + Math.random() * 0.024,
+      alpha: 1,
+      decay: 0.025 + Math.random() * 0.02,
     })
   }
 
