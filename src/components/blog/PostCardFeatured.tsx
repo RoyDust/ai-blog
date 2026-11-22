@@ -1,8 +1,11 @@
 import Link from "next/link";
 import { ArrowRight, BookOpen } from "lucide-react";
 import { FallbackImage } from "@/components/ui";
+import { shimmerBlurDataURL } from "@/lib/image-placeholder";
 import { getPostViewTransitionName } from "@/lib/view-transition";
 import { PostMeta } from "./PostMeta";
+
+const READER_CARD_FALLBACK_SRC = "/images/fuwari-post-cover-fallback.svg";
 
 interface PostCardFeaturedProps {
   post: {
@@ -20,9 +23,17 @@ interface PostCardFeaturedProps {
       slug: string;
     }>;
   };
+  enableViewTransition?: boolean;
+  priority?: boolean;
+  prefetch?: boolean;
 }
 
-export function PostCardFeatured({ post }: PostCardFeaturedProps) {
+export function PostCardFeatured({
+  post,
+  enableViewTransition = false,
+  priority = false,
+  prefetch = false,
+}: PostCardFeaturedProps) {
   return (
     <article className="reader-feature-card group">
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.15fr)_minmax(15rem,0.85fr)] lg:items-stretch">
@@ -32,10 +43,14 @@ export function PostCardFeatured({ post }: PostCardFeaturedProps) {
               精选文章
             </span>
             <div className="space-y-2">
-              <Link href={`/posts/${post.slug}`}>
+              <Link href={`/posts/${post.slug}`} prefetch={prefetch}>
                 <h2
                   className="text-90 line-clamp-2 text-xl font-bold leading-snug transition-colors group-hover:text-[var(--brand)] sm:text-2xl"
-                  style={{ viewTransitionName: getPostViewTransitionName("title", post.slug) }}
+                  style={
+                    enableViewTransition
+                      ? { viewTransitionName: getPostViewTransitionName("title", post.slug) }
+                      : undefined
+                  }
                 >
                   {post.title}
                 </h2>
@@ -54,6 +69,7 @@ export function PostCardFeatured({ post }: PostCardFeaturedProps) {
             />
             <Link
               href={`/posts/${post.slug}`}
+              prefetch={false}
               className="home-primary-cta"
             >
               继续阅读
@@ -64,16 +80,26 @@ export function PostCardFeatured({ post }: PostCardFeaturedProps) {
 
         <Link
           href={`/posts/${post.slug}`}
+          prefetch={false}
           aria-label={`阅读封面：${post.title}`}
           className="theme-media relative mx-3 mb-3 min-h-[11.5rem] overflow-hidden rounded-xl lg:m-3 lg:ml-0 lg:min-h-[13rem]"
-          style={{ viewTransitionName: getPostViewTransitionName("cover", post.slug) }}
+          style={
+            enableViewTransition
+              ? { viewTransitionName: getPostViewTransitionName("cover", post.slug) }
+              : undefined
+          }
         >
           {post.coverImage ? (
             <FallbackImage
               alt={post.title}
+              blurDataURL={shimmerBlurDataURL}
               className="theme-media-image object-cover"
+              fallbackSrc={READER_CARD_FALLBACK_SRC}
               fill
-              priority
+              loading={priority ? undefined : "lazy"}
+              placeholder="blur"
+              priority={priority}
+              quality={70}
               sizes="(max-width: 1024px) 100vw, 24rem"
               src={post.coverImage}
             />

@@ -9,10 +9,8 @@
  * - 处理加载中、错误态与“已加载全部”提示
  */
 
-import { useCallback } from 'react'
+import { useCallback, useState } from 'react'
 
-import { AnimatePresence, motion } from "motion/react";
-import { featuredPostRevealVariants, postCardRevealVariants, postListContainerVariants } from "@/components/motion/variants";
 import { PostCard } from './PostCard'
 import { PostCardFeatured } from './PostCardFeatured'
 import { PostCardSkeleton } from './PostCardSkeleton'
@@ -87,6 +85,7 @@ export function PostsListingClient({ initialPosts, initialPagination, filters }:
     loadFirstPageOnMount: initialPagination.page === 0,
     resetKey,
   })
+  const [activeSlug, setActiveSlug] = useState<string | null>(null)
 
   const isInitialLoading = isLoading && posts.length === 0
 
@@ -99,25 +98,40 @@ export function PostsListingClient({ initialPosts, initialPagination, filters }:
           </div>
         ))
       ) : posts.length > 0 ? (
-        <motion.div
-          className="grid gap-2 md:gap-3"
-          variants={postListContainerVariants}
-          initial="hidden"
-          animate="visible"
-        >
-          {/* 不设 initial={false}：presence 首挂载抑制会吞掉容器 stagger 入场 */}
-          <AnimatePresence mode="popLayout">
-            {posts.map((post) => (
-              <motion.div
+        <div className="home-latest-posts-stage grid gap-2 md:gap-3">
+          {posts.map((post, index) => {
+            const isActive = activeSlug === post.slug
+            const activate = () => {
+              if (activeSlug !== post.slug) {
+                setActiveSlug(post.slug)
+              }
+            }
+
+            return (
+              <div
                 key={post.id}
-                layout
-                variants={post.featured ? featuredPostRevealVariants : postCardRevealVariants}
+                onFocus={activate}
+                onPointerDown={activate}
+                onPointerEnter={activate}
               >
-                {post.featured ? <PostCardFeatured post={post} /> : <PostCard post={post} />}
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        </motion.div>
+                {post.featured ? (
+                  <PostCardFeatured
+                    enableViewTransition={isActive}
+                    post={post}
+                    prefetch={isActive ? undefined : false}
+                    priority={index === 0}
+                  />
+                ) : (
+                  <PostCard
+                    enableViewTransition={isActive}
+                    post={post}
+                    prefetch={isActive ? undefined : false}
+                  />
+                )}
+              </div>
+            )
+          })}
+        </div>
       ) : (
         <div className="reader-panel p-7 text-sm text-[var(--text-muted)]">暂无文章。</div>
       )}

@@ -269,6 +269,9 @@
   .reader-shell:has(.article-detail-page) .reader-side-rail,
   .reader-shell:has(.article-detail-page) .reader-side-rail #sidebar,
   .reader-shell:has(.article-detail-page) .reader-side-rail [data-testid="sidebar-taxonomy-rail"],
+  .reader-shell:has([data-testid="posts-listing"]) .reader-side-rail,
+  .reader-shell:has([data-testid="posts-listing"]) .reader-side-rail #sidebar,
+  .reader-shell:has([data-testid="posts-listing"]) .reader-side-rail [data-testid="sidebar-taxonomy-rail"],
   .article-detail-page .article-toc-rail {
     background: transparent;
     box-shadow: none;
@@ -276,9 +279,12 @@
   }
 
   .reader-shell:has(.article-detail-page) .reader-side-rail .reader-panel,
+  .reader-shell:has([data-testid="posts-listing"]) .reader-side-rail .reader-panel,
+  .reader-shell:has([data-testid="posts-listing"]) .reader-content-frame .reader-panel,
   .article-detail-page .article-toc-rail > .reader-panel {
     background: var(--reader-panel);
     box-shadow: none;
+    backdrop-filter: none;
   }
 
 

@@ -103,6 +103,7 @@ export function Navbar({ siteName = "My Blog" }: NavbarProps) {
                   <Link
                     key={link.href}
                     href={link.href}
+                    prefetch={link.href === "/posts" ? true : undefined}
                     aria-current={isActive ? "page" : undefined}
                     className={cn(
                       navItemClass,
@@ -193,6 +194,7 @@ export function Navbar({ siteName = "My Blog" }: NavbarProps) {
                 <Link
                   key={link.href}
                   href={link.href}
+                  prefetch={link.href === "/posts" ? true : undefined}
                   aria-current={isActive ? "page" : undefined}
                   className={cn(
                     "reader-link flex h-10 w-full items-center justify-start gap-3 rounded-xl px-3.5 text-sm font-semibold text-[var(--text-body)] transition-colors hover:bg-[var(--btn-regular-bg)] hover:text-[var(--btn-content)]",
