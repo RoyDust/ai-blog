@@ -31,7 +31,7 @@ import {
   resetIpHashProdWarningForTests,
   sanitizeLogPayload,
 } from "@/lib/api-operation-logs";
-import { withApiOperationLogging } from "@/lib/api-operation-log-route";
+import { setAfterSchedulerForTests, withApiOperationLogging } from "@/lib/api-operation-log-route";
 
 describe("api operation logs", () => {
   const originalEnv = { ...process.env };
@@ -39,11 +39,13 @@ describe("api operation logs", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     resetIpHashProdWarningForTests();
+    setAfterSchedulerForTests(null);
     process.env = { ...originalEnv };
     delete process.env.API_OPERATION_LOG_TEST_ENABLE;
   });
 
   afterEach(() => {
+    setAfterSchedulerForTests(null);
     process.env = { ...originalEnv };
   });
 
@@ -468,5 +470,60 @@ describe("api operation logs", () => {
         expect(loggedData.errorMessage).not.toContain("sk-secret");
       }
     }
+  });
+
+  test("schedules log writes via Next.js after() without blocking HTTP response delivery", async () => {
+    process.env.API_OPERATION_LOG_TEST_ENABLE = "1";
+    process.env.NEXTAUTH_SECRET = "audit-log-hmac-secret";
+
+    let resolveLogInsert!: (value: { id: string }) => void;
+    prismaMocks.create.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveLogInsert = resolve;
+        }),
+    );
+
+    const pendingAfterTasks: Array<() => void | Promise<void>> = [];
+    setAfterSchedulerForTests((task) => {
+      pendingAfterTasks.push(task);
+    });
+
+    const handler = withApiOperationLogging(
+      async () => Response.json({ success: true }, { status: 200 }),
+      { scope: "public", operation: "public.posts.popular.read", route: "/api/posts/popular" },
+    );
+
+    const response = await handler(
+      new Request("http://localhost/api/posts/popular?source=sidebar", {
+        headers: { "x-request-id": "req-after-1", "x-real-ip": "198.51.100.19" },
+      }),
+    );
+
+    // Response resolves immediately before background DB insert starts or finishes.
+    expect(response.status).toBe(200);
+    expect(response.headers.get("x-request-id")).toBe("req-after-1");
+    expect(pendingAfterTasks).toHaveLength(1);
+    expect(prismaMocks.create).not.toHaveBeenCalled();
+
+    const afterRun = Promise.resolve(pendingAfterTasks[0]!());
+    await vi.waitFor(() => {
+      expect(prismaMocks.create).toHaveBeenCalledTimes(1);
+    });
+    resolveLogInsert({ id: "log-after-1" });
+    await afterRun;
+
+    expect(prismaMocks.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        requestId: "req-after-1",
+        scope: "public",
+        operation: "public.posts.popular.read",
+        route: "/api/posts/popular",
+        statusCode: 200,
+        success: true,
+        ipHash: hashIp("198.51.100.19"),
+        query: { source: "sidebar" },
+      }),
+    });
   });
 });

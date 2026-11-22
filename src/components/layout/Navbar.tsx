@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
@@ -11,11 +12,15 @@ import { useTheme } from "@/components/ThemeProvider";
 import { AccountEntry } from "@/components/auth/AccountEntry";
 import { PublicCommandSearch } from "@/components/search/PublicCommandSearch";
 import { SearchForm } from "@/components/search/SearchForm";
-import { HuePicker } from "@/components/ui/HuePicker";
 import { useScrollHide } from "@/hooks/useScrollHide";
 import { cn } from "@/lib/cn";
 import { LayoutGroup, motion } from "motion/react";
 import { headerResizeTransition, panelTransition } from "@/components/motion/transitions";
+
+const LazyHuePicker = dynamic(
+  () => import("@/components/ui/HuePicker").then((mod) => mod.HuePicker),
+  { ssr: false },
+);
 
 const navLinks = [
   { name: "首页", href: "/", icon: Home },
@@ -36,6 +41,7 @@ interface NavbarProps {
 // Keep this fallback aligned with DEFAULT_BLOG_SETTINGS without importing server-only settings code.
 export function Navbar({ siteName = "My Blog" }: NavbarProps) {
   const [showHuePicker, setShowHuePicker] = useState(false);
+  const [hasOpenedHuePicker, setHasOpenedHuePicker] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const { theme, toggleTheme } = useTheme();
   const isHidden = useScrollHide({ threshold: 100, delta: 720 });
@@ -137,7 +143,10 @@ export function Navbar({ siteName = "My Blog" }: NavbarProps) {
               aria-label="主题设置"
               aria-expanded={showHuePicker}
               className="reader-icon-btn hidden h-8.5 w-8.5 sm:inline-flex"
-              onClick={() => setShowHuePicker(!showHuePicker)}
+              onClick={() => {
+                setHasOpenedHuePicker(true);
+                setShowHuePicker((prev) => !prev);
+              }}
               type="button"
             >
               <Palette className="h-4 w-4" />
@@ -217,6 +226,7 @@ export function Navbar({ siteName = "My Blog" }: NavbarProps) {
               className="reader-link flex h-10 w-full items-center justify-start gap-3 rounded-xl px-3.5 text-sm font-semibold text-[var(--text-body)] transition-colors hover:bg-[var(--btn-regular-bg)] hover:text-[var(--btn-content)] sm:hidden"
               onClick={() => {
                 setShowMobileMenu(false);
+                setHasOpenedHuePicker(true);
                 setShowHuePicker(true);
               }}
               tabIndex={showMobileMenu ? undefined : -1}
@@ -227,7 +237,7 @@ export function Navbar({ siteName = "My Blog" }: NavbarProps) {
           </div>
         </motion.div>
 
-        <HuePicker isOpen={showHuePicker} />
+        {hasOpenedHuePicker ? <LazyHuePicker isOpen={showHuePicker} /> : null}
       </motion.div>
     </div>
   );

@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { after } from "next/server";
 
 import { ApiError } from "@/lib/api-errors";
 import {
@@ -155,6 +156,18 @@ function resolveLoggedError(caughtError: unknown, storeError: ApiOperationError 
   };
 }
 
+type AfterScheduler = (task: () => void | Promise<void>) => void;
+
+let customAfterSchedulerForTests: AfterScheduler | null = null;
+
+export function setAfterSchedulerForTests(scheduler: AfterScheduler | null) {
+  customAfterSchedulerForTests = scheduler;
+}
+
+function isOutsideRequestScopeError(error: unknown) {
+  return error instanceof Error && error.message.includes("outside a request scope");
+}
+
 export function withApiOperationLogging<TContext = unknown>(
   handler: ApiRouteHandler<TContext>,
   options: ApiOperationLogRouteOptions<TContext>,
@@ -183,38 +196,68 @@ export function withApiOperationLogging<TContext = unknown>(
           caughtError = error;
           throw error;
         } finally {
+          const durationMs = Date.now() - startedAt;
           const store = getApiOperationLogContext();
           const actor = store?.actor ?? defaultActorForScope(options.scope);
           const statusCode = inferStatusCode(response, caughtError);
-          const requestBody = await requestBodyPromise;
-          const optionMetadata = await resolveMetadata(request, context as TContext, options.metadata).catch((error) => ({
-            metadataError: publicErrorMessage(error),
-          }));
-          const metadata = combineLogMetadata(store?.metadata, optionMetadata);
+          const resolvedRoute = store?.route ?? options.route ?? null;
+          const resolvedScope = store?.scope ?? options.scope;
+          const resolvedOperation = store?.operation ?? options.operation ?? null;
+          const storeMetadata = store?.metadata ? { ...store.metadata } : undefined;
           const loggedError = resolveLoggedError(caughtError, store?.error);
+          const ipHash = hashIp(getClientIpFromHeaders(request.headers));
+          const userAgent = request.headers.get("user-agent");
+          const query = options.captureQuery === false ? undefined : queryToJson(url.searchParams);
 
-          await createApiOperationLog({
-            requestId,
-            method: request.method,
-            path: url.pathname,
-            route: store?.route ?? options.route ?? null,
-            scope: store?.scope ?? options.scope,
-            operation: store?.operation ?? options.operation ?? null,
-            statusCode,
-            success: statusCode < 400,
-            durationMs: Date.now() - startedAt,
-            actorType: actor.actorType,
-            actorUserId: actor.actorUserId ?? null,
-            actorClientId: actor.actorClientId ?? null,
-            actorLabel: actor.actorLabel ?? null,
-            ipHash: hashIp(getClientIpFromHeaders(request.headers)),
-            userAgent: request.headers.get("user-agent"),
-            query: options.captureQuery === false ? undefined : queryToJson(url.searchParams),
-            requestBody,
-            errorName: loggedError.errorName,
-            errorMessage: loggedError.errorMessage,
-            metadata,
-          });
+          const persistOperationLog = async () => {
+            try {
+              const requestBody = await requestBodyPromise;
+              const optionMetadata = await resolveMetadata(request, context as TContext, options.metadata).catch((error) => ({
+                metadataError: publicErrorMessage(error),
+              }));
+              const metadata = combineLogMetadata(storeMetadata, optionMetadata);
+
+              await createApiOperationLog({
+                requestId,
+                method: request.method,
+                path: url.pathname,
+                route: resolvedRoute,
+                scope: resolvedScope,
+                operation: resolvedOperation,
+                statusCode,
+                success: statusCode < 400,
+                durationMs,
+                actorType: actor.actorType,
+                actorUserId: actor.actorUserId ?? null,
+                actorClientId: actor.actorClientId ?? null,
+                actorLabel: actor.actorLabel ?? null,
+                ipHash,
+                userAgent,
+                query,
+                requestBody,
+                errorName: loggedError.errorName,
+                errorMessage: loggedError.errorMessage,
+                metadata,
+              });
+            } catch {
+              // Operation log writes are best-effort and must never surface unhandled background rejections.
+            }
+          };
+
+          const scheduleAfter = customAfterSchedulerForTests ?? after;
+          let scheduledInAfter = false;
+          try {
+            scheduleAfter(persistOperationLog);
+            scheduledInAfter = true;
+          } catch (afterError) {
+            if (!isOutsideRequestScopeError(afterError)) {
+              throw afterError;
+            }
+          }
+
+          if (!scheduledInAfter) {
+            await persistOperationLog();
+          }
         }
       },
     );

@@ -3,12 +3,17 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { Bookmark, LayoutDashboard, LogOut, PenLine, UserRound } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useState } from "react";
 
-import { LoginDialog } from "@/components/auth/LoginDialog";
 import { clearAllSessionData } from "@/lib/auth-client";
 import { cn } from "@/lib/cn";
+
+const LazyLoginDialog = dynamic(
+  () => import("@/components/auth/LoginDialog").then((mod) => mod.LoginDialog),
+  { ssr: false },
+);
 
 function getInitial(value: string | null | undefined) {
   const firstCharacter = Array.from(value?.trim() || "")[0];
@@ -47,6 +52,7 @@ const accountMenuItemClass =
 export function AccountEntry() {
   const { data: session, status } = useSession();
   const [loginOpen, setLoginOpen] = useState(false);
+  const [hasOpenedLogin, setHasOpenedLogin] = useState(false);
   const user = session?.user;
   const displayName = user?.name || user?.email || "已登录账号";
   const isAdmin = user?.role === "ADMIN";
@@ -80,13 +86,16 @@ export function AccountEntry() {
         <button
           aria-label="登录账号"
           className="reader-icon-btn text-current hover:text-[var(--accent-sky)]"
-          onClick={() => setLoginOpen(true)}
+          onClick={() => {
+            setHasOpenedLogin(true);
+            setLoginOpen(true);
+          }}
           title="登录账号"
           type="button"
         >
           <UserRound className="h-5 w-5" aria-hidden="true" />
         </button>
-        <LoginDialog open={loginOpen} onOpenChange={setLoginOpen} />
+        {hasOpenedLogin ? <LazyLoginDialog open={loginOpen} onOpenChange={setLoginOpen} /> : null}
       </>
     );
   }

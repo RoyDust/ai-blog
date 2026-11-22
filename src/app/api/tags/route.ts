@@ -1,8 +1,32 @@
 import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 import { NextResponse } from "next/server"
 import { UnauthorizedError, toErrorResponse } from "@/lib/api-errors"
+import {
+  createPublicCachedReader,
+  PUBLIC_CACHE_TAGS,
+  PUBLIC_REVALIDATE_SECONDS,
+  revalidatePublicContent,
+} from "@/lib/cache"
 import { prisma } from "@/lib/prisma"
 import { parseTaxonomyInput } from "@/lib/validation"
+
+const getCachedPublicTags = createPublicCachedReader(
+  async () =>
+    prisma.tag.findMany({
+      where: { deletedAt: null },
+      include: {
+        _count: {
+          select: { posts: { where: { deletedAt: null, published: true } } }
+        }
+      },
+      orderBy: { posts: { _count: "desc" } }
+    }),
+  {
+    keyParts: ["public-api-tags"],
+    revalidate: PUBLIC_REVALIDATE_SECONDS,
+    tags: [PUBLIC_CACHE_TAGS.tags, PUBLIC_CACHE_TAGS.posts],
+  }
+)
 
 /**
  * 仅在写操作时按需加载鉴权配置，避免公共 GET 因 auth 配置问题被连带打崩。
@@ -24,15 +48,7 @@ async function requireAdmin() {
  */
 async function GETHandler() {
   try {
-    const tags = await prisma.tag.findMany({
-      where: { deletedAt: null },
-      include: {
-        _count: {
-          select: { posts: { where: { deletedAt: null, published: true } } }
-        }
-      },
-      orderBy: { posts: { _count: "desc" } }
-    })
+    const tags = await getCachedPublicTags()
 
     return NextResponse.json({
       success: true,
@@ -58,6 +74,8 @@ async function POSTHandler(request: Request) {
     const tag = await prisma.tag.create({
       data: { name, slug, color }
     })
+
+    revalidatePublicContent({ tagSlugs: [tag.slug] })
 
     return NextResponse.json({
       success: true,
