@@ -48,6 +48,12 @@ export function readPoolMax() {
     return value
   }
 
+  // Next.js spawns one worker per CPU core during `next build` (`NODE_ENV=production`).
+  // Cap per-worker pools to 1 during the build phase so multi-core builds do not exhaust `max_connections`.
+  if (process.env.NEXT_PHASE === 'phase-production-build') {
+    return DEFAULT_NON_PRODUCTION_POOL_MAX
+  }
+
   return process.env.NODE_ENV === 'production'
     ? DEFAULT_PRODUCTION_POOL_MAX
     : DEFAULT_NON_PRODUCTION_POOL_MAX
