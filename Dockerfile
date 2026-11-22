@@ -64,11 +64,14 @@ COPY --chown=node:node --from=builder /app/prisma.config.ts ./prisma.config.ts
 COPY --chown=node:node --from=builder /app/.generated/web-health ./.generated/web-health
 COPY --chown=node:node --from=builder /app/scripts/check-web-readiness.cjs ./scripts/check-web-readiness.cjs
 RUN mkdir -p /app/.next/cache /app/node_modules/.bin /home/node/.cache /home/node/.local/share/pnpm \
- && ln -sfn /opt/prisma-cli/node_modules/.bin/prisma /app/node_modules/.bin/prisma \
- && if [ ! -e /app/node_modules/prisma ] && [ ! -L /app/node_modules/prisma ]; then ln -s /opt/prisma-cli/node_modules/prisma /app/node_modules/prisma; fi \
- && if [ ! -e /app/node_modules/dotenv ] && [ ! -L /app/node_modules/dotenv ]; then ln -s /opt/prisma-cli/node_modules/dotenv /app/node_modules/dotenv; fi \
- && if [ ! -e /app/node_modules/pg ] && [ ! -L /app/node_modules/pg ]; then ln -s /opt/prisma-cli/node_modules/pg /app/node_modules/pg; fi \
+ && rm -f /app/node_modules/.bin/prisma \
+ && printf '#!/bin/sh\nexport NODE_PATH="/opt/prisma-cli/node_modules:/app/node_modules${NODE_PATH:+:$NODE_PATH}"\nexec node /opt/prisma-cli/node_modules/prisma/build/index.js "$@"\n' > /app/node_modules/.bin/prisma \
+ && chmod +x /app/node_modules/.bin/prisma \
+ && if [ ! -e /app/node_modules/prisma ]; then rm -rf /app/node_modules/prisma && ln -s /opt/prisma-cli/node_modules/prisma /app/node_modules/prisma; fi \
+ && if [ ! -e /app/node_modules/dotenv ]; then rm -rf /app/node_modules/dotenv && ln -s /opt/prisma-cli/node_modules/dotenv /app/node_modules/dotenv; fi \
+ && if [ ! -e /app/node_modules/pg ]; then rm -rf /app/node_modules/pg && ln -s /opt/prisma-cli/node_modules/pg /app/node_modules/pg; fi \
  && chown -R node:node /app /home/node
 USER node
+RUN DATABASE_URL="postgresql://build:build@127.0.0.1:1/build" pnpm prisma validate
 EXPOSE 3000
 CMD ["node", "server.js"]
