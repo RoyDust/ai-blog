@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>依尘的博客 · 后台运营工作台 UI 设计稿（概览 / 文章管理 / AI 日报）</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: var(--font-sans, "Alibaba PuHuiTi", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif);
+    color: var(--foreground);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* 后台延续前台同一套 --hue 与温润无硬框气质，但收紧圆角与字号比例，让工具隐入任务 */
+  .adm-stage {
+    --hue: 215;
+    --adm-primary: oklch(0.68 0.105 var(--hue));
+    --adm-primary-soft: color-mix(in oklab, var(--adm-primary) 14%, var(--card));
+    --adm-primary-hover: color-mix(in oklab, var(--adm-primary) 22%, var(--card));
+    --adm-shell: color-mix(in oklab, var(--card) 72%, var(--background, #0d1218) 28%);
+    --adm-card: var(--card);
+    --adm-sub: color-mix(in oklab, var(--secondary) 55%, var(--card) 45%);
+    --adm-line: color-mix(in oklab, var(--foreground) 7%, transparent);
+    --adm-line-strong: color-mix(in oklab, var(--foreground) 13%, transparent);
+    --adm-fg: var(--foreground);
+    --adm-body: color-mix(in oklab, var(--foreground) 80%, var(--muted-foreground) 20%);
+    --adm-muted: var(--muted-foreground);
+    --adm-ok: var(--success, #4cc38a);
+    --adm-warn: var(--warning, #e0a64b);
+    --adm-mono: var(--font-mono, "JetBrains Mono", "SFMono-Regular", Menlo, Consolas, monospace);
+    width: 100%;
+    max-width: 1140px;
+    margin: 0 auto;
+  }
+
+  .adm-frame {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+    align-items: start;
+  }
+  @media (min-width: 680px) {
+    .adm-frame {
+      grid-template-columns: 164px minmax(0, 1fr);
+    }
+  }
+  @media (min-width: 960px) {
+    .adm-frame {
+      grid-template-columns: 192px minmax(0, 1fr);
+      gap: 14px;
+    }
+  }
+
+  /* 左侧栏：告别刺眼实心亮蓝条与大写英文标题，改用与前台同源的温润侧栏 */
+  .adm-sider {
+    padding: 13px 10px;
+    border-radius: 14px;
+    background: var(--adm-card);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05), inset 0 0 0 1px var(--adm-line);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 14px;
+  }
+  .adm-brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 2px 6px 8px;
+  }
+  .adm-brand img {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    object-fit: cover;
+    flex-shrink: 0;
+  }
+  .adm-nav-group-lbl {
+    padding: 8px 8px 4px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--adm-muted);
+  }
+  .adm-nav-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+  }
+  @media (min-width: 680px) {
+    .adm-nav-list { flex-direction: column; }
+  }
+  .adm-nav-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    height: 33px;
+    padding: 0 9px;
+    border-radius: 9px;
+    border: 0;
+    background: transparent;
+    color: var(--adm-body);
+    font-size: 12.5px;
+    font-weight: 500;
+    font-family: inherit;
+    white-space: nowrap;
+    cursor: pointer;
+    text-align: left;
+    transition: background-color 140ms ease, color 140ms ease;
+  }
+  .adm-nav-item:hover {
+    background: color-mix(in oklab, var(--adm-fg) 5%, transparent);
+    color: var(--adm-fg);
+  }
+  .adm-nav-item[aria-selected="true"] {
+    background: var(--adm-primary-soft);
+    color: var(--adm-primary);
+    font-weight: 600;
+  }
+  .adm-count-dot {
+    font-family: var(--adm-mono);
+    font-size: 11px;
+    padding: 0 5px;
+    border-radius: 6px;
+    background: color-mix(in oklab, var(--adm-fg) 7%, transparent);
+    color: var(--adm-muted);
+  }
+  .adm-sider-foot {
+    display: none;
+  }
+  @media (min-width: 680px) {
+    .adm-sider-foot {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 6px 2px;
+      border-top: 1px solid var(--adm-line);
+      font-size: 11.5px;
+      color: var(--adm-muted);
+    }
+  }
+
+  /* 右侧主工作区 */
+  .adm-main-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+  }
+  .adm-header {
+    min-height: 48px;
+    padding: 8px 15px;
+    border-radius: 13px;
+    background: var(--adm-card);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05), inset 0 0 0 1px var(--adm-line);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .adm-crumb {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13.5px;
+    white-space: nowrap;
+  }
+  .adm-cmdk {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 30px;
+    padding: 0 10px;
+    border-radius: 8px;
+    background: var(--adm-sub);
+    color: var(--adm-muted);
+    font-size: 12px;
+    white-space: nowrap;
+  }
+  .adm-btn-primary {
+    height: 31px;
+    padding: 0 12px;
+    border-radius: 8px;
+    border: 0;
+    background: var(--adm-primary-soft);
+    color: var(--adm-primary);
+    font-size: 12.5px;
+    font-weight: 600;
+    font-family: inherit;
+    white-space: nowrap;
+    flex-shrink: 0;
+    cursor: pointer;
+    transition: background-color 140ms ease;
+  }
+  .adm-btn-primary:hover { background: var(--adm-primary-hover); }
+  .adm-btn-ghost {
+    height: 28px;
+    padding: 0 9px;
+    border-radius: 7px;
+    border: 1px solid var(--adm-line-strong);
+    background: transparent;
+    color: var(--adm-body);
+    font-size: 12px;
+    font-family: inherit;
+    white-space: nowrap;
+    flex-shrink: 0;
+    cursor: pointer;
+  }
+  .adm-btn-ghost:hover { background: var(--adm-sub); color: var(--adm-fg); }
+
+  .adm-body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .adm-card {
+    background: var(--adm-card);
+    border-radius: 13px;
+    padding: 14px 16px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04), inset 0 0 0 1px var(--adm-line);
+  }
+
+  /* 面板 1：运营概览 (/admin) */
+  .adm-kpi-strip {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  @media (min-width: 880px) {
+    .adm-kpi-strip { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+  }
+  .adm-kpi-val {
+    margin-top: 4px;
+    font-family: var(--adm-mono);
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--adm-fg);
+    font-variant-numeric: tabular-nums;
+  }
+  .adm-kpi-sub {
+    margin-top: 2px;
+    font-size: 11.5px;
+    color: var(--adm-muted);
+  }
+  .adm-two-col {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+  @media (min-width: 880px) {
+    .adm-two-col { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  .adm-todo-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 9px 0;
+    border-top: 1px solid var(--adm-line);
+    font-size: 13px;
+  }
+
+  /* ── 面板 2：高密度文章管理 (/admin/posts) —— 砍掉占半屏的 5 张彩色大卡，把空间还给表格 ── */
+  .adm-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .adm-seg {
+    display: inline-flex;
+    padding: 3px;
+    border-radius: 9px;
+    background: var(--adm-sub);
+    gap: 2px;
+  }
+  .adm-seg-btn {
+    height: 27px;
+    padding: 0 10px;
+    border-radius: 7px;
+    border: 0;
+    background: transparent;
+    color: var(--adm-muted);
+    font-size: 12px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+  }
+  .adm-seg-btn[aria-pressed="true"] {
+    background: var(--adm-card);
+    color: var(--adm-fg);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+  .adm-search-input {
+    height: 31px;
+    width: 176px;
+    padding: 0 10px;
+    border-radius: 8px;
+    border: 1px solid var(--adm-line-strong);
+    background: transparent;
+    color: var(--adm-fg);
+    font-size: 12.5px;
+    font-family: inherit;
+  }
+
+  .adm-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .adm-table th {
+    text-align: left;
+    padding: 8px 8px;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--adm-muted);
+    border-bottom: 1px solid var(--adm-line-strong);
+  }
+  .adm-table td {
+    padding: 10px 8px;
+    border-bottom: 1px solid var(--adm-line);
+    vertical-align: middle;
+  }
+  .adm-table tr:last-child td { border-bottom: 0; }
+  .adm-table tbody tr:hover { background: color-mix(in oklab, var(--adm-fg) 3%, transparent); }
+  .adm-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    color: var(--adm-body);
+    white-space: nowrap;
+  }
+  .adm-dot { width: 6px; height: 6px; border-radius: 99px; }
+
+  /* ── 面板 3：AI 日报采集编发台 (/admin/ai-news) ── */
+  .adm-source-strip {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding-bottom: 12px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid var(--adm-line);
+  }
+  .adm-cand-row {
+    display: grid;
+    grid-template-columns: 20px minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: start;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--adm-line);
+  }
+  .adm-cand-row:last-child { border-bottom: 0; padding-bottom: 0; }
+</style>
+</head>
+<body>
+<div class="adm-stage">
+  <div class="adm-frame">
+    <!-- 左侧导航栏（支持平板/手机展开，告别原本 main 上 <1024px 无入口死胡同） -->
+    <aside class="adm-sider" aria-label="后台导航">
+      <div>
+        <div class="adm-brand">
+          <img
+            src="C:/Users/Administrator/.t3/worktrees/my-next-app/t3-0c3c1cea-f6e4baf3d3a0f760/public/icons/icon-192.png"
+            onerror="if(!this.dataset.f){this.dataset.f=1;this.src='../../../public/icons/icon-192.png'}"
+            alt="Logo"
+          />
+          <div>
+            <div style="font-size:14px;font-weight:700;color:var(--adm-fg)">依尘后台</div>
+            <div style="font-size:11px;color:var(--adm-muted)">与前台同源色阶</div>
+          </div>
+        </div>
+
+        <div class="adm-nav-group-lbl">内容运营</div>
+        <div class="adm-nav-list" role="tablist" aria-label="后台视图切换">
+          <button type="button" role="tab" class="adm-nav-item" data-adm-tab="dash" aria-selected="true">
+            <span>概览看板</span>
+          </button>
+          <button type="button" role="tab" class="adm-nav-item" data-adm-tab="posts" aria-selected="false">
+            <span>文章管理</span>
+            <span class="adm-count-dot">42</span>
+          </button>
+          <button type="button" role="tab" class="adm-nav-item" data-adm-tab="ainews" aria-selected="false">
+            <span>AI 日报编发</span>
+            <span class="adm-count-dot">今日</span>
+          </button>
+        </div>
+
+        <div class="adm-nav-group-lbl" style="margin-top:6px">目录与系统</div>
+        <div class="adm-nav-list">
+          <button type="button" class="adm-nav-item" data-adm-tab="dash"><span>评论审核</span><span class="adm-count-dot">2</span></button>
+          <button type="button" class="adm-nav-item" data-adm-tab="posts"><span>分类与系列</span></button>
+          <button type="button" class="adm-nav-item" data-adm-tab="ainews"><span>模型与日志</span></button>
+        </div>
+      </div>
+
+      <div class="adm-sider-foot">
+        <span>依尘 · 管理员</span>
+        <span style="color:var(--adm-primary);cursor:pointer">查看前台 ↗</span>
+      </div>
+    </aside>
+
+    <!-- 右侧主工作区 -->
+    <div class="adm-main-wrap">
+      <header class="adm-header">
+        <div class="adm-crumb">
+          <span style="color:var(--adm-muted)">后台</span>
+          <span style="color:var(--adm-muted)">/</span>
+          <strong style="color:var(--adm-fg)" id="adm-crumb-current">概览看板</strong>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:8px">
+          <div class="adm-cmdk">
+            <span>⌕ 搜索文章、日志或设置…</span>
+            <span style="font-family:var(--adm-mono);font-size:11px">⌘K</span>
+          </div>
+          <button type="button" class="adm-btn-primary">+ 写新文章</button>
+        </div>
+      </header>
+
+      <!-- ==================== 后台视图 1：运营概览 (/admin) ==================== -->
+      <div class="adm-body" data-adm-panel="dash">
+        <div class="adm-kpi-strip">
+          <div class="adm-card">
+            <div style="font-size:12px;color:var(--adm-muted)">近 7 日阅读 (PV)</div>
+            <div class="adm-kpi-val">4,820</div>
+            <div class="adm-kpi-sub" style="color:var(--adm-ok)">较上周 +14.2%</div>
+          </div>
+          <div class="adm-card">
+            <div style="font-size:12px;color:var(--adm-muted)">独立访客 (UV)</div>
+            <div class="adm-kpi-val">1,940</div>
+            <div class="adm-kpi-sub">SQL 预聚合 · 毫秒查询</div>
+          </div>
+          <div class="adm-card">
+            <div style="font-size:12px;color:var(--adm-muted)">已发布 / 草稿</div>
+            <div class="adm-kpi-val">38 <span style="font-size:14px;color:var(--adm-muted);font-weight:500">/ 4</span></div>
+            <div class="adm-kpi-sub">1 篇将于明早 08:00 发布</div>
+          </div>
+          <div class="adm-card">
+            <div style="font-size:12px;color:var(--adm-muted)">AI 日报流水线</div>
+            <div class="adm-kpi-val" style="font-size:17px;padding-top:3px">今日已成文</div>
+            <div class="adm-kpi-sub">08:02 完成 · 耗时 19s</div>
+          </div>
+        </div>
+
+        <!-- 干净无网格噪音的访问趋势图 -->
+        <section class="adm-card">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px">
+            <strong style="font-size:14px">近 14 日阅读与完读趋势</strong>
+            <span style="font-family:var(--adm-mono);font-size:11.5px;color:var(--adm-muted)">实线 PV · 虚线完读次数</span>
+          </div>
+          <svg viewBox="0 0 680 116" style="width:100%;height:112px;display:block">
+            <line x1="0" y1="24" x2="680" y2="24" stroke="currentColor" stroke-opacity="0.06" />
+            <line x1="0" y1="62" x2="680" y2="62" stroke="currentColor" stroke-opacity="0.06" />
+            <line x1="0" y1="100" x2="680" y2="100" stroke="currentColor" stroke-opacity="0.08" />
+            <path d="M8,84 L58,78 L112,72 L164,80 L218,60 L272,54 L326,62 L380,44 L434,36 L488,46 L542,28 L596,24 L672,18 L672,100 L8,100 Z" fill="var(--adm-primary)" fill-opacity="0.11" />
+            <polyline points="8,84 58,78 112,72 164,80 218,60 272,54 326,62 380,44 434,36 488,46 542,28 596,24 672,18" fill="none" stroke="var(--adm-primary)" stroke-width="2.2" />
+            <polyline points="8,94 58,92 112,88 164,91 218,82 272,80 326,84 380,74 434,70 488,75 542,65 596,62 672,58" fill="none" stroke="currentColor" stroke-opacity="0.35" stroke-dasharray="4 4" stroke-width="1.5" />
+          </svg>
+        </section>
+
+        <!-- 双栏待办：继续写草稿 + 原位审评论 -->
+        <div class="adm-two-col">
+          <section class="adm-card">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
+              <strong style="font-size:14px">最近草稿队列</strong>
+              <button type="button" class="adm-nav-item" data-adm-tab="posts" style="height:24px;padding:0 6px;font-size:12px;color:var(--adm-primary)">全部草稿 ›</button>
+            </div>
+            <div class="adm-todo-item">
+              <div style="min-width:0">
+                <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Next.js 16 缓存标签迁移手记</div>
+                <div style="font-size:11.5px;color:var(--adm-muted)">更新于 2 小时前 · 1,840 字</div>
+              </div>
+              <button type="button" class="adm-btn-ghost">继续写</button>
+            </div>
+            <div class="adm-todo-item">
+              <div style="min-width:0">
+                <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">AI 日报 · 11-22 候选初稿</div>
+                <div style="font-size:11.5px;color:var(--adm-muted)">自动生成待审校 · 6 条信源</div>
+              </div>
+              <button type="button" class="adm-btn-ghost" data-adm-tab="ainews">审校</button>
+            </div>
+          </section>
+
+          <section class="adm-card">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
+              <strong style="font-size:14px">待审读者评论</strong>
+              <span style="font-family:var(--adm-mono);font-size:11.5px;color:var(--adm-muted)" id="adm-pending-num">2 条待处理</span>
+            </div>
+            <div class="adm-todo-item" data-cmt-row>
+              <div style="min-width:0">
+                <div style="font-size:12.5px"><strong>陈默</strong> <span style="color:var(--adm-muted)">评《连接池占满排查》</span></div>
+                <div style="font-size:12px;color:var(--adm-body);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">请问 pg 连接池最大数设成 8 后内存涨了多少？</div>
+              </div>
+              <button type="button" class="adm-btn-primary" style="height:26px;padding:0 10px;font-size:11.5px" data-approve-btn>通过</button>
+            </div>
+            <div class="adm-todo-item" data-cmt-row>
+              <div style="min-width:0">
+                <div style="font-size:12.5px"><strong>周航</strong> <span style="color:var(--adm-muted)">评《字体按需加载》</span></div>
+                <div style="font-size:12px;color:var(--adm-body);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">unicode-range 切片脚本有开源在仓库 scripts 里吗？</div>
+              </div>
+              <button type="button" class="adm-btn-primary" style="height:26px;padding:0 10px;font-size:11.5px" data-approve-btn>通过</button>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <!-- ==================== 后台视图 2：高密度文章管理 (/admin/posts) ==================== -->
+      <div class="adm-body" data-adm-panel="posts" hidden>
+        <section class="adm-card">
+          <div class="adm-toolbar">
+            <div class="adm-seg" role="group" aria-label="文章状态筛选">
+              <button type="button" class="adm-seg-btn" data-post-f="all" aria-pressed="true">全部 42</button>
+              <button type="button" class="adm-seg-btn" data-post-f="pub" aria-pressed="false">已发布 38</button>
+              <button type="button" class="adm-seg-btn" data-post-f="draft" aria-pressed="false">草稿 4</button>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <input class="adm-search-input" type="search" placeholder="按标题或 Slug 筛选…" aria-label="筛选文章" />
+              <button type="button" class="adm-btn-ghost">批量补全摘要</button>
+            </div>
+          </div>
+
+          <div style="overflow-x:auto">
+            <table class="adm-table">
+              <thead>
+                <tr>
+                  <th>文章标题 / Slug</th>
+                  <th>分类</th>
+                  <th>状态</th>
+                  <th style="text-align:right">阅读</th>
+                  <th style="text-align:right">更新日期</th>
+                  <th style="text-align:right">操作</th>
+                </tr>
+              </thead>
+              <tbody id="adm-post-tbody">
+                <tr data-st="pub">
+                  <td>
+                    <div style="font-weight:600;color:var(--adm-fg)">记一次定时发布把数据库连接池占满的排查过程</div>
+                    <div style="font-family:var(--adm-mono);font-size:11px;color:var(--adm-muted)">/posts/pg-pool-starvation-debug · 📌 置顶</div>
+                  </td>
+                  <td>线上排障</td>
+                  <td><span class="adm-status"><i class="adm-dot" style="background:var(--adm-ok)"></i>已发布</span></td>
+                  <td style="text-align:right;font-family:var(--adm-mono)">1,886</td>
+                  <td style="text-align:right;font-family:var(--adm-mono);color:var(--adm-muted)">11-19</td>
+                  <td style="text-align:right"><button type="button" class="adm-btn-ghost" style="height:25px">编辑</button></td>
+                </tr>
+                <tr data-st="draft">
+                  <td>
+                    <div style="font-weight:600;color:var(--adm-fg)">Next.js 16 缓存标签迁移手记</div>
+                    <div style="font-family:var(--adm-mono);font-size:11px;color:var(--adm-muted)">/posts/nextjs-16-cache-tags · 摘要已就绪</div>
+                  </td>
+                  <td>前端开发</td>
+                  <td><span class="adm-status"><i class="adm-dot" style="background:var(--adm-warn)"></i>草稿</span></td>
+                  <td style="text-align:right;font-family:var(--adm-mono);color:var(--adm-muted)">-</td>
+                  <td style="text-align:right;font-family:var(--adm-mono);color:var(--adm-muted)">今日 22:10</td>
+                  <td style="text-align:right"><button type="button" class="adm-btn-ghost" style="height:25px">继续写</button></td>
+                </tr>
+                <tr data-st="pub">
+                  <td>
+                    <div style="font-weight:600;color:var(--adm-fg)">把软删除和唯一约束放一起时，早晚会撞上重名报错</div>
+                    <div style="font-family:var(--adm-mono);font-size:11px;color:var(--adm-muted)">/posts/soft-delete-partial-unique-index</div>
+                  </td>
+                  <td>工程实践</td>
+                  <td><span class="adm-status"><i class="adm-dot" style="background:var(--adm-ok)"></i>已发布</span></td>
+                  <td style="text-align:right;font-family:var(--adm-mono)">942</td>
+                  <td style="text-align:right;font-family:var(--adm-mono);color:var(--adm-muted)">11-08</td>
+                  <td style="text-align:right"><button type="button" class="adm-btn-ghost" style="height:25px">编辑</button></td>
+                </tr>
+                <tr data-st="pub">
+                  <td>
+                    <div style="font-weight:600;color:var(--adm-fg)">Codex 的 /goal 长任务模式在底层是怎么跑起来的</div>
+                    <div style="font-family:var(--adm-mono);font-size:11px;color:var(--adm-muted)">/posts/how-codex-goal-loop-works</div>
+                  </td>
+                  <td>AI 笔记</td>
+                  <td><span class="adm-status"><i class="adm-dot" style="background:var(--adm-ok)"></i>已发布</span></td>
+                  <td style="text-align:right;font-family:var(--adm-mono)">1,512</td>
+                  <td style="text-align:right;font-family:var(--adm-mono);color:var(--adm-muted)">10-29</td>
+                  <td style="text-align:right"><button type="button" class="adm-btn-ghost" style="height:25px">编辑</button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <!-- ==================== 后台视图 3：AI 日报采集编发台 (/admin/ai-news) ==================== -->
+      <div class="adm-body" data-adm-panel="ainews" hidden>
+        <section class="adm-card">
+          <div class="adm-source-strip">
+            <div>
+              <strong style="font-size:14.5px">今日候选池 · 2026-11-21</strong>
+              <span style="margin-left:10px;font-size:12px;color:var(--adm-muted)">已抓取 14 个启用的 RSS / GitHub Releases 信源，去重后保留 3 条高相关动态</span>
+            </div>
+            <button type="button" class="adm-btn-primary" onclick="this.textContent='已生成草稿（待人工确认发布）✓'">合成今日草稿</button>
+          </div>
+
+          <div class="adm-cand-row">
+            <input type="checkbox" checked aria-label="选用条目 1" style="margin-top:4px;accent-color:var(--adm-primary)" />
+            <div>
+              <div style="font-weight:600;color:var(--adm-fg)">多模态长视频跨时段定位基准更新，长上下文问答准确率显著提升</div>
+              <div style="font-size:12px;color:var(--adm-muted);margin-top:2px">来源：arxiv-cs-cv · 自动去重通过 · 建议归入「模型进展」小节</div>
+            </div>
+            <span style="font-family:var(--adm-mono);font-size:11.5px;color:var(--adm-primary)">相关度 0.92</span>
+          </div>
+
+          <div class="adm-cand-row">
+            <input type="checkbox" checked aria-label="选用条目 2" style="margin-top:4px;accent-color:var(--adm-primary)" />
+            <div>
+              <div style="font-weight:600;color:var(--adm-fg)">轻量零依赖端侧 4-bit 量化推理仓库发布 v0.4，支持本地文档问答</div>
+              <div style="font-size:12px;color:var(--adm-muted);margin-top:2px">来源：github-trending · 附带 CLI 命令示例 · 建议归入「开源工具」小节</div>
+            </div>
+            <span style="font-family:var(--adm-mono);font-size:11.5px;color:var(--adm-primary)">相关度 0.89</span>
+          </div>
+
+          <div class="adm-cand-row">
+            <input type="checkbox" aria-label="选用条目 3" style="margin-top:4px;accent-color:var(--adm-primary)" />
+            <div>
+              <div style="font-weight:600;color:var(--adm-body)">某云厂商常规营销发布会通稿（已由过滤规则自动降权，默认不勾选）</div>
+              <div style="font-size:12px;color:var(--adm-muted);margin-top:2px">来源：tech-rss · 信息密度偏低</div>
+            </div>
+            <span style="font-family:var(--adm-mono);font-size:11.5px;color:var(--adm-muted)">相关度 0.41</span>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    var root = document.documentElement;
+    if (!getComputedStyle(root).getPropertyValue("--card").trim()) {
+      root.style.setProperty("--background", "#0e1319");
+      root.style.setProperty("--foreground", "#e6edf4");
+      root.style.setProperty("--card", "#161d26");
+      root.style.setProperty("--secondary", "#1f2936");
+      root.style.setProperty("--muted-foreground", "#8493a4");
+      root.style.setProperty("--border", "rgba(255, 255, 255, 0.06)");
+      document.body.style.background = "#0e1319";
+      document.body.style.padding = "18px 14px 36px";
+    }
+
+    var titles = { dash: "概览看板", posts: "文章管理", ainews: "AI 日报编发" };
+    var crumb = document.getElementById("adm-crumb-current");
+    var switchTab = function (id) {
+      document.querySelectorAll("[data-adm-tab]").forEach(function (b) {
+        if (b.getAttribute("role") === "tab") {
+          b.setAttribute("aria-selected", b.getAttribute("data-adm-tab") === id ? "true" : "false");
+        }
+      });
+      document.querySelectorAll("[data-adm-panel]").forEach(function (p) {
+        p.hidden = p.getAttribute("data-adm-panel") !== id;
+      });
+      if (crumb && titles[id]) crumb.textContent = titles[id];
+    };
+
+    document.querySelectorAll("[data-adm-tab]").forEach(function (b) {
+      b.addEventListener("click", function () { switchTab(b.getAttribute("data-adm-tab")); });
+    });
+
+    // 原位审核评论乐观反馈
+    var pendingEl = document.getElementById("adm-pending-num");
+    document.querySelectorAll("[data-approve-btn]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        btn.textContent = "已公开 ✓";
+        btn.disabled = true;
+        btn.style.opacity = "0.55";
+        var left = document.querySelectorAll("[data-approve-btn]:not([disabled])").length;
+        if (pendingEl) pendingEl.textContent = left > 0 ? left + " 条待处理" : "全部已处理 ✓";
+      });
+    });
+
+    // 文章列表状态快筛
+    var fBtns = document.querySelectorAll("[data-post-f]");
+    var rows = document.querySelectorAll("#adm-post-tbody tr");
+    fBtns.forEach(function (b) {
+      b.addEventListener("click", function () {
+        var f = b.getAttribute("data-post-f");
+        fBtns.forEach(function (x) { x.setAttribute("aria-pressed", x === b ? "true" : "false"); });
+        rows.forEach(function (r) {
+          r.hidden = f !== "all" && r.getAttribute("data-st") !== f;
+        });
+      });
+    });
+  })();
+</script>
+</body>
+</html>

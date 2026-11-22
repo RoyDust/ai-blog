@@ -7,9 +7,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { useState } from "react";
+import { ArrowRight, Github, KeyRound, LockKeyhole, Mail, ShieldCheck, Sparkles } from "lucide-react";
 
-import { AuthDivider, AuthErrorBanner, AuthHeader, SubmitLabel } from "@/components/auth/AuthFormParts";
-import { Input } from "@/components/ui";
+import { Button, Input } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { getPostLoginRedirect } from "@/lib/login-redirect";
 
@@ -25,7 +25,6 @@ export type LoginFormCopy = {
   registerPrompt: string;
   registerLinkLabel: string;
   registerSuffix?: string;
-  emailPlaceholder: string;
 };
 
 export type LoginFormProps = {
@@ -49,7 +48,6 @@ const loginFormCopyByMode: Record<LoginFormMode, LoginFormCopy> = {
     registerPrompt: "没有账号？",
     registerLinkLabel: "创建账号",
     registerSuffix: "，再由管理员分配后台权限。",
-    emailPlaceholder: "admin@example.com",
   },
   dialog: {
     eyebrow: "账号",
@@ -60,7 +58,6 @@ const loginFormCopyByMode: Record<LoginFormMode, LoginFormCopy> = {
     githubLabel: "使用 GitHub 登录",
     registerPrompt: "没有账号？",
     registerLinkLabel: "创建账号",
-    emailPlaceholder: "you@example.com",
   },
 };
 
@@ -92,11 +89,6 @@ const loginSchema = z.object({
 
 type LoginFormValues = z.infer<typeof loginSchema>;
 
-/**
- * 登录表单（简报第 12 节，原型 12 的登录弹层与状态画板 B / C）。
- * - dialog：读者登录，外层纸面由 LoginDialog 提供；
- * - page：后台登录，自带一张 card-bg 纸面，文案换成「后台登录」「进入后台」。
- */
 export function LoginForm({
   mode = "page",
   callbackUrl = "/admin",
@@ -118,7 +110,7 @@ export function LoginForm({
   const [submitError, setSubmitError] = useState("");
   const helperMessage = authError ? errorMessages[authError] ?? "登录失败，请稍后重试。" : "";
   const isDialog = mode === "dialog";
-  const bannerMessage = submitError || helperMessage;
+  const HeaderIcon = isDialog ? Sparkles : ShieldCheck;
 
   const handleCredentialsLogin = async (values: LoginFormValues) => {
     setSubmitError("");
@@ -160,30 +152,60 @@ export function LoginForm({
 
   return (
     <div
-      data-login-mode={mode}
       className={cn(
+        "overflow-hidden rounded-2xl border p-6 sm:p-7",
         isDialog
-          ? "px-5 pb-6 pt-6 sm:px-8 sm:pb-8 sm:pt-7"
-          : "rounded-[var(--radius-paper)] border border-[var(--reader-border-strong)] bg-[var(--card-bg)] px-5 pb-6 pt-6 text-[var(--text-body)] sm:px-8 sm:pb-8 sm:pt-7",
+          ? "reader-panel border-[var(--reader-border)] bg-[var(--reader-panel)] shadow-[var(--reader-shadow)] backdrop-blur-xl"
+          : "card-base ui-surface border-[var(--border)] bg-[var(--surface)]",
       )}
     >
-      <AuthHeader
-        className={isDialog ? "pr-10" : undefined}
-        description={formCopy.description}
-        eyebrow={formCopy.eyebrow}
-        title={formCopy.title}
-      />
+      <div className={cn("mb-5 flex items-start justify-between gap-4", isDialog ? "pr-9" : "")}>
+        <div className="min-w-0 space-y-1.5">
+          <span className="inline-flex items-center gap-1.5 rounded-md bg-[var(--btn-regular-bg)] px-2.5 py-1 text-xs font-semibold text-[var(--btn-content)]">
+            <HeaderIcon className="h-3.5 w-3.5" aria-hidden="true" />
+            {formCopy.eyebrow}
+          </span>
+          <h1
+            className={cn(
+              "font-display font-bold leading-snug tracking-tight text-[var(--foreground)]",
+              isDialog ? "text-xl sm:text-2xl" : "text-2xl",
+            )}
+          >
+            {formCopy.title}
+          </h1>
+          <p className={cn("max-w-sm text-sm leading-6", isDialog ? "text-[var(--text-body)]" : "text-[var(--muted)]")}>
+            {formCopy.description}
+          </p>
+        </div>
+      </div>
 
-      <div className="mt-5">
-        <AuthErrorBanner message={bannerMessage} />
+      <div>
+        {submitError ? (
+          <div className="ui-alert-danger mb-4 rounded-xl px-3.5 py-2.5">
+            <p className="text-xs font-medium leading-5">{submitError}</p>
+          </div>
+        ) : null}
 
-        <form onSubmit={handleSubmit(handleCredentialsLogin)} className="flex flex-col gap-4" noValidate aria-busy={isSubmitting}>
+        {!submitError && helperMessage ? (
+          <div className="ui-alert-danger mb-4 rounded-xl px-3.5 py-2.5">
+            <p className="text-xs font-medium leading-5">{helperMessage}</p>
+          </div>
+        ) : null}
+
+        <form onSubmit={handleSubmit(handleCredentialsLogin)} className="space-y-3.5" noValidate>
           <Input
             type="email"
             label="邮箱"
-            placeholder={formCopy.emailPlaceholder}
+            placeholder="admin@example.com"
             autoComplete="email"
             error={errors.email?.message}
+            leftSlot={<Mail className="h-4 w-4" aria-hidden="true" />}
+            className={cn(
+              "h-10 rounded-xl text-sm",
+              isDialog
+                ? "border-[var(--reader-border)] bg-[color:color-mix(in_oklab,var(--surface-alt)_52%,var(--card-bg)_48%)] placeholder:text-[var(--text-muted)]"
+                : "border-[var(--border)] bg-[color:color-mix(in_oklab,var(--surface-alt)_50%,var(--surface)_50%)]",
+            )}
             {...register("email")}
           />
 
@@ -193,29 +215,60 @@ export function LoginForm({
             placeholder="输入账号密码"
             autoComplete="current-password"
             error={errors.password?.message}
+            leftSlot={<KeyRound className="h-4 w-4" aria-hidden="true" />}
+            className={cn(
+              "h-10 rounded-xl text-sm",
+              isDialog
+                ? "border-[var(--reader-border)] bg-[color:color-mix(in_oklab,var(--surface-alt)_52%,var(--card-bg)_48%)] placeholder:text-[var(--text-muted)]"
+                : "border-[var(--border)] bg-[color:color-mix(in_oklab,var(--surface-alt)_50%,var(--surface)_50%)]",
+            )}
             {...register("password")}
           />
 
-          <div className="mt-1">
-            <button type="submit" className="ed-btn ed-btn--block" disabled={isSubmitting}>
-              <SubmitLabel busyLabel={formCopy.submittingLabel} idleLabel={formCopy.submitLabel} submitting={isSubmitting} />
-            </button>
-          </div>
+          <Button
+            type="submit"
+            className="h-10 w-full gap-2 rounded-xl text-sm"
+            disabled={isSubmitting}
+          >
+            <LockKeyhole className="h-4 w-4" aria-hidden="true" />
+            {isSubmitting ? formCopy.submittingLabel : formCopy.submitLabel}
+            <ArrowRight className="h-4 w-4" aria-hidden="true" />
+          </Button>
         </form>
 
-        <AuthDivider />
+        <div className="relative my-5">
+          <div className="absolute inset-0 flex items-center">
+            <div className={cn("w-full border-t", isDialog ? "border-[var(--line-color)]" : "border-[var(--border)]")} />
+          </div>
+          <div className="relative flex justify-center text-xs">
+            <span
+              className={cn(
+                "px-3 text-[var(--muted)]",
+                isDialog ? "bg-[var(--reader-panel)] text-[var(--text-muted)]" : "bg-[var(--surface)]",
+              )}
+            >
+              或
+            </span>
+          </div>
+        </div>
 
-        <button
+        <Button
           type="button"
-          className="ed-btn-outline ed-btn--block"
+          variant="outline"
+          className={cn(
+            "h-10 w-full gap-2 rounded-xl text-sm",
+            isDialog &&
+              "border-[var(--reader-border)] bg-[color:color-mix(in_oklab,var(--surface-alt)_42%,transparent)] hover:bg-[var(--btn-plain-bg-hover)]",
+          )}
           onClick={() => signIn("github", { callbackUrl: oauthCallbackUrl })}
         >
+          <Github className="h-4 w-4" aria-hidden="true" />
           {formCopy.githubLabel}
-        </button>
+        </Button>
 
-        <p className="mt-5 text-[0.875rem] leading-[1.7] text-[var(--text-muted)]">
-          {formCopy.registerPrompt}
-          <Link href="/register" className="ed-link ed-link--inline">
+        <p className={cn("mt-5 text-center text-xs leading-5", isDialog ? "text-[var(--text-muted)]" : "text-[var(--muted)]")}>
+          {formCopy.registerPrompt}{" "}
+          <Link href="/register" className={cn("font-semibold", isDialog ? "reader-link" : "ui-link")}>
             {formCopy.registerLinkLabel}
           </Link>
           {formCopy.registerSuffix}

@@ -1,34 +1,35 @@
 "use client";
 
-import { AiTextButton } from "@/components/admin/workspace/WorkspaceKit";
+import { LoaderCircle, Sparkles } from "lucide-react";
 
 /**
- * 字段级 AI 动作按钮（方向 A）：等宽「AI」文字按钮，info 色、28px 高。
+ * 字段级 AI 动作按钮。
  *
- * - placement="field"（默认）：放在输入框内右侧，左侧 1px 竖线隔开
- * - placement="label"：放在标签行右侧（分类、标签）
- * loading 时换成静态转圈并禁用；aria-label / title 沿用传入的 label。
+ * 用统一的图标、loading 和禁用态包装标题、slug、分类、标签、摘要等小型 AI 补全入口。
  */
 export function AiFieldButton({
   disabled,
   label,
   loading,
   onClick,
-  placement = "field",
 }: {
   disabled?: boolean;
   label: string;
   loading?: boolean;
   onClick: () => void;
-  placement?: "field" | "label";
 }) {
+  const Icon = loading ? LoaderCircle : Sparkles;
+
   return (
-    <AiTextButton
-      disabled={disabled}
-      label={label}
-      loading={loading}
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      className="ui-ring inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--btn-regular-bg)] text-[var(--btn-content)] transition-colors hover:bg-[var(--btn-regular-bg-hover)] disabled:cursor-not-allowed disabled:opacity-45"
+      disabled={disabled || loading}
       onClick={onClick}
-      separated={placement === "field"}
-    />
+    >
+      <Icon className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+    </button>
   );
 }

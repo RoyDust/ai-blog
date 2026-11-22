@@ -2,15 +2,17 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 import { signOut } from "next-auth/react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { Tooltip as TooltipPrimitive } from "radix-ui";
-import { ChevronDown, ChevronsUpDown, LogOut, Settings, Sparkles, X } from "lucide-react";
+import { ChevronDown, LogOut, Settings, Sparkles, X } from "lucide-react";
 import { MOBILE_MEDIA_QUERY, useAdminLayout } from "./AdminLayoutContext";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/admin/ui";
-import { collapseMotion } from "@/components/editorial";
-import { BrandMark } from "@/components/layout/BrandMark";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/admin/ui";
 import {
   Sheet,
   SheetClose,
@@ -20,7 +22,8 @@ import {
 } from "@/components/shadcn/ui/sheet";
 import { ADMIN_AI_GROUP_LABEL, type AdminNavItem, adminNavItems, isAdminNavItemActive } from "./config";
 import { clearAllSessionData } from "@/lib/auth-client";
-import { cn } from "@/lib/cn";
+
+export { MOBILE_MEDIA_QUERY };
 
 export interface AdminSiderProps {
   pathname: string;
@@ -45,60 +48,18 @@ function getInitials(value: string) {
   return [...value.trim()].slice(0, 2).join("").toUpperCase() || "A";
 }
 
-const DESKTOP_INDICATOR_LAYOUT_ID = "admin-sider-active";
-const MOBILE_INDICATOR_LAYOUT_ID = "admin-mobile-sider-active";
-
-/**
- * 当前项指示：白 8% 底 + 左侧 2px sky 竖线（侧栏上用亮一档的 --sider-accent）。
- * 同一 layoutId 在条目之间平移；减少动态效果时直接切换。
- */
-function ActiveIndicator({ layoutId = DESKTOP_INDICATOR_LAYOUT_ID }: { layoutId?: string }) {
-  const reduceMotion = useReducedMotion();
-  return (
-    <motion.span
-      aria-hidden="true"
-      className="pointer-events-none absolute inset-0 rounded-[var(--radius-ctl)] bg-[var(--sider-active-bg)] shadow-[inset_2px_0_0_var(--sider-accent)]"
-      layoutId={reduceMotion ? undefined : layoutId}
-      transition={{ type: "spring", stiffness: 520, damping: 44, mass: 0.7 }}
-    />
-  );
-}
-
-/** 收起到 64px 时的悬停提示：foreground 底、4px 圆角的小标签 */
-function CollapsedTip({ label, enabled, children }: { label: string; enabled: boolean; children: ReactNode }) {
-  if (!enabled) return <>{children}</>;
-
-  return (
-    <TooltipPrimitive.Root>
-      <TooltipPrimitive.Trigger asChild>{children}</TooltipPrimitive.Trigger>
-      <TooltipPrimitive.Portal>
-        <TooltipPrimitive.Content
-          className="z-50 rounded-[var(--radius-ctl)] bg-[var(--foreground)] px-2 py-1 text-xs font-bold text-[var(--card-bg)] transition-[opacity,translate] duration-150 ease-out starting:-translate-x-1 starting:opacity-0 motion-reduce:transition-none"
-          side="right"
-          sideOffset={8}
-        >
-          {label}
-        </TooltipPrimitive.Content>
-      </TooltipPrimitive.Portal>
-    </TooltipPrimitive.Root>
-  );
-}
-
-const navItemBaseClassName =
-  "relative flex h-10 items-center rounded-[var(--radius-ctl)] text-[0.875rem] whitespace-nowrap transition-colors duration-150";
-
-/** 组标题：.75rem 700 字距 .08em；收起时换成 1px 细线 */
-function GroupTitle({ children, collapsed }: { children: ReactNode; collapsed: boolean }) {
-  if (collapsed) {
-    return <span aria-hidden="true" className="mx-2 my-2 block h-px bg-[var(--sider-line)]" />;
+async function signOutAdmin() {
+  try {
+    clearAllSessionData();
+  } catch {
+    // Disabled browser storage must never block signOut().
   }
-
-  return <p className="px-3 pb-1.5 text-xs font-bold tracking-[0.08em] text-[var(--sider-muted)]">{children}</p>;
+  await signOut({ callbackUrl: "/" });
 }
 
 function UserAvatar({ image, userLabel }: { image?: string | null; userLabel: string }) {
   return (
-    <span className="relative inline-flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[rgb(255_255_255/0.12)] text-[0.8125rem] font-bold text-white">
+    <span className="relative inline-flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[var(--admin-sidebar-active-bg)] text-xs font-semibold text-[var(--admin-sidebar-active)]">
       {image ? (
         <Image alt={`${userLabel} 头像`} className="h-full w-full object-cover" height={32} src={image} unoptimized width={32} />
       ) : (
@@ -108,202 +69,142 @@ function UserAvatar({ image, userLabel }: { image?: string | null; userLabel: st
   );
 }
 
-interface AdminSiderNavigationProps {
-  aiGroupId: string;
-  ariaLabel: string;
-  collapsed: boolean;
-  defaultAiOpen?: boolean;
-  indicatorLayoutId: string;
-  onNavigate?: () => void;
-  pathname: string;
-}
-
 function AdminSiderNavigation({
   aiGroupId,
   ariaLabel,
   collapsed,
   defaultAiOpen = false,
-  indicatorLayoutId,
   onNavigate,
   pathname,
-}: AdminSiderNavigationProps) {
-  const reduceMotion = useReducedMotion();
+}: {
+  aiGroupId: string;
+  ariaLabel: string;
+  collapsed: boolean;
+  defaultAiOpen?: boolean;
+  onNavigate?: () => void;
+  pathname: string;
+}) {
   const mainItems = adminNavItems.filter((item) => item.group === "主导航");
   const aiItems = adminNavItems.filter((item) => item.group === ADMIN_AI_GROUP_LABEL);
   const systemItems = adminNavItems.filter((item) => item.group === "系统");
   const isAiActive = aiItems.some((item) => isAdminNavItemActive(pathname, item.href));
-  const [isAiOpen, setIsAiOpen] = useState(defaultAiOpen || isAiActive);
-
-  // 渲染期调整：路由进入 AI 助手组时自动展开该组（不在 effect 里 setState）
-  const [lastPathname, setLastPathname] = useState(pathname);
-  if (lastPathname !== pathname) {
-    setLastPathname(pathname);
-    if (isAiActive && !isAiOpen) {
-      setIsAiOpen(true);
-    }
-  }
 
   const renderNavItem = (item: AdminNavItem) => {
     const Icon = item.icon;
     const isActive = isAdminNavItemActive(pathname, item.href);
-    const layoutClassName = collapsed ? "justify-center px-0" : "gap-2.5 px-3";
+    const itemClassName = `flex items-center transition-colors duration-150 ${
+      collapsed ? "justify-center px-0 py-2.5" : "gap-2.5 px-3 py-2"
+    } rounded-[var(--radius-control)] text-[13px] ${
+      isActive
+        ? "bg-[var(--admin-sidebar-active-bg)] text-[var(--admin-sidebar-active)] font-semibold"
+        : "font-medium text-[var(--admin-sidebar-text)] hover:bg-[var(--admin-sidebar-hover)] hover:text-[var(--admin-sidebar-fg)]"
+    }`;
 
     if (item.disabled) {
       return (
         <button
           key={item.href}
           aria-label={`${item.label}稍后开放`}
-          className={cn(navItemBaseClassName, layoutClassName, "w-full cursor-not-allowed text-[var(--sider-muted)] opacity-60")}
+          className={`flex w-full cursor-not-allowed items-center ${
+            collapsed ? "justify-center px-0 py-2.5" : "gap-2.5 px-3 py-2"
+          } rounded-[var(--radius-control)] text-[13px] font-medium text-[var(--admin-sidebar-muted)] opacity-60`}
           disabled
           type="button"
         >
-          <Icon aria-hidden="true" className="size-4 shrink-0" />
+          <Icon aria-hidden="true" className="h-4 w-4 shrink-0" />
           {!collapsed && <span>{item.label}</span>}
         </button>
       );
     }
 
     return (
-      <CollapsedTip enabled={collapsed} key={item.href} label={item.label}>
-        <Link
-          aria-current={isActive ? "page" : undefined}
-          aria-label={collapsed ? item.label : undefined}
-          className={cn(
-            navItemBaseClassName,
-            layoutClassName,
-            "group/nav",
-            isActive ? "font-bold text-white" : "text-[var(--sider-fg)] hover:bg-[var(--sider-hover)] hover:text-white",
-          )}
-          href={item.href}
-          onClick={onNavigate}
-        >
-          {isActive ? <ActiveIndicator layoutId={indicatorLayoutId} /> : null}
-          <Icon
-            aria-hidden="true"
-            className={cn(
-              "relative size-4 shrink-0 transition-colors",
-              isActive ? "text-white" : "text-[var(--sider-muted)] group-hover/nav:text-white",
-            )}
-            strokeWidth={1.75}
-          />
-          {!collapsed && <span className="relative truncate">{item.label}</span>}
-          {!collapsed && item.badge ? (
-            <span className="ed-mono relative ml-auto text-xs font-bold text-[var(--sider-accent)]">{item.badge}</span>
-          ) : null}
-        </Link>
-      </CollapsedTip>
+      <Link
+        key={item.href}
+        aria-current={isActive ? "page" : undefined}
+        aria-label={collapsed ? item.label : undefined}
+        href={item.href}
+        onClick={onNavigate}
+        className={itemClassName}
+        title={collapsed ? item.label : undefined}
+      >
+        <Icon aria-hidden="true" className="h-4 w-4 shrink-0" />
+        {!collapsed && <span className="truncate">{item.label}</span>}
+        {!collapsed && item.badge ? (
+          <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-md bg-[var(--admin-sidebar-active-bg)] px-1.5 font-mono text-[11px] font-semibold tabular-nums text-[var(--admin-sidebar-active)]">
+            {item.badge}
+          </span>
+        ) : null}
+      </Link>
     );
   };
 
   return (
-    <nav aria-label={ariaLabel} className="reader-scrollbar-hidden flex flex-1 flex-col gap-0.5 overflow-y-auto px-2.5 pt-4 pb-2">
-      <GroupTitle collapsed={collapsed}>博客后台</GroupTitle>
+    <nav aria-label={ariaLabel} className="reader-scrollbar-hidden flex-1 space-y-1 overflow-y-auto px-2.5 py-3.5">
+      {!collapsed && (
+        <p className="px-3 pb-1.5 text-[11px] font-semibold text-[var(--admin-sidebar-muted)]">博客后台</p>
+      )}
 
       {mainItems.map(renderNavItem)}
 
-      {/* AI 助手折叠组 */}
       {collapsed ? (
-        <CollapsedTip enabled label={ADMIN_AI_GROUP_LABEL}>
-          <Link
-            aria-label={ADMIN_AI_GROUP_LABEL}
-            className={cn(
-              navItemBaseClassName,
-              "group/nav justify-center px-0",
-              isAiActive ? "text-white" : "text-[var(--sider-fg)] hover:bg-[var(--sider-hover)] hover:text-white",
-            )}
-            href="/admin/ai-news"
-            onClick={onNavigate}
-          >
-            {isAiActive ? <ActiveIndicator layoutId={indicatorLayoutId} /> : null}
-            <Sparkles
-              aria-hidden="true"
-              className={cn("relative size-4 shrink-0", isAiActive ? "text-white" : "text-[var(--sider-muted)] group-hover/nav:text-white")}
-              strokeWidth={1.75}
-            />
-          </Link>
-        </CollapsedTip>
+        <Link
+          aria-label={ADMIN_AI_GROUP_LABEL}
+          href="/admin/ai-news"
+          onClick={onNavigate}
+          className="flex items-center justify-center rounded-[var(--radius-control)] py-2.5 text-[var(--admin-sidebar-text)] transition-colors hover:bg-[var(--admin-sidebar-hover)] hover:text-[var(--admin-sidebar-fg)]"
+          title={ADMIN_AI_GROUP_LABEL}
+        >
+          <Sparkles aria-hidden="true" className="h-4 w-4 shrink-0" />
+        </Link>
       ) : (
-        <div>
-          <button
-            aria-controls={aiGroupId}
-            aria-expanded={isAiOpen}
-            className={cn(
-              navItemBaseClassName,
-              "group/nav w-full cursor-pointer gap-2.5 px-3 text-left",
-              isAiActive ? "font-bold text-white" : "text-[var(--sider-fg)]",
-              "hover:bg-[var(--sider-hover)] hover:text-white",
-            )}
-            onClick={() => setIsAiOpen((current) => !current)}
-            type="button"
+        <details className="group/ai" open={defaultAiOpen || isAiActive}>
+          <summary
+            className={`flex w-full cursor-pointer list-none items-center gap-2.5 rounded-[var(--radius-control)] px-3 py-2 text-[13px] font-medium transition-colors [&::-webkit-details-marker]:hidden ${
+              isAiActive
+                ? "bg-[var(--admin-sidebar-hover)] font-semibold text-[var(--admin-sidebar-fg)]"
+                : "text-[var(--admin-sidebar-text)] hover:bg-[var(--admin-sidebar-hover)] hover:text-[var(--admin-sidebar-fg)]"
+            }`}
           >
-            <Sparkles
-              aria-hidden="true"
-              className={cn("size-4 shrink-0", isAiActive ? "text-white" : "text-[var(--sider-muted)] group-hover/nav:text-white")}
-              strokeWidth={1.75}
-            />
-            <span className="flex-1">{ADMIN_AI_GROUP_LABEL}</span>
+            <Sparkles aria-hidden="true" className="h-4 w-4 shrink-0" />
+            <span>{ADMIN_AI_GROUP_LABEL}</span>
             <ChevronDown
               aria-hidden="true"
-              className={cn(
-                "size-3.5 text-[var(--sider-muted)] transition-transform duration-200 motion-reduce:transition-none",
-                isAiOpen && "rotate-180",
-              )}
+              className="ml-auto h-3.5 w-3.5 -rotate-90 text-[var(--admin-sidebar-muted)] transition-transform group-open/ai:rotate-0"
             />
-          </button>
-          <AnimatePresence initial={false}>
-            {isAiOpen ? (
-              <motion.div
-                key="ai-group"
-                className="overflow-hidden"
-                id={aiGroupId}
-                {...(reduceMotion ? {} : collapseMotion)}
-              >
-                <div className="flex flex-col gap-0.5 pt-0.5">
-                  {aiItems.map((item) => {
-                    const isActive = isAdminNavItemActive(pathname, item.href);
-
-                    return (
-                      <Link
-                        key={item.href}
-                        aria-current={isActive ? "page" : undefined}
-                        className={cn(
-                          "relative flex h-[34px] items-center rounded-[var(--radius-ctl)] pr-3 pl-[38px] text-[0.8125rem] whitespace-nowrap transition-colors duration-150",
-                          isActive ? "font-bold text-white" : "text-[var(--sider-fg)] hover:bg-[var(--sider-hover)] hover:text-white",
-                        )}
-                        href={item.href}
-                        onClick={onNavigate}
-                      >
-                        {isActive ? <ActiveIndicator layoutId={indicatorLayoutId} /> : null}
-                        <span className="relative truncate">{item.label}</span>
-                      </Link>
-                    );
-                  })}
-                </div>
-              </motion.div>
-            ) : null}
-          </AnimatePresence>
-        </div>
+          </summary>
+          <div id={aiGroupId} className="mt-1 space-y-0.5 pl-8 pr-1">
+            {aiItems.map((item) => {
+              const isActive = isAdminNavItemActive(pathname, item.href);
+              return (
+                <Link
+                  key={item.href}
+                  aria-current={isActive ? "page" : undefined}
+                  href={item.href}
+                  onClick={onNavigate}
+                  className={`block rounded-[var(--radius-control)] px-2.5 py-1.5 text-xs transition-colors ${
+                    isActive
+                      ? "bg-[var(--admin-sidebar-active-bg)] font-semibold text-[var(--admin-sidebar-active)]"
+                      : "text-[var(--admin-sidebar-text)] opacity-85 hover:bg-[var(--admin-sidebar-hover)] hover:text-[var(--admin-sidebar-fg)] hover:opacity-100"
+                  }`}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
+          </div>
+        </details>
       )}
 
       {systemItems.length ? (
-        <div className="mt-1 flex flex-col gap-0.5 border-t border-[var(--sider-line)] pt-3">
-          <GroupTitle collapsed={collapsed}>系统</GroupTitle>
+        <div className="mt-3 space-y-1 border-t border-[var(--admin-sidebar-border)] pt-3">
+          {!collapsed && (
+            <p className="px-3 pb-1.5 text-[11px] font-semibold text-[var(--admin-sidebar-muted)]">系统</p>
+          )}
           {systemItems.map(renderNavItem)}
         </div>
       ) : null}
     </nav>
   );
-}
-
-export { MOBILE_MEDIA_QUERY };
-
-async function signOutAdmin() {
-  try {
-    clearAllSessionData();
-  } catch {
-    // Disabled browser storage must never block signOut().
-  }
-  await signOut({ callbackUrl: "/" });
 }
 
 export function AdminSider({ pathname, siteName, user }: AdminSiderProps) {
@@ -314,80 +215,71 @@ export function AdminSider({ pathname, siteName, user }: AdminSiderProps) {
   const userMeta = user.email || (user.role === "ADMIN" ? "管理员" : user.role) || "管理员";
 
   return (
-    <TooltipPrimitive.Provider delayDuration={120}>
-      <aside
-        className={cn(
-          "sticky top-0 hidden h-screen overflow-hidden border-r border-[var(--sider-line)] bg-[var(--sider-bg)] text-[var(--sider-fg)] lg:flex lg:flex-col",
-          "transition-[width] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none",
-          isCollapsed ? "w-[64px]" : "w-[224px]",
-        )}
-        data-testid="admin-layout-sidebar"
-      >
-        {/* 品牌区：白底衬线字标方块 + 衬线站名，高度与顶栏一致 68px */}
-        <div className={cn("flex h-[68px] shrink-0 items-center border-b border-[var(--sider-line)]", isCollapsed ? "justify-center px-2" : "px-5")}>
-          <Link aria-label={`${siteName} 后台首页`} className={cn("flex min-w-0 items-center", isCollapsed ? "justify-center" : "gap-2.5")} href="/admin">
-            <BrandMark className="bg-[rgb(255_255_255/0.92)] text-[var(--sider-bg)]" siteName={siteName} size={32} />
-            {!isCollapsed && (
-              <span className="min-w-0 truncate font-serif text-[1.0625rem] font-bold text-white">{siteName}</span>
-            )}
-          </Link>
-        </div>
+    <aside
+      className={`sticky top-0 hidden h-screen overflow-hidden border-r border-[var(--admin-sidebar-border)] bg-[var(--admin-sidebar-bg)] transition-all duration-300 ease-in-out lg:flex lg:flex-col ${
+        isCollapsed ? "w-[64px]" : "w-[224px]"
+      }`}
+      data-testid="admin-layout-sidebar"
+    >
+      <div className={`flex items-center justify-center border-b border-[var(--admin-sidebar-border)] transition-all duration-300 ${isCollapsed ? "px-2 py-3.5" : "px-4 py-3.5"}`}>
+        <Link aria-label={`${siteName} 后台首页`} href="/admin" className={`flex w-full items-center ${isCollapsed ? "justify-center" : "gap-2.5"}`}>
+          <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[var(--admin-sidebar-active-bg)]">
+            <Image alt="" aria-hidden="true" className="h-full w-full object-cover" height={32} priority src="/icons/icon-192.png" width={32} />
+          </span>
+          {!isCollapsed && (
+            <span className="min-w-0 truncate font-display text-base font-bold tracking-tight text-[var(--admin-sidebar-fg)]">
+              {siteName}
+            </span>
+          )}
+        </Link>
+      </div>
 
-        {/* 导航：16px 线性图标保留（收起时只能靠图标识别） */}
-        <AdminSiderNavigation
-          aiGroupId="admin-sider-ai-group"
-          ariaLabel="Admin navigation"
-          collapsed={isCollapsed}
-          indicatorLayoutId={DESKTOP_INDICATOR_LAYOUT_ID}
-          pathname={pathname}
-        />
+      <AdminSiderNavigation
+        aiGroupId="admin-sider-ai-group"
+        ariaLabel="Admin navigation"
+        collapsed={isCollapsed}
+        pathname={pathname}
+      />
 
-        {/* 账号区 */}
-        <div className={cn("relative shrink-0 border-t border-[var(--sider-line)]", isCollapsed ? "px-2 py-2.5" : "p-2.5")}>
-          <DropdownMenu modal={false} open={isAccountMenuOpen} onOpenChange={setIsAccountMenuOpen}>
-            <DropdownMenuTrigger asChild>
-              <button
-                aria-label={`${userLabel} 账号菜单`}
-                className={cn(
-                  "flex w-full items-center rounded-[var(--radius-ctl)] text-left transition-colors duration-150 hover:bg-[var(--sider-hover)] aria-expanded:bg-[var(--sider-hover)]",
-                  isCollapsed ? "justify-center px-0 py-1.5" : "gap-2.5 px-2.5 py-2",
-                )}
-                type="button"
-              >
-                <UserAvatar image={user.image} userLabel={userLabel} />
-                {!isCollapsed && (
-                  <>
-                    <span className="flex min-w-0 flex-1 flex-col">
-                      <span className="truncate text-[0.875rem] font-bold text-white">{userLabel}</span>
-                      <span className="truncate text-xs text-[var(--sider-muted)]">{userMeta}</span>
-                    </span>
-                    <ChevronsUpDown aria-hidden="true" className="size-4 shrink-0 text-[var(--sider-muted)]" />
-                  </>
-                )}
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align={isCollapsed ? "center" : "start"} className="w-[var(--radix-dropdown-menu-trigger-width)] min-w-48" side={isCollapsed ? "right" : "top"}>
-              <DropdownMenuItem asChild className={isSettingsActive ? "font-bold" : undefined}>
-                <Link aria-current={isSettingsActive ? "page" : undefined} href="/admin/settings">
-                  设置
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={() => void signOutAdmin()} variant="destructive">
-                退出账号
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </aside>
-    </TooltipPrimitive.Provider>
+      <div className={`relative border-t border-[var(--admin-sidebar-border)] ${isCollapsed ? "px-2 py-3" : "px-3 py-3"} transition-all duration-300`}>
+        <DropdownMenu modal={false} open={isAccountMenuOpen} onOpenChange={setIsAccountMenuOpen}>
+          <DropdownMenuTrigger asChild>
+            <button
+              aria-label={`${userLabel} 账号菜单`}
+              className={`flex w-full items-center ${isCollapsed ? "justify-center px-0 py-1" : "gap-2.5 px-2 py-1.5"} rounded-[var(--radius-control)] text-left transition-colors hover:bg-[var(--admin-sidebar-hover)]`}
+              type="button"
+            >
+              <UserAvatar image={user.image} userLabel={userLabel} />
+              {!isCollapsed && (
+                <>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[13px] font-semibold text-[var(--admin-sidebar-fg)]">{userLabel}</p>
+                    <p className="truncate text-[11px] text-[var(--admin-sidebar-muted)]">{userMeta}</p>
+                  </div>
+                  <ChevronDown className={`h-3.5 w-3.5 text-[var(--admin-sidebar-muted)] transition-transform ${isAccountMenuOpen ? "rotate-180" : ""}`} />
+                </>
+              )}
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align={isCollapsed ? "center" : "start"} className="w-48" side={isCollapsed ? "right" : "top"}>
+            <DropdownMenuItem asChild className={isSettingsActive ? "bg-[color-mix(in_oklab,var(--brand)_10%,var(--surface))] text-[var(--brand)]" : undefined}>
+              <Link aria-current={isSettingsActive ? "page" : undefined} href="/admin/settings">
+                <Settings className="h-4 w-4" />
+                设置
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem className="text-[var(--danger-foreground)] focus:bg-[var(--danger-surface)] focus:text-[var(--danger-foreground)]" onSelect={() => void signOutAdmin()}>
+              <LogOut className="h-4 w-4" />
+              退出账号
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    </aside>
   );
 }
 
-/**
- * 移动端 / 平板端（< 64rem，与 Tailwind lg: 对齐）后台导航抽屉：沿用 AdminSider 深色编辑排版色板，
- * 直接展开全部后台导航条目、账号信息、「设置」与「退出登录」入口。
- */
 export function AdminMobileDrawer({ pathname, siteName, user }: AdminSiderProps) {
   const { isMobileDrawerOpen, setMobileDrawerOpen, closeMobileDrawer } = useAdminLayout();
   const userLabel = user.label;
@@ -397,7 +289,7 @@ export function AdminMobileDrawer({ pathname, siteName, user }: AdminSiderProps)
   return (
     <Sheet open={isMobileDrawerOpen} onOpenChange={setMobileDrawerOpen}>
       <SheetContent
-        className="admin-theme inset-y-0 left-0 flex h-dvh w-[260px] max-w-[85vw] flex-col gap-0 border-r border-[var(--sider-line)] bg-[var(--sider-bg)] p-0 text-[var(--sider-fg)] shadow-none sm:max-w-[260px] motion-reduce:transition-none motion-reduce:animate-none"
+        className="admin-theme inset-y-0 left-0 flex h-dvh w-[264px] max-w-[85vw] flex-col gap-0 border-r border-[var(--admin-sidebar-border)] bg-[var(--admin-sidebar-bg)] p-0 text-[var(--admin-sidebar-fg)] shadow-xl sm:max-w-[264px]"
         data-testid="admin-mobile-drawer"
         id="admin-mobile-drawer"
         showCloseButton={false}
@@ -406,22 +298,24 @@ export function AdminMobileDrawer({ pathname, siteName, user }: AdminSiderProps)
         <SheetTitle className="sr-only">后台导航菜单</SheetTitle>
         <SheetDescription className="sr-only">切换管理后台页面、进入账号设置或退出登录。</SheetDescription>
 
-        <div className="flex h-[68px] shrink-0 items-center justify-between gap-2 border-b border-[var(--sider-line)] pr-3 pl-5">
+        <div className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-[var(--admin-sidebar-border)] px-4">
           <Link
             aria-label={`${siteName} 后台首页`}
             className="flex min-w-0 flex-1 items-center gap-2.5"
             href="/admin"
             onClick={closeMobileDrawer}
           >
-            <BrandMark className="bg-[rgb(255_255_255/0.92)] text-[var(--sider-bg)]" siteName={siteName} size={32} />
-            <span className="min-w-0 truncate font-serif text-[1.0625rem] font-bold text-white">{siteName}</span>
+            <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[var(--admin-sidebar-active-bg)]">
+              <Image alt="" aria-hidden="true" className="h-full w-full object-cover" height={32} src="/icons/icon-192.png" width={32} />
+            </span>
+            <span className="min-w-0 truncate font-display text-base font-bold text-[var(--admin-sidebar-fg)]">{siteName}</span>
           </Link>
 
           <SheetClose
             aria-label="关闭导航菜单"
-            className="inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-[var(--radius-ctl)] text-[var(--sider-muted)] transition-colors duration-150 hover:bg-[var(--sider-hover)] hover:text-white"
+            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-control)] text-[var(--admin-sidebar-muted)] transition-colors hover:bg-[var(--admin-sidebar-hover)] hover:text-[var(--admin-sidebar-fg)]"
           >
-            <X aria-hidden="true" className="size-4" strokeWidth={1.75} />
+            <X aria-hidden="true" className="h-4 w-4" />
           </SheetClose>
         </div>
 
@@ -430,55 +324,43 @@ export function AdminMobileDrawer({ pathname, siteName, user }: AdminSiderProps)
           ariaLabel="移动端后台导航"
           collapsed={false}
           defaultAiOpen
-          indicatorLayoutId={MOBILE_INDICATOR_LAYOUT_ID}
           onNavigate={closeMobileDrawer}
           pathname={pathname}
         />
 
-        <div className="shrink-0 border-t border-[var(--sider-line)] p-2.5">
+        <div className="shrink-0 border-t border-[var(--admin-sidebar-border)] p-2.5">
           <div className="flex items-center gap-2.5 px-2.5 py-2">
             <UserAvatar image={user.image} userLabel={userLabel} />
             <span className="flex min-w-0 flex-1 flex-col">
-              <span className="truncate text-[0.875rem] font-bold text-white">{userLabel}</span>
-              <span className="truncate text-xs text-[var(--sider-muted)]">{userMeta}</span>
+              <span className="truncate text-[13px] font-semibold text-[var(--admin-sidebar-fg)]">{userLabel}</span>
+              <span className="truncate text-xs text-[var(--admin-sidebar-muted)]">{userMeta}</span>
             </span>
           </div>
 
-          <div className="mt-1 flex flex-col gap-0.5 border-t border-[var(--sider-line)] pt-1.5">
+          <div className="mt-1 flex flex-col gap-0.5 border-t border-[var(--admin-sidebar-border)] pt-1.5">
             <Link
               aria-current={isSettingsActive ? "page" : undefined}
-              className={cn(
-                navItemBaseClassName,
-                "group/nav gap-2.5 px-3",
-                isSettingsActive ? "font-bold text-white" : "text-[var(--sider-fg)] hover:bg-[var(--sider-hover)] hover:text-white",
-              )}
+              className={`flex items-center gap-2.5 rounded-[var(--radius-control)] px-3 py-2 text-[13px] transition-colors ${
+                isSettingsActive
+                  ? "bg-[var(--admin-sidebar-active-bg)] font-semibold text-[var(--admin-sidebar-active)]"
+                  : "font-medium text-[var(--admin-sidebar-text)] hover:bg-[var(--admin-sidebar-hover)] hover:text-[var(--admin-sidebar-fg)]"
+              }`}
               href="/admin/settings"
               onClick={closeMobileDrawer}
             >
-              {isSettingsActive ? <ActiveIndicator layoutId={MOBILE_INDICATOR_LAYOUT_ID} /> : null}
-              <Settings
-                aria-hidden="true"
-                className={cn(
-                  "relative size-4 shrink-0 transition-colors",
-                  isSettingsActive ? "text-white" : "text-[var(--sider-muted)] group-hover/nav:text-white",
-                )}
-                strokeWidth={1.75}
-              />
-              <span className="relative truncate">设置</span>
+              <Settings aria-hidden="true" className="h-4 w-4 shrink-0" />
+              <span className="truncate">设置</span>
             </Link>
 
             <button
-              className={cn(
-                navItemBaseClassName,
-                "w-full cursor-pointer gap-2.5 px-3 text-left text-[oklch(0.82_0.08_22)] hover:bg-[var(--sider-hover)] hover:text-[oklch(0.88_0.08_22)]",
-              )}
+              className="flex w-full cursor-pointer items-center gap-2.5 rounded-[var(--radius-control)] px-3 py-2 text-left text-[13px] font-medium text-[var(--danger-foreground)] transition-colors hover:bg-[var(--danger-surface)]"
               onClick={() => {
                 closeMobileDrawer();
                 void signOutAdmin();
               }}
               type="button"
             >
-              <LogOut aria-hidden="true" className="size-4 shrink-0 opacity-85" strokeWidth={1.75} />
+              <LogOut aria-hidden="true" className="h-4 w-4 shrink-0" />
               <span className="truncate">退出登录</span>
             </button>
           </div>

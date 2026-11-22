@@ -39,21 +39,18 @@ describe("register page", () => {
     signIn.mockReset();
   });
 
-  test("renders the editorial account form with a left-aligned header", () => {
-    const { container } = render(<RegisterPage />);
+  test("renders the Fuwari account registration card with legal links", () => {
+    render(<RegisterPage />);
 
     const heading = screen.getByRole("heading", { level: 1, name: "创建账号" });
-    expect(heading).toHaveClass("ed-serif");
-    expect(heading.closest("header")).toHaveClass("border-b-2");
-    expect(heading.closest("header")?.className).not.toContain("text-center");
-    expect(screen.getByText("至少 8 位")).toHaveClass("ed-field-hint");
-    expect(screen.getByRole("checkbox")).toHaveClass("ed-checkbox");
-    expect(screen.getByRole("button", { name: "创建账号" })).toHaveClass("ed-btn", "ed-btn--block");
-    expect(screen.getByRole("button", { name: "使用 GitHub 注册" })).toHaveClass("ed-btn-outline", "ed-btn--block");
+    expect(heading).toHaveClass("font-display");
+    expect(screen.getByText("至少 8 位")).toBeInTheDocument();
+    expect(screen.getByRole("checkbox")).toHaveClass("ui-checkbox");
+    expect(screen.getByRole("button", { name: "创建账号" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "使用 GitHub 注册" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "《服务条款》" })).toHaveAttribute("href", "/terms");
     expect(screen.getByRole("link", { name: "《隐私政策》" })).toHaveAttribute("href", "/privacy");
     expect(screen.getByRole("link", { name: "去登录" })).toHaveAttribute("href", expect.stringContaining("login=1"));
-    expect(container.querySelector("svg, .card-base")).toBeNull();
   });
 
   test("shows field errors for nickname, password length, mismatch and unchecked terms", async () => {
@@ -63,11 +60,10 @@ describe("register page", () => {
     fireEvent.change(screen.getByLabelText("确认密码"), { target: { value: "1234" } });
     fireEvent.click(screen.getByRole("button", { name: "创建账号" }));
 
-    expect(await screen.findByText("请输入昵称")).toHaveClass("ed-field-error");
+    expect(await screen.findByText("请输入昵称")).toBeInTheDocument();
     expect(screen.getByText("密码至少 8 位")).toBeInTheDocument();
-    // 出错时「至少 8 位」辅助说明被错误文案替换
     expect(screen.queryByText("至少 8 位")).not.toBeInTheDocument();
-    expect(screen.getByText("请先同意服务条款与隐私政策")).toHaveClass("ed-field-error");
+    expect(screen.getByText("请先同意服务条款与隐私政策")).toBeInTheDocument();
     expect(screen.getByRole("checkbox")).toHaveAttribute("aria-invalid", "true");
     expect(apiMutate).not.toHaveBeenCalled();
   });

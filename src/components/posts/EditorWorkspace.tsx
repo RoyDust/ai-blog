@@ -9,11 +9,9 @@
  * - 把编辑状态上抛给外层工作台，由外层负责保存与发布
  */
 
-import { useId, useRef, useState } from "react";
-import { Button } from "@/components/admin/ui";
-import { AiTextButton, FieldLabel, FramedInput } from "@/components/admin/workspace/WorkspaceKit";
+import { useRef, useState } from "react";
+import { Button, Input } from "@/components/admin/ui";
 import { toErrorMessage } from "@/lib/client-api";
-import { cn } from "@/lib/cn";
 import { compressImageForUpload } from "@/lib/client-image-compression";
 import { uploadFileToQiniu } from "@/lib/client-qiniu-upload";
 import { MarkdownEditor } from "./MarkdownEditor";
@@ -126,131 +124,85 @@ export function EditorWorkspace({
     }
   };
 
-  const fieldId = useId();
-  const titleId = `${fieldId}-title`;
-  const slugId = `${fieldId}-slug`;
-  const excerptId = `${fieldId}-excerpt`;
-  const coverId = `${fieldId}-cover`;
-
   return (
-    <section
-      className={cn("flex min-w-0 flex-col gap-3.5", fillHeight && "xl:min-h-0 xl:overflow-hidden", className)}
-      data-slot="editor-workspace"
-    >
-      <h2 className="ed-visually-hidden">写作画布</h2>
-      <div className="min-w-0 shrink-0">
-        <div className="mb-1.5">
-          <FieldLabel htmlFor={titleId} required>
-            标题
-          </FieldLabel>
+    <section className={`rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--shadow-card)] lg:p-5 ${fillHeight ? "flex min-h-0 flex-col overflow-hidden" : ""} ${className}`}>
+      <h2 className="sr-only">写作画布</h2>
+      <div className={fillHeight ? "flex min-h-0 flex-1 flex-col gap-3.5" : "space-y-3.5"}>
+        <div className="grid gap-3 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+          <Input
+            label="标题"
+            placeholder="文章标题"
+            required
+            rightSlot={titleRightSlot}
+            value={title}
+            onChange={(event) => onTitleChange(event.target.value)}
+          />
+          <Input
+            label="Slug"
+            placeholder="url-slug"
+            required
+            rightSlot={slugRightSlot}
+            value={slug}
+            className="font-mono text-xs"
+            onChange={(event) => onSlugChange(event.target.value)}
+          />
         </div>
-        <FramedInput
-          id={titleId}
-          size="lg"
-          placeholder="文章标题"
-          required
-          aria-required="true"
-          inputClassName="font-serif text-xl font-bold md:text-xl"
-          suffix={titleRightSlot}
-          value={title}
-          onChange={(event) => onTitleChange(event.target.value)}
+        <MarkdownEditor
+          fillHeight={fillHeight}
+          label="内容"
+          minRows={contentMinRows ?? 36}
+          value={content}
+          onChange={onContentChange}
         />
-      </div>
-      <div className="min-w-0 shrink-0">
-        <div className="mb-1.5">
-          <FieldLabel htmlFor={slugId} required>
-            Slug
-          </FieldLabel>
-        </div>
-        <FramedInput
-          id={slugId}
-          prefix="/posts/"
-          placeholder="url-slug"
-          required
-          aria-required="true"
-          inputClassName="font-mono md:text-sm"
-          suffix={slugRightSlot}
-          value={slug}
-          onChange={(event) => onSlugChange(event.target.value)}
-        />
-      </div>
-      <MarkdownEditor
-        fillHeight={fillHeight}
-        label="内容"
-        minRows={contentMinRows ?? 36}
-        value={content}
-        onChange={onContentChange}
-      />
 
-      {mode === "full" ? (
-        <>
-          <div className="min-w-0">
-            <div className="mb-1.5">
-              <FieldLabel htmlFor={excerptId} optional>
-                摘要
-              </FieldLabel>
-            </div>
-            <FramedInput
-              id={excerptId}
-              placeholder="文章摘要（可选）"
-              aria-describedby={`${excerptId}-hint`}
-              suffix={
-                <AiTextButton
-                  separated
-                  label="AI 生成摘要"
-                  loading={isSummarizing}
-                  disabled={!content.trim()}
+        {mode === "full" ? (
+          <>
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-sm font-medium text-[var(--foreground)]">摘要</p>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="shrink-0 whitespace-nowrap"
+                  disabled={isSummarizing || !content.trim()}
                   onClick={handleGenerateSummary}
-                />
-              }
-              value={excerpt}
-              onChange={(event) => onExcerptChange(event.target.value)}
-            />
-            <p id={`${excerptId}-hint`} className="mt-1.5 text-xs leading-[1.55] text-[var(--text-muted)]">
-              基于当前正文生成适合列表页与 SEO 展示的简短摘要。
-            </p>
-            {summaryError ? (
-              <p role="alert" className="mt-1.5 text-[0.8125rem] text-[var(--danger-foreground)]">
-                {summaryError}
-              </p>
-            ) : null}
-          </div>
-
-          <div className="min-w-0">
-            <div className="mb-1.5">
-              <FieldLabel htmlFor={coverId} optional>
-                封面图 URL
-              </FieldLabel>
+                >
+                  {isSummarizing ? "生成中..." : "AI 生成摘要"}
+                </Button>
+              </div>
+              <Input placeholder="文章摘要（可选）" value={excerpt} onChange={(event) => onExcerptChange(event.target.value)} />
+              <p className="text-xs text-[var(--muted)]">基于当前正文生成适合列表页与 SEO 展示的简短摘要。</p>
+              {summaryError ? <p className="text-sm text-[var(--danger-foreground)]">{summaryError}</p> : null}
             </div>
-            <FramedInput
-              id={coverId}
+
+            <Input
+              label="封面图 URL"
               placeholder="https://example.com/cover.jpg"
-              inputClassName="font-mono md:text-[0.8125rem]"
               value={coverImage}
               onChange={(event) => onCoverImageChange(event.target.value)}
             />
-            <div className="mt-2.5 flex flex-wrap items-center gap-3">
-              <input
-                ref={fileInputRef}
-                accept="image/*"
-                className="hidden"
-                id="cover-upload"
-                type="file"
-                onChange={handleUpload}
-              />
-              <Button type="button" size="sm" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
-                {isUploading ? "上传中..." : "上传封面到七牛"}
-              </Button>
-              <p className="text-xs text-[var(--text-muted)]">支持选择图片后直接上传，并自动回填封面地址。</p>
+
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-alt)]/75 p-3.5">
+              <div className="flex flex-wrap items-center gap-3">
+                <input
+                  ref={fileInputRef}
+                  accept="image/*"
+                  className="hidden"
+                  id="cover-upload"
+                  type="file"
+                  onChange={handleUpload}
+                />
+                <Button type="button" size="sm" className="shrink-0 whitespace-nowrap" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
+                  {isUploading ? "上传中..." : "上传封面到七牛"}
+                </Button>
+                <p className="text-xs text-[var(--muted)]">支持选择图片后直接上传，并自动回填封面地址。</p>
+              </div>
+              {uploadError ? <p className="mt-2 text-sm text-[var(--danger-foreground)]">{uploadError}</p> : null}
             </div>
-            {uploadError ? (
-              <p role="alert" className="mt-1.5 text-[0.8125rem] text-[var(--danger-foreground)]">
-                {uploadError}
-              </p>
-            ) : null}
-          </div>
-        </>
-      ) : null}
+          </>
+        ) : null}
+      </div>
     </section>
   );
 }

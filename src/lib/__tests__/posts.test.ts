@@ -234,6 +234,32 @@ describe('getPublishedPostsPage', () => {
     })
   })
 
+  test('filters original vs AI daily posts when type is specified', async () => {
+    const { getPublishedPostsPage } = await import('../posts')
+
+    await getPublishedPostsPage({ page: 1, limit: 10, type: 'original' })
+    expect(findMany).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        where: {
+          published: true,
+          deletedAt: null,
+          generatedByAiNews: false,
+        },
+      }),
+    )
+
+    await getPublishedPostsPage({ page: 1, limit: 10, type: 'ai-daily' })
+    expect(findMany).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        where: {
+          published: true,
+          deletedAt: null,
+          generatedByAiNews: true,
+        },
+      }),
+    )
+  })
+
   test('maps soft-deleted categories to null on public post cards', async () => {
     const { getPublishedPostsPage } = await import('../posts')
     findMany.mockResolvedValueOnce([

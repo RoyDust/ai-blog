@@ -1,10 +1,9 @@
 export const dynamic = "force-dynamic";
 
 import type { Metadata } from "next";
-
-import { Masthead, Reveal, SectionHeading, TextLink } from "@/components/editorial";
+import Link from "next/link";
+import { InViewReveal } from "@/components/motion";
 import { getBlogSettings } from "@/lib/blog-settings";
-import { formatIndex } from "@/lib/editorial-format";
 import { buildPageMetadata } from "@/lib/seo";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -68,38 +67,56 @@ export default async function PrivacyPage() {
   const sections = buildPrivacySections(settings.siteName);
 
   return (
-    <div className="space-y-7" data-testid="privacy-page">
-      <Reveal>
-        <Masthead
-          aside={<TextLink href="/terms">服务条款</TextLink>}
-          description={`${settings.siteName} 重视读者隐私，遵循最小必要与默认脱敏原则处理与你相关的数据。`}
-          eyebrow="协议"
-          meta={`适用站点：${settings.siteName}`}
-          title="隐私政策"
-        />
-      </Reveal>
-
-      {sections.map((section, sectionIndex) => (
-        <Reveal key={section.id} as="section" aria-labelledby={section.id} delay={0.04 * (sectionIndex + 1)}>
-          <SectionHeading count={formatIndex(sectionIndex + 1)} id={section.id} title={section.title} />
-          <div className="mt-2 space-y-3 border-b border-[var(--border)] pb-5">
-            {section.items.map((paragraph) => (
-              <p
-                key={paragraph}
-                className="max-w-[44rem] text-pretty text-[0.9375rem] leading-[1.85] text-[var(--text-body)]"
-              >
-                {paragraph}
-              </p>
-            ))}
+    <div className="reader-section space-y-4" data-testid="privacy-page">
+      <InViewReveal className="reader-panel p-6 sm:p-8">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="space-y-2">
+            <span className="inline-flex items-center rounded-md bg-[var(--btn-regular-bg)] px-2.5 py-1 text-xs font-semibold text-[var(--btn-content)]">
+              协议
+            </span>
+            <h1 className="font-display text-2xl font-bold tracking-tight text-[var(--foreground)] sm:text-3xl">
+              隐私政策
+            </h1>
+            <p className="max-w-2xl text-sm leading-6 text-[var(--text-body)]">
+              {settings.siteName} 重视读者隐私，遵循最小必要与默认脱敏原则处理与你相关的数据。
+            </p>
+            <p className="font-mono text-xs text-[var(--text-muted)]">适用站点：{settings.siteName}</p>
           </div>
-        </Reveal>
-      ))}
+          <Link className="ui-link text-sm font-semibold" href="/terms">
+            服务条款
+          </Link>
+        </div>
+      </InViewReveal>
 
-      <Reveal aria-label="相关页面" as="aside" className="flex flex-wrap items-center gap-x-5 gap-y-2 pt-1" delay={0.2}>
-        <TextLink href="/register">返回账号注册</TextLink>
-        <TextLink href="/terms">阅读服务条款</TextLink>
-        <TextLink href="/contact">联系站点维护者</TextLink>
-      </Reveal>
+      <InViewReveal className="reader-panel divide-y divide-[var(--line-color)] p-6 sm:p-8">
+        {sections.map((section, sectionIndex) => (
+          <section key={section.id} aria-labelledby={section.id} className="py-5 first:pt-0 last:pb-0">
+            <h2 id={section.id} className="reader-section-heading flex items-baseline gap-2 text-base sm:text-lg">
+              <span className="font-mono text-xs text-[var(--brand)]">{String(sectionIndex + 1).padStart(2, "0")}</span>
+              <span>{section.title}</span>
+            </h2>
+            <div className="mt-2.5 space-y-2.5">
+              {section.items.map((paragraph) => (
+                <p key={paragraph} className="max-w-[46rem] text-sm leading-7 text-[var(--text-body)]">
+                  {paragraph}
+                </p>
+              ))}
+            </div>
+          </section>
+        ))}
+
+        <aside aria-label="相关页面" className="flex flex-wrap items-center gap-x-5 gap-y-2 pt-5 text-sm">
+          <Link className="ui-link font-medium" href="/register">
+            返回账号注册
+          </Link>
+          <Link className="ui-link font-medium" href="/terms">
+            阅读服务条款
+          </Link>
+          <Link className="ui-link font-medium" href="/contact">
+            联系站点维护者
+          </Link>
+        </aside>
+      </InViewReveal>
     </div>
   );
 }

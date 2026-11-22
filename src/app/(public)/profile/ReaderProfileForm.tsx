@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -8,7 +9,6 @@ import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
-import { MetaLine, SectionHeading, TextLink } from "@/components/editorial";
 import {
   Form,
   FormControl,
@@ -103,14 +103,15 @@ function getInitial(value: string) {
   return firstCharacter ? firstCharacter.toLocaleUpperCase("zh-CN") : "U";
 }
 
-const fieldItemClassName = "content-start gap-0";
-const fieldLabelClassName = "ed-label block leading-[1.4] data-[error=true]:text-[var(--foreground)]";
-const fieldInputClassName = "ed-input text-base sm:text-[0.9375rem]";
-const fieldMessageClassName = cn("ed-field-error", fieldErrorMotionClassName);
+const fieldItemClassName = "content-start gap-1.5";
+const fieldLabelClassName = "block text-xs font-semibold text-[var(--foreground)]";
+const fieldInputClassName =
+  "ui-ring h-10 w-full rounded-xl border border-[var(--reader-border)] bg-[color:color-mix(in_oklab,var(--surface-alt)_52%,var(--card-bg)_48%)] px-3.5 text-sm text-[var(--foreground)] placeholder:text-[var(--text-muted)] focus-visible:ring-2 focus-visible:ring-[var(--ring)]";
+const fieldMessageClassName = cn("text-xs text-[var(--danger-foreground)]", fieldErrorMotionClassName);
 
 function RequiredMark() {
   return (
-    <span aria-hidden="true" className="ed-label__required">
+    <span aria-hidden="true" className="ml-0.5 text-[var(--danger-foreground)]">
       *
     </span>
   );
@@ -199,49 +200,49 @@ export function ReaderProfileForm({ user }: { user: ReaderProfileUser }) {
   };
 
   return (
-    <div className="space-y-7">
+    <div className="space-y-6">
       <section
         aria-label="当前账号信息"
-        className="flex flex-col gap-4 border-b border-[var(--border)] pb-5 sm:flex-row sm:items-center"
+        className="flex flex-col gap-4 border-b border-dashed border-[var(--line-color)] pb-5 sm:flex-row sm:items-center"
       >
         {savedUser.image ? (
           <span
             aria-hidden="true"
-            className="h-16 w-16 shrink-0 rounded-full border border-[var(--reader-border)] bg-[var(--surface-alt)] bg-cover bg-center"
+            className="h-16 w-16 shrink-0 rounded-2xl border border-[var(--reader-border)] bg-[var(--surface-alt)] bg-cover bg-center"
             style={{ backgroundImage: `url("${encodeURI(savedUser.image)}")` }}
           />
         ) : (
           <span
             aria-hidden="true"
-            className="ed-serif flex h-16 w-16 shrink-0 items-center justify-center rounded-full border border-[var(--reader-border-strong)] bg-[var(--surface-alt)] text-[1.375rem] text-[var(--foreground)]"
+            className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-[var(--btn-regular-bg)] font-display text-xl font-bold text-[var(--btn-content)]"
           >
             {getInitial(displayName)}
           </span>
         )}
 
         <div className="min-w-0 space-y-1">
-          <p className="ed-serif truncate text-[1.125rem] leading-[1.4] text-[var(--foreground)]">{displayName}</p>
-          <p className="ed-mono truncate text-[0.8125rem] text-[var(--text-muted)]">{savedUser.email}</p>
-          <MetaLine
-            items={[
-              `账号身份：${roleLabel}`,
-              savedUser.joinedDate ? `注册日期：${savedUser.joinedDate}` : null,
-            ]}
-          />
+          <p className="truncate font-display text-lg font-bold text-[var(--foreground)]">{displayName}</p>
+          <p className="truncate font-mono text-xs text-[var(--text-muted)]">{savedUser.email}</p>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[var(--text-muted)]">
+            <span>账号身份：{roleLabel}</span>
+            {savedUser.joinedDate ? <span>注册日期：{savedUser.joinedDate}</span> : null}
+          </div>
         </div>
       </section>
 
       <section aria-labelledby="reader-profile-form-heading" className="space-y-4">
-        <SectionHeading id="reader-profile-form-heading" title="基本资料" />
+        <h2 id="reader-profile-form-heading" className="reader-section-heading text-base sm:text-lg">
+          基本资料
+        </h2>
 
         <Form {...form}>
           <form
             aria-busy={form.formState.isSubmitting}
-            className="flex max-w-[40rem] flex-col gap-5"
+            className="flex max-w-[40rem] flex-col gap-4"
             noValidate
             onSubmit={form.handleSubmit(onSubmit)}
           >
-            <div className="grid gap-5 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-2">
               <FormField
                 control={form.control}
                 name="name"
@@ -315,7 +316,7 @@ export function ReaderProfileForm({ user }: { user: ReaderProfileUser }) {
                     {fieldState.error ? (
                       <FormMessage className={fieldMessageClassName} />
                     ) : (
-                      <p className="ed-field-hint">更换登录邮箱前需验证当前账号密码。</p>
+                      <p className="text-xs text-[var(--text-muted)]">更换登录邮箱前需验证当前账号密码。</p>
                     )}
                   </FormItem>
                 )}
@@ -329,7 +330,7 @@ export function ReaderProfileForm({ user }: { user: ReaderProfileUser }) {
                 <FormItem className={fieldItemClassName}>
                   <FormLabel className={fieldLabelClassName}>
                     头像链接
-                    <span className="ed-label__optional">（可选）</span>
+                    <span className="ml-1 font-normal text-[var(--text-muted)]">（可选）</span>
                   </FormLabel>
                   <FormControl>
                     <input
@@ -343,17 +344,23 @@ export function ReaderProfileForm({ user }: { user: ReaderProfileUser }) {
                   {fieldState.error ? (
                     <FormMessage className={fieldMessageClassName} />
                   ) : (
-                    <p className="ed-field-hint">支持 http:// 或 https:// 图片地址，留空则使用首字母头像。</p>
+                    <p className="text-xs text-[var(--text-muted)]">支持 http:// 或 https:// 图片地址，留空则使用首字母头像。</p>
                   )}
                 </FormItem>
               )}
             />
 
             <div className="flex flex-wrap items-center gap-x-5 gap-y-3 pt-1">
-              <button className="ed-btn" disabled={form.formState.isSubmitting} type="submit">
+              <button
+                className="home-primary-cta inline-flex h-10 items-center justify-center rounded-xl px-5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={form.formState.isSubmitting}
+                type="submit"
+              >
                 {form.formState.isSubmitting ? "正在保存..." : "保存资料"}
               </button>
-              <TextLink href="/bookmarks">查看我的收藏</TextLink>
+              <Link className="ui-link text-sm font-medium" href="/bookmarks">
+                查看我的收藏
+              </Link>
             </div>
           </form>
         </Form>

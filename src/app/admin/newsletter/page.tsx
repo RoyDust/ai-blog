@@ -1,16 +1,14 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { type ComponentType, useCallback, useMemo, useState } from "react";
+import { MailCheck, RefreshCcw, Send, Users } from "lucide-react";
 import { toast } from "sonner";
 import useSWR, { useSWRConfig } from "swr";
 
 import { DataTable, type DataColumn } from "@/components/admin/DataTable";
-import { MetricStrip } from "@/components/admin/lists";
-import { adminTextActionClassName } from "@/components/admin/primitives/admin-classes";
 import { PageHeader } from "@/components/admin/primitives/PageHeader";
 import { StatusBadge } from "@/components/admin/primitives/StatusBadge";
-import { collapseMotion } from "@/components/editorial";
+import { Button } from "@/components/admin/ui";
 import { apiFetcher, apiMutate, handleGlobalSwrError, toErrorMessage } from "@/lib/client-api";
 import type { NewsletterMailerStatus } from "@/lib/newsletter-campaigns";
 import { NewsletterCampaignFormCard } from "./NewsletterCampaignFormCard";
@@ -55,9 +53,9 @@ const emptySubscriberStats: SubscriberStats = {
   unsubscribed: 0,
 };
 
-const statusMeta: Record<CampaignStatus, { label: string; tone: "muted" | "success" | "warning" | "danger" | "info" }> = {
-  DRAFT: { label: "草稿", tone: "muted" },
-  SENDING: { label: "发送中", tone: "info" },
+const statusMeta: Record<CampaignStatus, { label: string; tone: "neutral" | "success" | "warning" | "danger" }> = {
+  DRAFT: { label: "草稿", tone: "neutral" },
+  SENDING: { label: "发送中", tone: "warning" },
   SENT: { label: "已发送", tone: "success" },
   PARTIAL_FAILED: { label: "部分失败", tone: "warning" },
   FAILED: { label: "发送失败", tone: "danger" },
@@ -76,26 +74,50 @@ function formatDate(value: string | null | undefined) {
   });
 }
 
-/** 投递状态：一行等宽计数，已接受 success、失败 danger，其余 muted */
-function CampaignDeliveryStats({ stats }: { stats?: CampaignRow["deliveryStats"] }) {
-  const items: Array<{ label: string; value: number; className?: string }> = [
-    { label: "总计", value: stats?.total ?? 0, className: "text-[var(--text-body)]" },
-    { label: "已接受", value: stats?.sent ?? 0, className: "text-[var(--success)]" },
-    { label: "失败", value: stats?.failed ?? 0, className: stats?.failed ? "font-bold text-[var(--danger-foreground)]" : undefined },
-    { label: "待发送", value: stats?.pending ?? 0 },
-    { label: "发送中", value: stats?.sending ?? 0 },
-    { label: "未知", value: stats?.unknown ?? 0, className: stats?.unknown ? "font-bold text-[var(--warning)]" : undefined },
-    { label: "跳过", value: stats?.skipped ?? 0 },
-  ];
-
+function StatCard({
+  icon: Icon,
+  label,
+  value,
+  hint,
+}: {
+  icon: ComponentType<{ className?: string; "aria-hidden"?: boolean }>;
+  label: string;
+  value: number;
+  hint: string;
+}) {
   return (
-    <span className="block truncate font-mono text-xs text-[var(--text-muted)] tabular-nums">
-      {items.map((item) => (
-        <span key={item.label} className={`mr-2.5 ${item.className ?? ""}`}>
-          {item.label} {item.value}
+    <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--shadow-xs)]">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-xs font-medium text-[var(--muted)]">{label}</span>
+        <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--brand-soft)] text-[var(--brand)]">
+          <Icon className="h-4 w-4" aria-hidden />
         </span>
-      ))}
-    </span>
+      </div>
+      <p className="mt-2.5 font-mono text-2xl font-semibold tabular-nums text-[var(--foreground)]">
+        {value.toLocaleString("zh-CN")}
+      </p>
+      <p className="mt-1.5 text-xs text-[var(--muted)]">{hint}</p>
+    </div>
+  );
+}
+
+function CampaignDeliveryStats({ stats }: { stats?: CampaignRow["deliveryStats"] }) {
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 text-xs">
+      <span className="rounded-md bg-[var(--surface-alt)] px-2 py-0.5 text-[var(--text-body)]">
+        总计 {stats?.total ?? 0}
+      </span>
+      <span className="ui-status-success rounded-md px-2 py-0.5">
+        已接受 {stats?.sent ?? 0}
+      </span>
+      <span className="ui-status-danger rounded-md px-2 py-0.5">
+        失败 {stats?.failed ?? 0}
+      </span>
+      <span className="text-[var(--muted)]">待发送 {stats?.pending ?? 0}</span>
+      <span className="text-[var(--muted)]">发送中 {stats?.sending ?? 0}</span>
+      <span className="text-[var(--muted)]">未知 {stats?.unknown ?? 0}</span>
+      <span className="text-[var(--muted)]">跳过 {stats?.skipped ?? 0}</span>
+    </div>
   );
 }
 
@@ -122,22 +144,20 @@ export default function AdminNewsletterPage() {
     },
   );
 
-  const { data: subscribersResponse, isLoading: subscribersLoading } = useSWR<{ success?: boolean; stats?: SubscriberStats }>(
-    "/api/admin/newsletter/subscribers?status=all&limit=5",
-    apiFetcher,
-    {
-      revalidateOnMount: true,
-      onError: (swrError, key) => {
-        handleGlobalSwrError(swrError, key);
-        toast.error(toErrorMessage(swrError, "订阅者数据加载失败"));
-      },
+  const { data: subscribersResponse, isLoading: subscribersLoading } = useSWR<{
+    success?: boolean;
+    stats?: SubscriberStats;
+  }>("/api/admin/newsletter/subscribers?status=all&limit=5", apiFetcher, {
+    revalidateOnMount: true,
+    onError: (swrError, key) => {
+      handleGlobalSwrError(swrError, key);
+      toast.error(toErrorMessage(swrError, "订阅者数据加载失败"));
     },
-  );
+  });
 
   const campaigns = campaignsResponse?.data ?? [];
   const subscriberStats = subscribersResponse?.stats ?? emptySubscriberStats;
   const loading = campaignsLoading || subscribersLoading;
-  const reduceMotion = useReducedMotion();
 
   const runCampaignAction = useCallback(
     async (campaignId: string, action: "send" | "retry" | "recover") => {
@@ -193,10 +213,10 @@ export default function AdminNewsletterPage() {
         key: "title",
         label: "邮件活动",
         render: (row) => (
-          <span className="flex min-w-0 items-baseline gap-2" title={row.subject}>
-            <span className="shrink-0 font-serif text-[0.9375rem] font-bold text-[var(--foreground)]">{row.title}</span>
-            <span className="min-w-0 truncate text-xs text-[var(--text-muted)]">{row.subject}</span>
-          </span>
+          <div className="min-w-0">
+            <p className="font-medium text-[var(--foreground)]">{row.title}</p>
+            <p className="mt-1 line-clamp-1 text-xs text-[var(--text-muted)]">{row.subject}</p>
+          </div>
         ),
       },
       {
@@ -212,22 +232,19 @@ export default function AdminNewsletterPage() {
       {
         key: "posts",
         label: "文章",
-        className: "font-mono tabular-nums",
         render: (row) => <span>{row.postIds.length} 篇</span>,
       },
       {
         key: "sentAt",
         label: "发送时间",
-        className: "font-mono text-[var(--text-muted)] tabular-nums",
         render: (row) => formatDate(row.sentAt),
       },
       {
         key: "actions",
         label: "操作",
         render: (row) => (
-          <span className="flex items-center gap-3">
-            <button
-              className={adminTextActionClassName}
+          <div className="flex flex-wrap gap-2">
+            <Button
               disabled={
                 busyCampaignId === row.id ||
                 row.status === "SENDING" ||
@@ -235,36 +252,43 @@ export default function AdminNewsletterPage() {
                 (row.status !== "DRAFT" && !row.deliveryStats?.pending)
               }
               onClick={() => void runCampaignAction(row.id, "send")}
+              size="xs"
               type="button"
+              variant="outline"
             >
+              <Send className="h-3 w-3" aria-hidden />
               {row.status === "DRAFT" ? "发送" : "继续发送"}
-            </button>
-            <button
-              className={adminTextActionClassName}
+            </Button>
+            <Button
               disabled={
                 busyCampaignId === row.id ||
                 (row.status !== "PARTIAL_FAILED" && row.status !== "FAILED") ||
                 !row.deliveryStats?.failed
               }
               onClick={() => void runCampaignAction(row.id, "retry")}
+              size="xs"
               type="button"
+              variant="outline"
             >
+              <RefreshCcw className="h-3 w-3" aria-hidden />
               重试失败
-            </button>
-            <button className={adminTextActionClassName} onClick={() => setSelectedCampaignId(row.id)} type="button">
+            </Button>
+            <Button type="button" size="xs" variant="outline" onClick={() => setSelectedCampaignId(row.id)}>
               {row.deliveryStats?.unknown ? "核对未知" : "收件记录"}
-            </button>
+            </Button>
             {row.status === "SENDING" ? (
-              <button
-                className={adminTextActionClassName}
+              <Button
                 disabled={busyCampaignId === row.id}
                 onClick={() => void runCampaignAction(row.id, "recover")}
+                size="xs"
                 type="button"
+                variant="outline"
               >
+                <RefreshCcw className="h-3 w-3" aria-hidden />
                 恢复状态
-              </button>
+              </Button>
             ) : null}
-          </span>
+          </div>
         ),
       },
     ],
@@ -272,41 +296,40 @@ export default function AdminNewsletterPage() {
   );
 
   return (
-    <div>
+    <div className="space-y-5">
       <PageHeader
         eyebrow="增长运营"
         title="邮件运营"
         description="创建文章精选邮件，发送给已验证订阅者，并追踪每次投递结果。"
       />
 
-      <MetricStrip
-        ariaLabel="订阅者概况"
-        className="mt-1"
-        items={[
-          { key: "total", label: "全部订阅者", value: subscriberStats.total.toLocaleString("zh-CN"), note: "包含待验证与已退订" },
-          { key: "verified", label: "已验证", value: subscriberStats.verified.toLocaleString("zh-CN"), note: "发送活动的目标人群", tone: "success" },
-          { key: "pending", label: "待验证", value: subscriberStats.pending.toLocaleString("zh-CN"), note: "等待邮箱确认" },
-          { key: "unsubscribed", label: "已退订", value: subscriberStats.unsubscribed.toLocaleString("zh-CN"), note: "不会进入发送队列" },
-        ]}
-      />
-
       <NewsletterMailerNotice mailer={campaignsResponse?.mailer} />
 
-      <AnimatePresence initial={false}>
-        {selectedCampaignId ? (
-          <motion.div key={selectedCampaignId} className="overflow-hidden" {...(reduceMotion ? {} : collapseMotion)}>
-            <NewsletterDeliveryPanel
-              campaignId={selectedCampaignId}
-              onChanged={() => {
-                void mutateCampaigns();
-              }}
-              onClose={() => setSelectedCampaignId(null)}
-            />
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
+      {selectedCampaignId ? (
+        <NewsletterDeliveryPanel
+          key={selectedCampaignId}
+          campaignId={selectedCampaignId}
+          onChanged={() => {
+            void mutateCampaigns();
+          }}
+          onClose={() => setSelectedCampaignId(null)}
+        />
+      ) : null}
 
-      <div className="mt-6 grid grid-cols-1 gap-x-8 gap-y-8 2xl:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+        <StatCard icon={Users} label="全部订阅者" value={subscriberStats.total} hint="包含待验证与已退订" />
+        <StatCard icon={MailCheck} label="已验证" value={subscriberStats.verified} hint="发送活动的目标人群" />
+        <StatCard icon={Users} label="待验证" value={subscriberStats.pending} hint="等待邮箱确认" />
+        <StatCard icon={RefreshCcw} label="已退订" value={subscriberStats.unsubscribed} hint="不会进入发送队列" />
+      </div>
+
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[380px_minmax(0,1fr)]">
+        <NewsletterCampaignFormCard
+          onCreated={() => {
+            void mutateCampaigns();
+          }}
+        />
+
         <DataTable
           title="邮件活动列表"
           summary="查看活动状态、投递结果，并对失败收件人执行重试。"
@@ -317,14 +340,6 @@ export default function AdminNewsletterPage() {
           loadingLabel="正在加载邮件活动..."
           pageSize={20}
         />
-
-        <div className="order-first 2xl:order-none">
-          <NewsletterCampaignFormCard
-            onCreated={() => {
-              void mutateCampaigns();
-            }}
-          />
-        </div>
       </div>
     </div>
   );

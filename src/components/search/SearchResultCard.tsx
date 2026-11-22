@@ -1,12 +1,6 @@
 import Link from 'next/link'
-import type { ReactNode } from 'react'
-import { cn } from '@/lib/cn'
-import { FallbackImage } from '@/components/ui'
-import { formatIsoDate, formatMonthDay, formatYear } from '@/lib/editorial-format'
-import { shimmerBlurDataURL } from '@/lib/image-placeholder'
-import { getPostViewTransitionName } from '@/lib/view-transition'
-
-const SEARCH_RESULT_FALLBACK_SRC = '/images/fuwari-post-cover-fallback.svg'
+import { ArrowUpRight, Eye, MessageCircle } from 'lucide-react'
+import { PostMeta } from '@/components/blog/PostMeta'
 
 interface SearchResultCardProps {
   query: string
@@ -84,7 +78,7 @@ function highlightText(text: string, query: string) {
       return (
         <mark
           key={`${part}-${index}`}
-          className="rounded-[2px] bg-[var(--ed-highlight)] px-0.5 text-[var(--foreground)]"
+          className="rounded bg-[var(--btn-regular-bg)] px-1 py-0.5 font-semibold text-[var(--btn-content)]"
         >
           {part}
         </mark>
@@ -95,121 +89,51 @@ function highlightText(text: string, query: string) {
   })
 }
 
-const countFormatter = new Intl.NumberFormat('en-US')
-
-/**
- * 搜索结果行（README 第 11 节）：沿用全站列表行（简报 16.1），单列；
- * 标题和片段里的命中词用 sky 24% 底色标出。meta 全是文字：
- * 分类 · 首个标签 · 片段来源 · 阅读 · 评论 · 点赞。
- */
 export function SearchResultCard({ post, query }: SearchResultCardProps) {
   const hasExcerpt = Boolean(post.excerpt?.trim())
   const snippet = buildSnippet(post, query)
-  const firstTag = post.tags[0]
-  const isoDate = formatIsoDate(post.createdAt)
-
-  // meta 全是文字：分类 · 首个标签 · 片段来源 · 阅读 · 评论 · 点赞；手机上去掉 #标签（README 第 16 节）
-  const metaItems: Array<{ key: string; node: ReactNode; mobileHidden?: boolean }> = []
-  if (post.category) {
-    metaItems.push({
-      key: 'category',
-      node: (
-        <Link className="ed-tag text-[0.75rem]" href={`/categories/${post.category.slug}`}>
-          {post.category.name}
-        </Link>
-      ),
-    })
-  }
-  if (firstTag) {
-    metaItems.push({
-      key: 'tag',
-      mobileHidden: true,
-      node: (
-        <Link className="ed-tag text-[0.75rem]" href={`/tags/${firstTag.slug}`}>
-          #{firstTag.name}
-        </Link>
-      ),
-    })
-  }
-  metaItems.push({ key: 'source', node: <span>{hasExcerpt ? '摘要' : '正文片段'}</span> })
-  if (typeof post.viewCount === 'number') {
-    metaItems.push({
-      key: 'views',
-      node: (
-        <span>
-          阅读 <span className="ed-mono">{countFormatter.format(post.viewCount)}</span>
-        </span>
-      ),
-    })
-  }
-  metaItems.push(
-    {
-      key: 'comments',
-      node: (
-        <span>
-          评论 <span className="ed-mono">{countFormatter.format(post._count.comments)}</span>
-        </span>
-      ),
-    },
-    {
-      key: 'likes',
-      node: (
-        <span>
-          点赞 <span className="ed-mono">{countFormatter.format(post._count.likes)}</span>
-        </span>
-      ),
-    },
-  )
 
   return (
-    <article className="ed-row group" data-testid="search-result-row">
-      <div className="ed-row__date ed-row__date--desktop">
-        <time className="flex flex-col" dateTime={isoDate}>
-          <span>{formatYear(post.createdAt)}</span>
-          <span>{formatMonthDay(post.createdAt)}</span>
-        </time>
+    <article className="reader-feed-card group p-5">
+      <div className="flex items-center justify-between gap-3">
+        <PostMeta category={post.category} publishedAt={post.createdAt} tags={post.tags.slice(0, 2)} variant="compact" />
+
+        <span className="shrink-0 rounded-md bg-[var(--surface-alt)]/75 px-2 py-0.5 text-xs text-[var(--text-muted)]">
+          {hasExcerpt ? '摘要' : '正文片段'}
+        </span>
       </div>
 
-      <div className="min-w-0">
-        <h3 className="ed-row__title line-clamp-2" style={{ viewTransitionName: getPostViewTransitionName('title', post.slug) }}>
-          <Link className="ed-row__link" href={`/posts/${post.slug}`}>
-            {highlightText(post.title, query)}
-          </Link>
-        </h3>
-        <p className="ed-row__excerpt line-clamp-2">{highlightText(snippet, query)}</p>
-        <p className="ed-row__meta ed-meta flex flex-wrap items-baseline">
-          {/* 手机上没有日期列，日期并入 meta 开头（README 第 16 节） */}
-          <span className="ed-mono sm:hidden">{isoDate}</span>
-          {metaItems.map((item, index) => (
-            <span key={item.key} className={cn('inline-flex items-baseline', item.mobileHidden && 'max-sm:hidden')}>
-              <span aria-hidden="true" className={cn('ed-meta-sep', index === 0 && 'sm:hidden')}>
-                ·
-              </span>
-              {item.node}
-            </span>
-          ))}
-        </p>
+      <Link href={`/posts/${post.slug}`} className="mt-2 block outline-none">
+        <h2 className="text-balance text-lg font-bold leading-snug text-[var(--foreground)] transition-colors group-hover:text-[var(--brand)] md:text-xl">
+          {highlightText(post.title, query)}
+        </h2>
+      </Link>
+
+      <div className="mt-2.5 rounded-xl bg-[color:color-mix(in_oklab,var(--surface-alt)_52%,transparent)] px-3.5 py-2.5 text-sm leading-6 text-[var(--text-body)]">
+        {highlightText(snippet, query)}
       </div>
 
-      {post.coverImage ? (
-        <div className="ed-row__thumb" style={{ viewTransitionName: getPostViewTransitionName('cover', post.slug) }}>
-          <FallbackImage
-            alt=""
-            aria-hidden="true"
-            blurDataURL={shimmerBlurDataURL}
-            className="object-cover"
-            fallbackSrc={SEARCH_RESULT_FALLBACK_SRC}
-            fill
-            loading="lazy"
-            placeholder="blur"
-            quality={70}
-            sizes="(max-width: 640px) 6.5rem, 7.5rem"
-            src={post.coverImage}
-          />
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs text-[var(--text-muted)]">
+        <div className="flex flex-wrap items-center gap-3 font-mono tabular-nums">
+          <span className="font-sans">作者 {post.author.name ?? '匿名作者'}</span>
+          <span className="inline-flex items-center gap-1">
+            <MessageCircle className="h-3.5 w-3.5" aria-hidden="true" />
+            {post._count.comments} 评论
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <Eye className="h-3.5 w-3.5" aria-hidden="true" />
+            {post.viewCount ?? 0} 浏览
+          </span>
         </div>
-      ) : (
-        <div aria-hidden="true" />
-      )}
+
+        <Link
+          href={`/posts/${post.slug}`}
+          className="reader-link inline-flex items-center gap-1 text-xs font-semibold"
+        >
+          查看文章
+          <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
+        </Link>
+      </div>
     </article>
   )
 }

@@ -1,10 +1,11 @@
 export const dynamic = "force-dynamic";
 
 import type { Metadata } from "next";
+import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 
-import { Masthead, Reveal, TextLink } from "@/components/editorial";
+import { InViewReveal } from "@/components/motion";
 import { authOptions } from "@/lib/auth";
 import { getBlogSettings } from "@/lib/blog-settings";
 import { buildLoginPromptPath } from "@/lib/login-redirect";
@@ -64,22 +65,32 @@ export default async function ProfilePage() {
   const roleSummary = isAdmin ? "管理员账号" : "读者账号";
 
   return (
-    <div className="space-y-6" data-testid="reader-profile-page">
-      <Reveal>
-        <Masthead
-          aside={
-            isAdmin ? (
-              <TextLink href="/admin/settings?tab=account">前往后台账号与站点设置</TextLink>
-            ) : undefined
-          }
-          description="查看当前账号的身份与注册邮箱，并更新你的显示名称、登录邮箱与头像链接。"
-          eyebrow="账号"
-          meta={`${roleSummary} · ${user.email}`}
-          title="个人资料"
-        />
-      </Reveal>
+    <div className="reader-section space-y-4" data-testid="reader-profile-page">
+      <InViewReveal className="reader-panel p-6 sm:p-8">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="space-y-2">
+            <span className="inline-flex items-center rounded-md bg-[var(--btn-regular-bg)] px-2.5 py-1 text-xs font-semibold text-[var(--btn-content)]">
+              账号
+            </span>
+            <h1 className="font-display text-2xl font-bold tracking-tight text-[var(--foreground)] sm:text-3xl">
+              个人资料
+            </h1>
+            <p className="max-w-2xl text-sm leading-6 text-[var(--text-body)]">
+              查看当前账号的身份与注册邮箱，并更新你的显示名称、登录邮箱与头像链接。
+            </p>
+            <p className="font-mono text-xs text-[var(--text-muted)]">
+              {roleSummary} · {user.email}
+            </p>
+          </div>
+          {isAdmin ? (
+            <Link className="ui-link text-sm font-semibold" href="/admin/settings?tab=account">
+              前往后台账号与站点设置 →
+            </Link>
+          ) : null}
+        </div>
+      </InViewReveal>
 
-      <Reveal delay={0.06}>
+      <InViewReveal className="reader-panel p-6 sm:p-8">
         <ReaderProfileForm
           user={{
             id: user.id,
@@ -90,7 +101,7 @@ export default async function ProfilePage() {
             joinedDate: formatJoinedDate(user.createdAt),
           }}
         />
-      </Reveal>
+      </InViewReveal>
     </div>
   );
 }

@@ -3,12 +3,13 @@
 import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AnimatePresence, motion } from "motion/react";
+import { Mail } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
-import { TextAnchor } from "@/components/editorial";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
 import { apiMutate, toErrorMessage } from "@/lib/client-api";
-import { cn } from "@/lib/cn";
 
 type SubmitState = "idle" | "submitting" | "success" | "error";
 
@@ -18,26 +19,7 @@ const newsletterSchema = z.object({
 
 type NewsletterFormValues = z.infer<typeof newsletterSchema>;
 
-interface NewsletterFormProps {
-  /** 首页「订阅」是唯一的主按钮；文章页用描边按钮（简报 16.1） */
-  buttonVariant?: "primary" | "outline";
-  /** 横带左侧的衬线文案 */
-  pitch?: string;
-  /** 是否显示「RSS 订阅 →」 */
-  showRss?: boolean;
-  className?: string;
-}
-
-/**
- * Newsletter 横带（简报 15.9 第 6 条）：上下各一条 1px 细线，无底色；
- * 左边衬线文案，右边邮箱输入框 + 订阅按钮 + 「RSS 订阅 →」。
- */
-export function NewsletterForm({
-  buttonVariant = "primary",
-  pitch = "每周一封，精选文章与 AI 日报摘要。",
-  showRss = true,
-  className,
-}: NewsletterFormProps) {
+export function NewsletterForm() {
   const [state, setState] = useState<SubmitState>("idle");
   const [message, setMessage] = useState("");
   const {
@@ -67,59 +49,39 @@ export function NewsletterForm({
     }
   };
 
-  const fieldError = errors.email?.message;
-
   return (
-    <section aria-label="订阅 Newsletter" className={cn("border-y border-[var(--border)] py-5", className)}>
-      <form
-        className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"
-        noValidate
-        onSubmit={handleSubmit(onSubmit)}
-      >
-        <p className="ed-serif text-[1.0625rem] leading-[1.5] text-[var(--foreground)] lg:shrink-0">{pitch}</p>
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 lg:flex-nowrap">
-          <div className="min-w-0 flex-1 sm:w-[11.25rem] sm:flex-none">
-            <input
-              aria-describedby={fieldError ? "newsletter-email-error" : undefined}
-              aria-invalid={fieldError ? true : undefined}
-              aria-label="邮箱地址"
-              autoComplete="email"
-              className="ed-input text-base sm:text-[0.9375rem]"
-              disabled={isSubmitting}
-              placeholder="你的邮箱"
-              type="email"
-              {...register("email")}
-            />
-          </div>
-          <button className={buttonVariant === "primary" ? "ed-btn" : "ed-btn-outline"} disabled={isSubmitting} type="submit">
-            {isSubmitting ? "提交中…" : "订阅"}
-          </button>
-          {showRss ? (
-            <TextAnchor className="ml-1" href="/rss.xml">
-              RSS 订阅
-            </TextAnchor>
-          ) : null}
-        </div>
-      </form>
-      <AnimatePresence mode="wait">
-        {fieldError || message ? (
+    <form className="space-y-2.5" noValidate onSubmit={handleSubmit(onSubmit)}>
+      <div className="grid gap-2.5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
+        <Input
+          aria-label="邮箱地址"
+          autoComplete="email"
+          className="h-10 border-[var(--reader-border)] bg-[color:color-mix(in_oklab,var(--surface-alt)_52%,var(--card-bg)_48%)] text-sm"
+          disabled={isSubmitting}
+          error={errors.email?.message}
+          leftSlot={<Mail className="h-4 w-4" />}
+          placeholder="you@example.com"
+          type="email"
+          {...register("email")}
+        />
+        <Button className="h-10 shrink-0 whitespace-nowrap rounded-xl px-5 text-sm" disabled={isSubmitting} type="submit">
+          {isSubmitting ? "提交中..." : "订阅"}
+        </Button>
+      </div>
+      <AnimatePresence>
+        {message ? (
           <motion.p
-            key={fieldError ? "field-error" : state}
-            id={fieldError ? "newsletter-email-error" : undefined}
-            className={cn(
-              "mt-3 text-[0.8125rem] lg:text-right",
-              fieldError || state === "error" ? "text-[var(--danger-foreground)]" : "text-[var(--text-muted)]",
-            )}
-            role={fieldError || state === "error" ? "alert" : "status"}
+            key={state}
+            className={`text-xs ${state === "error" ? "text-[var(--danger-foreground)]" : "text-[var(--text-muted)]"}`}
+            role={state === "error" ? "alert" : "status"}
             initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
-            transition={{ duration: 0.2 }}
+            transition={{ duration: 0.18 }}
           >
-            {fieldError ?? message}
+            {message}
           </motion.p>
         ) : null}
       </AnimatePresence>
-    </section>
+    </form>
   );
 }

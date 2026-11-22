@@ -34,10 +34,19 @@ function firstSearchParam(value: string | string[] | undefined) {
 
 export default async function PostsPage({ searchParams }: { searchParams?: PostsPageSearchParams } = {}) {
   const resolvedSearchParams = searchParams ? await searchParams : {};
-  const filters = {
+  const rawType = firstSearchParam(resolvedSearchParams.type);
+  const contentType: "original" | "ai-daily" | undefined =
+    rawType === "original" || rawType === "ai-daily" ? rawType : undefined;
+  const filters: {
+    category?: string;
+    tag?: string;
+    search?: string;
+    type?: "original" | "ai-daily";
+  } = {
     category: firstSearchParam(resolvedSearchParams.category),
     tag: firstSearchParam(resolvedSearchParams.tag),
     search: firstSearchParam(resolvedSearchParams.q),
+    ...(contentType ? { type: contentType } : {}),
   };
   const { limit } = clampPagination({
     limit: firstSearchParam(resolvedSearchParams.limit) ?? String(POSTS_PAGE_SIZE),
@@ -56,6 +65,7 @@ export default async function PostsPage({ searchParams }: { searchParams?: Posts
       category: filters.category,
       tag: filters.tag,
       search: filters.search,
+      ...(filters.type ? { type: filters.type } : {}),
     }),
     getCategoryDirectory(),
     getTagDirectory(),
@@ -80,17 +90,36 @@ export default async function PostsPage({ searchParams }: { searchParams?: Posts
   }
 
   return (
-    <div className="space-y-2">
-      <FilterBar
-        categories={categories}
-        category={filters.category}
-        search={filters.search}
-        tag={filters.tag}
-        tags={tags}
-        total={postsPage.pagination.page > 0 ? postsPage.pagination.total : undefined}
-      />
+    <div className="reader-section">
+      <section className="reader-panel px-5 py-5 md:px-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="min-w-0 space-y-1">
+            <h1 className="text-90 font-display text-2xl font-bold leading-snug tracking-tight md:text-3xl">全部文章</h1>
+            <p className="text-75 text-sm leading-6">按发布时间倒序浏览，支持分类与标签组合筛选。</p>
+          </div>
 
-      <Suspense fallback={<PostCardSkeleton count={4} />}>
+          <FilterBar
+            categories={categories}
+            category={filters.category}
+            search={filters.search}
+            tag={filters.tag}
+            tags={tags}
+            type={filters.type}
+          />
+        </div>
+      </section>
+
+      <Suspense
+        fallback={
+          <div className="reader-section">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <div key={index}>
+                <PostCardSkeleton />
+              </div>
+            ))}
+          </div>
+        }
+      >
         <PostsListingClient
           filters={filters}
           initialPagination={postsPage.pagination}

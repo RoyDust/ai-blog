@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 
-import { Masthead, Reveal, SectionHeading } from "@/components/editorial";
 import { getBlogSettings } from "@/lib/blog-settings";
 import { buildPageMetadata } from "@/lib/seo";
 import { NewsletterConfirmClient } from "../NewsletterConfirmClient";
@@ -37,32 +36,34 @@ export default async function NewsletterUnsubscribePage({ searchParams }: Unsubs
   const token = typeof rawToken === "string" ? rawToken.trim() : "";
 
   return (
-    <div className="space-y-6">
-      <Reveal>
-        <Masthead
-          description="请确认是否停止接收本站的精选文章与日报邮件。"
-          eyebrow="邮件订阅"
-          title="取消邮件订阅"
-        />
-      </Reveal>
+    <div className="onload-animation space-y-5">
+      <header className="reader-banner rounded-2xl p-6 sm:p-7">
+        <p className="text-xs font-medium tracking-wide text-[var(--brand)]">邮件订阅</p>
+        <h1 className="mt-2 text-2xl font-bold tracking-tight text-[var(--foreground)] sm:text-[1.75rem]">
+          取消邮件订阅
+        </h1>
+        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[var(--text-body)]">
+          请确认是否停止接收本站的精选文章与日报邮件。
+        </p>
+      </header>
 
-      <Reveal delay={0.06}>
-        <NewsletterConfirmClient mode="unsubscribe" token={token} />
-      </Reveal>
+      <NewsletterConfirmClient mode="unsubscribe" token={token} />
 
-      <Reveal aria-label="退订说明" as="aside" className="pt-3" delay={0.1}>
-        <SectionHeading title="退订说明" />
-        <ul>
+      <aside aria-label="退订说明" className="reader-panel rounded-2xl p-6 sm:p-7">
+        <h2 className="flex items-center gap-2 text-base font-semibold text-[var(--foreground)]">
+          <span className="font-mono text-[var(--brand)]" aria-hidden="true">
+            #
+          </span>
+          退订说明
+        </h2>
+        <ul className="mt-3 divide-y divide-[var(--reader-border)]">
           {unsubscribeNotes.map((note) => (
-            <li
-              key={note}
-              className="border-b border-[var(--border)] py-3 text-[0.875rem] leading-[1.7] text-[var(--text-body)]"
-            >
+            <li key={note} className="py-3 text-sm leading-relaxed text-[var(--text-body)] first:pt-1 last:pb-0">
               {note}
             </li>
           ))}
         </ul>
-      </Reveal>
+      </aside>
     </div>
   );
 }

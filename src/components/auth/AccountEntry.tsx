@@ -1,7 +1,7 @@
 "use client";
 
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { UserRound } from "lucide-react";
+import { Bookmark, LayoutDashboard, LogOut, PenLine, UserRound } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
 import Link from "next/link";
 import { useState } from "react";
@@ -25,7 +25,7 @@ function AccountAvatar({ image, label }: AccountAvatarProps) {
     return (
       <span
         aria-hidden="true"
-        className="h-8 w-8 rounded-full bg-cover bg-center ring-1 ring-[var(--reader-border)]"
+        className="h-8 w-8 rounded-lg bg-cover bg-center ring-1 ring-[var(--reader-border)]"
         style={{ backgroundImage: `url(${image})` }}
       />
     );
@@ -34,7 +34,7 @@ function AccountAvatar({ image, label }: AccountAvatarProps) {
   return (
     <span
       aria-hidden="true"
-      className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--reader-border-strong)] bg-[var(--surface-alt)] text-xs font-bold text-[var(--foreground)]"
+      className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--btn-regular-bg)] text-xs font-bold text-[var(--btn-content)]"
     >
       {getInitial(label)}
     </span>
@@ -42,7 +42,7 @@ function AccountAvatar({ image, label }: AccountAvatarProps) {
 }
 
 const accountMenuItemClass =
-  "flex min-h-11 cursor-default select-none items-center rounded-[var(--radius-ctl)] px-3 text-sm font-bold text-[var(--text-body)] outline-none transition-colors focus:bg-[var(--ed-press-bg)] focus:text-[var(--foreground)]";
+  "flex cursor-default select-none items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium text-[var(--foreground)] outline-none transition-colors focus:bg-[var(--btn-regular-bg)] focus:text-[var(--btn-content)]";
 
 export function AccountEntry() {
   const { data: session, status } = useSession();
@@ -66,7 +66,7 @@ export function AccountEntry() {
     return (
       <span
         aria-label="正在加载账号"
-        className="ed-icon-btn pointer-events-none animate-pulse text-[var(--text-muted)]"
+        className="reader-icon-btn pointer-events-none animate-pulse text-[var(--muted)]"
         role="status"
       >
         <UserRound className="h-5 w-5" aria-hidden="true" />
@@ -79,7 +79,7 @@ export function AccountEntry() {
       <>
         <button
           aria-label="登录账号"
-          className="ed-icon-btn"
+          className="reader-icon-btn text-current hover:text-[var(--accent-sky)]"
           onClick={() => setLoginOpen(true)}
           title="登录账号"
           type="button"
@@ -96,7 +96,7 @@ export function AccountEntry() {
       <DropdownMenu.Trigger asChild>
         <button
           aria-label="账号菜单"
-          className="ed-icon-btn p-0"
+          className="reader-icon-btn overflow-hidden p-0 text-current hover:text-[var(--accent-sky)]"
           title={displayName}
           type="button"
         >
@@ -106,21 +106,23 @@ export function AccountEntry() {
       <DropdownMenu.Portal>
         <DropdownMenu.Content
           align="end"
-          className="ed-popover account-menu-content z-50 w-[min(92vw,16rem)] p-1.5"
+          className="z-50 w-[min(92vw,17rem)] rounded-2xl border border-[var(--reader-border)] bg-[var(--reader-panel)] p-2 shadow-[var(--reader-shadow)] backdrop-blur-xl"
           sideOffset={10}
         >
           <DropdownMenu.Label className="px-3 py-2">
-            <span className="block truncate text-sm font-bold text-[var(--foreground)]">{displayName}</span>
-            {user.email ? <span className="ed-mono mt-0.5 block truncate text-xs text-[var(--text-muted)]">{user.email}</span> : null}
+            <span className="block truncate text-sm font-semibold text-[var(--foreground)]">{displayName}</span>
+            {user.email ? <span className="mt-0.5 block truncate text-xs text-[var(--muted)]">{user.email}</span> : null}
           </DropdownMenu.Label>
-          <DropdownMenu.Separator className="-mx-1.5 my-1 h-px bg-[var(--border)]" />
+          <DropdownMenu.Separator className="-mx-2 my-1 h-px bg-[var(--reader-border)]" />
           <DropdownMenu.Item asChild className={accountMenuItemClass}>
             <Link href="/profile">
+              <UserRound className="h-4 w-4" aria-hidden="true" />
               个人资料
             </Link>
           </DropdownMenu.Item>
           <DropdownMenu.Item asChild className={accountMenuItemClass}>
             <Link href="/bookmarks">
+              <Bookmark className="h-4 w-4" aria-hidden="true" />
               我的收藏
             </Link>
           </DropdownMenu.Item>
@@ -128,24 +130,27 @@ export function AccountEntry() {
             <>
               <DropdownMenu.Item asChild className={accountMenuItemClass}>
                 <Link href="/admin/posts/new">
+                  <PenLine className="h-4 w-4" aria-hidden="true" />
                   写文章
                 </Link>
               </DropdownMenu.Item>
               <DropdownMenu.Item asChild className={accountMenuItemClass}>
                 <Link href="/admin">
+                  <LayoutDashboard className="h-4 w-4" aria-hidden="true" />
                   控制台
                 </Link>
               </DropdownMenu.Item>
             </>
           ) : null}
-          <DropdownMenu.Separator className="-mx-1.5 my-1 h-px bg-[var(--border)]" />
+          <DropdownMenu.Separator className="-mx-2 my-1 h-px bg-[var(--line-color)]" />
           <DropdownMenu.Item
-            className={cn(accountMenuItemClass, "text-[var(--danger-foreground)] focus:text-[var(--danger-foreground)]")}
+            className={cn(accountMenuItemClass, "text-[var(--danger-foreground)] focus:bg-[var(--danger-surface)] focus:text-[var(--danger-foreground)]")}
             onSelect={(event) => {
               event.preventDefault();
               void handleLogout();
             }}
           >
+            <LogOut className="h-4 w-4" aria-hidden="true" />
             退出登录
           </DropdownMenu.Item>
         </DropdownMenu.Content>

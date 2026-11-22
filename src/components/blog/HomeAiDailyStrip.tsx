@@ -1,7 +1,9 @@
-import Link from "next/link";
+"use client";
 
-import { Reveal, SectionHeading, TextLink } from "@/components/editorial";
-import { formatIsoDate, formatMonthDay } from "@/lib/editorial-format";
+import Link from "next/link";
+import { useState } from "react";
+import { ArrowRight } from "lucide-react";
+import { cn } from "@/lib/cn";
 
 interface AiDailyItem {
   id: string;
@@ -14,87 +16,165 @@ interface AiDailyItem {
 
 interface HomeAiDailyStripProps {
   posts: AiDailyItem[];
-  /** 判断「今日」用的当前时间，测试可注入 */
-  now?: Date;
 }
 
-const AI_DAILY_HREF = "/series/ai-daily";
+function formatDailyDate(value: Date | string | null | undefined) {
+  if (!value) {
+    return "近期";
+  }
 
-function getDailyDate(post: AiDailyItem) {
-  return post.publishedAt ?? post.createdAt;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "近期";
+  }
+
+  return date.toLocaleDateString("zh-CN", {
+    month: "2-digit",
+    day: "2-digit",
+  });
 }
 
-/**
- * 首页 AI 日报（简报 15.9 第 3 条）：区块标题 +「全部日报 →」，下面 2:3 两栏、中间 1px 竖线。
- * 左栏是最新一期（当天的写 sky 小字「今日」），右栏往期 4 行；手机上今日在上、往期在下。
- * 当天还没生成时，左栏显示「今日日报生成中」。
- */
-export function HomeAiDailyStrip({ posts, now = new Date() }: HomeAiDailyStripProps) {
+function trimDailyTitle(title: string) {
+  return title.replace(/^\d{4}-\d{2}-\d{2}\s*AI\s*日报[：:]\s*/, "");
+}
+
+export function HomeAiDailyStrip({ posts }: HomeAiDailyStripProps) {
+  const [activeIndex, setActiveIndex] = useState(0);
+
   if (posts.length === 0) {
     return null;
   }
 
-  const [latest, ...rest] = posts;
-  const todayKey = formatIsoDate(now);
-  const isToday = formatIsoDate(getDailyDate(latest)) === todayKey;
-  const lead = isToday ? latest : null;
-  const archive = (isToday ? rest : posts).slice(0, 4);
+  const items = posts.slice(0, 5);
+  const safeActiveIndex = activeIndex < items.length ? activeIndex : 0;
+  const activePost = items[safeActiveIndex] ?? items[0];
+  const activeExcerpt = activePost.excerpt?.trim() || trimDailyTitle(activePost.title);
 
   return (
-    <Reveal as="section" aria-labelledby="home-ai-daily-title" className="space-y-4">
-      <SectionHeading id="home-ai-daily-title" title="AI 日报" aside={<TextLink href={AI_DAILY_HREF}>全部日报</TextLink>} />
-
-      <div className="grid gap-5 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] md:gap-0">
-        <div className="min-w-0 md:border-r md:border-[var(--border)] md:pr-6">
-          {lead ? (
-            <article className="flex h-full flex-col">
-              <p className="ed-mono flex items-center gap-2 text-[0.8125rem] text-[var(--text-muted)]">
-                <time dateTime={formatIsoDate(getDailyDate(lead))}>{formatIsoDate(getDailyDate(lead))}</time>
-                <span className="font-sans text-[0.75rem] font-bold text-[var(--accent-sky)]">今日</span>
-              </p>
-              <h3 className="mt-2 text-[0.9375rem] font-bold leading-[1.5] text-[var(--foreground)]">
-                <Link className="underline decoration-transparent underline-offset-4 transition-[text-decoration-color] hover:decoration-[var(--reader-border-strong)]" href={`/posts/${lead.slug}`}>
-                  {lead.title}
-                </Link>
-              </h3>
-              {lead.excerpt ? (
-                <p className="mt-2 line-clamp-3 text-[0.9375rem] leading-[1.7] text-[var(--text-body)]">{lead.excerpt}</p>
-              ) : null}
-              <div className="mt-auto pt-4">
-                <TextLink href={`/posts/${lead.slug}`}>阅读今日日报</TextLink>
-              </div>
-            </article>
-          ) : (
-            <div className="flex h-full flex-col">
-              <p className="ed-mono flex items-center gap-2 text-[0.8125rem] text-[var(--text-muted)]">
-                <time dateTime={todayKey}>{todayKey}</time>
-                <span className="font-sans text-[0.75rem] font-bold text-[var(--accent-sky)]">今日</span>
-              </p>
-              <p className="mt-2 text-[0.9375rem] leading-[1.7] text-[var(--text-body)]">今日日报生成中</p>
-            </div>
-          )}
+    <section className="reader-panel px-4 py-3 sm:px-5 sm:py-3.5" aria-labelledby="home-ai-daily-title">
+      <div className="mb-2.5 flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-1.5">
+          <span aria-hidden="true" className="h-2 w-2 shrink-0 rounded-full bg-[var(--brand)]" />
+          <span aria-hidden="true" className="text-xs font-semibold text-[var(--text-muted)]">
+            早读便签 ·
+          </span>
+          <h2 id="home-ai-daily-title" className="text-[0.8125rem] font-bold text-[var(--foreground)]">
+            AI 日报
+          </h2>
         </div>
-
-        {archive.length > 0 ? (
-          <ol aria-label="AI 日报列表" className="min-w-0 border-t border-[var(--border)] md:border-t-0 md:pl-6">
-            {archive.map((post) => (
-              <li key={post.id} className="border-b border-[var(--border)] last:border-b-0 md:last:border-b">
-                <Link
-                  href={`/posts/${post.slug}`}
-                  className="group flex min-h-11 items-center gap-4 py-2 text-[0.875rem] leading-[1.5] text-[var(--text-body)] transition-colors hover:text-[var(--foreground)]"
-                >
-                  <time className="ed-mono shrink-0 text-[0.8125rem] text-[var(--text-muted)]" dateTime={formatIsoDate(getDailyDate(post))}>
-                    {formatMonthDay(getDailyDate(post))}
-                  </time>
-                  <span className="min-w-0 truncate underline decoration-transparent underline-offset-4 transition-[text-decoration-color] group-hover:decoration-[var(--reader-border-strong)]">
-                    {post.title}
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ol>
-        ) : null}
+        <Link
+          href="/series/ai-daily"
+          className="reader-link inline-flex h-7 shrink-0 items-center gap-1 rounded-lg px-2 text-xs font-semibold text-[var(--brand)] transition-colors hover:bg-[var(--btn-regular-bg)]"
+        >
+          查看全部
+          <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+        </Link>
       </div>
-    </Reveal>
+
+      <ol
+        aria-label="AI 日报列表"
+        className="reader-scrollbar-hidden -mx-1 flex snap-x snap-mandatory gap-2 overflow-x-auto overscroll-x-contain px-1 pb-0.5 md:mx-0 md:grid md:grid-cols-2 md:gap-x-3 md:gap-y-1 md:px-0 md:pb-0"
+      >
+        {items.map((post, index) => {
+          const isLead = index === 0;
+          const isActive = index === safeActiveIndex;
+          return (
+            <li
+              className={cn(
+                "min-w-[82%] snap-start md:min-w-0",
+                isLead && "md:col-span-2",
+              )}
+              key={post.id}
+              onMouseEnter={() => setActiveIndex(index)}
+            >
+              <Link
+                href={`/posts/${post.slug}`}
+                onFocus={() => setActiveIndex(index)}
+                className={cn(
+                  "group flex min-w-0 items-baseline justify-between gap-3 rounded-lg transition-colors",
+                  isLead
+                    ? "bg-[color:color-mix(in_oklab,var(--btn-regular-bg)_58%,transparent)] px-3 py-2 hover:bg-[var(--btn-regular-bg)]"
+                    : cn(
+                        "px-2 py-1.5 hover:bg-[var(--btn-plain-bg-hover)]",
+                        isActive && "bg-[var(--btn-plain-bg-hover)]",
+                      ),
+                )}
+              >
+                <span className="flex min-w-0 items-baseline gap-2">
+                  <span
+                    className={cn(
+                      "shrink-0 rounded px-1.5 py-0.5 font-mono text-[0.6875rem] font-bold tabular-nums",
+                      isActive
+                        ? "bg-[var(--btn-regular-bg)] text-[var(--btn-content)]"
+                        : "bg-[color:color-mix(in_oklab,var(--foreground)_6%,transparent)] text-[var(--text-muted)] group-hover:text-[var(--brand)]",
+                    )}
+                  >
+                    {formatDailyDate(post.publishedAt ?? post.createdAt)}
+                  </span>
+                  <span
+                    className={cn(
+                      "truncate leading-5 transition-colors",
+                      isLead
+                        ? "text-[0.84375rem] font-semibold text-[var(--foreground)] group-hover:text-[var(--btn-content)]"
+                        : "text-xs font-medium text-[var(--text-body)] group-hover:text-[var(--foreground)]",
+                    )}
+                  >
+                    {trimDailyTitle(post.title)}
+                  </span>
+                </span>
+                {isLead ? (
+                  <span
+                    aria-hidden="true"
+                    className="hidden shrink-0 text-xs font-semibold text-[var(--brand)] sm:inline"
+                  >
+                    展开笔记 ›
+                  </span>
+                ) : null}
+              </Link>
+            </li>
+          );
+        })}
+      </ol>
+
+      <div
+        data-testid="ai-daily-digest"
+        className="mt-2.5 flex flex-col gap-2 rounded-xl border border-dashed border-[var(--line-color)] bg-[color:color-mix(in_oklab,var(--surface-alt)_50%,transparent)] px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between"
+      >
+        <div className="min-w-0 flex-1 space-y-1">
+          {items.length > 1 ? (
+            <div className="flex flex-wrap items-center gap-1" role="group" aria-label="切换日报期数预览">
+              {items.map((item, index) => {
+                const dateLabel = formatDailyDate(item.publishedAt ?? item.createdAt);
+                const selected = index === safeActiveIndex;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    aria-pressed={selected}
+                    aria-label={`预览 ${dateLabel} 日报摘要`}
+                    onClick={() => setActiveIndex(index)}
+                    className={cn(
+                      "rounded-md px-1.5 py-0.5 font-mono text-[11px] font-semibold tabular-nums transition-colors",
+                      selected
+                        ? "bg-[var(--btn-regular-bg)] text-[var(--btn-content)]"
+                        : "text-[var(--text-muted)] hover:bg-[var(--btn-plain-bg-hover)] hover:text-[var(--foreground)]",
+                    )}
+                  >
+                    {dateLabel}
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
+          <p className="line-clamp-2 text-xs leading-5 text-[var(--text-body)]">{activeExcerpt}</p>
+        </div>
+        <Link
+          href={`/posts/${activePost.slug}`}
+          className="shrink-0 self-end text-xs font-semibold text-[var(--brand)] transition-colors hover:text-[var(--brand-strong)] sm:self-center"
+        >
+          阅读当期全文 ›
+        </Link>
+      </div>
+    </section>
   );
 }

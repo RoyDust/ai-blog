@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import type { Metadata } from "next";
-import { Masthead, Reveal, SectionHeading } from "@/components/editorial";
+import { Mail, Send } from "lucide-react";
 import { getBlogSettings } from "@/lib/blog-settings";
 import { buildPageMetadata } from "@/lib/seo";
 import { ContactForm } from "./ContactForm";
@@ -17,34 +17,33 @@ export async function generateMetadata(): Promise<Metadata> {
   });
 }
 
-const contactNotes = ["内容合作、项目交流、技术问题或文章反馈。", "表单只会唤起本地邮件客户端，不会把内容保存到服务器。"];
-
-/**
- * 联系页（原型 12 第 2 张）：报头 eyebrow「联系」+ h1「联系我」+ 一句说明；
- * 表单两列「姓名（可选）/ 邮箱 *」，下面主题、内容和本页唯一主按钮「发送邮件」；
- * 「适合发来的内容」挪到表单下方，改成细线列表（主列放不下右侧 18rem 面板）。
- */
 export default function ContactPage() {
   return (
-    <div className="space-y-6">
-      <Reveal>
-        <Masthead eyebrow="联系" title="联系我" description="有问题、合作意向或只是想聊聊，填写表单后会打开你的邮件客户端。" />
-      </Reveal>
+    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_17rem] lg:items-start">
+      <section className="reader-panel space-y-6 p-5 sm:p-7">
+        <div className="space-y-1.5">
+          <h1 className="font-display text-2xl font-bold text-[var(--foreground)] sm:text-3xl">联系我</h1>
+          <p className="max-w-2xl text-sm leading-6 text-[var(--text-body)]">
+            有问题、合作意向或只是想聊聊，填写表单后会打开你的邮件客户端。
+          </p>
+        </div>
 
-      <Reveal delay={0.06}>
         <ContactForm />
-      </Reveal>
+      </section>
 
-      <Reveal as="aside" aria-label="联系说明" className="pt-3" delay={0.1}>
-        <SectionHeading title="适合发来的内容" />
-        <ul>
-          {contactNotes.map((note) => (
-            <li key={note} className="border-b border-[var(--border)] py-3 text-[0.875rem] leading-[1.7] text-[var(--text-body)]">
-              {note}
-            </li>
-          ))}
+      <aside className="reader-panel h-fit space-y-3.5 p-5" aria-label="联系说明">
+        <h2 className="reader-section-heading text-sm">适合发来的内容</h2>
+        <ul className="space-y-2.5 text-sm leading-6 text-[var(--text-body)]">
+          <li className="flex gap-2">
+            <Send aria-hidden="true" className="mt-1 h-4 w-4 shrink-0 text-[var(--brand)]" />
+            内容合作、项目交流、技术问题或文章反馈。
+          </li>
+          <li className="flex gap-2">
+            <Mail aria-hidden="true" className="mt-1 h-4 w-4 shrink-0 text-[var(--brand)]" />
+            表单只会唤起本地邮件客户端，不会把内容保存到服务器。
+          </li>
         </ul>
-      </Reveal>
+      </aside>
     </div>
   );
 }

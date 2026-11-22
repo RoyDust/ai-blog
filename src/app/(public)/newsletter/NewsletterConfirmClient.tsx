@@ -1,8 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useState, type FormEvent } from "react";
 
-import { EmptyState, TextLink } from "@/components/editorial";
 import { apiMutate, toErrorMessage } from "@/lib/client-api";
 
 type ConfirmMode = "verify" | "unsubscribe";
@@ -65,13 +65,18 @@ export function NewsletterConfirmClient({ mode, token }: NewsletterConfirmClient
 
   if (!normalizedToken) {
     return (
-      <EmptyState
-        actions={<TextLink href="/">返回首页</TextLink>}
-        description={copy.missingDescription}
+      <div
+        className="reader-panel space-y-3 rounded-2xl p-6 sm:p-7"
         role="alert"
-        title={copy.missingTitle}
-        tone="danger"
-      />
+      >
+        <h2 className="text-base font-semibold text-[var(--foreground)]">{copy.missingTitle}</h2>
+        <p className="text-sm leading-relaxed text-[var(--text-body)]">{copy.missingDescription}</p>
+        <div className="pt-1">
+          <Link className="ui-link text-sm font-medium" href="/">
+            返回首页
+          </Link>
+        </div>
+      </div>
     );
   }
 
@@ -107,32 +112,43 @@ export function NewsletterConfirmClient({ mode, token }: NewsletterConfirmClient
 
   if (state === "succeeded") {
     return (
-      <div className="space-y-5 py-2">
-        <p className="ed-banner ed-banner--success" role="status">
+      <div className="reader-panel space-y-4 rounded-2xl p-6 sm:p-7">
+        <p
+          className="ui-status-success rounded-xl px-4 py-3 text-sm font-medium leading-relaxed"
+          role="status"
+        >
           {copy.successMessage}
         </p>
         <div>
-          <TextLink href={copy.doneLinkHref}>{copy.doneLinkLabel}</TextLink>
+          <Link className="ui-link text-sm font-medium" href={copy.doneLinkHref}>
+            {copy.doneLinkLabel}
+          </Link>
         </div>
       </div>
     );
   }
 
   return (
-    <form className="max-w-[42rem] space-y-5 py-2" onSubmit={handleConfirm}>
-      <p className="text-[0.9375rem] leading-[1.75] text-[var(--text-body)]">{copy.prompt}</p>
+    <form className="reader-panel space-y-5 rounded-2xl p-6 sm:p-7" onSubmit={handleConfirm}>
+      <p className="max-w-[44rem] text-[0.9375rem] leading-[1.75] text-[var(--text-body)]">{copy.prompt}</p>
 
       {state === "failed" && errorMessage ? (
-        <p className="ed-banner ed-banner--danger" role="alert">
+        <p className="ui-alert-danger rounded-xl border px-4 py-3 text-sm leading-relaxed" role="alert">
           {errorMessage}
         </p>
       ) : null}
 
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-3 pt-1">
-        <button className="ed-btn" disabled={state === "submitting"} type="submit">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-3 pt-1">
+        <button
+          className="home-primary-cta inline-flex h-10 items-center justify-center px-5 text-sm font-medium disabled:pointer-events-none disabled:opacity-60"
+          disabled={state === "submitting"}
+          type="submit"
+        >
           {state === "submitting" ? copy.submittingLabel : copy.submitLabel}
         </button>
-        <TextLink href="/">{copy.cancelLabel}</TextLink>
+        <Link className="ui-link text-sm font-medium" href="/">
+          {copy.cancelLabel}
+        </Link>
       </div>
     </form>
   );

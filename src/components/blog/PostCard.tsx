@@ -1,174 +1,144 @@
-import Link from "next/link";
-import { MetaLine } from "@/components/editorial";
 import { FallbackImage } from "@/components/ui";
+import Link from "next/link";
+import { ChevronRight, Eye, Heart, MessageCircle } from "lucide-react";
 import { cn } from "@/lib/cn";
-import { formatIndex, formatIsoDate, formatMonthDay, formatYear } from "@/lib/editorial-format";
 import { shimmerBlurDataURL } from "@/lib/image-placeholder";
 import { getPostViewTransitionName } from "@/lib/view-transition";
+import { PostMeta } from "./PostMeta";
 
 const READER_CARD_FALLBACK_SRC = "/images/fuwari-post-cover-fallback.svg";
 
-export interface PostCardPost {
-  id: string;
-  title: string;
-  slug: string;
-  excerpt?: string | null;
-  coverImage?: string | null;
-  featured?: boolean;
-  createdAt: string | Date;
-  readingTimeMinutes?: number | null;
-  author?: {
-    id: string;
-    name: string | null;
-    image: string | null;
-  };
-  category?: {
-    name: string;
-    slug: string;
-  } | null;
-  tags: Array<{
-    name: string;
-    slug: string;
-  }>;
-  _count?: {
-    comments: number;
-    likes: number;
-  };
-  viewCount?: number;
-}
-
 interface PostCardProps {
-  post: PostCardPost;
-  /**
-   * 左列写法：
-   * - stacked：两行「2026 / 10-18」（首页以外的默认）
-   * - short：单行「10-18」（首页最新文章）
-   * - index：两位等宽序号（系列详情、专题导读），日期并入 meta
-   */
-  dateStyle?: "stacked" | "short" | "index";
-  /** dateStyle="index" 时的序号（从 1 开始） */
-  index?: number;
-  /** meta 里省略分类（分类详情页）或标签（标签详情页） */
-  hideCategory?: boolean;
-  hideTag?: boolean;
-  /** 精选文章在 meta 开头写「精选」二字 */
-  showFeaturedLabel?: boolean;
-  /** 标题层级，列表区块里默认 h3 */
-  headingLevel?: "h2" | "h3";
-  className?: string;
+  post: {
+    id: string;
+    title: string;
+    slug: string;
+    excerpt?: string | null;
+    coverImage?: string | null;
+    featured?: boolean;
+    createdAt: string | Date;
+    author: {
+      id: string;
+      name: string | null;
+      image: string | null;
+    };
+    category?: {
+      name: string;
+      slug: string;
+    } | null;
+    tags: Array<{
+      name: string;
+      slug: string;
+    }>;
+    _count: {
+      comments: number;
+      likes: number;
+    };
+    viewCount?: number;
+  };
 }
 
-/**
- * 方向 A 列表行：全站唯一的文章列表组件（简报 16.1）。
- *
- * 左列等宽日期（或序号）、中列衬线标题 + 摘要 + meta、右列 7.5rem 4:3 缩略图；
- * 无封面时右列留空、不画占位块。整行可点（标题链接用伪元素铺满整行），
- * meta 里的分类 / 标签仍可单独点击。
- */
-export function PostCard({
-  post,
-  dateStyle = "stacked",
-  index,
-  hideCategory = false,
-  hideTag = false,
-  showFeaturedLabel = true,
-  headingLevel = "h3",
-  className,
-}: PostCardProps) {
+export function PostCard({ post }: PostCardProps) {
   const hasCover = Boolean(post.coverImage);
-  const href = `/posts/${post.slug}`;
-  const Heading = headingLevel;
-  const firstTag = post.tags[0];
-  const minutes = post.readingTimeMinutes;
-  const isIndexed = dateStyle === "index";
-
-  const metaItems = [
-    showFeaturedLabel && post.featured ? (
-      <span key="featured" className="font-bold text-[var(--text-muted)]">
-        精选
-      </span>
-    ) : null,
-    isIndexed ? <span className="ed-mono">{formatIsoDate(post.createdAt)}</span> : null,
-    !hideCategory && post.category ? (
-      <Link className="ed-tag text-[0.75rem]" href={`/categories/${post.category.slug}`}>
-        {post.category.name}
-      </Link>
-    ) : null,
-    !hideTag && firstTag
-      ? {
-          key: "tag",
-          // 手机 meta 去掉 #标签（README 第 16 节）
-          className: "max-sm:hidden",
-          node: (
-            <Link className="ed-tag text-[0.75rem]" href={`/tags/${firstTag.slug}`}>
-              #{firstTag.name}
-            </Link>
-          ),
-        }
-      : null,
-    typeof minutes === "number" && minutes > 0 ? <span className="ed-mono">{minutes} 分钟</span> : null,
-  ];
 
   return (
-    <article className={cn("ed-row group", className)} data-testid="post-list-row">
-      <div className={cn(isIndexed ? "ed-row__index" : "ed-row__date ed-row__date--desktop", isIndexed && "max-sm:hidden")}>
-        {isIndexed ? (
-          formatIndex(index ?? 1)
-        ) : dateStyle === "short" ? (
-          <time dateTime={formatIsoDate(post.createdAt)}>{formatMonthDay(post.createdAt)}</time>
-        ) : (
-          <time className="flex flex-col" dateTime={formatIsoDate(post.createdAt)}>
-            <span>{formatYear(post.createdAt)}</span>
-            <span>{formatMonthDay(post.createdAt)}</span>
-          </time>
-        )}
-      </div>
-
-      <div className="min-w-0">
-        <Heading className="ed-row__title line-clamp-2" style={{ viewTransitionName: getPostViewTransitionName("title", post.slug) }}>
-          <Link className="ed-row__link" href={href}>
-            {post.title}
+    <article
+      className={cn(
+        "reader-feed-card group grid min-w-0 grid-cols-1 md:items-stretch",
+        hasCover
+          ? "md:grid-cols-[minmax(0,1fr)_13rem]"
+          : "post-card--text-only md:grid-cols-[minmax(0,1fr)_3rem]",
+      )}
+    >
+      <div className="flex min-w-0 flex-col justify-between gap-2.5 p-4 sm:px-5 sm:py-4">
+        <div className="space-y-1.5">
+          <Link href={`/posts/${post.slug}`} className="block min-w-0">
+            <h3
+              className="text-90 line-clamp-2 text-[1.0625rem] font-bold leading-snug transition-colors group-hover:text-[var(--brand)] md:text-[1.125rem]"
+              style={{ viewTransitionName: getPostViewTransitionName("title", post.slug) }}
+            >
+              {post.title}
+            </h3>
           </Link>
-        </Heading>
-        {post.excerpt ? <p className="ed-row__excerpt line-clamp-2 max-sm:hidden">{post.excerpt}</p> : null}
-        <MetaLine
-          className="ed-row__meta"
-          items={metaItems}
-          prefix={
-            isIndexed ? null : (
-              // 手机上没有日期列，日期并入 meta 开头（README 第 16 节）
-              <span className="inline-flex items-baseline sm:hidden">
-                <span className="ed-mono">{dateStyle === "short" ? formatMonthDay(post.createdAt) : formatIsoDate(post.createdAt)}</span>
-                <span aria-hidden="true" className="ed-meta-sep">
-                  ·
-                </span>
+
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            {post.featured ? (
+              <span className="reader-chip rounded-md border-accent-warm-34 bg-accent-warm-14 px-2 py-0.5 text-[0.7rem] text-accent-warm-78">
+                精选
               </span>
-            )
-          }
-        />
+            ) : null}
+
+            <PostMeta
+              category={post.category}
+              hideTagsForMobile={true}
+              hideUpdateDate={true}
+              publishedAt={post.createdAt}
+              tags={post.tags}
+              variant="compact"
+            />
+          </div>
+
+          <p className="text-75 line-clamp-2 text-[0.84375rem] leading-relaxed">{post.excerpt ?? "暂无摘要"}</p>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-3 font-mono text-xs tabular-nums text-[var(--text-faint)]">
+            <span className="inline-flex items-center gap-1.5">
+              <MessageCircle aria-hidden="true" className="h-3.5 w-3.5" />
+              {post._count.comments} 评论
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <Heart aria-hidden="true" className="h-3.5 w-3.5" />
+              {post._count.likes} 点赞
+            </span>
+            {(post.viewCount ?? 0) > 0 ? (
+              <span className="inline-flex items-center gap-1.5">
+                <Eye aria-hidden="true" className="h-3.5 w-3.5" />
+                {post.viewCount} 阅读
+              </span>
+            ) : null}
+          </div>
+
+          {hasCover ? (
+            <Link
+              href={`/posts/${post.slug}`}
+              aria-label={`继续阅读 ${post.title}`}
+              className="reader-card-action sr-only"
+            >
+              <ChevronRight aria-hidden="true" className="h-4 w-4" />
+            </Link>
+          ) : null}
+        </div>
       </div>
 
       {hasCover ? (
-        <div
-          className="ed-row__thumb"
+        <Link
+          href={`/posts/${post.slug}`}
+          aria-label={`阅读 ${post.title}`}
+          className="theme-media relative mx-3 mb-3 aspect-[1.55] overflow-hidden rounded-xl md:m-2.5 md:ml-0 md:h-auto md:min-h-[8.75rem] md:aspect-auto"
           style={{ viewTransitionName: getPostViewTransitionName("cover", post.slug) }}
         >
           <FallbackImage
-            alt=""
-            aria-hidden="true"
-            className="object-cover"
+            alt={post.title}
+            className="theme-media-image object-cover transition-transform duration-500 group-hover:scale-[1.03]"
             fill
             loading="lazy"
             placeholder="blur"
             blurDataURL={shimmerBlurDataURL}
             quality={70}
-            sizes="(max-width: 640px) 6.5rem, 7.5rem"
+            sizes="(min-width: 1800px) 14rem, (max-width: 768px) 100vw, 11rem"
             src={post.coverImage!}
             fallbackSrc={READER_CARD_FALLBACK_SRC}
           />
-        </div>
+        </Link>
       ) : (
-        <div aria-hidden="true" />
+        <Link
+          href={`/posts/${post.slug}`}
+          aria-label={`继续阅读 ${post.title}`}
+          className="reader-card-action m-2.5 ml-0 hidden w-auto self-stretch md:inline-flex"
+        >
+          <ChevronRight aria-hidden="true" className="h-[1.125rem] w-[1.125rem]" />
+        </Link>
       )}
     </article>
   );

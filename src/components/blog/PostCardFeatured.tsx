@@ -1,76 +1,98 @@
 import Link from "next/link";
-
-import { MetaLine, Seal, TextLink } from "@/components/editorial";
+import { ArrowRight, BookOpen } from "lucide-react";
 import { FallbackImage } from "@/components/ui";
-import { formatIsoDate } from "@/lib/editorial-format";
-import { shimmerBlurDataURL } from "@/lib/image-placeholder";
 import { getPostViewTransitionName } from "@/lib/view-transition";
-import type { PostCardPost } from "./PostCard";
+import { PostMeta } from "./PostMeta";
 
-const READER_CARD_FALLBACK_SRC = "/images/fuwari-post-cover-fallback.svg";
+interface PostCardFeaturedProps {
+  post: {
+    title: string;
+    slug: string;
+    excerpt?: string | null;
+    coverImage?: string | null;
+    createdAt: Date | string;
+    category?: {
+      name: string;
+      slug: string;
+    } | null;
+    tags?: Array<{
+      name: string;
+      slug: string;
+    }>;
+  };
+}
 
-/**
- * `/posts` 置顶精选（简报 16.3）：结构同首页精选。
- * 印章「精选」+ 分类名、衬线标题（列表置顶精选尺度）、2 行摘要、meta、「阅读全文 →」，右侧 16rem 4:3 封面；下方 1px 细线。
- */
-export function PostCardFeatured({ post }: { post: PostCardPost }) {
-  const href = `/posts/${post.slug}`;
-
+export function PostCardFeatured({ post }: PostCardFeaturedProps) {
   return (
-    <article className="ed-media-hover grid gap-5 border-b border-[var(--border)] py-6 md:grid-cols-[minmax(0,1fr)_16rem] md:gap-8" data-testid="post-featured">
-      <div className="flex min-w-0 flex-col">
-        <p className="flex items-center gap-2.5">
-          <Seal>精选</Seal>
-          {post.category ? (
-            <Link className="ed-tag text-[0.8125rem]" href={`/categories/${post.category.slug}`}>
-              {post.category.name}
-            </Link>
-          ) : null}
-        </p>
-        <h2
-          className="ed-serif mt-3 line-clamp-2 text-balance text-[clamp(1.375rem,2.4vw,1.75rem)] leading-[1.25] text-[var(--foreground)]"
-          style={{ viewTransitionName: getPostViewTransitionName("title", post.slug) }}
-        >
-          <Link className="underline decoration-transparent decoration-1 underline-offset-[6px] transition-[text-decoration-color] duration-200 hover:decoration-[var(--reader-border-strong)]" href={href}>
-            {post.title}
-          </Link>
-        </h2>
-        {post.excerpt ? <p className="mt-3 line-clamp-2 text-[0.9375rem] leading-[1.7] text-[var(--text-body)]">{post.excerpt}</p> : null}
-        <MetaLine
-          className="mt-3"
-          items={[
-            <span key="date" className="ed-mono">{formatIsoDate(post.createdAt)}</span>,
-            post.readingTimeMinutes ? <span key="minutes" className="ed-mono">{post.readingTimeMinutes} 分钟</span> : null,
-          ]}
-        />
-        <div className="mt-auto pt-5">
-          <TextLink href={href} aria-label={`阅读全文：${post.title}`}>
-            阅读全文
-          </TextLink>
-        </div>
-      </div>
+    <article className="reader-feature-card group">
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.15fr)_minmax(15rem,0.85fr)] lg:items-stretch">
+        <div className="flex min-w-0 flex-col justify-between gap-4 p-5 sm:p-6">
+          <div className="space-y-3">
+            <span className="reader-chip w-fit rounded-md border-accent-warm-34 bg-accent-warm-14 text-accent-warm-78">
+              精选文章
+            </span>
+            <div className="space-y-2">
+              <Link href={`/posts/${post.slug}`}>
+                <h2
+                  className="text-90 line-clamp-2 text-xl font-bold leading-snug transition-colors group-hover:text-[var(--brand)] sm:text-2xl"
+                  style={{ viewTransitionName: getPostViewTransitionName("title", post.slug) }}
+                >
+                  {post.title}
+                </h2>
+              </Link>
+              {post.excerpt ? <p className="text-75 line-clamp-2 text-sm leading-relaxed">{post.excerpt}</p> : null}
+            </div>
+          </div>
 
-      {post.coverImage ? (
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <PostMeta
+              category={post.category}
+              hideTagsForMobile
+              publishedAt={post.createdAt}
+              tags={post.tags?.slice(0, 2)}
+              variant="reader"
+            />
+            <Link
+              href={`/posts/${post.slug}`}
+              className="home-primary-cta"
+            >
+              继续阅读
+              <ArrowRight aria-hidden="true" className="h-3.5 w-3.5" />
+            </Link>
+          </div>
+        </div>
+
         <Link
-          aria-hidden="true"
-          tabIndex={-1}
-          href={href}
-          className="ed-media block h-48 md:aspect-[4/3] md:h-auto md:self-start"
+          href={`/posts/${post.slug}`}
+          aria-label={`阅读封面：${post.title}`}
+          className="theme-media relative mx-3 mb-3 min-h-[11.5rem] overflow-hidden rounded-xl lg:m-3 lg:ml-0 lg:min-h-[13rem]"
           style={{ viewTransitionName: getPostViewTransitionName("cover", post.slug) }}
         >
-          <FallbackImage
-            alt=""
-            blurDataURL={shimmerBlurDataURL}
-            className="object-cover"
-            fallbackSrc={READER_CARD_FALLBACK_SRC}
-            fill
-            placeholder="blur"
-            quality={75}
-            sizes="(max-width: 767px) 100vw, 16rem"
-            src={post.coverImage}
-          />
+          {post.coverImage ? (
+            <FallbackImage
+              alt={post.title}
+              className="theme-media-image object-cover"
+              fill
+              priority
+              sizes="(max-width: 1024px) 100vw, 24rem"
+              src={post.coverImage}
+            />
+          ) : (
+            <div className="absolute inset-0 flex h-full w-full flex-col justify-between overflow-hidden bg-[var(--reader-panel-muted)] p-5">
+              <BookOpen
+                aria-hidden="true"
+                className="pointer-events-none absolute right-6 top-1/2 -translate-y-1/2 text-[var(--text-faint)] opacity-15"
+                size={88}
+                strokeWidth={1}
+              />
+              <span className="h-1 w-6 rounded-full bg-[var(--brand)]" />
+              <p className="relative line-clamp-2 text-base font-bold leading-snug text-[var(--foreground)] opacity-80">
+                {post.title}
+              </p>
+            </div>
+          )}
         </Link>
-      ) : null}
+      </div>
     </article>
   );
 }

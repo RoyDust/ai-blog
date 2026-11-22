@@ -1,25 +1,24 @@
 "use client";
 
-import { motion, useReducedMotion, useScroll, useSpring } from "motion/react";
+import { motion, useScroll, useSpring } from "motion/react";
 import { springScroll } from "@/components/motion/transitions";
 
-/**
- * 顶部阅读进度：3px foreground 细条（与连载条进度线一致，不用 sky），压在目录抽屉遮罩之上。
- */
 export function ReadingProgress() {
   const { scrollYProgress } = useScroll();
-  const smoothed = useSpring(scrollYProgress, springScroll);
-  const reduce = useReducedMotion();
+  const scaleX = useSpring(scrollYProgress, springScroll);
 
   return (
     <div
       aria-label="阅读进度"
       aria-valuemax={100}
       aria-valuemin={0}
-      className="pointer-events-none fixed inset-x-0 top-0 z-[60] h-[3px] bg-transparent"
+      className="fixed left-0 top-0 z-50 h-0.5 w-full bg-transparent"
       role="progressbar"
     >
-      <motion.div className="h-full origin-left bg-[var(--foreground)]" style={{ scaleX: reduce ? scrollYProgress : smoothed }} />
+      <motion.div
+        className="h-full origin-left bg-(--accent-sky) shadow-[0_0_12px_color-mix(in_oklab,var(--accent-sky)_42%,transparent)]"
+        style={{ scaleX }}
+      />
     </div>
   );
 }

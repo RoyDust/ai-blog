@@ -34,12 +34,12 @@ describe("public /privacy page", () => {
     });
   });
 
-  test("renders Direction A editorial privacy disclosures with configured siteName and matches /register href", async () => {
+  test("renders Fuwari reader-styled privacy disclosures with configured siteName and matches /register href", async () => {
     const ui = await PrivacyPage();
     const { container } = render(ui as React.ReactElement);
 
-    expect(screen.getByRole("heading", { level: 1, name: "隐私政策" })).toHaveClass("ed-serif");
-    expect(screen.getByText("协议", { selector: ".ed-eyebrow" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "隐私政策" })).toHaveClass("font-display");
+    expect(screen.getByText("协议")).toBeInTheDocument();
     expect(screen.getByText("适用站点：Inkforge 墨锻")).toBeInTheDocument();
     expect(container.textContent).not.toContain("My Blog");
 
@@ -49,8 +49,7 @@ describe("public /privacy page", () => {
     expect(screen.getByText(/ipHash/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /返回账号注册/ })).toHaveAttribute("href", "/register");
     expect(screen.getByRole("link", { name: /阅读服务条款/ })).toHaveAttribute("href", "/terms");
-
-    expect(container.querySelector(".card-base, .reader-panel, .ed-btn, svg")).toBeNull();
+    expect(container.querySelector(".reader-panel")).toBeInTheDocument();
 
     const registerSource = readFileSync(join(process.cwd(), "src/app/(auth)/register/page.tsx"), "utf8");
     expect(registerSource).toContain('href="/privacy"');

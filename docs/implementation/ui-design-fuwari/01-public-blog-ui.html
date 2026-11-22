@@ -1,0 +1,979 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>依尘的博客 · 前台 UI 设计稿（首页 / 文章阅读 / 归档）</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: var(--font-sans, "Alibaba PuHuiTi", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif);
+    color: var(--foreground);
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .fw-stage {
+    --hue: 215;
+    --fw-primary: oklch(0.70 0.11 var(--hue));
+    --fw-primary-soft: color-mix(in oklab, var(--fw-primary) 15%, var(--card));
+    --fw-primary-hover: color-mix(in oklab, var(--fw-primary) 24%, var(--card));
+    --fw-card: var(--card);
+    --fw-sub: color-mix(in oklab, var(--secondary) 58%, var(--card) 42%);
+    --fw-divider: color-mix(in oklab, var(--foreground) 7%, transparent);
+    --fw-subtle-ring: color-mix(in oklab, var(--foreground) 5%, transparent);
+    --fw-text-90: var(--foreground);
+    --fw-text-75: color-mix(in oklab, var(--foreground) 78%, var(--muted-foreground) 22%);
+    --fw-text-50: var(--muted-foreground);
+    --fw-text-35: color-mix(in oklab, var(--muted-foreground) 72%, transparent);
+    --fw-mono: var(--font-mono, "JetBrains Mono", "SFMono-Regular", Menlo, Consolas, monospace);
+    --fw-radius: 16px;
+    --fw-radius-in: 11px;
+    width: 100%;
+    max-width: 1120px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  /* 顶部设计稿页面切换器 */
+  .fw-proto-switch {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 10px;
+    border-radius: 12px;
+    background: var(--fw-card);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05), inset 0 1px 0 var(--fw-subtle-ring);
+  }
+  .fw-proto-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .fw-proto-tab {
+    height: 30px;
+    padding: 0 12px;
+    border-radius: 8px;
+    border: 0;
+    background: transparent;
+    color: var(--fw-text-50);
+    font-size: 12.5px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background-color 150ms ease, color 150ms ease;
+  }
+  .fw-proto-tab:hover { color: var(--fw-text-90); }
+  .fw-proto-tab[aria-selected="true"] {
+    background: var(--fw-primary-soft);
+    color: var(--fw-primary);
+  }
+  .fw-hue-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--fw-text-50);
+  }
+  .fw-hue-range {
+    width: 96px;
+    height: 6px;
+    border-radius: 999px;
+    appearance: none;
+    background: linear-gradient(90deg, oklch(0.7 0.12 0), oklch(0.7 0.12 90), oklch(0.7 0.12 180), oklch(0.7 0.12 270), oklch(0.7 0.12 360));
+    outline: none;
+    cursor: pointer;
+  }
+
+  /* Fuwari 顶部横幅 + 悬浮导航 */
+  .fw-banner-shell {
+    position: relative;
+    border-radius: 18px;
+    overflow: hidden;
+    height: 182px;
+    background: #0b1929;
+  }
+  .fw-banner-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center 38%;
+    display: block;
+    filter: brightness(0.92) saturate(0.92);
+  }
+  .fw-banner-fade {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(6, 13, 22, 0.44) 0%, rgba(6, 13, 22, 0.08) 44%, rgba(10, 16, 24, 0.72) 100%);
+    pointer-events: none;
+  }
+  .fw-nav-wrap {
+    position: absolute;
+    top: 10px;
+    left: 12px;
+    right: 12px;
+    z-index: 20;
+  }
+  .fw-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    height: 46px;
+    padding: 0 14px;
+    border-radius: 13px;
+    background: color-mix(in oklab, var(--fw-card) 86%, transparent);
+    backdrop-filter: blur(14px) saturate(1.15);
+    -webkit-backdrop-filter: blur(14px) saturate(1.15);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
+  .fw-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    color: var(--fw-primary);
+    text-decoration: none;
+    font-size: 14.5px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .fw-nav-links {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .fw-nav-btn {
+    height: 34px;
+    padding: 0 11px;
+    border-radius: 9px;
+    border: 0;
+    background: transparent;
+    font-size: 13px;
+    font-weight: 600;
+    font-family: inherit;
+    color: var(--fw-text-75);
+    cursor: pointer;
+    transition: background-color 150ms ease, color 150ms ease;
+  }
+  .fw-nav-btn:hover,
+  .fw-nav-btn[aria-current="page"] {
+    background: var(--fw-primary-soft);
+    color: var(--fw-primary);
+  }
+  .fw-search-mini {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 32px;
+    padding: 0 10px;
+    border-radius: 9px;
+    background: color-mix(in oklab, var(--foreground) 6%, transparent);
+    color: var(--fw-text-50);
+    font-size: 12px;
+  }
+  .fw-search-mini input {
+    border: 0;
+    outline: none;
+    background: transparent;
+    color: var(--fw-text-90);
+    width: 78px;
+    font-size: 12px;
+    font-family: inherit;
+  }
+
+  /* 主网格（向上叠入横幅底部 -36px） */
+  .fw-grid {
+    position: relative;
+    z-index: 10;
+    margin-top: -46px;
+    padding: 0 10px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+  .fw-sidebar { display: none; }
+  @media (min-width: 960px) {
+    .fw-grid {
+      grid-template-columns: 236px minmax(0, 1fr);
+      gap: 16px;
+      align-items: start;
+    }
+    .fw-sidebar { display: flex; flex-direction: column; gap: 14px; }
+    .fw-mobile-profile { display: none !important; }
+  }
+
+  .fw-card {
+    background: var(--fw-card);
+    border-radius: var(--fw-radius);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06), inset 0 1px 0 var(--fw-subtle-ring);
+  }
+
+  /* 侧栏：Profile + 分类 */
+  .fw-profile { padding: 16px; text-align: center; }
+  .fw-avatar {
+    width: 82px;
+    height: 82px;
+    margin: 0 auto 10px;
+    border-radius: 16px;
+    overflow: hidden;
+    background: var(--fw-sub);
+  }
+  .fw-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .fw-accent-bar {
+    width: 20px;
+    height: 4px;
+    border-radius: 999px;
+    background: var(--fw-primary);
+    margin: 7px auto 9px;
+  }
+  .fw-stat-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px dashed var(--fw-divider);
+  }
+  .fw-widget { padding: 14px 16px; }
+  .fw-widget-title {
+    margin: 0 0 8px;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--fw-text-90);
+  }
+  .fw-widget-title::before {
+    content: "";
+    width: 3.5px;
+    height: 14px;
+    border-radius: 4px;
+    background: var(--fw-primary);
+  }
+  .fw-cat-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 34px;
+    padding: 0 8px;
+    margin: 0 -8px;
+    border-radius: 8px;
+    color: var(--fw-text-75);
+    text-decoration: none;
+    font-size: 13px;
+  }
+  .fw-cat-row:hover { background: var(--fw-primary-soft); color: var(--fw-primary); }
+  .fw-cat-badge {
+    padding: 1px 7px;
+    border-radius: 6px;
+    background: var(--fw-primary-soft);
+    color: var(--fw-primary);
+    font-family: var(--fw-mono);
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  /* 窄屏个人问候条 */
+  .fw-mobile-profile {
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .fw-btn-soft {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    border: 0;
+    border-radius: 9px;
+    background: var(--fw-primary-soft);
+    color: var(--fw-primary);
+    font-size: 12.5px;
+    font-weight: 600;
+    font-family: inherit;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background-color 150ms ease;
+  }
+  .fw-btn-soft:hover { background: var(--fw-primary-hover); }
+
+  /* ── 视图 1：首页文章流 ── */
+  .fw-view { display: flex; flex-direction: column; gap: 13px; min-width: 0; }
+  .fw-daily-note { padding: 13px 16px; display: flex; flex-direction: column; gap: 8px; }
+  .fw-date-tab {
+    height: 23px;
+    padding: 0 7px;
+    border-radius: 6px;
+    border: 0;
+    background: transparent;
+    color: var(--fw-text-50);
+    font-family: var(--fw-mono);
+    font-size: 11.5px;
+    cursor: pointer;
+  }
+  .fw-date-tab[aria-selected="true"] {
+    background: var(--fw-primary-soft);
+    color: var(--fw-primary);
+    font-weight: 700;
+  }
+
+  .fw-post-card {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    overflow: hidden;
+  }
+  @media (min-width: 560px) {
+    .fw-post-card--cover { grid-template-columns: minmax(0, 1fr) 204px; }
+    .fw-post-card--plain { grid-template-columns: minmax(0, 1fr) 48px; }
+  }
+  .fw-post-body { padding: 18px 20px 16px; display: flex; flex-direction: column; justify-content: space-between; min-width: 0; }
+  .fw-post-title {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1.38;
+    color: var(--fw-text-90);
+    cursor: pointer;
+  }
+  .fw-post-card:hover .fw-post-title { color: var(--fw-primary); }
+  .fw-post-meta {
+    margin-top: 7px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 11px;
+    font-size: 12px;
+    color: var(--fw-text-50);
+  }
+  .fw-meta-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .fw-post-excerpt {
+    margin: 9px 0 10px;
+    font-size: 13.5px;
+    line-height: 1.66;
+    color: var(--fw-text-75);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .fw-cover-wrap {
+    margin: 10px 10px 10px 0;
+    border-radius: var(--fw-radius-in);
+    overflow: hidden;
+    background: var(--fw-sub);
+  }
+  @media (max-width: 559px) { .fw-cover-wrap { margin: 0 12px 12px; height: 148px; } }
+  .fw-cover-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .fw-enter-rail {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 10px 10px 10px 0;
+    border-radius: var(--fw-radius-in);
+    background: var(--fw-primary-soft);
+    color: var(--fw-primary);
+    border: 0;
+    cursor: pointer;
+  }
+
+  .fw-pagination { display: flex; justify-content: center; gap: 7px; margin-top: 2px; }
+  .fw-page-num {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    background: var(--fw-card);
+    color: var(--fw-text-75);
+    font-family: var(--fw-mono);
+    font-size: 13px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .fw-page-num[aria-current="page"] { background: var(--fw-primary); color: #0c141d; }
+
+  /* ── 视图 2：文章详情页 (/posts/[slug]) ── */
+  .fw-article-card { padding: 24px 24px 22px; }
+  .fw-article-h1 {
+    margin: 8px 0 10px;
+    font-size: clamp(21px, 2.8vw, 25px);
+    font-weight: 700;
+    line-height: 1.35;
+    color: var(--fw-text-90);
+  }
+  .fw-summary-fold {
+    margin: 16px 0;
+    padding: 12px 15px;
+    border-radius: 12px;
+    background: var(--fw-sub);
+    font-size: 13px;
+    color: var(--fw-text-75);
+  }
+  .fw-prose p {
+    margin: 0 0 14px;
+    font-size: 15px;
+    line-height: 1.82;
+    color: var(--fw-text-75);
+  }
+  .fw-prose h2 {
+    margin: 20px 0 10px;
+    font-size: 17.5px;
+    font-weight: 700;
+    color: var(--fw-text-90);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .fw-prose h2::before {
+    content: "#";
+    color: var(--fw-primary);
+    font-family: var(--fw-mono);
+    font-weight: 600;
+  }
+  .fw-codeblock {
+    margin: 12px 0 16px;
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--code-background, color-mix(in oklab, var(--fw-card) 65%, #000 35%));
+    box-shadow: inset 0 0 0 1px var(--fw-divider);
+  }
+  .fw-codebar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 7px 12px;
+    background: color-mix(in oklab, var(--foreground) 4%, transparent);
+    font-family: var(--fw-mono);
+    font-size: 11.5px;
+    color: var(--fw-text-50);
+  }
+  .fw-codeblock pre {
+    margin: 0;
+    padding: 12px 14px;
+    font-family: var(--fw-mono);
+    font-size: 12.5px;
+    line-height: 1.62;
+    color: var(--fw-text-90);
+    overflow-x: auto;
+  }
+  .fw-adj-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .fw-adj-btn {
+    padding: 13px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    text-decoration: none;
+  }
+  .fw-comment-row {
+    display: grid;
+    grid-template-columns: 36px minmax(0, 1fr);
+    gap: 12px;
+    padding-top: 12px;
+    margin-top: 12px;
+    border-top: 1px solid var(--fw-divider);
+  }
+
+  /* ── 视图 3：Fuwari 时间线归档页 (/archives) ── */
+  .fw-archive-card { padding: 22px 24px; }
+  .fw-year-block { margin-bottom: 20px; }
+  .fw-year-block:last-child { margin-bottom: 0; }
+  .fw-year-head {
+    display: grid;
+    grid-template-columns: 56px 24px minmax(0, 1fr);
+    align-items: baseline;
+    margin-bottom: 8px;
+  }
+  .fw-year-num {
+    font-family: var(--fw-mono);
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--fw-text-90);
+  }
+  .fw-year-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    border: 2.5px solid var(--fw-primary);
+    justify-self: center;
+  }
+  .fw-tl-row {
+    display: grid;
+    grid-template-columns: 56px 24px minmax(0, 1fr) auto;
+    align-items: center;
+    height: 38px;
+    padding: 0 8px;
+    margin: 0 -8px;
+    border-radius: 9px;
+    text-decoration: none;
+    transition: background-color 140ms ease;
+  }
+  .fw-tl-row:hover { background: var(--fw-primary-soft); }
+  .fw-tl-track {
+    position: relative;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .fw-tl-track::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1.5px;
+    border-left: 1.5px dashed var(--fw-divider);
+  }
+  .fw-tl-node {
+    position: relative;
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: var(--fw-text-50);
+    transition: transform 150ms ease, background-color 150ms ease;
+  }
+  .fw-tl-row:hover .fw-tl-node {
+    background: var(--fw-primary);
+    transform: scale(1.45);
+  }
+  .fw-tl-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--fw-text-90);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding-right: 10px;
+  }
+  .fw-tl-row:hover .fw-tl-title { color: var(--fw-primary); }
+
+  .fw-footer {
+    padding: 8px 8px 2px;
+    text-align: center;
+    font-size: 12px;
+    color: var(--fw-text-50);
+  }
+</style>
+</head>
+<body>
+<div class="fw-stage" id="pub-stage">
+  <!-- 交互式前台三页面切换器 + 实时色相滑块 -->
+  <div class="fw-proto-switch">
+    <div class="fw-proto-tabs" role="tablist" aria-label="前台核心页面设计预览">
+      <button type="button" role="tab" class="fw-proto-tab" data-pub-tab="home" aria-selected="true">01 · 首页流 (Home)</button>
+      <button type="button" role="tab" class="fw-proto-tab" data-pub-tab="post" aria-selected="false">02 · 文章阅读 (Post Detail)</button>
+      <button type="button" role="tab" class="fw-proto-tab" data-pub-tab="archive" aria-selected="false">03 · 时间线归档 (Archives)</button>
+    </div>
+    <label class="fw-hue-inline">
+      <span>主题色相</span>
+      <input class="fw-hue-range" id="pub-hue" type="range" min="0" max="360" step="5" value="215" />
+      <span style="font-family:var(--fw-mono);color:var(--fw-primary);min-width:26px" id="pub-hue-val">215</span>
+    </label>
+  </div>
+
+  <!-- 共享顶部：Fuwari 氛围横幅 + 半透悬浮导航 -->
+  <div class="fw-banner-shell">
+    <img
+      class="fw-banner-img"
+      src="C:/Users/Administrator/.t3/worktrees/my-next-app/t3-0c3c1cea-f6e4baf3d3a0f760/public/images/fuwari-night-city-bg.svg"
+      onerror="if(!this.dataset.f){this.dataset.f=1;this.src='../../../public/images/fuwari-night-city-bg.svg'}"
+      alt="夜读横幅"
+    />
+    <div class="fw-banner-fade"></div>
+    <div class="fw-nav-wrap">
+      <nav class="fw-nav" aria-label="前台主导航">
+        <a class="fw-brand" href="#home" data-jump="home">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          <span>依尘的博客</span>
+        </a>
+        <div class="fw-nav-links">
+          <button type="button" class="fw-nav-btn" data-nav-sync="home" aria-current="page">首页</button>
+          <button type="button" class="fw-nav-btn" data-nav-sync="post">阅读页</button>
+          <button type="button" class="fw-nav-btn" data-nav-sync="archive">归档</button>
+          <button type="button" class="fw-nav-btn" data-nav-sync="archive">系列</button>
+        </div>
+        <label class="fw-search-mini" aria-label="站内搜索">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          <input type="search" placeholder="搜索…" />
+        </label>
+      </nav>
+    </div>
+  </div>
+
+  <!-- 共享双栏布局（向上叠入横幅） -->
+  <div class="fw-grid">
+    <!-- 左栏：Fuwari 个人卡片 + 分类目录（宽屏 >=960px 展示） -->
+    <aside class="fw-sidebar" aria-label="博主资料与分类">
+      <section class="fw-card fw-profile">
+        <div class="fw-avatar">
+          <img
+            src="C:/Users/Administrator/.t3/worktrees/my-next-app/t3-0c3c1cea-f6e4baf3d3a0f760/public/icons/icon-192.png"
+            onerror="if(!this.dataset.f){this.dataset.f=1;this.src='../../../public/icons/icon-192.png'}"
+            alt="依尘头像"
+          />
+        </div>
+        <div style="font-size:17px;font-weight:700;color:var(--fw-text-90)">依尘</div>
+        <div class="fw-accent-bar"></div>
+        <p style="margin:0;font-size:12.5px;color:var(--fw-text-50);line-height:1.6">记录前后端踩坑与线上排障，每天清晨整理一份 AI 早读。</p>
+        <div class="fw-stat-grid">
+          <div><div style="font-family:var(--fw-mono);font-size:14.5px;font-weight:700">42</div><div style="font-size:11px;color:var(--fw-text-50)">文章</div></div>
+          <div><div style="font-family:var(--fw-mono);font-size:14.5px;font-weight:700">6</div><div style="font-size:11px;color:var(--fw-text-50)">分类</div></div>
+          <div><div style="font-family:var(--fw-mono);font-size:14.5px;font-weight:700">19</div><div style="font-size:11px;color:var(--fw-text-50)">标签</div></div>
+        </div>
+      </section>
+      <section class="fw-card fw-widget">
+        <h3 class="fw-widget-title">分类目录</h3>
+        <a class="fw-cat-row" href="#c1"><span>工程实践</span><span class="fw-cat-badge">15</span></a>
+        <a class="fw-cat-row" href="#c2"><span>前端开发</span><span class="fw-cat-badge">12</span></a>
+        <a class="fw-cat-row" href="#c3"><span>线上排障</span><span class="fw-cat-badge">9</span></a>
+        <a class="fw-cat-row" href="#c4"><span>AI 笔记</span><span class="fw-cat-badge">6</span></a>
+      </section>
+    </aside>
+
+    <!-- 右主视图容器 -->
+    <div style="min-width:0">
+      <!-- ==================== 页面 1：首页 (Home) ==================== -->
+      <main class="fw-view" data-pub-panel="home">
+        <section class="fw-card fw-mobile-profile">
+          <div style="display:flex;align-items:center;gap:12px;min-width:0">
+            <img
+              src="C:/Users/Administrator/.t3/worktrees/my-next-app/t3-0c3c1cea-f6e4baf3d3a0f760/public/icons/icon-192.png"
+              onerror="if(!this.dataset.f){this.dataset.f=1;this.src='../../../public/icons/icon-192.png'}"
+              alt="依尘"
+              style="width:44px;height:44px;border-radius:12px;object-fit:cover;flex-shrink:0"
+            />
+            <div style="min-width:0">
+              <div style="display:flex;align-items:center;gap:8px">
+                <strong style="font-size:15px">依尘</strong>
+                <span style="width:14px;height:3.5px;border-radius:99px;background:var(--fw-primary)"></span>
+                <span style="font-size:11.5px;font-family:var(--fw-mono);color:var(--fw-text-50)">42 篇文章 · 6 分类</span>
+              </div>
+              <div style="font-size:12.5px;color:var(--fw-text-50);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">平时写前后端工程踩坑与排障记录，每天清晨顺手理一份 AI 早读。</div>
+            </div>
+          </div>
+          <button type="button" class="fw-btn-soft" style="height:32px;padding:0 11px;flex-shrink:0" data-jump="archive">归档 ›</button>
+        </section>
+
+        <!-- AI 早读便签 -->
+        <section class="fw-card fw-daily-note">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+            <span style="display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:700">
+              <i style="width:7px;height:7px;border-radius:99px;background:var(--fw-primary)"></i>
+              <span>早读便签 · AI 日报</span>
+            </span>
+            <div>
+              <button type="button" class="fw-date-tab" data-d="0" aria-selected="true">今日 11/21</button>
+              <button type="button" class="fw-date-tab" data-d="1" aria-selected="false">11/20</button>
+              <button type="button" class="fw-date-tab" data-d="2" aria-selected="false">11/19</button>
+            </div>
+          </div>
+          <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px">
+            <p style="margin:0;font-size:13.5px;color:var(--fw-text-75)" id="pub-daily-txt">
+              <strong style="color:var(--fw-text-90)">长视频跨时段定位评测更新，外加两个端侧 4-bit 推理小仓库：</strong>实测在笔记本上跑文档问答延迟很稳。
+            </p>
+            <a href="#post" data-jump="post" style="font-size:12.5px;font-weight:600;color:var(--fw-primary);text-decoration:none;white-space:nowrap">展开笔记 ›</a>
+          </div>
+        </section>
+
+        <!-- 文章 1：置顶带图 -->
+        <article class="fw-card fw-post-card fw-post-card--cover" data-jump="post">
+          <div class="fw-post-body">
+            <div>
+              <h2 class="fw-post-title">记一次定时发布把数据库连接池占满的排查过程</h2>
+              <div class="fw-post-meta">
+                <span class="fw-meta-chip" style="color:var(--fw-primary);font-weight:600">📌 置顶</span>
+                <span class="fw-meta-chip">2026-11-19</span>
+                <span class="fw-meta-chip">线上排障</span>
+                <span>#PostgreSQL / #连接池</span>
+              </div>
+              <p class="fw-post-excerpt">凌晨的定时发布偶发超时，顺着日志一路查下去，发现是事务里套了一次慢速外部封面拉取，把单连接池彻底堵死了。</p>
+            </div>
+            <div style="font-size:12px;color:var(--fw-text-35)">2,640 字 · 约 9 分钟（点击卡片预览阅读页 ›）</div>
+          </div>
+          <div class="fw-cover-wrap">
+            <img
+              src="C:/Users/Administrator/.t3/worktrees/my-next-app/t3-0c3c1cea-f6e4baf3d3a0f760/docs/implementation/ui-design-fuwari/assets/hero-night-desk.jpg"
+              onerror="if(!this.dataset.f){this.dataset.f=1;this.src='./assets/hero-night-desk.jpg'}"
+              alt="深夜书桌终端排障"
+            />
+          </div>
+        </article>
+
+        <!-- 文章 2：无图随笔 + Fuwari 右侧进入竖条 -->
+        <article class="fw-card fw-post-card fw-post-card--plain" data-jump="post">
+          <div class="fw-post-body">
+            <div>
+              <h2 class="fw-post-title">把软删除和唯一约束放一起时，早晚会撞上重名报错</h2>
+              <div class="fw-post-meta">
+                <span>2026-11-08</span><span>·</span><span>工程实践</span><span>·</span><span>#Prisma / #索引迁移</span>
+              </div>
+              <p class="fw-post-excerpt">删掉一个旧分类再建同名分类直接报 500，最后把普通唯一索引全换成了带 WHERE deletedAt IS NULL 的部分唯一索引。</p>
+            </div>
+            <div style="font-size:12px;color:var(--fw-text-35)">1,520 字 · 约 6 分钟</div>
+          </div>
+          <button type="button" class="fw-enter-rail" aria-label="阅读文章">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m9 18 6-6-6-6"/></svg>
+          </button>
+        </article>
+
+        <!-- 文章 3：带图 -->
+        <article class="fw-card fw-post-card fw-post-card--cover" data-jump="post">
+          <div class="fw-post-body">
+            <div>
+              <h2 class="fw-post-title">Codex 的 /goal 长任务模式在底层是怎么跑起来的</h2>
+              <div class="fw-post-meta">
+                <span>2026-10-29</span><span>·</span><span>AI 笔记</span><span>·</span><span>#Agent / #状态循环</span>
+              </div>
+              <p class="fw-post-excerpt">拆读了它的状态推进和中断恢复机制，核心并不是堆砌复杂提示词，而是把验收标准拆成可自检的外部循环。</p>
+            </div>
+            <div style="font-size:12px;color:var(--fw-text-35)">3,180 字 · 约 11 分钟</div>
+          </div>
+          <div class="fw-cover-wrap">
+            <img
+              src="C:/Users/Administrator/.t3/worktrees/my-next-app/t3-0c3c1cea-f6e4baf3d3a0f760/docs/implementation/ui-design-fuwari/assets/thumb-notebook.jpg"
+              onerror="if(!this.dataset.f){this.dataset.f=1;this.src='./assets/thumb-notebook.jpg'}"
+              alt="手写架构笔记"
+            />
+          </div>
+        </article>
+
+        <nav class="fw-pagination" aria-label="分页">
+          <span class="fw-page-num" style="opacity:0.4">‹</span>
+          <span class="fw-page-num" aria-current="page">1</span>
+          <span class="fw-page-num">2</span>
+          <span class="fw-page-num">3</span>
+          <span class="fw-page-num">›</span>
+        </nav>
+      </main>
+
+      <!-- ==================== 页面 2：文章详情阅读页 (Post Detail) ==================== -->
+      <main class="fw-view" data-pub-panel="post" hidden>
+        <article class="fw-card fw-article-card">
+          <div class="fw-post-meta" style="margin-top:0">
+            <span>2026-11-19</span>
+            <span>·</span>
+            <span style="color:var(--fw-primary);font-weight:600">线上排障</span>
+            <span>·</span>
+            <span>2,640 字 · 约 9 分钟</span>
+            <span>·</span>
+            <span>系列：Next.js 生产运维笔记 (3/6)</span>
+          </div>
+          <h1 class="fw-article-h1">记一次定时发布把数据库连接池占满的排查过程</h1>
+
+          <!-- 克制的折叠式提要便签（替代廉价 AI 气泡框） -->
+          <div class="fw-summary-fold">
+            <div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:12px;font-weight:700;color:var(--fw-primary)">
+              <span>本文提要（支持后台一键生成后人工微调）</span>
+              <span style="font-family:var(--fw-mono);color:var(--fw-text-50)">TL;DR</span>
+            </div>
+            <div>把外部图片下载与七牛上传移出数据库事务边界，并将默认单连接池调优为按环境自适应，彻底消除定时发布超时。</div>
+          </div>
+
+          <div class="fw-prose">
+            <p>上周三早上看监控日志时，发现凌晨四点的定时发布任务报了一次连接池等待超时。奇怪的是当时整站并发极低，按理说一条简单的状态更新语句不可能卡满十秒。</p>
+            <h2>顺着事务边界定位慢调用</h2>
+            <p>翻看发布函数的调用栈才意识到，之前为了保证封面回填的原子性，把外部图片拉取直接写进了同一个交互式事务块里：</p>
+
+            <div class="fw-codeblock">
+              <div class="fw-codebar">
+                <span>src/lib/publish-scheduled.ts</span>
+                <button type="button" class="fw-btn-soft" style="height:22px;padding:0 8px;font-size:11px" onclick="this.textContent='已复制 ✓'">复制</button>
+              </div>
+              <pre><code>// 先在事务外完成慢速 I/O，再进入短事务更新发布态
+const uploadedCover = await ensurePostCoverOutsideTx(draft);
+await prisma.$transaction(async (tx) =&gt; {
+  await tx.post.update({ where: { id: draft.id }, data: { published: true, coverImage: uploadedCover } });
+});</code></pre>
+            </div>
+
+            <p>拆开事务后，单次锁连接时间从 4.2 秒降到了 6 毫秒，顺手也补了一条集成回归测试防止后续回退。</p>
+          </div>
+
+          <!-- 文末温和互动条（无嵌套卡片） -->
+          <div style="margin-top:18px;padding-top:14px;border-top:1px dashed var(--fw-divider);display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px">
+            <div style="display:flex;gap:8px">
+              <button type="button" class="fw-btn-soft" style="height:32px;padding:0 12px" onclick="this.textContent='♥ 已赞 43'">♡ 赞同 42</button>
+              <button type="button" class="fw-btn-soft" style="height:32px;padding:0 12px;background:var(--fw-sub);color:var(--fw-text-75)" onclick="this.textContent='★ 已收藏'">☆ 收藏</button>
+            </div>
+            <span style="font-size:12px;color:var(--fw-text-50)">#PostgreSQL / #连接池 / #排障实录</span>
+          </div>
+        </article>
+
+        <!-- Fuwari 经典上下篇双卡跳转 -->
+        <nav class="fw-adj-grid" aria-label="相邻文章">
+          <a class="fw-card fw-adj-btn" href="#prev">
+            <span style="font-size:11.5px;color:var(--fw-text-50)">‹ 上一篇</span>
+            <strong style="font-size:13.5px;color:var(--fw-text-90);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">把软删除和唯一约束放一起时的重名坑</strong>
+          </a>
+          <a class="fw-card fw-adj-btn" href="#next" style="text-align:right">
+            <span style="font-size:11.5px;color:var(--fw-text-50)">下一篇 ›</span>
+            <strong style="font-size:13.5px;color:var(--fw-text-90);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Codex 的 /goal 长任务模式底层拆解</strong>
+          </a>
+        </nav>
+
+        <!-- 干净单层评论卡片 -->
+        <section class="fw-card" style="padding:18px 22px">
+          <div style="display:flex;justify-content:space-between;align-items:baseline">
+            <strong style="font-size:15px">读者讨论 (2)</strong>
+            <span style="font-size:12px;color:var(--fw-text-50)">支持免刷新乐观提交</span>
+          </div>
+          <div class="fw-comment-row">
+            <div style="width:34px;height:34px;border-radius:10px;background:var(--fw-primary-soft);color:var(--fw-primary);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px">林</div>
+            <div>
+              <div style="font-size:12.5px"><strong style="color:var(--fw-text-90)">林川</strong> <span style="color:var(--fw-text-50);margin-left:6px;font-family:var(--fw-mono)">11-19 14:20</span></div>
+              <div style="font-size:13.5px;color:var(--fw-text-75);margin-top:3px">Prisma 交互式事务默认 5s 超时确实很容易被外部 HTTP 请求拖垮，拆出来清晰多了。</div>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <!-- ==================== 页面 3：时间线归档页 (Archives) ==================== -->
+      <main class="fw-view" data-pub-panel="archive" hidden>
+        <section class="fw-card fw-archive-card" aria-label="按年份归档时间线">
+          <div class="fw-year-block">
+            <div class="fw-year-head">
+              <span class="fw-year-num">2026</span>
+              <span class="fw-year-dot" aria-hidden="true"></span>
+              <span style="font-size:12.5px;color:var(--fw-text-50)">28 篇文章</span>
+            </div>
+            <a class="fw-tl-row" href="#p1" data-jump="post">
+              <span style="font-family:var(--fw-mono);font-size:12.5px;color:var(--fw-text-50)">11-19</span>
+              <span class="fw-tl-track"><i class="fw-tl-node"></i></span>
+              <span class="fw-tl-title">记一次定时发布把数据库连接池占满的排查过程</span>
+              <span style="font-size:12px;color:var(--fw-text-50)">#PostgreSQL</span>
+            </a>
+            <a class="fw-tl-row" href="#p2" data-jump="post">
+              <span style="font-family:var(--fw-mono);font-size:12.5px;color:var(--fw-text-50)">11-08</span>
+              <span class="fw-tl-track"><i class="fw-tl-node"></i></span>
+              <span class="fw-tl-title">把软删除和唯一约束放一起时，早晚会撞上重名报错</span>
+              <span style="font-size:12px;color:var(--fw-text-50)">#Prisma</span>
+            </a>
+            <a class="fw-tl-row" href="#p3" data-jump="post">
+              <span style="font-family:var(--fw-mono);font-size:12.5px;color:var(--fw-text-50)">10-29</span>
+              <span class="fw-tl-track"><i class="fw-tl-node"></i></span>
+              <span class="fw-tl-title">Codex 的 /goal 长任务模式在底层是怎么跑起来的</span>
+              <span style="font-size:12px;color:var(--fw-text-50)">#Agent</span>
+            </a>
+            <a class="fw-tl-row" href="#p4" data-jump="post">
+              <span style="font-family:var(--fw-mono);font-size:12.5px;color:var(--fw-text-50)">10-18</span>
+              <span class="fw-tl-track"><i class="fw-tl-node"></i></span>
+              <span class="fw-tl-title">中文字体包太大拖慢首屏，切成按需加载后的实测记录</span>
+              <span style="font-size:12px;color:var(--fw-text-50)">#Next.js</span>
+            </a>
+          </div>
+
+          <div class="fw-year-block">
+            <div class="fw-year-head">
+              <span class="fw-year-num">2025</span>
+              <span class="fw-year-dot" aria-hidden="true"></span>
+              <span style="font-size:12.5px;color:var(--fw-text-50)">14 篇文章</span>
+            </div>
+            <a class="fw-tl-row" href="#p5" data-jump="post">
+              <span style="font-family:var(--fw-mono);font-size:12.5px;color:var(--fw-text-50)">12-21</span>
+              <span class="fw-tl-track"><i class="fw-tl-node"></i></span>
+              <span class="fw-tl-title">前端请求层别到处手写 fetch：统一错误契约省掉一半胶水代码</span>
+              <span style="font-size:12px;color:var(--fw-text-50)">#SWR</span>
+            </a>
+            <a class="fw-tl-row" href="#p6" data-jump="post">
+              <span style="font-family:var(--fw-mono);font-size:12.5px;color:var(--fw-text-50)">11-04</span>
+              <span class="fw-tl-track"><i class="fw-tl-node"></i></span>
+              <span class="fw-tl-title">给个人博客补一套 Playwright 关键路径回归测试</span>
+              <span style="font-size:12px;color:var(--fw-text-50)">#E2E</span>
+            </a>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <footer class="fw-footer">© 2026 依尘 · 前台三核心视图共享同一套无硬框温润卡片与动态色相体系</footer>
+</div>
+
+<script>
+  (function () {
+    var root = document.documentElement;
+    var stage = document.getElementById("pub-stage");
+    if (!getComputedStyle(root).getPropertyValue("--card").trim()) {
+      root.style.setProperty("--background", "#10151c");
+      root.style.setProperty("--foreground", "#e6edf4");
+      root.style.setProperty("--card", "#171e28");
+      root.style.setProperty("--popover", "#1b2430");
+      root.style.setProperty("--secondary", "#202b38");
+      root.style.setProperty("--code-background", "#111720");
+      root.style.setProperty("--muted-foreground", "#8695a6");
+      root.style.setProperty("--border", "rgba(255, 255, 255, 0.06)");
+      document.body.style.background = "#10151c";
+      document.body.style.padding = "18px 14px 36px";
+    }
+
+    var switchView = function (target) {
+      document.querySelectorAll("[data-pub-tab]").forEach(function (b) {
+        b.setAttribute("aria-selected", b.getAttribute("data-pub-tab") === target ? "true" : "false");
+      });
+      document.querySelectorAll("[data-nav-sync]").forEach(function (b) {
+        if (b.getAttribute("data-nav-sync") === target) b.setAttribute("aria-current", "page");
+        else b.removeAttribute("aria-current");
+      });
+      document.querySelectorAll("[data-pub-panel]").forEach(function (p) {
+        p.hidden = p.getAttribute("data-pub-panel") !== target;
+      });
+    };
+
+    document.querySelectorAll("[data-pub-tab]").forEach(function (b) {
+      b.addEventListener("click", function () { switchView(b.getAttribute("data-pub-tab")); });
+    });
+    document.querySelectorAll("[data-nav-sync]").forEach(function (b) {
+      b.addEventListener("click", function () { switchView(b.getAttribute("data-nav-sync")); });
+    });
+    document.querySelectorAll("[data-jump]").forEach(function (el) {
+      el.addEventListener("click", function (e) {
+        e.preventDefault();
+        switchView(el.getAttribute("data-jump"));
+      });
+    });
+
+    var hue = document.getElementById("pub-hue");
+    var hueVal = document.getElementById("pub-hue-val");
+    if (hue && stage && hueVal) {
+      hue.addEventListener("input", function () {
+        stage.style.setProperty("--hue", hue.value);
+        hueVal.textContent = hue.value;
+      });
+    }
+
+    var notes = [
+      "<strong style='color:var(--fw-text-90)'>长视频跨时段定位评测更新，外加两个端侧 4-bit 推理小仓库：</strong>实测在笔记本上跑文档问答延迟很稳。",
+      "<strong style='color:var(--fw-text-90)'>代码代理沙箱边界怎么划才不耽误干活：</strong>对比了三种常见文件系统与网络白名单隔离方案的体感。",
+      "<strong style='color:var(--fw-text-90)'>几套主流开源推理框架在单卡上的吞吐对比：</strong>整理了小并发下首字延迟与显存占用的实测数据。"
+    ];
+    var dTabs = document.querySelectorAll("[data-d]");
+    var dTxt = document.getElementById("pub-daily-txt");
+    dTabs.forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var i = parseInt(btn.getAttribute("data-d") || "0", 10);
+        dTabs.forEach(function (x) { x.setAttribute("aria-selected", x === btn ? "true" : "false"); });
+        if (dTxt && notes[i]) dTxt.innerHTML = notes[i];
+      });
+    });
+  })();
+</script>
+</body>
+</html>

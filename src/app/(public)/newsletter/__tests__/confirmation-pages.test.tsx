@@ -47,7 +47,7 @@ describe("public newsletter confirmation pages", () => {
 
     expect(screen.getByRole("heading", { name: "确认邮件订阅" })).toBeInTheDocument();
     const confirmButton = screen.getByRole("button", { name: "确认订阅" });
-    expect(confirmButton).toHaveClass("ed-btn");
+    expect(confirmButton).toHaveClass("home-primary-cta");
     expect(dbGuard.writeAttempt).not.toHaveBeenCalled();
     expect(fetchMock).not.toHaveBeenCalled();
 
@@ -79,7 +79,7 @@ describe("public newsletter confirmation pages", () => {
 
     expect(screen.getByRole("heading", { name: "取消邮件订阅" })).toBeInTheDocument();
     const unsubscribeButton = screen.getByRole("button", { name: "确认退订" });
-    expect(unsubscribeButton).toHaveClass("ed-btn");
+    expect(unsubscribeButton).toHaveClass("home-primary-cta");
     expect(dbGuard.writeAttempt).not.toHaveBeenCalled();
     expect(fetchMock).not.toHaveBeenCalled();
 

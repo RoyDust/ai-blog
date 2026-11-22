@@ -26,7 +26,7 @@ import {
 import { Input } from "@/components/shadcn/ui/input"
 import { toErrorMessage } from "@/lib/client-api"
 
-import { aiNewsCategoryLabels, type AiNewsSourceFormState, type AiNewsSourceType, type PublicAiNewsSource } from "./types"
+import type { AiNewsSourceFormState, AiNewsSourceType, PublicAiNewsSource } from "./types"
 
 const sourceTypes: Array<{ value: AiNewsSourceType; label: string }> = [
   { value: "RSS", label: "RSS / Atom" },
@@ -36,17 +36,11 @@ const sourceTypes: Array<{ value: AiNewsSourceType; label: string }> = [
 ]
 
 const categories = ["official", "industry", "developer", "community", "github-release"]
-const adminSelectClassName = "ed-select h-9 min-h-9 py-0 text-sm"
-const adminMonoInputClassName = "font-mono"
-// 分组：组标题写法同 AI 批量补全弹窗——.75rem 700 muted 小标题 + 1px 细线
-const adminFieldsetClassName = "space-y-4"
-const adminLegendClassName = "mb-3 block w-full border-b border-[var(--border)] pb-1.5 text-xs font-bold text-[var(--text-muted)]"
-const requiredMark = (
-  <span aria-hidden="true" className="ml-1 text-[0.8125rem] font-medium text-[var(--text-muted)]">
-    *
-  </span>
-)
-const optionalMark = <span className="ml-1 text-[0.8125rem] font-medium text-[var(--text-muted)]">（可选）</span>
+const adminInputClassName = "rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--foreground)]"
+const adminLabelClassName = "text-sm font-medium text-[var(--foreground)]"
+const adminMessageClassName = "text-xs text-rose-500"
+const adminFieldsetClassName = "space-y-4 rounded-xl border border-[var(--border)] p-4"
+const adminLegendClassName = "px-2 text-sm font-semibold text-[var(--foreground)]"
 
 const aiNewsSourceFormSchema = z
   .object({
@@ -170,14 +164,14 @@ export function AiNewsSourceFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl sm:max-w-3xl">
+      <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle>{sourceId ? "编辑来源" : "新增来源"}</DialogTitle>
           <DialogDescription>保存后会进入来源库；默认启用表示参与每日自动采集。</DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
-          <form className="space-y-5" noValidate onSubmit={form.handleSubmit(handleSubmit)}>
+          <form className="space-y-4" noValidate onSubmit={form.handleSubmit(handleSubmit)}>
             <fieldset className={adminFieldsetClassName}>
               <legend className={adminLegendClassName}>基本信息</legend>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -186,10 +180,10 @@ export function AiNewsSourceFormDialog({
                   name="type"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>来源类型</FormLabel>
+                      <FormLabel className={adminLabelClassName}>来源类型</FormLabel>
                       <FormControl>
                         <select
-                          className={adminSelectClassName}
+                          className={adminInputClassName}
                           disabled={Boolean(sourceId)}
                           value={field.value}
                           onChange={(event) => field.onChange(event.target.value as AiNewsSourceType)}
@@ -199,7 +193,7 @@ export function AiNewsSourceFormDialog({
                           ))}
                         </select>
                       </FormControl>
-                      <FormMessage />
+                      <FormMessage className={adminMessageClassName} />
                     </FormItem>
                   )}
                 />
@@ -209,14 +203,11 @@ export function AiNewsSourceFormDialog({
                   name="name"
                   render={({ field }) => (
                     <FormItem>
-                      <div className="flex items-baseline">
-                        <FormLabel>来源名称</FormLabel>
-                        {requiredMark}
-                      </div>
+                      <FormLabel className={adminLabelClassName}>来源名称</FormLabel>
                       <FormControl>
-                        <Input {...field} />
+                        <Input className={adminInputClassName} {...field} />
                       </FormControl>
-                      <FormMessage />
+                      <FormMessage className={adminMessageClassName} />
                     </FormItem>
                   )}
                 />
@@ -224,19 +215,16 @@ export function AiNewsSourceFormDialog({
                   control={form.control}
                   name="url"
                   render={({ field }) => (
-                    <FormItem className="md:col-span-2">
-                      <div className="flex items-baseline">
-                        <FormLabel>{sourceType === "GITHUB_RELEASES" ? "仓库 URL" : "来源 URL"}</FormLabel>
-                        {isHackerNews ? optionalMark : requiredMark}
-                      </div>
+                    <FormItem>
+                      <FormLabel className={adminLabelClassName}>{sourceType === "GITHUB_RELEASES" ? "仓库 URL" : "来源 URL"}</FormLabel>
                       <FormControl>
                         <Input
-                          className={adminMonoInputClassName}
+                          className={adminInputClassName}
                           placeholder={sourceType === "GITHUB_RELEASES" ? "https://github.com/vercel/ai" : "https://example.com/feed.xml"}
                           {...field}
                         />
                       </FormControl>
-                      <FormMessage />
+                      <FormMessage className={adminMessageClassName} />
                     </FormItem>
                   )}
                 />
@@ -244,15 +232,12 @@ export function AiNewsSourceFormDialog({
                   control={form.control}
                   name="homepage"
                   render={({ field }) => (
-                    <FormItem className="md:col-span-2">
-                      <div className="flex items-baseline">
-                        <FormLabel>主页 URL</FormLabel>
-                        {optionalMark}
-                      </div>
+                    <FormItem>
+                      <FormLabel className={adminLabelClassName}>主页 URL</FormLabel>
                       <FormControl>
-                        <Input className={adminMonoInputClassName} {...field} />
+                        <Input className={adminInputClassName} {...field} />
                       </FormControl>
-                      <FormMessage />
+                      <FormMessage className={adminMessageClassName} />
                     </FormItem>
                   )}
                 />
@@ -261,16 +246,16 @@ export function AiNewsSourceFormDialog({
                   name="category"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>分类</FormLabel>
+                      <FormLabel className={adminLabelClassName}>分类</FormLabel>
                       <FormControl>
-                        <select className={adminSelectClassName} {...field}>
+                        <select className={adminInputClassName} {...field}>
                           <option value="">未分类</option>
                           {categories.map((category) => (
-                            <option key={category} value={category}>{aiNewsCategoryLabels[category] ?? category}</option>
+                            <option key={category} value={category}>{category}</option>
                           ))}
                         </select>
                       </FormControl>
-                      <FormMessage />
+                      <FormMessage className={adminMessageClassName} />
                     </FormItem>
                   )}
                 />
@@ -279,11 +264,11 @@ export function AiNewsSourceFormDialog({
                   name="weight"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>权重</FormLabel>
+                      <FormLabel className={adminLabelClassName}>权重</FormLabel>
                       <FormControl>
-                        <Input max={200} min={0} type="number" className={adminMonoInputClassName} {...field} />
+                        <Input className={adminInputClassName} max={200} min={0} type="number" {...field} />
                       </FormControl>
-                      <FormMessage />
+                      <FormMessage className={adminMessageClassName} />
                     </FormItem>
                   )}
                 />
@@ -294,16 +279,16 @@ export function AiNewsSourceFormDialog({
                 name="enabled"
                 render={({ field }) => (
                   <FormItem>
-                    <label className="flex min-h-7 cursor-pointer items-center gap-2 text-sm font-bold text-[var(--foreground)]">
+                    <label className="flex items-center gap-2 text-sm font-medium text-[var(--foreground)]">
                       <input
                         checked={field.value}
-                        className="ed-checkbox"
+                        className="ui-checkbox h-4 w-4"
                         type="checkbox"
                         onChange={(event) => field.onChange(event.target.checked)}
                       />
                       默认参与日报
                     </label>
-                    <FormMessage />
+                    <FormMessage className={adminMessageClassName} />
                   </FormItem>
                 )}
               />
@@ -317,11 +302,11 @@ export function AiNewsSourceFormDialog({
                   name="fetchLimit"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>抓取上限</FormLabel>
+                      <FormLabel className={adminLabelClassName}>抓取上限</FormLabel>
                       <FormControl>
-                        <Input max={100} min={1} type="number" className={adminMonoInputClassName} {...field} />
+                        <Input className={adminInputClassName} max={100} min={1} type="number" {...field} />
                       </FormControl>
-                      <FormMessage />
+                      <FormMessage className={adminMessageClassName} />
                     </FormItem>
                   )}
                 />
@@ -330,11 +315,11 @@ export function AiNewsSourceFormDialog({
                   name="minScore"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>最小分数</FormLabel>
+                      <FormLabel className={adminLabelClassName}>最小分数</FormLabel>
                       <FormControl>
-                        <Input min={0} type="number" className={adminMonoInputClassName} {...field} />
+                        <Input className={adminInputClassName} min={0} type="number" {...field} />
                       </FormControl>
-                      <FormMessage />
+                      <FormMessage className={adminMessageClassName} />
                     </FormItem>
                   )}
                 />
@@ -345,11 +330,11 @@ export function AiNewsSourceFormDialog({
                       name="commentLimit"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>评论条数</FormLabel>
+                          <FormLabel className={adminLabelClassName}>评论条数</FormLabel>
                           <FormControl>
-                            <Input max={20} min={0} type="number" className={adminMonoInputClassName} {...field} />
+                            <Input className={adminInputClassName} max={20} min={0} type="number" {...field} />
                           </FormControl>
-                          <FormMessage />
+                          <FormMessage className={adminMessageClassName} />
                         </FormItem>
                       )}
                     />
@@ -358,11 +343,11 @@ export function AiNewsSourceFormDialog({
                       name="commentTextMaxLength"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>评论截断长度</FormLabel>
+                          <FormLabel className={adminLabelClassName}>评论截断长度</FormLabel>
                           <FormControl>
-                            <Input max={2000} min={80} type="number" className={adminMonoInputClassName} {...field} />
+                            <Input className={adminInputClassName} max={2000} min={80} type="number" {...field} />
                           </FormControl>
-                          <FormMessage />
+                          <FormMessage className={adminMessageClassName} />
                         </FormItem>
                       )}
                     />
@@ -373,7 +358,7 @@ export function AiNewsSourceFormDialog({
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>取消</Button>
-              <Button type="submit" disabled={isSubmitting}>{isSubmitting ? "保存中..." : "保存来源"}</Button>
+              <Button type="submit" disabled={isSubmitting}>{isSubmitting ? "保存中" : "保存来源"}</Button>
             </DialogFooter>
           </form>
         </Form>

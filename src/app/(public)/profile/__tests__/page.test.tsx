@@ -112,7 +112,7 @@ describe("public /profile page", () => {
     expect(findUnique).not.toHaveBeenCalled();
   });
 
-  test("renders editorial profile form for USER without /admin links and submits PATCH /api/users/me cleanly", async () => {
+  test("renders Fuwari profile form for USER without /admin links and submits PATCH /api/users/me cleanly", async () => {
     getServerSession.mockResolvedValueOnce({
       user: { id: "reader-1", role: "USER" },
     });
@@ -138,24 +138,20 @@ describe("public /profile page", () => {
     const { container } = render(ui as React.ReactElement);
 
     expect(redirect).not.toHaveBeenCalled();
-    expect(screen.getByRole("heading", { level: 1, name: "个人资料" })).toHaveClass("ed-serif");
+    expect(screen.getByRole("heading", { level: 1, name: "个人资料" })).toHaveClass("font-display");
     expect(screen.getByText(/账号身份：读者账号（USER）/)).toBeInTheDocument();
     expect(screen.getByText(/注册日期：2026-05-12/)).toBeInTheDocument();
 
-    // USER 角色页面绝不包含任何 /admin 链接，也不使用圆角玻璃卡片
     const allLinks = screen.getAllByRole("link");
     for (const link of allLinks) {
       expect(link.getAttribute("href")).not.toMatch(/^\/admin/);
     }
-    expect(container.querySelector(".card-base, .reader-panel, .reader-card, svg")).toBeNull();
-    expect(container.querySelectorAll(".ed-btn")).toHaveLength(1);
+    expect(container.querySelector(".reader-panel")).toBeInTheDocument();
     expect(screen.queryByLabelText(/当前登录密码/)).not.toBeInTheDocument();
 
-    // 仅大小写差异不视为更换邮箱，不弹出密码输入框
     fireEvent.change(screen.getByLabelText(/邮箱/), { target: { value: "  READER@Example.com " } });
     expect(screen.queryByLabelText(/当前登录密码/)).not.toBeInTheDocument();
 
-    // 修改为新邮箱后，展示方向 A 密码重认证输入框，未填密码时阻止提交并展示中文校验提示
     fireEvent.change(screen.getByLabelText(/显示名称/), { target: { value: "林舟的新名字" } });
     fireEvent.change(screen.getByLabelText(/邮箱/), { target: { value: "  New-Reader@Example.com " } });
     fireEvent.change(screen.getByLabelText(/头像链接/), {
@@ -163,13 +159,10 @@ describe("public /profile page", () => {
     });
 
     const passwordInput = screen.getByLabelText(/当前登录密码/);
-    expect(passwordInput).toHaveClass("ed-input");
     expect(passwordInput).toHaveAttribute("type", "password");
-    expect(container.querySelector(".card-base, .reader-panel, .reader-card, svg")).toBeNull();
-    expect(container.querySelectorAll(".ed-btn")).toHaveLength(1);
 
     fireEvent.click(screen.getByRole("button", { name: "保存资料" }));
-    expect(await screen.findByText("修改登录邮箱需验证当前登录密码")).toHaveClass("ed-field-error");
+    expect(await screen.findByText("修改登录邮箱需验证当前登录密码")).toBeInTheDocument();
     expect(apiMutate).not.toHaveBeenCalled();
 
     fireEvent.change(passwordInput, { target: { value: "reader-secret-123" } });
@@ -258,8 +251,8 @@ describe("public /profile page", () => {
     fireEvent.change(screen.getByLabelText(/头像链接/), { target: { value: "javascript:alert(1)" } });
     fireEvent.click(screen.getByRole("button", { name: "保存资料" }));
 
-    expect(await screen.findByText("请输入显示名称")).toHaveClass("ed-field-error");
-    expect(screen.getByText("请输入以 http:// 或 https:// 开头的有效图片链接")).toHaveClass("ed-field-error");
+    expect(await screen.findByText("请输入显示名称")).toBeInTheDocument();
+    expect(screen.getByText("请输入以 http:// 或 https:// 开头的有效图片链接")).toBeInTheDocument();
     expect(apiMutate).not.toHaveBeenCalled();
 
     apiMutate.mockRejectedValueOnce(new Error("Email already in use"));
@@ -274,7 +267,7 @@ describe("public /profile page", () => {
     });
   });
 
-  test("shows secondary admin account settings TextLink only for ADMIN users", async () => {
+  test("shows secondary admin account settings link only for ADMIN users", async () => {
     getServerSession.mockResolvedValueOnce({
       user: { id: "admin-1", role: "ADMIN" },
     });
@@ -291,7 +284,7 @@ describe("public /profile page", () => {
     render(ui as React.ReactElement);
 
     const adminLink = screen.getByRole("link", { name: /前往后台账号与站点设置/ });
-    expect(adminLink).toHaveClass("ed-link");
+    expect(adminLink).toHaveClass("ui-link");
     expect(adminLink).toHaveAttribute("href", "/admin/settings?tab=account");
     expect(adminLink).toHaveTextContent("→");
   });

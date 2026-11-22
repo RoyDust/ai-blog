@@ -136,12 +136,15 @@ export function buildOffsetPagination({ page, limit, total }: { page: number; li
   }
 }
 
+export type PublicPostContentType = 'all' | 'original' | 'ai-daily'
+
 interface PublishedPostsPageInput {
   page: number
   limit: number
   category?: string | null
   tag?: string | null
   search?: string | null
+  type?: PublicPostContentType | null
 }
 
 const getCachedFeaturedPosts = createPublicCachedReader(
@@ -199,16 +202,30 @@ export async function getHomeLatestPosts(limit: number) {
   return getCachedHomeLatestPosts(limit)
 }
 
-async function queryPublishedPostsPage(
-  page: number,
-  limit: number,
-  category: string | null,
-  tag: string | null,
-  search: string | null,
-) {
+async function queryPublishedPostsPage({
+  page,
+  limit,
+  category,
+  tag,
+  search,
+  type,
+}: {
+  page: number
+  limit: number
+  category: string | null
+  tag: string | null
+  search: string | null
+  type: 'original' | 'ai-daily' | null
+}) {
   const where: NonNullable<Parameters<typeof prisma.post.findMany>[0]>['where'] = {
     published: true,
     deletedAt: null,
+  }
+
+  if (type === 'original') {
+    where.generatedByAiNews = false
+  } else if (type === 'ai-daily') {
+    where.generatedByAiNews = true
   }
 
   if (category) {
@@ -270,10 +287,19 @@ export async function getPublishedPostsPage({
   category,
   tag,
   search,
+  type,
 }: PublishedPostsPageInput) {
   const normalizedCategory = category?.trim() || null
   const normalizedTag = tag?.trim() || null
   const normalizedSearch = search?.trim() || null
+  const normalizedType = type === 'original' || type === 'ai-daily' ? type : null
 
-  return getCachedPublishedPostsPage(page, limit, normalizedCategory, normalizedTag, normalizedSearch)
+  return getCachedPublishedPostsPage({
+    page,
+    limit,
+    category: normalizedCategory,
+    tag: normalizedTag,
+    search: normalizedSearch,
+    type: normalizedType,
+  })
 }

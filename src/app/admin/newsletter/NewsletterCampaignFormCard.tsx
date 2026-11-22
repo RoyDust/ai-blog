@@ -1,11 +1,12 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { MailCheck } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
-import { EntityFormShell } from "@/components/admin/forms/EntityFormShell";
+import { WorkspacePanel } from "@/components/admin/primitives/WorkspacePanel";
 import { Button, Input, Textarea } from "@/components/admin/ui";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/shadcn/ui/form";
 import { apiMutate, toErrorMessage } from "@/lib/client-api";
@@ -69,9 +70,13 @@ export function NewsletterCampaignFormCard({ onCreated }: { onCreated: () => voi
   }
 
   return (
-    <EntityFormShell title="创建邮件活动" description="输入文章 ID 生成草稿，在列表中手动触发异步发送（定时自动调度暂未开放）。">
+    <WorkspacePanel
+      title="创建邮件活动"
+      description="输入文章 ID 生成草稿，在列表中手动触发异步发送（定时自动调度暂未开放）。"
+      fillHeight={false}
+    >
       <Form {...campaignForm}>
-        <form className="grid items-start gap-4 md:grid-cols-2 2xl:grid-cols-1" onSubmit={campaignForm.handleSubmit(createCampaign)}>
+        <form className="space-y-4" onSubmit={campaignForm.handleSubmit(createCampaign)}>
           <FormField
             control={campaignForm.control}
             name="title"
@@ -125,11 +130,12 @@ export function NewsletterCampaignFormCard({ onCreated }: { onCreated: () => voi
               </FormItem>
             )}
           />
-          <Button className="justify-self-start md:col-span-2 2xl:col-span-1" disabled={campaignForm.formState.isSubmitting} type="submit">
+          <Button disabled={campaignForm.formState.isSubmitting} type="submit">
+            <MailCheck className="h-4 w-4" aria-hidden />
             {campaignForm.formState.isSubmitting ? "创建中..." : "创建草稿"}
           </Button>
         </form>
       </Form>
-    </EntityFormShell>
+    </WorkspacePanel>
   );
 }

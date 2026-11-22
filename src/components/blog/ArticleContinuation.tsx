@@ -3,7 +3,7 @@ import Link from 'next/link'
 interface AdjacentPost {
   slug: string
   title: string
-  createdAt?: string | Date
+  createdAt: string | Date
 }
 
 interface ArticleContinuationProps {
@@ -11,35 +11,43 @@ interface ArticleContinuationProps {
   nextPost: AdjacentPost | null
 }
 
-/**
- * 正文之后的「上一篇 / 下一篇」（简报 16.4）：两栏 + 中间 1px 竖线，上下各一条细线，不做卡片。
- * 手机上改为上下两行，都左对齐，行间 1px 细线。
- */
+function AdjacentLink({ label, href, title, align = 'left' }: { label: string; href: string; title: string; align?: 'left' | 'right' }) {
+  return (
+    <Link
+      href={href}
+      className={`reader-feed-card group flex min-w-0 flex-col justify-center gap-1 px-4 py-3.5 ${align === 'right' ? 'items-end text-right' : ''}`}
+    >
+      <span className="text-xs font-medium text-[var(--text-muted)]">
+        {align === 'left' ? `‹ ${label}` : `${label} ›`}
+      </span>
+      <span className="w-full truncate text-sm font-semibold text-[var(--foreground)] transition-colors group-hover:text-[var(--brand)]">
+        {title}
+      </span>
+    </Link>
+  )
+}
+
 export function ArticleContinuation({ previousPost, nextPost }: ArticleContinuationProps) {
-  if (!previousPost && !nextPost) return null
+  const hasAdjacent = previousPost || nextPost
+
+  if (!hasAdjacent) return null
 
   return (
-    <nav aria-label="上一篇与下一篇" className="article-adjacent">
+    <nav aria-label="相邻文章" className="grid gap-3 sm:grid-cols-2">
       {previousPost ? (
-        <Link className="article-adjacent__link" href={`/posts/${previousPost.slug}`} rel="prev">
-          <span className="article-adjacent__label">
-            <span aria-hidden="true">← </span>上一篇
-          </span>
-          <span className="article-adjacent__title">{previousPost.title}</span>
-        </Link>
+        <AdjacentLink href={`/posts/${previousPost.slug}`} label="上一篇" title={previousPost.title} />
       ) : (
-        <span aria-hidden="true" className="hidden sm:block" />
+        <div className="reader-panel flex items-center px-4 py-3.5 text-xs text-[var(--text-muted)]">
+          这是当前时间线中的第一篇文章
+        </div>
       )}
-      <span aria-hidden="true" className={previousPost && nextPost ? 'article-adjacent__rule' : 'article-adjacent__rule hidden sm:block'} />
+
       {nextPost ? (
-        <Link className="article-adjacent__link article-adjacent__link--next" href={`/posts/${nextPost.slug}`} rel="next">
-          <span className="article-adjacent__label">
-            下一篇<span aria-hidden="true"> →</span>
-          </span>
-          <span className="article-adjacent__title">{nextPost.title}</span>
-        </Link>
+        <AdjacentLink href={`/posts/${nextPost.slug}`} label="下一篇" title={nextPost.title} align="right" />
       ) : (
-        <span aria-hidden="true" className="hidden sm:block" />
+        <div className="reader-panel flex items-center px-4 py-3.5 text-xs text-[var(--text-muted)] sm:justify-end sm:text-right">
+          这是当前时间线中的最新一篇文章
+        </div>
       )}
     </nav>
   )

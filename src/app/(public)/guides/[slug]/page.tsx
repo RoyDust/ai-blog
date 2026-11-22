@@ -1,10 +1,10 @@
 export const revalidate = 300;
 
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { EmptyState, SectionHeading, StaggerItem, StaggerList, TextLink } from "@/components/editorial";
-import { GuidePostRow, TaxonomyHero } from "@/components/taxonomy";
+import { PostCard } from "@/components/blog/PostCard";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { getBlogSettings } from "@/lib/blog-settings";
 import { buildBreadcrumbJsonLd, buildPageMetadata } from "@/lib/seo";
@@ -47,38 +47,48 @@ export default async function GuideDetailPage({ params }: { params: Promise<{ sl
   ], { siteUrl: settings.siteUrl });
 
   return (
-    <>
+    <div className="reader-section">
       <JsonLd data={breadcrumbJsonLd} />
-      <TaxonomyHero
-        eyebrow="专题"
-        title={guide.title}
-        description={guide.description || "这个专题按推荐阅读顺序组织文章，帮助你从入口进入主题并逐步建立完整上下文。"}
-        meta={`${guide.posts.length} 篇精选文章`}
-        links={[{ href: "/guides", label: "全部专题" }]}
-      />
-
-      <section aria-labelledby="guide-posts-title" className="space-y-1">
-        <SectionHeading aside={<span>按推荐顺序</span>} count={guide.posts.length} id="guide-posts-title" title="阅读顺序" />
-        {guide.posts.length > 0 ? (
-          <StaggerList as="ol">
-            {guide.posts.map((guidePost, index) => (
-              <StaggerItem key={guidePost.id} as="li">
-                <GuidePostRow index={index + 1} note={guidePost.note} post={guidePost.post} />
-              </StaggerItem>
-            ))}
-          </StaggerList>
-        ) : (
-          <EmptyState
-            title="这个专题还没有已发布的文章"
-            actions={
-              <>
-                <TextLink href="/guides">全部专题</TextLink>
-                <TextLink href="/posts">浏览全部文章</TextLink>
-              </>
-            }
-          />
-        )}
+      <section className="reader-banner onload-animation !min-h-0 !rounded-[var(--radius-panel)] !bg-[var(--reader-panel)] before:!hidden px-5 py-5 md:px-6 md:py-6">
+        <div className="relative z-10 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="min-w-0 max-w-2xl space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="reader-chip">阅读导览</span>
+              <span className="rounded-md bg-[var(--surface-alt)]/75 px-2.5 py-1 font-mono text-xs tabular-nums text-[var(--text-muted)]">
+                {guide.posts.length} 篇精选文章
+              </span>
+            </div>
+            <h1 className="text-90 font-display text-2xl font-bold leading-snug tracking-tight md:text-3xl">{guide.title}</h1>
+            <p className="max-w-xl text-sm leading-6 text-[var(--text-body)]">
+              {guide.description || "这个专题按推荐阅读顺序组织文章，帮助你从入口进入主题并逐步建立完整上下文。"}
+            </p>
+          </div>
+          <Link
+            href="/guides"
+            className="inline-flex h-[2.125rem] w-fit shrink-0 items-center justify-center whitespace-nowrap rounded-[0.625rem] bg-[var(--btn-regular-bg)] px-3.5 text-[0.8125rem] font-semibold text-[var(--btn-content)] transition hover:bg-[var(--btn-regular-bg-hover)]"
+          >
+            ‹ 返回全部专题
+          </Link>
+        </div>
       </section>
-    </>
+
+      <section className="space-y-4">
+        {guide.posts.map((guidePost, index) => (
+          <article key={guidePost.id} className="grid gap-3 md:grid-cols-[2.75rem_minmax(0,1fr)] md:items-start">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--btn-regular-bg)] font-mono text-xs font-bold tabular-nums text-[var(--btn-content)]">
+              {String(index + 1).padStart(2, "0")}
+            </div>
+            <div className="min-w-0 space-y-2.5">
+              {guidePost.note ? (
+                <p className="rounded-xl bg-[color:color-mix(in_oklab,var(--surface-alt)_58%,var(--card-bg)_42%)] px-3.5 py-2.5 text-sm leading-6 text-[var(--text-body)]">
+                  {guidePost.note}
+                </p>
+              ) : null}
+              <PostCard post={guidePost.post} />
+            </div>
+          </article>
+        ))}
+      </section>
+    </div>
   );
 }

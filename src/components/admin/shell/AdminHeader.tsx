@@ -2,21 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { Menu, PanelLeft, PenLine } from "lucide-react";
 import { useAdminLayout } from "./AdminLayoutContext";
 import { AdminBreadcrumbs } from "./AdminBreadcrumbs";
 import { getAdminPathMeta } from "./config";
 import { NotificationBell } from "@/components/admin/notifications/NotificationBell";
 import { AdminGlobalSearch } from "@/components/admin/shell/AdminGlobalSearch";
-import { adminIconButtonClassName } from "@/components/admin/primitives/admin-classes";
-import { buttonVariants } from "@/components/admin/ui";
-import { cn } from "@/lib/cn";
 
-/**
- * 顶栏（方向 A）：68px，左侧收起/移动端菜单按钮 + 「/」分隔面包屑，右侧 1px 描边搜索入口 + 描边「新建文章」+ 通知铃。
- * 「新建文章」降为描边按钮，把实心主按钮留给页面内容。
- */
-export function AdminHeader() {
+export function AdminHeader(props: { siteName?: string } = {}) {
+  void props;
   const pathname = usePathname();
   const {
     isCollapsed,
@@ -26,8 +20,7 @@ export function AdminHeader() {
     toggleMobileDrawer,
   } = useAdminLayout();
   const pathMeta = getAdminPathMeta(pathname);
-  const CollapseIcon = isCollapsed ? PanelLeftOpen : PanelLeftClose;
-  const ToggleIcon = isMobileViewport ? Menu : CollapseIcon;
+
   const toggleLabel = isMobileViewport
     ? isMobileDrawerOpen
       ? "关闭导航菜单"
@@ -41,38 +34,47 @@ export function AdminHeader() {
       toggleMobileDrawer();
       return;
     }
-
     setIsCollapsed(!isCollapsed);
   };
 
   return (
-    <header className="sticky top-0 z-30 flex h-[68px] shrink-0 items-center gap-2.5 border-b border-[var(--reader-border)] bg-[var(--card-bg)] pr-4 pl-3.5 lg:pr-6">
-      <button
-        aria-controls={isMobileViewport ? "admin-mobile-drawer" : undefined}
-        aria-expanded={isMobileViewport ? isMobileDrawerOpen : undefined}
-        aria-label={toggleLabel}
-        className={adminIconButtonClassName}
-        onClick={handleToggleNavigation}
-        type="button"
-      >
-        <ToggleIcon aria-hidden="true" className="size-[18px]" strokeWidth={1.75} />
-      </button>
+    <header className="sticky top-0 z-30 border-b border-[var(--border)] bg-[var(--surface)] px-4 py-2 transition-colors duration-200 lg:px-5">
+      <div className="flex h-10 w-full items-center justify-between gap-2 sm:gap-3">
+        <div className="flex shrink-0 items-center gap-2.5 lg:min-w-0">
+          <button
+            aria-controls={isMobileViewport ? "admin-mobile-drawer" : undefined}
+            aria-expanded={isMobileViewport ? isMobileDrawerOpen : undefined}
+            aria-label={toggleLabel}
+            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-control)] text-[var(--muted)] transition-colors duration-150 hover:bg-[var(--surface-alt)] hover:text-[var(--foreground)]"
+            onClick={handleToggleNavigation}
+            type="button"
+          >
+            {isMobileViewport ? (
+              <Menu aria-hidden="true" className="h-4.5 w-4.5" />
+            ) : (
+              <PanelLeft aria-hidden="true" className="h-4 w-4" />
+            )}
+          </button>
 
-      <div className="hidden min-w-0 overflow-hidden md:block">
-        <AdminBreadcrumbs items={pathMeta.crumbs} />
-      </div>
+          <div className="hidden overflow-hidden text-ellipsis whitespace-nowrap md:block">
+            <AdminBreadcrumbs items={pathMeta.crumbs} />
+          </div>
+        </div>
 
-      <div className="ml-auto flex min-w-0 shrink-0 items-center gap-2.5">
-        <AdminGlobalSearch />
+        <div className="flex min-w-0 flex-1 items-center justify-end gap-2 sm:gap-2.5 lg:flex-none">
+          <AdminGlobalSearch />
 
-        {/* 文章列表页的页头已有「新建文章」，顶栏这一个隐藏，避免同屏两个入口（README 第 14 节） */}
-        {pathname === "/admin/posts" ? null : (
-          <Link className={cn(buttonVariants({ variant: "outline" }), "hidden px-3.5 sm:inline-flex")} href="/admin/posts/new">
-            新建文章
+          <Link
+            aria-label="新建文章"
+            className="inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[var(--radius-control)] bg-[var(--btn-regular-bg)] px-2.5 text-xs font-semibold text-[var(--btn-content)] transition-colors duration-150 hover:bg-[var(--btn-regular-bg-hover)] sm:px-3"
+            href="/admin/posts/new"
+          >
+            <PenLine className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">新建文章</span>
           </Link>
-        )}
 
-        <NotificationBell />
+          <NotificationBell />
+        </div>
       </div>
     </header>
   );

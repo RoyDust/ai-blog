@@ -1,16 +1,11 @@
 import Link from "next/link";
-import { MetaLine, SectionHeading } from "@/components/editorial";
-import { FallbackImage } from "@/components/ui";
-import { formatIsoDate } from "@/lib/editorial-format";
 
 type RelatedPost = {
   id: string;
   title: string;
   slug: string;
   excerpt?: string | null;
-  coverImage?: string | null;
   createdAt: string | Date;
-  publishedAt?: string | Date | null;
   category?: {
     name: string;
     slug: string;
@@ -21,48 +16,42 @@ interface ArticleRelatedPostsProps {
   posts: RelatedPost[];
 }
 
-/**
- * 相关文章（简报 16.4）：区块标题 + 三列，每列 16:9 封面（4px）、衬线标题最多 2 行、meta「分类 · 日期」。
- * 无封面的一篇用 surface-alt 的 16:9 块，左下角衬线写分类名。手机上单列，封面在左侧 6.5rem。
- */
+const dateFormatter = new Intl.DateTimeFormat("zh-CN", {
+  month: "short",
+  day: "numeric",
+});
+
 export function ArticleRelatedPosts({ posts }: ArticleRelatedPostsProps) {
   if (posts.length === 0) {
     return null;
   }
 
   return (
-    <section aria-labelledby="related-posts-heading" className="space-y-4">
-      <SectionHeading id="related-posts-heading" title="相关文章" />
-      <ul className="article-related__list">
+    <section aria-label="相关文章" className="reader-panel w-full space-y-4 p-5 sm:p-6">
+      <h2 className="reader-section-heading text-base">相关文章</h2>
+      <ul className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
         {posts.map((post) => (
           <li key={post.id}>
-            <Link className="article-related__item group" href={`/posts/${post.slug}`}>
-              <span className="article-related__cover block">
-                {post.coverImage ? (
-                  <FallbackImage
-                    alt=""
-                    className="object-cover"
-                    fill
-                    sizes="(min-width: 640px) 220px, 104px"
-                    src={post.coverImage}
-                  />
+            <Link
+              href={`/posts/${post.slug}`}
+              className="group flex h-full flex-col gap-2 rounded-xl bg-[color:color-mix(in_oklab,var(--surface-alt)_52%,transparent)] p-3.5 transition-colors hover:bg-[var(--btn-regular-bg)]"
+            >
+              <div className="flex items-center justify-between gap-2 text-xs text-[var(--text-muted)]">
+                {post.category ? (
+                  <span className="font-semibold text-[var(--brand)]">{post.category.name}</span>
                 ) : (
-                  <span aria-hidden="true" className="article-related__placeholder">
-                    {post.category?.name ?? ""}
-                  </span>
+                  <span>延伸阅读</span>
                 )}
-              </span>
-              <div className="flex min-w-0 flex-col gap-1">
-                <span className="article-related__title">{post.title}</span>
-                <MetaLine
-                  items={[
-                    post.category?.name,
-                    <time className="ed-mono" dateTime={new Date(post.publishedAt ?? post.createdAt).toISOString()} key="date">
-                      {formatIsoDate(post.publishedAt ?? post.createdAt)}
-                    </time>,
-                  ]}
-                />
+                <span className="font-mono tabular-nums text-[var(--text-faint)]">
+                  {dateFormatter.format(new Date(post.createdAt))}
+                </span>
               </div>
+              <h3 className="line-clamp-2 text-sm font-bold leading-snug text-[var(--foreground)] transition-colors group-hover:text-[var(--brand)]">
+                {post.title}
+              </h3>
+              {post.excerpt ? (
+                <p className="line-clamp-2 text-xs leading-5 text-[var(--text-muted)]">{post.excerpt}</p>
+              ) : null}
             </Link>
           </li>
         ))}

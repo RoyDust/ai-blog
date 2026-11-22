@@ -59,8 +59,15 @@ describe("getPublicProfile", () => {
     const profile = await getPublicProfile();
 
     expect(userFindFirstMock).toHaveBeenCalledWith({
-      where: { role: "ADMIN" },
-      orderBy: [{ updatedAt: "desc" }, { createdAt: "asc" }],
+      where: {
+        role: "ADMIN",
+        NOT: [
+          { email: { endsWith: ".local" } },
+          { email: { endsWith: ".test" } },
+          { name: { in: ["E2E Admin", "Codex Browser Test"] } },
+        ],
+      },
+      orderBy: [{ createdAt: "asc" }],
       select: {
         name: true,
         image: true,
@@ -69,6 +76,29 @@ describe("getPublicProfile", () => {
     expect(profile.email).toBe("");
     expect(profile.links).toEqual([{ kind: "github", name: "GitHub", url: "https://github.com/RoyDust" }]);
     expect(JSON.stringify(profile)).not.toContain("codex-browser-admin-secret@local.test");
+  });
+
+  test("falls back to founding ADMIN when all admin rows match synthetic exclusion", async () => {
+    userFindFirstMock
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        name: "Local Dev Admin",
+        image: null,
+      });
+
+    const { getPublicProfile } = await import("../public-profile");
+    const profile = await getPublicProfile();
+
+    expect(userFindFirstMock).toHaveBeenCalledTimes(2);
+    expect(userFindFirstMock).toHaveBeenLastCalledWith({
+      where: { role: "ADMIN" },
+      orderBy: [{ createdAt: "asc" }],
+      select: {
+        name: true,
+        image: true,
+      },
+    });
+    expect(profile.name).toBe("Local Dev Admin");
   });
 
   test("returns NEXT_PUBLIC_CONTACT_EMAIL and mailto link when configured", async () => {

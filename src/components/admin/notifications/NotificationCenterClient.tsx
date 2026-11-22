@@ -2,16 +2,10 @@
 
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { motion, useReducedMotion } from "motion/react";
+import { AlertCircle, Bell, CheckCheck, CircleCheck, Info, XCircle } from "lucide-react";
 import useSWR from "swr";
 
-import { ListTabs, MetricStrip } from "@/components/admin/lists";
-import { adminHairlineRowClassName, adminTextActionClassName } from "@/components/admin/primitives/admin-classes";
-import { AdminSectionHeader } from "@/components/admin/primitives/SectionHeader";
-import { StatusBadge } from "@/components/admin/primitives/StatusBadge";
-import { Toolbar } from "@/components/admin/primitives/Toolbar";
 import { Button } from "@/components/admin/ui";
-import { EmptyState, SkeletonBar, editorialEase } from "@/components/editorial";
 import { apiFetcher, apiMutate, handleGlobalSwrError, toErrorMessage } from "@/lib/client-api";
 
 type NotificationFilter = "all" | "unread" | "comment" | "ai" | "system";
@@ -34,27 +28,21 @@ type NotificationPayload = {
   nextCursor: string | null;
 };
 
-const filters: Array<{ value: NotificationFilter; label: string }> = [
-  { value: "all", label: "全部" },
-  { value: "unread", label: "未读" },
-  { value: "comment", label: "评论" },
-  { value: "ai", label: "AI" },
-  { value: "system", label: "系统" },
+const filters: Array<{ key: NotificationFilter; label: string }> = [
+  { key: "all", label: "全部" },
+  { key: "unread", label: "未读" },
+  { key: "comment", label: "评论" },
+  { key: "ai", label: "AI" },
+  { key: "system", label: "系统" },
 ];
 
-// 严重程度：语气色文字（不再是彩色图标块）
 const severityMeta = {
-  SUCCESS: { tone: "success", label: "成功" },
-  WARNING: { tone: "warning", label: "警告" },
-  ERROR: { tone: "danger", label: "错误" },
-  INFO: { tone: "info", label: "信息" },
+  SUCCESS: { icon: CircleCheck, className: "bg-[var(--success-surface)] text-[var(--success-foreground)]", label: "成功" },
+  WARNING: { icon: AlertCircle, className: "bg-[var(--warning-surface)] text-[var(--warning-foreground)]", label: "警告" },
+  ERROR: { icon: XCircle, className: "bg-[var(--danger-surface)] text-[var(--danger-foreground)]", label: "错误" },
+  INFO: { icon: Info, className: "bg-[color-mix(in_oklab,var(--brand)_10%,var(--surface))] text-[var(--brand)]", label: "信息" },
 } as const;
 
-/**
- * 根据列表筛选项拼出通知查询 URL。
- *
- * 顶部筛选的“未读”和业务分类最终映射到不同的查询参数；cursor 用于游标式加载更多。
- */
 function buildNotificationUrl(filter: NotificationFilter, cursor?: string | null) {
   const params = new URLSearchParams();
   params.set("limit", "30");
@@ -74,9 +62,6 @@ function buildNotificationUrl(filter: NotificationFilter, cursor?: string | null
   return `/api/admin/notifications?${params.toString()}`;
 }
 
-/**
- * 后台通知列表使用的绝对时间格式。
- */
 function formatDate(value: string) {
   return new Date(value).toLocaleString("zh-CN", {
     month: "short",
@@ -86,111 +71,6 @@ function formatDate(value: string) {
   });
 }
 
-function NotificationListContent({
-  loading,
-  error,
-  items,
-  reduceMotion,
-  onRetry,
-  onMarkRead,
-  onOpenNotification,
-}: {
-  loading: boolean;
-  error: string | null;
-  items: NotificationItem[];
-  reduceMotion: boolean | null;
-  onRetry: () => void;
-  onMarkRead: (ids: string[]) => void;
-  onOpenNotification: (item: NotificationItem) => void;
-}) {
-  if (loading) {
-    return (
-      <div aria-busy="true">
-        <span className="ed-visually-hidden" role="status">
-          正在加载通知...
-        </span>
-        {Array.from({ length: 5 }, (_, index) => (
-          <div key={index} aria-hidden="true" className="flex items-center gap-4 border-b border-[var(--border)] py-4">
-            <SkeletonBar className="h-3 w-8" />
-            <div className="flex-1 space-y-2">
-              <SkeletonBar strong className="h-3.5 w-[38%]" />
-              <SkeletonBar className="h-3 w-[64%]" />
-            </div>
-            <SkeletonBar className="h-3 w-20" />
-          </div>
-        ))}
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <EmptyState
-        actions={
-          <Button onClick={onRetry} size="sm" type="button" variant="outline">
-            重试
-          </Button>
-        }
-        role="alert"
-        title={error}
-        tone="danger"
-      />
-    );
-  }
-
-  if (items.length === 0) {
-    return <EmptyState description="切换筛选查看其他通知。" role="status" title="暂无匹配通知。" />;
-  }
-
-  return (
-    <div>
-      {items.map((item, index) => {
-        const meta = severityMeta[item.severity as keyof typeof severityMeta] ?? severityMeta.INFO;
-        const unread = !item.readAt;
-
-        return (
-          <motion.article
-            key={item.id}
-            animate={{ opacity: 1, y: 0 }}
-            className={`${adminHairlineRowClassName} grid grid-cols-[3rem_minmax(0,1fr)] items-start gap-x-4 gap-y-2 py-3.5 sm:grid-cols-[3rem_minmax(0,1fr)_auto]`}
-            initial={reduceMotion ? false : { opacity: 0, y: 6 }}
-            transition={{ duration: 0.3, ease: editorialEase, delay: reduceMotion ? 0 : Math.min(index, 8) * 0.03 }}
-          >
-            <StatusBadge className="pt-1" tone={meta.tone}>
-              {meta.label}
-            </StatusBadge>
-            <div className="min-w-0">
-              <div className="flex min-w-0 items-baseline gap-2">
-                <h3 className={`truncate font-serif text-[0.9375rem] font-bold ${unread ? "text-[var(--foreground)]" : "text-[var(--text-body)]"}`}>{item.title}</h3>
-                {unread ? <span className="shrink-0 text-xs font-bold text-[var(--focus)]">未读</span> : null}
-              </div>
-              {item.body ? <p className="mt-0.5 truncate text-[0.8125rem] text-[var(--text-muted)]" title={item.body}>{item.body}</p> : null}
-            </div>
-            <div className="col-start-2 flex shrink-0 items-center gap-4 sm:col-start-3">
-              <span className="font-mono text-xs text-[var(--text-muted)] tabular-nums">{formatDate(item.createdAt)}</span>
-              {unread ? (
-                <button className={adminTextActionClassName} onClick={() => onMarkRead([item.id])} type="button">
-                  已读
-                </button>
-              ) : null}
-              {item.actionUrl ? (
-                <button className={adminTextActionClassName} onClick={() => onOpenNotification(item)} type="button">
-                  查看
-                </button>
-              ) : null}
-            </div>
-          </motion.article>
-        );
-      })}
-    </div>
-  );
-}
-
-/**
- * 通知中心完整列表页客户端。
- *
- * 相比顶部铃铛，这里负责筛选、批量已读当前页、全部已读和按通知跳转。
- */
 export function NotificationCenterClient() {
   const router = useRouter();
   const [activeFilter, setActiveFilter] = useState<NotificationFilter>("all");
@@ -219,8 +99,6 @@ export function NotificationCenterClient() {
 
   const unreadIds = useMemo(() => items.filter((item) => !item.readAt).map((item) => item.id), [items]);
 
-  // 列表请求交给 SWR（筛选变化自动重取）；onSuccess 把数据同步进本地状态，
-  // 已读操作需要本地乐观更新（GET 响应可能滞后于 PATCH 结果）。
   const { isLoading, mutate } = useSWR<{ success?: boolean; data?: NotificationPayload }>(
     buildNotificationUrl(activeFilter),
     apiFetcher,
@@ -242,12 +120,6 @@ export function NotificationCenterClient() {
   );
   const loading = isLoading;
 
-  /**
-   * 游标式加载更多：把下一页通知追加到当前列表末尾。
-   *
-   * 通过 filterEpochRef / loadMoreRequestIdRef 保护并发：若分页请求在途期间用户切换筛选或列表重取，
-   * 过期分页结果直接丢弃，绝不把旧筛选的数据或 nextCursor 污染到新筛选下。
-   */
   const loadMore = useCallback(async () => {
     if (!nextCursor || loadingMore) {
       return;
@@ -289,9 +161,6 @@ export function NotificationCenterClient() {
     }
   }, [activeFilter, loadingMore, nextCursor]);
 
-  /**
-   * 标记一组通知为已读，并用后端返回的 unreadCount 同步全局未读数。
-   */
   const markRead = useCallback(async (ids: string[]) => {
     if (ids.length === 0) {
       return;
@@ -310,9 +179,6 @@ export function NotificationCenterClient() {
     void mutate();
   }, [mutate]);
 
-  /**
-   * 将当前账号的所有通知标记为已读。
-   */
   const markAllRead = useCallback(async () => {
     try {
       const payload = await apiMutate<{ success?: boolean; data?: { unreadCount: number } }>("/api/admin/notifications/read-all", { method: "POST" });
@@ -329,9 +195,6 @@ export function NotificationCenterClient() {
     }
   }, [mutate]);
 
-  /**
-   * 进入通知关联页面前先补齐已读状态，保证返回列表时角标已经收敛。
-   */
   const openNotification = useCallback(
     async (item: NotificationItem) => {
       try {
@@ -348,71 +211,117 @@ export function NotificationCenterClient() {
     [markRead, router],
   );
 
-  const reduceMotion = useReducedMotion();
-
   return (
-    <div>
-      <MetricStrip
-        ariaLabel="通知概况"
-        className="mt-1"
-        items={[
-          {
-            key: "unread",
-            label: "未读",
-            value: unreadCount.toLocaleString("zh-CN"),
-            note: "点击只看未读",
-            tone: unreadCount > 0 ? "info" : "default",
-            pressed: activeFilter === "unread",
-            onSelect: () => handleFilterChange(activeFilter === "unread" ? "all" : "unread"),
-          },
-          { key: "loaded", label: "当前列表", value: items.length.toLocaleString("zh-CN"), note: nextCursor ? "还有更多，可继续加载" : "已全部加载" },
-          { key: "page-unread", label: "本页未读", value: unreadIds.length.toLocaleString("zh-CN"), note: "可一键标记已读" },
-        ]}
-      />
-
-      <section aria-labelledby="admin-notifications-title" className="mt-6">
-        <AdminSectionHeader
-          aside={
-            <>
-              <span>{unreadCount > 0 ? `${unreadCount} 条未读` : "当前没有未读通知"}</span>
-              {unreadIds.length > 0 ? (
-                <button className={adminTextActionClassName} onClick={() => void markRead(unreadIds)} type="button">
-                  标记当前页已读
+    <div className="space-y-4">
+      <section className="ui-surface rounded-xl px-4 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div role="group" aria-label="通知筛选" className="flex flex-wrap items-center gap-1.5">
+            {filters.map((filter) => {
+              const active = filter.key === activeFilter;
+              return (
+                <button
+                  key={filter.key}
+                  aria-pressed={active}
+                  className={
+                    active
+                      ? "ui-btn rounded-lg bg-[var(--btn-regular-bg)] px-3 py-1.5 text-xs font-semibold text-[var(--btn-content)]"
+                      : "ui-btn rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-1.5 text-xs font-medium text-[var(--foreground)] hover:bg-[var(--surface-alt)]"
+                  }
+                  onClick={() => handleFilterChange(filter.key)}
+                  type="button"
+                >
+                  {filter.label}
                 </button>
-              ) : null}
-            </>
-          }
-          description="评论、AI 任务和系统状态"
-          id="admin-notifications-title"
-          title="通知列表"
-        />
+              );
+            })}
+          </div>
+          <Button className="gap-2" disabled={unreadCount === 0} onClick={() => void markAllRead()} size="sm" type="button" variant="outline">
+            <CheckCheck className="h-4 w-4" />
+            全部已读
+          </Button>
+        </div>
+      </section>
 
-        <Toolbar
-          leading={<ListTabs ariaLabel="通知筛选" items={filters} onChange={handleFilterChange} value={activeFilter} />}
-          trailing={
-            <Button disabled={unreadCount === 0} onClick={() => void markAllRead()} size="sm" type="button" variant="outline">
-              全部已读
-            </Button>
-          }
-        />
-
-        <div className="border-t border-[var(--reader-border-strong)]">
-          <NotificationListContent
-            error={error}
-            items={items}
-            loading={loading}
-            onMarkRead={(ids) => void markRead(ids)}
-            onOpenNotification={(item) => void openNotification(item)}
-            onRetry={() => {
-              setError(null);
-              void mutate();
-            }}
-            reduceMotion={reduceMotion}
-          />
+      <section className="ui-surface overflow-hidden rounded-xl">
+        <div className="flex items-center justify-between gap-3 border-b border-[var(--border)] px-5 py-4">
+          <div className="flex items-center gap-3">
+            <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--btn-regular-bg)] text-[var(--btn-content)]">
+              <Bell className="h-4 w-4" />
+            </span>
+            <div>
+              <h2 className="text-sm font-bold text-[var(--foreground)]">通知列表</h2>
+              <p className="text-xs text-[var(--muted)]">{unreadCount > 0 ? `${unreadCount} 条未读` : "当前没有未读通知"}</p>
+            </div>
+          </div>
+          {unreadIds.length > 0 ? (
+            <button className="text-xs font-semibold text-[var(--brand)] hover:text-[var(--brand-strong)]" onClick={() => void markRead(unreadIds)} type="button">
+              标记当前页已读
+            </button>
+          ) : null}
         </div>
 
+        {loading ? <p className="px-5 py-10 text-center text-sm text-[var(--muted)]">正在加载通知...</p> : null}
+        {!loading && error ? (
+          <div role="alert" className="space-y-3 px-5 py-10 text-center">
+            <p className="text-sm text-[var(--danger-foreground)]">{error}</p>
+            <Button
+              onClick={() => {
+                setError(null);
+                void mutate();
+              }}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              重试
+            </Button>
+          </div>
+        ) : null}
+        {!loading && !error && items.length === 0 ? <p className="px-5 py-10 text-center text-sm text-[var(--muted)]">暂无匹配通知。</p> : null}
+        {!loading && !error && items.length > 0 ? (
+          <div className="divide-y divide-[var(--border)]">
+            {items.map((item) => {
+              const meta = severityMeta[item.severity as keyof typeof severityMeta] ?? severityMeta.INFO;
+              const Icon = meta.icon;
+
+              return (
+                <article key={item.id} className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-start">
+                  <span className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${meta.className}`}>
+                    <Icon className="h-4 w-4" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="text-sm font-semibold text-[var(--foreground)]">{item.title}</h3>
+                      <span className="rounded-md bg-[var(--surface-alt)] px-2 py-0.5 text-xs text-[var(--muted)]">{meta.label}</span>
+                      {!item.readAt ? (
+                        <span className="rounded-md bg-[var(--danger-surface)] px-2 py-0.5 text-xs font-medium text-[var(--danger-foreground)]">
+                          未读
+                        </span>
+                      ) : null}
+                    </div>
+                    {item.body ? <p className="mt-1.5 text-sm leading-6 text-[var(--text-body)]">{item.body}</p> : null}
+                    <p className="mt-1.5 font-mono text-xs tabular-nums text-[var(--muted)]">{formatDate(item.createdAt)}</p>
+                  </div>
+                  <div className="flex shrink-0 flex-wrap items-center gap-2">
+                    {!item.readAt ? (
+                      <Button onClick={() => void markRead([item.id])} size="sm" type="button" variant="outline">
+                        已读
+                      </Button>
+                    ) : null}
+                    {item.actionUrl ? (
+                      <Button onClick={() => void openNotification(item)} size="sm" type="button">
+                        查看
+                      </Button>
+                    ) : null}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        ) : null}
+
         {!loading && !error && nextCursor ? (
-          <div className="pt-4">
+          <div className="border-t border-[var(--border)] px-5 py-4 text-center">
             <Button disabled={loadingMore} onClick={() => void loadMore()} size="sm" type="button" variant="outline">
               {loadingMore ? "加载中..." : "加载更多"}
             </Button>

@@ -8,14 +8,13 @@
  * - AiNewsRunControlsPanel：「候选策略」控制面板
  * - AiNewsRunResultPanel：「最近一次运行」结果面板
  * - AiNewsRunHistoryPanel：「运行记录」列表与候选明细面板
- * - AiNewsSourcePanel：来源控制台（表格 + 站内确认弹窗）
+ * - AiNewsSourcePanel：来源管理（既有组件）
  * 页面只保留头部动作、确认弹窗与面板装配。
  */
 
 import { PageHeader } from "@/components/admin/primitives/PageHeader"
 import { Button } from "@/components/admin/ui"
 import { ConfirmDialog } from "@/components/admin/ui/confirm-dialog"
-import { InlineSpinner } from "@/components/admin/workspace/WorkspaceKit"
 import { AiNewsSourcePanel } from "@/components/admin/ai-news/AiNewsSourcePanel"
 import { AiNewsRunControlsPanel } from "@/components/admin/ai-news/AiNewsRunControlsPanel"
 import { AiNewsRunHistoryPanel } from "@/components/admin/ai-news/AiNewsRunHistoryPanel"
@@ -47,24 +46,18 @@ export default function AdminAiNewsPage() {
   } = useAdminAiNews()
 
   return (
-    <div className="flex flex-col gap-9 pb-2">
+    <div className="space-y-6">
       <PageHeader
-        eyebrow="AI 助手"
+        eyebrow="AI News"
         title="每日 AI 新闻推送"
         description="聚合多源候选，筛选高价值 AI 新闻，生成并增强中文日报后直接上线。"
         action={
           <>
+            <Button type="button" disabled={running || !selectedModelId} onClick={() => void runNewsGeneration()}>
+              {running ? "生成中..." : "生成今日 AI 日报"}
+            </Button>
             <Button type="button" variant="outline" disabled={running || !selectedModelId} onClick={() => setRegenerateConfirmOpen(true)}>
               重新生成今日日报
-            </Button>
-            <Button
-              type="button"
-              aria-busy={running || undefined}
-              disabled={running || !selectedModelId}
-              onClick={() => void runNewsGeneration()}
-            >
-              {running ? <InlineSpinner className="mr-0.5" /> : null}
-              {running ? "生成中..." : "生成今日 AI 日报"}
             </Button>
           </>
         }
@@ -125,9 +118,9 @@ export default function AdminAiNewsPage() {
         onReload={() => void aiNewsSources.loadSources()}
         onSaveSource={aiNewsSources.saveSource}
         onToggleSourceEnabled={(source) => void aiNewsSources.toggleSourceEnabled(source)}
-        onDeleteSource={aiNewsSources.deleteSource}
+        onDeleteSource={(source) => void aiNewsSources.deleteSource(source)}
         onTestSource={(source) => void aiNewsSources.testSource(source)}
-        onDisableProblemSources={aiNewsSources.disableProblemSources}
+        onDisableProblemSources={() => void aiNewsSources.disableProblemSources()}
       />
 
       {result ? <AiNewsRunResultPanel result={result} /> : null}
