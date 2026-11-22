@@ -145,6 +145,11 @@ run_database_migrations() {
     echo "Missing Prisma migrations in prisma/migrations" >&2
     exit 1
   fi
+  if [[ "${SKIP_DATABASE_MIGRATIONS:-0}" == "1" ]]; then
+    echo "Skipping prisma migrate deploy (SKIP_DATABASE_MIGRATIONS=1); checking read-only migrate status"
+    docker compose -f "$COMPOSE_FILE" run --rm --no-deps app pnpm prisma migrate status
+    return
+  fi
   docker compose -f "$COMPOSE_FILE" run --rm --no-deps app pnpm prisma migrate deploy
 }
 

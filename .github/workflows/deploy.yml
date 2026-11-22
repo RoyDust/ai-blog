@@ -11,6 +11,11 @@ on:
         description: Deployment environment
         required: true
         default: production
+      skip_migrations:
+        description: Verify read-only prisma migrate status instead of running prisma migrate deploy
+        required: false
+        type: boolean
+        default: false
 
 concurrency:
   group: deploy-production
@@ -258,12 +263,14 @@ jobs:
           DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          SKIP_MIGRATIONS: ${{ inputs.skip_migrations && '1' || '0' }}
         run: |
           set -euo pipefail
           [[ "${DEPLOY_PORT:-}" =~ ^[0-9]+$ ]] || { echo "Invalid DEPLOY_PORT" >&2; exit 1; }
           [[ "${DEPLOY_PATH:-}" =~ ^/[A-Za-z0-9._/-]+$ ]] || { echo "Invalid DEPLOY_PATH" >&2; exit 1; }
+          [[ "${SKIP_MIGRATIONS:-0}" == "0" || "${SKIP_MIGRATIONS:-0}" == "1" ]] || { echo "Invalid SKIP_MIGRATIONS" >&2; exit 1; }
           ssh $SSH_KEEPALIVE_OPTS -p "$DEPLOY_PORT" "${DEPLOY_USER}@${DEPLOY_HOST}" \
-            "DEPLOY_PATH=$(printf '%q' "$DEPLOY_PATH") RESOLVED_SHA=$(printf '%q' "$RESOLVED_SHA") bash -s" <<'EOF'
+            "DEPLOY_PATH=$(printf '%q' "$DEPLOY_PATH") RESOLVED_SHA=$(printf '%q' "$RESOLVED_SHA") SKIP_MIGRATIONS=$(printf '%q' "$SKIP_MIGRATIONS") bash -s" <<'EOF'
           set -euo pipefail
           release_dir="${DEPLOY_PATH}/releases/${RESOLVED_SHA}"
           chmod 600 "${release_dir}/.env"
@@ -272,7 +279,7 @@ jobs:
           if [ -f scripts/deploy/backup-production.sh ]; then
             chmod +x scripts/deploy/backup-production.sh
           fi
-          BACKUP_BEFORE_DEPLOY=1 RELEASE_SHA="${RESOLVED_SHA}" DEPLOY_PATH="${DEPLOY_PATH}" RELEASE_DIR="${release_dir}" bash scripts/deploy/deploy-remote.sh
+          BACKUP_BEFORE_DEPLOY=1 SKIP_DATABASE_MIGRATIONS="${SKIP_MIGRATIONS}" RELEASE_SHA="${RESOLVED_SHA}" DEPLOY_PATH="${DEPLOY_PATH}" RELEASE_DIR="${release_dir}" bash scripts/deploy/deploy-remote.sh
           if [ -L "${DEPLOY_PATH}/current/.env" ] && [ -f "${DEPLOY_PATH}/shared/.env" ] && [ ! "${DEPLOY_PATH}/current" -ef "${release_dir}" ]; then
             prev_env_tmp="${DEPLOY_PATH}/current/.env.snapshot.$$"
             install -m 600 "${DEPLOY_PATH}/shared/.env" "${prev_env_tmp}"
