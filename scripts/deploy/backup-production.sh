@@ -40,7 +40,7 @@ const { Client } = require("pg");
     const result = await client.query("SHOW server_version_num");
     const major = Math.floor(Number(result.rows[0].server_version_num) / 10000);
     if (!Number.isInteger(major) || major < 10 || major > 99) throw new Error();
-    for (const key of ["schema", "connection_limit", "pool_timeout", "pgbouncer"]) url.searchParams.delete(key);
+    for (const key of ["schema", "connection_limit", "pool_timeout", "pgbouncer", "uselibpqcompat"]) url.searchParams.delete(key);
     process.stdout.write("PG_VERSION=" + major + "\nDATABASE_URL=" + url.toString() + "\n");
   } finally { await client.end(); }
 })().catch(() => { console.error("Backup connection preflight failed"); process.exitCode = 1; });
@@ -50,7 +50,7 @@ NORMALIZE_DB_URL_NODE_SCRIPT='
 try {
   const url = new URL(process.env.RAW_DATABASE_URL || "");
   if ((url.protocol !== "postgres:" && url.protocol !== "postgresql:") || !url.hostname) throw new Error();
-  for (const key of ["schema", "connection_limit", "pool_timeout", "pgbouncer"]) url.searchParams.delete(key);
+  for (const key of ["schema", "connection_limit", "pool_timeout", "pgbouncer", "uselibpqcompat"]) url.searchParams.delete(key);
   process.stdout.write(url.toString());
 } catch {
   process.exit(1);

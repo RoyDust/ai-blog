@@ -216,3 +216,18 @@ test('does not stop running container when candidate target DATABASE_URL preflig
   assert.equal(result.files.length, 0);
   assert.doesNotMatch(result.stdout + result.stderr, /target-secret|test-only-backup-secret/);
 });
+
+test('strips node-pg uselibpqcompat query parameter during URL normalization while preserving sslmode', () => {
+  const scriptContent = fs.readFileSync(path.join(__dirname, 'backup-production.sh'), 'utf8');
+  const match = scriptContent.match(/NORMALIZE_DB_URL_NODE_SCRIPT='([\s\S]*?)'/);
+  assert.ok(match, 'expected NORMALIZE_DB_URL_NODE_SCRIPT');
+  const normalized = spawnSync(process.execPath, ['-e', match[1]], {
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      RAW_DATABASE_URL: 'postgresql://root:secret@159.75.167.23:5432/T3Blog?uselibpqcompat=true&sslmode=require&schema=public',
+    },
+  });
+  assert.equal(normalized.status, 0, normalized.stderr);
+  assert.equal(normalized.stdout, 'postgresql://root:secret@159.75.167.23:5432/T3Blog?sslmode=require');
+});

@@ -82,6 +82,7 @@ esac
         READ_DOTENV_CLI: asPath(path.join(project, 'scripts/deploy/read-dotenv.cjs')),
         READINESS_POLICY_MODULE: asPath(path.join(project, '.generated/web-health/web-readiness-config.js')),
         MISSING_APP: options.missing ? '1' : '0',
+        SKIP_DATABASE_MIGRATIONS: options.skipMigrations ? '1' : '0',
         MOCK_LOG_READ_FAILURE: options.logReadFailure ? '1' : '0', MOCK_LOG_READ_STALL: options.logReadStall ? '1' : '0',
         PREBUILT_IMAGE_ID: options.prebuiltImage ?? '', MOCK_IMAGE_ID: options.actualImage ?? '' } });
     if (result.error) throw result.error;
@@ -117,6 +118,14 @@ test('reuses an exact prebuilt image while retaining validation and migrations',
   assert.doesNotMatch(r.calls, / build app| load/);
   assert.match(r.calls, /check-web-readiness.cjs/);
   assert.match(r.calls, /prisma migrate deploy/);
+});
+
+test('SKIP_DATABASE_MIGRATIONS=1 runs read-only prisma migrate status instead of migrate deploy', () => {
+  const r = deploy(['running healthy'], { skipMigrations: true });
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /Skipping prisma migrate deploy/);
+  assert.match(r.calls, /prisma migrate status/);
+  assert.doesNotMatch(r.calls, /prisma migrate deploy/);
 });
 
 for (const image of ['sha256:' + 'b'.repeat(64), 'invalid']) {
