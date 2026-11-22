@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 import { NotFoundError, toErrorResponse } from "@/lib/api-errors";
+import { createPublicCachedReader, PUBLIC_CACHE_TAGS, PUBLIC_REVALIDATE_SECONDS } from "@/lib/cache";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
@@ -57,9 +58,8 @@ const PUBLIC_SERIES_DETAIL_SELECT = {
   },
 } satisfies Prisma.SeriesSelect;
 
-async function GETHandler(_: Request, { params }: { params: Promise<{ slug: string }> }) {
-  try {
-    const { slug } = await params;
+const getCachedPublicSeriesBySlug = createPublicCachedReader(
+  async (slug: string) => {
     const series = await prisma.series.findFirst({
       where: {
         slug,
@@ -75,10 +75,10 @@ async function GETHandler(_: Request, { params }: { params: Promise<{ slug: stri
     });
 
     if (!series) {
-      throw new NotFoundError("Series not found");
+      return null;
     }
 
-    const publicSeries = {
+    return {
       id: series.id,
       title: series.title,
       slug: series.slug,
@@ -136,6 +136,22 @@ async function GETHandler(_: Request, { params }: { params: Promise<{ slug: stri
         posts: series._count?.posts ?? series.posts.length,
       },
     };
+  },
+  {
+    keyParts: ["public-api-series-detail"],
+    revalidate: PUBLIC_REVALIDATE_SECONDS,
+    tags: [PUBLIC_CACHE_TAGS.posts, PUBLIC_CACHE_TAGS.categories, PUBLIC_CACHE_TAGS.tags],
+  },
+);
+
+async function GETHandler(_: Request, { params }: { params: Promise<{ slug: string }> }) {
+  try {
+    const { slug } = await params;
+    const publicSeries = await getCachedPublicSeriesBySlug(slug);
+
+    if (!publicSeries) {
+      throw new NotFoundError("Series not found");
+    }
 
     return NextResponse.json({ success: true, data: publicSeries });
   } catch (error) {

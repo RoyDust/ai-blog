@@ -1,11 +1,12 @@
 import { withApiOperationLogging } from "@/lib/api-operation-log-route";
 import { toErrorResponse } from "@/lib/api-errors";
+import { createPublicCachedReader, PUBLIC_CACHE_TAGS, PUBLIC_REVALIDATE_SECONDS } from "@/lib/cache";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
-async function GETHandler() {
-  try {
-    const series = await prisma.series.findMany({
+const getCachedPublicSeriesList = createPublicCachedReader(
+  async () =>
+    prisma.series.findMany({
       where: {
         deletedAt: null,
         posts: {
@@ -28,7 +29,17 @@ async function GETHandler() {
         },
       },
       orderBy: [{ order: "asc" }, { createdAt: "desc" }],
-    });
+    }),
+  {
+    keyParts: ["public-api-series-list"],
+    revalidate: PUBLIC_REVALIDATE_SECONDS,
+    tags: [PUBLIC_CACHE_TAGS.posts],
+  },
+);
+
+async function GETHandler() {
+  try {
+    const series = await getCachedPublicSeriesList();
 
     return NextResponse.json({ success: true, data: series });
   } catch (error) {

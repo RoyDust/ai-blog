@@ -10,7 +10,9 @@ export const revalidate = 300
  */
 
 import type { Metadata } from 'next'
-import { HomeAiDailyStrip, HomeEditorialHero, HomeLatestPosts } from '@/components/blog'
+import { HomeAiDailyStrip } from '@/components/blog/HomeAiDailyStrip'
+import { HomeEditorialHero } from '@/components/blog/HomeEditorialHero'
+import { HomeLatestPosts } from '@/components/blog/HomeLatestPosts'
 import { getBlogSettings } from '@/lib/blog-settings'
 import { getHomeLatestPosts } from '@/lib/posts'
 import { prisma } from '@/lib/prisma'
