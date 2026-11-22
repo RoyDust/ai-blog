@@ -36,9 +36,11 @@ interface PostCardProps {
     };
     viewCount?: number;
   };
+  enableViewTransition?: boolean;
+  prefetch?: boolean;
 }
 
-export function PostCard({ post }: PostCardProps) {
+export function PostCard({ post, enableViewTransition = false, prefetch = false }: PostCardProps) {
   const hasCover = Boolean(post.coverImage);
 
   return (
@@ -52,10 +54,14 @@ export function PostCard({ post }: PostCardProps) {
     >
       <div className="flex min-w-0 flex-col justify-between gap-2.5 p-4 sm:px-5 sm:py-4">
         <div className="space-y-1.5">
-          <Link href={`/posts/${post.slug}`} className="block min-w-0">
+          <Link href={`/posts/${post.slug}`} prefetch={prefetch} className="block min-w-0">
             <h3
               className="text-90 line-clamp-2 text-[1.0625rem] font-bold leading-snug transition-colors group-hover:text-[var(--brand)] md:text-[1.125rem]"
-              style={{ viewTransitionName: getPostViewTransitionName("title", post.slug) }}
+              style={
+                enableViewTransition
+                  ? { viewTransitionName: getPostViewTransitionName("title", post.slug) }
+                  : undefined
+              }
             >
               {post.title}
             </h3>
@@ -102,6 +108,7 @@ export function PostCard({ post }: PostCardProps) {
           {hasCover ? (
             <Link
               href={`/posts/${post.slug}`}
+              prefetch={false}
               aria-label={`继续阅读 ${post.title}`}
               className="reader-card-action sr-only"
             >
@@ -114,9 +121,14 @@ export function PostCard({ post }: PostCardProps) {
       {hasCover ? (
         <Link
           href={`/posts/${post.slug}`}
+          prefetch={false}
           aria-label={`阅读 ${post.title}`}
           className="theme-media relative mx-3 mb-3 aspect-[1.55] overflow-hidden rounded-xl md:m-2.5 md:ml-0 md:h-auto md:min-h-[8.75rem] md:aspect-auto"
-          style={{ viewTransitionName: getPostViewTransitionName("cover", post.slug) }}
+          style={
+            enableViewTransition
+              ? { viewTransitionName: getPostViewTransitionName("cover", post.slug) }
+              : undefined
+          }
         >
           <FallbackImage
             alt={post.title}
@@ -134,6 +146,7 @@ export function PostCard({ post }: PostCardProps) {
       ) : (
         <Link
           href={`/posts/${post.slug}`}
+          prefetch={false}
           aria-label={`继续阅读 ${post.title}`}
           className="reader-card-action m-2.5 ml-0 hidden w-auto self-stretch md:inline-flex"
         >

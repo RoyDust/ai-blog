@@ -1,3 +1,4 @@
+import { createPublicCachedReader, PUBLIC_CACHE_TAGS, PUBLIC_REVALIDATE_SECONDS } from "@/lib/cache";
 import { prisma } from "@/lib/prisma";
 
 export type RecommendationPostSignal = {
@@ -64,7 +65,25 @@ function clampRecommendationLimit(limit: number) {
   return Math.min(12, Math.max(1, Math.floor(limit)));
 }
 
-export async function getRecommendedPostsForPost({
+function rehydrateRecommendedPost(post: RecommendedPost): RecommendedPost {
+  const createdAt = typeof (post as { createdAt?: unknown }).createdAt === "string" ? new Date(post.createdAt) : post.createdAt;
+  const publishedAt =
+    typeof (post as { publishedAt?: unknown }).publishedAt === "string"
+      ? new Date(post.publishedAt as unknown as string)
+      : post.publishedAt;
+
+  if (createdAt === post.createdAt && publishedAt === post.publishedAt) {
+    return post;
+  }
+
+  return {
+    ...post,
+    createdAt,
+    publishedAt,
+  };
+}
+
+async function queryRecommendedPostsForPost({
   postId,
   limit = 4,
   userId,
@@ -76,7 +95,7 @@ export async function getRecommendedPostsForPost({
   userId?: string | null;
   excludeRead?: boolean;
   now?: Date;
-}) {
+}): Promise<RecommendedPost[]> {
   const safeLimit = clampRecommendationLimit(limit);
   const current = await prisma.post.findFirst({
     where: { id: postId, deletedAt: null, published: true },
@@ -174,4 +193,37 @@ export async function getRecommendedPostsForPost({
       tags: post.tags,
       _count: post._count,
     }));
+}
+
+const getCachedPublicRecommendedPosts = createPublicCachedReader(
+  async (postId: string, limit: number) => {
+    const posts = await queryRecommendedPostsForPost({ postId, limit });
+    return posts.map(rehydrateRecommendedPost);
+  },
+  {
+    keyParts: ["public-recommended-posts"],
+    revalidate: PUBLIC_REVALIDATE_SECONDS,
+    tags: [PUBLIC_CACHE_TAGS.posts, PUBLIC_CACHE_TAGS.categories, PUBLIC_CACHE_TAGS.tags],
+    rehydrate: (posts) => posts.map(rehydrateRecommendedPost),
+  },
+);
+
+export async function getRecommendedPostsForPost({
+  postId,
+  limit = 4,
+  userId,
+  excludeRead = false,
+  now,
+}: {
+  postId: string;
+  limit?: number;
+  userId?: string | null;
+  excludeRead?: boolean;
+  now?: Date;
+}) {
+  if ((excludeRead && userId) || now !== undefined) {
+    return queryRecommendedPostsForPost({ postId, limit, userId, excludeRead, now });
+  }
+
+  return getCachedPublicRecommendedPosts(postId, clampRecommendationLimit(limit));
 }

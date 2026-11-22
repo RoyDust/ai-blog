@@ -56,6 +56,7 @@ export function HomeLatestPosts({ posts }: HomeLatestPostsProps) {
         </h2>
         <Link
           href="/posts"
+          prefetch={true}
           className="reader-link inline-flex h-8 items-center gap-1 rounded-lg px-2.5 text-xs font-semibold text-[var(--brand)] transition-colors hover:bg-[var(--btn-regular-bg)]"
         >
           查看全部文章

@@ -269,4 +269,28 @@ describe('PostsListingClient', () => {
       '/api/posts?page=1&limit=12&category=frontend&tag=nextjs&q=react+server&search=react+server',
     )
   })
+
+  test('activates viewTransitionName only on the hovered/focused card instead of all cards simultaneously', async () => {
+    const posts = [
+      { ...createPost('1'), featured: true, coverImage: 'https://images.unsplash.com/photo-1' },
+      { ...createPost('2'), featured: false, coverImage: 'https://images.unsplash.com/photo-2' },
+    ]
+
+    const { fireEvent } = await import('@testing-library/react')
+    renderListing(
+      <PostsListingClient
+        initialPagination={{ page: 1, limit: 12, total: 2, totalPages: 1 }}
+        initialPosts={posts}
+      />,
+    )
+
+    const heading1 = screen.getByRole('heading', { name: 'Post 1' })
+    const heading2 = screen.getByRole('heading', { name: 'Post 2' })
+    expect(heading1.style.viewTransitionName).toBe('')
+    expect(heading2.style.viewTransitionName).toBe('')
+
+    fireEvent.pointerEnter(heading2.closest('article')!.parentElement!)
+    expect(heading2.style.viewTransitionName).toBe('post-title-post-2')
+    expect(heading1.style.viewTransitionName).toBe('')
+  })
 })

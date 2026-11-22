@@ -119,6 +119,7 @@ function FilterBarForm({
                   tag: tagValue || undefined,
                   type: item.id,
                 })}
+                prefetch={true}
                 aria-current={active ? "page" : undefined}
                 className={`inline-flex h-7 items-center rounded-lg px-2.5 text-xs font-semibold whitespace-nowrap transition-colors ${
                   active
