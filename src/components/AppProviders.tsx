@@ -7,17 +7,13 @@ import { SWRConfig } from "swr";
 
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { BlogMotionProvider } from "@/components/motion/BlogMotionProvider";
+import { Toaster } from "@/components/ui/Toaster";
 import { apiFetcher, handleGlobalSwrError } from "@/lib/client-api";
 
 export { handleGlobalSwrError, shouldRedirectAdminUnauthorized } from "@/lib/client-api";
 
 const GlobalLoginDialog = dynamic(
   () => import("@/components/auth/GlobalLoginDialog").then((mod) => mod.GlobalLoginDialog),
-  { ssr: false },
-);
-
-const LazyToaster = dynamic(
-  () => import("@/components/ui/Toaster").then((mod) => mod.Toaster),
   { ssr: false },
 );
 
@@ -63,8 +59,8 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
             {children}
             <Suspense fallback={null}>
               <GlobalLoginDialog />
-              <LazyToaster />
             </Suspense>
+            <Toaster />
           </BlogMotionProvider>
         </ThemeProvider>
       </AuthProvider>
