@@ -48,13 +48,20 @@ export const authOptions: NextAuthOptions = {
           throw new Error("Too many requests")
         }
 
-        if (!credentials?.email || !credentials?.password) {
+        const normalizedEmail = credentials?.email?.trim().toLowerCase()
+        if (!normalizedEmail || !credentials?.password) {
           throw new Error("Invalid credentials")
         }
 
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email }
-        })
+        const user =
+          (await prisma.user.findUnique({
+            where: { email: normalizedEmail },
+          })) ??
+          (typeof prisma.user.findFirst === "function"
+            ? await prisma.user.findFirst({
+                where: { email: { equals: normalizedEmail, mode: "insensitive" } },
+              })
+            : null)
 
         if (!user || !user.password) {
           throw new Error("Invalid credentials")
@@ -143,7 +150,12 @@ export const authOptions: NextAuthOptions = {
 
       const currentUser = await prisma.user.findUnique({
         where: { id: token.id },
-        select: { role: true },
+        select: {
+          role: true,
+          name: true,
+          email: true,
+          image: true,
+        },
       })
 
       if (!currentUser) {
@@ -151,19 +163,37 @@ export const authOptions: NextAuthOptions = {
       }
 
       token.role = currentUser.role
+      if (currentUser.name !== undefined) {
+        token.name = currentUser.name
+      }
+      if (currentUser.email !== undefined) {
+        token.email = currentUser.email
+      }
+      if (currentUser.image !== undefined) {
+        token.picture = currentUser.image
+      }
       if (account?.provider) {
         token.provider = account.provider
       }
       return token
     },
     /**
-     * 把 token 中的自定义字段回填到 session，供页面与 API 统一消费。
+     * 把 token 中的自定义字段与最新个人资料回填到 session，供页面与 API 统一消费。
      */
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string
         session.user.role = token.role as string
         session.user.provider = token.provider as string | undefined
+        if (token.name !== undefined) {
+          session.user.name = token.name
+        }
+        if (token.email !== undefined) {
+          session.user.email = token.email
+        }
+        if (token.picture !== undefined) {
+          session.user.image = token.picture
+        }
       }
       return session
     }

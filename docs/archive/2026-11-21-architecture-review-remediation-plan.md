@@ -3,7 +3,7 @@
 - 日期：2026-11-21（2026-11-22 实施前审查修订）
 - 代码基线：`main` @ `b485e2d`（代码态等同 `9e6b9f1`，已按序合入 PR `#40` 字体分片、PR `#36` 改进计划阶段一、PR `#42` 方向 A 全站 UI 重构）
 - 范围：前后端安全边界、API 与业务正确性、AI 流水线、缓存与软删除一致性、部署与网关基础设施、App Router 与交互体验
-- 协同原则：与现有开放 Issue（`#2`、`#5`、`#6`、`#7`、`#8`、`#9`、`#10`、`#11`、`#12`、`#14`、`#15`、`#16`、`#17`、`#29`、`#35`）及 [对照开源项目改进分析](./improvement-analysis-vs-github-projects.md) 保持单一事实源——已有 Issue 拥有的架构决策（如 `#11` 独立 Worker、`#10` 状态列 CHECK 约束、`#6` 配置窄 getter）本文直接引用并补充前置止血项，不重复造轮子。
+- 协同原则：与现有开放 Issue（`#2`、`#5`、`#6`、`#7`、`#8`、`#9`、`#10`、`#11`、`#12`、`#14`、`#15`、`#16`、`#17`、`#29`、`#35`）及 [对照开源项目改进分析](../implementation/improvement-analysis-vs-github-projects.md) 保持单一事实源——已有 Issue 拥有的架构决策（如 `#11` 独立 Worker、`#10` 状态列 CHECK 约束、`#6` 配置窄 getter）本文直接引用并补充前置止血项，不重复造轮子。
 - 证据口径：文中严格区分“静态代码与单测已确认事实”和“待生产数据库/线上环境配置核实的运行态事实”，不把静态推断写成既成生产统计。
 
 ---
@@ -301,3 +301,28 @@
   8. 修正 **C2** 首访语义：摒弃单纯依赖构建期兜底 + `revalidate = 300`，要求无库构建、连库启动后的首个响应即返回数据库真实配置。
   9. 细化 **C4** 搜索裁剪：公开响应剔除完整 `content`，内部查询保留 220 字受限前缀供 AI 搜索构造摘要（覆盖 `excerpt` 为空的文章）。
   10. 精简 **D4**：移除 PR `#42` 已落地的前台分类/标签分页重复项，仅保留后台重定向未 `await searchParams` 修复。
+
+---
+
+## 5. 实施完成与归档记录（2026-11-22）
+
+本文全部 **19 个修复单元（A1–A6、B1–B4、C1–C4、D1–D5）** 已按批次完成开发、CI 门禁（`validate` + `e2e`）与每轮合并前真实浏览器联调实测，并全部合入 `main`：
+
+| 批次 | 单元 | 合入 PR | 关键交付摘要 |
+| --- | --- | --- | --- |
+| **A：安全与越权止血** | A6 | [#53](https://github.com/RoyDust/ai-blog/pull/53) | 保护同名人工草稿（`generatedByAiNews: false`）与待审 `fallback` 日报草稿不被 `runDailyAiNews` 误发或覆盖 |
+| **A：安全与越权止血** | A2, A3, A4 | [#54](https://github.com/RoyDust/ai-blog/pull/54) | 下线遗留 `/api/posts` 与 `/api/comments` 无校验写面（`405`）、移除孤儿路由、收窄公开文章 `select`、补齐七牛上传扩展名/MIME/`fsizeLimit` 策略 |
+| **A：安全与越权止血** | A5 | [#55](https://github.com/RoyDust/ai-blog/pull/55) | 阻断损坏 JSON 明文凭据写入 `api_operation_logs`、补写 HMAC-SHA256 `ipHash`、脱敏 500 错误详情、收口 `P2025 -> 404` / `SyntaxError -> 400` |
+| **A：安全与越权止血** | A1 | [#56](https://github.com/RoyDust/ai-blog/pull/56) | 统一出站 SSRF 防护网关（含阿里云 ECS `100.100.100.200`、DNS 重绑定校验、重定向复检）及 URL/Base64 双格式图片魔数识别 |
+| **B：闭环与基础设施** | B2 | [#57](https://github.com/RoyDust/ai-blog/pull/57) | Nginx TLS 1.2/1.3 + HTTP/2、80->443 跳转、WebSocket `map`、AI 路由 180s 读超时；移除全部 cron 明文 `http://` 回退并补齐 `concurrency` |
+| **B：闭环与基础设施** | B4 | [#58](https://github.com/RoyDust/ai-blog/pull/58) | PostgreSQL 生产默认连接池调至 `8`、操作日志未超限短路与 `rate_limit_entries` 过期清理、内存限流与 AI 搜索缓存容量上限 |
+| **B：闭环与基础设施** | B1 | [#59](https://github.com/RoyDust/ai-blog/pull/59) | Newsletter 验证/退订确认页（`GET` 零写库防预抓）、RFC 8058 一键退订、48h 令牌过期、防枚举响应与 `202` 异步发信衔接 `unknown` 人工核对 |
+| **B：闭环与基础设施** | B3 | [#60](https://github.com/RoyDust/ai-blog/pull/60) | `deploy.yml` 精确 `RESOLVED_SHA` 与健康检查后 `current` 原子切链、NUL 分隔安全解析 `.env`、`DEPLOY_KNOWN_HOSTS`、移除 `prisma db push` 兜底、非 root `standalone` 镜像与恢复演练 |
+| **C：AI、缓存与数据层** | C3 | [#61](https://github.com/RoyDust/ai-blog/pull/61) | 8 个直读后台敏感数据的 RSC `page.tsx` 与 `AiApiClient` 补齐数据库实时管理员角色校验；公开页脚隔离管理员登录邮箱 |
+| **C：AI、缓存与数据层** | C4 | [#62](https://github.com/RoyDust/ai-blog/pull/62) | 管理列表/系列详情剔除完整 `Post.content`、公共搜索剔除正文并保留 AI 搜索 240 字受限摘要、修复无库环境 6 个单测与 `seed-mock-posts.cjs` |
+| **C：AI、缓存与数据层** | C2 | [#63](https://github.com/RoyDust/ai-blog/pull/63) | 公共读取 300s `unstable_cache` + 语义 tag 精准失效、无库构建后连库首访返回真实配置（不缓存 `"My Blog"` 兜底）、`TopicGuide`/`Series` 软删与 `sitemap.ts` 对齐 |
+| **C：AI、缓存与数据层** | C1 | [#64](https://github.com/RoyDust/ai-blog/pull/64) | `resumeAiBatchTasks` 活跃状态筛选 + `POST` 恢复分离 + 并发上限 `3`、全跳过置 `PARTIAL_FAILED`、日报 PG 咨询锁 + 15m 僵尸回收 + `202` 预持久化 `runId`、移除冗余 6000-token 草稿生成 |
+| **D：前端与体验收口** | D1, D4 | [#65](https://github.com/RoyDust/ai-blog/pull/65) | 管理后台 `< 1024px` 移动端抽屉导航与退出登录入口；分类/标签后台重定向补齐 `await searchParams` 参数透传 |
+| **D：前端与体验收口** | D2 | [#66](https://github.com/RoyDust/ai-blog/pull/66) | 独立前台 `/profile` 读者个人资料页（消除误跳 `/admin` 报错）、补齐 `/terms` 与 `/privacy` 协议页及顶栏/页脚 `/guides` 专题导航 |
+| **D：前端与体验收口** | D3 | [#67](https://github.com/RoyDust/ai-blog/pull/67) | 文章详情 TOC 围栏代码块 `#` 注释过滤、行内 Markdown 剥离与锚点 ID 对齐、正文外链 `_blank` + `noopener noreferrer` 与危险协议降级 |
+| **D：前端与体验收口** | D5 | [#68](https://github.com/RoyDust/ai-blog/pull/68) | 非 ASCII `viewTransitionName` 短哈希去重、`ArticleToc` `LayoutGroup` 隔离、通知 SWR `onSuccess` 错误自愈、`MarkdownEditor` 延迟预览、5 处客户端七牛上传收敛与 `BookmarkButton` 无水合闪烁 |

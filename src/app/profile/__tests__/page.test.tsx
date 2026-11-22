@@ -1,21 +1,19 @@
-import { describe, expect, test, vi } from 'vitest'
+import { beforeEach, describe, expect, test, vi } from "vitest";
 
-const redirect = vi.fn()
+const redirect = vi.fn();
 
-vi.mock('next/navigation', () => ({ redirect }))
+vi.mock("next/navigation", () => ({ redirect }));
 
-describe('/profile retirement', () => {
-  test('redirects profile page to admin', async () => {
-    const { default: ProfilePage } = await import('../page')
-    await ProfilePage()
+describe("/profile/edit redirect", () => {
+  beforeEach(() => {
+    redirect.mockReset();
+  });
 
-    expect(redirect).toHaveBeenCalledWith('/admin')
-  })
+  test("redirects legacy /profile/edit route to /profile instead of /admin", async () => {
+    const { default: EditProfilePage } = await import("../edit/page");
+    await EditProfilePage();
 
-  test('redirects profile edit page to admin', async () => {
-    const { default: ProfileEditPage } = await import('../edit/page')
-    await ProfileEditPage()
-
-    expect(redirect).toHaveBeenCalledWith('/admin')
-  })
-})
+    expect(redirect).toHaveBeenCalledWith("/profile");
+    expect(redirect).not.toHaveBeenCalledWith("/admin");
+  });
+});

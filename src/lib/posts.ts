@@ -48,14 +48,44 @@ export interface PublicPostRecord {
 
 export const PUBLIC_POST_ORDER_BY: PublicPostOrderBy = [{ featured: 'desc' }, { createdAt: 'desc' }, { id: 'desc' }]
 
+type RawPublicPostCategory = {
+  id: string
+  name: string
+  slug: string
+  deletedAt?: Date | string | null
+}
+
 export function rehydratePublicPostRecord(post: PublicPostRecord): PublicPostRecord {
-  if (typeof (post as { createdAt?: unknown }).createdAt !== 'string') {
+  const rawCategory = post.category as RawPublicPostCategory | null | undefined
+  const activeCategory =
+    rawCategory && !rawCategory.deletedAt
+      ? {
+          id: rawCategory.id,
+          name: rawCategory.name,
+          slug: rawCategory.slug,
+        }
+      : null
+  const createdAt =
+    typeof (post as { createdAt?: unknown }).createdAt === 'string'
+      ? new Date(post.createdAt)
+      : post.createdAt
+  const categoryUnchanged =
+    activeCategory === null
+      ? post.category === null
+      : post.category !== null &&
+        !('deletedAt' in (rawCategory ?? {})) &&
+        post.category.id === activeCategory.id &&
+        post.category.name === activeCategory.name &&
+        post.category.slug === activeCategory.slug
+
+  if (createdAt === post.createdAt && categoryUnchanged) {
     return post
   }
 
   return {
     ...post,
-    createdAt: new Date(post.createdAt),
+    createdAt,
+    category: activeCategory,
   }
 }
 
@@ -79,6 +109,7 @@ export function getPublicPostSelect(options: { includeTagColor?: boolean } = {})
       select: { id: true, name: true, image: true },
     },
     category: {
+      where: { deletedAt: null },
       select: { id: true, name: true, slug: true },
     },
     tags: {
@@ -117,13 +148,15 @@ interface PublishedPostsPageInput {
 }
 
 const getCachedFeaturedPosts = createPublicCachedReader(
-  async (limit: number) =>
-    prisma.post.findMany({
+  async (limit: number) => {
+    const posts = (await prisma.post.findMany({
       where: { published: true, featured: true, deletedAt: null },
       select: getPublicPostSelect(),
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: limit,
-    }) as unknown as Promise<PublicPostRecord[]>,
+    })) as unknown as PublicPostRecord[]
+    return posts.map(rehydratePublicPostRecord)
+  },
   {
     keyParts: ['public-featured-posts'],
     revalidate: PUBLIC_REVALIDATE_SECONDS,
@@ -140,8 +173,8 @@ export async function getFeaturedPosts(limit = 3) {
 }
 
 const getCachedHomeLatestPosts = createPublicCachedReader(
-  async (limit: number) =>
-    prisma.post.findMany({
+  async (limit: number) => {
+    const posts = (await prisma.post.findMany({
       where: { published: true, deletedAt: null },
       select: getPublicPostSelect(),
       orderBy: [
@@ -151,7 +184,9 @@ const getCachedHomeLatestPosts = createPublicCachedReader(
         { id: 'desc' },
       ],
       take: limit,
-    }) as unknown as Promise<PublicPostRecord[]>,
+    })) as unknown as PublicPostRecord[]
+    return posts.map(rehydratePublicPostRecord)
+  },
   {
     keyParts: ['public-home-latest-posts'],
     revalidate: PUBLIC_REVALIDATE_SECONDS,
@@ -227,7 +262,7 @@ async function queryPublishedPostsPage({
   ])
 
   return {
-    posts,
+    posts: posts.map(rehydratePublicPostRecord),
     pagination: buildOffsetPagination({ page, limit, total }),
   }
 }

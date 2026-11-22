@@ -4,6 +4,7 @@ import { ConflictError } from "@/lib/api-errors"
 const findFirstUser = vi.fn()
 const findFirstRun = vi.fn()
 const updateManyRun = vi.fn()
+const createOperationLog = vi.fn()
 const runDailyAiNews = vi.fn()
 const notifyDailyAiNewsSuccess = vi.fn()
 const notifyDailyAiNewsFailure = vi.fn()
@@ -16,6 +17,9 @@ vi.mock("@/lib/prisma", () => ({
     aiNewsRun: {
       findFirst: findFirstRun,
       updateMany: updateManyRun,
+    },
+    apiOperationLog: {
+      create: createOperationLog,
     },
   },
 }))
@@ -296,7 +300,7 @@ describe("GET /api/cron/ai-news", () => {
     expect(updateManyRun).toHaveBeenCalledWith({
       where: {
         status: "RUNNING",
-        startedAt: { lte: expect.any(Date) },
+        updatedAt: { lte: expect.any(Date) },
       },
       data: {
         status: "FAILED",
@@ -353,12 +357,14 @@ describe("GET /api/cron/ai-news", () => {
     }))
   })
 
-  test("returns a failing status for failed or reaped stale cron runs", async () => {
+  test("sanitizes 500 JSON responses for failed cron runs while logging scrubbed error details", async () => {
+    process.env.API_OPERATION_LOG_TEST_ENABLE = "1"
+    createOperationLog.mockResolvedValueOnce({})
     findFirstRun.mockResolvedValueOnce(
       buildRun({
         id: "run-stale",
         status: "FAILED",
-        error: "Stale RUNNING AI news run reaped after process interruption",
+        error: "Upstream fetch failed at https://internal-llm.local/v1/chat with key sk-secret123456\n    at internal.ts:42:9",
       }),
     )
 
@@ -367,8 +373,19 @@ describe("GET /api/cron/ai-news", () => {
     const payload = await response.json()
 
     expect(response.status).toBe(500)
-    expect(payload.error).toBe("Stale RUNNING AI news run reaped after process interruption")
+    expect(payload.error).toBe("Daily AI news run failed")
     expect(payload.data.operation).toBe("failed")
     expect(payload.data.runId).toBe("run-stale")
+    expect(payload.data.run.error).toBe("Daily AI news run failed")
+    expect(JSON.stringify(payload)).not.toContain("internal-llm.local")
+    expect(JSON.stringify(payload)).not.toContain("sk-secret123456")
+    expect(createOperationLog).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        statusCode: 500,
+        success: false,
+        errorName: "AiNewsRunFailed",
+        errorMessage: expect.not.stringContaining("sk-secret123456"),
+      }),
+    })
   })
 })

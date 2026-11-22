@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertCircle, Bell, CheckCheck, CircleCheck, Info, Inbox, XCircle } from "lucide-react";
 import { toast } from "sonner";
@@ -13,7 +13,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/admin/ui";
-import { apiFetcher, apiMutate, handleGlobalSwrError, toErrorMessage } from "@/lib/client-api";
+import { ApiRequestError, apiFetcher, apiMutate, handleGlobalSwrError, toErrorMessage } from "@/lib/client-api";
+
+const NOTIFICATION_RETRY_INTERVAL_MS = 30_000;
 
 type NotificationItem = {
   id: string;
@@ -71,13 +73,22 @@ export function NotificationBell() {
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (retryTimerRef.current) {
+        clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = null;
+      }
+    };
+  }, []);
 
   const label = useMemo(() => (unreadCount > 0 ? `通知，${unreadCount} 条未读` : "通知"), [unreadCount]);
 
   /**
-   * 铃铛数据的请求与轮询交给 SWR（30s refreshInterval + 焦点重验证），
-   * onSuccess 把数据同步进本地状态：已读操作需要本地乐观更新（接口的 GET
-   * 响应可能滞后于 PATCH 结果），沿用原有的"PATCH 返回校准 + 本地翻转"语义。
+   * 铃铛数据的请求与轮询交给 SWR（30s refreshInterval + 焦点重验证 + 持续 30s 错误退避），
+   * 跳过 401/403，其余网络/5xx 故障不停止在全局 errorRetryCount=2，确保后端长时中断恢复后无需聚焦窗口即可自愈。
    */
   const { isLoading, mutate } = useSWR<{ success?: boolean; data?: NotificationPayload }>(
     "/api/admin/notifications?limit=8",
@@ -86,12 +97,36 @@ export function NotificationBell() {
       refreshInterval: 30_000,
       revalidateOnFocus: true,
       onSuccess: (data) => {
+        if (retryTimerRef.current) {
+          clearTimeout(retryTimerRef.current);
+          retryTimerRef.current = null;
+        }
+        setError(null);
         setItems(data?.data?.items ?? []);
         setUnreadCount(data?.data?.unreadCount ?? 0);
       },
       onError: (loadError, key) => {
         handleGlobalSwrError(loadError, key);
         setError(toErrorMessage(loadError, "通知加载失败"));
+      },
+      onErrorRetry: (loadError, _key, _config, revalidate, revalidateOpts) => {
+        const status =
+          loadError instanceof ApiRequestError
+            ? loadError.status
+            : (loadError as { status?: number } | null)?.status;
+
+        if (status === 401 || status === 403) {
+          return;
+        }
+
+        if (retryTimerRef.current) {
+          clearTimeout(retryTimerRef.current);
+        }
+
+        retryTimerRef.current = setTimeout(() => {
+          retryTimerRef.current = null;
+          void revalidate(revalidateOpts);
+        }, NOTIFICATION_RETRY_INTERVAL_MS);
       },
     },
   );
@@ -196,7 +231,7 @@ export function NotificationBell() {
 
         <div className="max-h-[420px] overflow-y-auto p-2">
           {loading ? <p className="px-3 py-8 text-center text-sm text-[var(--muted)]">正在加载通知...</p> : null}
-          {!loading && error ? <p className="px-3 py-8 text-center text-sm text-[var(--danger-foreground)]">{error}</p> : null}
+          {!loading && error ? <p role="alert" className="px-3 py-8 text-center text-sm text-[var(--danger-foreground)]">{error}</p> : null}
           {!loading && !error && items.length === 0 ? (
             <div className="px-3 py-8 text-center text-sm text-[var(--muted)]">
               <Inbox className="mx-auto mb-2 h-6 w-6" />

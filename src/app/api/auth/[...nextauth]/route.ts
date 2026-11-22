@@ -7,6 +7,7 @@ const loggedHandler = withApiOperationLogging(handler, {
   scope: "auth",
   operation: "auth.nextauth",
   route: "/api/auth/[...nextauth]",
+  captureQuery: false,
   captureRequestBody: false,
 })
 

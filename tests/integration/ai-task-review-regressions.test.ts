@@ -15,7 +15,7 @@ vi.mock("next/cache", () => ({ revalidatePath: mocks.cache }));
 vi.mock("@/lib/ai-models", () => ({ getAiModelForCapability: mocks.model, getAiModelChatRequestExtras: () => ({}) }));
 vi.mock("@/lib/post-summary", () => ({ generatePostSummary: mocks.summary, getPostSummaryMaxInputChars: () => 1000 }));
 vi.mock("@/lib/ai-completion-client", () => ({ createCompletionClientForModel: () => ({ completeText: mocks.completion }) }));
-vi.mock("@/lib/qiniu-server", () => ({ uploadBufferToQiniu: mocks.upload }));
+vi.mock("@/lib/qiniu-server", () => ({ QINIU_UPLOAD_MAX_FILE_SIZE_BYTES: 10 * 1024 * 1024, uploadBufferToQiniu: mocks.upload }));
 vi.mock("@/lib/api-auth", () => ({ requireAdminSession: mocks.session }));
 vi.mock("@/lib/api-operation-log-route", () => ({ withApiOperationLogging: (handler: unknown) => handler }));
 
@@ -76,7 +76,7 @@ describe("AI review regressions against PostgreSQL", () => {
     const url = "https://review-cdn.test/" + key;
     assetUrls.push(url); mocks.upload.mockReset().mockResolvedValue({ key, url });
     vi.stubEnv("QINIU_DOMAIN", "https://review-cdn.test");
-    vi.stubGlobal("fetch", vi.fn(async () => Response.json({ data: [{ b64_json: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00]).toString("base64") }] })));
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({ data: [{ b64_json: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==" }] })));
   });
   afterEach(async () => {
     vi.restoreAllMocks(); vi.unstubAllEnvs(); vi.unstubAllGlobals();

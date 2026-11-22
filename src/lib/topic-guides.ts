@@ -273,7 +273,7 @@ const publicGuidePostSelect = {
   readingTimeMinutes: true,
   viewCount: true,
   author: { select: { id: true, name: true, image: true } },
-  category: { select: { id: true, name: true, slug: true } },
+  category: { where: { deletedAt: null }, select: { id: true, name: true, slug: true } },
   tags: { where: { deletedAt: null }, select: { id: true, name: true, slug: true } },
   _count: {
     select: {
@@ -343,6 +343,39 @@ export async function listPublicTopicGuides() {
   }
 }
 
+function normalizePublicGuidePost<T extends Record<string, unknown>>(post: T): T {
+  const rawCategory = post.category as
+    | { id: string; name: string; slug: string; deletedAt?: Date | string | null }
+    | null
+    | undefined;
+
+  if (rawCategory === undefined) {
+    return post;
+  }
+
+  const activeCategory =
+    rawCategory && !rawCategory.deletedAt
+      ? {
+          id: rawCategory.id,
+          name: rawCategory.name,
+          slug: rawCategory.slug,
+        }
+      : null;
+
+  if (
+    activeCategory === null
+      ? rawCategory === null
+      : rawCategory !== null && !("deletedAt" in rawCategory)
+  ) {
+    return post;
+  }
+
+  return {
+    ...post,
+    category: activeCategory,
+  };
+}
+
 async function queryPublicTopicGuideBySlug(slug: string) {
   const guide = await prisma.topicGuide.findFirst({
     where: {
@@ -359,7 +392,25 @@ async function queryPublicTopicGuideBySlug(slug: string) {
     },
   });
 
-  return guide ?? null;
+  if (!guide) {
+    return null;
+  }
+
+  if (!Array.isArray(guide.posts) || guide.posts.length === 0) {
+    return guide;
+  }
+
+  return {
+    ...guide,
+    posts: guide.posts.map((item) =>
+      item.post
+        ? {
+            ...item,
+            post: normalizePublicGuidePost(item.post as unknown as Record<string, unknown>) as typeof item.post,
+          }
+        : item,
+    ),
+  };
 }
 
 const getCachedPublicTopicGuideBySlug = createPublicCachedReader(queryPublicTopicGuideBySlug, {
@@ -394,9 +445,11 @@ const getCachedPublicTopicGuideBySlug = createPublicCachedReader(queryPublicTopi
           return revivedItem;
         }
 
+        const revivedPost = reviveDateFields(revivedItem.post as unknown as Record<string, unknown>, ["createdAt"]);
+
         return {
           ...revivedItem,
-          post: reviveDateFields(revivedItem.post as unknown as Record<string, unknown>, ["createdAt"]) as typeof revivedItem.post,
+          post: normalizePublicGuidePost(revivedPost) as typeof revivedItem.post,
         };
       }),
     };

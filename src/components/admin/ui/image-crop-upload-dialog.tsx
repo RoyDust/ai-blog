@@ -12,6 +12,8 @@ import {
   useState,
 } from "react";
 import { Crop, ImagePlus, RotateCcw } from "lucide-react";
+import { toErrorMessage } from "@/lib/client-api";
+import { uploadFileToQiniu } from "@/lib/client-qiniu-upload";
 import { cn } from "@/lib/cn";
 import { Button } from "./button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "./dialog";
@@ -192,33 +194,12 @@ async function createCroppedBlob(sourceUrl: string, crop: CropState, outputSize:
  * 先向本站 API 申请七牛上传凭证，再把裁切后的 Blob 直传到七牛。
  */
 async function uploadBlob(blob: Blob, filename: string, purpose: UploadPurpose) {
-  const tokenResponse = await fetch("/api/admin/uploads/qiniu-token", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ filename, contentType: blob.type, purpose }),
+  const { url } = await uploadFileToQiniu(blob, {
+    fileName: filename,
+    contentType: blob.type || "image/webp",
+    purpose,
   });
-  const tokenData = await tokenResponse.json();
-
-  if (!tokenResponse.ok || !tokenData.success) {
-    throw new Error(tokenData.error || "获取上传凭证失败");
-  }
-
-  const payload = new FormData();
-  payload.append("file", blob, filename);
-  payload.append("token", tokenData.data.token);
-  payload.append("key", tokenData.data.key);
-
-  const uploadResponse = await fetch(tokenData.data.uploadUrl, {
-    method: "POST",
-    body: payload,
-  });
-
-  if (!uploadResponse.ok) {
-    throw new Error("上传到七牛失败");
-  }
-
-  const normalizedDomain = String(tokenData.data.domain).replace(/\/$/, "");
-  return `${normalizedDomain}/${tokenData.data.key}`;
+  return url;
 }
 
 /**
@@ -425,7 +406,7 @@ export function ImageCropUploadDialog({
       onUploaded(url);
       resetEditor();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "头像上传失败");
+      setError(toErrorMessage(err, "头像上传失败"));
     } finally {
       setUploading(false);
     }

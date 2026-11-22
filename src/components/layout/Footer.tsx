@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { Archive, BookOpenText, FolderOpen, ListTree, Rss } from "lucide-react";
+import { Archive, BookOpenText, Compass, FolderOpen, ListTree, Rss } from "lucide-react";
 
 const footerLinks = [
   { href: "/posts", label: "文章", icon: BookOpenText },
   { href: "/series", label: "系列", icon: ListTree },
+  { href: "/guides", label: "专题", icon: Compass },
   { href: "/categories", label: "分类", icon: FolderOpen },
   { href: "/archives", label: "归档", icon: Archive },
   { href: "/rss.xml", label: "RSS 订阅", icon: Rss, external: true },

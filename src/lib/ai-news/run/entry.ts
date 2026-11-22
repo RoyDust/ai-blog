@@ -43,6 +43,7 @@ import {
   resolveDailyAiNewsSourceConfigs,
   scoreAndSelectDailyAiNewsCandidates,
   STALE_AI_NEWS_RUN_ERROR,
+  touchAiNewsRunHeartbeat,
   type AiNewsRunPostSummary,
   type AiNewsRunRepository,
 } from "@/lib/ai-news/run/steps"
@@ -67,6 +68,9 @@ import { ConflictError } from "@/lib/api-errors"
 import { prisma } from "@/lib/prisma"
 
 export { AI_NEWS_STALE_RUN_TIMEOUT_MS, reapStaleAiNewsRuns, STALE_AI_NEWS_RUN_ERROR }
+
+export const FALLBACK_SKIPPED_PUBLISHED_POST_REASON =
+  "Fallback draft skipped to preserve published daily AI news"
 
 /** 日报结果中文章对象的公共字段；其余字段随创建/增强结果透传。 */
 export type DailyAiNewsRunPost = {
@@ -217,32 +221,39 @@ function parseAdvisoryLockResult(rawResult: unknown): boolean {
   }
 
   const record = firstRow as Record<string, unknown>
-  const flag = record.locked ?? record.pg_try_advisory_xact_lock ?? record.pg_try_advisory_lock
+  const flag = record.locked ?? record.pg_try_advisory_xact_lock
   return flag !== false
 }
 
-async function tryAcquirePgDateLock({
+async function tryAcquirePgDateXactLock({
   repository,
   lockKey,
-  transactional,
 }: {
   repository: AiNewsRunRepository
   lockKey: number
-  transactional: boolean
-}) {
+}): Promise<boolean> {
   if (typeof repository.$queryRawUnsafe !== "function") {
-    return { acquired: true, needsSessionUnlock: false }
+    return true
   }
 
-  const sql = transactional
-    ? "SELECT pg_try_advisory_xact_lock($1::int, $2::int) AS locked"
-    : "SELECT pg_try_advisory_lock($1::int, $2::int) AS locked"
-  const rawResult = await repository.$queryRawUnsafe(sql, AI_NEWS_ADVISORY_LOCK_NAMESPACE, lockKey)
-  const acquired = parseAdvisoryLockResult(rawResult)
+  const rawResult = await repository.$queryRawUnsafe(
+    "SELECT pg_try_advisory_xact_lock($1::int, $2::int) AS locked",
+    AI_NEWS_ADVISORY_LOCK_NAMESPACE,
+    lockKey,
+  )
+  return parseAdvisoryLockResult(rawResult)
+}
 
-  return {
-    acquired,
-    needsSessionUnlock: acquired && !transactional,
+async function assertAiNewsRunActive({
+  runId,
+  repository,
+}: {
+  runId: string
+  repository: Pick<AiNewsRunRepository, "aiNewsRun">
+}) {
+  const stillActive = await touchAiNewsRunHeartbeat({ runId, repository })
+  if (!stillActive) {
+    throw new ConflictError(STALE_AI_NEWS_RUN_ERROR)
   }
 }
 
@@ -266,27 +277,26 @@ async function claimDailyAiNewsRunSlot({
   activeRunsByDate.set(dateId, "__claiming__")
   const lockKey = toDailyAiNewsAdvisoryLockKey(date)
   const useTransaction = typeof repository.$transaction === "function"
-  let needsSessionUnlock = false
 
   try {
     const claimInScope = async (scopeRepo: AiNewsRunRepository) => {
-      const lockState = await tryAcquirePgDateLock({
-        repository: scopeRepo,
-        lockKey,
-        transactional: useTransaction,
-      })
-      needsSessionUnlock = lockState.needsSessionUnlock
+      if (useTransaction) {
+        const acquired = await tryAcquirePgDateXactLock({
+          repository: scopeRepo,
+          lockKey,
+        })
 
-      if (!lockState.acquired) {
-        const existingActive =
-          typeof scopeRepo.aiNewsRun.findFirst === "function"
-            ? await scopeRepo.aiNewsRun.findFirst({
-                where: { status: "RUNNING", runDate: { gte: start, lt: end } },
-                orderBy: { createdAt: "desc" },
-                select: { id: true },
-              })
-            : null
-        throw createAlreadyRunningError(existingActive?.id ?? null)
+        if (!acquired) {
+          const existingActive =
+            typeof scopeRepo.aiNewsRun.findFirst === "function"
+              ? await scopeRepo.aiNewsRun.findFirst({
+                  where: { status: "RUNNING", runDate: { gte: start, lt: end } },
+                  orderBy: { createdAt: "desc" },
+                  select: { id: true },
+                })
+              : null
+          throw createAlreadyRunningError(existingActive?.id ?? null)
+        }
       }
 
       await reapStaleAiNewsRuns({
@@ -323,11 +333,6 @@ async function claimDailyAiNewsRunSlot({
     return {
       run,
       release: async () => {
-        if (needsSessionUnlock && typeof repository.$queryRawUnsafe === "function") {
-          await repository
-            .$queryRawUnsafe("SELECT pg_advisory_unlock($1::int, $2::int)", AI_NEWS_ADVISORY_LOCK_NAMESPACE, lockKey)
-            .catch(() => undefined)
-        }
         if (activeRunsByDate.get(dateId) === run.id) {
           activeRunsByDate.delete(dateId)
         }
@@ -335,11 +340,6 @@ async function claimDailyAiNewsRunSlot({
       },
     }
   } catch (error) {
-    if (needsSessionUnlock && typeof repository.$queryRawUnsafe === "function") {
-      await repository
-        .$queryRawUnsafe("SELECT pg_advisory_unlock($1::int, $2::int)", AI_NEWS_ADVISORY_LOCK_NAMESPACE, lockKey)
-        .catch(() => undefined)
-    }
     if (activeRunsByDate.get(dateId) === "__claiming__") {
       activeRunsByDate.delete(dateId)
     }
@@ -374,7 +374,7 @@ async function resolveExistingPostDecision({
 
     onRunCreated?.({ id: runId, status: "RUNNING" })
     const conflictReason = "Daily AI news slug conflicts with a manual post"
-    await finishAiNewsRun({
+    const finalized = await finishAiNewsRun({
       runId,
       startedAtMs,
       repository,
@@ -393,6 +393,9 @@ async function resolveExistingPostDecision({
         error: conflictReason,
       },
     })
+    if (!finalized) {
+      throw new ConflictError(STALE_AI_NEWS_RUN_ERROR)
+    }
 
     return {
       kind: "skipped",
@@ -413,7 +416,7 @@ async function resolveExistingPostDecision({
     const published = existing.published
     const reason = published ? "Daily AI news already exists" : "Daily AI news draft is pending review"
 
-    await finishAiNewsRun({
+    const finalized = await finishAiNewsRun({
       runId,
       startedAtMs,
       repository,
@@ -431,6 +434,9 @@ async function resolveExistingPostDecision({
         published,
       },
     })
+    if (!finalized) {
+      throw new ConflictError(STALE_AI_NEWS_RUN_ERROR)
+    }
 
     return {
       kind: "skipped",
@@ -531,18 +537,35 @@ async function persistCandidateEnrichmentResults({
 }
 
 async function persistAndPublishDailyAiNewsPost({
+  runId,
+  runRepository,
   authorId,
   existing,
   draft,
   modelId,
   generationMode,
+  shouldEnhance,
 }: {
+  runId: string
+  runRepository: AiNewsRunRepository
   authorId: string
   existing: AiNewsRunPostSummary | null
   draft: DailyAiNewsDraft
   modelId?: string | null
   generationMode: "candidate-pipeline" | "fallback" | "legacy"
+  shouldEnhance: boolean
 }) {
+  if (existing?.published && generationMode === "fallback") {
+    return {
+      skippedPublishedFallback: true as const,
+      post: existing,
+      finalPost: { ...existing, published: true },
+      published: true,
+    }
+  }
+
+  await assertAiNewsRunActive({ runId, repository: runRepository })
+
   const post = existing
     ? {
         ...(await updateAdminPost({
@@ -571,7 +594,9 @@ async function persistAndPublishDailyAiNewsPost({
       })
 
   let published = post.published
-  const enhancementResult = await applyAiNewsPostEnhancements({ postId: post.id, modelId })
+  const enhancementResult = shouldEnhance
+    ? await applyAiNewsPostEnhancements({ postId: post.id, modelId })
+    : { post: null }
   const enhancedPost = enhancementResult.post ?? {
     id: post.id,
     title: draft.title,
@@ -587,11 +612,12 @@ async function persistAndPublishDailyAiNewsPost({
   const finalPost = { ...post, ...enhancedPost }
 
   if (!published && generationMode !== "fallback") {
+    await assertAiNewsRunActive({ runId, repository: runRepository })
     await publishAiDraftPost({ postId: post.id })
     published = true
   }
 
-  return { post, finalPost, published }
+  return { skippedPublishedFallback: false as const, post, finalPost, published }
 }
 
 async function runActiveDailyAiNewsGeneration({
@@ -622,6 +648,8 @@ async function runActiveDailyAiNewsGeneration({
   progress: PipelineProgressState
 }): Promise<DailyAiNewsRunResult> {
   const { items: rawItems, failures } = await collectDailyAiNewsRawItems({ date, sourceConfigs, fetchImpl })
+  await assertAiNewsRunActive({ runId, repository: runRepository })
+
   const dedupedCandidates = dedupeByCanonicalUrl(rawItems)
   const persistedCandidates = await persistDailyAiNewsCandidates({
     runId,
@@ -654,6 +682,46 @@ async function runActiveDailyAiNewsGeneration({
     duplicateMap,
     sourceFailureJson: progress.sourceFailureJson,
   })
+  await assertAiNewsRunActive({ runId, repository: runRepository })
+
+  if (existing?.published && generationMode === "fallback") {
+    const finalized = await finishAiNewsRun({
+      runId,
+      startedAtMs,
+      repository: runRepository,
+      data: {
+        status: "SKIPPED",
+        sourceCount: progress.sourceCount,
+        failureCount: progress.failureCount,
+        rawCandidateCount: progress.rawCandidateCount,
+        dedupedCandidateCount: progress.dedupedCandidateCount,
+        scoredCandidateCount: progress.scoredCandidateCount,
+        selectedCandidateCount: progress.selectedCandidateCount,
+        sourceFailureJson: serializeSourceFailures(progress.sourceFailureJson),
+        qualityScore: progress.qualityScore,
+        citationCoverage: progress.citationCoverage,
+        generationMode: progress.generationMode,
+        postId: existing.id,
+        postTitle: existing.title,
+        postSlug: existing.slug,
+        published: true,
+        error: FALLBACK_SKIPPED_PUBLISHED_POST_REASON,
+      },
+    })
+    if (!finalized) {
+      throw new ConflictError(STALE_AI_NEWS_RUN_ERROR)
+    }
+
+    return {
+      operation: "skipped",
+      reason: FALLBACK_SKIPPED_PUBLISHED_POST_REASON,
+      published: true,
+      post: { ...existing, published: true },
+      sourceCount: progress.sourceCount,
+      failures,
+      run: { id: runId, status: "SKIPPED" },
+    }
+  }
 
   const { draft, factCards, citationCoverage } = await buildDailyAiNewsDraftFromSelectedCandidates({
     date,
@@ -671,15 +739,58 @@ async function runActiveDailyAiNewsGeneration({
     sourceFailureJson: progress.sourceFailureJson,
   })
 
-  const { post, finalPost, published } = await persistAndPublishDailyAiNewsPost({
+  const persistedPost = await persistAndPublishDailyAiNewsPost({
+    runId,
+    runRepository,
     authorId,
     existing,
     draft,
     modelId,
     generationMode,
+    shouldEnhance: selectedCandidates.length > 0,
   })
+  if (persistedPost.skippedPublishedFallback) {
+    const finalized = await finishAiNewsRun({
+      runId,
+      startedAtMs,
+      repository: runRepository,
+      data: {
+        status: "SKIPPED",
+        sourceCount: progress.sourceCount,
+        failureCount: progress.failureCount,
+        rawCandidateCount: progress.rawCandidateCount,
+        dedupedCandidateCount: progress.dedupedCandidateCount,
+        scoredCandidateCount: progress.scoredCandidateCount,
+        selectedCandidateCount: progress.selectedCandidateCount,
+        sourceFailureJson: serializeSourceFailures(progress.sourceFailureJson),
+        qualityScore: progress.qualityScore,
+        citationCoverage: progress.citationCoverage,
+        generationMode: progress.generationMode,
+        postId: persistedPost.post.id,
+        postTitle: persistedPost.finalPost.title,
+        postSlug: persistedPost.finalPost.slug,
+        published: true,
+        error: FALLBACK_SKIPPED_PUBLISHED_POST_REASON,
+      },
+    })
+    if (!finalized) {
+      throw new ConflictError(STALE_AI_NEWS_RUN_ERROR)
+    }
 
-  await finishAiNewsRun({
+    return {
+      operation: "skipped",
+      reason: FALLBACK_SKIPPED_PUBLISHED_POST_REASON,
+      published: true,
+      post: { ...persistedPost.finalPost, published: true },
+      sourceCount: progress.sourceCount,
+      failures,
+      run: { id: runId, status: "SKIPPED" },
+    }
+  }
+
+  const { post, finalPost, published } = persistedPost
+
+  const finalized = await finishAiNewsRun({
     runId,
     startedAtMs,
     repository: runRepository,
@@ -704,6 +815,9 @@ async function runActiveDailyAiNewsGeneration({
       reviewSummary: null,
     },
   })
+  if (!finalized) {
+    throw new ConflictError(STALE_AI_NEWS_RUN_ERROR)
+  }
 
   return {
     operation: existing ? "regenerated" : "created",

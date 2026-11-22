@@ -105,6 +105,10 @@ function createUnavailablePrismaClient() {
 
   return new Proxy({} as PrismaClient, {
     get(_target, property) {
+      if (property === 'then' || property === 'catch' || property === 'finally') {
+        return undefined
+      }
+
       if (property === Symbol.toStringTag) {
         return 'PrismaClient'
       }

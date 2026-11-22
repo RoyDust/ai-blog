@@ -182,4 +182,36 @@ describe("POST /api/analytics/visit", () => {
     expect(hashIp("198.51.100.55")).not.toBe(unsaltedRealIp);
     expect(hashIp("198.51.100.55")).not.toBe(hashIp("203.0.113.99"));
   });
+
+  test("scrubs query strings, hashes, and unsafe schemes from referrer so magic-link tokens are never stored", async () => {
+    const { POST } = await import("../route");
+
+    const sameOriginResponse = await POST(new Request("http://localhost/api/analytics/visit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-forwarded-for": "198.51.100.88" },
+      body: JSON.stringify({
+        path: "/posts/hello-world",
+        referrer: "https://inkforge.example/newsletter/verify?token=secret-magic-token&email=a@b.com#confirmed",
+        visitorId: "visitor-scrub-1",
+      }),
+    }));
+    expect(sameOriginResponse.status).toBe(200);
+    expect(createVisitLogOperation).toHaveBeenLastCalledWith(expect.objectContaining({
+      referrer: "https://inkforge.example/newsletter/verify",
+    }));
+
+    const unsafeSchemeResponse = await POST(new Request("http://localhost/api/analytics/visit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-forwarded-for": "198.51.100.89" },
+      body: JSON.stringify({
+        path: "/about",
+        referrer: "javascript:alert('secret')",
+        visitorId: "visitor-scrub-2",
+      }),
+    }));
+    expect(unsafeSchemeResponse.status).toBe(200);
+    expect(createVisitLogOperation).toHaveBeenLastCalledWith(expect.objectContaining({
+      referrer: null,
+    }));
+  });
 });

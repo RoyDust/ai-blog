@@ -12,7 +12,7 @@
  * 数据请求统一走 @/lib/client-api。
  */
 
-import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import useSWR from "swr";
 
@@ -251,27 +251,58 @@ export function usePostsList() {
     [posts],
   );
 
-  // 摘要任务轮询：有活跃任务时每 2.5s 触发一次 resume 并静默刷新列表
+  // 摘要任务恢复与只读轮询：检测到活跃摘要任务时先触发一次 POST 恢复，再每 2.5s 只读轮询状态
   const shouldPollSummary = activeSummaryIds.length > 0;
-  const { mutate: resumeSummaryJobs } = useSWR(
-    shouldPollSummary ? "/api/admin/posts/summarize/bulk?resume=1" : null,
+  const activeSummarySignature = useMemo(
+    () => [...activeSummaryIds].sort().join(","),
+    [activeSummaryIds],
+  );
+  const lastResumedSummarySignatureRef = useRef("");
+
+  useEffect(() => {
+    if (!activeSummarySignature) {
+      lastResumedSummarySignatureRef.current = "";
+      return;
+    }
+    if (lastResumedSummarySignatureRef.current === activeSummarySignature) {
+      return;
+    }
+    lastResumedSummarySignatureRef.current = activeSummarySignature;
+
+    void apiMutate("/api/admin/posts/summarize/bulk", {
+      method: "POST",
+      body: JSON.stringify({ action: "resume" }),
+    }).catch((error) => {
+      handleGlobalSwrError(error, "/api/admin/posts/summarize/bulk");
+    });
+  }, [activeSummarySignature]);
+
+  const { mutate: mutateSummarySnapshot } = useSWR(
+    shouldPollSummary ? "/api/admin/posts/summarize/bulk" : null,
     apiFetcher,
     {
       refreshInterval: SUMMARY_POLL_INTERVAL_MS,
       onSuccess: () => {
         void mutateList();
       },
+      onError: (swrError, key) => {
+        handleGlobalSwrError(swrError, key);
+      },
     },
   );
 
   const syncSummaryJobs = useCallback(async () => {
     try {
-      await resumeSummaryJobs();
+      await apiMutate("/api/admin/posts/summarize/bulk", {
+        method: "POST",
+        body: JSON.stringify({ action: "resume" }),
+      });
+      await mutateSummarySnapshot();
       await mutateList();
     } catch {
       toast.error("摘要任务状态同步失败");
     }
-  }, [mutateList, resumeSummaryJobs]);
+  }, [mutateList, mutateSummarySnapshot]);
 
   const visibleSelectedIds = useMemo(
     () => selectedIds.filter((id) => posts.some((post) => post.id === id)),

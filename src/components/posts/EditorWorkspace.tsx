@@ -11,7 +11,9 @@
 
 import { useRef, useState } from "react";
 import { Button, Input } from "@/components/admin/ui";
+import { toErrorMessage } from "@/lib/client-api";
 import { compressImageForUpload } from "@/lib/client-image-compression";
+import { uploadFileToQiniu } from "@/lib/client-qiniu-upload";
 import { MarkdownEditor } from "./MarkdownEditor";
 
 interface EditorWorkspaceProps {
@@ -106,37 +108,13 @@ export function EditorWorkspace({
     try {
       const compressed = await compressImageForUpload(file, "cover");
       const uploadFile = compressed.file;
-      // 先向服务端申请上传凭证，再直传到对象存储，避免把密钥放到客户端。
-      const tokenResponse = await fetch("/api/admin/uploads/qiniu-token", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ filename: uploadFile.name, contentType: uploadFile.type || file.type }),
+      const { url } = await uploadFileToQiniu(uploadFile, {
+        contentType: uploadFile.type || file.type,
+        purpose: "cover",
       });
-      const tokenData = await tokenResponse.json();
-
-      if (!tokenResponse.ok || !tokenData.success) {
-        throw new Error(tokenData.error || "获取上传凭证失败");
-      }
-
-      const formData = new FormData();
-      formData.append("file", uploadFile);
-      formData.append("token", tokenData.data.token);
-      formData.append("key", tokenData.data.key);
-
-      const uploadResponse = await fetch(tokenData.data.uploadUrl, {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!uploadResponse.ok) {
-        throw new Error("上传到七牛失败");
-      }
-
-      // domain 配置可能自带尾斜杠，这里统一规整后再回填最终文件地址。
-      const normalizedDomain = String(tokenData.data.domain).replace(/\/$/, "");
-      onCoverImageChange(`${normalizedDomain}/${tokenData.data.key}`);
+      onCoverImageChange(url);
     } catch (error) {
-      setUploadError(error instanceof Error ? error.message : "上传失败");
+      setUploadError(toErrorMessage(error, "上传失败"));
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) {

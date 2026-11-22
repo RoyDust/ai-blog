@@ -29,12 +29,17 @@ describe("/api/newsletter/unsubscribe", () => {
     mocks.unsubscribe.mockResolvedValue({ id: "sub-1" });
   });
 
-  test("GET redirects to the public unsubscribe confirmation page without mutating DB", async () => {
+  test("GET redirects via relative Location header without leaking container origin or mutating DB", async () => {
     const { GET } = await import("../route");
-    const response = await GET(new Request("https://blog.example/api/newsletter/unsubscribe?token=u.123"));
+    const response = await GET(new Request("http://0.0.0.0:3000/api/newsletter/unsubscribe?token=u.123"));
 
     expect(response.status).toBe(302);
-    expect(response.headers.get("location")).toBe("https://blog.example/newsletter/unsubscribe?token=u.123");
+    expect(response.headers.get("location")).toBe("/newsletter/unsubscribe?token=u.123");
+    expect(response.headers.get("location")).not.toContain("0.0.0.0");
+
+    const withoutToken = await GET(new Request("http://0.0.0.0:3000/api/newsletter/unsubscribe"));
+    expect(withoutToken.status).toBe(302);
+    expect(withoutToken.headers.get("location")).toBe("/newsletter/unsubscribe");
     expect(mocks.unsubscribe).not.toHaveBeenCalled();
   });
 
@@ -96,6 +101,56 @@ describe("/api/newsletter/unsubscribe", () => {
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual({ error: "Token is required" });
     expect(mocks.unsubscribe).not.toHaveBeenCalled();
+  });
+
+  test("rejects query-only POSTs that lack RFC 8058 List-Unsubscribe=One-Click marker", async () => {
+    const { POST } = await import("../route");
+
+    const emptyPost = await POST(
+      new Request("https://blog.example/api/newsletter/unsubscribe?token=u.query.sig", {
+        method: "POST",
+      }),
+    );
+    expect(emptyPost.status).toBe(400);
+    await expect(emptyPost.json()).resolves.toEqual({ error: "Token is required" });
+
+    const malformedJsonPost = await POST(
+      new Request("https://blog.example/api/newsletter/unsubscribe?token=u.query.sig", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{invalid-json",
+      }),
+    );
+    expect(malformedJsonPost.status).toBe(400);
+    await expect(malformedJsonPost.json()).resolves.toEqual({ error: "Token is required" });
+
+    const nonOneClickFormPost = await POST(
+      new Request("https://blog.example/api/newsletter/unsubscribe?token=u.query.sig", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: "foo=bar",
+      }),
+    );
+    expect(nonOneClickFormPost.status).toBe(400);
+    await expect(nonOneClickFormPost.json()).resolves.toEqual({ error: "Token is required" });
+
+    expect(mocks.unsubscribe).not.toHaveBeenCalled();
+  });
+
+  test("returns 400 ValidationError when unsubscribe token is invalid or unrecognized", async () => {
+    mocks.unsubscribe.mockResolvedValueOnce(null);
+
+    const { POST } = await import("../route");
+    const response = await POST(
+      new Request("http://localhost/api/newsletter/unsubscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: "u.corrupted.sig" }),
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({ error: "退订链接无效或已失效" });
   });
 
   test("rate limits unsubscribe attempts", async () => {

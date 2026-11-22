@@ -4,20 +4,24 @@
  * Markdown 编辑器组件。
  *
  * 职责：
- * - 提供文本编辑与实时预览双栏体验
+ * - 提供文本编辑与实时预览双栏体验（含分屏对照 / 专注写作 / 读者预览切换）
  * - 提供常用 Markdown 片段的光标/选区插入
- * - 支持图片选择上传与粘贴上传，并自动写回 Markdown 图片语法
+ * - 支持图片选择上传、粘贴上传与拖拽上传，并发占位替换不覆盖用户输入
  */
 
-import { useDeferredValue, useId, useRef, useState } from "react";
-import ReactMarkdown from "react-markdown";
+import Link from "next/link";
+import { memo, useDeferredValue, useEffect, useId, useRef, useState } from "react";
+import ReactMarkdown, { type Components } from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
 import rehypeHighlightCodeLines from "rehype-highlight-code-lines";
 import remarkGfm from "remark-gfm";
 import { Bold, Code, Heading2, Italic, Link2, List, Quote, Upload } from "lucide-react";
 import { CodeBlock } from "@/components/blog/CodeBlock";
 import { FallbackImage } from "@/components/ui";
+import { toErrorMessage } from "@/lib/client-api";
 import { compressImageForUpload } from "@/lib/client-image-compression";
+import { uploadFileToQiniu } from "@/lib/client-qiniu-upload";
+import { classifyMarkdownLink } from "@/lib/markdown-headings";
 
 interface MarkdownEditorProps {
   label?: string;
@@ -41,12 +45,84 @@ const snippets: Array<{ label: string; icon: typeof Heading2; snippet: Snippet }
   { label: "列表", icon: List, snippet: { before: "- ", after: "" } },
 ];
 
-/**
- * 在指定选区位置插入预设 Markdown 片段：
- * - 有选区：用成对标记（before/after）包裹选中文本
- * - 无选区：在光标处插入标记，并把光标放到成对标记中间
- * 返回插入后的完整内容与应恢复的光标/选区位置。
- */
+const previewProseClassName =
+  "reader-prose prose prose-zinc max-w-none prose-headings:font-display prose-headings:text-[var(--foreground)] prose-h1:text-[var(--foreground)] prose-h2:text-[var(--foreground)] [&_h2]:before:mr-1.5 [&_h2]:before:font-mono [&_h2]:before:text-[var(--brand)] [&_h2]:before:content-['#'] prose-h3:text-[var(--foreground)] prose-h4:text-[var(--foreground)] prose-h5:text-[var(--foreground)] prose-h6:text-[var(--foreground)] prose-p:leading-[1.76] prose-p:text-[var(--text-body)] prose-a:text-[var(--brand)] prose-a:no-underline hover:prose-a:underline prose-strong:text-[var(--foreground)] prose-li:text-[var(--text-body)] prose-li:marker:text-[var(--text-faint)] prose-blockquote:border-[var(--border-strong)] prose-blockquote:border-l-[3px] prose-blockquote:text-[var(--text-body)] prose-img:rounded-xl prose-pre:rounded-xl prose-pre:border prose-pre:border-[var(--border)] prose-pre:bg-[var(--surface-elevated)] prose-pre:text-[var(--foreground)] prose-code:rounded-md prose-code:border prose-code:border-[var(--line-color)] prose-code:bg-[var(--btn-regular-bg)] prose-code:px-1.5 prose-code:py-0.5 prose-code:text-[0.875em] prose-code:font-medium prose-code:text-[var(--btn-content)] prose-code:font-[var(--font-code)] prose-code:before:content-none prose-code:after:content-none prose-table:w-full prose-th:bg-[var(--surface-contrast)] prose-th:text-[var(--foreground)] prose-td:border-[var(--border)] prose-th:border-[var(--border)] dark:prose-invert";
+
+const previewRemarkPlugins = [remarkGfm];
+const previewRehypePlugins = [rehypeHighlight, [rehypeHighlightCodeLines, { showLineNumbers: true }]] as Parameters<typeof ReactMarkdown>[0]["rehypePlugins"];
+
+function sanitizeAnchorProps<T extends { node?: unknown; href?: unknown; target?: unknown; rel?: unknown }>(
+  props: T,
+): Omit<T, "node" | "href" | "target" | "rel"> {
+  const rest = { ...props };
+  delete rest.node;
+  delete rest.href;
+  delete rest.target;
+  delete rest.rel;
+  return rest;
+}
+
+const previewComponents: Components = {
+  a: ({ href, children, ...props }) => {
+    const anchorProps = sanitizeAnchorProps(props);
+    const classified = classifyMarkdownLink(typeof href === "string" ? href : undefined);
+
+    if (classified.kind === "unsafe") {
+      return (
+        <span className={anchorProps.className} title={anchorProps.title}>
+          {children}
+        </span>
+      );
+    }
+
+    if (classified.kind === "internal") {
+      return (
+        <Link {...anchorProps} href={classified.href}>
+          {children}
+        </Link>
+      );
+    }
+
+    if (classified.kind === "external") {
+      return (
+        <a {...anchorProps} href={classified.href} rel={classified.rel} target={classified.target}>
+          {children}
+        </a>
+      );
+    }
+
+    return (
+      <a {...anchorProps} href={classified.href}>
+        {children}
+      </a>
+    );
+  },
+  img: ({ src, alt }) => {
+    const imageSrc = typeof src === "string" ? src : null;
+    if (!imageSrc) return null;
+    if (imageSrc.startsWith("uploading://")) {
+      return <span className="font-mono text-xs text-[var(--text-muted)]">{alt || "上传中..."}</span>;
+    }
+
+    return <FallbackImage alt={alt ?? ""} className="theme-media-image h-auto w-full" height={720} src={imageSrc} unoptimized width={1280} />;
+  },
+  pre: ({ children, ...props }) => <CodeBlock {...props}>{children}</CodeBlock>,
+};
+
+const MarkdownPreviewArticle = memo(function MarkdownPreviewArticle({ content }: { content: string }) {
+  return (
+    <article className={previewProseClassName}>
+      <ReactMarkdown
+        remarkPlugins={previewRemarkPlugins}
+        rehypePlugins={previewRehypePlugins}
+        components={previewComponents}
+      >
+        {content || "_暂无内容_"}
+      </ReactMarkdown>
+    </article>
+  );
+});
+
 function insertSnippetAt(value: string, snippet: Snippet, selectionStart: number, selectionEnd: number) {
   const after = snippet.after ?? "";
   const selected = value.slice(selectionStart, selectionEnd);
@@ -69,32 +145,62 @@ function getImageAltText(filename: string) {
   return normalized || "image";
 }
 
-/**
- * 把上传后的图片地址插入为 Markdown 图片语法。
- * 若存在选区，则替换选区；否则按段落形式追加到文末。
- */
-function insertImageMarkdown(
+function insertMarkdownToken(
   value: string,
-  imageUrl: string,
-  altText: string,
+  markdown: string,
   selectionStart?: number,
-  selectionEnd?: number
+  selectionEnd?: number,
 ) {
-  const markdown = `![${altText}](${imageUrl})`;
-
   if (typeof selectionStart === "number" && typeof selectionEnd === "number") {
     const before = value.slice(0, selectionStart);
     const after = value.slice(selectionEnd);
-    return `${before}${markdown}${after}`;
+    return {
+      value: `${before}${markdown}${after}`,
+      caretPosition: before.length + markdown.length,
+    };
   }
 
   const separator = value.trim().length > 0 ? "\n\n" : "";
-  return `${value}${separator}${markdown}`;
+  const nextValue = `${value}${separator}${markdown}`;
+  return {
+    value: nextValue,
+    caretPosition: nextValue.length,
+  };
 }
 
-/**
- * 从粘贴事件中提取第一张图片文件，用于支持截图直接粘贴上传。
- */
+function resolveUploadPlaceholder(content: string, placeholder: string, finalMarkdown: string) {
+  if (content.includes(placeholder)) {
+    return content.replace(placeholder, finalMarkdown);
+  }
+
+  if (content.trim().length === 0) {
+    return finalMarkdown;
+  }
+
+  const separator = content.endsWith("\n\n") ? "" : content.endsWith("\n") ? "\n" : "\n\n";
+  return `${content}${separator}${finalMarkdown}`;
+}
+
+function removeUploadPlaceholder(content: string, placeholder: string) {
+  if (!content.includes(placeholder)) {
+    return content;
+  }
+
+  if (content.includes(`\n\n${placeholder}\n\n`)) {
+    return content.replace(`\n\n${placeholder}\n\n`, "\n\n");
+  }
+
+  if (content.endsWith(`\n\n${placeholder}`)) {
+    return content.slice(0, -`\n\n${placeholder}`.length);
+  }
+
+  if (content.startsWith(`${placeholder}\n\n`)) {
+    return content.slice(`${placeholder}\n\n`.length);
+  }
+
+  return content.replace(placeholder, "");
+}
+
 function getClipboardImageFile(event: React.ClipboardEvent<HTMLTextAreaElement>) {
   const items = Array.from(event.clipboardData?.items ?? []);
 
@@ -108,13 +214,6 @@ function getClipboardImageFile(event: React.ClipboardEvent<HTMLTextAreaElement>)
   return null;
 }
 
-/**
- * Markdown 编辑器主组件。
- *
- * 说明：
- * - 通过 selectionRef 记住插图时的光标位置
- * - 上传图片后会把结果回填为 Markdown，而不是维护独立富媒体结构
- */
 export function MarkdownEditor({
   label = "内容",
   value,
@@ -124,18 +223,27 @@ export function MarkdownEditor({
   editorPanelClassName,
 }: MarkdownEditorProps) {
   const id = useId();
+  const deferredValue = useDeferredValue(value);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const selectionRef = useRef<{ start: number; end: number } | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
+  const latestValueRef = useRef(value);
+  const uploadSequenceRef = useRef(0);
+  const [uploadingCount, setUploadingCount] = useState(0);
   const [uploadError, setUploadError] = useState("");
   const [viewMode, setViewMode] = useState<"split" | "write" | "preview">("split");
-  const deferredValue = useDeferredValue(value);
+  const isUploading = uploadingCount > 0;
   const charCount = value.trim().length;
 
-  /**
-   * 同步当前 textarea 选区，供插入图片或其他增强操作复用。
-   */
+  useEffect(() => {
+    latestValueRef.current = value;
+  }, [value]);
+
+  const emitChange = (nextValue: string) => {
+    latestValueRef.current = nextValue;
+    onChange(nextValue);
+  };
+
   const syncSelection = () => {
     const textarea = textareaRef.current;
     if (!textarea) return;
@@ -146,20 +254,15 @@ export function MarkdownEditor({
     };
   };
 
-  /**
-   * 在光标处/选区位置插入格式标记：
-   * 读取 textarea 的 selectionStart/End，选中文本则用成对标记包裹，
-   * 无选区则在光标处插入并把光标置于标记中间；onChange 提交后聚焦 textarea 并恢复选区。
-   */
   const applySnippet = (snippet: Snippet) => {
     const textarea = textareaRef.current;
     if (!textarea) return;
 
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
-    const { value: nextValue, caretStart, caretEnd } = insertSnippetAt(value, snippet, start, end);
+    const { value: nextValue, caretStart, caretEnd } = insertSnippetAt(latestValueRef.current, snippet, start, end);
 
-    onChange(nextValue);
+    emitChange(nextValue);
 
     requestAnimationFrame(() => {
       const nextTextarea = textareaRef.current;
@@ -167,102 +270,86 @@ export function MarkdownEditor({
 
       nextTextarea.focus();
       if (start !== end) {
-        // 选中文本被包裹后，仍保持原文本处于选中状态
         nextTextarea.setSelectionRange(caretStart, caretEnd);
       } else {
-        // 无选区：光标置于成对标记中间
         nextTextarea.setSelectionRange(caretStart, caretStart);
       }
     });
   };
 
-  /**
-   * 向服务端申请上传凭证并完成图片直传。
-   * 返回最终可写入 Markdown 的图片 URL 与默认 alt 文本。
-   */
   const uploadImageFile = async (file: File) => {
     const compressed = await compressImageForUpload(file, "markdown");
     const uploadFile = compressed.file;
-    const tokenResponse = await fetch("/api/admin/uploads/qiniu-token", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ filename: uploadFile.name, contentType: uploadFile.type || file.type }),
-    });
-    const tokenData = await tokenResponse.json();
-
-    if (!tokenResponse.ok || !tokenData.success) {
-      throw new Error(tokenData.error || "获取上传凭证失败");
-    }
-
-    const formData = new FormData();
-    formData.append("file", uploadFile);
-    formData.append("token", tokenData.data.token);
-    formData.append("key", tokenData.data.key);
-
-    const uploadResponse = await fetch(tokenData.data.uploadUrl, {
-      method: "POST",
-      body: formData,
+    const { url } = await uploadFileToQiniu(uploadFile, {
+      contentType: uploadFile.type || file.type,
     });
 
-    if (!uploadResponse.ok) {
-      throw new Error("上传到七牛失败");
-    }
-
-    const normalizedDomain = String(tokenData.data.domain).replace(/\/$/, "");
     return {
-      url: `${normalizedDomain}/${tokenData.data.key}`,
+      url,
       altText: getImageAltText(file.name),
     };
   };
 
-  /**
-   * 处理用户通过文件选择器上传图片的流程。
-   */
+  const runImageUploadWithPlaceholder = async (file: File, restoreCaret: boolean) => {
+    uploadSequenceRef.current += 1;
+    const uploadId =
+      typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+        ? crypto.randomUUID()
+        : `${Date.now()}-${uploadSequenceRef.current}`;
+    const placeholder = `![上传中...](uploading://${uploadId})`;
+    const storedSelection = selectionRef.current;
+    const { value: withPlaceholder, caretPosition } = insertMarkdownToken(
+      latestValueRef.current,
+      placeholder,
+      storedSelection?.start,
+      storedSelection?.end,
+    );
+
+    selectionRef.current = { start: caretPosition, end: caretPosition };
+    setUploadingCount((count) => count + 1);
+    setUploadError("");
+    emitChange(withPlaceholder);
+
+    if (restoreCaret) {
+      requestAnimationFrame(() => {
+        const nextTextarea = textareaRef.current;
+        if (!nextTextarea) return;
+        nextTextarea.setSelectionRange(caretPosition, caretPosition);
+      });
+    }
+
+    try {
+      const { url, altText } = await uploadImageFile(file);
+      const finalMarkdown = `![${altText}](${url})`;
+      emitChange(resolveUploadPlaceholder(latestValueRef.current, placeholder, finalMarkdown));
+    } catch (error) {
+      emitChange(removeUploadPlaceholder(latestValueRef.current, placeholder));
+      setUploadError(toErrorMessage(error, "上传失败"));
+    } finally {
+      setUploadingCount((count) => Math.max(0, count - 1));
+    }
+  };
+
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    setIsUploading(true);
-    setUploadError("");
-
     try {
-      const { url, altText } = await uploadImageFile(file);
-      const storedSelection = selectionRef.current;
-
-      onChange(insertImageMarkdown(value, url, altText, storedSelection?.start, storedSelection?.end));
-    } catch (error) {
-      setUploadError(error instanceof Error ? error.message : "上传失败");
+      await runImageUploadWithPlaceholder(file, false);
     } finally {
-      setIsUploading(false);
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
     }
   };
 
-  /**
-   * 处理截图粘贴上传场景。
-   * 如果剪贴板里没有图片，则保持浏览器默认粘贴行为。
-   */
   const handlePaste = async (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
     const file = getClipboardImageFile(event);
     if (!file) return;
 
     event.preventDefault();
     syncSelection();
-    setIsUploading(true);
-    setUploadError("");
-
-    try {
-      const { url, altText } = await uploadImageFile(file);
-      const storedSelection = selectionRef.current;
-
-      onChange(insertImageMarkdown(value, url, altText, storedSelection?.start, storedSelection?.end));
-    } catch (error) {
-      setUploadError(error instanceof Error ? error.message : "上传失败");
-    } finally {
-      setIsUploading(false);
-    }
+    await runImageUploadWithPlaceholder(file, true);
   };
 
   const handleDrop = async (event: React.DragEvent<HTMLTextAreaElement>) => {
@@ -271,19 +358,7 @@ export function MarkdownEditor({
 
     event.preventDefault();
     syncSelection();
-    setIsUploading(true);
-    setUploadError("");
-
-    try {
-      const { url, altText } = await uploadImageFile(file);
-      const storedSelection = selectionRef.current;
-
-      onChange(insertImageMarkdown(value, url, altText, storedSelection?.start, storedSelection?.end));
-    } catch (error) {
-      setUploadError(error instanceof Error ? error.message : "上传失败");
-    } finally {
-      setIsUploading(false);
-    }
+    await runImageUploadWithPlaceholder(file, false);
   };
 
   const panelSizeClassName = fillHeight ? "min-h-0 flex-1 max-h-none" : editorPanelClassName ?? "min-h-[26rem] max-h-[700px]";
@@ -359,7 +434,11 @@ export function MarkdownEditor({
         </div>
       </div>
 
-      {uploadError ? <p className="text-sm text-[var(--danger-foreground)]">{uploadError}</p> : null}
+      {uploadError ? (
+        <p role="alert" className="text-sm text-[var(--danger-foreground)]">
+          {uploadError}
+        </p>
+      ) : null}
 
       <div className={fillHeight ? `grid min-h-0 flex-1 gap-3.5 ${gridModeClassName}` : `grid gap-3.5 ${gridModeClassName}`}>
         <div className={`${columnClassName} ${viewMode === "preview" ? "hidden" : ""}`}>
@@ -373,7 +452,7 @@ export function MarkdownEditor({
             rows={minRows}
             placeholder="用 Markdown 写作，支持粘贴或拖拽上传图片..."
             required
-            onChange={(e) => onChange(e.target.value)}
+            onChange={(e) => emitChange(e.target.value)}
             onClick={syncSelection}
             onDragOver={(e) => {
               if (Array.from(e.dataTransfer?.types ?? []).includes("Files")) {
@@ -391,23 +470,7 @@ export function MarkdownEditor({
         <div className={`${columnClassName} ${viewMode === "write" ? "hidden" : ""}`}>
           <p className="mb-1 block text-xs font-semibold text-[var(--muted)]">实时预览</p>
           <div className={`${panelSizeClassName} overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--surface-alt)]/45 p-4`}>
-            <article className="reader-prose prose prose-zinc max-w-none prose-headings:font-display prose-headings:text-[var(--foreground)] prose-h1:text-[var(--foreground)] prose-h2:text-[var(--foreground)] [&_h2]:before:mr-1.5 [&_h2]:before:font-mono [&_h2]:before:text-[var(--brand)] [&_h2]:before:content-['#'] prose-h3:text-[var(--foreground)] prose-h4:text-[var(--foreground)] prose-h5:text-[var(--foreground)] prose-h6:text-[var(--foreground)] prose-p:leading-[1.76] prose-p:text-[var(--text-body)] prose-a:text-[var(--brand)] prose-a:no-underline hover:prose-a:underline prose-strong:text-[var(--foreground)] prose-li:text-[var(--text-body)] prose-li:marker:text-[var(--text-faint)] prose-blockquote:border-[var(--border-strong)] prose-blockquote:border-l-[3px] prose-blockquote:text-[var(--text-body)] prose-img:rounded-xl prose-pre:rounded-xl prose-pre:border prose-pre:border-[var(--border)] prose-pre:bg-[var(--surface-elevated)] prose-pre:text-[var(--foreground)] prose-code:rounded-md prose-code:border prose-code:border-[var(--line-color)] prose-code:bg-[var(--btn-regular-bg)] prose-code:px-1.5 prose-code:py-0.5 prose-code:text-[0.875em] prose-code:font-medium prose-code:text-[var(--btn-content)] prose-code:font-[var(--font-code)] prose-code:before:content-none prose-code:after:content-none prose-table:w-full prose-th:bg-[var(--surface-contrast)] prose-th:text-[var(--foreground)] prose-td:border-[var(--border)] prose-th:border-[var(--border)] dark:prose-invert">
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                rehypePlugins={[rehypeHighlight, [rehypeHighlightCodeLines, { showLineNumbers: true }]]}
-                components={{
-                  img: ({ src, alt }) => {
-                    const imageSrc = typeof src === "string" ? src : null;
-                    if (!imageSrc) return null;
-
-                    return <FallbackImage alt={alt ?? ""} className="theme-media-image h-auto w-full" height={720} src={imageSrc} unoptimized width={1280} />;
-                  },
-                  pre: ({ children, ...props }) => <CodeBlock {...props}>{children}</CodeBlock>,
-                }}
-              >
-                {deferredValue || "_暂无内容_"}
-              </ReactMarkdown>
-            </article>
+            <MarkdownPreviewArticle content={deferredValue} />
           </div>
         </div>
       </div>

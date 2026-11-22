@@ -35,12 +35,17 @@ describe("/api/newsletter/verify", () => {
     });
   });
 
-  test("GET redirects to the public confirmation page without mutating subscriber state", async () => {
+  test("GET redirects via relative Location header without leaking container origin or mutating subscriber state", async () => {
     const { GET } = await import("../route");
-    const response = await GET(new Request("https://blog.example/api/newsletter/verify?token=verify-token-1"));
+    const response = await GET(new Request("http://0.0.0.0:3000/api/newsletter/verify?token=verify-token-1"));
 
     expect(response.status).toBe(302);
-    expect(response.headers.get("location")).toBe("https://blog.example/newsletter/verify?token=verify-token-1");
+    expect(response.headers.get("location")).toBe("/newsletter/verify?token=verify-token-1");
+    expect(response.headers.get("location")).not.toContain("0.0.0.0");
+
+    const withoutToken = await GET(new Request("http://0.0.0.0:3000/api/newsletter/verify"));
+    expect(withoutToken.status).toBe(302);
+    expect(withoutToken.headers.get("location")).toBe("/newsletter/verify");
     expect(mocks.verify).not.toHaveBeenCalled();
   });
 

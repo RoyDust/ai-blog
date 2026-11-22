@@ -82,14 +82,56 @@ describe("AiTaskActivitySync", () => {
     await waitFor(() => expect(mocks.refresh).toHaveBeenCalledTimes(1));
   });
 
-  test("does not resume or poll tasks when none are active", async () => {
+  test("triggers one-time mount POST resume when activeTaskCount is 0 and stays idle when resumed count is 0", async () => {
+    mocks.apiMutate.mockResolvedValueOnce({
+      success: true,
+      data: { resumedBatchTasks: 0, resumedSummaryJobs: 0 },
+    });
+
     renderSync(0);
 
-    await Promise.resolve();
-
-    expect(mocks.apiMutate).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(mocks.apiMutate).toHaveBeenCalledTimes(1);
+    });
+    expect(mocks.apiMutate).toHaveBeenCalledWith("/api/admin/ai/tasks/resume", {
+      method: "POST",
+      body: JSON.stringify({ taskIds: [], includeSummaryJobs: true }),
+    });
     expect(mocks.apiFetcher).not.toHaveBeenCalled();
     expect(mocks.refresh).not.toHaveBeenCalled();
+  });
+
+  test("switches to fast polling when initialActiveCount is 0 on page 1 but POST resume recovers older off-page tasks", async () => {
+    vi.useFakeTimers();
+    mocks.apiMutate.mockResolvedValueOnce({
+      success: true,
+      data: { resumedBatchTasks: 1, resumedSummaryJobs: 0 },
+    });
+    mocks.apiFetcher.mockImplementation(async (url: string) => ({
+      success: true,
+      data: url.includes("/ai/batch")
+        ? { active: true, tasks: [{ id: "task-page-2", status: "RUNNING", counts: { running: 1 }, version: "v1" }] }
+        : { active: false, counts: {} },
+    }));
+
+    renderSync(0);
+    await flushAsyncWork();
+
+    expect(mocks.apiMutate).toHaveBeenCalledTimes(1);
+    expect(mocks.apiFetcher).toHaveBeenCalledWith("/api/admin/posts/summarize/bulk");
+    expect(mocks.apiFetcher).toHaveBeenCalledWith("/api/admin/ai/batch?includeActive=1&taskId=task-1");
+    expect(mocks.refresh).toHaveBeenCalledTimes(2);
+
+    // Fast polling interval is 2500ms (much faster than 10000ms)
+    mocks.apiFetcher.mockResolvedValue({
+      success: true,
+      data: { active: false, tasks: [], counts: {} },
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(2500);
+    });
+    await flushAsyncWork();
+    expect(mocks.refresh).toHaveBeenCalledTimes(3);
   });
 
   test("refreshes only when the polled task status changes without repeating POST resume on poll ticks", async () => {

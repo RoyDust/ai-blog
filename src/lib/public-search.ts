@@ -15,6 +15,7 @@ export const PUBLIC_SEARCH_SCORE_WEIGHTS = {
 } as const
 
 export const PUBLIC_SEARCH_CONTENT_SNIPPET_MAX_LENGTH = 240
+export const PUBLIC_SEARCH_SNIPPET_MAX_LENGTH = 160
 
 export type PublicSearchInput = {
   query: string
@@ -32,6 +33,7 @@ type SearchPostRecord = {
   title: string
   slug: string
   excerpt: string | null
+  snippet: string | null
   contentSnippet: string | null
   coverImage: string | null
   featured?: boolean
@@ -73,7 +75,7 @@ type RankedSearchEnvelope = {
   items: RankedSearchItem[] | null
 }
 
-type HydratedSearchPostRecord = Omit<SearchPostRecord, "contentSnippet" | "category" | "tags"> & {
+type HydratedSearchPostRecord = Omit<SearchPostRecord, "snippet" | "contentSnippet" | "category" | "tags"> & {
   content?: string | null
   category: {
     name?: string | null
@@ -128,6 +130,30 @@ function toBoundedContentSnippet(value: unknown): string | null {
   if (typeof value !== "string") return null
   const sliced = value.slice(0, PUBLIC_SEARCH_CONTENT_SNIPPET_MAX_LENGTH)
   return sliced.length > 0 ? sliced : null
+}
+
+export function toPlainTextSearchSnippet(
+  value: unknown,
+  maxLength = PUBLIC_SEARCH_SNIPPET_MAX_LENGTH,
+): string | null {
+  if (typeof value !== "string") return null
+  const plain = value
+    .replace(/```[\w-]*\s*/g, " ")
+    .replace(/`+/g, "")
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1 ")
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/^\s{0,3}#{1,6}\s+/gm, "")
+    .replace(/^\s{0,3}>\s?/gm, "")
+    .replace(/^\s{0,3}(?:[-*+]|\d+\.)\s+/gm, "")
+    .replace(/(\*\*|__|~~|\*|_)/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+
+  if (!plain) return null
+  if (plain.length <= maxLength) return plain
+  if (maxLength <= 1) return plain.slice(0, maxLength)
+  return `${plain.slice(0, maxLength - 1).trimEnd()}…`
 }
 
 function normalizePagination({ page, limit }: Pick<PublicSearchInput, "page" | "limit">) {
@@ -275,13 +301,18 @@ export async function searchPublicPosts(input: PublicSearchInput): Promise<{
           }))
       : []
 
+    const contentSnippet = toBoundedContentSnippet(rankedItem.contentSnippet ?? post.content)
+    const excerpt = post.excerpt ?? null
+    const snippetSource = excerpt?.trim() ? excerpt : contentSnippet
+
     return [
       {
         id: post.id,
         title: post.title,
         slug: post.slug,
-        excerpt: post.excerpt ?? null,
-        contentSnippet: toBoundedContentSnippet(rankedItem.contentSnippet ?? post.content),
+        excerpt,
+        snippet: toPlainTextSearchSnippet(snippetSource),
+        contentSnippet,
         coverImage: post.coverImage ?? null,
         ...(post.featured !== undefined ? { featured: post.featured } : {}),
         createdAt: post.createdAt,

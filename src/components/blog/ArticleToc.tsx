@@ -1,8 +1,7 @@
 "use client";
 
-import Link from "next/link";
-import { useEffect, useState } from "react";
-import { LayoutGroup, motion } from "motion/react";
+import { useEffect, useId, useState, type MouseEvent } from "react";
+import { LayoutGroup, motion, useReducedMotion } from "motion/react";
 
 interface TocHeading {
   id: string;
@@ -12,13 +11,30 @@ interface TocHeading {
 
 interface ArticleTocProps {
   headings: TocHeading[];
+  variant?: "rail" | "drawer";
+  onNavigate?: () => void;
 }
 
-export function ArticleToc({ headings }: ArticleTocProps) {
+export function scrollToHeading(id: string, reduce: boolean | null) {
+  const target = document.getElementById(id);
+  if (!target) return;
+
+  const prefersReduced = Boolean(reduce) || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
+  target.scrollIntoView({ behavior: prefersReduced ? "auto" : "smooth", block: "start" });
+  window.history.replaceState(null, "", `#${encodeURIComponent(id)}`);
+}
+
+export function ArticleToc({ headings, onNavigate }: ArticleTocProps) {
+  const layoutGroupId = useId();
+  const reduce = useReducedMotion();
   const [activeId, setActiveId] = useState<string>("");
 
   useEffect(() => {
     if (headings.length === 0) return;
+
+    if (typeof IntersectionObserver !== "function") {
+      return;
+    }
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -44,16 +60,25 @@ export function ArticleToc({ headings }: ArticleTocProps) {
     return <p className="text-sm leading-6 text-[var(--text-muted)]">当前文章暂无章节标题。</p>;
   }
 
+  const handleHeadingClick = (event: MouseEvent<HTMLAnchorElement>, id: string) => {
+    event.preventDefault();
+    setActiveId(id);
+    scrollToHeading(id, reduce);
+    onNavigate?.();
+  };
+
   return (
-    <LayoutGroup id="article-toc">
+    <LayoutGroup id={layoutGroupId}>
       <ul className="relative space-y-1 before:absolute before:left-1 before:top-2 before:h-[calc(100%-1rem)] before:w-px before:bg-[var(--line-color)]">
         {headings.map((heading, index) => {
           const isActive = activeId === heading.id;
+
           return (
             <li className="relative" key={`${heading.id}-${index}`}>
-              <Link
+              <a
                 className="reader-link group flex min-w-0 items-start gap-2 rounded-lg py-1 pr-2 text-[13px] leading-5 text-[var(--text-body)] hover:bg-[var(--btn-plain-bg-hover)]"
                 href={`#${heading.id}`}
+                onClick={(event) => handleHeadingClick(event, heading.id)}
               >
                 <span className="relative mt-1.5 flex h-2 w-2 shrink-0 items-center justify-center">
                   <span className="h-1.5 w-1.5 rounded-full bg-[var(--text-faint)] transition-colors group-hover:bg-[var(--brand)]" />
@@ -71,7 +96,7 @@ export function ArticleToc({ headings }: ArticleTocProps) {
                 >
                   {heading.text}
                 </span>
-              </Link>
+              </a>
             </li>
           );
         })}

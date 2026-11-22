@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { Bookmark } from 'lucide-react'
 import { addBookmark, isBookmarked, removeBookmark } from '@/lib/bookmark-store'
 import { motion, useReducedMotion } from "motion/react";
@@ -15,10 +15,36 @@ interface BookmarkButtonProps {
   excerpt?: string | null
 }
 
+function subscribeBookmarks(onStoreChange: () => void) {
+  if (typeof window === 'undefined') {
+    return () => {}
+  }
+
+  window.addEventListener('storage', onStoreChange)
+  window.addEventListener('bookmarks:changed', onStoreChange)
+
+  return () => {
+    window.removeEventListener('storage', onStoreChange)
+    window.removeEventListener('bookmarks:changed', onStoreChange)
+  }
+}
+
+function getServerBookmarkSnapshot() {
+  return false
+}
+
 export function BookmarkButton({ slug, initialBookmarked, title, excerpt }: BookmarkButtonProps) {
-  const [bookmarked, setBookmarked] = useState(() => isBookmarked(slug) || initialBookmarked)
+  const getClientSnapshot = useCallback(() => isBookmarked(slug), [slug])
+  const storedBookmarked = useSyncExternalStore(
+    subscribeBookmarks,
+    getClientSnapshot,
+    getServerBookmarkSnapshot,
+  )
+  const [unbookmarkedInitialForSlug, setUnbookmarkedInitialForSlug] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const reduceMotion = useReducedMotion()
+
+  const bookmarked = storedBookmarked || (initialBookmarked && unbookmarkedInitialForSlug !== slug)
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const particlesRef = useRef<Particle[]>([])
@@ -34,38 +60,40 @@ export function BookmarkButton({ slug, initialBookmarked, title, excerpt }: Book
     }
   }, [])
 
-  const spawnParticles = (isBookmarked: boolean) => {
+  const spawnParticles = (nextBookmarked: boolean) => {
     if (prefersReducedParticleMotion(reduceMotion)) return
 
     spawnParticleBurst({
       animationRef,
       canvas: canvasRef.current,
-      hueOffset: isBookmarked ? 24 : 168,
+      hueOffset: nextBookmarked ? 24 : 168,
       hueOffsets: [-28, -10, 0, 20, 40],
-      lightness: isBookmarked ? [58, 62, 66, 60, 64] : [60, 64, 58, 66, 62],
+      lightness: nextBookmarked ? [58, 62, 66, 60, 64] : [60, 64, 58, 66, 62],
       particlesRef,
     })
   }
 
-  const handleBookmark = async () => {
+  const handleBookmark = () => {
     if (loading) return
 
     const nextValue = !bookmarked
-    setBookmarked(nextValue)
     setLoading(true)
 
     spawnParticles(nextValue)
 
     try {
       if (nextValue) {
+        setUnbookmarkedInitialForSlug(null)
         addBookmark({ slug, title, excerpt: excerpt ?? undefined })
       } else {
+        if (initialBookmarked) {
+          setUnbookmarkedInitialForSlug(slug)
+        }
         removeBookmark(slug)
       }
 
       window.dispatchEvent(new CustomEvent('bookmarks:changed'))
     } catch (error) {
-      setBookmarked(!nextValue)
       console.error('Bookmark error:', error)
     } finally {
       setLoading(false)

@@ -314,6 +314,37 @@ function appendGeneratorAttribution(content: string, aiModel: AiModelOption) {
   return `${content.trim()}\n${attribution}`
 }
 
+export function buildEmptyCandidatesPlaceholderDraft({
+  date,
+  aiModel,
+}: {
+  date: Date
+  aiModel: AiModelOption
+}): DailyAiNewsDraft {
+  const dateLabel = formatDateId(date)
+  const placeholderContent = [
+    "## 今日摘要",
+    "",
+    `截至 ${dateLabel}，所配置的 AI 新闻来源暂未返回可用候选动态。本文为系统自动生成的待人工审核占位草稿，暂不会自动发布。`,
+    "",
+    "## 待人工处理事项",
+    "",
+    "- 检查 AI 新闻来源连通性与抓取状态。",
+    "- 补充当日重要 AI 行业动态或在来源恢复后重新生成草稿。",
+    "",
+    "## 来源链接",
+    "- 暂无来源链接。",
+  ].join("\n")
+
+  return {
+    title: `${dateLabel} AI 日报（待人工补充）`.slice(0, 160),
+    slug: buildDailyAiNewsSlug(date),
+    excerpt: "今日配置的 AI 新闻来源暂未返回可用候选条目，已生成待人工审核占位草稿，暂不自动发布。",
+    content: appendGeneratorAttribution(placeholderContent, aiModel),
+    generatedBy: getGeneratorModelSnapshot(aiModel),
+  }
+}
+
 /**
  * 调用选定模型生成中文 AI 日报草稿。
  *
@@ -339,11 +370,11 @@ export async function generateDailyAiNewsDraft({
   fetchImpl?: typeof fetch
 }): Promise<DailyAiNewsDraft> {
   const selectedCandidates = candidates.slice(0, MAX_CANDIDATES_FOR_AI)
+  const resolvedModel = aiModel ?? (await resolveDailyAiNewsModel(modelId))
   if (selectedCandidates.length === 0) {
-    throw new ValidationError("No AI news candidates available")
+    return buildEmptyCandidatesPlaceholderDraft({ date, aiModel: resolvedModel })
   }
 
-  const resolvedModel = aiModel ?? (await resolveDailyAiNewsModel(modelId))
   const dateLabel = formatDateId(date)
   const prompt = [
     "请基于候选新闻生成一篇中文 AI 新闻日报博客，日期为 " + dateLabel + "。",

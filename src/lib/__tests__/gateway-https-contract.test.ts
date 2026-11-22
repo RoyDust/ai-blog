@@ -258,11 +258,11 @@ while [ "$#" -gt 0 ]; do
       request_method="$2"
       shift 2
       ;;
-    --output)
+    --output|-o)
       output_file="$2"
       shift 2
       ;;
-    --write-out)
+    --write-out|-w)
       write_http_code=1
       shift 2
       ;;
@@ -281,7 +281,7 @@ if [ -n "$output_file" ]; then
   fi
 fi
 if [ "$write_http_code" = "1" ]; then
-  printf '200'
+  printf '%s' "\${MOCK_CURL_HTTP_STATUS:-200}"
 fi
 `,
     { mode: 0o755 }
@@ -374,7 +374,7 @@ describe("Unit B2: Nginx HTTPS gateway hardening contract", () => {
   const nginxSource = readFileSync(nginxConfigPath, "utf8")
   const ast = parseNginxConfig(nginxSource)
 
-  test("parses cleanly with balanced braces, server_tokens off, and WebSocket connection upgrade map", () => {
+  test("parses cleanly with balanced braces, server_tokens off, upstream keepalive, and keepalive-safe upgrade map", () => {
     expect(nginxSource).not.toContain("47.98.167.32")
     expect(nginxSource).not.toContain('Connection "upgrade"')
 
@@ -384,7 +384,13 @@ describe("Unit B2: Nginx HTTPS gateway hardening contract", () => {
     expect(mapBlocks).toHaveLength(1)
     expect(mapBlocks[0]!.args).toEqual(["$http_upgrade", "$connection_upgrade"])
     expect(getDirectiveValues(mapBlocks[0]!, "default")).toEqual([["upgrade"]])
-    expect(getDirectiveValues(mapBlocks[0]!, "''")).toEqual([["close"]])
+    expect(getDirectiveValues(mapBlocks[0]!, "''")).toEqual([["''"]])
+
+    const upstreamBlocks = ast.blocks.filter((block) => block.name === "upstream")
+    expect(upstreamBlocks).toHaveLength(1)
+    expect(upstreamBlocks[0]!.args).toEqual(["inkforge_upstream"])
+    expect(getDirectiveValues(upstreamBlocks[0]!, "server")).toEqual([["127.0.0.1:3000"]])
+    expect(getDirectiveValues(upstreamBlocks[0]!, "keepalive")).toEqual([["32"]])
   })
 
   test("configures port 80 solely for ACME HTTP-01 challenge and 301 HTTPS redirect", () => {
@@ -442,7 +448,7 @@ describe("Unit B2: Nginx HTTPS gateway hardening contract", () => {
       expectedTimeout: string
     ) => {
       expect(locationBlock).toBeDefined()
-      expect(getDirectiveValues(locationBlock!, "proxy_pass")).toEqual([["http://127.0.0.1:3000"]])
+      expect(getDirectiveValues(locationBlock!, "proxy_pass")).toEqual([["http://inkforge_upstream"]])
       expect(getDirectiveValues(locationBlock!, "proxy_http_version")).toEqual([["1.1"]])
       expect(getDirectiveValues(locationBlock!, "proxy_read_timeout")).toEqual([[expectedTimeout]])
       expect(getDirectiveValues(locationBlock!, "proxy_send_timeout")).toEqual([[expectedTimeout]])
@@ -561,6 +567,23 @@ describe("Unit B2: Cron workflows HTTPS enforcement and concurrency guards", () 
         })
         expect(missingRunIdResult.status).not.toBe(0)
         expect(missingRunIdResult.stderr).toContain("Missing runId in daily AI news trigger response")
+      } else {
+        for (const badStatus of ["301", "302", "500"]) {
+          const redirectOrError = executeWorkflowRunScript(bashPath, runScript, {
+            PRODUCTION_BASE_URL: "https://blog.example.com",
+            MOCK_CURL_HTTP_STATUS: badStatus,
+            MOCK_CURL_TRIGGER_BODY: "",
+          })
+          expect(redirectOrError.status).not.toBe(0)
+        }
+        for (const badBody of ["<html>Moved</html>", '{"success":false}', "{}"]) {
+          const invalidPayload = executeWorkflowRunScript(bashPath, runScript, {
+            PRODUCTION_BASE_URL: "https://blog.example.com",
+            MOCK_CURL_HTTP_STATUS: "200",
+            MOCK_CURL_TRIGGER_BODY: badBody,
+          })
+          expect(invalidPayload.status).not.toBe(0)
+        }
       }
     }
   )

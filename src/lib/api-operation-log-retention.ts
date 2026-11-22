@@ -3,21 +3,90 @@ import { getApiOperationLogMaxStorageBytes, getApiOperationLogStorageStats } fro
 
 export const API_LOG_RETENTION_BATCH_LIMIT = 1000
 export const API_LOG_RETENTION_LOCK = [21199, 2] as const
+export const RATE_LIMIT_RETENTION_BATCH_LIMIT = 5000
+export const RATE_LIMIT_RETENTION_MAX_BATCHES = 20
 
-export async function runApiOperationLogRetention(source: 'cron' | 'admin') {
+const DELETE_EXPIRED_RATE_LIMIT_BATCH_SQL = `
+  DELETE FROM "rate_limit_entries"
+  WHERE "key" IN (
+    SELECT "key"
+    FROM "rate_limit_entries"
+    WHERE "reset_at" <= NOW()
+    ORDER BY "reset_at" ASC
+    LIMIT $1
+  )
+`
+
+type RawBatchExecutor = {
+  $executeRawUnsafe?: (query: string, ...values: unknown[]) => Promise<number | bigint>
+  $executeRaw?: (query: TemplateStringsArray, ...values: unknown[]) => Promise<number | bigint>
+}
+
+export type RetentionPrismaClient = RawBatchExecutor & {
+  $transaction: typeof prisma.$transaction
+}
+
+async function executeExpiredRateLimitBatchDelete(
+  executor: RawBatchExecutor,
+  batchLimit: number,
+): Promise<number> {
+  if (typeof executor.$executeRawUnsafe === 'function') {
+    return Number(await executor.$executeRawUnsafe(DELETE_EXPIRED_RATE_LIMIT_BATCH_SQL, batchLimit))
+  }
+  if (typeof executor.$executeRaw === 'function') {
+    return Number(
+      await executor.$executeRaw`
+        DELETE FROM "rate_limit_entries"
+        WHERE "key" IN (
+          SELECT "key"
+          FROM "rate_limit_entries"
+          WHERE "reset_at" <= NOW()
+          ORDER BY "reset_at" ASC
+          LIMIT ${batchLimit}
+        )
+      `,
+    )
+  }
+  return 0
+}
+
+export async function pruneExpiredRateLimitEntries(
+  executor: RawBatchExecutor = prisma,
+  {
+    batchLimit = RATE_LIMIT_RETENTION_BATCH_LIMIT,
+    maxBatches = RATE_LIMIT_RETENTION_MAX_BATCHES,
+  }: {
+    batchLimit?: number
+    maxBatches?: number
+  } = {},
+): Promise<number> {
+  let totalDeleted = 0
+  for (let batch = 0; batch < maxBatches; batch += 1) {
+    const deleted = await executeExpiredRateLimitBatchDelete(executor, batchLimit)
+    totalDeleted += deleted
+    if (deleted < batchLimit) {
+      break
+    }
+  }
+  return totalDeleted
+}
+
+export async function runApiOperationLogRetention(
+  source: 'cron' | 'admin',
+  client: RetentionPrismaClient = prisma,
+) {
   const startedAt = Date.now()
   try {
-    const result = await prisma.$transaction(async (tx) => {
+    let fallbackRateLimitExecutor: RawBatchExecutor | null = null
+    const txResult = await client.$transaction(async (tx) => {
+      fallbackRateLimitExecutor = tx as unknown as RawBatchExecutor
       const [lock] = await tx.$queryRawUnsafe<Array<{ acquired: boolean }>>(
         'SELECT pg_try_advisory_xact_lock($1::int, $2::int) AS acquired', ...API_LOG_RETENTION_LOCK,
       )
       if (!lock?.acquired) return {
         source, status: 'skipped_locked' as const, maxStorageBytes: null, batchLimit: API_LOG_RETENTION_BATCH_LIMIT,
-        before: null, after: null, deletedCount: 0, expiredRateLimitDeletedCount: 0, remainingExcessBytes: null,
+        before: null, after: null, deletedCount: 0, remainingExcessBytes: null,
       }
-      const expiredRateLimitDeletedCount = Number(
-        await tx.$executeRawUnsafe('DELETE FROM "rate_limit_entries" WHERE "reset_at" <= NOW()'),
-      )
       const maxStorageBytes = await getApiOperationLogMaxStorageBytes(tx)
       const before = await getApiOperationLogStorageStats(tx)
       if (before.bytes <= maxStorageBytes) {
@@ -29,7 +98,6 @@ export async function runApiOperationLogRetention(source: 'cron' | 'admin') {
           before,
           after: before,
           deletedCount: 0,
-          expiredRateLimitDeletedCount,
           remainingExcessBytes: 0,
         }
       }
@@ -47,11 +115,24 @@ export async function runApiOperationLogRetention(source: 'cron' | 'admin') {
       return {
         source, status: after.bytes <= maxStorageBytes ? 'completed' as const : 'more_remaining' as const,
         maxStorageBytes, batchLimit: API_LOG_RETENTION_BATCH_LIMIT, before, after, deletedCount,
-        expiredRateLimitDeletedCount,
         remainingExcessBytes: Math.max(0, after.bytes - maxStorageBytes),
       }
     }, { maxWait: 2000, timeout: 30000 })
-    const response = { ...result, durationMs: Date.now() - startedAt }
+
+    // Run bounded rate-limit cleanup outside the interactive transaction so a large
+    // rate_limit_entries backlog cannot exceed the 30s transaction timeout or roll back log retention.
+    const rateLimitExecutor =
+      typeof client.$executeRawUnsafe === 'function' || typeof client.$executeRaw === 'function'
+        ? client
+        : (fallbackRateLimitExecutor ?? client)
+    const expiredRateLimitDeletedCount =
+      txResult.status === 'skipped_locked' ? 0 : await pruneExpiredRateLimitEntries(rateLimitExecutor)
+
+    const response = {
+      ...txResult,
+      expiredRateLimitDeletedCount,
+      durationMs: Date.now() - startedAt,
+    }
     console.info('api_operation_log_retention', response)
     return response
   } catch (error) {

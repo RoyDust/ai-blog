@@ -11,6 +11,7 @@ import {
   parseLoginInput,
   parsePostInput,
   parsePostPatchInput,
+  parseProfileUpdateInput,
   parsePublishInput,
   parseRegisterInput,
   parseUploadRequest,
@@ -285,5 +286,47 @@ describe('validation helpers', () => {
 
   test('returns an empty list when no ids are provided', () => {
     expect(parseIdList(new URLSearchParams())).toEqual([])
+  })
+
+  test('normalizes email to lowercase in register, login, and profile update parsers and parses optional currentPassword', () => {
+    expect(parseRegisterInput({ email: '  Reader@Example.COM ', password: 'password123', name: 'Reader' })).toEqual({
+      email: 'reader@example.com',
+      password: 'password123',
+      name: 'Reader',
+    })
+
+    expect(parseLoginInput({ email: '  Admin@Example.COM ', password: 'secret' })).toEqual({
+      email: 'admin@example.com',
+      password: 'secret',
+    })
+
+    expect(
+      parseProfileUpdateInput({
+        name: '  林舟 ',
+        email: '  NewReader@Example.COM ',
+        image: null,
+        currentPassword: 'my-current-password',
+      }),
+    ).toEqual({
+      name: '林舟',
+      email: 'newreader@example.com',
+      image: null,
+      currentPassword: 'my-current-password',
+    })
+
+    expect(
+      parseProfileUpdateInput({
+        name: '林舟',
+        email: 'reader@example.com',
+        currentPassword: '   ',
+      }),
+    ).toEqual({
+      name: '林舟',
+      email: 'reader@example.com',
+      image: undefined,
+      currentPassword: undefined,
+    })
+
+    expect(() => parseProfileUpdateInput({ currentPassword: 123 })).toThrow(ValidationError)
   })
 })

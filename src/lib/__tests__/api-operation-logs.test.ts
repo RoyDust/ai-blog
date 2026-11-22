@@ -28,6 +28,7 @@ import {
   hashIp,
   listApiOperationLogs,
   queryToJson,
+  resetIpHashProdWarningForTests,
   sanitizeLogPayload,
 } from "@/lib/api-operation-logs";
 import { withApiOperationLogging } from "@/lib/api-operation-log-route";
@@ -37,6 +38,7 @@ describe("api operation logs", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    resetIpHashProdWarningForTests();
     process.env = { ...originalEnv };
     delete process.env.API_OPERATION_LOG_TEST_ENABLE;
   });
@@ -64,14 +66,77 @@ describe("api operation logs", () => {
     });
   });
 
-  test("redacts sensitive query params", () => {
-    const params = new URLSearchParams("q=posts&token=abc&tag=next&tag=prisma");
+  test("redacts sensitive query params including OAuth callback parameters and scrubs URL values", () => {
+    const params = new URLSearchParams(
+      "q=posts&token=abc&code=gho_secret&state=csrf_123&oauth_token=ot_1&oauth_verifier=ov_1&id_token=idt_1&referrer=https%3A%2F%2Fuser%3Apass%40site.example%2Fcb%3Fapi_key%3Dsk-1%26tab%3Dprofile&tag=next&tag=prisma",
+    );
 
     expect(queryToJson(params)).toEqual({
       q: "posts",
       token: "[REDACTED]",
+      code: "[REDACTED]",
+      state: "[REDACTED]",
+      oauth_token: "[REDACTED]",
+      oauth_verifier: "[REDACTED]",
+      id_token: "[REDACTED]",
+      referrer: "https://site.example/cb?api_key=[REDACTED]&tab=profile",
       tag: ["next", "prisma"],
     });
+  });
+
+  test("scrubs embedded URL credentials and sensitive query values in sanitizeLogPayload while preserving safe URL structure", () => {
+    const sanitized = sanitizeLogPayload({
+      url: "https://rss-user:rss-pass@feeds.example.com:8443/private/feed.xml?token=sec_tok&key=k1&secret=s1&password=p1&code=c1&state=st1&sig=sg1&signature=sig2&access_token=at1&api_key=ak1&apikey=ak2&auth=au1&category=ai&author=alice",
+      referrer: "http://example.com/articles/1?utm_source=newsletter",
+      note: "Upstream failed at https://u:p@api.example.com/v1/rss?token=xyz123&format=xml.",
+    });
+
+    expect(sanitized).toEqual({
+      url: "https://feeds.example.com:8443/private/feed.xml?token=[REDACTED]&key=[REDACTED]&secret=[REDACTED]&password=[REDACTED]&code=[REDACTED]&state=[REDACTED]&sig=[REDACTED]&signature=[REDACTED]&access_token=[REDACTED]&api_key=[REDACTED]&apikey=[REDACTED]&auth=[REDACTED]&category=ai&author=alice",
+      referrer: "http://example.com/articles/1?utm_source=newsletter",
+      note: "Upstream failed at https://api.example.com/v1/rss?token=[REDACTED]&format=xml.",
+    });
+  });
+
+  test("omits query logging when captureQuery is false (including /api/auth/[...nextauth])", async () => {
+    process.env.API_OPERATION_LOG_TEST_ENABLE = "1";
+    process.env.NEXTAUTH_SECRET = "audit-log-hmac-secret";
+    prismaMocks.create.mockResolvedValue({ id: "log-auth" });
+
+    const handler = withApiOperationLogging(
+      async () => new Response(null, { status: 302, headers: { location: "/" } }),
+      {
+        scope: "auth",
+        operation: "auth.nextauth",
+        route: "/api/auth/[...nextauth]",
+        captureQuery: false,
+        captureRequestBody: false,
+      },
+    );
+
+    await handler(
+      new Request("http://localhost/api/auth/callback/github?code=gho_live_secret&state=oauth_state_secret"),
+    );
+
+    expect(prismaMocks.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        scope: "auth",
+        operation: "auth.nextauth",
+        query: undefined,
+        requestBody: undefined,
+      }),
+    });
+    expect(JSON.stringify(prismaMocks.create.mock.calls[0])).not.toContain("gho_live_secret");
+    expect(JSON.stringify(prismaMocks.create.mock.calls[0])).not.toContain("oauth_state_secret");
+
+    const { readFileSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const nextAuthRouteSource = readFileSync(
+      join(process.cwd(), "src/app/api/auth/[...nextauth]/route.ts"),
+      "utf8",
+    );
+    expect(nextAuthRouteSource).toContain("captureQuery: false");
+    expect(nextAuthRouteSource).toContain("captureRequestBody: false");
   });
 
   test("skips writes in tests unless explicitly enabled", async () => {
@@ -222,6 +287,26 @@ describe("api operation logs", () => {
     const digestBeta = hashIp("198.51.100.42");
     expect(digestBeta).toMatch(/^[0-9a-f]{64}$/);
     expect(digestBeta).not.toBe(digestAlpha);
+
+    // Production without valid AUTH_SECRET / NEXTAUTH_SECRET must warn once and return null (never dev fallback)
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    process.env = { ...originalEnv, NODE_ENV: "production" };
+    delete process.env.NEXTAUTH_SECRET;
+    delete process.env.AUTH_SECRET;
+
+    expect(hashIp("198.51.100.42")).toBeNull();
+    expect(hashIp("203.0.113.99")).toBeNull();
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+
+    // Placeholder secret in production also fails closed to null
+    process.env.NEXTAUTH_SECRET = "replace-with-strong-secret";
+    expect(hashIp("198.51.100.42")).toBeNull();
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+
+    // Configured production secret resumes HMAC hashing
+    process.env.NEXTAUTH_SECRET = "prod-real-hmac-secret";
+    expect(hashIp("198.51.100.42")).toMatch(/^[0-9a-f]{64}$/);
+    warnSpy.mockRestore();
   });
 
   test("blocks malformed JSON plaintext secrets, returns 400 Invalid JSON payload, and persists HMAC ipHash", async () => {

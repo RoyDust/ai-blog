@@ -263,7 +263,7 @@ export function clampPagination(input: { page?: string | null; limit?: string | 
  */
 export function parseRegisterInput(payload: unknown) {
   const data = (payload ?? {}) as { email?: unknown; password?: unknown; name?: unknown }
-  const email = readString(data.email, 'email')
+  const email = readString(data.email, 'email').toLowerCase()
   const password = readString(data.password, 'password')
   const name = optionalString(data.name, 'name')
 
@@ -285,7 +285,7 @@ export function parseRegisterInput(payload: unknown) {
  */
 export function parseLoginInput(payload: unknown) {
   const data = (payload ?? {}) as { email?: unknown; password?: unknown }
-  const email = readString(data.email, 'email')
+  const email = readString(data.email, 'email').toLowerCase()
   const password = readString(data.password, 'password')
 
   if (!EMAIL_PATTERN.test(email)) {
@@ -670,13 +670,26 @@ export function parseTaxonomyInput(payload: unknown) {
 
 /**
  * 校验用户资料更新输入。
- * 允许部分字段缺省，但会保证 email、头像 URL、名称长度满足约束。
+ * 允许部分字段缺省，但会保证 email、头像 URL、名称长度满足约束，并将邮箱统一归一化为小写。
  */
 export function parseProfileUpdateInput(payload: unknown) {
-  const data = (payload ?? {}) as { name?: unknown; email?: unknown; image?: unknown }
+  const data = (payload ?? {}) as {
+    name?: unknown
+    email?: unknown
+    image?: unknown
+    currentPassword?: unknown
+  }
   const name = optionalString(data.name, 'name')
-  const email = optionalString(data.email, 'email')
+  const email = optionalString(data.email, 'email')?.toLowerCase()
   const image = optionalNullableString(data.image, 'image')
+
+  let currentPassword: string | undefined
+  if (data.currentPassword !== undefined && data.currentPassword !== null) {
+    if (typeof data.currentPassword !== 'string') {
+      throw new ValidationError('Invalid currentPassword')
+    }
+    currentPassword = data.currentPassword.trim() ? data.currentPassword : undefined
+  }
 
   assertLength(name, 'name', MAX_NAME_LENGTH)
   assertLength(image ?? undefined, 'image', MAX_COVER_URL_LENGTH)
@@ -689,6 +702,7 @@ export function parseProfileUpdateInput(payload: unknown) {
     name,
     email,
     image,
+    currentPassword,
   }
 }
 

@@ -1,16 +1,25 @@
 "use client";
 
+import dynamic from "next/dynamic";
+import { SessionProvider } from "next-auth/react";
 import { Suspense } from "react";
 import { SWRConfig } from "swr";
 
-import { AuthProvider } from "@/components/AuthProvider";
 import { ThemeProvider } from "@/components/ThemeProvider";
-import { GlobalLoginDialog } from "@/components/auth/GlobalLoginDialog";
-import { Toaster } from "@/components/ui/Toaster";
 import { BlogMotionProvider } from "@/components/motion/BlogMotionProvider";
+import { Toaster } from "@/components/ui/Toaster";
 import { apiFetcher, handleGlobalSwrError } from "@/lib/client-api";
 
 export { handleGlobalSwrError, shouldRedirectAdminUnauthorized } from "@/lib/client-api";
+
+const GlobalLoginDialog = dynamic(
+  () => import("@/components/auth/GlobalLoginDialog").then((mod) => mod.GlobalLoginDialog),
+  { ssr: false },
+);
+
+function AuthProvider({ children }: { children: React.ReactNode }) {
+  return <SessionProvider refetchOnWindowFocus={false}>{children}</SessionProvider>;
+}
 
 /**
  * 全局 SWR 配置。
@@ -35,7 +44,7 @@ const swrConfig = {
  *
  * 这里按“越基础越靠外”的顺序包裹：
  * - SWRConfig：全局数据请求配置（key 缓存 / 去重 / 错误重试）
- * - AuthProvider：会话与登录态
+ * - AuthProvider（SessionProvider refetchOnWindowFocus={false}）：会话与登录态
  * - ThemeProvider：亮暗色与主题状态
  * - Toaster：全局消息提示
  *

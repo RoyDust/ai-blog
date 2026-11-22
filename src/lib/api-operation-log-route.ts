@@ -30,6 +30,7 @@ export type ApiOperationLogRouteOptions<TContext = unknown> = {
   scope: string;
   operation?: string;
   route?: string;
+  captureQuery?: boolean;
   captureRequestBody?: boolean;
   metadata?: MetadataFactory<TContext>;
 };
@@ -208,7 +209,7 @@ export function withApiOperationLogging<TContext = unknown>(
             actorLabel: actor.actorLabel ?? null,
             ipHash: hashIp(getClientIpFromHeaders(request.headers)),
             userAgent: request.headers.get("user-agent"),
-            query: queryToJson(url.searchParams),
+            query: options.captureQuery === false ? undefined : queryToJson(url.searchParams),
             requestBody,
             errorName: loggedError.errorName,
             errorMessage: loggedError.errorMessage,

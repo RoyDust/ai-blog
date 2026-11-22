@@ -218,17 +218,36 @@ describe('OpenAICompatibleCompletionClient', () => {
       expect(fetchImpl).toHaveBeenCalledTimes(1)
     }
 
-    const crossOriginRedirectFetch = fetchMock(
-      new Response(null, { status: 307, headers: { location: 'https://other-provider.example/v1/chat/completions' } }),
+    for (const status of [301, 302, 303, 307, 308]) {
+      const crossOriginRedirectFetch = fetchMock(
+        new Response(null, { status, headers: { location: 'https://other-provider.example/v1/chat/completions' } }),
+        jsonResponse({ choices: [{ message: { content: 'should-never-reach' } }] }),
+      )
+      const crossOriginClient = new OpenAICompatibleCompletionClient(
+        { baseUrl: 'https://provider.example/v1', model: 'demo', apiKey: 'sk-secret' },
+        { fetchImpl: crossOriginRedirectFetch, sleep: async () => {} },
+      )
+      await expect(crossOriginClient.completeText([{ role: 'user', content: 'unpublished article draft' }])).rejects.toMatchObject({
+        kind: 'upstream-rejected',
+        status,
+        retryable: false,
+      })
+      expect(crossOriginRedirectFetch).toHaveBeenCalledTimes(1)
+    }
+
+    const sameOriginRedirectFetch = fetchMock(
+      new Response(null, { status: 307, headers: { location: 'https://provider.example/v2/chat/completions' } }),
       jsonResponse({ choices: [{ message: { content: 'ok' } }] }),
     )
-    const crossOriginClient = new OpenAICompatibleCompletionClient(
+    const sameOriginClient = new OpenAICompatibleCompletionClient(
       { baseUrl: 'https://provider.example/v1', model: 'demo', apiKey: 'sk-secret' },
-      { fetchImpl: crossOriginRedirectFetch, sleep: async () => {} },
+      { fetchImpl: sameOriginRedirectFetch, sleep: async () => {} },
     )
-    await expect(crossOriginClient.completeText(messages)).resolves.toMatchObject({ text: 'ok' })
-    const secondHopHeaders = (crossOriginRedirectFetch as unknown as ReturnType<typeof vi.fn>).mock.calls[1]?.[1]?.headers as Record<string, string>
-    expect(secondHopHeaders).not.toHaveProperty('authorization')
-    expect(secondHopHeaders).not.toHaveProperty('Authorization')
+    await expect(sameOriginClient.completeText(messages)).resolves.toMatchObject({ text: 'ok' })
+    expect(sameOriginRedirectFetch).toHaveBeenCalledTimes(2)
+    const [secondUrl, secondInit] = (sameOriginRedirectFetch as unknown as ReturnType<typeof vi.fn>).mock.calls[1] as [string, RequestInit]
+    expect(secondUrl).toBe('https://provider.example/v2/chat/completions')
+    expect((secondInit.headers as Record<string, string>).authorization).toBe('Bearer sk-secret')
+    expect(JSON.parse(String(secondInit.body))).toEqual({ model: 'demo', messages })
   })
 })

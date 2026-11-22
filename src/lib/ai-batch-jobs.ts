@@ -36,15 +36,19 @@ async function withBatchItemConcurrencySlot<T>(task: () => Promise<T>): Promise<
     await new Promise<void>((resolve) => {
       waitingBatchItemSlotQueue.push(resolve);
     });
+  } else {
+    activeBatchItemSlots += 1;
   }
 
-  activeBatchItemSlots += 1;
   try {
     return await task();
   } finally {
-    activeBatchItemSlots -= 1;
     const next = waitingBatchItemSlotQueue.shift();
-    next?.();
+    if (next) {
+      next();
+    } else {
+      activeBatchItemSlots -= 1;
+    }
   }
 }
 
@@ -100,12 +104,29 @@ const targetedResumeTaskTypes = [
 export type AiBatchMode = "missing-only" | "overwrite" | "suggest-only";
 
 /** A bounded read by the page's observed IDs includes the last terminal transition. */
-export async function getAiBatchTaskSnapshot(taskIds: string[]) {
+export async function getAiBatchTaskSnapshot(
+  taskIds: string[],
+  options?: { includeActive?: boolean },
+) {
   const ids = [...new Set(taskIds.map((id) => id.trim()).filter(Boolean))].sort();
+  const includeActive = options?.includeActive === true;
   if (taskIds.length > MAX_OBSERVED_AI_TASKS || ids.some((id) => id.length > 128)) throw new ValidationError("最多观察 50 个 AI 任务");
-  if (ids.length === 0) return { active: false, tasks: [], missingTaskIds: [] };
+  if (ids.length === 0 && !includeActive) return { active: false, tasks: [], missingTaskIds: [] };
   const rows = await prisma.aiTask.findMany({
-    where: { id: { in: ids } }, take: MAX_OBSERVED_AI_TASKS, orderBy: { id: "asc" },
+    where: includeActive
+      ? ids.length > 0
+        ? {
+            OR: [
+              { id: { in: ids } },
+              { type: "post-bulk-completion", status: { in: activeBatchStatuses } },
+            ],
+          }
+        : {
+            type: "post-bulk-completion",
+            status: { in: activeBatchStatuses },
+          }
+      : { id: { in: ids } },
+    take: MAX_OBSERVED_AI_TASKS, orderBy: { id: "asc" },
     select: { id: true, status: true, requestedCount: true, succeededCount: true, failedCount: true, updatedAt: true, items: { select: { id: true, status: true, updatedAt: true }, orderBy: { id: "asc" } } },
   });
   const tasks = rows.map((task) => ({

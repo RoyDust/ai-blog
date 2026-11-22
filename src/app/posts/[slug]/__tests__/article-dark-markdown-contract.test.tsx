@@ -69,7 +69,7 @@ test('article markdown polish covers h6, table headers, quote rail and inline co
   expect(source).toContain('prose-blockquote:border-l-[3px]')
   expect(source).toContain('prose-code:bg-[var(--btn-regular-bg)]')
   expect(source).toContain('prose-code:text-[var(--btn-content)]')
-  expect(source).toContain('<CodeBlock {...props}>{children}</CodeBlock>')
+  expect(source).toContain('<CodeBlock {...withoutNode(props)}>{children}</CodeBlock>')
 })
 
 test('code blocks eliminate double-spaced line gaps via flex column layout and dual-theme shell', () => {

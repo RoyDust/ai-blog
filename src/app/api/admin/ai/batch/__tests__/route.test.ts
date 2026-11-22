@@ -12,6 +12,7 @@ vi.mock("@/lib/api-auth", () => ({
 }));
 
 vi.mock("@/lib/ai-batch-jobs", () => ({
+  MAX_OBSERVED_AI_TASKS: 50,
   createAiBatchTask: mocks.createAiBatchTask,
   resumeAiBatchTasks: mocks.resumeAiBatchTasks,
   getAiBatchTaskSnapshot: mocks.getAiBatchTaskSnapshot,
@@ -50,12 +51,13 @@ describe("admin AI batch route", () => {
     expect(data).toMatchObject({ success: true, data: { id: "task-1" } });
   });
 
-  test("resumes active batch tasks", async () => {
+  test("keeps GET strictly read-only even when legacy resume=1 query param is passed", async () => {
     const { GET } = await import("../route");
     const response = await GET(new Request("http://localhost/api/admin/ai/batch?resume=1&taskId=task-1"));
 
     expect(response.status).toBe(200);
-    expect(mocks.resumeAiBatchTasks).toHaveBeenCalledWith("task-1");
+    expect(mocks.getAiBatchTaskSnapshot).toHaveBeenCalledWith(["task-1"]);
+    expect(mocks.resumeAiBatchTasks).not.toHaveBeenCalled();
   });
 
   test("reads observed task snapshots without scheduling work", async () => {
@@ -66,15 +68,27 @@ describe("admin AI batch route", () => {
     expect(mocks.resumeAiBatchTasks).not.toHaveBeenCalled();
   });
 
-  test("recovers every observed task while preserving the bounded snapshot validation", async () => {
-    const { GET } = await import("../route");
-    const response = await GET(new Request("http://localhost/api/admin/ai/batch?resume=1&taskId=one&taskId=two&taskId=one"));
-    expect(response.status).toBe(200);
+  test("exposes explicit resume action on POST while validating task bounds and JSON syntax", async () => {
+    const { POST } = await import("../route");
+    const response = await POST(
+      new Request("http://localhost/api/admin/ai/batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "resume", taskIds: ["one", "two", "one"] }),
+      }),
+    );
+    expect(response.status).toBe(202);
     expect(mocks.resumeAiBatchTasks.mock.calls).toEqual([["one"], ["two"]]);
-    const { ValidationError } = await import("@/lib/api-errors");
-    mocks.getAiBatchTaskSnapshot.mockRejectedValueOnce(new ValidationError("too many tasks"));
+    await expect(response.json()).resolves.toEqual({ success: true, data: { resumed: 2 } });
+
     mocks.resumeAiBatchTasks.mockClear();
-    expect((await GET(new Request("http://localhost/api/admin/ai/batch?resume=1&taskId=invalid"))).status).toBe(400);
+    const badJson = await POST(
+      new Request("http://localhost/api/admin/ai/batch", {
+        method: "POST",
+        body: "{bad-json",
+      }),
+    );
+    expect(badJson.status).toBe(400);
     expect(mocks.resumeAiBatchTasks).not.toHaveBeenCalled();
   });
 });

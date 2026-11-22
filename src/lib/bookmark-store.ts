@@ -12,12 +12,12 @@ function readBookmarks() {
     return [] as BookmarkRecord[]
   }
 
-  const raw = window.localStorage.getItem(BOOKMARK_STORAGE_KEY)
-  if (!raw) {
-    return [] as BookmarkRecord[]
-  }
-
   try {
+    const raw = window.localStorage.getItem(BOOKMARK_STORAGE_KEY)
+    if (!raw) {
+      return [] as BookmarkRecord[]
+    }
+
     const parsed = JSON.parse(raw)
     return Array.isArray(parsed) ? parsed : []
   } catch {
@@ -30,7 +30,11 @@ function writeBookmarks(bookmarks: BookmarkRecord[]) {
     return
   }
 
-  window.localStorage.setItem(BOOKMARK_STORAGE_KEY, JSON.stringify(bookmarks))
+  try {
+    window.localStorage.setItem(BOOKMARK_STORAGE_KEY, JSON.stringify(bookmarks))
+  } catch {
+    // Ignore storage errors when browser storage is disabled or quota is exceeded.
+  }
 }
 
 export function getBookmarks() {

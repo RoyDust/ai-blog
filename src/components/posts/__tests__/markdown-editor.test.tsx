@@ -295,4 +295,192 @@ describe("markdown editor", () => {
       "Hello ![paste](http://project.roydust.top/posts/content/paste.png)world"
     );
   });
+
+  test("adds safe target and rel attributes to external http(s) and protocol-relative links while degrading unsafe schemes", () => {
+    render(
+      <MarkdownEditor
+        value={
+          "[外链](https://example.com/docs) 与 [协议相对](//cdn.example.com/asset) 与 [站内](/posts/hello) 与 [锚点](#sec) 与 [脚本](javascript:alert(1)) 与 [未知协议](irc://irc.example.com/room)"
+        }
+        onChange={vi.fn()}
+      />,
+    );
+
+    const externalLink = screen.getByRole("link", { name: "外链" });
+    expect(externalLink).toHaveAttribute("href", "https://example.com/docs");
+    expect(externalLink).toHaveAttribute("target", "_blank");
+    expect(externalLink).toHaveAttribute("rel", "noopener noreferrer");
+
+    const protocolRelativeLink = screen.getByRole("link", { name: "协议相对" });
+    expect(protocolRelativeLink).toHaveAttribute("href", "//cdn.example.com/asset");
+    expect(protocolRelativeLink).toHaveAttribute("target", "_blank");
+    expect(protocolRelativeLink).toHaveAttribute("rel", "noopener noreferrer");
+
+    const internalLink = screen.getByRole("link", { name: "站内" });
+    expect(internalLink).toHaveAttribute("href", "/posts/hello");
+    expect(internalLink).not.toHaveAttribute("target");
+
+    const anchorLink = screen.getByRole("link", { name: "锚点" });
+    expect(anchorLink).toHaveAttribute("href", "#sec");
+    expect(anchorLink).not.toHaveAttribute("target");
+
+    expect(screen.queryByRole("link", { name: "脚本" })).toBeNull();
+    expect(screen.getByText("脚本").tagName).toBe("SPAN");
+    expect(screen.queryByRole("link", { name: "未知协议" })).toBeNull();
+    expect(screen.getByText("未知协议").tagName).toBe("SPAN");
+  });
+
+  test("preserves concurrent user typing across async image upload via placeholder replacement", async () => {
+    let resolveUpload!: (value: unknown) => void;
+    const uploadPromise = new Promise((resolve) => {
+      resolveUpload = resolve;
+    });
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: {
+            token: "token-1",
+            key: "posts/content/concurrent.png",
+            domain: "http://project.roydust.top",
+            uploadUrl: "https://upload.qiniup.com",
+          },
+        }),
+      })
+      .mockImplementationOnce(() => uploadPromise);
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    function Wrapper() {
+      const [value, setValue] = useState("第一段\n\n");
+      return <MarkdownEditor value={value} onChange={setValue} />;
+    }
+
+    render(<Wrapper />);
+    const textarea = screen.getByRole("textbox") as HTMLTextAreaElement;
+    textarea.focus();
+    textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+    fireEvent.select(textarea);
+
+    const file = new File(["image"], "concurrent.png", { type: "image/png" });
+    fireEvent.paste(textarea, {
+      clipboardData: {
+        items: [{ kind: "file", type: "image/png", getAsFile: () => file }],
+      },
+    });
+
+    // 上传开始时立即写入唯一占位符
+    await waitFor(() => {
+      expect(textarea.value).toMatch(/^第一段\n\n!\[上传中\.\.\.\]\(uploading:\/\/[^)]+\)$/);
+    });
+
+    // 用户在上传尚未完成时继续输入正文
+    const withConcurrentTyping = `${textarea.value}\n\n上传期间继续输入的第二段`;
+    fireEvent.change(textarea, { target: { value: withConcurrentTyping } });
+    expect(textarea.value).toContain("上传期间继续输入的第二段");
+
+    resolveUpload({
+      ok: true,
+      json: async () => ({ key: "posts/content/concurrent.png" }),
+    });
+
+    await waitFor(() => {
+      expect(textarea).toHaveValue(
+        "第一段\n\n![concurrent](http://project.roydust.top/posts/content/concurrent.png)\n\n上传期间继续输入的第二段",
+      );
+    });
+  });
+
+  test("appends uploaded image cleanly at the end if user manually deleted placeholder during upload", async () => {
+    let resolveUpload!: (value: unknown) => void;
+    const uploadPromise = new Promise((resolve) => {
+      resolveUpload = resolve;
+    });
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: {
+            token: "token-1",
+            key: "posts/content/appended.png",
+            domain: "http://project.roydust.top",
+            uploadUrl: "https://upload.qiniup.com",
+          },
+        }),
+      })
+      .mockImplementationOnce(() => uploadPromise);
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    function Wrapper() {
+      const [value, setValue] = useState("初始内容");
+      return <MarkdownEditor value={value} onChange={setValue} />;
+    }
+
+    const { container } = render(<Wrapper />);
+    const textarea = screen.getByRole("textbox") as HTMLTextAreaElement;
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+    const file = new File(["image"], "appended.png", { type: "image/png" });
+
+    fireEvent.change(input, { target: { files: [file] } });
+
+    await waitFor(() => {
+      expect(textarea.value).toContain("![上传中...](uploading://");
+    });
+
+    // 用户手动删掉占位符并重写了段落
+    fireEvent.change(textarea, { target: { value: "用户重写后的全文" } });
+
+    resolveUpload({
+      ok: true,
+      json: async () => ({ key: "posts/content/appended.png" }),
+    });
+
+    await waitFor(() => {
+      expect(textarea).toHaveValue(
+        "用户重写后的全文\n\n![appended](http://project.roydust.top/posts/content/appended.png)",
+      );
+    });
+  });
+
+  test("normalizes network failures during image upload and cleanly removes placeholder without losing concurrent edits", async () => {
+    let rejectTokenRequest!: (reason?: unknown) => void;
+    const pendingFailure = new Promise((_, reject) => {
+      rejectTokenRequest = reject;
+    });
+    vi.stubGlobal("fetch", vi.fn().mockImplementationOnce(() => pendingFailure));
+
+    function Wrapper() {
+      const [value, setValue] = useState("Hello");
+      return <MarkdownEditor value={value} onChange={setValue} />;
+    }
+
+    const { container } = render(<Wrapper />);
+    const textarea = screen.getByRole("textbox") as HTMLTextAreaElement;
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+    const file = new File(["image"], "demo.png", { type: "image/png" });
+
+    fireEvent.change(input, { target: { files: [file] } });
+
+    await waitFor(() => {
+      expect(textarea.value).toMatch(/^Hello\n\n!\[上传中\.\.\.\]\(uploading:\/\/[^)]+\)$/);
+    });
+
+    const placeholderMatch = textarea.value.match(/!\[上传中\.\.\.\]\(uploading:\/\/[^)]+\)/);
+    expect(placeholderMatch).not.toBeNull();
+    fireEvent.change(textarea, {
+      target: { value: `Hello world\n\n${placeholderMatch![0]}` },
+    });
+
+    rejectTokenRequest(new TypeError("Failed to fetch"));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("网络异常，请检查网络连接后重试");
+    expect(textarea).toHaveValue("Hello world");
+  });
 });

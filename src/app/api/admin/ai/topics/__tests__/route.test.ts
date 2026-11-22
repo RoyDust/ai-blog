@@ -81,6 +81,31 @@ describe("admin AI topics routes", () => {
     expect(payload).toEqual({ success: true, data: [{ tag: "ai-agent", candidateIds: ["c1"] }] })
   })
 
+  test("allows empty POST body on /api/admin/ai/topics while rejecting malformed JSON with 400", async () => {
+    const { POST } = await import("../route")
+
+    const emptyResponse = await POST(
+      new Request("http://localhost/api/admin/ai/topics", {
+        method: "POST",
+        body: "",
+      }),
+    )
+    expect(emptyResponse.status).toBe(200)
+    expect(mocks.materializeTopicsFromRecentCandidates).toHaveBeenCalledWith({ days: 7, excludeSelected: false })
+
+    mocks.materializeTopicsFromRecentCandidates.mockClear()
+    const badJsonResponse = await POST(
+      new Request("http://localhost/api/admin/ai/topics", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{not-valid-json",
+      }),
+    )
+    expect(badJsonResponse.status).toBe(400)
+    await expect(badJsonResponse.json()).resolves.toEqual({ error: "Invalid JSON body" })
+    expect(mocks.materializeTopicsFromRecentCandidates).not.toHaveBeenCalled()
+  })
+
   test("loads topic detail", async () => {
     const { GET } = await import("../[id]/route")
     const response = await GET(new Request("http://localhost/api/admin/ai/topics/topic-1"), {

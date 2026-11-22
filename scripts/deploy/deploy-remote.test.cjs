@@ -270,6 +270,18 @@ function createDrillEnvironment() {
     fs.writeFileSync(path.join(rel, 'docker-compose.prod.yml'), 'services:\n  app:\n    image: my-next-app:latest\n');
     fs.copyFileSync(path.join(sharedDir, '.env'), path.join(rel, '.env'));
   }
+  fs.writeFileSync(
+    path.join(releasesDir, newSha, '.env'),
+    fs.readFileSync(path.join(sharedDir, '.env'), 'utf8') + 'CANDIDATE_ONLY_MARKER="new-release-marker"\n',
+  );
+  fs.writeFileSync(
+    path.join(sharedDir, 'last-healthy-release'),
+    [
+      `RELEASE_SHA=${oldSha}`,
+      `IMAGE_ID=${oldImageId}`,
+      `LAST_BACKUP_DIR=${asPath(path.join(sharedDir, 'backups'))}`,
+    ].join('\n') + '\n',
+  );
   fs.writeFileSync(path.join(releasesDir, newSha, 'my-next-app.tar.gz'), 'mock-tarball');
 
   makeSymlink(path.join(releasesDir, oldSha), path.join(root, 'current'));
@@ -443,6 +455,19 @@ test('recovery drill (a): migration failure after stopping old container recover
       fs.realpathSync(path.join(drill.releasesDir, drill.oldSha)),
       'current symlink must remain on previous healthy release when deploy fails',
     );
+    assert.ok(
+      !fs.readFileSync(path.join(drill.sharedDir, '.env'), 'utf8').includes('CANDIDATE_ONLY_MARKER'),
+      'shared/.env must remain untouched when candidate deploy fails',
+    );
+    assert.ok(
+      !fs.readFileSync(path.join(drill.releasesDir, drill.oldSha, '.env'), 'utf8').includes('CANDIDATE_ONLY_MARKER'),
+      'previous release .env must remain isolated when candidate deploy fails',
+    );
+    assert.match(
+      fs.readFileSync(path.join(drill.sharedDir, 'last-healthy-release'), 'utf8'),
+      new RegExp(`RELEASE_SHA=${drill.oldSha}`),
+      'last-healthy-release must remain on previous healthy release when deploy fails',
+    );
     const backups = fs.readdirSync(path.join(drill.sharedDir, 'backups')).filter((f) => f.endsWith('.dump'));
     assert.equal(backups.length, 1, 'pre-deploy database dump must be preserved');
 
@@ -588,6 +613,15 @@ test('healthy release cutover updates current symlink after health gate and enfo
       fs.realpathSync(newReleaseDir),
       'current symlink must switch to new release after healthy check passes',
     );
+    assert.match(
+      fs.readFileSync(path.join(drill.sharedDir, '.env'), 'utf8'),
+      /CANDIDATE_ONLY_MARKER="new-release-marker"/,
+      'shared/.env must update from candidate .env after healthy check passes',
+    );
+    const healthyMeta = fs.readFileSync(path.join(drill.sharedDir, 'last-healthy-release'), 'utf8');
+    assert.match(healthyMeta, new RegExp(`^RELEASE_SHA=${drill.newSha}$`, 'm'));
+    assert.match(healthyMeta, new RegExp(`^IMAGE_ID=${drill.newImageId}$`, 'm'));
+    assert.match(healthyMeta, /^LAST_BACKUP_DIR=.*\/shared\/backups$/m);
 
     const remainingReleases = fs.readdirSync(drill.releasesDir);
     assert.equal(remainingReleases.length, 5);

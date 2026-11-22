@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
-import { Archive, BookOpenText, Home, ListTree, Menu, Moon, Palette, Search, Sun, UserRound } from "lucide-react";
+import { Archive, BookOpenText, Compass, Home, ListTree, Menu, Moon, Palette, Search, Sun, UserRound } from "lucide-react";
 
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useTheme } from "@/components/ThemeProvider";
@@ -21,6 +21,7 @@ const navLinks = [
   { name: "首页", href: "/", icon: Home },
   { name: "文章", href: "/posts", icon: BookOpenText },
   { name: "系列", href: "/series", icon: ListTree },
+  { name: "专题", href: "/guides", icon: Compass },
   { name: "归档", href: "/archives", icon: Archive },
   { name: "关于", href: "/about", icon: UserRound },
 ];

@@ -97,9 +97,30 @@ jobs:
           umask 077
           printf '%s' "$RAW_APP_ENV_FILE" > app.env
           [ -z "$(tail -c 1 app.env)" ] || printf '\n' >> app.env
-          printf 'AI_NEWS_CRON_SECRET=%s\nCRON_SECRET=%s\n' \
-            "$(node -e 'process.stdout.write(JSON.stringify(process.env.RAW_AI_NEWS_CRON_SECRET ?? ""))')" \
-            "$(node -e 'process.stdout.write(JSON.stringify(process.env.RAW_CRON_SECRET ?? ""))')" >> app.env
+          node -e '
+            const fs = require("node:fs");
+            function serializeDotenvLiteral(name, raw) {
+              const value = String(raw ?? "");
+              if (/[\r\n]/.test(value)) {
+                console.error(name + " must not contain newline characters");
+                process.exit(1);
+              }
+              if (!value.includes("\x27")) {
+                return name + "=\x27" + value + "\x27";
+              }
+              if (!value.includes("$")) {
+                return name + "=" + JSON.stringify(value);
+              }
+              console.error(name + " cannot contain both single quotes and $");
+              process.exit(1);
+            }
+            const lines = [
+              serializeDotenvLiteral("AI_NEWS_CRON_SECRET", process.env.RAW_AI_NEWS_CRON_SECRET),
+              serializeDotenvLiteral("CRON_SECRET", process.env.RAW_CRON_SECRET),
+            ];
+            fs.appendFileSync("app.env", lines.join("\n") + "\n", { mode: 0o600 });
+          '
+          chmod 600 app.env
 
       - name: Validate production configuration before image build
         env:
@@ -112,8 +133,25 @@ jobs:
         run: |
           set -euo pipefail
           install -m 600 app.env .env
-          exec 3< <(node scripts/deploy/read-dotenv.cjs app.env \
-            NEXTAUTH_URL NEXT_PUBLIC_SITE_URL COMPOSE_PROJECT_NAME)
+          if [ -f scripts/deploy/read-dotenv.cjs ]; then
+            exec 3< <(node scripts/deploy/read-dotenv.cjs app.env \
+              NEXTAUTH_URL NEXT_PUBLIC_SITE_URL COMPOSE_PROJECT_NAME)
+          else
+            exec 3< <(node -e '
+              const fs = require("node:fs");
+              const { parse } = require("dotenv");
+              const [file, ...keys] = process.argv.slice(1);
+              const parsed = parse(fs.readFileSync(file, "utf8"));
+              if (parsed.NEXTAUTH_SECRET === "${AUTH_SECRET}" && typeof parsed.AUTH_SECRET === "string") {
+                parsed.NEXTAUTH_SECRET = parsed.AUTH_SECRET;
+              }
+              for (const key of keys) {
+                if (Object.prototype.hasOwnProperty.call(parsed, key)) {
+                  process.stdout.write(key + "\0" + String(parsed[key]) + "\0");
+                }
+              }
+            ' app.env NEXTAUTH_URL NEXT_PUBLIC_SITE_URL COMPOSE_PROJECT_NAME)
+          fi
           reader_pid=$!
           while IFS= read -r -d '' -u 3 env_key && IFS= read -r -d '' -u 3 env_val; do
             export "$env_key=$env_val"
@@ -147,7 +185,10 @@ jobs:
             --exclude '.env.development' \
             --exclude '.env.test'
           mv my-next-app.tar.gz release/my-next-app.tar.gz
-          chmod +x release/scripts/deploy/deploy-remote.sh release/scripts/deploy/backup-production.sh
+          chmod +x release/scripts/deploy/deploy-remote.sh
+          if [ -f release/scripts/deploy/backup-production.sh ]; then
+            chmod +x release/scripts/deploy/backup-production.sh
+          fi
 
       - name: Start SSH agent
         uses: webfactory/ssh-agent@v0.10.0
@@ -168,34 +209,83 @@ jobs:
           chmod 600 ~/.ssh/known_hosts
 
       - name: Create remote release directory
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
         run: |
-          ssh $SSH_KEEPALIVE_OPTS -p "${{ secrets.DEPLOY_PORT }}" "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
-            "mkdir -p '${{ secrets.DEPLOY_PATH }}/releases/${RESOLVED_SHA}' '${{ secrets.DEPLOY_PATH }}/shared'"
+          set -euo pipefail
+          [[ "${DEPLOY_PORT:-}" =~ ^[0-9]+$ ]] || { echo "Invalid DEPLOY_PORT" >&2; exit 1; }
+          [[ "${DEPLOY_PATH:-}" =~ ^/[A-Za-z0-9._/-]+$ ]] || { echo "Invalid DEPLOY_PATH" >&2; exit 1; }
+          [[ -n "${DEPLOY_USER:-}" && -n "${DEPLOY_HOST:-}" ]] || { echo "Missing DEPLOY_USER or DEPLOY_HOST" >&2; exit 1; }
+          ssh $SSH_KEEPALIVE_OPTS -p "$DEPLOY_PORT" "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "DEPLOY_PATH=$(printf '%q' "$DEPLOY_PATH") RESOLVED_SHA=$(printf '%q' "$RESOLVED_SHA") bash -s" <<'EOF'
+          set -euo pipefail
+          mkdir -p "${DEPLOY_PATH}/releases/${RESOLVED_SHA}" "${DEPLOY_PATH}/shared"
+          EOF
 
       - name: Upload release bundle
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
         run: |
-          rsync -az --delete -e "ssh $SSH_KEEPALIVE_OPTS -p ${{ secrets.DEPLOY_PORT }}" \
-            release/ "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:${{ secrets.DEPLOY_PATH }}/releases/${RESOLVED_SHA}/"
+          set -euo pipefail
+          [[ "${DEPLOY_PORT:-}" =~ ^[0-9]+$ ]] || { echo "Invalid DEPLOY_PORT" >&2; exit 1; }
+          [[ "${DEPLOY_PATH:-}" =~ ^/[A-Za-z0-9._/-]+$ ]] || { echo "Invalid DEPLOY_PATH" >&2; exit 1; }
+          rsync -az --delete -e "ssh $SSH_KEEPALIVE_OPTS -p $DEPLOY_PORT" \
+            release/ "${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}/releases/${RESOLVED_SHA}/"
 
       - name: Upload production env file
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
         run: |
-          scp $SSH_KEEPALIVE_OPTS -P "${{ secrets.DEPLOY_PORT }}" app.env "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:${{ secrets.DEPLOY_PATH }}/shared/.env"
+          set -euo pipefail
+          [[ "${DEPLOY_PORT:-}" =~ ^[0-9]+$ ]] || { echo "Invalid DEPLOY_PORT" >&2; exit 1; }
+          [[ "${DEPLOY_PATH:-}" =~ ^/[A-Za-z0-9._/-]+$ ]] || { echo "Invalid DEPLOY_PATH" >&2; exit 1; }
+          chmod 600 app.env
+          scp $SSH_KEEPALIVE_OPTS -P "$DEPLOY_PORT" app.env "${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}/releases/${RESOLVED_SHA}/.env"
 
       - name: Activate release and restart services
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
         run: |
-          ssh $SSH_KEEPALIVE_OPTS -p "${{ secrets.DEPLOY_PORT }}" "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
-            "DEPLOY_PATH='${{ secrets.DEPLOY_PATH }}' RESOLVED_SHA='${RESOLVED_SHA}' bash -s" <<'EOF'
+          set -euo pipefail
+          [[ "${DEPLOY_PORT:-}" =~ ^[0-9]+$ ]] || { echo "Invalid DEPLOY_PORT" >&2; exit 1; }
+          [[ "${DEPLOY_PATH:-}" =~ ^/[A-Za-z0-9._/-]+$ ]] || { echo "Invalid DEPLOY_PATH" >&2; exit 1; }
+          ssh $SSH_KEEPALIVE_OPTS -p "$DEPLOY_PORT" "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "DEPLOY_PATH=$(printf '%q' "$DEPLOY_PATH") RESOLVED_SHA=$(printf '%q' "$RESOLVED_SHA") bash -s" <<'EOF'
           set -euo pipefail
           release_dir="${DEPLOY_PATH}/releases/${RESOLVED_SHA}"
-          ln -sfn "${DEPLOY_PATH}/shared/.env" "${release_dir}/.env"
+          chmod 600 "${release_dir}/.env"
           cd "${release_dir}"
-          chmod +x scripts/deploy/deploy-remote.sh scripts/deploy/backup-production.sh
+          chmod +x scripts/deploy/deploy-remote.sh
+          if [ -f scripts/deploy/backup-production.sh ]; then
+            chmod +x scripts/deploy/backup-production.sh
+          fi
           BACKUP_BEFORE_DEPLOY=1 RELEASE_SHA="${RESOLVED_SHA}" DEPLOY_PATH="${DEPLOY_PATH}" RELEASE_DIR="${release_dir}" bash scripts/deploy/deploy-remote.sh
+          if [ -L "${DEPLOY_PATH}/current/.env" ] && [ -f "${DEPLOY_PATH}/shared/.env" ] && [ ! "${DEPLOY_PATH}/current" -ef "${release_dir}" ]; then
+            prev_env_tmp="${DEPLOY_PATH}/current/.env.snapshot.$$"
+            install -m 600 "${DEPLOY_PATH}/shared/.env" "${prev_env_tmp}"
+            mv -f "${prev_env_tmp}" "${DEPLOY_PATH}/current/.env"
+          fi
+          install -m 600 "${release_dir}/.env" "${DEPLOY_PATH}/shared/.env"
           ln -sfn "${DEPLOY_PATH}/releases/${RESOLVED_SHA}" "${DEPLOY_PATH}/current"
           EOF
 
       - name: Deployment summary
+        env:
+          DEPLOY_REF: ${{ inputs.ref }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
         run: |
-          echo "Deployed ref: ${{ inputs.ref }}"
-          echo "Release SHA: ${RESOLVED_SHA}"
-          echo "Target host: ${{ secrets.DEPLOY_HOST }}"
+          printf 'Deployed ref: %s\n' "$DEPLOY_REF"
+          printf 'Release SHA: %s\n' "$RESOLVED_SHA"
+          printf 'Target host: %s\n' "$DEPLOY_HOST"

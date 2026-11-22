@@ -4,7 +4,9 @@ import { useRef, useState } from "react";
 import { UploadCloud } from "lucide-react";
 
 import { Button } from "@/components/admin/ui";
+import { apiMutate, toErrorMessage } from "@/lib/client-api";
 import { compressImageForUpload } from "@/lib/client-image-compression";
+import { uploadFileToQiniu } from "@/lib/client-qiniu-upload";
 import type { CoverAsset } from "./types";
 
 type CoverUploadDropzoneProps = {
@@ -36,53 +38,32 @@ export function CoverUploadDropzone({ onCreated }: CoverUploadDropzoneProps) {
     try {
       const compressed = await compressImageForUpload(file, "cover");
       const uploadFile = compressed.file;
-      const tokenResponse = await fetch("/api/admin/uploads/qiniu-token", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ filename: uploadFile.name, contentType: uploadFile.type || file.type }),
-      });
-      const tokenData = await tokenResponse.json();
-
-      if (!tokenResponse.ok || !tokenData.success) {
-        throw new Error(tokenData.error || "获取上传凭证失败");
-      }
-
-      const payload = new FormData();
-      payload.append("file", uploadFile);
-      payload.append("token", tokenData.data.token);
-      payload.append("key", tokenData.data.key);
-
-      const uploadResponse = await fetch(tokenData.data.uploadUrl, {
-        method: "POST",
-        body: payload,
+      const { url, key } = await uploadFileToQiniu(uploadFile, {
+        contentType: uploadFile.type || file.type,
+        purpose: "cover",
       });
 
-      if (!uploadResponse.ok) {
-        throw new Error("上传到七牛失败");
-      }
-
-      const normalizedDomain = String(tokenData.data.domain).replace(/\/$/, "");
-      const url = `${normalizedDomain}/${tokenData.data.key}`;
-      const assetResponse = await fetch("/api/admin/covers", {
+      const assetData = await apiMutate<{
+        success?: boolean;
+        data?: CoverAsset;
+      }>("/api/admin/covers", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           url,
-          key: tokenData.data.key,
+          key,
           provider: "qiniu",
           source: "upload",
           title: file.name.replace(/\.[^.]+$/, ""),
         }),
       });
-      const assetData = await assetResponse.json();
 
-      if (!assetResponse.ok || !assetData.success) {
-        throw new Error(assetData.error || "保存到图库失败");
+      if (!assetData.data) {
+        throw new Error("保存到图库失败");
       }
 
       onCreated(assetData.data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "上传失败");
+      setError(toErrorMessage(err, "上传失败"));
     } finally {
       setUploading(false);
       if (inputRef.current) {

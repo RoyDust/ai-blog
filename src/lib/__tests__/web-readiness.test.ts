@@ -19,6 +19,29 @@ describe('Web readiness', () => {
     for (const value of ['changeme', 'your-secret', 'replace-with-secret']) expect(parseWebReadinessConfig({ ...valid, AUTH_SECRET: value }).valid).toBe(false)
     for (const value of ['/relative', 'ftp://example.com', 'not-url']) expect(parseWebReadinessConfig({ ...valid, NEXTAUTH_URL: value }).valid).toBe(false)
   })
+  test('enforces https for non-loopback public site URLs unless NODE_ENV is development or test', () => {
+    for (const allowedUrl of ['https://blog.example.com', 'http://127.0.0.1:3000', 'http://localhost:3000', 'http://[::1]:3000']) {
+      expect(parseWebReadinessConfig({ ...valid, NEXTAUTH_URL: allowedUrl, NEXT_PUBLIC_SITE_URL: allowedUrl }).valid).toBe(true)
+      expect(parseWebReadinessConfig({ ...valid, NEXTAUTH_URL: allowedUrl, NEXT_PUBLIC_SITE_URL: allowedUrl, NODE_ENV: 'production' }).valid).toBe(true)
+    }
+    for (const rejectedUrl of ['http://blog.example.com', 'http://47.98.167.32', 'http://roydust.top']) {
+      expect(parseWebReadinessConfig({ ...valid, NEXTAUTH_URL: rejectedUrl }).valid).toBe(false)
+      expect(parseWebReadinessConfig({ ...valid, NEXT_PUBLIC_SITE_URL: rejectedUrl }).valid).toBe(false)
+      expect(parseWebReadinessConfig({ ...valid, NEXTAUTH_URL: rejectedUrl, NODE_ENV: 'production' }).valid).toBe(false)
+      expect(parseWebReadinessConfig({ ...valid, NEXT_PUBLIC_SITE_URL: rejectedUrl, NODE_ENV: 'production' }).valid).toBe(false)
+      expect(parseWebReadinessConfig({ ...valid, NEXTAUTH_URL: rejectedUrl, NEXT_PUBLIC_SITE_URL: rejectedUrl, NODE_ENV: 'development' }).valid).toBe(true)
+      expect(parseWebReadinessConfig({ ...valid, NEXTAUTH_URL: rejectedUrl, NEXT_PUBLIC_SITE_URL: rejectedUrl, NODE_ENV: 'test' }).valid).toBe(true)
+    }
+  })
+  test('ready route rejects plaintext non-loopback site URLs in production', async () => {
+    environment()
+    vi.stubEnv('NODE_ENV', 'production')
+    vi.stubEnv('NEXT_PUBLIC_SITE_URL', 'http://47.98.167.32')
+    const response = await ready()
+    expect(response.status).toBe(503)
+    expect(transaction).not.toHaveBeenCalled()
+    expect(await response.json()).toEqual({ status: 'not_ready', checks: { configuration: 'failed', database: 'skipped' } })
+  })
   test('live stays independent while invalid configuration skips the database', async () => {
     environment(); vi.stubEnv('AUTH_SECRET', '')
     expect((await live()).status).toBe(200)

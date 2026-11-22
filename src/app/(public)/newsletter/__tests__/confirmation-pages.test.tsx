@@ -97,6 +97,41 @@ describe("public newsletter confirmation pages", () => {
     expect(await screen.findByRole("status")).toHaveTextContent("退订已完成");
   });
 
+  test("renders danger alert instead of success when unsubscribe returns 400 or unsubscribed: false", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        json: async () => ({ error: "退订链接无效或已失效" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ success: true, data: { unsubscribed: false } }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const ui = await NewsletterUnsubscribePage({
+      searchParams: Promise.resolve({ token: "u.broken.sig" }),
+    });
+    const { unmount } = render(ui);
+
+    fireEvent.click(screen.getByRole("button", { name: "确认退订" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("退订链接无效或已失效");
+    expect(screen.queryByText(/退订已完成/)).not.toBeInTheDocument();
+    unmount();
+
+    const secondUi = await NewsletterUnsubscribePage({
+      searchParams: Promise.resolve({ token: "u.broken.sig" }),
+    });
+    render(secondUi);
+
+    fireEvent.click(screen.getByRole("button", { name: "确认退订" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("退订链接无效或已失效");
+    expect(screen.queryByText(/退订已完成/)).not.toBeInTheDocument();
+  });
+
   test("renders editorial EmptyState alert without API calls when token query parameter is missing", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);

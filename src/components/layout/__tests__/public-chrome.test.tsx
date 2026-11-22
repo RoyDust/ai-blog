@@ -1,11 +1,19 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import { Footer } from "@/components/layout/Footer";
+import { Header } from "@/components/layout/Header";
 import { Sidebar } from "@/components/layout/Sidebar";
 
 vi.mock("next-auth/react", () => ({
   useSession: () => ({ data: null, status: "unauthenticated" }),
 }));
+
+test("header includes /guides in primary navigation", () => {
+  render(<Header siteName="Inkforge" />);
+
+  const primaryNav = screen.getByRole("navigation", { name: "Primary" });
+  expect(within(primaryNav).getByRole("link", { name: "专题" })).toHaveAttribute("href", "/guides");
+});
 
 test("sidebar and footer expose discovery-oriented public chrome", () => {
   const fetchMock = vi.fn(() =>
@@ -27,7 +35,18 @@ test("sidebar and footer expose discovery-oriented public chrome", () => {
 
     expect(container.querySelector("#footer .reader-panel")).toBeInTheDocument();
     expect(container.querySelector("#sidebar .reader-panel")).toBeInTheDocument();
-    expect(screen.getByRole("navigation", { name: "Footer" })).toBeInTheDocument();
+
+    const footerNav = screen.getByRole("navigation", { name: "Footer" });
+    const footerLinks = within(footerNav).getAllByRole("link");
+    expect(footerLinks.map((link) => link.getAttribute("href"))).toEqual([
+      "/posts",
+      "/series",
+      "/guides",
+      "/categories",
+      "/archives",
+      "/rss.xml",
+    ]);
+
     expect(screen.getByRole("heading", { name: "Inkforge Author" })).toBeInTheDocument();
     expect(container.querySelector('#sidebar a[href=""]')).not.toBeInTheDocument();
     expect(container.querySelector('#sidebar a[href="mailto:null"]')).not.toBeInTheDocument();

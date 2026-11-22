@@ -1,6 +1,14 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, useRef } from "react";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { adminNavItems } from "./config";
 
@@ -12,6 +20,12 @@ export interface Tab {
 interface AdminLayoutContextType {
   isCollapsed: boolean;
   setIsCollapsed: (collapsed: boolean) => void;
+  isMobileViewport: boolean;
+  isMobileDrawerOpen: boolean;
+  setMobileDrawerOpen: (open: boolean) => void;
+  openMobileDrawer: () => void;
+  closeMobileDrawer: () => void;
+  toggleMobileDrawer: () => void;
   tabs: Tab[];
   addTab: (tab: Tab) => void;
   closeTab: (href: string) => void;
@@ -23,7 +37,37 @@ const AdminLayoutContext = createContext<AdminLayoutContextType | undefined>(und
 const HOME_TAB: Tab = { href: "/admin", label: "首页" };
 const ADMIN_COLLAPSED_STORAGE_KEY = "vben_admin_collapsed";
 const ADMIN_TABS_STORAGE_KEY = "vben_admin_tabs";
+const ADMIN_DESKTOP_BREAKPOINT = 1024;
+export const MOBILE_MEDIA_QUERY = "(max-width: 63.999rem)";
+const ADMIN_MOBILE_MEDIA_QUERY = MOBILE_MEDIA_QUERY;
 const MAX_ADMIN_TABS = 8;
+
+function isBelowAdminDesktopViewport() {
+  if (typeof window === "undefined") return false;
+  if (typeof window.matchMedia === "function") {
+    return window.matchMedia(ADMIN_MOBILE_MEDIA_QUERY).matches;
+  }
+  return typeof window.innerWidth === "number" && window.innerWidth < ADMIN_DESKTOP_BREAKPOINT;
+}
+
+function subscribeAdminViewport(onStoreChange: () => void) {
+  if (typeof window === "undefined") {
+    return () => {};
+  }
+
+  const mql = window.matchMedia?.(ADMIN_MOBILE_MEDIA_QUERY);
+  window.addEventListener("resize", onStoreChange);
+  mql?.addEventListener?.("change", onStoreChange);
+
+  return () => {
+    window.removeEventListener("resize", onStoreChange);
+    mql?.removeEventListener?.("change", onStoreChange);
+  };
+}
+
+function getServerAdminViewportSnapshot() {
+  return false;
+}
 const RESTORABLE_ADMIN_HREFS = new Set([
   ...adminNavItems.map((item) => item.href),
   "/admin/posts/new",
@@ -33,12 +77,20 @@ const RESTORABLE_ADMIN_HREFS = new Set([
 
 function readInitialCollapsedState() {
   if (typeof window === "undefined") return false;
-  return localStorage.getItem(ADMIN_COLLAPSED_STORAGE_KEY) === "true";
+  try {
+    return window.localStorage.getItem(ADMIN_COLLAPSED_STORAGE_KEY) === "true";
+  } catch {
+    return false;
+  }
 }
 
 function writeTabs(tabs: Tab[]) {
   if (typeof window === "undefined") return;
-  localStorage.setItem(ADMIN_TABS_STORAGE_KEY, JSON.stringify(tabs));
+  try {
+    window.localStorage.setItem(ADMIN_TABS_STORAGE_KEY, JSON.stringify(tabs));
+  } catch {
+    // Ignore storage errors when browser storage is disabled.
+  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -96,10 +148,10 @@ function sanitizeStoredTab(value: unknown): Tab | null {
 function readInitialTabs() {
   if (typeof window === "undefined") return [HOME_TAB];
 
-  const savedTabs = localStorage.getItem(ADMIN_TABS_STORAGE_KEY);
-  if (!savedTabs) return [HOME_TAB];
-
   try {
+    const savedTabs = window.localStorage.getItem(ADMIN_TABS_STORAGE_KEY);
+    if (!savedTabs) return [HOME_TAB];
+
     const parsed: unknown = JSON.parse(savedTabs);
     if (!Array.isArray(parsed) || parsed.length === 0) return [HOME_TAB];
 
@@ -147,15 +199,76 @@ function ensureCurrentTab(tabs: Tab[], pathname: string | null) {
 
 export function AdminLayoutProvider({ children }: { children: React.ReactNode }) {
   const [isCollapsed, setIsCollapsedState] = useState(false);
+  const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
   const [tabs, setTabs] = useState<Tab[]>([HOME_TAB]);
   const hasRestoredStateRef = useRef(false);
   const pathname = usePathname();
   const router = useRouter();
+  const isMobileViewport = useSyncExternalStore(
+    subscribeAdminViewport,
+    isBelowAdminDesktopViewport,
+    getServerAdminViewportSnapshot,
+  );
+
+  // 渲染期条件调整：路由切换时自动收起移动端导航抽屉（不在 effect 体内同步 setState）
+  const [prevPathname, setPrevPathname] = useState(pathname);
+  if (prevPathname !== pathname) {
+    setPrevPathname(pathname);
+    if (isMobileDrawerOpen) {
+      setIsMobileDrawerOpen(false);
+    }
+  }
+
+  // 渲染期条件调整：视口跨入 >= 1024px 桌面宽度时自动关闭移动端抽屉
+  const [prevIsMobileViewport, setPrevIsMobileViewport] = useState(isMobileViewport);
+  if (prevIsMobileViewport !== isMobileViewport) {
+    setPrevIsMobileViewport(isMobileViewport);
+    if (!isMobileViewport && isMobileDrawerOpen) {
+      setIsMobileDrawerOpen(false);
+    }
+  }
+
+  const setMobileDrawerOpen = useCallback((open: boolean) => {
+    setIsMobileDrawerOpen(open);
+  }, []);
+
+  const openMobileDrawer = useCallback(() => {
+    setIsMobileDrawerOpen(true);
+  }, []);
+
+  const closeMobileDrawer = useCallback(() => {
+    setIsMobileDrawerOpen(false);
+  }, []);
+
+  const toggleMobileDrawer = useCallback(() => {
+    setIsMobileDrawerOpen((current) => !current);
+  }, []);
+
+  useEffect(() => {
+    const handleViewportChange = () => {
+      if (!isBelowAdminDesktopViewport()) {
+        setIsMobileDrawerOpen(false);
+      }
+    };
+
+    const mql = window.matchMedia?.(ADMIN_MOBILE_MEDIA_QUERY);
+    window.addEventListener("resize", handleViewportChange);
+    mql?.addEventListener?.("change", handleViewportChange);
+
+    return () => {
+      window.removeEventListener("resize", handleViewportChange);
+      mql?.removeEventListener?.("change", handleViewportChange);
+    };
+  }, []);
 
   const handleSetCollapsed = (val: boolean) => {
     setIsCollapsedState(val);
     if (typeof window !== "undefined") {
-      localStorage.setItem(ADMIN_COLLAPSED_STORAGE_KEY, String(val));
+      try {
+        window.localStorage.setItem(ADMIN_COLLAPSED_STORAGE_KEY, String(val));
+      } catch {
+        // Ignore storage errors when browser storage is disabled.
+      }
     }
   };
 
@@ -253,6 +366,12 @@ export function AdminLayoutProvider({ children }: { children: React.ReactNode })
       value={{
         isCollapsed,
         setIsCollapsed: handleSetCollapsed,
+        isMobileViewport,
+        isMobileDrawerOpen,
+        setMobileDrawerOpen,
+        openMobileDrawer,
+        closeMobileDrawer,
+        toggleMobileDrawer,
         tabs,
         addTab,
         closeTab,
