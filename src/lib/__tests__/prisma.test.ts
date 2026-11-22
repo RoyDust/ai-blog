@@ -87,6 +87,10 @@ describe('lazy prisma client', () => {
     vi.stubEnv('NODE_ENV', 'production')
     expect(readPoolMax()).toBe(8)
 
+    vi.stubEnv('NEXT_PHASE', 'phase-production-build')
+    expect(readPoolMax()).toBe(1)
+    delete process.env.NEXT_PHASE
+
     for (const invalidValue of ['', '0', '-4', '2.5', 'invalid']) {
       vi.stubEnv('DATABASE_POOL_MAX', invalidValue)
       expect(readPoolMax()).toBe(8)

@@ -8,7 +8,7 @@ import { describe, expect, test } from "vitest";
  */
 const ROOT = process.cwd();
 
-const ALLOWLIST = new Set(["NODE_ENV"]); // 运行时内置，无需在模板中登记
+const ALLOWLIST = new Set(["NODE_ENV", "NEXT_PHASE"]); // 运行时/框架构建阶段内置，无需在模板中登记
 
 function walk(dir: string, filter: (filePath: string) => boolean): string[] {
   const results: string[] = [];

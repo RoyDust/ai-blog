@@ -435,6 +435,19 @@ describe("Unit B2: Nginx HTTPS gateway hardening contract", () => {
     ])
     expect(getDirectiveValues(httpsServer!, "ssl_protocols")).toEqual([["TLSv1.2", "TLSv1.3"]])
     expect(getDirectiveValues(httpsServer!, "client_max_body_size")).toEqual([["10m"]])
+    expect(getDirectiveValues(httpsServer!, "gzip")).toEqual([["on"]])
+    expect(getDirectiveValues(httpsServer!, "gzip_vary")).toEqual([["on"]])
+    expect(getDirectiveValues(httpsServer!, "gzip_proxied")).toEqual([["any"]])
+
+    const gzipTypes = getDirectiveValues(httpsServer!, "gzip_types").flat()
+    expect(gzipTypes).toEqual(
+      expect.arrayContaining([
+        "text/css",
+        "application/javascript",
+        "application/json",
+        "image/svg+xml",
+      ])
+    )
 
     const addHeaders = getDirectiveValues(httpsServer!, "add_header")
     expect(

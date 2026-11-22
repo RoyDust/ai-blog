@@ -66,6 +66,16 @@ describe('Web readiness', () => {
     expect(transaction).not.toHaveBeenCalled()
     expect(await response.text()).not.toContain('private')
   })
+  test('coalesces concurrent healthy probes onto a single DB query without false 503s', async () => {
+    environment()
+    let resolveProbe!: (value: boolean) => void
+    transaction.mockImplementationOnce(() => new Promise<boolean>((resolve) => { resolveProbe = resolve }))
+    const [firstPromise, secondPromise, thirdPromise] = [ready(), ready(), ready()]
+    expect(transaction).toHaveBeenCalledTimes(1)
+    resolveProbe(true)
+    const responses = await Promise.all([firstPromise, secondPromise, thirdPromise])
+    expect(responses.map((res) => res.status)).toEqual([200, 200, 200])
+  })
   test('bounds both response time and outstanding probes when a database call stalls', async () => {
     environment(); vi.useFakeTimers()
     let release!: (value: boolean) => void
