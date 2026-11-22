@@ -117,7 +117,14 @@ function createUnavailablePrismaClient() {
         return async () => undefined
       }
 
-      if (property === '$connect' || property === '$transaction' || property === '$executeRaw' || property === '$queryRaw') {
+      if (
+        property === '$connect' ||
+        property === '$transaction' ||
+        property === '$executeRaw' ||
+        property === '$executeRawUnsafe' ||
+        property === '$queryRaw' ||
+        property === '$queryRawUnsafe'
+      ) {
         return () => Promise.reject(new Error(MISSING_DATABASE_URL_MESSAGE))
       }
 
