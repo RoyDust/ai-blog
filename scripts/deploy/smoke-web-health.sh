@@ -27,6 +27,14 @@ services:
 EOF
 compose config --quiet
 compose run --rm --no-deps app node scripts/check-web-readiness.cjs
+compose up -d smoke-db
+for attempt in {1..30}; do
+  if compose exec -T smoke-db pg_isready -U smoke -d image_smoke >/dev/null 2>&1; then
+    break
+  fi
+  sleep 1
+done
+compose run --rm --no-deps app pnpm prisma migrate deploy
 compose up -d --no-build
 
 expect_http() {

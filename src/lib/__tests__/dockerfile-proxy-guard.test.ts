@@ -54,4 +54,10 @@ describe("Dockerfile proxy guard", () => {
     expect(dockerfile).not.toMatch(/^ARG AUTH_SECRET$/m);
     expect(dockerfile).not.toMatch(/^ARG NEXTAUTH_SECRET$/m);
   });
+
+  test("replaces broken standalone symlinks and validates prisma CLI in runner stage", () => {
+    expect(dockerfile).toContain("exec node /opt/prisma-cli/node_modules/prisma/build/index.js");
+    expect(dockerfile).not.toContain("! -L /app/node_modules/prisma");
+    expect(dockerfile).toContain("pnpm prisma validate");
+  });
 });
