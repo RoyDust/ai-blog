@@ -50,6 +50,13 @@ describe('lazy prisma client', () => {
     await expect(importPrismaWithoutDatabaseUrl()).resolves.toHaveProperty('prisma')
   })
 
+  test('is not treated as a thenable when returned from an async function without DATABASE_URL', async () => {
+    const { prisma } = await importPrismaWithoutDatabaseUrl()
+    const getAsyncPrisma = async () => prisma
+
+    await expect(getAsyncPrisma()).resolves.toBe(prisma)
+  })
+
   test('rejects query execution with a clear missing database error', async () => {
     const { prisma } = await importPrismaWithoutDatabaseUrl()
     const prismaForTest = prisma as unknown as {

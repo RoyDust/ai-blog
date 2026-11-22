@@ -105,6 +105,10 @@ function createUnavailablePrismaClient() {
 
   return new Proxy({} as PrismaClient, {
     get(_target, property) {
+      if (property === 'then' || property === 'catch' || property === 'finally') {
+        return undefined
+      }
+
       if (property === Symbol.toStringTag) {
         return 'PrismaClient'
       }
@@ -113,7 +117,14 @@ function createUnavailablePrismaClient() {
         return async () => undefined
       }
 
-      if (property === '$connect' || property === '$transaction' || property === '$executeRaw' || property === '$queryRaw') {
+      if (
+        property === '$connect' ||
+        property === '$transaction' ||
+        property === '$executeRaw' ||
+        property === '$executeRawUnsafe' ||
+        property === '$queryRaw' ||
+        property === '$queryRawUnsafe'
+      ) {
         return () => Promise.reject(new Error(MISSING_DATABASE_URL_MESSAGE))
       }
 
