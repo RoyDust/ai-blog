@@ -42,38 +42,16 @@ describe('Web readiness', () => {
     expect(transaction).not.toHaveBeenCalled()
     expect(await response.json()).toEqual({ status: 'not_ready', checks: { configuration: 'failed', database: 'skipped' } })
   })
-  test('permits plaintext non-loopback site URLs only when ALLOW_INSECURE_HTTP_SITE_URL is explicitly enabled', async () => {
-    for (const flag of ['1', 'true', 'TRUE']) {
-      expect(
-        parseWebReadinessConfig({
-          ...valid,
-          NEXTAUTH_URL: 'http://47.98.167.32',
-          NEXT_PUBLIC_SITE_URL: 'http://47.98.167.32',
-          NODE_ENV: 'production',
-          ALLOW_INSECURE_HTTP_SITE_URL: flag,
-        }).valid,
-      ).toBe(true)
-    }
-    for (const flag of ['', '0', 'false', 'no']) {
-      expect(
-        parseWebReadinessConfig({
-          ...valid,
-          NEXTAUTH_URL: 'http://47.98.167.32',
-          NEXT_PUBLIC_SITE_URL: 'http://47.98.167.32',
-          NODE_ENV: 'production',
-          ALLOW_INSECURE_HTTP_SITE_URL: flag,
-        }).valid,
-      ).toBe(false)
-    }
-
+  test('unconditionally rejects plaintext non-loopback site URLs in production even if legacy override flags are set', async () => {
     environment()
     vi.stubEnv('NODE_ENV', 'production')
-    vi.stubEnv('NEXTAUTH_URL', 'http://47.98.167.32')
-    vi.stubEnv('NEXT_PUBLIC_SITE_URL', 'http://47.98.167.32')
+    vi.stubEnv('NEXTAUTH_URL', 'http://roydust.top')
+    vi.stubEnv('NEXT_PUBLIC_SITE_URL', 'http://roydust.top')
     vi.stubEnv('ALLOW_INSECURE_HTTP_SITE_URL', '1')
-    transaction.mockResolvedValueOnce(true)
     const response = await ready()
-    expect(response.status).toBe(200)
+    expect(response.status).toBe(503)
+    expect(transaction).not.toHaveBeenCalled()
+    expect(await response.json()).toEqual({ status: 'not_ready', checks: { configuration: 'failed', database: 'skipped' } })
   })
   test('live stays independent while invalid configuration skips the database', async () => {
     environment(); vi.stubEnv('AUTH_SECRET', '')
