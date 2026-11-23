@@ -38,7 +38,7 @@ jobs:
       DASHSCOPE_API_KEY: test-dashscope-key
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -119,7 +119,7 @@ jobs:
       E2E_DISPOSABLE_DATABASE: '1'
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
