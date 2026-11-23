@@ -24,6 +24,16 @@ async function waitForMetadataInspector() {
   await screen.findByText('分类、标签与封面图')
 }
 
+async function selectComboboxOption(label: string, optionName: string) {
+  fireEvent.click(await screen.findByLabelText(label))
+  const option = await screen.findByRole('option', { name: optionName })
+  fireEvent.mouseMove(option, { clientX: 10, clientY: 10 })
+  await waitFor(() => {
+    expect(option).toHaveAttribute('data-highlighted')
+  })
+  fireEvent.click(option)
+}
+
 function renderEditPage() {
   return render(
     <SWRConfig value={{ provider: () => new Map(), dedupingInterval: 0 }}>
@@ -244,8 +254,7 @@ describe('admin editor', () => {
 
     await waitForMetadataInspector()
 
-    fireEvent.click(await screen.findByLabelText('分类'))
-    fireEvent.click(await screen.findByRole('option', { name: '后端' }))
+    await selectComboboxOption('分类', '后端')
     fireEvent.click(screen.getByRole('checkbox', { name: 'Next.js' }))
     fireEvent.click(screen.getByRole('button', { name: '保存草稿' }))
 
@@ -297,8 +306,7 @@ describe('admin editor', () => {
 
     await waitForMetadataInspector()
 
-    fireEvent.click(await screen.findByLabelText('所属系列'))
-    fireEvent.click(await screen.findByRole('option', { name: 'Next.js 系列' }))
+    await selectComboboxOption('所属系列', 'Next.js 系列')
     fireEvent.change(screen.getByLabelText('系列排序'), { target: { value: '2' } })
     fireEvent.click(screen.getByRole('button', { name: '保存草稿' }))
 

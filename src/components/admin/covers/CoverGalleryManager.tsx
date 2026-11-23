@@ -17,7 +17,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/shadcn/ui/select";
+} from "@/components/coss/ui/select";
 import { readPositiveInteger, useFilterMemory } from "@/hooks/useFilterMemory";
 import { apiFetcher, apiMutate, handleGlobalSwrError, toErrorMessage } from "@/lib/client-api";
 import { CoverAssetForm } from "./CoverAssetForm";
@@ -29,6 +29,16 @@ const adminSelectTriggerClassName = "w-[140px] rounded-xl border-[var(--border)]
 const coverGalleryMemoryKey = "admin:covers:list-filters";
 const statusFilters = ["all", "active", "archived"] as const;
 const imageKindFilters = ["all", "uploaded", "ai-generated"] as const;
+const statusFilterItems = [
+  { value: "all", label: "全部状态" },
+  { value: "active", label: "可用" },
+  { value: "archived", label: "归档" },
+];
+const imageKindFilterItems = [
+  { value: "all", label: "全部图片" },
+  { value: "uploaded", label: "上传图片" },
+  { value: "ai-generated", label: "AI 生成" },
+];
 const pageSizeOptions = [12, 24, 48];
 
 type CoverStatusFilter = (typeof statusFilters)[number];
@@ -224,8 +234,10 @@ export function CoverGalleryManager() {
                   }}
                 />
                 <Select
+                  items={statusFilterItems}
                   value={statusFilter}
                   onValueChange={(value) => {
+                    if (value === null) return;
                     setStatusFilter(value as CoverStatusFilter);
                     setPage(1);
                   }}
@@ -233,15 +245,17 @@ export function CoverGalleryManager() {
                   <SelectTrigger aria-label="封面状态" className={adminSelectTriggerClassName}>
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="admin-theme">
                     <SelectItem value="all">全部状态</SelectItem>
                     <SelectItem value="active">可用</SelectItem>
                     <SelectItem value="archived">归档</SelectItem>
                   </SelectContent>
                 </Select>
                 <Select
+                  items={imageKindFilterItems}
                   value={imageKindFilter}
                   onValueChange={(value) => {
+                    if (value === null) return;
                     setImageKindFilter(value as CoverImageKindFilter);
                     setPage(1);
                   }}
@@ -249,7 +263,7 @@ export function CoverGalleryManager() {
                   <SelectTrigger aria-label="图片类型" className={adminSelectTriggerClassName}>
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="admin-theme">
                     <SelectItem value="all">全部图片</SelectItem>
                     <SelectItem value="uploaded">上传图片</SelectItem>
                     <SelectItem value="ai-generated">AI 生成</SelectItem>

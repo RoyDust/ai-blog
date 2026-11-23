@@ -1,11 +1,13 @@
+"use client";
+
 import * as React from "react";
 import {
   Field,
   FieldDescription,
   FieldError,
   FieldLabel,
-} from "@/components/shadcn/ui/field";
-import { Textarea as ShadcnTextarea } from "@/components/shadcn/ui/textarea";
+} from "@/components/coss/ui/field";
+import { Textarea as CossTextarea } from "@/components/coss/ui/textarea";
 import { cn } from "@/lib/utils";
 
 export interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
@@ -19,9 +21,9 @@ function Textarea({ className, label, error, helperText, id, ...props }: Textare
   const textareaId = id || generatedId;
 
   return (
-    <Field data-invalid={Boolean(error)}>
+    <Field className="w-full" data-invalid={Boolean(error)} invalid={Boolean(error)}>
       {label ? <FieldLabel htmlFor={textareaId}>{label}</FieldLabel> : null}
-      <ShadcnTextarea
+      <CossTextarea
         aria-invalid={Boolean(error)}
         className={cn(
           "min-h-28 resize-y",
@@ -30,7 +32,11 @@ function Textarea({ className, label, error, helperText, id, ...props }: Textare
         id={textareaId}
         {...props}
       />
-      {error ? <FieldError>{error}</FieldError> : null}
+      {error ? (
+        <FieldError match role="alert">
+          {error}
+        </FieldError>
+      ) : null}
       {helperText && !error ? <FieldDescription>{helperText}</FieldDescription> : null}
     </Field>
   );

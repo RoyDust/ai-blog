@@ -1,7 +1,5 @@
 "use client";
 
-import * as Dialog from "@radix-ui/react-dialog";
-import { Command } from "cmdk";
 import {
   Archive,
   ArrowRight,
@@ -23,6 +21,19 @@ import { useRouter } from "next/navigation";
 import { useDeferredValue, useMemo, useState, type ReactNode } from "react";
 import useSWR from "swr";
 
+import {
+  Command,
+  CommandDialog,
+  CommandDialogClose,
+  CommandDialogDescription,
+  CommandDialogPopup,
+  CommandDialogTitle,
+  CommandGroup,
+  CommandGroupLabel,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/coss/ui/command";
 import { useTheme } from "@/components/ThemeProvider";
 import { apiFetcher, toErrorMessage } from "@/lib/client-api";
 
@@ -64,12 +75,12 @@ const QUICK_LINKS: QuickLinkItem[] = [
 
 function CommandGroupBlock({ heading, children }: { heading: string; children: ReactNode }) {
   return (
-    <Command.Group
-      heading={heading}
-      className="px-2 py-1.5 text-[var(--foreground)] [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:pb-1.5 [&_[cmdk-group-heading]]:text-[11px] [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:text-[var(--text-muted)]"
-    >
+    <CommandGroup className="px-2 py-1.5 text-[var(--foreground)]">
+      <CommandGroupLabel className="px-2 pb-1.5 text-[11px] font-semibold text-[var(--text-muted)]">
+        {heading}
+      </CommandGroupLabel>
       <div className="space-y-0.5">{children}</div>
-    </Command.Group>
+    </CommandGroup>
   );
 }
 
@@ -116,153 +127,165 @@ export function PublicCommandSearchDialog({
     );
   }, [normalizedQuery]);
 
+  function handleDialogOpenChange(nextOpen: boolean) {
+    if (!nextOpen) {
+      setQuery("");
+    }
+    onOpenChange(nextOpen);
+  }
+
   function navigateTo(href: string) {
-    onOpenChange(false);
-    setQuery("");
+    handleDialogOpenChange(false);
     router.push(href);
   }
 
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange}>
-      <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/45 backdrop-blur-sm" />
-        <Dialog.Content className="fixed left-1/2 top-[11vh] z-50 w-[calc(100%-1.5rem)] max-w-xl -translate-x-1/2 overflow-hidden rounded-2xl border border-[var(--reader-border)] bg-[var(--float-panel-bg)] shadow-2xl focus:outline-none">
-          <Dialog.Title className="sr-only">全站快速搜索与导航</Dialog.Title>
-          <Dialog.Description className="sr-only">输入关键词即时检索文章，或快速跳转前台页面与切换主题。</Dialog.Description>
+    <CommandDialog open={open} onOpenChange={handleDialogOpenChange}>
+      <CommandDialogPopup className="max-h-[min(76vh,38rem)] max-w-xl overflow-hidden rounded-2xl border border-[var(--reader-border)] bg-[var(--float-panel-bg)] p-0 shadow-2xl before:hidden">
+        <CommandDialogTitle className="sr-only">全站快速搜索与导航</CommandDialogTitle>
+        <CommandDialogDescription className="sr-only">输入关键词即时检索文章，或快速跳转前台页面与切换主题。</CommandDialogDescription>
 
-          <Command shouldFilter={false} loop className="flex max-h-[min(76vh,38rem)] flex-col">
-            <div className="flex items-center gap-2.5 border-b border-[var(--line-color)] px-4 py-3">
-              <Search className="h-4 w-4 shrink-0 text-[var(--brand)]" aria-hidden="true" />
-              <Command.Input
-                autoFocus
+        <Command
+          autoHighlight="always"
+          filter={null}
+          keepHighlight
+          loopFocus
+          mode="none"
+          value={query}
+          onValueChange={(nextValue, eventDetails) => {
+            if (eventDetails.reason === "item-press") return;
+            setQuery(nextValue);
+          }}
+        >
+          <div className="flex items-center gap-2 border-b border-[var(--line-color)] pr-3">
+            <div className="min-w-0 flex-1">
+              <CommandInput
                 aria-label="输入关键词搜索文章"
-                value={query}
-                onValueChange={setQuery}
                 placeholder="搜索文章标题、摘要，或直接跳转页面…"
-                className="h-8 min-w-0 flex-1 bg-transparent text-sm text-[var(--foreground)] outline-none placeholder:text-[var(--text-muted)]"
+                className="text-sm text-[var(--foreground)]"
               />
-              <Dialog.Close
-                aria-label="关闭快速搜索"
-                className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[var(--text-muted)] transition-colors hover:bg-[var(--btn-plain-bg-hover)] hover:text-[var(--foreground)]"
-              >
-                <X className="h-4 w-4" aria-hidden="true" />
-              </Dialog.Close>
             </div>
+            <CommandDialogClose
+              aria-label="关闭快速搜索"
+              className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[var(--text-muted)] transition-colors hover:bg-[var(--btn-plain-bg-hover)] hover:text-[var(--foreground)]"
+            >
+              <X className="h-4 w-4" aria-hidden="true" />
+            </CommandDialogClose>
+          </div>
 
-            <Command.List className="min-h-[14rem] overflow-y-auto p-2">
-              {normalizedQuery ? (
-                <CommandGroupBlock heading="全文检索">
-                  <Command.Item
-                    value={`full-search-${normalizedQuery}`}
-                    onSelect={() => navigateTo(`/search?q=${encodeURIComponent(normalizedQuery)}`)}
-                    className="flex cursor-pointer items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-sm outline-none transition-colors data-[selected=true]:bg-[var(--btn-regular-bg)] data-[selected=true]:text-[var(--btn-content)]"
-                  >
-                    <span className="flex min-w-0 items-center gap-2.5">
-                      <Search className="h-4 w-4 shrink-0 text-[var(--brand)]" aria-hidden="true" />
-                      <span className="truncate font-medium">
-                        查看「{normalizedQuery}」的完整搜索与 AI 导读
-                      </span>
+          <CommandList className="min-h-[14rem] max-h-[min(56vh,28rem)] p-2">
+            {normalizedQuery ? (
+              <CommandGroupBlock heading="全文检索">
+                <CommandItem
+                  value={`full-search-${normalizedQuery}`}
+                  onClick={() => navigateTo(`/search?q=${encodeURIComponent(normalizedQuery)}`)}
+                  className="flex cursor-pointer items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-sm outline-none transition-colors data-highlighted:bg-[var(--btn-regular-bg)] data-highlighted:text-[var(--btn-content)]"
+                >
+                  <span className="flex min-w-0 items-center gap-2.5">
+                    <Search className="h-4 w-4 shrink-0 text-[var(--brand)]" aria-hidden="true" />
+                    <span className="truncate font-medium">
+                      查看「{normalizedQuery}」的完整搜索与 AI 导读
                     </span>
-                    <ArrowRight className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden="true" />
-                  </Command.Item>
-                </CommandGroupBlock>
-              ) : null}
+                  </span>
+                  <ArrowRight className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden="true" />
+                </CommandItem>
+              </CommandGroupBlock>
+            ) : null}
 
-              {posts.length > 0 ? (
-                <CommandGroupBlock heading={`匹配文章 (${totalMatches})`}>
-                  {posts.map((post) => (
-                    <Command.Item
-                      key={post.id}
-                      value={`post-${post.slug}-${post.title}`}
-                      onSelect={() => navigateTo(`/posts/${post.slug}`)}
-                      className="flex cursor-pointer items-start gap-3 rounded-xl px-3 py-2.5 text-left outline-none transition-colors data-[selected=true]:bg-[var(--btn-regular-bg)]"
-                    >
-                      <span className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--btn-regular-bg)] text-[var(--btn-content)]">
-                        <FileText className="h-3.5 w-3.5" aria-hidden="true" />
+            {posts.length > 0 ? (
+              <CommandGroupBlock heading={`匹配文章 (${totalMatches})`}>
+                {posts.map((post) => (
+                  <CommandItem
+                    key={post.id}
+                    value={`post-${post.slug}-${post.title}`}
+                    onClick={() => navigateTo(`/posts/${post.slug}`)}
+                    className="flex cursor-pointer items-start gap-3 rounded-xl px-3 py-2.5 text-left outline-none transition-colors data-highlighted:bg-[var(--btn-regular-bg)]"
+                  >
+                    <span className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--btn-regular-bg)] text-[var(--btn-content)]">
+                      <FileText className="h-3.5 w-3.5" aria-hidden="true" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-semibold text-[var(--foreground)]">
+                        {post.title}
                       </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-semibold text-[var(--foreground)]">
-                          {post.title}
-                        </span>
-                        {post.excerpt ? (
-                          <span className="mt-0.5 line-clamp-1 text-xs text-[var(--text-muted)]">
-                            {post.excerpt}
-                          </span>
-                        ) : null}
-                      </span>
-                      {post.category?.name ? (
-                        <span className="shrink-0 rounded-md bg-[var(--surface-alt)] px-2 py-0.5 text-[11px] text-[var(--text-muted)]">
-                          #{post.category.name}
+                      {post.excerpt ? (
+                        <span className="mt-0.5 line-clamp-1 text-xs text-[var(--text-muted)]">
+                          {post.excerpt}
                         </span>
                       ) : null}
-                    </Command.Item>
-                  ))}
-                </CommandGroupBlock>
-              ) : null}
-
-              {matchingQuickLinks.length > 0 ? (
-                <CommandGroupBlock heading={normalizedQuery ? "相关入口" : "快速跳转"}>
-                  {matchingQuickLinks.map((item) => {
-                    const Icon = item.icon;
-                    return (
-                      <Command.Item
-                        key={item.id}
-                        value={`nav-${item.id}-${item.title}`}
-                        onSelect={() => navigateTo(item.href)}
-                        className="flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-left outline-none transition-colors data-[selected=true]:bg-[var(--btn-regular-bg)]"
-                      >
-                        <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--surface-alt)] text-[var(--brand)]">
-                          <Icon className="h-3.5 w-3.5" aria-hidden="true" />
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-sm font-semibold text-[var(--foreground)]">{item.title}</span>
-                          <span className="block truncate text-xs text-[var(--text-muted)]">{item.subtitle}</span>
-                        </span>
-                      </Command.Item>
-                    );
-                  })}
-                </CommandGroupBlock>
-              ) : null}
-
-              {!normalizedQuery ? (
-                <CommandGroupBlock heading="阅读偏好">
-                  <Command.Item
-                    value="toggle-reader-theme"
-                    onSelect={() => {
-                      toggleTheme();
-                      onOpenChange(false);
-                    }}
-                    className="flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-left outline-none transition-colors data-[selected=true]:bg-[var(--btn-regular-bg)]"
-                  >
-                    <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--surface-alt)] text-[var(--brand)]">
-                      {theme === "dark" ? <Sun className="h-3.5 w-3.5" aria-hidden="true" /> : <Moon className="h-3.5 w-3.5" aria-hidden="true" />}
                     </span>
-                    <span className="text-sm font-semibold text-[var(--foreground)]">
-                      {theme === "dark" ? "切换到日间阅读模式" : "切换到夜间阅读模式"}
-                    </span>
-                  </Command.Item>
-                </CommandGroupBlock>
-              ) : null}
+                    {post.category?.name ? (
+                      <span className="shrink-0 rounded-md bg-[var(--surface-alt)] px-2 py-0.5 text-[11px] text-[var(--text-muted)]">
+                        #{post.category.name}
+                      </span>
+                    ) : null}
+                  </CommandItem>
+                ))}
+              </CommandGroupBlock>
+            ) : null}
 
-              {queryCharCount === 1 ? (
-                <div className="px-4 py-5 text-center text-xs text-[var(--text-muted)]">
-                  再输入至少 1 个字符即可即时预览匹配文章，或直接按回车前往搜索页
-                </div>
-              ) : null}
-              {loading ? <div className="px-4 py-6 text-center text-xs text-[var(--text-muted)]">正在检索文章…</div> : null}
-              {errorMessage ? <div className="px-4 py-6 text-center text-xs text-[var(--danger-foreground)]">{errorMessage}</div> : null}
-              {queryCharCount >= 2 && !loading && !errorMessage && posts.length === 0 && matchingQuickLinks.length === 0 ? (
-                <div className="px-4 py-6 text-center text-xs text-[var(--text-muted)]">未找到直接匹配的文章，可按回车尝试完整搜索</div>
-              ) : null}
-            </Command.List>
+            {matchingQuickLinks.length > 0 ? (
+              <CommandGroupBlock heading={normalizedQuery ? "相关入口" : "快速跳转"}>
+                {matchingQuickLinks.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <CommandItem
+                      key={item.id}
+                      value={`nav-${item.id}-${item.title}`}
+                      onClick={() => navigateTo(item.href)}
+                      className="flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-left outline-none transition-colors data-highlighted:bg-[var(--btn-regular-bg)]"
+                    >
+                      <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--surface-alt)] text-[var(--brand)]">
+                        <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-semibold text-[var(--foreground)]">{item.title}</span>
+                        <span className="block truncate text-xs text-[var(--text-muted)]">{item.subtitle}</span>
+                      </span>
+                    </CommandItem>
+                  );
+                })}
+              </CommandGroupBlock>
+            ) : null}
 
-            <div className="flex items-center justify-between border-t border-[var(--line-color)] px-4 py-2 text-[11px] text-[var(--text-muted)]">
-              <span>↑↓ 选择 · Enter 打开 · Esc 关闭</span>
-              <span className="font-mono">{shortcutLabel}</span>
-            </div>
-          </Command>
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
+            {!normalizedQuery ? (
+              <CommandGroupBlock heading="阅读偏好">
+                <CommandItem
+                  value="toggle-reader-theme"
+                  onClick={() => {
+                    toggleTheme();
+                    handleDialogOpenChange(false);
+                  }}
+                  className="flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-left outline-none transition-colors data-highlighted:bg-[var(--btn-regular-bg)]"
+                >
+                  <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--surface-alt)] text-[var(--brand)]">
+                    {theme === "dark" ? <Sun className="h-3.5 w-3.5" aria-hidden="true" /> : <Moon className="h-3.5 w-3.5" aria-hidden="true" />}
+                  </span>
+                  <span className="text-sm font-semibold text-[var(--foreground)]">
+                    {theme === "dark" ? "切换到日间阅读模式" : "切换到夜间阅读模式"}
+                  </span>
+                </CommandItem>
+              </CommandGroupBlock>
+            ) : null}
+
+            {queryCharCount === 1 ? (
+              <div className="px-4 py-5 text-center text-xs text-[var(--text-muted)]">
+                再输入至少 1 个字符即可即时预览匹配文章，或直接按回车前往搜索页
+              </div>
+            ) : null}
+            {loading ? <div className="px-4 py-6 text-center text-xs text-[var(--text-muted)]">正在检索文章…</div> : null}
+            {errorMessage ? <div className="px-4 py-6 text-center text-xs text-[var(--danger-foreground)]">{errorMessage}</div> : null}
+            {queryCharCount >= 2 && !loading && !errorMessage && posts.length === 0 && matchingQuickLinks.length === 0 ? (
+              <div className="px-4 py-6 text-center text-xs text-[var(--text-muted)]">未找到直接匹配的文章，可按回车尝试完整搜索</div>
+            ) : null}
+          </CommandList>
+
+          <div className="flex items-center justify-between border-t border-[var(--line-color)] px-4 py-2 text-[11px] text-[var(--text-muted)]">
+            <span>↑↓ 选择 · Enter 打开 · Esc 关闭</span>
+            <span className="font-mono">{shortcutLabel}</span>
+          </div>
+        </Command>
+      </CommandDialogPopup>
+    </CommandDialog>
   );
 }

@@ -26,6 +26,7 @@ export {
   AlertDialogPortal,
   AlertDialogOverlay,
   AlertDialogTrigger,
+  AlertDialogClose,
   AlertDialogContent,
   AlertDialogHeader,
   AlertDialogFooter,
@@ -51,6 +52,15 @@ export {
   DropdownMenuRadioGroup,
 } from "./dropdown-menu";
 export { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "./table";
+export {
+  Tooltip,
+  TooltipContent,
+  TooltipCreateHandle,
+  TooltipPopup,
+  TooltipPrimitive,
+  TooltipProvider,
+  TooltipTrigger,
+} from "./tooltip";
 export { FallbackImage } from "@/components/ui/FallbackImage";
 export type { FallbackImageProps } from "@/components/ui/FallbackImage";
 export { ImageCropUploadDialog, calculateSquareCrop } from "./image-crop-upload-dialog";

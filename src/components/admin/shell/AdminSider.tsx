@@ -19,7 +19,7 @@ import {
   SheetContent,
   SheetDescription,
   SheetTitle,
-} from "@/components/shadcn/ui/sheet";
+} from "@/components/coss/ui/sheet";
 import { ADMIN_AI_GROUP_LABEL, type AdminNavItem, adminNavItems, isAdminNavItemActive } from "./config";
 import { clearAllSessionData } from "@/lib/auth-client";
 
@@ -242,34 +242,40 @@ export function AdminSider({ pathname, siteName, user }: AdminSiderProps) {
       />
 
       <div className={`relative border-t border-[var(--admin-sidebar-border)] ${isCollapsed ? "px-2 py-3" : "px-3 py-3"} transition-all duration-300`}>
-        <DropdownMenu modal={false} open={isAccountMenuOpen} onOpenChange={setIsAccountMenuOpen}>
-          <DropdownMenuTrigger asChild>
-            <button
-              aria-label={`${userLabel} 账号菜单`}
-              className={`flex w-full items-center ${isCollapsed ? "justify-center px-0 py-1" : "gap-2.5 px-2 py-1.5"} rounded-[var(--radius-control)] text-left transition-colors hover:bg-[var(--admin-sidebar-hover)]`}
-              type="button"
-            >
-              <UserAvatar image={user.image} userLabel={userLabel} />
-              {!isCollapsed && (
-                <>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-[13px] font-semibold text-[var(--admin-sidebar-fg)]">{userLabel}</p>
-                    <p className="truncate text-[11px] text-[var(--admin-sidebar-muted)]">{userMeta}</p>
-                  </div>
-                  <ChevronDown className={`h-3.5 w-3.5 text-[var(--admin-sidebar-muted)] transition-transform ${isAccountMenuOpen ? "rotate-180" : ""}`} />
-                </>
-              )}
-            </button>
+        <DropdownMenu modal={false} open={isAccountMenuOpen} onOpenChange={(open) => setIsAccountMenuOpen(open)}>
+          <DropdownMenuTrigger
+            render={
+              <button
+                aria-label={`${userLabel} 账号菜单`}
+                className={`flex w-full items-center ${isCollapsed ? "justify-center px-0 py-1" : "gap-2.5 px-2 py-1.5"} rounded-[var(--radius-control)] text-left transition-colors hover:bg-[var(--admin-sidebar-hover)]`}
+                type="button"
+              />
+            }
+          >
+            <UserAvatar image={user.image} userLabel={userLabel} />
+            {!isCollapsed && (
+              <>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[13px] font-semibold text-[var(--admin-sidebar-fg)]">{userLabel}</p>
+                  <p className="truncate text-[11px] text-[var(--admin-sidebar-muted)]">{userMeta}</p>
+                </div>
+                <ChevronDown className={`h-3.5 w-3.5 text-[var(--admin-sidebar-muted)] transition-transform ${isAccountMenuOpen ? "rotate-180" : ""}`} />
+              </>
+            )}
           </DropdownMenuTrigger>
           <DropdownMenuContent align={isCollapsed ? "center" : "start"} className="w-48" side={isCollapsed ? "right" : "top"}>
-            <DropdownMenuItem asChild className={isSettingsActive ? "bg-[color-mix(in_oklab,var(--brand)_10%,var(--surface))] text-[var(--brand)]" : undefined}>
-              <Link aria-current={isSettingsActive ? "page" : undefined} href="/admin/settings">
-                <Settings className="h-4 w-4" />
-                设置
-              </Link>
+            <DropdownMenuItem
+              className={isSettingsActive ? "bg-[color-mix(in_oklab,var(--brand)_10%,var(--surface))] text-[var(--brand)]" : undefined}
+              render={<Link aria-current={isSettingsActive ? "page" : undefined} href="/admin/settings" />}
+            >
+              <Settings className="h-4 w-4" />
+              设置
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-[var(--danger-foreground)] focus:bg-[var(--danger-surface)] focus:text-[var(--danger-foreground)]" onSelect={() => void signOutAdmin()}>
+            <DropdownMenuItem
+              className="text-[var(--danger-foreground)] data-highlighted:bg-[var(--danger-surface)] data-highlighted:text-[var(--danger-foreground)]"
+              onClick={() => void signOutAdmin()}
+            >
               <LogOut className="h-4 w-4" />
               退出账号
             </DropdownMenuItem>
@@ -287,7 +293,7 @@ export function AdminMobileDrawer({ pathname, siteName, user }: AdminSiderProps)
   const isSettingsActive = pathname === "/admin/settings";
 
   return (
-    <Sheet open={isMobileDrawerOpen} onOpenChange={setMobileDrawerOpen}>
+    <Sheet open={isMobileDrawerOpen} onOpenChange={(open) => setMobileDrawerOpen(open)}>
       <SheetContent
         className="admin-theme inset-y-0 left-0 flex h-dvh w-[264px] max-w-[85vw] flex-col gap-0 border-r border-[var(--admin-sidebar-border)] bg-[var(--admin-sidebar-bg)] p-0 text-[var(--admin-sidebar-fg)] shadow-xl sm:max-w-[264px]"
         data-testid="admin-mobile-drawer"

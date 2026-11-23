@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-import { TooltipProvider } from "@/components/shadcn/ui/tooltip";
+import { TooltipProvider } from "@/components/admin/ui/tooltip";
 
 import { PostsTable } from "../PostsTable";
 import type { PaginationState, PostRow } from "../hooks/usePostsList";

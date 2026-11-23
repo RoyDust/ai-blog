@@ -30,7 +30,12 @@ describe('admin create post', () => {
 
   async function selectCategory(name: string) {
     fireEvent.click(await screen.findByLabelText('分类'))
-    fireEvent.click(await screen.findByRole('option', { name }))
+    const option = await screen.findByRole('option', { name })
+    fireEvent.mouseMove(option, { clientX: 10, clientY: 10 })
+    await waitFor(() => {
+      expect(option).toHaveAttribute('data-highlighted')
+    })
+    fireEvent.click(option)
   }
 
   function renderCreatePage() {

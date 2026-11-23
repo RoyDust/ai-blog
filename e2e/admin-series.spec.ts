@@ -5,7 +5,7 @@ import { createPostViaApi, deletePostViaApi, uniqueSlug } from "./helpers"
 /**
  * E14 系列管理 + 文章入系 + 前台排序。
  * 新建系列（表单：标题/Slug/创建系列，toast「系列已创建」）→
- * 文章编辑页「所属系列」Radix combobox 选择 → 保存草稿 → 前台 /series/[slug] 出现该文章。
+ * 文章编辑页「所属系列」Coss UI Select 选择 → 发布提交 → 前台 /series/[slug] 出现该文章。
  */
 test("E14 series create assign post and front visibility", async ({ page }) => {
   const slug = uniqueSlug("series")
@@ -25,7 +25,7 @@ test("E14 series create assign post and front visibility", async ({ page }) => {
     await page.getByLabel("搜索系列").fill(title)
     await expect(page.locator("tr", { hasText: title }).first()).toBeVisible({ timeout: 20_000 })
 
-    // 文章入系：编辑页「所属系列」Radix Select
+    // 文章入系：编辑页「所属系列」Coss UI Select
     await page.goto(`/admin/posts/${post.id}/edit`)
     const seriesTrigger = page.getByRole("combobox", { name: "所属系列" })
     await seriesTrigger.waitFor({ state: "visible", timeout: 20_000 })

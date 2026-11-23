@@ -1,11 +1,13 @@
+"use client";
+
 import * as React from "react";
 import {
   Field,
   FieldDescription,
   FieldError,
   FieldLabel,
-} from "@/components/shadcn/ui/field";
-import { Input as ShadcnInput } from "@/components/shadcn/ui/input";
+} from "@/components/coss/ui/field";
+import { Input as CossInput } from "@/components/coss/ui/input";
 import { cn } from "@/lib/utils";
 
 export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
@@ -22,10 +24,10 @@ function Input({ className, label, error, helperText, rightSlot, id, ...props }:
   const inputId = id || generatedId;
 
   return (
-    <Field data-invalid={Boolean(error)}>
+    <Field className="w-full" data-invalid={Boolean(error)} invalid={Boolean(error)}>
       {label ? <FieldLabel htmlFor={inputId}>{label}</FieldLabel> : null}
-      <div className={rightSlot ? "relative" : undefined}>
-        <ShadcnInput
+      <div className={cn("w-full", rightSlot && "relative")}>
+        <CossInput
           aria-invalid={Boolean(error)}
           className={cn(
             rightSlot ? "pr-12" : "",
@@ -36,7 +38,11 @@ function Input({ className, label, error, helperText, rightSlot, id, ...props }:
         />
         {rightSlot ? <div className="absolute right-2 top-1/2 -translate-y-1/2">{rightSlot}</div> : null}
       </div>
-      {error ? <FieldError>{error}</FieldError> : null}
+      {error ? (
+        <FieldError match role="alert">
+          {error}
+        </FieldError>
+      ) : null}
       {helperText && !error ? <FieldDescription>{helperText}</FieldDescription> : null}
     </Field>
   );

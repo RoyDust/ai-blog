@@ -4,7 +4,7 @@ import { describe, expect, test, vi } from "vitest";
 import { AdminPagination } from "../AdminPagination";
 
 describe("AdminPagination", () => {
-  test("renders shadcn pagination links", () => {
+  test("renders Coss UI pagination links", () => {
     render(
       <AdminPagination
         getPageHref={(page) => `/admin/items?page=${page}`}

@@ -121,7 +121,7 @@ html:has(.reader-home-stage) {
   --color-border-strong: var(--border-strong);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --color-muted: var(--muted);
+  --color-muted: var(--muted-surface, var(--surface-alt));
   --color-muted-foreground: var(--muted-foreground);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
@@ -135,6 +135,12 @@ html:has(.reader-home-stage) {
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
@@ -150,6 +156,8 @@ html:has(.reader-home-stage) {
   --radius-xl: calc(var(--radius) + 4px);
   --font-sans: var(--font-alibaba-puhuiti);
   --font-display: var(--font-alibaba-puhuiti);
+  --font-heading: var(--font-display);
+  --animate-skeleton: skeleton 2s -1s infinite linear;
   --font-mono: "SFMono-Regular", "Cascadia Code", "JetBrains Mono", "Fira Code", Consolas, monospace;
   --font-code: "SFMono-Regular", "Cascadia Code", "JetBrains Mono", "Fira Code", Consolas, monospace;
   --color-sidebar-ring:
@@ -244,9 +252,10 @@ body {
   }
 }
 
-html body[data-radix-select-open][data-scroll-locked] {
-  --removed-body-scroll-bar-size: 0px !important;
-  margin-right: 0 !important;
+@keyframes skeleton {
+  to {
+    background-position: -200% 0;
+  }
 }
 
 ::selection {
@@ -326,17 +335,22 @@ html body[data-radix-select-open][data-scroll-locked] {
   --radius: 0.75rem;
   --card: var(--surface);
   --card-foreground: var(--foreground);
-  --popover: var(--surface);
+  --popover: var(--surface-elevated);
   --popover-foreground: var(--foreground);
   --primary-foreground: #ffffff;
   --secondary: var(--surface-alt);
   --secondary-foreground: var(--foreground);
   --accent: var(--surface-alt);
   --accent-foreground: var(--foreground);
+  --muted-surface: var(--surface-alt);
   --muted-foreground: var(--text-muted);
   --destructive: var(--danger-foreground);
-  --destructive-foreground: #ffffff;
-  --input: var(--border);
+  --destructive-foreground: var(--danger-foreground);
+  --info: var(--brand);
+  --info-foreground: var(--brand-strong);
+  --success: oklch(0.64 0.16 152);
+  --warning: oklch(0.74 0.15 80);
+  --input: var(--border-strong);
   --chart-1: var(--brand);
   --chart-2: var(--accent-cyan);
   --chart-3: var(--accent-warm);

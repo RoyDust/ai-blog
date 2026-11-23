@@ -6,7 +6,7 @@ import { CheckCircle2, ImageIcon, KeyRound, Network, Pencil, Plus, RadioTower, S
 import { WorkspacePanel } from "@/components/admin/primitives/WorkspacePanel";
 import { StatusBadge } from "@/components/admin/primitives/StatusBadge";
 import { Button } from "@/components/admin/ui";
-import { Checkbox } from "@/components/shadcn/ui/checkbox";
+import { Checkbox } from "@/components/coss/ui/checkbox";
 import {
   Form,
   FormControl,
@@ -14,9 +14,9 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/shadcn/ui/form";
-import { Input } from "@/components/shadcn/ui/input";
-import { Textarea } from "@/components/shadcn/ui/textarea";
+} from "@/components/coss/ui/form";
+import { Input } from "@/components/coss/ui/input";
+import { Textarea } from "@/components/coss/ui/textarea";
 import type { PublicAiModelOption } from "@/lib/ai-models";
 
 import { useModelActions } from "./hooks/useModelActions";

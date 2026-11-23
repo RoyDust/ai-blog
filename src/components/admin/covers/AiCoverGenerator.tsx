@@ -10,7 +10,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/shadcn/ui/select";
+} from "@/components/coss/ui/select";
 import { readApiJson } from "@/lib/admin-api-client";
 import type { PublicAiModelOption } from "@/lib/ai-models";
 import type { CoverAsset } from "./types";
@@ -24,7 +24,7 @@ type AiCoverGeneratorProps = {
 };
 
 const adminSelectTriggerClassName = "w-full rounded-xl border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--foreground)] shadow-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]";
-const adminSelectContentClassName = "rounded-xl border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)]";
+const adminSelectContentClassName = "admin-theme rounded-xl border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)]";
 
 /**
  * 文章编辑器里的 AI 封面生成入口。
@@ -46,6 +46,10 @@ export function AiCoverGenerator({ title, excerpt, content, models: initialModel
   const [error, setError] = useState("");
 
   const selectedModelId = modelId || coverModels[0]?.id || "";
+  const coverModelItems = useMemo(
+    () => coverModels.map((model) => ({ value: model.id, label: `${model.name} · ${model.model}` })),
+    [coverModels],
+  );
 
   /**
    * 懒加载模型列表。
@@ -119,7 +123,7 @@ export function AiCoverGenerator({ title, excerpt, content, models: initialModel
         {coverModels.length > 0 ? (
           <label className="block space-y-2 text-sm font-medium text-[var(--foreground)]">
             <span>生图模型</span>
-            <Select value={selectedModelId} onValueChange={setModelId}>
+            <Select items={coverModelItems} value={selectedModelId} onValueChange={(value) => { if (value !== null) setModelId(value); }}>
               <SelectTrigger className={adminSelectTriggerClassName}>
                 <SelectValue />
               </SelectTrigger>

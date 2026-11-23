@@ -14,14 +14,14 @@ import {
   DialogTitle,
 } from "@/components/admin/ui";
 import { ConfirmDialog } from "@/components/admin/ui/confirm-dialog";
-import { Button } from "@/components/shadcn/ui/button";
+import { Button } from "@/components/coss/ui/button";
 import {
   Empty,
   EmptyDescription,
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-} from "@/components/shadcn/ui/empty";
+} from "@/components/coss/ui/empty";
 import {
   Table,
   TableBody,
@@ -29,14 +29,14 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/shadcn/ui/table";
+} from "@/components/coss/ui/table";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/shadcn/ui/select";
+} from "@/components/coss/ui/select";
 import { apiFetcher, apiMutate, toErrorMessage } from "@/lib/client-api";
 
 type LogItem = {
@@ -100,6 +100,9 @@ const statusOptions = [
 
 const scopeOptions = ["", "admin", "public", "auth", "ai", "ai-usage", "cron", "analytics", "account"];
 const allFilterValue = "__all__";
+const methodSelectItems = methodOptions.map((option) => ({ value: option || allFilterValue, label: option || "全部方法" }));
+const statusSelectItems = statusOptions.map((option) => ({ value: option.value || allFilterValue, label: option.label }));
+const scopeSelectItems = scopeOptions.map((option) => ({ value: option || allFilterValue, label: option || "全部范围" }));
 const defaultPageSize = 40;
 const selectTriggerClassName = "h-10 w-full rounded-xl border-[var(--border)] bg-[var(--surface)] px-3 text-sm font-medium text-[var(--foreground)] shadow-none";
 
@@ -243,25 +246,27 @@ export function ApiOperationLogsClient() {
 
       <section className="ui-surface shrink-0 rounded-2xl p-3">
         <div className="grid gap-3 lg:grid-cols-[repeat(4,minmax(0,1fr))_minmax(240px,1.4fr)_auto]">
-          <Select value={range} onValueChange={(value) => {
+          <Select items={rangeOptions} value={range} onValueChange={(value) => {
+            if (value === null) return;
             setRange(value);
             setPage(1);
           }}>
             <SelectTrigger className={selectTriggerClassName}>
               <SelectValue />
             </SelectTrigger>
-            <SelectContent className="rounded-xl border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)]">
+            <SelectContent className="admin-theme rounded-xl border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)]">
               {rangeOptions.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Select value={filterValue(method)} onValueChange={(value) => {
+          <Select items={methodSelectItems} value={filterValue(method)} onValueChange={(value) => {
+            if (value === null) return;
             setMethod(normalizeFilterValue(value));
             setPage(1);
           }}>
             <SelectTrigger className={selectTriggerClassName}>
               <SelectValue />
             </SelectTrigger>
-            <SelectContent className="rounded-xl border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)]">
+            <SelectContent className="admin-theme rounded-xl border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)]">
               {methodOptions.map((option) => (
                 <SelectItem key={option || allFilterValue} value={option || allFilterValue}>
                   {option || "全部方法"}
@@ -269,14 +274,15 @@ export function ApiOperationLogsClient() {
               ))}
             </SelectContent>
           </Select>
-          <Select value={filterValue(status)} onValueChange={(value) => {
+          <Select items={statusSelectItems} value={filterValue(status)} onValueChange={(value) => {
+            if (value === null) return;
             setStatus(normalizeFilterValue(value));
             setPage(1);
           }}>
             <SelectTrigger className={selectTriggerClassName}>
               <SelectValue />
             </SelectTrigger>
-            <SelectContent className="rounded-xl border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)]">
+            <SelectContent className="admin-theme rounded-xl border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)]">
               {statusOptions.map((option) => (
                 <SelectItem key={option.value || allFilterValue} value={option.value || allFilterValue}>
                   {option.label}
@@ -284,14 +290,15 @@ export function ApiOperationLogsClient() {
               ))}
             </SelectContent>
           </Select>
-          <Select value={filterValue(scope)} onValueChange={(value) => {
+          <Select items={scopeSelectItems} value={filterValue(scope)} onValueChange={(value) => {
+            if (value === null) return;
             setScope(normalizeFilterValue(value));
             setPage(1);
           }}>
             <SelectTrigger className={selectTriggerClassName}>
               <SelectValue />
             </SelectTrigger>
-            <SelectContent className="rounded-xl border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)]">
+            <SelectContent className="admin-theme rounded-xl border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)]">
               {scopeOptions.map((option) => (
                 <SelectItem key={option || allFilterValue} value={option || allFilterValue}>
                   {option || "全部范围"}

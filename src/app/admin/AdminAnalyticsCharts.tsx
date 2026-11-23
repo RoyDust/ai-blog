@@ -2,7 +2,7 @@
 
 import { Area as RechartsArea, AreaChart as RechartsAreaChart, CartesianGrid as RechartsCartesianGrid, XAxis as RechartsXAxis, YAxis as RechartsYAxis } from "recharts";
 
-import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/shadcn/ui/chart";
+import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/coss/ui/chart";
 import type { DashboardStats } from "@/lib/admin-stats";
 
 const visitTrendChartConfig = {

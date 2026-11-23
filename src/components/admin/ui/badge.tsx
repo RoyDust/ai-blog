@@ -1,8 +1,8 @@
 import type * as React from "react";
 import {
-  Badge as ShadcnBadge,
+  Badge as CossBadge,
   badgeVariants,
-} from "@/components/shadcn/ui/badge";
+} from "@/components/coss/ui/badge";
 import { cn } from "@/lib/utils";
 
 type Tone = "neutral" | "success" | "warning" | "danger";
@@ -15,7 +15,7 @@ const toneClassNames: Record<Tone, string> = {
 };
 
 export type BadgeProps = Omit<
-  React.ComponentProps<typeof ShadcnBadge>,
+  React.ComponentProps<typeof CossBadge>,
   "variant"
 > & {
   tone?: Tone;
@@ -23,7 +23,7 @@ export type BadgeProps = Omit<
 
 function Badge({ className, tone = "neutral", ...props }: BadgeProps) {
   return (
-    <ShadcnBadge
+    <CossBadge
       variant="outline"
       className={cn(toneClassNames[tone], className)}
       {...props}

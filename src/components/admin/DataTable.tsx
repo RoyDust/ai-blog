@@ -3,10 +3,10 @@
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Inbox } from "lucide-react";
-import { Button } from "@/components/shadcn/ui/button";
-import { Card, CardHeader, CardTitle } from "@/components/shadcn/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/shadcn/ui/table";
-import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/shadcn/ui/empty";
+import { Button } from "@/components/coss/ui/button";
+import { Card, CardHeader, CardTitle } from "@/components/coss/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/coss/ui/table";
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/coss/ui/empty";
 import { AdminPagination } from "@/components/admin/primitives/AdminPagination";
 import { cn } from "@/lib/utils";
 

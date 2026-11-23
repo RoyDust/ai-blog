@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import useSWR from "swr";
 import { z } from "zod";
 import { Button, Input, Textarea } from "@/components/admin/ui";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/shadcn/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/coss/ui/form";
 import { apiFetcher, apiMutate, handleGlobalSwrError, toErrorMessage } from "@/lib/client-api";
 
 type Delivery = { id: string; email: string; status: string; attemptId: string | null; attemptStartedAt: string | null; error: string | null; simulated: boolean | null; evidenceReference: string | null };

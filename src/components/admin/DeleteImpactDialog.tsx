@@ -2,8 +2,7 @@
 
 import {
   AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
+  AlertDialogClose,
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
@@ -42,7 +41,7 @@ export function DeleteImpactDialog({
   onOpenChange,
 }: DeleteImpactDialogProps) {
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
+    <AlertDialog open={open} onOpenChange={(nextOpen) => onOpenChange(nextOpen)}>
       <AlertDialogContent>
         <AlertDialogHeader>
           <p className="text-xs uppercase tracking-[0.18em] text-rose-500">危险操作</p>
@@ -65,22 +64,20 @@ export function DeleteImpactDialog({
         </div>
 
         <AlertDialogFooter>
-          <AlertDialogCancel asChild>
-            <Button type="button" variant="outline">
-              {cancelLabel}
-            </Button>
-          </AlertDialogCancel>
-          <AlertDialogAction
-            asChild
+          <AlertDialogClose render={<Button type="button" variant="outline" />}>
+            {cancelLabel}
+          </AlertDialogClose>
+          <Button
+            disabled={submitting}
+            type="button"
+            variant="danger"
             onClick={(event) => {
               event.preventDefault();
               void onConfirm();
             }}
           >
-            <Button disabled={submitting} type="button" variant="danger">
-              {submitting ? "处理中..." : confirmLabel}
-            </Button>
-          </AlertDialogAction>
+            {submitting ? "处理中..." : confirmLabel}
+          </Button>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

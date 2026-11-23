@@ -9,7 +9,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/shadcn/ui/select";
+} from "@/components/coss/ui/select";
 
 interface FilterBarProps {
   search?: string;
@@ -88,6 +88,14 @@ function FilterBarForm({
   const tagValue = selectedTag === allTagValue ? "" : selectedTag;
   const hasActiveFilters = Boolean(search || categoryValue || tagValue || type);
   const typeLabel = type === "original" ? "原创文章" : type === "ai-daily" ? "AI 日报" : null;
+  const categoryItems = [
+    { value: allCategoryValue, label: "全部分类" },
+    ...categories.map((item) => ({ value: item.slug, label: item.name })),
+  ];
+  const tagItems = [
+    { value: allTagValue, label: "全部标签" },
+    ...tags.map((item) => ({ value: item.slug, label: item.name })),
+  ];
 
   return (
     <form className="min-w-0 space-y-2.5" method="get">
@@ -135,7 +143,15 @@ function FilterBarForm({
       </div>
 
       <div className="grid gap-2 sm:grid-cols-[minmax(8.5rem,11rem)_minmax(8.5rem,11rem)_auto]">
-        <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+        <Select
+          items={categoryItems}
+          value={selectedCategory}
+          onValueChange={(value) => {
+            if (value !== null) {
+              setSelectedCategory(value);
+            }
+          }}
+        >
           <SelectTrigger aria-label="分类筛选" className={filterSelectTriggerClassName}>
             <SelectValue />
           </SelectTrigger>
@@ -148,7 +164,15 @@ function FilterBarForm({
             ))}
           </SelectContent>
         </Select>
-        <Select value={selectedTag} onValueChange={setSelectedTag}>
+        <Select
+          items={tagItems}
+          value={selectedTag}
+          onValueChange={(value) => {
+            if (value !== null) {
+              setSelectedTag(value);
+            }
+          }}
+        >
           <SelectTrigger aria-label="标签筛选" className={filterSelectTriggerClassName}>
             <SelectValue />
           </SelectTrigger>
