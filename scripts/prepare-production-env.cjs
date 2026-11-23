@@ -19,16 +19,6 @@ try {
     additions.push('NEXTAUTH_SECRET="${AUTH_SECRET}"');
     normalized = true;
   }
-  const rawAllowInsecureHttp =
-    process.env.DEPLOY_ALLOW_INSECURE_HTTP_SITE_URL?.trim() ||
-    env.ALLOW_INSECURE_HTTP_SITE_URL?.trim() ||
-    '';
-  if (/^(1|true)$/i.test(rawAllowInsecureHttp)) {
-    if (!/^(1|true)$/i.test(env.ALLOW_INSECURE_HTTP_SITE_URL?.trim() || '')) {
-      additions.push('ALLOW_INSECURE_HTTP_SITE_URL=1');
-    }
-    env.ALLOW_INSECURE_HTTP_SITE_URL = '1';
-  }
   const project = process.env.DEPLOY_COMPOSE_PROJECT_NAME?.trim() || env.COMPOSE_PROJECT_NAME?.trim();
   if (!project || !/^[a-z0-9][a-z0-9_-]*$/.test(project)) {
     console.error('Production preflight failed: COMPOSE_PROJECT_NAME is missing or invalid');

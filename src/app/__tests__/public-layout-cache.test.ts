@@ -28,6 +28,7 @@ describe("public layout cache boundary", () => {
       "src/app/(public)/contact/page.tsx",
       "src/app/llms.txt/route.ts",
       "src/app/api/ai/openapi/route.ts",
+      "src/app/robots.ts",
     ];
 
     for (const routePath of runtimeRenderedRoutes) {

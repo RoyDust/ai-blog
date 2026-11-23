@@ -32,22 +32,18 @@ openssl rand -hex 32
 
 ## 2. 全站启用 HTTPS（P0-4 的运维部分）
 
-现状（2026-08-15 核验）：
-- `NEXTAUTH_URL` / `NEXT_PUBLIC_SITE_URL` 为 http；
-- 图片主机 `project.roydust.top` 不提供 https（SSL 握手失败），http 可达；
-- 因此仓库侧暂缓了 CSP `upgrade-insecure-requests` 与 `img-src` 收紧（见 `security-headers.ts` 注释）。
+现状（2026-11-23 线上实测更新）：
+- ✅ 主站与应用已迁至腾讯云 `159.75.167.23`，由宿主机 Caddy 自动签发 Let's Encrypt TLS 证书并终结 HTTPS（支持 HTTP/3 `h3=":443"`、`gzip` 压缩、`Strict-Transport-Security: max-age=31536000; includeSubDomains`；`http://roydust.top` 与 `https://roydust.top` 均重定向至 `https://www.roydust.top`）；
+- ✅ 生产环境 `NEXTAUTH_URL`、`NEXT_PUBLIC_SITE_URL`、`PRODUCTION_BASE_URL` 及数据库 `system_settings`（`blog.site.siteUrl`）均已切换为 `https://www.roydust.top`，会话 Cookie 自动启用 `Secure` 前缀，3 个 GitHub Actions 定时任务全部经 HTTPS 正常运行；
+- ✅ 迁移过渡期的 `ALLOW_INSECURE_HTTP_SITE_URL` 豁免开关已从代码与 GitHub `production` 环境变量中彻底移除，生产门禁强制要求非回环 `https://` 地址；
+- ⚠️ 七牛云自定义图片域名 `project.roydust.top` 尚未在七牛云控制台绑定匹配的 SSL 证书（当前生产库仍有 263 篇文章与 201 条封面资源引用 `http://project.roydust.top`），因此仓库侧仍需保留 CSP `img-src 'self' http: https: data: blob:` 且暂不开启 `upgrade-insecure-requests`，避免浏览器强制升级 HTTPS 后因证书不匹配裂图。
 
-执行步骤：
-1. 为 `roydust.top` 与 `project.roydust.top` 申请证书（Let's Encrypt / certbot），部署 `deploy/nginx.my-next-app.conf` 到 `/etc/nginx/conf.d/my-next-app.conf` 终结 TLS（`listen 443 ssl http2;`、`TLSv1.2 TLSv1.3`）：
-   - 80 端口放行 `/.well-known/acme-challenge/`（`root /var/www/certbot;`，使用 webroot 续期前请确保目录已创建），其余流量全部 `301` 跳转 `https://$host$request_uri`；
-   - 重载前将配置中的 `server_name` 及证书占位路径（`/etc/letsencrypt/live/inkforge/fullchain.pem` 与 `/etc/letsencrypt/live/inkforge/privkey.pem`）替换为实际签发目录（如 `/etc/letsencrypt/live/roydust.top/fullchain.pem` 与 `privkey.pem`），执行 `sudo nginx -t && sudo systemctl reload nginx`；
-   - 网关层已同步开启 `server_tokens off;`、`client_max_body_size 10m;`、`map $http_upgrade $connection_upgrade`（修复非 WebSocket 请求上游连接语义），并对同步 AI 交互端点（`/api/admin/ai/`、`/api/admin/covers/generate`、`/api/admin/posts/`、`/api/ai/drafts`）单独设置 `proxy_read_timeout 180s;` / `proxy_send_timeout 180s;`。
-2. 更新 `shared/.env`：`NEXTAUTH_URL=https://...`、`NEXT_PUBLIC_SITE_URL=https://...`、`SITE_URL=https://...`。会话 cookie 自动带 `Secure`（`auth-cookies.ts`）。
-3. 在 GitHub `production` environment（或仓库 Secrets）中必须显式配置 `PRODUCTION_BASE_URL=https://<生产域名>`：`daily-ai-news.yml`、`log-retention.yml`、`publish-scheduled.yml` 已移除明文 `http://` 回退地址，缺失或非 `https://` 前缀会在工作流启动时立即非零退出，且所有 `curl` 调用强制启用 `--proto '=https' --tlsv1.2 --max-time 30` 与 `concurrency` 防重叠保护。
-4. HSTS 已随代码与 Nginx 配置在生产环境自动下发（浏览器此前只见过 http 时不会预加载，无风险）。
-5. TLS 稳定运行后，回仓库完成剩余两项：
-   - `security-headers.ts`：CSP 增加 `upgrade-insecure-requests`、`img-src` 收紧为 `'self' https: data: blob:`，并更新 `security-headers.test.ts` 中对应用例；
-   - `next.config.ts`：`remotePatterns` 删除 http 条目。
+剩余收尾步骤（待七牛云 `project.roydust.top` 绑定 SSL 证书后执行）：
+1. 在七牛云 CDN / 对象存储控制台为 `project.roydust.top` 申请并绑定免费 SSL 证书，验证 `curl -I https://project.roydust.top` 握手正常；
+2. 将生产环境 `QINIU_DOMAIN` 更新为 `https://project.roydust.top`，并将数据库 `posts`（`coverImage` / `content`）与 `cover_assets`（`url`）中的 `http://project.roydust.top` 批量替换为 `https://project.roydust.top`；
+3. 回仓库完成最后两项收敛：
+   - `security-headers.ts`：CSP 增加 `upgrade-insecure-requests`、`img-src` 收紧为 `'self' https: data: blob:`，并同步更新 `security-headers.test.ts`；
+   - `next.config.ts`：`remotePatterns` 删除 `http://project.roydust.top` 条目。
 
 ## 3. P0-2 迁移状态与软删重建验证
 

@@ -1,9 +1,9 @@
 # Server Execution Checklist
 
-> Target server: `47.98.167.32`
-> Domain: `roydust.top` (`https://roydust.top`)
+> Target server: `159.75.167.23` (Tencent Cloud)
+> Domain: `www.roydust.top` (`https://www.roydust.top`, with `roydust.top` redirecting to `www`)
 > Deployment path: `/opt/my-next-app`
-> Access mode: HTTPS domain terminated at Nginx (`deploy/nginx.my-next-app.conf`)
+> Access mode: HTTPS domain terminated at Caddy (`/etc/caddy/Caddyfile`, or Nginx reference template `deploy/nginx.my-next-app.conf`)
 
 ## Assumptions
 
@@ -305,7 +305,7 @@ Add the following secrets (and set environment variable `COMPOSE_PROJECT_NAME`, 
 ### `DEPLOY_HOST`
 
 ```text
-47.98.167.32
+159.75.167.23
 ```
 
 ### `DEPLOY_PORT`
@@ -341,7 +341,7 @@ the verified contents of deploy_known_hosts
 ### `PRODUCTION_BASE_URL`
 
 ```text
-https://roydust.top
+https://www.roydust.top
 ```
 
 ### `CRON_SECRET` and `AI_NEWS_CRON_SECRET`
@@ -358,8 +358,8 @@ Use full production env content (`NEXTAUTH_URL` and `NEXT_PUBLIC_SITE_URL` MUST 
 DATABASE_URL="postgresql://YOUR_DB_USER:YOUR_DB_PASSWORD@YOUR_DB_HOST:5432/YOUR_DB_NAME?schema=public"
 AUTH_SECRET="replace-with-a-long-random-secret"
 NEXTAUTH_SECRET="replace-with-a-long-random-secret"
-NEXTAUTH_URL="https://roydust.top"
-NEXT_PUBLIC_SITE_URL="https://roydust.top"
+NEXTAUTH_URL="https://www.roydust.top"
+NEXT_PUBLIC_SITE_URL="https://www.roydust.top"
 OPERATION_LOG_INGEST_SECRET="replace-with-a-long-random-secret"
 
 AUTH_GITHUB_ID=""
