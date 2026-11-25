@@ -127,7 +127,7 @@ describe("PublicCommandSearch", () => {
     fireEvent.change(input, { target: { value: "Next.js" } });
     expect(input).toHaveValue("Next.js");
 
-    fireEvent.click(screen.getByRole("button", { name: "关闭快速搜索" }));
+    fireEvent.keyDown(input, { key: "Escape" });
     await waitFor(() => {
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });

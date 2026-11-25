@@ -6,15 +6,16 @@ import {
   Bookmark,
   BookOpenText,
   Compass,
+  CornerDownLeft,
   FileText,
   Home,
   ListTree,
+  Loader2,
   Moon,
   Search,
   Sparkles,
   Sun,
   UserRound,
-  X,
   type LucideIcon,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -24,7 +25,6 @@ import useSWR from "swr";
 import {
   Command,
   CommandDialog,
-  CommandDialogClose,
   CommandDialogDescription,
   CommandDialogPopup,
   CommandDialogTitle,
@@ -73,10 +73,19 @@ const QUICK_LINKS: QuickLinkItem[] = [
   { id: "about", title: "关于作者", subtitle: "了解站点背景与联系方式", href: "/about", icon: UserRound, keywords: ["about", "author", "profile"] },
 ];
 
+const commandItemBaseClassName =
+  "group/cmd flex cursor-pointer items-center gap-3 rounded-xl px-2.5 py-2 text-left outline-none transition-colors data-highlighted:bg-[var(--btn-regular-bg)]";
+
+const commandIconBadgeClassName =
+  "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[var(--reader-border)] bg-[color:color-mix(in_oklab,var(--surface-alt)_65%,var(--card-bg)_35%)] text-[var(--text-muted)] transition-colors group-data-highlighted/cmd:border-[color:color-mix(in_oklab,var(--brand)_22%,transparent)] group-data-highlighted/cmd:bg-[var(--card-bg)] group-data-highlighted/cmd:text-[var(--brand)] group-data-highlighted/cmd:shadow-2xs";
+
+const footerKbdClassName =
+  "inline-flex h-5 min-w-5 items-center justify-center rounded-md border border-[var(--reader-border)] bg-[var(--card-bg)] px-1.5 font-mono text-[10px] font-medium leading-none text-[var(--text-body)] shadow-2xs";
+
 function CommandGroupBlock({ heading, children }: { heading: string; children: ReactNode }) {
   return (
-    <CommandGroup className="px-2 py-1.5 text-[var(--foreground)]">
-      <CommandGroupLabel className="px-2 pb-1.5 text-[11px] font-semibold text-[var(--text-muted)]">
+    <CommandGroup className="px-1.5 py-1 text-[var(--foreground)]">
+      <CommandGroupLabel className="px-2.5 pt-1.5 pb-1 text-[11px] font-semibold tracking-wide text-[var(--text-faint)]">
         {heading}
       </CommandGroupLabel>
       <div className="space-y-0.5">{children}</div>
@@ -141,7 +150,7 @@ export function PublicCommandSearchDialog({
 
   return (
     <CommandDialog open={open} onOpenChange={handleDialogOpenChange}>
-      <CommandDialogPopup className="max-h-[min(76vh,38rem)] max-w-xl overflow-hidden rounded-2xl border border-[var(--reader-border)] bg-[var(--float-panel-bg)] p-0 shadow-2xl before:hidden">
+      <CommandDialogPopup className="max-h-[min(78vh,39rem)] max-w-[34rem] overflow-hidden rounded-2xl border border-[var(--reader-border)] bg-[var(--float-panel-bg)] p-0 shadow-[var(--shadow-ambient)] backdrop-blur-xl before:hidden">
         <CommandDialogTitle className="sr-only">全站快速搜索与导航</CommandDialogTitle>
         <CommandDialogDescription className="sr-only">输入关键词即时检索文章，或快速跳转前台页面与切换主题。</CommandDialogDescription>
 
@@ -157,37 +166,36 @@ export function PublicCommandSearchDialog({
             setQuery(nextValue);
           }}
         >
-          <div className="flex items-center gap-2 border-b border-[var(--line-color)] pr-3">
-            <div className="min-w-0 flex-1">
-              <CommandInput
-                aria-label="输入关键词搜索文章"
-                placeholder="搜索文章标题、摘要，或直接跳转页面…"
-                className="text-sm text-[var(--foreground)]"
-              />
-            </div>
-            <CommandDialogClose
-              aria-label="关闭快速搜索"
-              className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[var(--text-muted)] transition-colors hover:bg-[var(--btn-plain-bg-hover)] hover:text-[var(--foreground)]"
-            >
-              <X className="h-4 w-4" aria-hidden="true" />
-            </CommandDialogClose>
+          <div className="border-b border-[var(--line-color)] px-1.5 py-0.5">
+            <CommandInput
+              aria-label="输入关键词搜索文章"
+              placeholder="搜索文章标题、摘要，或直接跳转页面…"
+              startAddon={
+                loading ? (
+                  <Loader2 className="size-4 animate-spin text-[var(--brand)]" />
+                ) : (
+                  <Search className="size-4 text-[var(--text-muted)]" />
+                )
+              }
+              className="text-[15px] text-[var(--foreground)] [&_input]:h-10 [&_input]:leading-10 [&_input]:placeholder:text-[var(--text-faint)]"
+            />
           </div>
 
-          <CommandList className="min-h-[14rem] max-h-[min(56vh,28rem)] p-2">
+          <CommandList className="min-h-[13rem] max-h-[min(56vh,27rem)] px-1.5 py-1.5">
             {normalizedQuery ? (
               <CommandGroupBlock heading="全文检索">
                 <CommandItem
                   value={`full-search-${normalizedQuery}`}
                   onClick={() => navigateTo(`/search?q=${encodeURIComponent(normalizedQuery)}`)}
-                  className="flex cursor-pointer items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-sm outline-none transition-colors data-highlighted:bg-[var(--btn-regular-bg)] data-highlighted:text-[var(--btn-content)]"
+                  className={commandItemBaseClassName}
                 >
-                  <span className="flex min-w-0 items-center gap-2.5">
-                    <Search className="h-4 w-4 shrink-0 text-[var(--brand)]" aria-hidden="true" />
-                    <span className="truncate font-medium">
-                      查看「{normalizedQuery}」的完整搜索与 AI 导读
-                    </span>
+                  <span className={commandIconBadgeClassName}>
+                    <Search className="h-4 w-4" aria-hidden="true" />
                   </span>
-                  <ArrowRight className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden="true" />
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium text-[var(--foreground)] group-data-highlighted/cmd:text-[var(--btn-content)]">
+                    查看「{normalizedQuery}」的完整搜索与 AI 导读
+                  </span>
+                  <ArrowRight className="h-3.5 w-3.5 shrink-0 text-[var(--brand)] opacity-60 transition-transform group-data-highlighted/cmd:translate-x-0.5 group-data-highlighted/cmd:opacity-100" aria-hidden="true" />
                 </CommandItem>
               </CommandGroupBlock>
             ) : null}
@@ -199,13 +207,13 @@ export function PublicCommandSearchDialog({
                     key={post.id}
                     value={`post-${post.slug}-${post.title}`}
                     onClick={() => navigateTo(`/posts/${post.slug}`)}
-                    className="flex cursor-pointer items-start gap-3 rounded-xl px-3 py-2.5 text-left outline-none transition-colors data-highlighted:bg-[var(--btn-regular-bg)]"
+                    className={commandItemBaseClassName}
                   >
-                    <span className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--btn-regular-bg)] text-[var(--btn-content)]">
-                      <FileText className="h-3.5 w-3.5" aria-hidden="true" />
+                    <span className={commandIconBadgeClassName}>
+                      <FileText className="h-4 w-4" aria-hidden="true" />
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-semibold text-[var(--foreground)]">
+                      <span className="block truncate text-sm font-medium text-[var(--foreground)] group-data-highlighted/cmd:font-semibold group-data-highlighted/cmd:text-[var(--btn-content)]">
                         {post.title}
                       </span>
                       {post.excerpt ? (
@@ -215,7 +223,7 @@ export function PublicCommandSearchDialog({
                       ) : null}
                     </span>
                     {post.category?.name ? (
-                      <span className="shrink-0 rounded-md bg-[var(--surface-alt)] px-2 py-0.5 text-[11px] text-[var(--text-muted)]">
+                      <span className="shrink-0 rounded-md border border-[var(--reader-border)] bg-[var(--card-bg)] px-2 py-0.5 text-[11px] text-[var(--text-muted)]">
                         #{post.category.name}
                       </span>
                     ) : null}
@@ -233,15 +241,23 @@ export function PublicCommandSearchDialog({
                       key={item.id}
                       value={`nav-${item.id}-${item.title}`}
                       onClick={() => navigateTo(item.href)}
-                      className="flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-left outline-none transition-colors data-highlighted:bg-[var(--btn-regular-bg)]"
+                      className={commandItemBaseClassName}
                     >
-                      <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--surface-alt)] text-[var(--brand)]">
-                        <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+                      <span className={commandIconBadgeClassName}>
+                        <Icon className="h-4 w-4" aria-hidden="true" />
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-semibold text-[var(--foreground)]">{item.title}</span>
-                        <span className="block truncate text-xs text-[var(--text-muted)]">{item.subtitle}</span>
+                        <span className="block truncate text-sm font-medium text-[var(--foreground)] group-data-highlighted/cmd:font-semibold group-data-highlighted/cmd:text-[var(--btn-content)]">
+                          {item.title}
+                        </span>
+                        <span className="mt-0.5 block truncate text-xs text-[var(--text-muted)]">
+                          {item.subtitle}
+                        </span>
                       </span>
+                      <CornerDownLeft
+                        aria-hidden="true"
+                        className="h-3.5 w-3.5 shrink-0 text-[var(--btn-content)] opacity-0 transition-opacity group-data-highlighted/cmd:opacity-70"
+                      />
                     </CommandItem>
                   );
                 })}
@@ -256,33 +272,55 @@ export function PublicCommandSearchDialog({
                     toggleTheme();
                     handleDialogOpenChange(false);
                   }}
-                  className="flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-left outline-none transition-colors data-highlighted:bg-[var(--btn-regular-bg)]"
+                  className={commandItemBaseClassName}
                 >
-                  <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--surface-alt)] text-[var(--brand)]">
-                    {theme === "dark" ? <Sun className="h-3.5 w-3.5" aria-hidden="true" /> : <Moon className="h-3.5 w-3.5" aria-hidden="true" />}
+                  <span className={commandIconBadgeClassName}>
+                    {theme === "dark" ? <Sun className="h-4 w-4" aria-hidden="true" /> : <Moon className="h-4 w-4" aria-hidden="true" />}
                   </span>
-                  <span className="text-sm font-semibold text-[var(--foreground)]">
+                  <span className="min-w-0 flex-1 text-sm font-medium text-[var(--foreground)] group-data-highlighted/cmd:font-semibold group-data-highlighted/cmd:text-[var(--btn-content)]">
                     {theme === "dark" ? "切换到日间阅读模式" : "切换到夜间阅读模式"}
                   </span>
+                  <CornerDownLeft
+                    aria-hidden="true"
+                    className="h-3.5 w-3.5 shrink-0 text-[var(--btn-content)] opacity-0 transition-opacity group-data-highlighted/cmd:opacity-70"
+                  />
                 </CommandItem>
               </CommandGroupBlock>
             ) : null}
 
             {queryCharCount === 1 ? (
-              <div className="px-4 py-5 text-center text-xs text-[var(--text-muted)]">
+              <div className="px-4 py-6 text-center text-xs text-[var(--text-muted)]">
                 再输入至少 1 个字符即可即时预览匹配文章，或直接按回车前往搜索页
               </div>
             ) : null}
-            {loading ? <div className="px-4 py-6 text-center text-xs text-[var(--text-muted)]">正在检索文章…</div> : null}
-            {errorMessage ? <div className="px-4 py-6 text-center text-xs text-[var(--danger-foreground)]">{errorMessage}</div> : null}
+            {loading && posts.length === 0 ? (
+              <div className="px-4 py-6 text-center text-xs text-[var(--text-muted)]">正在检索文章…</div>
+            ) : null}
+            {errorMessage ? (
+              <div className="px-4 py-6 text-center text-xs text-[var(--danger-foreground)]">{errorMessage}</div>
+            ) : null}
             {queryCharCount >= 2 && !loading && !errorMessage && posts.length === 0 && matchingQuickLinks.length === 0 ? (
               <div className="px-4 py-6 text-center text-xs text-[var(--text-muted)]">未找到直接匹配的文章，可按回车尝试完整搜索</div>
             ) : null}
           </CommandList>
 
-          <div className="flex items-center justify-between border-t border-[var(--line-color)] px-4 py-2 text-[11px] text-[var(--text-muted)]">
-            <span>↑↓ 选择 · Enter 打开 · Esc 关闭</span>
-            <span className="font-mono">{shortcutLabel}</span>
+          <div className="flex items-center justify-between border-t border-[var(--line-color)] bg-[color:color-mix(in_oklab,var(--surface-alt)_42%,transparent)] px-4 py-2.5 text-[11px] text-[var(--text-muted)]">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="inline-flex items-center gap-1">
+                <kbd className={footerKbdClassName}>↑</kbd>
+                <kbd className={footerKbdClassName}>↓</kbd>
+                <span className="ml-0.5">选择</span>
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <kbd className={footerKbdClassName}>↵</kbd>
+                <span className="ml-0.5">打开</span>
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <kbd className={footerKbdClassName}>Esc</kbd>
+                <span className="ml-0.5">关闭</span>
+              </span>
+            </div>
+            <kbd className={footerKbdClassName}>{shortcutLabel}</kbd>
           </div>
         </Command>
       </CommandDialogPopup>

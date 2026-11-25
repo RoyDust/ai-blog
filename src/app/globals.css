@@ -7,6 +7,16 @@
 
 @custom-variant dark (&:is(.dark *));
 
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--border, currentColor);
+  }
+}
+
 html {
   --reader-background-image: url("/images/fuwari-night-city-bg.svg");
   --app-root-background:

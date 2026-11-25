@@ -79,7 +79,7 @@ describe("admin UI review regressions", () => {
     fireEvent.change(secondInput, { target: { value: "草稿" } });
     expect(secondInput).toHaveValue("草稿");
 
-    fireEvent.click(screen.getByRole("button", { name: "关闭搜索" }));
+    fireEvent.keyDown(secondInput, { key: "Escape" });
     await waitFor(() => {
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });

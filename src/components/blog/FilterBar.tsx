@@ -45,9 +45,11 @@ function buildFilterHref({
 const allCategoryValue = "__all_categories__";
 const allTagValue = "__all_tags__";
 const filterSelectTriggerClassName =
-  "h-9 w-full rounded-xl border-[var(--reader-border)] bg-[color:color-mix(in_oklab,var(--surface-alt)_52%,var(--card-bg)_48%)] px-3 text-sm text-[var(--foreground)] shadow-none";
+  "h-9 w-full min-w-0 rounded-xl border border-[var(--reader-border)] bg-[color:color-mix(in_oklab,var(--surface-alt)_52%,var(--card-bg)_48%)] px-3 text-sm font-medium text-[var(--foreground)] shadow-none transition-colors before:hidden hover:border-[var(--reader-border-strong)] hover:bg-[color:color-mix(in_oklab,var(--surface-alt)_68%,var(--card-bg)_32%)] data-popup-open:border-[var(--reader-border-strong)]";
 const filterSelectContentClassName =
-  "rounded-xl border-[var(--reader-border)] bg-[var(--float-panel-bg)] text-[var(--foreground)]";
+  "w-(--anchor-width) min-w-(--anchor-width) rounded-xl border border-[var(--reader-border)] bg-[var(--float-panel-bg)] text-[var(--foreground)] shadow-[var(--shadow-ambient)] backdrop-blur-xl before:hidden";
+const filterSelectItemClassName =
+  "rounded-lg text-sm text-[var(--foreground)] data-highlighted:bg-[var(--btn-regular-bg)] data-highlighted:text-[var(--btn-content)] data-selected:font-semibold data-selected:text-[var(--btn-content)]";
 
 export function FilterBar({ search, category, tag, type, categories, tags }: FilterBarProps) {
   const initialCategory = category || allCategoryValue;
@@ -56,6 +58,8 @@ export function FilterBar({ search, category, tag, type, categories, tags }: Fil
   return (
     <FilterBarForm
       key={`${initialCategory}:${initialTag}:${type ?? "all"}`}
+      appliedCategory={category ?? ""}
+      appliedTag={tag ?? ""}
       categories={categories}
       initialCategory={initialCategory}
       initialTag={initialTag}
@@ -68,6 +72,8 @@ export function FilterBar({ search, category, tag, type, categories, tags }: Fil
 
 function FilterBarForm({
   search,
+  appliedCategory,
+  appliedTag,
   initialCategory,
   initialTag,
   type,
@@ -75,6 +81,8 @@ function FilterBarForm({
   tags,
 }: {
   search?: string;
+  appliedCategory: string;
+  appliedTag: string;
   initialCategory: string;
   initialTag: string;
   type?: "original" | "ai-daily";
@@ -86,8 +94,8 @@ function FilterBarForm({
 
   const categoryValue = selectedCategory === allCategoryValue ? "" : selectedCategory;
   const tagValue = selectedTag === allTagValue ? "" : selectedTag;
-  const hasActiveFilters = Boolean(search || categoryValue || tagValue || type);
-  const typeLabel = type === "original" ? "原创文章" : type === "ai-daily" ? "AI 日报" : null;
+  const hasAppliedFilters = Boolean(search || appliedCategory || appliedTag || type);
+  const hasPendingChanges = categoryValue !== appliedCategory || tagValue !== appliedTag;
   const categoryItems = [
     { value: allCategoryValue, label: "全部分类" },
     ...categories.map((item) => ({ value: item.slug, label: item.name })),
@@ -97,14 +105,36 @@ function FilterBarForm({
     ...tags.map((item) => ({ value: item.slug, label: item.name })),
   ];
 
+  function resetSelectionState() {
+    setSelectedCategory(allCategoryValue);
+    setSelectedTag(allTagValue);
+  }
+
   return (
-    <form className="min-w-0 space-y-2.5" method="get">
+    <form className="min-w-0 shrink-0 space-y-2.5" method="get">
       {search ? <input type="hidden" name="q" value={search} /> : null}
       {categoryValue ? <input type="hidden" name="category" value={categoryValue} /> : null}
       {tagValue ? <input type="hidden" name="tag" value={tagValue} /> : null}
       {type ? <input type="hidden" name="type" value={type} /> : null}
 
-      <div className="flex flex-wrap items-center justify-end gap-2">
+      <div className="flex flex-wrap items-center justify-end gap-3">
+        {hasAppliedFilters ? (
+          <Link
+            className="text-xs font-semibold text-[var(--brand)] transition-colors hover:text-[var(--brand-strong)]"
+            href="/posts"
+            onClick={resetSelectionState}
+          >
+            清空筛选
+          </Link>
+        ) : hasPendingChanges ? (
+          <button
+            className="cursor-pointer text-xs font-semibold text-[var(--brand)] transition-colors hover:text-[var(--brand-strong)]"
+            onClick={resetSelectionState}
+            type="button"
+          >
+            清空筛选
+          </button>
+        ) : null}
         <div
           role="group"
           aria-label="内容类型筛选"
@@ -123,8 +153,8 @@ function FilterBarForm({
                 key={item.label}
                 href={buildFilterHref({
                   search,
-                  category: categoryValue || undefined,
-                  tag: tagValue || undefined,
+                  category: appliedCategory || undefined,
+                  tag: appliedTag || undefined,
                   type: item.id,
                 })}
                 prefetch={true}
@@ -142,7 +172,7 @@ function FilterBarForm({
         </div>
       </div>
 
-      <div className="grid gap-2 sm:grid-cols-[minmax(8.5rem,11rem)_minmax(8.5rem,11rem)_auto]">
+      <div className="grid gap-2 sm:grid-cols-[10.5rem_10.5rem_auto]">
         <Select
           items={categoryItems}
           value={selectedCategory}
@@ -153,12 +183,14 @@ function FilterBarForm({
           }}
         >
           <SelectTrigger aria-label="分类筛选" className={filterSelectTriggerClassName}>
-            <SelectValue />
+            <SelectValue className="min-w-0 truncate" />
           </SelectTrigger>
           <SelectContent className={filterSelectContentClassName}>
-            <SelectItem value={allCategoryValue}>全部分类</SelectItem>
+            <SelectItem className={filterSelectItemClassName} value={allCategoryValue}>
+              全部分类
+            </SelectItem>
             {categories.map((item) => (
-              <SelectItem key={item.slug} value={item.slug}>
+              <SelectItem key={item.slug} className={filterSelectItemClassName} value={item.slug}>
                 {item.name}
               </SelectItem>
             ))}
@@ -174,12 +206,14 @@ function FilterBarForm({
           }}
         >
           <SelectTrigger aria-label="标签筛选" className={filterSelectTriggerClassName}>
-            <SelectValue />
+            <SelectValue className="min-w-0 truncate" />
           </SelectTrigger>
           <SelectContent className={filterSelectContentClassName}>
-            <SelectItem value={allTagValue}>全部标签</SelectItem>
+            <SelectItem className={filterSelectItemClassName} value={allTagValue}>
+              全部标签
+            </SelectItem>
             {tags.map((item) => (
-              <SelectItem key={item.slug} value={item.slug}>
+              <SelectItem key={item.slug} className={filterSelectItemClassName} value={item.slug}>
                 {item.name}
               </SelectItem>
             ))}
@@ -189,16 +223,6 @@ function FilterBarForm({
           应用筛选
         </button>
       </div>
-
-      {hasActiveFilters ? (
-        <div className="mt-2.5 flex flex-wrap items-center gap-2 border-t border-dashed border-[var(--line-color)] pt-2.5">
-          {typeLabel ? <Link className="ui-chip" href={buildFilterHref({ search, category: categoryValue, tag: tagValue })}>类型: {typeLabel}</Link> : null}
-          {search ? <Link className="ui-chip" href={buildFilterHref({ category: categoryValue, tag: tagValue, type })}>关键词: {search}</Link> : null}
-          {categoryValue ? <Link className="ui-chip" href={buildFilterHref({ search, tag: tagValue, type })}>分类: {categoryValue}</Link> : null}
-          {tagValue ? <Link className="ui-chip" href={buildFilterHref({ search, category: categoryValue, type })}>标签: {tagValue}</Link> : null}
-          <Link className="text-xs font-semibold text-[var(--brand)] hover:text-[var(--brand-strong)]" href="/posts">清空筛选</Link>
-        </div>
-      ) : null}
     </form>
   );
 }
