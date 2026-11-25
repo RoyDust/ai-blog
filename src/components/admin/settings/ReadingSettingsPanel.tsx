@@ -4,7 +4,7 @@ import type { UseFormReturn } from "react-hook-form";
 
 import { WorkspacePanel } from "@/components/admin/primitives/WorkspacePanel";
 import { Button, Input } from "@/components/admin/ui";
-import { Form, FormField, FormItem, FormMessage } from "@/components/shadcn/ui/form";
+import { Form, FormField, FormItem, FormMessage } from "@/components/coss/ui/form";
 import type { BlogSettingsFormValues } from "./settings-shared";
 
 type ReadingSettingsPanelProps = {

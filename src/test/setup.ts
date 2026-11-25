@@ -49,6 +49,54 @@ beforeAll(() => {
     value: vi.fn(),
   })
 
+  if (typeof Element.prototype.getAnimations === 'undefined') {
+    Object.defineProperty(Element.prototype, 'getAnimations', {
+      writable: true,
+      configurable: true,
+      value: vi.fn(() => []),
+    })
+  }
+
+  if (typeof window.PointerEvent === 'undefined') {
+    class PointerEventPolyfill extends MouseEvent {
+      readonly pointerId: number
+      readonly width: number
+      readonly height: number
+      readonly pressure: number
+      readonly tangentialPressure: number
+      readonly tiltX: number
+      readonly tiltY: number
+      readonly twist: number
+      readonly pointerType: string
+      readonly isPrimary: boolean
+
+      constructor(type: string, params: PointerEventInit = {}) {
+        super(type, params)
+        this.pointerId = params.pointerId ?? 0
+        this.width = params.width ?? 1
+        this.height = params.height ?? 1
+        this.pressure = params.pressure ?? 0
+        this.tangentialPressure = params.tangentialPressure ?? 0
+        this.tiltX = params.tiltX ?? 0
+        this.tiltY = params.tiltY ?? 0
+        this.twist = params.twist ?? 0
+        this.pointerType = params.pointerType ?? 'mouse'
+        this.isPrimary = params.isPrimary ?? true
+      }
+    }
+
+    Object.defineProperty(window, 'PointerEvent', {
+      writable: true,
+      configurable: true,
+      value: PointerEventPolyfill,
+    })
+    Object.defineProperty(globalThis, 'PointerEvent', {
+      writable: true,
+      configurable: true,
+      value: PointerEventPolyfill,
+    })
+  }
+
   Object.defineProperty(window, 'requestAnimationFrame', {
     writable: true,
     value: (callback: FrameRequestCallback) => {

@@ -60,7 +60,7 @@ describe("Admin mobile navigation drawer (< 1024px)", () => {
     vi.unstubAllGlobals();
   });
 
-  test("opens mobile drawer on < 1024px with full nav links, Settings, Sign Out, and 0 Radix accessibility warnings", async () => {
+  test("opens mobile drawer on < 1024px with full nav links, Settings, Sign Out, and 0 dialog accessibility warnings", async () => {
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
@@ -104,11 +104,11 @@ describe("Admin mobile navigation drawer (< 1024px)", () => {
       expect(within(drawer).getByRole("link", { name: "设置" })).toHaveAttribute("href", "/admin/settings");
       expect(within(drawer).getByRole("button", { name: "退出登录" })).toBeInTheDocument();
 
-      const radixWarnings = [...warnSpy.mock.calls, ...errorSpy.mock.calls]
+      const dialogWarnings = [...warnSpy.mock.calls, ...errorSpy.mock.calls]
         .flat()
         .map(String)
         .filter((msg) => /DialogContent|DialogTitle|Description|aria-describedby/i.test(msg));
-      expect(radixWarnings).toEqual([]);
+      expect(dialogWarnings).toEqual([]);
     } finally {
       warnSpy.mockRestore();
       errorSpy.mockRestore();
@@ -173,8 +173,8 @@ describe("Admin mobile navigation drawer (< 1024px)", () => {
 
     await waitFor(() => {
       expect(signOut).toHaveBeenCalledWith({ callbackUrl: "/" });
+      expect(screen.queryByRole("dialog", { name: "后台导航菜单" })).not.toBeInTheDocument();
     });
-    expect(screen.queryByRole("dialog", { name: "后台导航菜单" })).not.toBeInTheDocument();
     expect(window.localStorage.getItem("vben_admin_tabs")).toBeNull();
     expect(window.localStorage.getItem("author:draft:new")).toBeNull();
     expect(window.localStorage.getItem("reader_theme")).toBe("dark");

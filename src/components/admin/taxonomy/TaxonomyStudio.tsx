@@ -13,8 +13,8 @@ import { PageHeader } from "@/components/admin/primitives/PageHeader";
 import { Button } from "@/components/admin/ui";
 import { useTaxonomyActions } from "@/components/admin/taxonomy/hooks/useTaxonomyActions";
 import { useTaxonomyRows } from "@/components/admin/taxonomy/hooks/useTaxonomyRows";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/shadcn/ui/form";
-import { Input } from "@/components/shadcn/ui/input";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/coss/ui/form";
+import { Input } from "@/components/coss/ui/input";
 
 type TabId = "categories" | "tags";
 

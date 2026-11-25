@@ -4,8 +4,7 @@ import { useRef, type ReactNode } from "react";
 
 import {
   AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
+  AlertDialogClose,
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
@@ -31,7 +30,7 @@ export interface ConfirmDialogProps {
 }
 
 /**
- * 后台通用确认弹窗（基于既有 AlertDialog 封装）。
+ * 后台通用确认弹窗（基于 Coss UI AlertDialog 封装）。
  *
  * 统一承载发布、清日志、重生成日报、解绑 GitHub、归档封面等确认场景：
  * - tone=danger 时确认按钮使用危险色，其余默认主色
@@ -54,7 +53,7 @@ export function ConfirmDialog({
   const confirmLockRef = useRef(false);
 
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
+    <AlertDialog open={open} onOpenChange={(nextOpen) => onOpenChange(nextOpen)}>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>
@@ -68,13 +67,16 @@ export function ConfirmDialog({
         ) : null}
 
         <AlertDialogFooter>
-          <AlertDialogCancel asChild>
-            <Button disabled={submitting} type="button" variant="outline">
-              {cancelLabel}
-            </Button>
-          </AlertDialogCancel>
-          <AlertDialogAction
-            asChild
+          <AlertDialogClose
+            disabled={submitting}
+            render={<Button disabled={submitting} type="button" variant="outline" />}
+          >
+            {cancelLabel}
+          </AlertDialogClose>
+          <Button
+            disabled={submitting}
+            type="button"
+            variant={tone === "danger" ? "danger" : "primary"}
             onClick={(event) => {
               event.preventDefault();
               if (confirmLockRef.current) {
@@ -86,10 +88,8 @@ export function ConfirmDialog({
               });
             }}
           >
-            <Button disabled={submitting} type="button" variant={tone === "danger" ? "danger" : "primary"}>
-              {submitting ? "处理中..." : confirmLabel}
-            </Button>
-          </AlertDialogAction>
+            {submitting ? "处理中..." : confirmLabel}
+          </Button>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

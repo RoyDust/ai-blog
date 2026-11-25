@@ -47,7 +47,7 @@ pnpm prisma generate       # 生成 Prisma Client
 
 ## 技术栈
 
-Next.js 16 (App Router, 开启 viewTransition 实验特性) + React 19 + TypeScript + Tailwind CSS v4 + PostgreSQL + Prisma 7 (`@prisma/adapter-pg` 驱动适配器) + NextAuth v4 (JWT 会话) + pnpm。客户端数据请求统一走 SWR（`lib/client-api.ts`），表单用 React Hook Form + Zod，动画用 motion，UI 基于 Radix/shadcn 风格组件 (`components.json`)。
+Next.js 16 (App Router, 开启 viewTransition 实验特性) + React 19 + TypeScript + Tailwind CSS v4 + PostgreSQL + Prisma 7 (`@prisma/adapter-pg` 驱动适配器) + NextAuth v4 (JWT 会话) + pnpm。客户端数据请求统一走 SWR（`lib/client-api.ts`），表单用 React Hook Form + Zod，动画用 motion，UI 基于 Coss UI (`@base-ui/react`，`src/components/coss/ui/`，`components.json`)。
 
 ## 代码架构
 
@@ -77,8 +77,8 @@ Next.js 16 (App Router, 开启 viewTransition 实验特性) + React 19 + TypeScr
 ### 前端数据层与表单约定
 
 - **客户端取数**：列表用 `useSWR(urlKey, apiFetcher, { keepPreviousData: true, revalidateOnMount: true })`，key 为完整 URL 字符串；轮询用 `refreshInterval`；变更操作用 `apiMutate` 成功后 `mutate()` 失效。禁止手写 `useState+useEffect+fetch` 状态机与 requestId 竞态防护。黄金参考：`components/admin/logs/ApiOperationLogsClient.tsx`（列表）、`components/admin/posts/hooks/usePostsList.ts`（复杂列表）。
-- **错误契约**：`lib/client-api.ts` 的 `apiFetcher`/`apiMutate` 统一解析响应——HTTP 非 2xx 或业务 `{ success: false }` 抛 `ApiRequestError`；错误文案经 `toErrorMessage` 收敛。服务端英文默认文案（Unauthorized / Forbidden / Internal server error 等）由 `admin-api-client.ts` 的 `getApiErrorMessage` 统一映射为中文，网络层异常（TypeError）由 `toErrorMessage` 收敛为中文；后台接口 401 由 `AppProviders` 的 SWR `onError`（`handleGlobalSwrError`）统一跳转登录弹层（仅拦 `/api/admin` 前缀），局部 SWR `onError` 必须先调用 `handleGlobalSwrError(error, key)`，不可覆盖该全局行为。分工：字段级错误走表单内联（shadcn `FormMessage` 或自定义 Input 的 `error` prop），请求级错误走 `toast.error`；登录表单是例外，保留内联错误 banner。
-- **表单**：React Hook Form + `zodResolver` + zod schema（与组件同文件）；提交态用 `isSubmitting`；错误文案中文。公共页保留现有视觉组件（`components/ui`），后台表单用 shadcn `Form` 组件。黄金参考：`app/(public)/contact/ContactForm.tsx`（公共页）、`app/(auth)/register/page.tsx`（zod refine）。
+- **错误契约**：`lib/client-api.ts` 的 `apiFetcher`/`apiMutate` 统一解析响应——HTTP 非 2xx 或业务 `{ success: false }` 抛 `ApiRequestError`；错误文案经 `toErrorMessage` 收敛。服务端英文默认文案（Unauthorized / Forbidden / Internal server error 等）由 `admin-api-client.ts` 的 `getApiErrorMessage` 统一映射为中文，网络层异常（TypeError）由 `toErrorMessage` 收敛为中文；后台接口 401 由 `AppProviders` 的 SWR `onError`（`handleGlobalSwrError`）统一跳转登录弹层（仅拦 `/api/admin` 前缀），局部 SWR `onError` 必须先调用 `handleGlobalSwrError(error, key)`，不可覆盖该全局行为。分工：字段级错误走表单内联（Coss UI `FormMessage` 或自定义 Input 的 `error` prop），请求级错误走 `toast.error`；登录表单是例外，保留内联错误 banner。
+- **表单**：React Hook Form + `zodResolver` + zod schema（与组件同文件）；提交态用 `isSubmitting`；错误文案中文。公共页保留现有视觉组件（`components/ui`），浮层/表单/后台交互组件统一使用 Coss UI（`components/coss/ui`）及后台门面（`components/admin/ui`），仓库禁止引入 Radix / `cmdk` / `vaul`（由 `no-radix-contract.test.ts` 锁定）。黄金参考：`app/(public)/contact/ContactForm.tsx`（公共页）、`app/(auth)/register/page.tsx`（zod refine）。
 - **列表筛选记忆**：查询词/状态过滤/分页的 localStorage 持久化统一走 `src/hooks/useFilterMemory.ts`（`useFilterMemory` + `readFilterMemory`/`writeFilterMemory`/`readPositiveInteger`），字段级合法值校验由调用方注入 validate，禁止各列表自行复制读写脚手架。黄金参考：`components/admin/posts/hooks/usePostsList.ts`、`app/admin/comments/page.tsx`
 - **后台文章工作台**：`components/posts/AdminPostWorkspace.tsx` 只做状态编排与布局装配，面板内容拆在独立展示组件（`WorkspaceHeader`/`PublishSettingsPanel`/`MetadataEditor`/`ArticleInfoPreviewModal`/`AiFieldButton`，共享类型见 `workspace-types.ts`），新增面板沿用同一模式，不要回流为主组件内联 JSX
 - **后台设置页 / AI 日报控制台**：`AdminSettingsClient.tsx` 与 `admin/ai-news/page.tsx` 只做状态编排与面板装配——settings 各 tab 拆在 `*SettingsPanel.tsx` + `SettingsTablist`（类型/schema 见 `settings-shared.ts`）；ai-news 数据层在 `hooks/useAdminAiNews.ts`、展示在 `AiNewsRun*Panel.tsx`。边界由 `admin-panel-boundary-contract.test.ts` 契约测试锁定

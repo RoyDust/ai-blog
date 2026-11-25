@@ -7,7 +7,7 @@ import { toast } from "sonner";
 
 import { StatusBadge } from "@/components/admin/primitives/StatusBadge";
 import { Button } from "@/components/admin/ui";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/shadcn/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/coss/ui/table";
 import { apiMutate, toErrorMessage } from "@/lib/client-api";
 
 type TaskItem = {

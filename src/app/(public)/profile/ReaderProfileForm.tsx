@@ -16,7 +16,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/shadcn/ui/form";
+} from "@/components/coss/ui/form";
 import { fieldErrorMotionClassName } from "@/components/ui/Input";
 import { apiMutate, toErrorMessage } from "@/lib/client-api";
 import { cn } from "@/lib/cn";

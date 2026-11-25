@@ -5,5 +5,6 @@ export {
   CardDescription,
   CardFooter,
   CardHeader,
+  CardPanel,
   CardTitle,
-} from "@/components/shadcn/ui/card";
+} from "@/components/coss/ui/card";

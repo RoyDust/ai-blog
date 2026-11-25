@@ -14,16 +14,16 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/shadcn/ui/form";
-import { Input } from "@/components/shadcn/ui/input";
+} from "@/components/coss/ui/form";
+import { Input } from "@/components/coss/ui/input";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/shadcn/ui/select";
-import { Textarea } from "@/components/shadcn/ui/textarea";
+} from "@/components/coss/ui/select";
+import { Textarea } from "@/components/coss/ui/textarea";
 import { apiMutate, toErrorMessage } from "@/lib/client-api";
 import type { CoverAsset } from "./types";
 
@@ -34,7 +34,11 @@ type CoverAssetFormProps = {
 };
 
 const adminSelectTriggerClassName = "w-full rounded-xl border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm text-[var(--foreground)] shadow-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]";
-const adminSelectContentClassName = "rounded-xl border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)]";
+const adminSelectContentClassName = "admin-theme rounded-xl border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)]";
+const coverStatusItems = [
+  { value: "active", label: "可用" },
+  { value: "archived", label: "归档" },
+];
 const adminInputClassName = "rounded-xl border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm text-[var(--foreground)] placeholder:text-[var(--muted)] focus-visible:ring-2 focus-visible:ring-[var(--ring)]";
 const adminTextareaClassName = "ui-ring min-h-24 w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-sm leading-6 text-[var(--foreground)] placeholder:text-[var(--muted)] focus-visible:ring-2 focus-visible:ring-[var(--ring)]";
 const adminLabelClassName = "text-sm font-medium text-[var(--foreground)]";
@@ -236,7 +240,15 @@ export function CoverAssetForm({ asset, onSaved, onCancel }: CoverAssetFormProps
               render={({ field }) => (
                 <FormItem>
                   <FormLabel className={adminLabelClassName}>状态</FormLabel>
-                  <Select value={field.value} onValueChange={field.onChange}>
+                  <Select
+                    items={coverStatusItems}
+                    value={field.value}
+                    onValueChange={(value) => {
+                      if (value !== null) {
+                        field.onChange(value);
+                      }
+                    }}
+                  >
                     <FormControl>
                       <SelectTrigger className={adminSelectTriggerClassName}>
                         <SelectValue />

@@ -8,18 +8,18 @@
 import Link from "next/link";
 import { Eye, FileText, Heart, MessageSquare, PencilLine, Trash2 } from "lucide-react";
 
-import { Button } from "@/components/shadcn/ui/button";
-import { Card, CardHeader, CardTitle } from "@/components/shadcn/ui/card";
-import { Checkbox } from "@/components/shadcn/ui/checkbox";
+import { Button } from "@/components/coss/ui/button";
+import { Card, CardHeader, CardTitle } from "@/components/coss/ui/card";
+import { Checkbox } from "@/components/coss/ui/checkbox";
 import {
   Empty,
   EmptyDescription,
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-} from "@/components/shadcn/ui/empty";
-import { Separator } from "@/components/shadcn/ui/separator";
-import { Skeleton } from "@/components/shadcn/ui/skeleton";
+} from "@/components/coss/ui/empty";
+import { Separator } from "@/components/coss/ui/separator";
+import { Skeleton } from "@/components/coss/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -27,7 +27,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/shadcn/ui/table";
+} from "@/components/coss/ui/table";
 import { cn } from "@/lib/utils";
 
 import { AdminPagination } from "@/components/admin/primitives/AdminPagination";
@@ -95,8 +95,9 @@ export function PostsTable({
               <TableHead className="w-12 px-4">
                 <Checkbox
                   aria-label="选择当前页"
-                  className="!border-[var(--border-strong)] !bg-[var(--surface)] data-[state=checked]:!border-[var(--brand)] data-[state=checked]:!bg-[var(--brand)] data-[state=indeterminate]:!border-[var(--brand)] data-[state=indeterminate]:!bg-[var(--brand)]"
-                  checked={headerCheckboxState}
+                  className="!border-[var(--border-strong)] !bg-[var(--surface)] data-checked:!border-[var(--brand)] data-checked:!bg-[var(--brand)] data-indeterminate:!border-[var(--brand)] data-indeterminate:!bg-[var(--brand)]"
+                  checked={headerCheckboxState === true}
+                  indeterminate={headerCheckboxState === "indeterminate"}
                   disabled={loading || posts.length === 0}
                   onCheckedChange={(checked) => onToggleAll(checked === true)}
                 />
@@ -163,7 +164,7 @@ export function PostsTable({
                     <TableCell className="px-4 py-2 align-middle">
                       <Checkbox
                         aria-label={`选择 ${row.id}`}
-                        className="!border-[var(--border-strong)] !bg-[var(--surface)] data-[state=checked]:!border-[var(--brand)] data-[state=checked]:!bg-[var(--brand)]"
+                        className="!border-[var(--border-strong)] !bg-[var(--surface)] data-checked:!border-[var(--brand)] data-checked:!bg-[var(--brand)]"
                         checked={isSelected}
                         onCheckedChange={(checked) => onToggleOne(row.id, checked === true)}
                       />
@@ -224,18 +225,26 @@ export function PostsTable({
                     <TableCell className="py-2 align-middle">
                       <div className="flex justify-end gap-1">
                         <IconAction label="编辑">
-                          <Button asChild aria-label="编辑" className="size-8 rounded-md !text-[var(--text-body)] hover:!bg-[var(--surface-alt)] hover:!text-[var(--brand)]" size="icon-sm" variant="ghost">
-                            <Link href={`/admin/posts/${row.id}/edit`}>
-                              <PencilLine className="size-4" />
-                            </Link>
+                          <Button
+                            aria-label="编辑"
+                            className="size-8 rounded-md !text-[var(--text-body)] hover:!bg-[var(--surface-alt)] hover:!text-[var(--brand)]"
+                            render={<Link href={`/admin/posts/${row.id}/edit`} />}
+                            size="icon-sm"
+                            variant="ghost"
+                          >
+                            <PencilLine className="size-4" />
                           </Button>
                         </IconAction>
                         {previewHref ? (
                           <IconAction label="预览">
-                            <Button asChild aria-label="预览" className="size-8 rounded-md !text-[var(--text-body)] hover:!bg-[var(--surface-alt)] hover:!text-[var(--brand)]" size="icon-sm" variant="ghost">
-                              <Link href={previewHref}>
-                                <Eye className="size-4" />
-                              </Link>
+                            <Button
+                              aria-label="预览"
+                              className="size-8 rounded-md !text-[var(--text-body)] hover:!bg-[var(--surface-alt)] hover:!text-[var(--brand)]"
+                              render={<Link href={previewHref} />}
+                              size="icon-sm"
+                              variant="ghost"
+                            >
+                              <Eye className="size-4" />
                             </Button>
                           </IconAction>
                         ) : (

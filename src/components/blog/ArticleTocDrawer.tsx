@@ -2,7 +2,13 @@
 
 import { useEffect, useState, type MouseEvent } from "react";
 import { List } from "lucide-react";
-import { Drawer } from "vaul";
+import {
+  Drawer,
+  DrawerDescription,
+  DrawerPopup,
+  DrawerTitle,
+  DrawerTrigger,
+} from "@/components/coss/ui/drawer";
 import { ArticleToc } from "./ArticleToc";
 
 interface TocHeading {
@@ -53,31 +59,34 @@ export function ArticleTocDrawer({ headings }: ArticleTocDrawerProps) {
   };
 
   return (
-    <Drawer.Root open={open} onOpenChange={setOpen}>
-      <Drawer.Trigger asChild>
-        <button
-          aria-label="打开文章目录"
-          className="fixed bottom-20 right-4 z-40 inline-flex h-10 items-center gap-1.5 rounded-xl border border-[var(--reader-border)] bg-[var(--reader-panel)] px-3 text-xs font-semibold text-[var(--foreground)] shadow-[var(--reader-shadow)] backdrop-blur-md transition hover:bg-[var(--btn-regular-bg)] hover:text-[var(--btn-content)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] xl:hidden"
-          type="button"
-        >
-          <List aria-hidden="true" className="h-3.5 w-3.5" />
-          <span className="font-mono tabular-nums">{progress > 0 ? `${progress}% · 目录` : "目录"}</span>
-        </button>
-      </Drawer.Trigger>
+    <Drawer position="bottom" open={open} onOpenChange={(nextOpen) => setOpen(nextOpen)}>
+      <DrawerTrigger
+        render={
+          <button
+            aria-label="打开文章目录"
+            className="fixed bottom-20 right-4 z-40 inline-flex h-10 items-center gap-1.5 rounded-xl border border-[var(--reader-border)] bg-[var(--reader-panel)] px-3 text-xs font-semibold text-[var(--foreground)] shadow-[var(--reader-shadow)] backdrop-blur-md transition hover:bg-[var(--btn-regular-bg)] hover:text-[var(--btn-content)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] xl:hidden"
+            type="button"
+          />
+        }
+      >
+        <List aria-hidden="true" className="h-3.5 w-3.5" />
+        <span className="font-mono tabular-nums">{progress > 0 ? `${progress}% · 目录` : "目录"}</span>
+      </DrawerTrigger>
 
-      <Drawer.Portal>
-        <Drawer.Overlay className="fixed inset-0 z-40 bg-black/40 xl:hidden" />
-        <Drawer.Content className="fixed bottom-0 left-0 right-0 z-50 flex max-h-[80vh] flex-col rounded-t-2xl border-t border-[var(--reader-border)] bg-[var(--reader-panel)] p-5 shadow-[0_-24px_64px_color-mix(in_oklab,black_28%,transparent)] focus:outline-none xl:hidden">
-          <div aria-hidden="true" className="mx-auto mb-3.5 h-1 w-10 rounded-full bg-[var(--line-color)]" />
-          <Drawer.Title className="reader-section-heading text-base">
-            目录
-          </Drawer.Title>
-          <Drawer.Description className="sr-only">当前文章的章节目录</Drawer.Description>
-          <div className="mt-3.5 overflow-y-auto pb-2" onClick={closeOnAnchorClick}>
-            <ArticleToc headings={headings} />
-          </div>
-        </Drawer.Content>
-      </Drawer.Portal>
-    </Drawer.Root>
+      <DrawerPopup
+        className="flex max-h-[80vh] flex-col rounded-t-2xl border-t border-[var(--reader-border)] bg-[var(--reader-panel)] p-5 shadow-[0_-24px_64px_color-mix(in_oklab,black_28%,transparent)] focus:outline-none before:hidden after:hidden xl:hidden"
+        showBar={false}
+        showCloseButton={false}
+      >
+        <div aria-hidden="true" className="mx-auto mb-3.5 h-1 w-10 rounded-full bg-[var(--line-color)]" />
+        <DrawerTitle className="reader-section-heading text-base">
+          目录
+        </DrawerTitle>
+        <DrawerDescription className="sr-only">当前文章的章节目录</DrawerDescription>
+        <div className="mt-3.5 overflow-y-auto pb-2" onClick={closeOnAnchorClick}>
+          <ArticleToc headings={headings} />
+        </div>
+      </DrawerPopup>
+    </Drawer>
   );
 }

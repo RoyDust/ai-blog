@@ -197,20 +197,22 @@ export function NotificationBell() {
   );
 
   return (
-    <DropdownMenu onOpenChange={(open) => open && void mutate()}>
-      <DropdownMenuTrigger asChild>
-        <button
-          aria-label={label}
-          className="relative inline-flex h-8 w-8 items-center justify-center rounded-[var(--radius-control)] text-[var(--muted)] transition-colors hover:bg-[var(--surface-alt)] hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
-          type="button"
-        >
-          <Bell className="h-4 w-4" />
-          {unreadCount > 0 ? (
-            <span aria-hidden="true" className="absolute -right-1 -top-1 inline-flex min-w-5 items-center justify-center rounded-full bg-[var(--danger-foreground)] px-1 py-0.5 font-mono text-[10px] font-bold leading-none text-[var(--surface)] ring-2 ring-[var(--surface)]">
-              {formatUnreadCount(unreadCount)}
-            </span>
-          ) : null}
-        </button>
+    <DropdownMenu onOpenChange={(open) => { if (open) void mutate(); }}>
+      <DropdownMenuTrigger
+        render={
+          <button
+            aria-label={label}
+            className="relative inline-flex h-8 w-8 items-center justify-center rounded-[var(--radius-control)] text-[var(--muted)] transition-colors hover:bg-[var(--surface-alt)] hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+            type="button"
+          />
+        }
+      >
+        <Bell className="h-4 w-4" />
+        {unreadCount > 0 ? (
+          <span aria-hidden="true" className="absolute -right-1 -top-1 inline-flex min-w-5 items-center justify-center rounded-full bg-[var(--danger-foreground)] px-1 py-0.5 font-mono text-[10px] font-bold leading-none text-[var(--surface)] ring-2 ring-[var(--surface)]">
+            {formatUnreadCount(unreadCount)}
+          </span>
+        ) : null}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-[min(92vw,390px)] p-0">
         <div className="flex items-center justify-between gap-3 border-b border-[var(--border)] px-4 py-3">
@@ -248,10 +250,8 @@ export function NotificationBell() {
                     key={item.id}
                     aria-label={item.readAt ? item.title : `${item.title}，未读`}
                     className="items-start gap-3 rounded-xl px-3 py-3"
-                    onSelect={(event) => {
-                      event.preventDefault();
-                      void openNotification(item);
-                    }}
+                    closeOnClick={false}
+                    onClick={() => void openNotification(item)}
                   >
                     <span className={`mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${meta.className}`}>
                       <Icon className="h-4 w-4" />
@@ -273,10 +273,7 @@ export function NotificationBell() {
         <DropdownMenuSeparator className="m-0" />
         <DropdownMenuItem
           className="justify-center rounded-none px-4 py-3 text-sm font-semibold text-[var(--brand)]"
-          onSelect={(event) => {
-            event.preventDefault();
-            router.push("/admin/notifications");
-          }}
+          onClick={() => router.push("/admin/notifications")}
         >
           查看全部通知
         </DropdownMenuItem>

@@ -1,5 +1,4 @@
 import * as React from "react";
-import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/cn";
 
@@ -29,16 +28,58 @@ const buttonVariants = cva(
   },
 );
 
+function mergeSlotProps(
+  slotProps: Record<string, unknown>,
+  childProps: Record<string, unknown>,
+): Record<string, unknown> {
+  const merged: Record<string, unknown> = { ...slotProps, ...childProps };
+
+  for (const key of Object.keys(slotProps)) {
+    const slotValue = slotProps[key];
+    const childValue = childProps[key];
+
+    if (key === "className") {
+      merged.className = cn(
+        typeof slotValue === "string" ? slotValue : undefined,
+        typeof childValue === "string" ? childValue : undefined,
+      );
+    } else if (key === "style") {
+      merged.style = {
+        ...((slotValue as React.CSSProperties | undefined) ?? {}),
+        ...((childValue as React.CSSProperties | undefined) ?? {}),
+      };
+    } else if (/^on[A-Z]/.test(key) && typeof slotValue === "function" && typeof childValue === "function") {
+      merged[key] = (...args: unknown[]) => {
+        (childValue as (...a: unknown[]) => unknown)(...args);
+        (slotValue as (...a: unknown[]) => unknown)(...args);
+      };
+    }
+  }
+
+  return merged;
+}
+
 export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
   asChild?: boolean;
 }
 
-function Button({ className, variant, size, asChild = false, ...props }: ButtonProps) {
-  const Comp = asChild ? Slot : "button";
+function Button({ className, variant, size, asChild = false, children, ...props }: ButtonProps) {
+  const classes = cn(buttonVariants({ variant, size, className }));
 
-  return <Comp className={cn(buttonVariants({ variant, size, className }))} {...props} />;
+  if (asChild && React.isValidElement<Record<string, unknown>>(children)) {
+    return React.cloneElement(
+      children,
+      mergeSlotProps({ ...props, className: classes }, children.props),
+    );
+  }
+
+  return (
+    <button className={classes} {...props}>
+      {children}
+    </button>
+  );
 }
 
 export { Button, buttonVariants };

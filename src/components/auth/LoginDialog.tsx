@@ -1,11 +1,20 @@
 "use client";
 
-import * as Dialog from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import type { Session } from "next-auth";
 import { useRouter } from "next/navigation";
 
 import { LoginForm } from "@/components/auth/LoginForm";
+import {
+  Dialog,
+  DialogBackdrop,
+  DialogClose,
+  DialogDescription,
+  DialogPortal,
+  DialogPrimitive,
+  DialogTitle,
+  DialogViewport,
+} from "@/components/coss/ui/dialog";
 import { getPostLoginRedirect } from "@/lib/login-redirect";
 
 type LoginDialogProps = {
@@ -37,33 +46,35 @@ export function LoginDialog({ open, onOpenChange, authError, callbackUrl, oauthC
   };
 
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange}>
-      <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-50 bg-[color:color-mix(in_oklab,var(--page-bg)_24%,black_54%)] backdrop-blur-md" />
-        <Dialog.Content
-          className="fixed left-1/2 top-1/2 z-50 max-h-[calc(100dvh-2rem)] w-[calc(100%-1.25rem)] max-w-[26rem] -translate-x-1/2 -translate-y-1/2 overflow-y-auto focus:outline-none sm:w-[calc(100%-2rem)]"
-        >
-          <Dialog.Title className="sr-only">账号登录弹窗</Dialog.Title>
-          <Dialog.Description className="sr-only">
-            使用邮箱密码或 GitHub 登录账号。
-          </Dialog.Description>
-          <Dialog.Close
-            className="ui-ring absolute right-3.5 top-3.5 z-10 inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--text-muted)] transition-colors hover:bg-[var(--btn-plain-bg-hover)] hover:text-[var(--foreground)] focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
-            type="button"
+    <Dialog open={open} onOpenChange={(nextOpen) => onOpenChange(nextOpen)}>
+      <DialogPortal>
+        <DialogBackdrop className="fixed inset-0 z-50 bg-[color:color-mix(in_oklab,var(--page-bg)_24%,black_54%)] backdrop-blur-md" />
+        <DialogViewport className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4">
+          <DialogPrimitive.Popup
+            className="relative max-h-[calc(100dvh-2rem)] w-full max-w-[26rem] overflow-y-auto focus:outline-none"
           >
-            <X className="h-4 w-4" />
-            <span className="sr-only">关闭登录弹窗</span>
-          </Dialog.Close>
-          <LoginForm
-            mode="dialog"
-            authError={authError}
-            callbackUrl={callbackUrl}
-            oauthCallbackUrl={oauthCallbackUrl}
-            onAdminSuccess={hasCallbackUrl ? handleAdminSuccess : undefined}
-            onSuccess={handleSuccess}
-          />
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
+            <DialogTitle className="sr-only">账号登录弹窗</DialogTitle>
+            <DialogDescription className="sr-only">
+              使用邮箱密码或 GitHub 登录账号。
+            </DialogDescription>
+            <DialogClose
+              className="ui-ring absolute right-3.5 top-3.5 z-10 inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--text-muted)] transition-colors hover:bg-[var(--btn-plain-bg-hover)] hover:text-[var(--foreground)] focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+              type="button"
+            >
+              <X className="h-4 w-4" />
+              <span className="sr-only">关闭登录弹窗</span>
+            </DialogClose>
+            <LoginForm
+              mode="dialog"
+              authError={authError}
+              callbackUrl={callbackUrl}
+              oauthCallbackUrl={oauthCallbackUrl}
+              onAdminSuccess={hasCallbackUrl ? handleAdminSuccess : undefined}
+              onSuccess={handleSuccess}
+            />
+          </DialogPrimitive.Popup>
+        </DialogViewport>
+      </DialogPortal>
+    </Dialog>
   );
 }

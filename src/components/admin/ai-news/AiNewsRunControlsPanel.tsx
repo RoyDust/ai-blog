@@ -7,12 +7,12 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/shadcn/ui/select";
+} from "@/components/coss/ui/select";
 import type { PublicAiModelOption } from "@/lib/ai-models";
 
 const unavailableModelValue = "__unavailable_model__";
 const adminSelectTriggerClassName = "w-full rounded-xl border-[var(--border)] bg-[var(--surface-alt)]/60 px-3 py-2 text-sm text-[var(--foreground)] shadow-none focus:border-[var(--brand)] disabled:cursor-not-allowed disabled:opacity-60";
-const adminSelectContentClassName = "rounded-xl border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)]";
+const adminSelectContentClassName = "admin-theme rounded-xl border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)]";
 
 function modelStatusLabel(model: PublicAiModelOption) {
   if (model.status === "ready") return model.defaultFor.includes("post-summary") ? "默认" : "可用"
@@ -51,6 +51,15 @@ export function AiNewsRunControlsPanel({
   sourceMode,
   selectedSourceCount,
 }: AiNewsRunControlsPanelProps) {
+  const modelItems = [
+    ...(modelsLoading ? [{ value: unavailableModelValue, label: "模型加载中" }] : []),
+    ...(!modelsLoading && readyModels.length === 0 ? [{ value: unavailableModelValue, label: "暂无可用模型" }] : []),
+    ...models.map((model) => ({
+      value: model.id,
+      label: `${model.name} · ${model.model} · ${modelStatusLabel(model)}`,
+    })),
+  ];
+
   return (
     <WorkspacePanel title="候选策略" description="多源抓取 + 去重评分 + 内容增强后直接上线" className="border border-[var(--border)]">
       <div className="grid gap-4 xl:grid-cols-[220px_minmax(280px,360px)_1fr]">
@@ -66,8 +75,13 @@ export function AiNewsRunControlsPanel({
         <label className="space-y-2 text-sm font-medium text-[var(--foreground)]">
           生成模型
           <Select
+            items={modelItems}
             value={selectedModelId || unavailableModelValue}
-            onValueChange={(value) => value !== unavailableModelValue && onModelChange(value)}
+            onValueChange={(value) => {
+              if (value && value !== unavailableModelValue) {
+                onModelChange(value);
+              }
+            }}
             disabled={modelsLoading || readyModels.length === 0}
           >
             <SelectTrigger className={adminSelectTriggerClassName}>

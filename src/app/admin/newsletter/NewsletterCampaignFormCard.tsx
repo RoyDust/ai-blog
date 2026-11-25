@@ -8,7 +8,7 @@ import { z } from "zod";
 
 import { WorkspacePanel } from "@/components/admin/primitives/WorkspacePanel";
 import { Button, Input, Textarea } from "@/components/admin/ui";
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/shadcn/ui/form";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/coss/ui/form";
 import { apiMutate, toErrorMessage } from "@/lib/client-api";
 
 type CampaignFormValues = {

@@ -14,12 +14,12 @@ import { Clock3, Eye, FileText, Loader2, PencilLine, Search, Send, Sparkles, Wan
 import { DeleteImpactDialog } from "@/components/admin/DeleteImpactDialog";
 import { ConfirmDialog } from "@/components/admin/ui/confirm-dialog";
 import { BulkAiCompletionDialog } from "@/components/admin/ai/BulkAiCompletionDialog";
-import { Badge } from "@/components/shadcn/ui/badge";
-import { Button } from "@/components/shadcn/ui/button";
-import { Card, CardContent } from "@/components/shadcn/ui/card";
-import { Input } from "@/components/shadcn/ui/input";
-import { Separator } from "@/components/shadcn/ui/separator";
-import { TooltipProvider } from "@/components/shadcn/ui/tooltip";
+import { Badge } from "@/components/coss/ui/badge";
+import { Button } from "@/components/coss/ui/button";
+import { Card, CardContent } from "@/components/coss/ui/card";
+import { Input } from "@/components/coss/ui/input";
+import { Separator } from "@/components/coss/ui/separator";
+import { TooltipProvider } from "@/components/admin/ui/tooltip";
 
 import { PostsTable } from "@/components/admin/posts/PostsTable";
 import {
@@ -141,11 +141,14 @@ export default function AdminPostsPage() {
                   tone={activeSummaryIds.length > 0 ? "amber" : "emerald"}
                   value={`${formatNumber(summaryReadyCount)}/${formatNumber(posts.length)}`}
                 />
-                <Button asChild className="ml-1 h-7.5 shrink-0 whitespace-nowrap rounded-lg !bg-[var(--btn-regular-bg)] px-3 text-xs font-semibold !text-[var(--btn-content)] hover:!bg-[var(--btn-regular-bg-hover)]" size="sm" variant="ghost">
-                  <Link href="/admin/posts/new">
-                    <PencilLine className="size-3.5" />
-                    新建文章
-                  </Link>
+                <Button
+                  className="ml-1 h-7.5 shrink-0 whitespace-nowrap rounded-lg !bg-[var(--btn-regular-bg)] px-3 text-xs font-semibold !text-[var(--btn-content)] hover:!bg-[var(--btn-regular-bg-hover)]"
+                  render={<Link href="/admin/posts/new" />}
+                  size="sm"
+                  variant="ghost"
+                >
+                  <PencilLine className="size-3.5" />
+                  新建文章
                 </Button>
               </div>
             </div>
@@ -158,7 +161,7 @@ export default function AdminPostsPage() {
                   <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-[var(--text-faint)]" />
                   <Input
                     aria-label="搜索文章"
-                    className="h-8 rounded-lg !border-[var(--border)] !bg-[var(--surface-alt)] pl-8.5 text-xs !text-[var(--foreground)] shadow-none placeholder:!text-[var(--text-faint)]"
+                    className="h-8 rounded-lg !border-[var(--border)] !bg-[var(--surface-alt)] pl-6 text-xs !text-[var(--foreground)] shadow-none [&_input]:h-full [&_input]:placeholder:!text-[var(--text-faint)]"
                     placeholder="搜索标题或 slug"
                     value={query}
                     onChange={(event) => {

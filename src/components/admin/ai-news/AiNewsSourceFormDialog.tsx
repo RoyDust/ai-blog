@@ -22,8 +22,8 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/shadcn/ui/form"
-import { Input } from "@/components/shadcn/ui/input"
+} from "@/components/coss/ui/form"
+import { Input } from "@/components/coss/ui/input"
 import { toErrorMessage } from "@/lib/client-api"
 
 import type { AiNewsSourceFormState, AiNewsSourceType, PublicAiNewsSource } from "./types"
@@ -163,7 +163,7 @@ export function AiNewsSourceFormDialog({
   const isSubmitting = form.formState.isSubmitting || saving
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(nextOpen) => onOpenChange(nextOpen)}>
       <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle>{sourceId ? "编辑来源" : "新增来源"}</DialogTitle>
@@ -171,7 +171,8 @@ export function AiNewsSourceFormDialog({
         </DialogHeader>
 
         <Form {...form}>
-          <form className="space-y-4" noValidate onSubmit={form.handleSubmit(handleSubmit)}>
+          <form className="flex min-h-0 flex-1 flex-col" noValidate onSubmit={form.handleSubmit(handleSubmit)}>
+            <div className="max-h-[calc(100dvh-14rem)] space-y-4 overflow-y-auto px-6 pb-6">
             <fieldset className={adminFieldsetClassName}>
               <legend className={adminLegendClassName}>基本信息</legend>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -355,6 +356,7 @@ export function AiNewsSourceFormDialog({
                 ) : null}
               </div>
             </fieldset>
+            </div>
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>取消</Button>

@@ -7,7 +7,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "@/components/shadcn/ui/dialog";
+} from "./dialog";
 
 type ModalBaseProps = {
   isOpen: boolean;
@@ -37,7 +37,7 @@ const sizes = {
 
 function Modal({ isOpen, onClose, title, ariaLabel, children, size = "md", showCloseButton = true, panelClassName, contentClassName }: ModalProps) {
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogContent aria-describedby={undefined} className={cn(sizes[size], panelClassName)} showCloseButton={showCloseButton}>
         {title ? (
           <DialogHeader>

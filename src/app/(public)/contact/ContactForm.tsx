@@ -12,7 +12,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/shadcn/ui/form";
+} from "@/components/coss/ui/form";
 
 const contactSchema = z.object({
   name: z.string().optional(),

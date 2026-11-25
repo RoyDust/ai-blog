@@ -1,22 +1,34 @@
 "use client";
 
-import * as Dialog from "@radix-ui/react-dialog";
-import { Command } from "cmdk";
 import {
+  CornerDownLeft,
   FileText,
   LayoutDashboard,
+  Loader2,
   MessageSquare,
   PenLine,
   Search,
   Settings,
-  X,
   type LucideIcon,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useDeferredValue, useMemo, useState, type ReactNode } from "react";
+import { useDeferredValue, useEffect, useMemo, useState, type ReactNode } from "react";
 import useSWR from "swr";
 
 import { adminNavItems } from "@/components/admin/shell/config";
+import {
+  Command,
+  CommandDialog,
+  CommandDialogDescription,
+  CommandDialogPopup,
+  CommandDialogTitle,
+  CommandDialogTrigger,
+  CommandGroup,
+  CommandGroupLabel,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/coss/ui/command";
 import { apiFetcher, toErrorMessage } from "@/lib/client-api";
 import {
   ADMIN_SEARCH_MIN_QUERY_LENGTH,
@@ -85,20 +97,29 @@ function SearchItem({
   onSelect: (href: string) => void;
 }) {
   return (
-    <Command.Item
+    <CommandItem
       value={`${title} ${subtitle} ${href}`}
-      onSelect={() => onSelect(href)}
-      className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-left outline-none transition-colors data-[selected=true]:bg-[var(--surface-alt)]"
+      onClick={() => onSelect(href)}
+      className="group/cmd flex cursor-pointer items-center gap-3 rounded-xl px-2.5 py-2 text-left outline-none transition-colors data-highlighted:bg-[var(--btn-regular-bg)]"
     >
-      <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--btn-regular-bg)] text-[var(--brand)]">
+      <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] text-[var(--muted)] transition-colors group-data-highlighted/cmd:border-[color:color-mix(in_oklab,var(--brand)_24%,transparent)] group-data-highlighted/cmd:bg-[var(--surface)] group-data-highlighted/cmd:text-[var(--brand)] group-data-highlighted/cmd:shadow-2xs">
         <Icon className="h-4 w-4" aria-hidden="true" />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-semibold text-[var(--foreground)]">{title}</span>
-        <span className="block truncate text-xs text-[var(--muted)]">{subtitle}</span>
+        <span className="block truncate text-sm font-medium text-[var(--foreground)] group-data-highlighted/cmd:font-semibold group-data-highlighted/cmd:text-[var(--btn-content)]">{title}</span>
+        <span className="mt-0.5 block truncate text-xs text-[var(--muted)]">{subtitle}</span>
       </span>
-      {badge ? <span className="shrink-0 rounded-full bg-[var(--surface-alt)] px-2 py-1 text-xs text-[var(--muted)]">{badge}</span> : null}
-    </Command.Item>
+      {badge ? (
+        <span className="shrink-0 rounded-md border border-[var(--border)] bg-[var(--surface)] px-2 py-0.5 text-[11px] text-[var(--muted)]">
+          {badge}
+        </span>
+      ) : (
+        <CornerDownLeft
+          aria-hidden="true"
+          className="h-3.5 w-3.5 shrink-0 text-[var(--btn-content)] opacity-0 transition-opacity group-data-highlighted/cmd:opacity-70"
+        />
+      )}
+    </CommandItem>
   );
 }
 
@@ -110,12 +131,12 @@ function SearchGroup({
   children: ReactNode;
 }) {
   return (
-    <Command.Group
-      heading={heading}
-      className="px-2 py-2 text-[var(--foreground)] [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:pb-2 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:text-[var(--muted)]"
-    >
-      <div className="space-y-1">{children}</div>
-    </Command.Group>
+    <CommandGroup className="px-1.5 py-1 text-[var(--foreground)]">
+      <CommandGroupLabel className="px-2.5 pt-1.5 pb-1 text-[11px] font-semibold tracking-wide text-[var(--text-faint)]">
+        {heading}
+      </CommandGroupLabel>
+      <div className="space-y-0.5">{children}</div>
+    </CommandGroup>
   );
 }
 
@@ -162,7 +183,13 @@ export function AdminGlobalSearch() {
     function handleKeyDown(event: KeyboardEvent) {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
-        setOpen((current) => !current);
+        setOpen((current) => {
+          const next = !current;
+          if (!next) {
+            setQuery("");
+          }
+          return next;
+        });
       }
     }
 
@@ -170,9 +197,15 @@ export function AdminGlobalSearch() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
+  function handleDialogOpenChange(nextOpen: boolean) {
+    setOpen(nextOpen);
+    if (!nextOpen) {
+      setQuery("");
+    }
+  }
+
   function selectHref(href: string) {
-    setOpen(false);
-    setQuery("");
+    handleDialogOpenChange(false);
     router.push(href);
   }
 
@@ -199,69 +232,98 @@ export function AdminGlobalSearch() {
   }
 
   return (
-    <Dialog.Root open={open} onOpenChange={setOpen}>
-      <Dialog.Trigger asChild>
-        <button
-          type="button"
-          aria-label="打开后台全局搜索"
-          className="ui-ring relative h-8 min-w-0 flex-1 rounded-[var(--radius-control)] bg-[var(--surface-alt)] pl-8 pr-3 text-left text-xs text-[var(--muted)] outline-none transition-colors hover:text-[var(--foreground)] focus-visible:ring-2 focus-visible:ring-[var(--ring)] sm:pl-9 sm:pr-14 lg:w-64 lg:flex-none lg:max-w-[360px]"
+    <CommandDialog open={open} onOpenChange={handleDialogOpenChange}>
+      <CommandDialogTrigger
+        render={
+          <button
+            type="button"
+            aria-label="打开后台全局搜索"
+            className="ui-ring relative h-8 min-w-0 flex-1 rounded-[var(--radius-control)] bg-[var(--surface-alt)] pl-8 pr-3 text-left text-xs text-[var(--muted)] outline-none transition-colors hover:text-[var(--foreground)] focus-visible:ring-2 focus-visible:ring-[var(--ring)] sm:pl-9 sm:pr-14 lg:w-64 lg:flex-none lg:max-w-[360px]"
+          />
+        }
+      >
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--muted)]" aria-hidden="true" />
+        <span className="block truncate">搜索文章、评论、功能...</span>
+        <kbd className="pointer-events-none absolute right-2 top-1/2 hidden -translate-y-1/2 rounded bg-[var(--surface)] px-1.5 py-0.5 font-mono text-[11px] font-medium text-[var(--muted)] sm:block">
+          {shortcutLabel}
+        </kbd>
+      </CommandDialogTrigger>
+
+      <CommandDialogPopup className="admin-theme max-h-[min(78vh,42rem)] max-w-[36rem] overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-0 shadow-[var(--shadow-ambient)] before:hidden">
+        <CommandDialogTitle className="sr-only">后台全局搜索</CommandDialogTitle>
+        <CommandDialogDescription className="sr-only">搜索后台功能入口、文章和评论。</CommandDialogDescription>
+
+        <Command
+          autoHighlight="always"
+          filter={null}
+          keepHighlight
+          loopFocus
+          mode="none"
+          value={query}
+          onValueChange={(nextValue, eventDetails) => {
+            if (eventDetails.reason === "item-press") return;
+            setQuery(nextValue);
+          }}
         >
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--muted)]" aria-hidden="true" />
-          <span className="block truncate">搜索文章、评论、功能...</span>
-          <kbd className="pointer-events-none absolute right-2 top-1/2 hidden -translate-y-1/2 rounded bg-[var(--surface)] px-1.5 py-0.5 font-mono text-[11px] font-medium text-[var(--muted)] sm:block">
-            {shortcutLabel}
-          </kbd>
-        </button>
-      </Dialog.Trigger>
+          <div className="border-b border-[var(--border)] px-1.5 py-0.5">
+            <CommandInput
+              aria-label="搜索后台"
+              placeholder="搜索文章、评论、功能..."
+              startAddon={
+                loading ? (
+                  <Loader2 className="size-4 animate-spin text-[var(--brand)]" />
+                ) : (
+                  <Search className="size-4 text-[var(--muted)]" />
+                )
+              }
+              className="text-[15px] text-[var(--foreground)] [&_input]:h-10 [&_input]:leading-10 [&_input]:placeholder:text-[var(--text-faint)]"
+            />
+          </div>
 
-      <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/35 backdrop-blur-sm" />
-        <Dialog.Content className="fixed left-1/2 top-[12vh] z-50 w-[calc(100%-1.5rem)] max-w-2xl -translate-x-1/2 overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-2xl focus:outline-none">
-          <Dialog.Title className="sr-only">后台全局搜索</Dialog.Title>
-          <Dialog.Description className="sr-only">搜索后台功能入口、文章和评论。</Dialog.Description>
-          <Command shouldFilter={false} loop className="flex max-h-[min(78vh,44rem)] flex-col">
-            <div className="flex items-center gap-3 border-b border-[var(--border)] px-4 py-3">
-              <Search className="h-5 w-5 shrink-0 text-[var(--muted)]" aria-hidden="true" />
-              <Command.Input
-                autoFocus
-                aria-label="搜索后台"
-                value={query}
-                onValueChange={setQuery}
-                placeholder="搜索文章、评论、功能..."
-                className="h-10 min-w-0 flex-1 bg-transparent text-sm text-[var(--foreground)] outline-none placeholder:text-[var(--muted)]"
-              />
-              <Dialog.Close className="ui-ring inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[var(--muted)] transition-colors hover:bg-[var(--surface-alt)] hover:text-[var(--foreground)] focus-visible:ring-2 focus-visible:ring-[var(--ring)]">
-                <X className="h-4 w-4" aria-hidden="true" />
-                <span className="sr-only">关闭搜索</span>
-              </Dialog.Close>
+          <CommandList className="min-h-[16rem] max-h-[min(60vh,32rem)] px-1.5 py-1.5">
+            {navigationResults.length > 0 ? (
+              <SearchGroup heading={normalizedQuery ? "功能入口" : "常用入口"}>
+                {navigationResults.map((item) => (
+                  <SearchItem
+                    key={item.id}
+                    icon={item.icon}
+                    title={item.title}
+                    subtitle={item.subtitle}
+                    href={item.href}
+                    onSelect={selectHref}
+                  />
+                ))}
+              </SearchGroup>
+            ) : null}
+
+            {renderRemoteGroup("posts", remoteResults.posts)}
+            {renderRemoteGroup("comments", remoteResults.comments)}
+
+            {loading && remoteResultCount === 0 ? <div className="px-4 py-6 text-center text-xs text-[var(--muted)]">搜索中...</div> : null}
+            {searchErrorMessage ? <div className="px-4 py-6 text-center text-xs text-[var(--danger-foreground)]">{searchErrorMessage}</div> : null}
+            {showEmptyState ? <div className="px-4 py-6 text-center text-xs text-[var(--muted)]">没有匹配结果</div> : null}
+          </CommandList>
+
+          <div className="flex items-center justify-between border-t border-[var(--border)] bg-[color:color-mix(in_oklab,var(--surface-alt)_48%,transparent)] px-4 py-2.5 text-[11px] text-[var(--muted)]">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="inline-flex items-center gap-1">
+                <kbd className="inline-flex h-5 min-w-5 items-center justify-center rounded-md border border-[var(--border)] bg-[var(--surface)] px-1.5 font-mono text-[10px] font-medium leading-none text-[var(--text-body)] shadow-2xs">↑</kbd>
+                <kbd className="inline-flex h-5 min-w-5 items-center justify-center rounded-md border border-[var(--border)] bg-[var(--surface)] px-1.5 font-mono text-[10px] font-medium leading-none text-[var(--text-body)] shadow-2xs">↓</kbd>
+                <span className="ml-0.5">选择</span>
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <kbd className="inline-flex h-5 min-w-5 items-center justify-center rounded-md border border-[var(--border)] bg-[var(--surface)] px-1.5 font-mono text-[10px] font-medium leading-none text-[var(--text-body)] shadow-2xs">↵</kbd>
+                <span className="ml-0.5">打开</span>
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <kbd className="inline-flex h-5 min-w-5 items-center justify-center rounded-md border border-[var(--border)] bg-[var(--surface)] px-1.5 font-mono text-[10px] font-medium leading-none text-[var(--text-body)] shadow-2xs">Esc</kbd>
+                <span className="ml-0.5">关闭</span>
+              </span>
             </div>
-
-            <Command.List className="min-h-[18rem] overflow-y-auto p-2">
-              {navigationResults.length > 0 ? (
-                <SearchGroup heading={normalizedQuery ? "功能入口" : "常用入口"}>
-                  {navigationResults.map((item) => (
-                    <SearchItem
-                      key={item.id}
-                      icon={item.icon}
-                      title={item.title}
-                      subtitle={item.subtitle}
-                      href={item.href}
-                      onSelect={selectHref}
-                    />
-                  ))}
-                </SearchGroup>
-              ) : null}
-
-              {renderRemoteGroup("posts", remoteResults.posts)}
-              {renderRemoteGroup("comments", remoteResults.comments)}
-
-              {loading ? <div className="px-4 py-6 text-center text-sm text-[var(--muted)]">搜索中...</div> : null}
-              {searchErrorMessage ? <div className="px-4 py-6 text-center text-sm text-rose-600">{searchErrorMessage}</div> : null}
-              {showEmptyState ? <div className="px-4 py-6 text-center text-sm text-[var(--muted)]">没有匹配结果</div> : null}
-            </Command.List>
-          </Command>
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
+            <kbd className="inline-flex h-5 min-w-5 items-center justify-center rounded-md border border-[var(--border)] bg-[var(--surface)] px-1.5 font-mono text-[10px] font-medium leading-none text-[var(--text-body)] shadow-2xs">{shortcutLabel}</kbd>
+          </div>
+        </Command>
+      </CommandDialogPopup>
+    </CommandDialog>
   );
 }

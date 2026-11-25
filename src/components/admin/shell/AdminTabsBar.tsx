@@ -72,14 +72,16 @@ export function AdminTabsBar() {
         </button>
 
         <DropdownMenu modal={false}>
-          <DropdownMenuTrigger asChild>
-            <button
-              aria-label="标签操作"
-              className="flex items-center justify-center rounded p-1 text-[var(--muted)] hover:bg-[var(--surface-alt)] hover:text-[var(--foreground)] transition-colors"
-              type="button"
-            >
-              <ChevronDown className="h-3.5 w-3.5" />
-            </button>
+          <DropdownMenuTrigger
+            render={
+              <button
+                aria-label="标签操作"
+                className="flex items-center justify-center rounded p-1 text-[var(--muted)] hover:bg-[var(--surface-alt)] hover:text-[var(--foreground)] transition-colors"
+                type="button"
+              />
+            }
+          >
+            <ChevronDown className="h-3.5 w-3.5" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-40">
             <DropdownMenuItem onClick={handleRefresh}>

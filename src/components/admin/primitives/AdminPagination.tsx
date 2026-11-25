@@ -10,14 +10,14 @@ import {
   PaginationEllipsis,
   PaginationItem,
   PaginationLink,
-} from "@/components/shadcn/ui/pagination";
+} from "@/components/coss/ui/pagination";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/shadcn/ui/select";
+} from "@/components/coss/ui/select";
 import { cn } from "@/lib/utils";
 
 type PageItem = number | "ellipsis-start" | "ellipsis-end";
@@ -219,6 +219,11 @@ export function AdminPagination({
     );
   };
 
+  const pageSizeItems = pageSizeOptions.map((option) => ({
+    value: String(option),
+    label: String(option),
+  }));
+
   return (
     <footer className={cn("flex flex-col gap-3 border-t border-[var(--border)] bg-[var(--surface-alt)]/35 px-5 py-4 xl:flex-row xl:items-center xl:justify-between", className)}>
       <p className="text-sm text-[var(--muted)]">
@@ -229,11 +234,20 @@ export function AdminPagination({
         {canChoosePageSize ? (
           <label className="flex items-center gap-2 text-sm text-[var(--muted)]">
             每页
-            <Select disabled={disabled} value={String(pageSize)} onValueChange={handlePageSizeChange}>
-              <SelectTrigger className="h-9 w-[86px] rounded-xl border-[var(--border)] bg-[var(--surface)]">
+            <Select
+              disabled={disabled}
+              items={pageSizeItems}
+              value={String(pageSize)}
+              onValueChange={(value) => {
+                if (value !== null) {
+                  handlePageSizeChange(value);
+                }
+              }}
+            >
+              <SelectTrigger className="h-9 w-[86px] min-w-[86px] rounded-xl border-[var(--border)] bg-[var(--surface)]">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="rounded-xl border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)]">
+              <SelectContent className="admin-theme rounded-xl border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)]">
                 {pageSizeOptions.map((option) => (
                   <SelectItem key={option} value={String(option)}>
                     {option}

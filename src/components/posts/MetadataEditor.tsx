@@ -14,7 +14,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/shadcn/ui/select";
+} from "@/components/coss/ui/select";
 import type { AiMetadataField, AiMetadataSingleField } from "./hooks/useAiActions";
 import type { PostFormData } from "./hooks/usePostForm";
 import { AiFieldButton } from "./AiFieldButton";
@@ -23,7 +23,7 @@ import type { CategoryOption, SeriesOption, TagOption, WorkspaceMode } from "./w
 const uncategorizedValue = "__uncategorized__";
 const noSeriesValue = "__no_series__";
 const adminSelectTriggerClassName = "w-full rounded-xl border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm text-[var(--foreground)] shadow-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]";
-const adminSelectContentClassName = "rounded-xl border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)]";
+const adminSelectContentClassName = "admin-theme rounded-xl border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)]";
 
 const AiCoverGenerator = dynamic(
   () => import("@/components/admin/covers/AiCoverGenerator").then((mod) => mod.AiCoverGenerator),
@@ -112,6 +112,15 @@ export function MetadataEditor({
   onExcerptChange,
   onSeoDescriptionChange,
 }: MetadataEditorProps) {
+  const categoryItems = [
+    { value: uncategorizedValue, label: "未分类" },
+    ...categories.map((category) => ({ value: category.id, label: category.name })),
+  ];
+  const seriesItems = [
+    { value: noSeriesValue, label: "不归入系列" },
+    ...series.map((item) => ({ value: item.id, label: item.title })),
+  ];
+
   return (
     <div className="space-y-3.5">
       {metadataError ? <p className="ui-alert-danger rounded-xl px-3 py-2 text-xs">{metadataError}</p> : null}
@@ -163,8 +172,13 @@ export function MetadataEditor({
           />
         </div>
         <Select
+          items={categoryItems}
           value={formData.categoryId || uncategorizedValue}
-          onValueChange={(value) => onCategoryChange(value === uncategorizedValue ? "" : value)}
+          onValueChange={(value) => {
+            if (value !== null) {
+              onCategoryChange(value === uncategorizedValue ? "" : value);
+            }
+          }}
         >
           <SelectTrigger id={`${mode}-post-category`} className={adminSelectTriggerClassName}>
             <SelectValue />
@@ -218,8 +232,13 @@ export function MetadataEditor({
             所属系列
           </label>
           <Select
+            items={seriesItems}
             value={formData.seriesId || noSeriesValue}
-            onValueChange={(value) => onSeriesChange(value === noSeriesValue ? "" : value)}
+            onValueChange={(value) => {
+              if (value !== null) {
+                onSeriesChange(value === noSeriesValue ? "" : value);
+              }
+            }}
           >
             <SelectTrigger id={`${mode}-post-series`} className={adminSelectTriggerClassName}>
               <SelectValue />

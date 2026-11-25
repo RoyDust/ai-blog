@@ -549,7 +549,9 @@
     box-shadow: 0 0 0 4px color-mix(in oklab, var(--ring) 18%, transparent) !important;
   }
 
-  input[cmdk-input]:focus-visible {
+  input[data-slot="input"]:focus-visible,
+  [data-slot="autocomplete-input"]:focus-visible,
+  [tabindex="-1"]:focus-visible {
     outline: none !important;
     box-shadow: none !important;
   }

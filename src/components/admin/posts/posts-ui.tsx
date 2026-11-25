@@ -8,13 +8,13 @@
 import { type ReactNode } from "react";
 import { Clock3, Loader2, CheckCircle2, Bot, Sparkles, XCircle, type LucideIcon } from "lucide-react";
 
-import { Badge } from "@/components/shadcn/ui/badge";
-import { Button } from "@/components/shadcn/ui/button";
+import { Badge } from "@/components/coss/ui/badge";
+import { Button } from "@/components/coss/ui/button";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "@/components/shadcn/ui/tooltip";
+} from "@/components/admin/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { PostSummaryStatus } from "@/lib/post-summary-status";
 import type { PostRow } from "./hooks/usePostsList";
@@ -193,7 +193,7 @@ export function IconAction({
 }) {
   return (
     <Tooltip>
-      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipTrigger render={children} />
       <TooltipContent sideOffset={6}>{label}</TooltipContent>
     </Tooltip>
   );
