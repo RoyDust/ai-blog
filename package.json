@@ -18,7 +18,7 @@
     "@auth/prisma-adapter": "^2.11.1",
     "@base-ui/react": "^1.4.1",
     "@fontsource/noto-serif-sc": "^5.2.9",
-    "@hookform/resolvers": "^5.2.2",
+    "@hookform/resolvers": "^7.0.8",
     "@prisma/adapter-pg": "^7.4.2",
     "@prisma/client": "^7.4.2",
     "bcryptjs": "^3.0.3",
